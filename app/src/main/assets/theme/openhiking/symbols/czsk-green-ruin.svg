@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32.0px"
+   height="32.0px"
+   viewBox="0 0 32.0 32.0"
+   version="1.1"
+   id="SVGRoot"
+   sodipodi:docname="czsk-green-ruin.svg"
+   inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview5876"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     showgrid="true"
+     inkscape:zoom="26.6875"
+     inkscape:cx="10.173302"
+     inkscape:cy="16"
+     inkscape:window-width="1858"
+     inkscape:window-height="1057"
+     inkscape:window-x="1420"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1">
+    <inkscape:grid
+       type="xygrid"
+       id="grid5999" />
+  </sodipodi:namedview>
+  <defs
+     id="defs5871" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       id="rect43300"
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:0.3;stroke-linecap:round;stroke-linejoin:round;paint-order:fill markers stroke"
+       d="M 2.3226269,1.2738766 V 29.86372 H 30.500362 V 1.2738766 Z M 17.437862,5.0375485 v 9.9999995 h 9 V 26.83833 c -7.713367,-0.01547 -13.989505,-0.0043 -20.8007819,0 V 5.0844235 Z" />
+    <rect
+       style="fill:none;stroke:#808080;stroke-width:2.999;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect605"
+       width="28.985458"
+       height="29.0445"
+       x="1.4995"
+       y="1.5152205" />
+    <path
+       id="rect43358"
+       style="fill:#009400;fill-opacity:1;stroke:#000000;stroke-width:0.3;stroke-linecap:round;stroke-linejoin:round;paint-order:fill markers stroke"
+       d="M 7.0374707,6.4379391 V 25.437939 h 9.0000003 9 v -9 h -9 V 6.4379391 Z" />
+  </g>
+</svg>

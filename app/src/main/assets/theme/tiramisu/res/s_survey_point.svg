@@ -1,0 +1,9 @@
+<svg width="580" height="580" version="1.0" xmlns="http://www.w3.org/2000/svg">
+ <title>survey_point</title>
+ <g fill-rule="evenodd">
+  <path d="m87 464h406c29 0 39.932-16.255 29-33l-208.46-359.98c-13.79-24.568-32.29-24.046-47.79-2.121l-207.75 362.1c-12.333 19.844 0 33 29 33z" fill="#ffffff" opacity=".8"/>
+  <path d="m290 83.4-203 351.6h406z" fill="#202020" stroke="#000000" stroke-width="1px"/>
+  <path d="m141 406h298l-149-261z" fill="#ffffff"/>
+  <path d="m319 313a29 29 0 0 1-29 29 29 29 0 0 1-29-29 29 29 0 0 1 29-29 29 29 0 0 1 29 29z" fill="#202020"/>
+ </g>
+</svg>

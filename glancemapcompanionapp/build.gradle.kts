@@ -1,0 +1,163 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
+}
+
+apply(from = rootProject.file("gradle/android-app-testing.gradle.kts"))
+
+val hasGoogleServicesConfig = file("google-services.json").exists()
+if (hasGoogleServicesConfig) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
+val releaseStoreFile = providers.gradleProperty("android.injected.signing.store.file")
+    .orElse(providers.gradleProperty("RELEASE_STORE_FILE"))
+    .orElse(providers.environmentVariable("RELEASE_STORE_FILE"))
+val releaseStorePassword = providers.gradleProperty("android.injected.signing.store.password")
+    .orElse(providers.gradleProperty("RELEASE_STORE_PASSWORD"))
+    .orElse(providers.environmentVariable("RELEASE_STORE_PASSWORD"))
+val releaseKeyAlias = providers.gradleProperty("android.injected.signing.key.alias")
+    .orElse(providers.gradleProperty("RELEASE_KEY_ALIAS"))
+    .orElse(providers.environmentVariable("RELEASE_KEY_ALIAS"))
+val releaseKeyPassword = providers.gradleProperty("android.injected.signing.key.password")
+    .orElse(providers.gradleProperty("RELEASE_KEY_PASSWORD"))
+    .orElse(providers.environmentVariable("RELEASE_KEY_PASSWORD"))
+val hasReleaseSigning = releaseStoreFile.isPresent &&
+    releaseStorePassword.isPresent &&
+    releaseKeyAlias.isPresent &&
+    releaseKeyPassword.isPresent
+val projectTaskPrefix = "${project.path.lowercase()}:"
+val releaseArtifactTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    val normalized = taskName.lowercase()
+    val targetsThisProject = normalized.startsWith(projectTaskPrefix) || !normalized.contains(":")
+    targetsThisProject &&
+        normalized.contains("release") &&
+        (normalized.contains("bundle") || normalized.contains("assemble") || normalized.contains("publish"))
+}
+
+if (releaseArtifactTaskRequested && !hasReleaseSigning) {
+    throw GradleException(
+        "Missing release signing properties. Define RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, " +
+            "RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD in local/private Gradle properties or " +
+            "environment variables, or use Android Studio's Generate Signed Bundle/APK flow."
+    )
+}
+
+android {
+    namespace = "com.glancemap.glancemapcompanionapp"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.glancemap.glancemapwearos"
+        minSdk = 26
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+        manifestPlaceholders["channelBufferSize"] = "8388608" // 8MB buffer
+    }
+
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(releaseStoreFile.get())
+                storePassword = releaseStorePassword.get()
+                keyAlias = releaseKeyAlias.get()
+                keyPassword = releaseKeyPassword.get()
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = false
+
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+    }
+
+    buildFeatures {
+        compose = true
+    }
+    bundle {
+        language {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            assets {
+                directories.add(rootProject.file("licenses").absolutePath)
+            }
+        }
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+dependencies {
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics.ktx)
+    implementation(libs.firebase.analytics.ktx)
+
+    // Compose
+    implementation(platform(libs.compose.bom))
+    implementation(libs.activity.compose)
+    implementation(libs.ui)
+    implementation(libs.ui.graphics)
+    implementation(libs.ui.tooling.preview)
+    debugImplementation(libs.ui.tooling)
+    implementation(libs.compose.material3)
+    implementation(libs.material.icons.extended)
+    implementation(libs.lifecycle.viewmodel.compose)
+
+    // AndroidX & Coroutines
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.play.services.wearable)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.lifecycle.service)
+
+    // Explicit coroutine support
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.core)
+
+    // Ktor Server (for HTTP transfers)
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.partial.content)
+
+    // Gson for JSON serialization
+    implementation(libs.gson)
+
+    // Permissions (Critical for requesting POST_NOTIFICATIONS for the Service)
+    implementation(libs.accompanist.permissions)
+
+    implementation(project(":transfercontract"))
+}

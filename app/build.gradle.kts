@@ -1,0 +1,209 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
+}
+
+apply(from = "gradle/map-assets.gradle.kts")
+apply(from = rootProject.file("gradle/android-app-testing.gradle.kts"))
+
+val hasGoogleServicesConfig = file("google-services.json").exists()
+if (hasGoogleServicesConfig) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
+val releaseStoreFile = providers.gradleProperty("android.injected.signing.store.file")
+    .orElse(providers.gradleProperty("RELEASE_STORE_FILE"))
+    .orElse(providers.environmentVariable("RELEASE_STORE_FILE"))
+val releaseStorePassword = providers.gradleProperty("android.injected.signing.store.password")
+    .orElse(providers.gradleProperty("RELEASE_STORE_PASSWORD"))
+    .orElse(providers.environmentVariable("RELEASE_STORE_PASSWORD"))
+val releaseKeyAlias = providers.gradleProperty("android.injected.signing.key.alias")
+    .orElse(providers.gradleProperty("RELEASE_KEY_ALIAS"))
+    .orElse(providers.environmentVariable("RELEASE_KEY_ALIAS"))
+val releaseKeyPassword = providers.gradleProperty("android.injected.signing.key.password")
+    .orElse(providers.gradleProperty("RELEASE_KEY_PASSWORD"))
+    .orElse(providers.environmentVariable("RELEASE_KEY_PASSWORD"))
+val hasReleaseSigning = releaseStoreFile.isPresent &&
+    releaseStorePassword.isPresent &&
+    releaseKeyAlias.isPresent &&
+    releaseKeyPassword.isPresent
+val projectTaskPrefix = "${project.path.lowercase()}:"
+val releaseArtifactTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    val normalized = taskName.lowercase()
+    val targetsThisProject = normalized.startsWith(projectTaskPrefix) || !normalized.contains(":")
+    targetsThisProject &&
+        normalized.contains("release") &&
+        (normalized.contains("bundle") || normalized.contains("assemble") || normalized.contains("publish"))
+}
+
+if (releaseArtifactTaskRequested && !hasReleaseSigning) {
+    throw GradleException(
+        "Missing release signing properties. Define RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, " +
+            "RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD in local/private Gradle properties or " +
+            "environment variables, or use Android Studio's Generate Signed Bundle/APK flow."
+    )
+}
+
+android {
+    namespace = "com.glancemap.glancemapwearos"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.glancemap.glancemapwearos"
+        minSdk = 30
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables { useSupportLibrary = true }
+
+        // 2MB channel buffer (tune if you measured better throughput)
+        manifestPlaceholders["channelBufferSize"] = "2097152"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(releaseStoreFile.get())
+                storePassword = releaseStorePassword.get()
+                keyAlias = releaseKeyAlias.get()
+                keyPassword = releaseKeyPassword.get()
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    }
+
+    buildFeatures { compose = true }
+
+    bundle {
+        language {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            assets {
+                directories.add(layout.buildDirectory.dir("generated/theme-assets").get().asFile.absolutePath)
+                directories.add(layout.buildDirectory.dir("generated/osm-poi-icons").get().asFile.absolutePath)
+                directories.add(layout.buildDirectory.dir("generated/license-assets").get().asFile.absolutePath)
+            }
+        }
+    }
+
+    lint {
+        // Work around a lint internal crash in ActivityIconColorDetector on this project.
+        disable += "ActivityIconColor"
+        // Current transfer pipeline still relies on BIND_LISTENER-based listener service.
+        disable += "WearableBindListener"
+        // Temporarily skip release-gating lint because lintAnalyzeRelease stalls/crashes on this project.
+        checkReleaseBuilds = false
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("prepareBundledThemeAssets")
+    dependsOn("prepareOsmPoiIcons")
+    dependsOn("prepareLicenseDocsAssets")
+}
+
+dependencies {
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics.ktx)
+    implementation(libs.firebase.analytics.ktx)
+
+    implementation(platform(libs.compose.bom))
+
+    // Compose / Wear
+    implementation(libs.ui)
+    implementation(libs.ui.graphics)
+    implementation(libs.activity.compose)
+    implementation(libs.wear.compose.foundation)
+    implementation(libs.wear.compose.navigation)
+    implementation(libs.wear.compose.material3)
+    implementation(libs.ui.tooling.preview)
+    debugImplementation(libs.ui.tooling)
+
+    implementation(libs.core.splashscreen)
+    implementation(libs.material.icons.extended)
+
+    // ✅ Navigation Compose (REQUIRED for NavHost / composable / rememberNavController)
+    implementation(libs.navigation.compose)
+    implementation(libs.navigation.runtime.ktx)
+
+    // AndroidX
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.wear.ongoing)
+    implementation(libs.androidx.wear.ambient)
+
+    // Play Services / Coroutines
+    implementation(libs.play.services.wearable)
+    implementation(libs.play.services.location)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.core)
+
+    // Mapsforge / SVG
+    implementation(libs.mapsforge.map)
+    implementation(libs.mapsforge.map.android)
+    implementation(libs.mapsforge.themes)
+    implementation(libs.androidsvg)
+    implementation(project(":brouter-core"))
+
+    // Permissions + previews
+    implementation(libs.accompanist.permissions)
+    implementation(libs.androidx.wear.tooling.preview)
+
+    // OkHttp (for HTTP transfers)
+    implementation(libs.okhttp)
+
+    // Horologist
+    implementation(libs.horologist.compose.material)
+    implementation(libs.horologist.compose.layout)
+
+    implementation(project(":transfercontract"))
+}

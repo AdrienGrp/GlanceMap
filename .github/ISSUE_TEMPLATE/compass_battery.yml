@@ -1,0 +1,88 @@
+name: Compass battery issue
+description: Report excessive battery usage related to compass behavior.
+title: "[Compass][Battery] "
+labels:
+  - compass
+  - battery
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please include measurement context so contributors can evaluate compass power impact.
+  - type: input
+    id: watch_model
+    attributes:
+      label: Watch model
+      placeholder: "Pixel Watch 2"
+    validations:
+      required: true
+  - type: input
+    id: wear_os_version
+    attributes:
+      label: Wear OS version
+      placeholder: "Wear OS 5"
+    validations:
+      required: true
+  - type: input
+    id: session_duration
+    attributes:
+      label: Session duration
+      placeholder: "1h 30m"
+    validations:
+      required: true
+  - type: input
+    id: battery_drop
+    attributes:
+      label: Battery drop
+      placeholder: "22%"
+    validations:
+      required: true
+  - type: dropdown
+    id: nav_mode
+    attributes:
+      label: Main navigation mode during session
+      options:
+        - COMPASS_FOLLOW
+        - NORTH_UP_FOLLOW
+        - PANNING
+        - mixed
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: source_mode
+    attributes:
+      label: Requested compass source mode
+      options:
+        - AUTO
+        - TYPE_HEADING
+        - ROTATION_VECTOR
+        - MAGNETOMETER
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: ambient_mode
+    attributes:
+      label: Ambient mode during session
+      options:
+        - mostly inactive
+        - mixed
+        - mostly active
+    validations:
+      required: true
+  - type: textarea
+    id: expected_vs_actual
+    attributes:
+      label: Expected vs actual battery behavior
+      placeholder: "Expected <= 10%/h while mostly NORTH_UP_FOLLOW, observed ~18%/h."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / telemetry
+      description: Include `CompassTelemetry` lines with mode/source changes and any matching location/navigation logs.
+      render: text
+    validations:
+      required: true

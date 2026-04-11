@@ -1,0 +1,96 @@
+name: Compass accuracy issue
+description: Report compass drift, jitter, lag, or wrong north-reference behavior.
+title: "[Compass][Accuracy] "
+labels:
+  - compass
+  - accuracy
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill all required fields so contributors can reproduce heading behavior quickly.
+  - type: input
+    id: watch_model
+    attributes:
+      label: Watch model
+      placeholder: "Pixel Watch 2"
+    validations:
+      required: true
+  - type: input
+    id: wear_os_version
+    attributes:
+      label: Wear OS version
+      placeholder: "Wear OS 5"
+    validations:
+      required: true
+  - type: dropdown
+    id: requested_source_mode
+    attributes:
+      label: Requested source mode
+      options:
+        - AUTO
+        - TYPE_HEADING
+        - ROTATION_VECTOR
+        - MAGNETOMETER
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: active_source
+    attributes:
+      label: Active source (if known)
+      options:
+        - heading_sensor
+        - rotation_vector
+        - mag_accel_fallback
+        - none
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: north_reference
+    attributes:
+      label: North reference mode
+      options:
+        - TRUE
+        - MAGNETIC
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: nav_mode
+    attributes:
+      label: Navigation mode when issue happened
+      options:
+        - COMPASS_FOLLOW
+        - NORTH_UP_FOLLOW
+        - PANNING
+        - unknown
+    validations:
+      required: true
+  - type: textarea
+    id: expected_vs_actual
+    attributes:
+      label: Expected vs actual heading behavior
+      placeholder: "Expected north heading stable within 5 degrees; observed 30-degree jitter."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open Navigate screen
+        2. Set nav mode to COMPASS_FOLLOW
+        3. Walk/rotate slowly for 2 minutes
+        4. Observe heading drift and map rotation
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / telemetry
+      description: Include `CompassTelemetry` lines around the issue (`requested`, `src`, `ref`, `acc`, `magInterf`, `mode`).
+      render: text
+    validations:
+      required: true
