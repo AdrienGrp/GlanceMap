@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
-apply(from = "gradle/map-assets.gradle.kts")
+apply(from = file("gradle/map-assets.gradle.kts"))
 apply(from = rootProject.file("gradle/android-app-testing.gradle.kts"))
 
 val hasGoogleServicesConfig = file("google-services.json").exists()
