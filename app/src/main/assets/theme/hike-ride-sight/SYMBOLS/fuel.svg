@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 580 580" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;">
+    <g id="Layer-1" serif:id="Layer 1">
+        <ellipse id="path4503" cx="290.435" cy="290.829" rx="273.934" ry="274.361" style="fill:rgb(0,146,218);stroke:white;stroke-width:20px;"/>
+        <g id="path4138" transform="matrix(0.816459,0,0,0.816459,20.4655,39.5519)">
+            <path d="M479,50.9L258,51C247,50.7 236,59 236,72L236,95C211.073,92.995 192,119.595 192,137C192,160 193,183 193,206C193,261.622 126.768,362.888 90.062,443.713C56.573,517.454 205.921,566.031 215,478C224.448,386.399 215,290 216,196L236,196L236,495L259,495L259,529L474,529L474,496L494,496L494,67.9C494,58.8 489,50.9 479,50.9ZM295,98L435,98C442,98 448,101 448,112L448,223C448,230 444,236 436,236L295,235C287,235 280,229 280,220L280,111C280,103 286,98 295,98ZM200.575,261.231C202.575,325.231 198.779,406.973 194.869,469.14C190.631,536.519 91.582,492.964 108,454C133.876,392.588 186.707,311.806 200.575,261.231Z" style="fill:white;fill-rule:nonzero;"/>
+        </g>
+    </g>
+</svg>

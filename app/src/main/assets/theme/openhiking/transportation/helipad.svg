@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32.0px"
+   height="32.0px"
+   viewBox="0 0 32.0 32.0"
+   version="1.1"
+   id="SVGRoot"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs236" />
+  <g
+     id="layer1">
+    <ellipse
+       style="fill:none;stroke:#ffeeaa;stroke-width:3;stroke-dasharray:none;paint-order:fill markers stroke"
+       id="path744"
+       cx="15.981266"
+       cy="16.093676"
+       rx="14.22014"
+       ry="14.295083" />
+    <text
+       xml:space="preserve"
+       style="font-size:24.9027px;font-family:'Century Gothic';-inkscape-font-specification:'Century Gothic';fill:#ffe680;stroke-width:0.5;paint-order:fill markers stroke"
+       x="6.7427211"
+       y="25.284439"
+       id="text640"
+       transform="scale(1.0223916,0.97809882)"><tspan
+         id="tspan638"
+         x="6.7427211"
+         y="25.284439"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:24.9027px;font-family:Arial;-inkscape-font-specification:'Arial Bold';fill:#ffe680;stroke-width:0.5">H</tspan></text>
+  </g>
+</svg>

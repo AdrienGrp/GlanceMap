@@ -1,0 +1,63 @@
+# Contributing
+
+## Before You Start
+
+1. Use JDK 17.
+2. Install Android SDK components for `compileSdk = 36`.
+3. Verify local build:
+
+```bash
+./gradlew :app:compileDebugKotlin :glancemapcompanionapp:compileDebugKotlin
+```
+
+## Project Conventions
+
+- Keep transfer protocol constants in `:transfercontract` only.
+- Keep watch background services under `app/.../core/service`.
+- Keep feature UI code under `app/.../presentation/features/<feature>`.
+- Prefer small, focused files over large multipurpose files.
+
+## Branches and PRs
+
+1. Create a focused branch per change.
+2. Keep PR scope small and cohesive.
+3. Include a short architecture impact note in the PR description if package/file layout changes.
+
+## Validation Checklist
+
+Run before opening a PR:
+
+```bash
+./gradlew :app:compileDebugKotlin
+./gradlew :glancemapcompanionapp:compileDebugKotlin
+```
+
+If your change touches transfer behavior, also verify:
+
+- watch receives transfer requests,
+- status/ack messages still flow phone <-> watch,
+- LAN HTTP transfer path still works.
+
+## Location Changes
+
+If your change touches `app/.../core/service/location`, also:
+
+1. Follow `docs/location/CONTRIBUTING.md` for validation and PR evidence.
+2. Update `docs/location/THRESHOLDS.md` when changing location constants.
+3. Update `docs/location/ARCHITECTURE.md` and/or `docs/architecture/wear-location-service.md` when package ownership or flow changes.
+
+## Compass Changes
+
+If your change touches compass behavior, also:
+
+1. Follow `docs/compass/CONTRIBUTING.md` for validation and PR evidence.
+2. Update `docs/compass/THRESHOLDS.md` when changing compass constants.
+3. Update `docs/compass/ARCHITECTURE.md` and/or `docs/architecture/wear-navigation.md` when ownership or flow changes.
+
+## Documentation
+
+When structure or behavior changes:
+
+1. Update relevant file-level comments (if needed).
+2. Update architecture docs in `docs/architecture/`.
+3. Update root `README.md` if setup or module responsibilities changed.

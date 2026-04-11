@@ -1,0 +1,44 @@
+package com.glancemap.glancemapwearos.core.service.location.config
+
+internal const val NOTIFICATION_ID = 1
+internal const val CHANNEL_ID = "LocationServiceChannel"
+internal const val TELEMETRY_TAG = "LocTelemetry"
+internal const val TELEMETRY_SUMMARY_INTERVAL_MS = 15_000L
+internal const val ENERGY_SAMPLE_INTERVAL_MS = 45_000L
+
+internal const val JITTER_THRESHOLD_MOVING = 2.0f
+internal const val JITTER_THRESHOLD_STATIONARY = 8.0f
+internal const val ACCURACY_THRESHOLD = 25.0f
+
+internal const val MOVEMENT_HISTORY_DURATION = 35_000L
+
+internal const val MIN_USER_INTERVAL_MS = 1_000L
+internal const val MAX_USER_INTERVAL_MS = 120_000L
+internal const val FOREGROUND_MIN_DISTANCE_M = 1f
+internal const val BACKGROUND_MIN_DISTANCE_M = 5f
+
+internal const val HIGH_ACCURACY_BURST_DURATION = 8_000L
+internal const val HIGH_ACCURACY_BURST_INTERVAL = 1_000L
+internal const val HIGH_ACCURACY_BURST_EARLY_STOP_ACCURACY_M = 20f
+internal const val HIGH_ACCURACY_BURST_EARLY_STOP_MAX_AGE_MS = 6_000L
+internal const val STRICT_FRESH_FIX_MIN_AGE_MS = 6_000L
+internal const val STRICT_FRESH_FIX_INTERVAL_MULTIPLIER = 2L
+internal const val BIND_CACHED_FIX_MAX_ACCURACY_M = 35f
+internal const val BIND_CACHED_FIX_MAX_ACCURACY_COARSE_M = 80f
+internal const val BIND_CACHED_FIX_MIN_MAX_AGE_MS = 6_000L
+internal const val BIND_CACHED_FIX_MAX_MAX_AGE_MS = 30_000L
+
+internal const val FINE_FIX_MAX_ACCURACY_M = ACCURACY_THRESHOLD * 2f
+internal const val COARSE_FIX_MAX_ACCURACY_M = 120f
+internal const val FIX_MAX_AGE_FINE_MAX_MS = 60_000L
+internal const val FIX_MAX_AGE_COARSE_MAX_MS = 120_000L
+internal const val WATCH_GPS_MAX_ACCEPTED_ACCURACY_M = 130f
+internal const val WATCH_GPS_DEGRADED_ACCURACY_M = 100f
+internal const val WATCH_GPS_DEGRADED_STREAK_THRESHOLD = 4
+internal const val WATCH_GPS_ACCURACY_FLOOR_M = 125f
+internal const val WATCH_GPS_ACCURACY_FLOOR_TOLERANCE_M = 3f
+
+internal const val IMMEDIATE_COOLDOWN_MS = 2_500L
+
+// Production mode: reject stale/very inaccurate fixes in service-layer acceptance.
+internal val ENABLE_STRICT_FIX_FILTERING = true

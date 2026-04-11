@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32.0px"
+   height="32.0px"
+   viewBox="0 0 32.0 32.0"
+   version="1.1"
+   id="SVGRoot"
+   sodipodi:docname="palace.svg"
+   inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview70645"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     showgrid="true"
+     inkscape:zoom="20.855586"
+     inkscape:cx="16.086817"
+     inkscape:cy="17.453357"
+     inkscape:window-width="1304"
+     inkscape:window-height="745"
+     inkscape:window-x="54"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1">
+    <inkscape:grid
+       type="xygrid"
+       id="grid70768" />
+  </sodipodi:namedview>
+  <defs
+     id="defs70640" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#000000;stroke:none;stroke-width:0.511869;stroke-linecap:square;stroke-dasharray:none;paint-order:fill markers stroke"
+       id="rect73624"
+       width="26"
+       height="11"
+       x="3"
+       y="15" />
+    <path
+       id="rect72794-4"
+       style="fill:#6a1515;fill-opacity:1;stroke-width:0.657839;stroke-linecap:square;paint-order:fill markers stroke"
+       d="M 15.757812,7.9930755 12.693359,9.6239185 11,12.664359 H 7 L 6.2578125,10.273975 4.9023438,9.1608963 3.6777344,10.383459 3,12.664359 V 15 H 29 V 12.664359 L 28.257812,10.273975 26.902344,9.1608963 25.677734,10.383459 25,12.664359 H 21 L 19.144531,9.4756602 Z" />
+    <path
+       id="rect73509"
+       style="fill:#ffff6c;stroke:none;stroke-width:1.38526;stroke-linecap:square;stroke-dasharray:none;paint-order:fill markers stroke;fill-opacity:1"
+       d="m 15.979796,12.952051 -3.775031,2 H 3.4315391 v 10 H 28.520513 v -10 h -8.77511 z" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:2.34555;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-7-6"
+       width="2"
+       height="3.9659002"
+       x="13"
+       y="21" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:2.34555;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-7-6-2"
+       width="2"
+       height="3.9659002"
+       x="17"
+       y="21" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:1.66567;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-7-2"
+       width="2"
+       height="2"
+       x="25"
+       y="21" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:1.66567;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-7-41"
+       width="2"
+       height="2"
+       x="21"
+       y="21" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:1.66567;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-7-44"
+       width="2"
+       height="2"
+       x="9"
+       y="21" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:1.66567;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039"
+       width="2"
+       height="2"
+       x="5"
+       y="17" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:1.66567;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-7"
+       width="2"
+       height="2"
+       x="9"
+       y="17" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:2.89167;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-7-9"
+       width="6.027698"
+       height="2"
+       x="12.953096"
+       y="16.980793" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:1.66567;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-7-4"
+       width="2"
+       height="2"
+       x="5"
+       y="21" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:1.66567;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-0"
+       width="2"
+       height="2"
+       x="25"
+       y="17" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:1.66567;stroke-linecap:square;paint-order:fill markers stroke"
+       id="rect73039-09"
+       width="2"
+       height="2"
+       x="21"
+       y="17" />
+  </g>
+</svg>

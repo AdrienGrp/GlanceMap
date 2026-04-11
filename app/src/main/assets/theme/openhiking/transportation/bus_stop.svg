@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="30"
+   height="32"
+   viewBox="0 0 30 32"
+   version="1.1"
+   id="SVGRoot"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs9552" />
+  <path
+     fill-rule="evenodd"
+     clip-rule="evenodd"
+     d="m 7.1390291,1.4455176 c -1.5692788,0 -3.0742495,0.5154028 -4.1839237,1.4328489 C 1.8454636,3.7958122 1.2220716,5.0401252 1.2220716,6.3375625 V 24.371156 c 0,1.060731 0.509665,1.770737 1.2084436,2.050091 0.6667553,0.380706 2.8227451,0.927182 5.723724,0.815605 H 22.018592 c 2.492389,0.04234 4.74869,-0.328883 5.573841,-0.743564 0.736249,-0.747626 1.358341,-1.061401 1.358341,-2.122132 V 6.3375625 c 0,-1.2974373 -0.623375,-2.5417503 -1.733049,-3.459196 C 26.108051,1.9609204 24.60308,1.4455176 23.033818,1.4455176 Z"
+     fill="white"
+     id="path11211"
+     style="fill:#f8fc00;fill-opacity:1;stroke:#333333;stroke-width:1.4;stroke-dasharray:none;stroke-opacity:1" />
+  <rect
+     style="fill:#0000f8;fill-opacity:1;stroke:#333333;stroke-width:1.4;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+     id="rect12612"
+     width="21.27931"
+     height="12.379192"
+     x="4.3645644"
+     y="5.1903362"
+     ry="0" />
+  <ellipse
+     style="fill:#ff6600;stroke:#333333;stroke-width:0.7;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+     id="path16430"
+     cx="23.751572"
+     cy="21.971989"
+     rx="1.759969"
+     ry="1.6035832" />
+  <ellipse
+     style="fill:#ff6600;stroke:#333333;stroke-width:0.7;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+     id="path16430-9"
+     cx="6.5025721"
+     cy="22.013393"
+     rx="1.759969"
+     ry="1.6035832" />
+  <rect
+     style="fill:#333333;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;paint-order:fill markers stroke"
+     id="rect9878-6"
+     width="4.8636627"
+     height="4.0484071"
+     x="21.031559"
+     y="26.909161"
+     ry="1.0190818" />
+  <g
+     id="layer1" />
+  <rect
+     style="fill:#333333;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;paint-order:fill markers stroke"
+     id="rect9878-6-5"
+     width="4.8636627"
+     height="4.5429959"
+     x="3.9483616"
+     y="26.513559"
+     ry="1.1435817" />
+</svg>

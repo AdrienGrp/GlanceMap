@@ -1,0 +1,306 @@
+package com.glancemap.glancemapcompanionapp.filepicker
+
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.text.format.Formatter
+import androidx.core.content.ContextCompat
+import androidx.documentfile.provider.DocumentFile
+import com.glancemap.glancemapcompanionapp.FileTransferUiState
+import com.glancemap.glancemapcompanionapp.FileTransferViewModel
+import com.glancemap.glancemapcompanionapp.GeneratedPhoneFile
+import com.glancemap.glancemapcompanionapp.PoiImportSource
+import java.io.File
+
+internal data class ExternalDownloadSource(
+    val category: String,
+    val label: String,
+    val url: String
+)
+
+internal data class PhoneStoredFilesGroup(
+    val fileCount: Int,
+    val totalBytes: Long,
+    val fileNames: Set<String>
+)
+
+internal data class PhoneStoredFilesSummary(
+    val poi: PhoneStoredFilesGroup,
+    val routing: PhoneStoredFilesGroup
+)
+
+internal enum class PoiAreaMethod {
+    WATCH_MAP,
+    REFUGES_PRESET,
+    MANUAL_BBOX
+}
+
+internal enum class RoutingAreaMethod {
+    WATCH_MAP,
+    MANUAL_BBOX
+}
+
+internal data class ClearPhoneStoredFilesResult(
+    val message: String,
+    val removedFileNames: Set<String>
+)
+
+internal fun suggestPoiImportFileName(
+    mapFileName: String?,
+    source: PoiImportSource,
+    enrichWithOsm: Boolean
+): String {
+    val base = sanitizeMapBaseForPoiFileName(mapFileName)
+    val prefix = when (source) {
+        PoiImportSource.REFUGES -> {
+            if (enrichWithOsm) "refuges-info-enriched" else "refuges-info"
+        }
+        PoiImportSource.OSM -> "osm-mountain"
+    }
+    return if (base == null) "$prefix.poi" else "$prefix-$base.poi"
+}
+
+internal fun sanitizeMapBaseForPoiFileName(mapFileName: String?): String? {
+    val raw = mapFileName?.trim().orEmpty()
+    if (raw.isBlank()) return null
+    val base = raw
+        .replace(Regex("\\.map$", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("[^A-Za-z0-9._-]"), "_")
+        .trim('_')
+    return base.ifBlank { null }
+}
+
+internal fun isAutoPoiFileName(fileName: String): Boolean {
+    val normalized = fileName.trim().lowercase()
+    if (!normalized.endsWith(".poi")) return false
+    return normalized.startsWith("refuges-info") ||
+        normalized.startsWith("osm-mountain") ||
+        normalized.startsWith("refuges-")
+}
+
+internal fun formatSelectedFilesSummary(fileNames: List<String>): String {
+    if (fileNames.isEmpty()) return "No file selected"
+
+    val grouped = fileNames
+        .map { name ->
+            val trimmed = name.trim()
+            val ext = trimmed.substringAfterLast('.', "").lowercase()
+            if (ext.isBlank() || ext == trimmed.lowercase()) "other" else ext
+        }
+        .groupingBy { it }
+        .eachCount()
+
+    val preferredOrder = listOf("gpx", "poi", "map", "other")
+    val orderedKeys = grouped.keys.sortedWith(
+        compareBy<String> { key ->
+            val idx = preferredOrder.indexOf(key)
+            if (idx >= 0) idx else Int.MAX_VALUE
+        }.thenBy { it }
+    )
+
+    return orderedKeys.joinToString(", ") { key ->
+        val count = grouped[key] ?: 0
+        val label = if (key == "other") "other" else ".$key"
+        if (count == 1) "$count $label file" else "$count $label files"
+    }
+}
+
+internal fun shouldAutoOpenHelpOnFirstLaunch(context: Context): Boolean {
+    val prefs = context.getSharedPreferences(COMPANION_UI_PREFS, Context.MODE_PRIVATE)
+    return prefs.getBoolean(KEY_AUTO_OPEN_HELP_ON_FIRST_LAUNCH, true)
+}
+
+internal fun markHelpShown(context: Context) {
+    context.getSharedPreferences(COMPANION_UI_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(KEY_AUTO_OPEN_HELP_ON_FIRST_LAUNCH, false)
+        .apply()
+}
+
+internal fun hasBluetoothConnectPermission(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < 31) return true
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.BLUETOOTH_CONNECT
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
+internal fun saveGeneratedFileToUri(
+    context: Context,
+    source: GeneratedPhoneFile,
+    destinationUri: Uri
+): String {
+    return runCatching {
+        context.contentResolver.openInputStream(source.uri)?.use { input ->
+            context.contentResolver.openOutputStream(destinationUri, "w")?.use { output ->
+                input.copyTo(output)
+            } ?: error("Unable to open destination file.")
+        } ?: error("Unable to open source file.")
+        "${source.fileName} saved on phone."
+    }.getOrElse {
+        it.localizedMessage?.takeIf { message -> message.isNotBlank() }
+            ?: "Failed to save ${source.fileName}."
+    }
+}
+
+internal fun saveGeneratedFilesToTree(
+    context: Context,
+    files: List<GeneratedPhoneFile>,
+    treeUri: Uri
+): String {
+    val folder = DocumentFile.fromTreeUri(context, treeUri)
+        ?: return "Failed to open selected folder."
+
+    var savedCount = 0
+    var firstFailure: String? = null
+
+    files.forEach { file ->
+        runCatching {
+            folder.findFile(file.fileName)?.delete()
+            val destination = folder.createFile(
+                guessGeneratedFileMimeType(file.fileName),
+                file.fileName
+            ) ?: error("Unable to create ${file.fileName}.")
+
+            context.contentResolver.openInputStream(file.uri)?.use { input ->
+                context.contentResolver.openOutputStream(destination.uri, "w")?.use { output ->
+                    input.copyTo(output)
+                } ?: error("Unable to open ${file.fileName} for writing.")
+            } ?: error("Unable to open ${file.fileName}.")
+            savedCount += 1
+        }.onFailure {
+            if (firstFailure == null) {
+                firstFailure = it.localizedMessage?.takeIf { message -> message.isNotBlank() }
+            }
+        }
+    }
+
+    return when {
+        savedCount == files.size -> "${files.size} file(s) saved on phone."
+        savedCount > 0 -> "${savedCount}/${files.size} file(s) saved on phone. ${firstFailure.orEmpty()}".trim()
+        else -> firstFailure ?: "Failed to save files on phone."
+    }
+}
+
+internal fun guessGeneratedFileMimeType(fileName: String): String {
+    return when {
+        fileName.endsWith(".poi", ignoreCase = true) -> "application/octet-stream"
+        fileName.endsWith(".rd5", ignoreCase = true) -> "application/octet-stream"
+        else -> "application/octet-stream"
+    }
+}
+
+internal fun emptyPhoneStoredFilesSummary(): PhoneStoredFilesSummary {
+    return PhoneStoredFilesSummary(
+        poi = PhoneStoredFilesGroup(fileCount = 0, totalBytes = 0L, fileNames = emptySet()),
+        routing = PhoneStoredFilesGroup(fileCount = 0, totalBytes = 0L, fileNames = emptySet())
+    )
+}
+
+internal fun loadPhoneStoredFilesSummary(context: Context): PhoneStoredFilesSummary {
+    return PhoneStoredFilesSummary(
+        poi = summarizeGeneratedFiles(
+            directory = File(context.filesDir, "refuges-poi"),
+            extension = ".poi"
+        ),
+        routing = summarizeGeneratedFiles(
+            directory = File(context.filesDir, "routing-segments"),
+            extension = ".rd5"
+        )
+    )
+}
+
+internal fun summarizeGeneratedFiles(directory: File, extension: String): PhoneStoredFilesGroup {
+    val files = directory.listFiles()
+        ?.filter { it.isFile && it.name.endsWith(extension, ignoreCase = true) }
+        .orEmpty()
+    return PhoneStoredFilesGroup(
+        fileCount = files.size,
+        totalBytes = files.sumOf { it.length().coerceAtLeast(0L) },
+        fileNames = files.map { it.name }.toSet()
+    )
+}
+
+internal fun clearPhoneStoredFiles(
+    context: Context,
+    clearPoi: Boolean,
+    clearRouting: Boolean
+): ClearPhoneStoredFilesResult {
+    val removedFileNames = linkedSetOf<String>()
+    var removedCount = 0
+
+    if (clearPoi) {
+        val dir = File(context.filesDir, "refuges-poi")
+        dir.listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".poi", ignoreCase = true) }
+            .orEmpty()
+            .forEach { file ->
+                if (file.delete()) {
+                    removedCount += 1
+                    removedFileNames += file.name
+                }
+            }
+    }
+
+    if (clearRouting) {
+        val dir = File(context.filesDir, "routing-segments")
+        dir.listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".rd5", ignoreCase = true) }
+            .orEmpty()
+            .forEach { file ->
+                if (file.delete()) {
+                    removedCount += 1
+                    removedFileNames += file.name
+                }
+            }
+    }
+
+    val message = when {
+        removedCount == 0 -> "No phone files were removed."
+        clearPoi && clearRouting -> "$removedCount phone file(s) cleared."
+        clearPoi -> "$removedCount POI file(s) cleared."
+        else -> "$removedCount routing file(s) cleared."
+    }
+
+    return ClearPhoneStoredFilesResult(
+        message = message,
+        removedFileNames = removedFileNames
+    )
+}
+
+internal fun removeClearedGeneratedFilesFromSelection(
+    context: Context,
+    viewModel: FileTransferViewModel,
+    uiState: FileTransferUiState,
+    removedFileNames: Set<String>
+) {
+    if (removedFileNames.isEmpty() || uiState.selectedFileUris.isEmpty()) return
+
+    val remainingUris = uiState.selectedFileUris
+        .zip(uiState.selectedFileDisplayNames)
+        .filter { (_, displayName) -> displayName !in removedFileNames }
+        .map { (uri, _) -> uri }
+
+    if (remainingUris.size == uiState.selectedFileUris.size) return
+
+    viewModel.clearSelectedFiles()
+    if (remainingUris.isNotEmpty()) {
+        viewModel.loadFilesFromUris(context, remainingUris)
+    }
+}
+
+internal fun formatPhoneStoredFilesSummary(
+    context: Context,
+    group: PhoneStoredFilesGroup
+): String {
+    return if (group.fileCount > 0) {
+        "${group.fileCount} file(s) · ${Formatter.formatShortFileSize(context, group.totalBytes)}"
+    } else {
+        "No files"
+    }
+}
+
+private const val COMPANION_UI_PREFS = "companion_ui_prefs"
+private const val KEY_AUTO_OPEN_HELP_ON_FIRST_LAUNCH = "auto_open_help_on_first_launch"

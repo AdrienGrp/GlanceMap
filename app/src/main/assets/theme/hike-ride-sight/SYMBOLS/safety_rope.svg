@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.0"
+   width="580"
+   height="580"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)"
+   sodipodi:docname="via_ferrata.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+  <metadata
+     id="metadata2975">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-nc-sa/4.0/" />
+        <dc:language>en</dc:language>
+        <dc:title></dc:title>
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-nc-sa/4.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+        <cc:prohibits
+           rdf:resource="http://creativecommons.org/ns#CommercialUse" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#ShareAlike" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+  <sodipodi:namedview
+     inkscape:window-height="831"
+     inkscape:window-width="1097"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     guidetolerance="10.0"
+     gridtolerance="10.0"
+     objecttolerance="10.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base"
+     inkscape:zoom="0.86896552"
+     inkscape:cx="100.28476"
+     inkscape:cy="290"
+     inkscape:window-x="316"
+     inkscape:window-y="77"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-maximized="0" />
+  <defs
+     id="defs4" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer1"
+     inkscape:label="Layer 1">
+    <ellipse
+       style="fill:#ff0000;fill-opacity:1;stroke:#ffffff;stroke-width:19.77865791;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;opacity:0.5"
+       id="path4503"
+       cx="290.6965"
+       cy="289.28564"
+       rx="277.6167"
+       ry="275.41489" />
+    <path d="M 38.765046,229.5311 197.21789,370.48736 c 2.07128,1.775 4.97107,2.92353 7.97442,2.92353 l 73.53041,0 c 4.24612,0 8.38868,-2.29706 10.0457,-5.63825 1.65702,-3.34118 0.82851,-7.41325 -2.17484,-10.02355 L 120.68413,210.00605 c -2.07128,-1.775 -4.97107,-2.91929 -7.97442,-2.92354 L 38.972173,206.9781 Z M 171.01621,212.72076 c -1.65702,3.34119 -0.82851,7.41326 2.07128,10.02356 l 166.73796,148.2651 c 2.07128,1.775 4.97107,2.92353 7.97442,2.92353 l 73.53041,0 c 4.24612,0 8.38868,-2.29706 10.0457,-5.63825 1.65702,-3.34118 0.82851,-7.41325 -2.17484,-10.02355 l -166.6344,-148.2651 c -2.07128,-1.775 -4.97107,-2.92354 -7.97442,-2.92354 l -73.53041,0 c -4.24612,0 -8.38868,2.29707 -10.0457,5.63825 z m 141.88261,0 c -1.65702,3.34119 -0.82851,7.41326 2.07128,10.02356 l 166.73796,148.2651 c 2.07128,1.775 4.97107,2.92353 7.97442,2.92353 l 51.78198,0 0,-41.76481 -136.70442,-121.11797 c -2.07127,-1.775 -4.97114,-2.90226 -7.97442,-2.92354 l -73.68575,-0.52206 c -4.40147,-0.52206 -8.54403,1.77501 -10.20105,5.11619 z m 142.1933,1.04413 c -1.65702,3.34118 -0.82851,7.41325 2.07128,10.02355 l 84.92244,75.07226 0,-90.83848 c -0.82851,-0.20882 -1.65702,-0.31586 -2.5891,-0.31323 l -73.94466,0.20882 c -4.66037,0.20882 -8.80293,2.50589 -10.45996,5.84708 z M 40.318505,354.92996 58.54576,371.11383 c 2.071279,1.775 4.97107,2.92354 7.974424,2.92354 l 73.530406,0 c 4.24612,0 8.38868,-2.29707 10.0457,-5.63825 1.65702,-3.34119 0.82851,-7.41326 -2.17484,-10.02356 L 39.541775,261.5856 Z" id="path3774-2-3-6" fill="#000000" color="#000000"/>
+  </g>
+</svg>

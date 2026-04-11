@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 580 580" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(4.15756,0,0,6.05178,-286.043,-1934.03)">
+        <rect x="65.716" y="318.432" width="145.582" height="98.978" style="fill:rgb(236,254,224);fill-opacity:0.8"/>
+    </g>
+    <g transform="matrix(14.7119,0,0,14.7119,0,0)">
+        <g>
+            <g transform="matrix(1,0,0,1,19.712,19.712)">
+                <path d="M13.179,18.096L16.756,18.096C14.89,13.304 19.712,4.758 19.712,4.758C11.009,10.387 13.179,18.096 13.179,18.096Z" style="fill-opacity:0.1;fill-rule:nonzero;"/>
+            </g>
+            <g transform="matrix(1,0,0,1,19.712,19.712)">
+                <path d="M19.712,2.662C12.55,5.242 10.916,8.897 10.916,8.897C10.916,8.897 12.572,12.344 12.112,13.806C14.02,6.092 19.712,2.662 19.712,2.662Z" style="fill-opacity:0.1;fill-rule:nonzero;"/>
+            </g>
+            <g transform="matrix(1,0,0,1,19.712,19.712)">
+                <path d="M0,4.288C0,4.288 4.824,12.834 2.956,17.626L6.534,17.626C6.534,17.627 8.704,9.918 0,4.288Z" style="fill-opacity:0.1;fill-rule:nonzero;"/>
+            </g>
+            <g transform="matrix(1,0,0,1,19.712,19.712)">
+                <path d="M3.387,1.616C3.387,1.616 9.274,12.048 6.995,17.897L11.362,17.897C11.362,17.896 14.01,8.486 3.387,1.616Z" style="fill-opacity:0.1;fill-rule:nonzero;"/>
+            </g>
+            <path d="M13.179,18.096L16.756,18.096C14.89,13.304 19.712,4.758 19.712,4.758C11.009,10.387 13.179,18.096 13.179,18.096Z" style="fill-opacity:0.1;fill-rule:nonzero;"/>
+            <path d="M19.712,2.662C12.55,5.242 10.916,8.897 10.916,8.897C10.916,8.897 12.572,12.344 12.112,13.806C14.02,6.092 19.712,2.662 19.712,2.662Z" style="fill-opacity:0.1;fill-rule:nonzero;"/>
+            <path d="M0,4.288C0,4.288 4.824,12.834 2.956,17.626L6.534,17.626C6.534,17.627 8.704,9.918 0,4.288Z" style="fill-opacity:0.1;fill-rule:nonzero;"/>
+            <path d="M3.387,1.616C3.387,1.616 9.274,12.048 6.995,17.897L11.362,17.897C11.362,17.896 14.01,8.486 3.387,1.616Z" style="fill-opacity:0.1;fill-rule:nonzero;"/>
+        </g>
+    </g>
+</svg>

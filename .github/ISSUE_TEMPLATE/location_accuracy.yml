@@ -1,0 +1,78 @@
+name: Location accuracy issue
+description: Report inaccurate GPS behavior on watch navigation/tracking.
+title: "[Location][Accuracy] "
+labels:
+  - location
+  - accuracy
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please fill all required fields so contributors can reproduce quickly.
+  - type: input
+    id: watch_model
+    attributes:
+      label: Watch model
+      placeholder: "Pixel Watch 2"
+    validations:
+      required: true
+  - type: input
+    id: wear_os_version
+    attributes:
+      label: Wear OS version
+      placeholder: "Wear OS 5"
+    validations:
+      required: true
+  - type: dropdown
+    id: source_mode
+    attributes:
+      label: Source mode
+      options:
+        - auto_fused
+        - watch_gps
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime_mode
+    attributes:
+      label: Runtime mode when issue happened
+      options:
+        - INTERACTIVE
+        - PASSIVE
+        - BURST
+        - unknown
+    validations:
+      required: true
+  - type: input
+    id: gps_interval
+    attributes:
+      label: gpsIntervalMs setting
+      placeholder: "4000"
+    validations:
+      required: true
+  - type: textarea
+    id: expected_vs_actual
+    attributes:
+      label: Expected vs actual behavior
+      placeholder: "Expected path follows trail. Actual path jumps 50-100m left."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Start tracking
+        2. Walk for 10 minutes in open sky
+        3. Observe map drift
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / telemetry
+      description: Paste logs around the event. Include sourceMode/runtimeMode if available.
+      render: text
+    validations:
+      required: true

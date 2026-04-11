@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32.0px"
+   height="32.0px"
+   viewBox="0 0 32.0 32.0"
+   version="1.1"
+   id="SVGRoot"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs34428" />
+  <g
+     id="layer1">
+    <path
+       d="M 17.689663,7.6156595 A 1.5633302,1.0986183 0 0 1 16.108605,8.6986521 1.5633302,1.0986183 0 0 1 14.563219,7.5905231 1.5633302,1.0986183 0 0 1 16.135877,6.5015073 1.5633302,1.0986183 0 0 1 17.689811,7.603717"
+       id="path1061"
+       fill="#ffffff"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.142245"
+       style="fill:#000000;stroke:#000000" />
+    <path
+       d="m 16.088837,8.5470337 c 0,0.016594 0,0.03319 0,0.049786 0,1.3173152 -1.044321,12.7904853 -7.7003676,20.3129543"
+       id="path1686"
+       fill="none"
+       fill-rule="evenodd"
+       stroke="#ffffff"
+       fill-opacity="0.75"
+       stroke-linecap="round"
+       stroke-width="1.16546"
+       style="stroke:#000000" />
+    <path
+       d="m 16.070139,8.5221402 c 0,0.016595 0,0.03319 0,0.049786 0,1.3173137 1.044322,12.7904848 7.700364,20.3129608"
+       id="path2308"
+       fill="none"
+       fill-rule="evenodd"
+       stroke="#ffffff"
+       fill-opacity="0.75"
+       stroke-linecap="round"
+       stroke-width="1.16546"
+       style="stroke:#000000" />
+    <path
+       d="m 24.169314,1.9588063 a 10.114635,7.678678 0 0 1 3.363707,6.2208853 10.114635,7.678678 0 0 1 -4.377859,5.8459014"
+       id="path4190"
+       fill="none"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.292053"
+       style="stroke:#000000" />
+    <path
+       d="m 21.443547,3.87208 a 6.4471145,4.8944249 0 0 1 2.43463,4.1472732 6.4471145,4.8944249 0 0 1 -3.102726,3.8817198"
+       id="path4196"
+       fill="none"
+       display="block"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.292053"
+       style="stroke:#000000" />
+    <path
+       d="M 19.461786,5.7824266 A 3.2487102,2.2830162 0 0 1 20.6886,7.7169322 3.2487102,2.2830162 0 0 1 19.125132,9.5275695"
+       id="path4198"
+       fill="none"
+       display="block"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.281497"
+       style="stroke:#000000" />
+    <path
+       d="M -8.316658,1.9704835 A 10.114635,7.678678 0 0 1 -4.9529509,8.1913689 10.114635,7.678678 0 0 1 -9.3308108,14.03727"
+       id="path4209"
+       transform="scale(-1,1)"
+       fill="none"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.292053"
+       style="stroke:#000000" />
+    <path
+       d="m -11.042507,3.8837639 a 6.4471145,4.8944249 0 0 1 2.4346305,4.1472733 6.4471145,4.8944249 0 0 1 -3.1027255,3.8817198"
+       id="path4210"
+       transform="scale(-1,1)"
+       fill="none"
+       display="block"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.292053"
+       style="stroke:#000000" />
+    <path
+       d="m -13.024859,5.7932613 a 3.2487102,2.2830162 0 0 1 1.226814,1.9345056 3.2487102,2.2830162 0 0 1 -1.563468,1.8106373"
+       id="path4212"
+       transform="scale(-1,1)"
+       fill="none"
+       display="block"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.281497"
+       style="stroke:#000000" />
+    <path
+       id="path3758"
+       d="m 17.706925,16.777901 -4.380173,3.432972"
+       fill="none"
+       fill-rule="evenodd"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.737198"
+       style="fill:none;stroke:#000000" />
+    <path
+       d="m 14.479756,16.777901 4.380173,3.432972"
+       id="path3768"
+       fill="none"
+       fill-rule="evenodd"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.737198"
+       style="fill:none;stroke:#000000" />
+    <path
+       d="m 14.19149,20.201101 6.856399,5.373725"
+       id="path3770"
+       fill="none"
+       fill-rule="evenodd"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.907347"
+       style="fill:none;stroke:#000000" />
+    <path
+       id="path3772"
+       d="m 17.973215,20.201101 -6.856404,5.373725"
+       fill="none"
+       fill-rule="evenodd"
+       stroke="#ffffff"
+       stroke-linecap="round"
+       stroke-width="0.907347"
+       style="fill:none;stroke:#000000" />
+  </g>
+</svg>

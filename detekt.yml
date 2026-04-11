@@ -1,0 +1,12 @@
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+  warningsAsErrors: false
+
+style:
+  MagicNumber:
+    active: false
+  WildcardImport:
+    active: false
