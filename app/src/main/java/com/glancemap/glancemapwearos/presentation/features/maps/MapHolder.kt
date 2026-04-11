@@ -6,5 +6,5 @@ import org.mapsforge.map.android.view.MapView
 @Stable
 data class MapHolder(
     val mapView: MapView,
-    val renderer: MapRenderer
+    val renderer: MapRenderer,
 )

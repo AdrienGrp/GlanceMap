@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GpsSignalTrackerTest {
-
     @Test
     fun doesNotEnterDegradedStateForKnownWatchGpsAccuracyFloor() {
         val tracker = GpsSignalTracker()
@@ -17,7 +16,7 @@ class GpsSignalTrackerTest {
                 ageMs = 100L,
                 accuracyM = 125f,
                 freshnessMaxAgeMs = 6_000L,
-                sourceMode = LocationSourceMode.WATCH_GPS
+                sourceMode = LocationSourceMode.WATCH_GPS,
             )
         }
 
@@ -37,7 +36,7 @@ class GpsSignalTrackerTest {
                 ageMs = 120L,
                 accuracyM = 110f,
                 freshnessMaxAgeMs = 6_000L,
-                sourceMode = LocationSourceMode.WATCH_GPS
+                sourceMode = LocationSourceMode.WATCH_GPS,
             )
         }
 
@@ -57,7 +56,7 @@ class GpsSignalTrackerTest {
                 ageMs = 90L,
                 accuracyM = 110f,
                 freshnessMaxAgeMs = 6_000L,
-                sourceMode = LocationSourceMode.WATCH_GPS
+                sourceMode = LocationSourceMode.WATCH_GPS,
             )
         }
         assertTrue(tracker.snapshot.watchGpsDegraded)

@@ -5,7 +5,6 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ElevationLabelThemeCallbackTest {
-
     @Test
     fun `metric keeps original ele label`() {
         assertEquals("2301", convertMapEleValueToDisplayText("2301", isMetric = true))

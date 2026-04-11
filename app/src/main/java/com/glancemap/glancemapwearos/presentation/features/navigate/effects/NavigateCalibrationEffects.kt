@@ -5,10 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
-import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
+import androidx.compose.runtime.setValue
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavMode
 import com.glancemap.glancemapwearos.presentation.features.settings.CompassRecalibrationDialog
@@ -27,7 +27,7 @@ internal fun NavigateCalibrationEffects(
     onShowCalibrationDialog: () -> Unit,
     onHideCalibrationDialog: () -> Unit,
     onApplyRecalibration: () -> Unit,
-    onRecalibrationSucceeded: () -> Unit
+    onRecalibrationSucceeded: () -> Unit,
 ) {
     var lastCalibrationPromptAtElapsedMs by rememberSaveable { mutableLongStateOf(0L) }
     var lastCalibrationSuccessAtElapsedMs by rememberSaveable { mutableLongStateOf(0L) }
@@ -53,7 +53,7 @@ internal fun NavigateCalibrationEffects(
         magneticInterference,
         navMode,
         isAmbient,
-        promptForCalibration
+        promptForCalibration,
     ) {
         val now = android.os.SystemClock.elapsedRealtime()
         val promptEligible =
@@ -67,7 +67,7 @@ internal fun NavigateCalibrationEffects(
             if (promptEligibleSinceElapsedMs != 0L || lowQualitySinceElapsedMs != 0L || interferenceSinceElapsedMs != 0L) {
                 logCalibration(
                     "auto prompt ineligible (promptSetting=$promptForCalibration " +
-                        "ambient=$isAmbient mode=$navMode)"
+                        "ambient=$isAmbient mode=$navMode)",
                 )
             }
             promptEligibleSinceElapsedMs = 0L
@@ -81,13 +81,14 @@ internal fun NavigateCalibrationEffects(
         }
 
         val inStartupGrace = now - promptEligibleSinceElapsedMs < startupGraceMs
-        val inPostSuccessSuppress = lastCalibrationSuccessAtElapsedMs != 0L &&
-            (now - lastCalibrationSuccessAtElapsedMs) < postSuccessSuppressMs
+        val inPostSuccessSuppress =
+            lastCalibrationSuccessAtElapsedMs != 0L &&
+                (now - lastCalibrationSuccessAtElapsedMs) < postSuccessSuppressMs
         if (inStartupGrace || inPostSuccessSuppress) {
             if (lowQualitySinceElapsedMs != 0L || interferenceSinceElapsedMs != 0L) {
                 logCalibration(
                     "auto prompt timer reset " +
-                        "startupGrace=$inStartupGrace postSuccessSuppress=$inPostSuccessSuppress"
+                        "startupGrace=$inStartupGrace postSuccessSuppress=$inPostSuccessSuppress",
                 )
             }
             lowQualitySinceElapsedMs = 0L
@@ -123,7 +124,7 @@ internal fun NavigateCalibrationEffects(
             if (interferenceSinceElapsedMs != 0L) {
                 logCalibration(
                     "provider=$compassProviderType does not expose magnetic interference; " +
-                        "auto prompt will use low quality alone"
+                        "auto prompt will use low quality alone",
                 )
             }
             interferenceSinceElapsedMs = 0L
@@ -143,7 +144,7 @@ internal fun NavigateCalibrationEffects(
         isAmbient,
         showCalibrationDialog,
         compassAccuracy,
-        magneticInterference
+        magneticInterference,
     ) {
         val promptEligible =
             promptForCalibration &&
@@ -168,12 +169,13 @@ internal fun NavigateCalibrationEffects(
         }
 
         val lowQualityWaitMs = badQualityPersistMs - (now - lowQualitySinceElapsedMs)
-        val waitMs = if (requireMagneticInterference) {
-            val interferenceWaitMs = magneticInterferencePersistMs - (now - interferenceSinceElapsedMs)
-            maxOf(lowQualityWaitMs, interferenceWaitMs)
-        } else {
-            lowQualityWaitMs
-        }
+        val waitMs =
+            if (requireMagneticInterference) {
+                val interferenceWaitMs = magneticInterferencePersistMs - (now - interferenceSinceElapsedMs)
+                maxOf(lowQualityWaitMs, interferenceWaitMs)
+            } else {
+                lowQualityWaitMs
+            }
         if (waitMs > 0L) {
             delay(waitMs)
         }
@@ -210,7 +212,7 @@ internal fun NavigateCalibrationEffects(
     if (showCalibrationDialog) {
         CompassRecalibrationDialog(
             compassViewModel = compassViewModel,
-            onApplyRecalibration = onApplyRecalibration
+            onApplyRecalibration = onApplyRecalibration,
         ) { success ->
             onHideCalibrationDialog()
             logCalibration("calibration dialog finished success=$success")
@@ -239,21 +241,16 @@ internal fun NavigateCalibrationEffects(
 }
 
 private fun requiresMagneticInterferenceForCalibrationPrompt(
-    providerType: CompassProviderType
-): Boolean {
-    return providerType == CompassProviderType.SENSOR_MANAGER
-}
+    providerType: CompassProviderType,
+): Boolean = providerType == CompassProviderType.SENSOR_MANAGER
 
 internal fun supportsCompassCalibrationPrompts(
-    providerType: CompassProviderType
-): Boolean {
-    return providerType == CompassProviderType.SENSOR_MANAGER
-}
+    providerType: CompassProviderType,
+): Boolean = providerType == CompassProviderType.SENSOR_MANAGER
 
-private fun isBadCompassAccuracy(accuracy: Int): Boolean {
-    return accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE ||
+private fun isBadCompassAccuracy(accuracy: Int): Boolean =
+    accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE ||
         accuracy == SensorManager.SENSOR_STATUS_ACCURACY_LOW
-}
 
 private fun logCalibration(message: String) {
     if (!DebugTelemetry.isEnabled()) return

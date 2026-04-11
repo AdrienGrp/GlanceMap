@@ -8,14 +8,14 @@ import java.lang.IllegalStateException
 import java.util.concurrent.TimeoutException
 
 class WatchConnectionUiSupportTest {
-
     @Test
     fun selectedWatchReachabilityMatchesAvailableWatchList() {
         val selected = WatchNode(id = "watch-1", displayName = "OnePlus Watch")
-        val available = listOf(
-            WatchNode(id = "watch-1", displayName = "OnePlus Watch"),
-            WatchNode(id = "watch-2", displayName = "Other Watch")
-        )
+        val available =
+            listOf(
+                WatchNode(id = "watch-1", displayName = "OnePlus Watch"),
+                WatchNode(id = "watch-2", displayName = "Other Watch"),
+            )
 
         assertTrue(isSelectedWatchReachable(selected, available))
         assertFalse(isSelectedWatchReachable(selected, available.drop(1)))
@@ -24,18 +24,20 @@ class WatchConnectionUiSupportTest {
 
     @Test
     fun targetNodeNotConnectedIsMappedToFriendlyDisconnectedMessage() {
-        val message = normalizeWatchMapsStatusMessage(
-            IllegalStateException("4000: TARGET_NODE_NOT_CONNECTED")
-        )
+        val message =
+            normalizeWatchMapsStatusMessage(
+                IllegalStateException("4000: TARGET_NODE_NOT_CONNECTED"),
+            )
 
         assertEquals(selectedWatchDisconnectedStatusMessage(), message)
     }
 
     @Test
     fun timeoutIsMappedToFriendlyTimeoutMessage() {
-        val message = normalizeWatchMapsStatusMessage(
-            TimeoutException("Watch did not answer in time while reading maps.")
-        )
+        val message =
+            normalizeWatchMapsStatusMessage(
+                TimeoutException("Watch did not answer in time while reading maps."),
+            )
 
         assertEquals(selectedWatchTimeoutStatusMessage(), message)
     }

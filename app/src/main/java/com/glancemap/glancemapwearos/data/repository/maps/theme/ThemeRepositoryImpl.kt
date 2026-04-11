@@ -10,9 +10,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
 class ThemeRepositoryImpl(
-    private val context: Context
+    private val context: Context,
 ) : ThemeRepository {
-
     companion object {
         const val THEME_ID_MAPSFORGE = MapsforgeThemeCatalog.MAPSFORGE_THEME_ID
         const val THEME_ID_ELEVATE = MapsforgeThemeCatalog.ELEVATE_THEME_ID
@@ -48,37 +47,37 @@ class ThemeRepositoryImpl(
             if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_ELEVATE_WINTER)) {
                 put(
                     THEME_ID_ELEVATE_WINTER,
-                    parseThemeStyleMenuFromXml(context, THEME_ID_ELEVATE_WINTER, TAG)
+                    parseThemeStyleMenuFromXml(context, THEME_ID_ELEVATE_WINTER, TAG),
                 )
             }
             if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_ELEVATE_WINTER_WHITE)) {
                 put(
                     THEME_ID_ELEVATE_WINTER_WHITE,
-                    parseThemeStyleMenuFromXml(context, THEME_ID_ELEVATE_WINTER_WHITE, TAG)
+                    parseThemeStyleMenuFromXml(context, THEME_ID_ELEVATE_WINTER_WHITE, TAG),
                 )
             }
             if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_OPENHIKING)) {
                 put(
                     THEME_ID_OPENHIKING,
-                    parseThemeStyleMenuFromXml(context, THEME_ID_OPENHIKING, TAG)
+                    parseThemeStyleMenuFromXml(context, THEME_ID_OPENHIKING, TAG),
                 )
             }
             if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_FRENCH_KISS)) {
                 put(
                     THEME_ID_FRENCH_KISS,
-                    parseThemeStyleMenuFromXml(context, THEME_ID_FRENCH_KISS, TAG)
+                    parseThemeStyleMenuFromXml(context, THEME_ID_FRENCH_KISS, TAG),
                 )
             }
             if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_TIRAMISU)) {
                 put(
                     THEME_ID_TIRAMISU,
-                    parseThemeStyleMenuFromXml(context, THEME_ID_TIRAMISU, TAG)
+                    parseThemeStyleMenuFromXml(context, THEME_ID_TIRAMISU, TAG),
                 )
             }
             if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_HIKE_RIDE_SIGHT)) {
                 put(
                     THEME_ID_HIKE_RIDE_SIGHT,
-                    parseThemeStyleMenuFromXml(context, THEME_ID_HIKE_RIDE_SIGHT, TAG)
+                    parseThemeStyleMenuFromXml(context, THEME_ID_HIKE_RIDE_SIGHT, TAG),
                 )
             }
         }
@@ -94,47 +93,52 @@ class ThemeRepositoryImpl(
         }
     }
 
-    override fun getThemeItems(): Flow<List<ThemeListItem>> = callbackFlow {
-        fun emitCurrent() {
-            trySend(getCurrentThemeState()).isSuccess
-        }
+    override fun getThemeItems(): Flow<List<ThemeListItem>> =
+        callbackFlow {
+            fun emitCurrent() {
+                trySend(getCurrentThemeState()).isSuccess
+            }
 
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            val listener =
+                SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+                    emitCurrent()
+                }
+
+            prefs.registerOnSharedPreferenceChangeListener(listener)
             emitCurrent()
+
+            awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
         }
 
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        emitCurrent()
+    override fun getThemeSelection(): Flow<ThemeSelection> =
+        callbackFlow {
+            fun emitCurrent() {
+                trySend(getCurrentSelection()).isSuccess
+            }
 
-        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
+            val listener =
+                SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+                    emitCurrent()
+                }
 
-    override fun getThemeSelection(): Flow<ThemeSelection> = callbackFlow {
-        fun emitCurrent() {
-            trySend(getCurrentSelection()).isSuccess
-        }
-
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            prefs.registerOnSharedPreferenceChangeListener(listener)
             emitCurrent()
+
+            awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
         }
-
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        emitCurrent()
-
-        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
 
     private fun selectedStyleKeyForTheme(themeId: String): String = "$KEY_PREFIX_SELECTED_STYLE$themeId"
 
-    private fun bundledThemeIds(): List<String> = listOf(
-        THEME_ID_ELEVATE,
-        THEME_ID_ELEVATE_WINTER,
-        THEME_ID_ELEVATE_WINTER_WHITE,
-        THEME_ID_OPENHIKING,
-        THEME_ID_FRENCH_KISS,
-        THEME_ID_TIRAMISU,
-        THEME_ID_HIKE_RIDE_SIGHT
-    )
+    private fun bundledThemeIds(): List<String> =
+        listOf(
+            THEME_ID_ELEVATE,
+            THEME_ID_ELEVATE_WINTER,
+            THEME_ID_ELEVATE_WINTER_WHITE,
+            THEME_ID_OPENHIKING,
+            THEME_ID_FRENCH_KISS,
+            THEME_ID_TIRAMISU,
+            THEME_ID_HIKE_RIDE_SIGHT,
+        )
 
     private fun themeSupportsNativeHillShading(themeId: String?): Boolean {
         val normalizedThemeId = themeId?.trim()?.takeIf { it.isNotEmpty() } ?: return false
@@ -148,48 +152,46 @@ class ThemeRepositoryImpl(
         }
     }
 
-    private fun isWinterFamilyTheme(themeId: String): Boolean {
-        return themeId == THEME_ID_ELEVATE_WINTER || themeId == THEME_ID_ELEVATE_WINTER_WHITE
-    }
+    private fun isWinterFamilyTheme(themeId: String): Boolean = themeId == THEME_ID_ELEVATE_WINTER || themeId == THEME_ID_ELEVATE_WINTER_WHITE
 
-    private fun enabledOverlaysKeyFor(themeId: String, styleId: String): String {
-        return "${KEY_PREFIX_ENABLED_OVERLAYS}${themeId}_style_$styleId"
-    }
+    private fun enabledOverlaysKeyFor(
+        themeId: String,
+        styleId: String,
+    ): String = "${KEY_PREFIX_ENABLED_OVERLAYS}${themeId}_style_$styleId"
 
-    private fun legacyEnabledOverlaysKeyFor(styleId: String): String {
-        return "$KEY_PREFIX_LEGACY_ENABLED_OVERLAYS$styleId"
-    }
+    private fun legacyEnabledOverlaysKeyFor(styleId: String): String = "$KEY_PREFIX_LEGACY_ENABLED_OVERLAYS$styleId"
 
     private fun parsedForTheme(themeId: String): ParsedStyleMenu {
         if (MapsforgeThemeCatalog.isMapsforgeFamilyTheme(themeId)) {
             return ParsedStyleMenu(
                 defaultStyleId = null,
                 styles = emptyList(),
-                overlayDefinitions = emptyMap()
+                overlayDefinitions = emptyMap(),
             )
         }
         return parsedByTheme[themeId] ?: parsedByTheme[THEME_ID_ELEVATE] ?: ParsedStyleMenu(
             defaultStyleId = null,
             styles = emptyList(),
-            overlayDefinitions = emptyMap()
+            overlayDefinitions = emptyMap(),
         )
     }
 
-    private fun selectedThemeIdForUi(themeId: String): String {
-        return if (themeId == THEME_ID_ELEVATE_WINTER_WHITE) THEME_ID_ELEVATE_WINTER else themeId
-    }
+    private fun selectedThemeIdForUi(themeId: String): String = if (themeId == THEME_ID_ELEVATE_WINTER_WHITE) THEME_ID_ELEVATE_WINTER else themeId
 
     private fun mapsforgeStyleIdOrDefault(): String {
-        val storedStyleId = prefs.getString(selectedStyleKeyForTheme(THEME_ID_MAPSFORGE), null)
-            ?.trim()
-            .orEmpty()
+        val storedStyleId =
+            prefs
+                .getString(selectedStyleKeyForTheme(THEME_ID_MAPSFORGE), null)
+                ?.trim()
+                .orEmpty()
         return MapsforgeThemeCatalog.optionById(storedStyleId)?.id
             ?: MapsforgeThemeCatalog.defaultOption().id
     }
 
     private fun migrateLegacyMapsforgeSelection(styleId: String): String {
-        val resolvedStyleId = MapsforgeThemeCatalog.optionById(styleId)?.id
-            ?: MapsforgeThemeCatalog.defaultOption().id
+        val resolvedStyleId =
+            MapsforgeThemeCatalog.optionById(styleId)?.id
+                ?: MapsforgeThemeCatalog.defaultOption().id
         prefs.edit().apply {
             putString(keySelectedThemeId, THEME_ID_MAPSFORGE)
             putString(selectedStyleKeyForTheme(THEME_ID_MAPSFORGE), resolvedStyleId)
@@ -198,26 +200,30 @@ class ThemeRepositoryImpl(
         return THEME_ID_MAPSFORGE
     }
 
-    private fun normalizeIncomingStyleIdForTheme(themeId: String, styleId: String): String {
-        return if (isWinterFamilyTheme(themeId) && styleId == WINTER_WHITE_STYLE_ID) {
+    private fun normalizeIncomingStyleIdForTheme(
+        themeId: String,
+        styleId: String,
+    ): String =
+        if (isWinterFamilyTheme(themeId) && styleId == WINTER_WHITE_STYLE_ID) {
             WINTER_STYLE_ID
         } else {
             styleId
         }
-    }
 
     override suspend fun setTheme(themeId: String) {
-        val validThemeId = when {
-            MapsforgeThemeCatalog.isBundledAssetTheme(themeId) &&
-                BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, themeId) -> themeId
-            MapsforgeThemeCatalog.isMapsforgeFamilyTheme(themeId) -> themeId
-            else -> THEME_ID_ELEVATE
-        }
-        val normalizedThemeId = if (validThemeId == THEME_ID_ELEVATE_WINTER_WHITE) {
-            THEME_ID_ELEVATE_WINTER
-        } else {
-            validThemeId
-        }
+        val validThemeId =
+            when {
+                MapsforgeThemeCatalog.isBundledAssetTheme(themeId) &&
+                    BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, themeId) -> themeId
+                MapsforgeThemeCatalog.isMapsforgeFamilyTheme(themeId) -> themeId
+                else -> THEME_ID_ELEVATE
+            }
+        val normalizedThemeId =
+            if (validThemeId == THEME_ID_ELEVATE_WINTER_WHITE) {
+                THEME_ID_ELEVATE_WINTER
+            } else {
+                validThemeId
+            }
         prefs.edit().apply {
             putString(keySelectedThemeId, normalizedThemeId)
             if (isWinterFamilyTheme(normalizedThemeId)) {
@@ -233,8 +239,9 @@ class ThemeRepositoryImpl(
     override suspend fun setMapStyle(styleId: String) {
         val selectedThemeId = selectedThemeIdOrDefault()
         if (MapsforgeThemeCatalog.isMapsforgeFamilyTheme(selectedThemeId)) {
-            val resolvedStyleId = MapsforgeThemeCatalog.optionById(styleId)?.id
-                ?: MapsforgeThemeCatalog.defaultOption().id
+            val resolvedStyleId =
+                MapsforgeThemeCatalog.optionById(styleId)?.id
+                    ?: MapsforgeThemeCatalog.defaultOption().id
             prefs.edit().apply {
                 putString(keySelectedThemeId, THEME_ID_MAPSFORGE)
                 putString(selectedStyleKeyForTheme(THEME_ID_MAPSFORGE), resolvedStyleId)
@@ -245,18 +252,20 @@ class ThemeRepositoryImpl(
         if (!MapsforgeThemeCatalog.isBundledAssetTheme(selectedThemeId)) return
 
         if (isWinterFamilyTheme(selectedThemeId)) {
-            val targetThemeId = when {
-                styleId == WINTER_WHITE_STYLE_ID &&
-                    BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_ELEVATE_WINTER_WHITE) -> {
-                    THEME_ID_ELEVATE_WINTER_WHITE
+            val targetThemeId =
+                when {
+                    styleId == WINTER_WHITE_STYLE_ID &&
+                        BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_ELEVATE_WINTER_WHITE) -> {
+                        THEME_ID_ELEVATE_WINTER_WHITE
+                    }
+                    else -> THEME_ID_ELEVATE_WINTER
                 }
-                else -> THEME_ID_ELEVATE_WINTER
-            }
             val targetParsed = parsedForTheme(targetThemeId)
-            val resolvedStyleId = when {
-                isStyleAllowedForTheme(targetThemeId, WINTER_STYLE_ID, targetParsed) -> WINTER_STYLE_ID
-                else -> resolveDefaultStyleId(targetThemeId, targetParsed) ?: DEFAULT_STYLE_ID
-            }
+            val resolvedStyleId =
+                when {
+                    isStyleAllowedForTheme(targetThemeId, WINTER_STYLE_ID, targetParsed) -> WINTER_STYLE_ID
+                    else -> resolveDefaultStyleId(targetThemeId, targetParsed) ?: DEFAULT_STYLE_ID
+                }
             prefs.edit().apply {
                 putString(keySelectedThemeId, targetThemeId)
                 putString(selectedStyleKeyForTheme(targetThemeId), resolvedStyleId)
@@ -267,19 +276,25 @@ class ThemeRepositoryImpl(
 
         val parsed = parsedForTheme(selectedThemeId)
         val normalizedStyleId = normalizeIncomingStyleIdForTheme(selectedThemeId, styleId)
-        val effectiveStyleId = when {
-            isWinterFamilyTheme(selectedThemeId) && normalizedStyleId == DEFAULT_STYLE_ID &&
-                isStyleAllowedForTheme(selectedThemeId, WINTER_STYLE_ID, parsed) -> WINTER_STYLE_ID
-            normalizedStyleId == DEFAULT_STYLE_ID -> DEFAULT_STYLE_ID
-            isStyleAllowedForTheme(selectedThemeId, normalizedStyleId, parsed) -> normalizedStyleId
-            else -> DEFAULT_STYLE_ID
-        }
-        prefs.edit()
+        val effectiveStyleId =
+            when {
+                isWinterFamilyTheme(selectedThemeId) &&
+                    normalizedStyleId == DEFAULT_STYLE_ID &&
+                    isStyleAllowedForTheme(selectedThemeId, WINTER_STYLE_ID, parsed) -> WINTER_STYLE_ID
+                normalizedStyleId == DEFAULT_STYLE_ID -> DEFAULT_STYLE_ID
+                isStyleAllowedForTheme(selectedThemeId, normalizedStyleId, parsed) -> normalizedStyleId
+                else -> DEFAULT_STYLE_ID
+            }
+        prefs
+            .edit()
             .putString(selectedStyleKeyForTheme(selectedThemeId), effectiveStyleId)
             .apply()
     }
 
-    override suspend fun toggleOverlay(styleId: String, overlayId: String) {
+    override suspend fun toggleOverlay(
+        styleId: String,
+        overlayId: String,
+    ) {
         val selectedThemeId = selectedThemeIdOrDefault()
         if (!MapsforgeThemeCatalog.isBundledAssetTheme(selectedThemeId)) return
         val parsed = parsedForTheme(selectedThemeId)
@@ -290,12 +305,13 @@ class ThemeRepositoryImpl(
         if (overlayId !in style.overlayLayerIds) return
 
         val key = enabledOverlaysKeyFor(selectedThemeId, style.id)
-        val current = if (requestedStyleId == DEFAULT_STYLE_ID) {
-            // "Default" must remain pristine even if explicit default style has custom overlays.
-            getDefaultEnabledOverlays(style, parsed).toMutableSet()
-        } else {
-            readEnabledOverlaysForStyle(selectedThemeId, style, parsed).toMutableSet()
-        }
+        val current =
+            if (requestedStyleId == DEFAULT_STYLE_ID) {
+                // "Default" must remain pristine even if explicit default style has custom overlays.
+                getDefaultEnabledOverlays(style, parsed).toMutableSet()
+            } else {
+                readEnabledOverlaysForStyle(selectedThemeId, style, parsed).toMutableSet()
+            }
 
         if (current.contains(overlayId)) current.remove(overlayId) else current.add(overlayId)
 
@@ -309,7 +325,10 @@ class ThemeRepositoryImpl(
         }
     }
 
-    override suspend fun setOverlaysForStyle(styleId: String, enabledOverlayLayerIds: Set<String>) {
+    override suspend fun setOverlaysForStyle(
+        styleId: String,
+        enabledOverlayLayerIds: Set<String>,
+    ) {
         val selectedThemeId = selectedThemeIdOrDefault()
         if (!MapsforgeThemeCatalog.isBundledAssetTheme(selectedThemeId)) return
         val parsed = parsedForTheme(selectedThemeId)
@@ -319,11 +338,12 @@ class ThemeRepositoryImpl(
         val style = parsed.stylesById[effectiveStyleId] ?: return
 
         val allowed = style.overlayLayerIds.toSet()
-        val sanitized = enabledOverlayLayerIds
-            .asSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && it in allowed }
-            .toSet()
+        val sanitized =
+            enabledOverlayLayerIds
+                .asSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && it in allowed }
+                .toSet()
 
         val key = enabledOverlaysKeyFor(selectedThemeId, style.id)
         val defaults = getDefaultEnabledOverlays(style, parsed)
@@ -349,19 +369,22 @@ class ThemeRepositoryImpl(
     }
 
     override suspend fun setReliefOverlayEnabled(enabled: Boolean) {
-        prefs.edit()
+        prefs
+            .edit()
             .putBoolean(keyReliefOverlayEnabled, enabled)
             .remove(keyLegacySlopeOverlayEnabled)
             .apply()
     }
 
     override suspend fun resetToDefaults() {
-        val editor = prefs.edit()
-            .remove(keySelectedThemeId)
-            .remove(KEY_LEGACY_SELECTED_STYLE)
-            .remove(keyHillShadingEnabled)
-            .remove(keyReliefOverlayEnabled)
-            .remove(keyLegacySlopeOverlayEnabled)
+        val editor =
+            prefs
+                .edit()
+                .remove(keySelectedThemeId)
+                .remove(KEY_LEGACY_SELECTED_STYLE)
+                .remove(keyHillShadingEnabled)
+                .remove(keyReliefOverlayEnabled)
+                .remove(keyLegacySlopeOverlayEnabled)
         parsedByTheme.forEach { (themeId, parsed) ->
             editor.remove(selectedStyleKeyForTheme(themeId))
             parsed.styles.forEach { style ->
@@ -382,30 +405,31 @@ class ThemeRepositoryImpl(
 
     private fun getDefaultEnabledOverlays(
         style: StyleDefinition,
-        parsed: ParsedStyleMenu
-    ): Set<String> {
-        return style.overlayLayerIds
+        parsed: ParsedStyleMenu,
+    ): Set<String> =
+        style.overlayLayerIds
             .asSequence()
             .filter { layerId -> parsed.overlayDefinitions[layerId]?.enabledByDefault == true }
             .toSet()
-    }
 
     private fun readEnabledOverlaysForStyle(
         themeId: String,
         style: StyleDefinition,
-        parsed: ParsedStyleMenu
+        parsed: ParsedStyleMenu,
     ): Set<String> {
         val defaultEnabled = getDefaultEnabledOverlays(style, parsed)
         val allowed = style.overlayLayerIds.toSet()
         val key = enabledOverlaysKeyFor(themeId, style.id)
-        val storedRaw = prefs.getStringSet(key, null)
-            ?: if (themeId == THEME_ID_ELEVATE) prefs.getStringSet(legacyEnabledOverlaysKeyFor(style.id), null) else null
-        val stored = storedRaw
-            ?.asSequence()
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?.toSet()
-            ?: return defaultEnabled
+        val storedRaw =
+            prefs.getStringSet(key, null)
+                ?: if (themeId == THEME_ID_ELEVATE) prefs.getStringSet(legacyEnabledOverlaysKeyFor(style.id), null) else null
+        val stored =
+            storedRaw
+                ?.asSequence()
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.toSet()
+                ?: return defaultEnabled
 
         val valid = stored.filterTo(mutableSetOf()) { it in allowed }
         if (valid.isEmpty() && stored.isNotEmpty()) {
@@ -427,24 +451,32 @@ class ThemeRepositoryImpl(
         if (MapsforgeThemeCatalog.isMapsforgeFamilyTheme(selected)) return THEME_ID_MAPSFORGE
         if (MapsforgeThemeCatalog.isBundledAssetTheme(selected) &&
             BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, selected)
-        ) return selected
+        ) {
+            return selected
+        }
         if (selected == THEME_ID_ELEVATE_WINTER_WHITE &&
             BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_ELEVATE_WINTER)
-        ) return THEME_ID_ELEVATE_WINTER
+        ) {
+            return THEME_ID_ELEVATE_WINTER
+        }
         return THEME_ID_ELEVATE
     }
 
-    private fun selectedStyleIdOrDefault(themeId: String, parsed: ParsedStyleMenu): String {
+    private fun selectedStyleIdOrDefault(
+        themeId: String,
+        parsed: ParsedStyleMenu,
+    ): String {
         if (MapsforgeThemeCatalog.isMapsforgeFamilyTheme(themeId)) {
             return mapsforgeStyleIdOrDefault()
         }
         val styleKey = selectedStyleKeyForTheme(themeId)
         val storedSelectedStyle = prefs.getString(styleKey, null)
-        val legacySelectedStyle = if (themeId == THEME_ID_ELEVATE) {
-            prefs.getString(KEY_LEGACY_SELECTED_STYLE, DEFAULT_STYLE_ID)
-        } else {
-            DEFAULT_STYLE_ID
-        }
+        val legacySelectedStyle =
+            if (themeId == THEME_ID_ELEVATE) {
+                prefs.getString(KEY_LEGACY_SELECTED_STYLE, DEFAULT_STYLE_ID)
+            } else {
+                DEFAULT_STYLE_ID
+            }
         val selectedStyleId = (storedSelectedStyle ?: legacySelectedStyle ?: DEFAULT_STYLE_ID).trim()
         if (isWinterFamilyTheme(themeId)) {
             if (isStyleAllowedForTheme(themeId, selectedStyleId, parsed)) return selectedStyleId
@@ -454,19 +486,19 @@ class ThemeRepositoryImpl(
         return if (isStyleAllowedForTheme(themeId, selectedStyleId, parsed)) selectedStyleId else DEFAULT_STYLE_ID
     }
 
-    private fun hillShadingEnabledOrDefault(): Boolean {
-        return prefs.getBoolean(keyHillShadingEnabled, false)
-    }
+    private fun hillShadingEnabledOrDefault(): Boolean = prefs.getBoolean(keyHillShadingEnabled, false)
 
-    private fun reliefOverlayEnabledOrDefault(): Boolean {
-        return when {
+    private fun reliefOverlayEnabledOrDefault(): Boolean =
+        when {
             prefs.contains(keyReliefOverlayEnabled) -> prefs.getBoolean(keyReliefOverlayEnabled, false)
             prefs.contains(keyLegacySlopeOverlayEnabled) -> prefs.getBoolean(keyLegacySlopeOverlayEnabled, false)
             else -> false
         }
-    }
 
-    private fun resolveDefaultStyleId(themeId: String, parsed: ParsedStyleMenu): String? {
+    private fun resolveDefaultStyleId(
+        themeId: String,
+        parsed: ParsedStyleMenu,
+    ): String? {
         if (MapsforgeThemeCatalog.isMapsforgeFamilyTheme(themeId)) {
             return MapsforgeThemeCatalog.defaultOption().id
         }
@@ -481,9 +513,9 @@ class ThemeRepositoryImpl(
     private fun resolveEffectiveStyleId(
         selectedStyleId: String,
         themeId: String,
-        parsed: ParsedStyleMenu
-    ): String? {
-        return if (selectedStyleId == DEFAULT_STYLE_ID) {
+        parsed: ParsedStyleMenu,
+    ): String? =
+        if (selectedStyleId == DEFAULT_STYLE_ID) {
             resolveDefaultStyleId(themeId, parsed)
         } else {
             if (isStyleAllowedForTheme(themeId, selectedStyleId, parsed)) {
@@ -492,55 +524,60 @@ class ThemeRepositoryImpl(
                 resolveDefaultStyleId(themeId, parsed)
             }
         }
-    }
 
     private fun getCurrentSelection(): ThemeSelection {
         val selectedThemeId = selectedThemeIdOrDefault()
         val hillShadingPreferenceEnabled = hillShadingEnabledOrDefault()
-        val hillShadingEnabled = hillShadingPreferenceEnabled &&
-            themeSupportsNativeHillShading(selectedThemeId)
+        val hillShadingEnabled =
+            hillShadingPreferenceEnabled &&
+                themeSupportsNativeHillShading(selectedThemeId)
         val reliefOverlayEnabled = reliefOverlayEnabledOrDefault()
         if (MapsforgeThemeCatalog.isMapsforgeFamilyTheme(selectedThemeId)) {
             val selectedStyleId = mapsforgeStyleIdOrDefault()
-            val mapsforgeOption = MapsforgeThemeCatalog.optionById(selectedStyleId)
-                ?: MapsforgeThemeCatalog.defaultOption()
+            val mapsforgeOption =
+                MapsforgeThemeCatalog.optionById(selectedStyleId)
+                    ?: MapsforgeThemeCatalog.defaultOption()
             return ThemeSelection(
                 themeId = selectedThemeId,
                 mapsforgeThemeName = mapsforgeOption.themeName,
                 styleId = selectedStyleId,
                 enabledOverlayLayerIds = emptyList(),
                 hillShadingEnabled = hillShadingEnabled,
-                reliefOverlayEnabled = reliefOverlayEnabled
+                reliefOverlayEnabled = reliefOverlayEnabled,
             )
         }
 
         val parsed = parsedForTheme(selectedThemeId)
-        val selectedStyleId = if (isWinterFamilyTheme(selectedThemeId)) {
-            WINTER_STYLE_ID
-        } else {
-            selectedStyleIdOrDefault(selectedThemeId, parsed)
-        }
-        val effectiveStyleId = resolveEffectiveStyleId(selectedStyleId, selectedThemeId, parsed) ?: return ThemeSelection(
-            themeId = selectedThemeId,
-            mapsforgeThemeName = null,
-            styleId = DEFAULT_STYLE_ID,
-            enabledOverlayLayerIds = emptyList(),
-            hillShadingEnabled = hillShadingEnabled,
-            reliefOverlayEnabled = reliefOverlayEnabled
-        )
-        val selectedStyle = parsed.stylesById[effectiveStyleId] ?: return ThemeSelection(
-            themeId = selectedThemeId,
-            mapsforgeThemeName = null,
-            styleId = DEFAULT_STYLE_ID,
-            enabledOverlayLayerIds = emptyList(),
-            hillShadingEnabled = hillShadingEnabled,
-            reliefOverlayEnabled = reliefOverlayEnabled
-        )
-        val enabledLayerIds = if (selectedStyleId == DEFAULT_STYLE_ID) {
-            getDefaultEnabledOverlays(selectedStyle, parsed).toList().sorted()
-        } else {
-            readEnabledOverlaysForStyle(selectedThemeId, selectedStyle, parsed).toList().sorted()
-        }
+        val selectedStyleId =
+            if (isWinterFamilyTheme(selectedThemeId)) {
+                WINTER_STYLE_ID
+            } else {
+                selectedStyleIdOrDefault(selectedThemeId, parsed)
+            }
+        val effectiveStyleId =
+            resolveEffectiveStyleId(selectedStyleId, selectedThemeId, parsed) ?: return ThemeSelection(
+                themeId = selectedThemeId,
+                mapsforgeThemeName = null,
+                styleId = DEFAULT_STYLE_ID,
+                enabledOverlayLayerIds = emptyList(),
+                hillShadingEnabled = hillShadingEnabled,
+                reliefOverlayEnabled = reliefOverlayEnabled,
+            )
+        val selectedStyle =
+            parsed.stylesById[effectiveStyleId] ?: return ThemeSelection(
+                themeId = selectedThemeId,
+                mapsforgeThemeName = null,
+                styleId = DEFAULT_STYLE_ID,
+                enabledOverlayLayerIds = emptyList(),
+                hillShadingEnabled = hillShadingEnabled,
+                reliefOverlayEnabled = reliefOverlayEnabled,
+            )
+        val enabledLayerIds =
+            if (selectedStyleId == DEFAULT_STYLE_ID) {
+                getDefaultEnabledOverlays(selectedStyle, parsed).toList().sorted()
+            } else {
+                readEnabledOverlaysForStyle(selectedThemeId, selectedStyle, parsed).toList().sorted()
+            }
 
         return ThemeSelection(
             themeId = selectedThemeId,
@@ -548,7 +585,7 @@ class ThemeRepositoryImpl(
             styleId = selectedStyleId,
             enabledOverlayLayerIds = enabledLayerIds,
             hillShadingEnabled = hillShadingEnabled,
-            reliefOverlayEnabled = reliefOverlayEnabled
+            reliefOverlayEnabled = reliefOverlayEnabled,
         )
     }
 
@@ -563,64 +600,73 @@ class ThemeRepositoryImpl(
         val items = mutableListOf<ThemeListItem>()
 
         items += ThemeListItem.Header("Theme")
-        items += ThemeListItem.ThemeOption(
-            id = THEME_ID_ELEVATE,
-            name = "Elevate",
-            selected = selectedThemeIdUi == THEME_ID_ELEVATE
-        )
+        items +=
+            ThemeListItem.ThemeOption(
+                id = THEME_ID_ELEVATE,
+                name = "Elevate",
+                selected = selectedThemeIdUi == THEME_ID_ELEVATE,
+            )
         if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_ELEVATE_WINTER) ||
             BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_ELEVATE_WINTER_WHITE)
         ) {
-            items += ThemeListItem.ThemeOption(
-                id = THEME_ID_ELEVATE_WINTER,
-                name = "Elevate Winter",
-                selected = selectedThemeIdUi == THEME_ID_ELEVATE_WINTER
-            )
+            items +=
+                ThemeListItem.ThemeOption(
+                    id = THEME_ID_ELEVATE_WINTER,
+                    name = "Elevate Winter",
+                    selected = selectedThemeIdUi == THEME_ID_ELEVATE_WINTER,
+                )
         }
         if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_HIKE_RIDE_SIGHT)) {
-            items += ThemeListItem.ThemeOption(
-                id = THEME_ID_HIKE_RIDE_SIGHT,
-                name = "Hike, Ride & Sight",
-                selected = selectedThemeIdUi == THEME_ID_HIKE_RIDE_SIGHT
-            )
+            items +=
+                ThemeListItem.ThemeOption(
+                    id = THEME_ID_HIKE_RIDE_SIGHT,
+                    name = "Hike, Ride & Sight",
+                    selected = selectedThemeIdUi == THEME_ID_HIKE_RIDE_SIGHT,
+                )
         }
         if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_OPENHIKING)) {
-            items += ThemeListItem.ThemeOption(
-                id = THEME_ID_OPENHIKING,
-                name = "OpenHiking",
-                selected = selectedThemeIdUi == THEME_ID_OPENHIKING
-            )
+            items +=
+                ThemeListItem.ThemeOption(
+                    id = THEME_ID_OPENHIKING,
+                    name = "OpenHiking",
+                    selected = selectedThemeIdUi == THEME_ID_OPENHIKING,
+                )
         }
         if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_FRENCH_KISS)) {
-            items += ThemeListItem.ThemeOption(
-                id = THEME_ID_FRENCH_KISS,
-                name = "French Kiss",
-                selected = selectedThemeIdUi == THEME_ID_FRENCH_KISS
-            )
+            items +=
+                ThemeListItem.ThemeOption(
+                    id = THEME_ID_FRENCH_KISS,
+                    name = "French Kiss",
+                    selected = selectedThemeIdUi == THEME_ID_FRENCH_KISS,
+                )
         }
         if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_TIRAMISU)) {
-            items += ThemeListItem.ThemeOption(
-                id = THEME_ID_TIRAMISU,
-                name = "Tiramisu",
-                selected = selectedThemeIdUi == THEME_ID_TIRAMISU
-            )
+            items +=
+                ThemeListItem.ThemeOption(
+                    id = THEME_ID_TIRAMISU,
+                    name = "Tiramisu",
+                    selected = selectedThemeIdUi == THEME_ID_TIRAMISU,
+                )
         }
-        items += ThemeListItem.ThemeOption(
-            id = THEME_ID_MAPSFORGE,
-            name = "Mapsforge",
-            selected = selectedThemeIdUi == THEME_ID_MAPSFORGE
-        )
-        items += ThemeListItem.GlobalToggle(
-            id = GLOBAL_HILL_SHADING_ID,
-            name = "Hill Shading",
-            enabled = hillShadingEnabled,
-            supported = hillShadingSupported
-        )
-        items += ThemeListItem.GlobalToggle(
-            id = GLOBAL_RELIEF_OVERLAY_ID,
-            name = "Slope Overlay",
-            enabled = reliefOverlayEnabled
-        )
+        items +=
+            ThemeListItem.ThemeOption(
+                id = THEME_ID_MAPSFORGE,
+                name = "Mapsforge",
+                selected = selectedThemeIdUi == THEME_ID_MAPSFORGE,
+            )
+        items +=
+            ThemeListItem.GlobalToggle(
+                id = GLOBAL_HILL_SHADING_ID,
+                name = "Hill Shading",
+                enabled = hillShadingEnabled,
+                supported = hillShadingSupported,
+            )
+        items +=
+            ThemeListItem.GlobalToggle(
+                id = GLOBAL_RELIEF_OVERLAY_ID,
+                name = "Slope Overlay",
+                enabled = reliefOverlayEnabled,
+            )
 
         if (!themeSupportsStyleSelection(selectedThemeId, parsed)) {
             return items
@@ -628,49 +674,56 @@ class ThemeRepositoryImpl(
 
         items += ThemeListItem.Header("Theme Style")
         if (MapsforgeThemeCatalog.isMapsforgeFamilyTheme(selectedThemeId)) {
-            items += MapsforgeThemeCatalog.options.map { option ->
-                ThemeListItem.Style(
-                    id = option.id,
-                    name = option.label,
-                    selected = option.id == selectedStyleId
-                )
-            }
+            items +=
+                MapsforgeThemeCatalog.options.map { option ->
+                    ThemeListItem.Style(
+                        id = option.id,
+                        name = option.label,
+                        selected = option.id == selectedStyleId,
+                    )
+                }
         } else if (isWinterFamilyTheme(selectedThemeId)) {
-            items += ThemeListItem.Style(
-                id = WINTER_STYLE_ID,
-                name = "Default",
-                selected = selectedThemeId != THEME_ID_ELEVATE_WINTER_WHITE
-            )
-            if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_ELEVATE_WINTER_WHITE)) {
-                items += ThemeListItem.Style(
-                    id = WINTER_WHITE_STYLE_ID,
-                    name = "White",
-                    selected = selectedThemeId == THEME_ID_ELEVATE_WINTER_WHITE
+            items +=
+                ThemeListItem.Style(
+                    id = WINTER_STYLE_ID,
+                    name = "Default",
+                    selected = selectedThemeId != THEME_ID_ELEVATE_WINTER_WHITE,
                 )
+            if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_ELEVATE_WINTER_WHITE)) {
+                items +=
+                    ThemeListItem.Style(
+                        id = WINTER_WHITE_STYLE_ID,
+                        name = "White",
+                        selected = selectedThemeId == THEME_ID_ELEVATE_WINTER_WHITE,
+                    )
             }
         } else {
             val allowedStyles = allowedStylesForTheme(selectedThemeId, parsed)
-            val defaultStyleName = resolveDefaultStyleId(selectedThemeId, parsed)
-                ?.let { parsed.stylesById[it]?.name }
-                ?: "Elevate"
-            val defaultStyleLabel = when (selectedThemeId) {
-                THEME_ID_ELEVATE_WINTER -> "Default (Winter)"
-                THEME_ID_ELEVATE_WINTER_WHITE -> "Default (White ski)"
-                else -> "Default ($defaultStyleName)"
-            }
+            val defaultStyleName =
+                resolveDefaultStyleId(selectedThemeId, parsed)
+                    ?.let { parsed.stylesById[it]?.name }
+                    ?: "Elevate"
+            val defaultStyleLabel =
+                when (selectedThemeId) {
+                    THEME_ID_ELEVATE_WINTER -> "Default (Winter)"
+                    THEME_ID_ELEVATE_WINTER_WHITE -> "Default (White ski)"
+                    else -> "Default ($defaultStyleName)"
+                }
 
-            items += ThemeListItem.Style(
-                id = DEFAULT_STYLE_ID,
-                name = defaultStyleLabel,
-                selected = selectedStyleId == DEFAULT_STYLE_ID
-            )
-            items += allowedStyles.map { style ->
+            items +=
                 ThemeListItem.Style(
-                    id = style.id,
-                    name = style.name,
-                    selected = style.id == selectedStyleId
+                    id = DEFAULT_STYLE_ID,
+                    name = defaultStyleLabel,
+                    selected = selectedStyleId == DEFAULT_STYLE_ID,
                 )
-            }
+            items +=
+                allowedStyles.map { style ->
+                    ThemeListItem.Style(
+                        id = style.id,
+                        name = style.name,
+                        selected = style.id == selectedStyleId,
+                    )
+                }
         }
 
         if (!MapsforgeThemeCatalog.isBundledAssetTheme(selectedThemeId)) {
@@ -682,45 +735,52 @@ class ThemeRepositoryImpl(
         val selectedStyle = effectiveStyleId?.let { parsed.stylesById[it] }
         if (selectedStyle != null && selectedStyle.overlayLayerIds.isNotEmpty()) {
             items += ThemeListItem.Header("Enabled Overlays")
-            val enabledLayerIds = if (selectedStyleIdForOverlay == DEFAULT_STYLE_ID) {
-                getDefaultEnabledOverlays(selectedStyle, parsed)
-            } else {
-                readEnabledOverlaysForStyle(selectedThemeId, selectedStyle, parsed)
-            }
-            val overlays = selectedStyle.overlayLayerIds.map { layerId ->
-                ThemeListItem.Overlay(
-                    layerId = layerId,
-                    name = parsed.overlayDefinitions[layerId]?.name ?: layerId,
-                    enabled = layerId in enabledLayerIds,
-                    defaultEnabled = parsed.overlayDefinitions[layerId]?.enabledByDefault == true
-                )
-            }
+            val enabledLayerIds =
+                if (selectedStyleIdForOverlay == DEFAULT_STYLE_ID) {
+                    getDefaultEnabledOverlays(selectedStyle, parsed)
+                } else {
+                    readEnabledOverlaysForStyle(selectedThemeId, selectedStyle, parsed)
+                }
+            val overlays =
+                selectedStyle.overlayLayerIds.map { layerId ->
+                    ThemeListItem.Overlay(
+                        layerId = layerId,
+                        name = parsed.overlayDefinitions[layerId]?.name ?: layerId,
+                        enabled = layerId in enabledLayerIds,
+                        defaultEnabled = parsed.overlayDefinitions[layerId]?.enabledByDefault == true,
+                    )
+                }
             items += overlays
         }
 
         return items
     }
 
-    private fun allowedStylesForTheme(themeId: String, parsed: ParsedStyleMenu): List<StyleDefinition> {
+    private fun allowedStylesForTheme(
+        themeId: String,
+        parsed: ParsedStyleMenu,
+    ): List<StyleDefinition> {
         if (!isWinterFamilyTheme(themeId)) return parsed.styles
         val winterStyle = parsed.stylesById[WINTER_STYLE_ID] ?: return parsed.styles
         return listOf(winterStyle)
     }
 
-    private fun themeSupportsStyleSelection(themeId: String, parsed: ParsedStyleMenu): Boolean {
-        return when {
+    private fun themeSupportsStyleSelection(
+        themeId: String,
+        parsed: ParsedStyleMenu,
+    ): Boolean =
+        when {
             MapsforgeThemeCatalog.isMapsforgeFamilyTheme(themeId) -> MapsforgeThemeCatalog.options.isNotEmpty()
             isWinterFamilyTheme(themeId) -> {
-            allowedStylesForTheme(themeId, parsed).isNotEmpty()
+                allowedStylesForTheme(themeId, parsed).isNotEmpty()
             }
             else -> parsed.styles.isNotEmpty()
         }
-    }
 
     private fun isStyleAllowedForTheme(
         themeId: String,
         styleId: String,
-        parsed: ParsedStyleMenu
+        parsed: ParsedStyleMenu,
     ): Boolean {
         if (MapsforgeThemeCatalog.isMapsforgeFamilyTheme(themeId)) {
             return MapsforgeThemeCatalog.optionById(styleId) != null

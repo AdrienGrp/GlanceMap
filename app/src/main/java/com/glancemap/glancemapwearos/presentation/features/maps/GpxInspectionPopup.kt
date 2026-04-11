@@ -3,7 +3,6 @@ package com.glancemap.glancemapwearos.presentation.features.maps
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddLocation
@@ -32,11 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.glancemap.glancemapwearos.presentation.features.gpx.InspectionAUiState
 import com.glancemap.glancemapwearos.presentation.features.gpx.InspectionABUiState
+import com.glancemap.glancemapwearos.presentation.features.gpx.InspectionAUiState
 import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import com.glancemap.glancemapwearos.presentation.ui.WearWindowClass
@@ -61,7 +60,7 @@ private data class InspectionPopupSizing(
     val surfaceBottomPadding: Dp,
     val surfaceContentSpacing: Dp,
     val handleBottomPadding: Dp,
-    val showEtaInline: Boolean
+    val showEtaInline: Boolean,
 )
 
 @Composable
@@ -86,7 +85,7 @@ private fun rememberInspectionPopupSizing(): InspectionPopupSizing {
                     surfaceBottomPadding = 4.dp,
                     surfaceContentSpacing = 3.dp,
                     handleBottomPadding = 2.dp,
-                    showEtaInline = true
+                    showEtaInline = true,
                 )
             } else {
                 InspectionPopupSizing(
@@ -105,7 +104,7 @@ private fun rememberInspectionPopupSizing(): InspectionPopupSizing {
                     surfaceBottomPadding = 4.dp,
                     surfaceContentSpacing = 3.dp,
                     handleBottomPadding = 2.dp,
-                    showEtaInline = true
+                    showEtaInline = true,
                 )
             }
         }
@@ -128,7 +127,7 @@ private fun rememberInspectionPopupSizing(): InspectionPopupSizing {
                     surfaceBottomPadding = 3.dp,
                     surfaceContentSpacing = 2.dp,
                     handleBottomPadding = 1.5.dp,
-                    showEtaInline = true
+                    showEtaInline = true,
                 )
             } else {
                 InspectionPopupSizing(
@@ -147,7 +146,7 @@ private fun rememberInspectionPopupSizing(): InspectionPopupSizing {
                     surfaceBottomPadding = 3.dp,
                     surfaceContentSpacing = 2.dp,
                     handleBottomPadding = 1.5.dp,
-                    showEtaInline = true
+                    showEtaInline = true,
                 )
             }
         }
@@ -170,7 +169,7 @@ private fun rememberInspectionPopupSizing(): InspectionPopupSizing {
                     surfaceBottomPadding = 3.dp,
                     surfaceContentSpacing = 2.dp,
                     handleBottomPadding = 1.dp,
-                    showEtaInline = false
+                    showEtaInline = false,
                 )
             } else {
                 InspectionPopupSizing(
@@ -189,7 +188,7 @@ private fun rememberInspectionPopupSizing(): InspectionPopupSizing {
                     surfaceBottomPadding = 3.dp,
                     surfaceContentSpacing = 2.dp,
                     handleBottomPadding = 1.dp,
-                    showEtaInline = true
+                    showEtaInline = true,
                 )
             }
         }
@@ -201,59 +200,69 @@ fun GpxInspectionPopupA(
     state: InspectionAUiState,
     onDismiss: () -> Unit,
     onSelectB: () -> Unit,
-    isMetric: Boolean
+    isMetric: Boolean,
 ) {
     val sizing = rememberInspectionPopupSizing()
     val tableScrollState = rememberScrollState()
-    val distFromStart = remember(state.a.distanceFromStart, isMetric) {
-        UnitFormatter.formatDistance(state.a.distanceFromStart, isMetric)
-    }
-    val distToEnd = remember(state.a.distanceToEnd, isMetric) {
-        UnitFormatter.formatDistance(state.a.distanceToEnd, isMetric)
-    }
+    val distFromStart =
+        remember(state.a.distanceFromStart, isMetric) {
+            UnitFormatter.formatDistance(state.a.distanceFromStart, isMetric)
+        }
+    val distToEnd =
+        remember(state.a.distanceToEnd, isMetric) {
+            UnitFormatter.formatDistance(state.a.distanceToEnd, isMetric)
+        }
 
-    val upFromStart = remember(state.a.elevationGainFromStart, isMetric) {
-        UnitFormatter.formatElevation(state.a.elevationGainFromStart, isMetric)
-    }
-    val upToEnd = remember(state.a.elevationGainToEnd, isMetric) {
-        UnitFormatter.formatElevation(state.a.elevationGainToEnd, isMetric)
-    }
+    val upFromStart =
+        remember(state.a.elevationGainFromStart, isMetric) {
+            UnitFormatter.formatElevation(state.a.elevationGainFromStart, isMetric)
+        }
+    val upToEnd =
+        remember(state.a.elevationGainToEnd, isMetric) {
+            UnitFormatter.formatElevation(state.a.elevationGainToEnd, isMetric)
+        }
 
-    val downFromStart = remember(state.a.elevationLossFromStart, isMetric) {
-        UnitFormatter.formatElevation(state.a.elevationLossFromStart, isMetric)
-    }
-    val downToEnd = remember(state.a.elevationLossToEnd, isMetric) {
-        UnitFormatter.formatElevation(state.a.elevationLossToEnd, isMetric)
-    }
-    val etaFromStart = remember(state.a.durationFromStartSec) {
-        DurationFormatter.formatDurationShort(state.a.durationFromStartSec)
-    }
-    val etaToEnd = remember(state.a.durationToEndSec) {
-        DurationFormatter.formatDurationShort(state.a.durationToEndSec)
-    }
-    val tableWidthMultiplier = remember(
-        distFromStart.first,
-        distToEnd.first,
-        upFromStart.first,
-        upToEnd.first,
-        downFromStart.first,
-        downToEnd.first,
-        etaFromStart,
-        etaToEnd
-    ) {
-        contentWidthMultiplier(
-            values = listOf(
-                distFromStart.first,
-                distToEnd.first,
-                upFromStart.first,
-                upToEnd.first,
-                downFromStart.first,
-                downToEnd.first,
-                etaFromStart,
-                etaToEnd
+    val downFromStart =
+        remember(state.a.elevationLossFromStart, isMetric) {
+            UnitFormatter.formatElevation(state.a.elevationLossFromStart, isMetric)
+        }
+    val downToEnd =
+        remember(state.a.elevationLossToEnd, isMetric) {
+            UnitFormatter.formatElevation(state.a.elevationLossToEnd, isMetric)
+        }
+    val etaFromStart =
+        remember(state.a.durationFromStartSec) {
+            DurationFormatter.formatDurationShort(state.a.durationFromStartSec)
+        }
+    val etaToEnd =
+        remember(state.a.durationToEndSec) {
+            DurationFormatter.formatDurationShort(state.a.durationToEndSec)
+        }
+    val tableWidthMultiplier =
+        remember(
+            distFromStart.first,
+            distToEnd.first,
+            upFromStart.first,
+            upToEnd.first,
+            downFromStart.first,
+            downToEnd.first,
+            etaFromStart,
+            etaToEnd,
+        ) {
+            contentWidthMultiplier(
+                values =
+                    listOf(
+                        distFromStart.first,
+                        distToEnd.first,
+                        upFromStart.first,
+                        upToEnd.first,
+                        downFromStart.first,
+                        downToEnd.first,
+                        etaFromStart,
+                        etaToEnd,
+                    ),
             )
-        )
-    }
+        }
 
     Dialog(onDismissRequest = onDismiss) {
         PopupSurface(onDismiss = onDismiss, sizing = sizing) {
@@ -263,9 +272,10 @@ fun GpxInspectionPopupA(
                 val tableWidth = maxWidth * tableWidthMultiplier
                 Column {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(tableScrollState)
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(tableScrollState),
                     ) {
                         MetricTableCompact(
                             modifier = Modifier.width(tableWidth),
@@ -289,39 +299,40 @@ fun GpxInspectionPopupA(
                             row1Down = downFromStart.first,
                             row2Down = downToEnd.first,
                             row1Eta = etaFromStart,
-                            row2Eta = etaToEnd
+                            row2Eta = etaToEnd,
                         )
                     }
                     HorizontalScrollHintBar(
                         scrollState = tableScrollState,
-                        modifier = Modifier.padding(top = 3.dp)
+                        modifier = Modifier.padding(top = 3.dp),
                     )
                 }
             }
 
             Box(
                 modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Button(
                     onClick = onSelectB,
                     modifier = Modifier.height(sizing.selectBButtonHeight),
-                    contentPadding = PaddingValues(
-                        horizontal = sizing.selectBButtonContentHorizontalPadding,
-                        vertical = sizing.selectBButtonContentVerticalPadding
-                    )
+                    contentPadding =
+                        PaddingValues(
+                            horizontal = sizing.selectBButtonContentHorizontalPadding,
+                            vertical = sizing.selectBButtonContentVerticalPadding,
+                        ),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.AddLocation,
                         contentDescription = "Select point B",
-                        modifier = Modifier.size(sizing.actionIconSize)
+                        modifier = Modifier.size(sizing.actionIconSize),
                     )
                     Spacer(Modifier.width(sizing.actionSpacerWidth))
                     Text(
                         text = "Select B",
                         style = MaterialTheme.typography.labelMedium,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -333,79 +344,93 @@ fun GpxInspectionPopupA(
 fun GpxInspectionPopupAB(
     state: InspectionABUiState,
     onDismiss: () -> Unit,
-    isMetric: Boolean
+    isMetric: Boolean,
 ) {
     val sizing = rememberInspectionPopupSizing()
     val tableScrollState = rememberScrollState()
-    val sToADist = remember(state.sToA.distance, isMetric) {
-        UnitFormatter.formatDistance(state.sToA.distance, isMetric)
-    }
-    val aToBDist = remember(state.aToB.distance, isMetric) {
-        UnitFormatter.formatDistance(state.aToB.distance, isMetric)
-    }
-    val bToEDist = remember(state.bToE.distance, isMetric) {
-        UnitFormatter.formatDistance(state.bToE.distance, isMetric)
-    }
+    val sToADist =
+        remember(state.sToA.distance, isMetric) {
+            UnitFormatter.formatDistance(state.sToA.distance, isMetric)
+        }
+    val aToBDist =
+        remember(state.aToB.distance, isMetric) {
+            UnitFormatter.formatDistance(state.aToB.distance, isMetric)
+        }
+    val bToEDist =
+        remember(state.bToE.distance, isMetric) {
+            UnitFormatter.formatDistance(state.bToE.distance, isMetric)
+        }
 
-    val sToAUp = remember(state.sToA.elevationGain, isMetric) {
-        UnitFormatter.formatElevation(state.sToA.elevationGain, isMetric)
-    }
-    val aToBUp = remember(state.aToB.elevationGain, isMetric) {
-        UnitFormatter.formatElevation(state.aToB.elevationGain, isMetric)
-    }
-    val bToEUp = remember(state.bToE.elevationGain, isMetric) {
-        UnitFormatter.formatElevation(state.bToE.elevationGain, isMetric)
-    }
+    val sToAUp =
+        remember(state.sToA.elevationGain, isMetric) {
+            UnitFormatter.formatElevation(state.sToA.elevationGain, isMetric)
+        }
+    val aToBUp =
+        remember(state.aToB.elevationGain, isMetric) {
+            UnitFormatter.formatElevation(state.aToB.elevationGain, isMetric)
+        }
+    val bToEUp =
+        remember(state.bToE.elevationGain, isMetric) {
+            UnitFormatter.formatElevation(state.bToE.elevationGain, isMetric)
+        }
 
-    val sToADown = remember(state.sToA.elevationLoss, isMetric) {
-        UnitFormatter.formatElevation(state.sToA.elevationLoss, isMetric)
-    }
-    val aToBDown = remember(state.aToB.elevationLoss, isMetric) {
-        UnitFormatter.formatElevation(state.aToB.elevationLoss, isMetric)
-    }
-    val bToEDown = remember(state.bToE.elevationLoss, isMetric) {
-        UnitFormatter.formatElevation(state.bToE.elevationLoss, isMetric)
-    }
-    val sToAEta = remember(state.sToA.durationSec) {
-        DurationFormatter.formatDurationShort(state.sToA.durationSec)
-    }
-    val aToBEta = remember(state.aToB.durationSec) {
-        DurationFormatter.formatDurationShort(state.aToB.durationSec)
-    }
-    val bToEEta = remember(state.bToE.durationSec) {
-        DurationFormatter.formatDurationShort(state.bToE.durationSec)
-    }
-    val tableWidthMultiplier = remember(
-        sToADist.first,
-        aToBDist.first,
-        bToEDist.first,
-        sToAUp.first,
-        aToBUp.first,
-        bToEUp.first,
-        sToADown.first,
-        aToBDown.first,
-        bToEDown.first,
-        sToAEta,
-        aToBEta,
-        bToEEta
-    ) {
-        contentWidthMultiplier(
-            values = listOf(
-                sToADist.first,
-                aToBDist.first,
-                bToEDist.first,
-                sToAUp.first,
-                aToBUp.first,
-                bToEUp.first,
-                sToADown.first,
-                aToBDown.first,
-                bToEDown.first,
-                sToAEta,
-                aToBEta,
-                bToEEta
+    val sToADown =
+        remember(state.sToA.elevationLoss, isMetric) {
+            UnitFormatter.formatElevation(state.sToA.elevationLoss, isMetric)
+        }
+    val aToBDown =
+        remember(state.aToB.elevationLoss, isMetric) {
+            UnitFormatter.formatElevation(state.aToB.elevationLoss, isMetric)
+        }
+    val bToEDown =
+        remember(state.bToE.elevationLoss, isMetric) {
+            UnitFormatter.formatElevation(state.bToE.elevationLoss, isMetric)
+        }
+    val sToAEta =
+        remember(state.sToA.durationSec) {
+            DurationFormatter.formatDurationShort(state.sToA.durationSec)
+        }
+    val aToBEta =
+        remember(state.aToB.durationSec) {
+            DurationFormatter.formatDurationShort(state.aToB.durationSec)
+        }
+    val bToEEta =
+        remember(state.bToE.durationSec) {
+            DurationFormatter.formatDurationShort(state.bToE.durationSec)
+        }
+    val tableWidthMultiplier =
+        remember(
+            sToADist.first,
+            aToBDist.first,
+            bToEDist.first,
+            sToAUp.first,
+            aToBUp.first,
+            bToEUp.first,
+            sToADown.first,
+            aToBDown.first,
+            bToEDown.first,
+            sToAEta,
+            aToBEta,
+            bToEEta,
+        ) {
+            contentWidthMultiplier(
+                values =
+                    listOf(
+                        sToADist.first,
+                        aToBDist.first,
+                        bToEDist.first,
+                        sToAUp.first,
+                        aToBUp.first,
+                        bToEUp.first,
+                        sToADown.first,
+                        aToBDown.first,
+                        bToEDown.first,
+                        sToAEta,
+                        aToBEta,
+                        bToEEta,
+                    ),
             )
-        )
-    }
+        }
 
     Dialog(onDismissRequest = onDismiss) {
         PopupSurface(onDismiss = onDismiss, sizing = sizing) {
@@ -415,9 +440,10 @@ fun GpxInspectionPopupAB(
                 val tableWidth = maxWidth * tableWidthMultiplier
                 Column {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(tableScrollState)
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(tableScrollState),
                     ) {
                         MetricTableCompact(
                             modifier = Modifier.width(tableWidth),
@@ -443,12 +469,12 @@ fun GpxInspectionPopupAB(
                             row3Down = bToEDown.first,
                             row1Eta = sToAEta,
                             row2Eta = aToBEta,
-                            row3Eta = bToEEta
+                            row3Eta = bToEEta,
                         )
                     }
                     HorizontalScrollHintBar(
                         scrollState = tableScrollState,
-                        modifier = Modifier.padding(top = 3.dp)
+                        modifier = Modifier.padding(top = 3.dp),
                     )
                 }
             }
@@ -484,7 +510,7 @@ private fun MetricTableCompact(
     row3Down: String = "",
     row1Eta: String = "",
     row2Eta: String = "",
-    row3Eta: String = ""
+    row3Eta: String = "",
 ) {
     val headerColor = Color.White.copy(alpha = 0.70f)
     val dividerColor = Color.White.copy(alpha = 0.10f)
@@ -496,7 +522,7 @@ private fun MetricTableCompact(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(rowSpacing)
+        verticalArrangement = Arrangement.spacedBy(rowSpacing),
     ) {
         // Header row: single line (no "(unit)" second line)
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -504,32 +530,32 @@ private fun MetricTableCompact(
                 modifier = Modifier.weight(labelW),
                 text = "",
                 color = headerColor,
-                alignEnd = false
+                alignEnd = false,
             )
             HeaderCellOneLine(
                 modifier = Modifier.weight(metricW),
                 text = "Dist $distUnit",
                 color = headerColor,
-                alignEnd = true
+                alignEnd = true,
             )
             HeaderCellOneLine(
                 modifier = Modifier.weight(metricW),
                 text = "↑ $upUnit",
                 color = headerColor,
-                alignEnd = true
+                alignEnd = true,
             )
             HeaderCellOneLine(
                 modifier = Modifier.weight(metricW),
                 text = "↓ $downUnit",
                 color = headerColor,
-                alignEnd = true
+                alignEnd = true,
             )
             if (hasInlineEta) {
                 HeaderCellOneLine(
                     modifier = Modifier.weight(metricW),
                     text = etaHeader.orEmpty(),
                     color = headerColor,
-                    alignEnd = true
+                    alignEnd = true,
                 )
             }
         }
@@ -542,7 +568,7 @@ private fun MetricTableCompact(
                 text = row1Label,
                 compact = compact,
                 endPadding = labelEndPadding,
-                alignEnd = labelAlignEnd
+                alignEnd = labelAlignEnd,
             )
             ValueCell(Modifier.weight(metricW), row1Dist, compact = compact)
             ValueCell(Modifier.weight(metricW), row1Up, compact = compact)
@@ -561,7 +587,7 @@ private fun MetricTableCompact(
                 text = row2Label,
                 compact = compact,
                 endPadding = labelEndPadding,
-                alignEnd = labelAlignEnd
+                alignEnd = labelAlignEnd,
             )
             ValueCell(Modifier.weight(metricW), row2Dist, compact = compact)
             ValueCell(Modifier.weight(metricW), row2Up, compact = compact)
@@ -581,7 +607,7 @@ private fun MetricTableCompact(
                     text = row3Label,
                     compact = compact,
                     endPadding = labelEndPadding,
-                    alignEnd = labelAlignEnd
+                    alignEnd = labelAlignEnd,
                 )
                 ValueCell(Modifier.weight(metricW), row3Dist, compact = compact)
                 ValueCell(Modifier.weight(metricW), row3Up, compact = compact)
@@ -600,7 +626,7 @@ private fun MetricTableCompact(
 @Composable
 private fun EtaSecondaryLine(
     text: String,
-    compact: Boolean
+    compact: Boolean,
 ) {
     Text(
         modifier = Modifier.fillMaxWidth(),
@@ -609,7 +635,7 @@ private fun EtaSecondaryLine(
         color = Color.White.copy(alpha = 0.84f),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        textAlign = androidx.compose.ui.text.style.TextAlign.End
+        textAlign = androidx.compose.ui.text.style.TextAlign.End,
     )
 }
 
@@ -622,7 +648,7 @@ private fun contentWidthMultiplier(values: List<String>): Float {
 @Composable
 private fun HorizontalScrollHintBar(
     scrollState: androidx.compose.foundation.ScrollState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val maxScroll = scrollState.maxValue
     if (maxScroll <= 0) return
@@ -631,26 +657,29 @@ private fun HorizontalScrollHintBar(
     val thumbFraction = (1f / (1f + maxScroll / 360f)).coerceIn(0.22f, 0.85f)
 
     BoxWithConstraints(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(4.dp)
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(4.dp),
     ) {
         val thumbWidth = maxWidth * thumbFraction
         val travel = (maxWidth - thumbWidth)
         val start = travel * progress
 
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(50))
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(50)),
         )
         Box(
-            modifier = Modifier
-                .padding(start = start)
-                .width(thumbWidth)
-                .height(3.dp)
-                .background(Color.White.copy(alpha = 0.78f), RoundedCornerShape(50))
+            modifier =
+                Modifier
+                    .padding(start = start)
+                    .width(thumbWidth)
+                    .height(3.dp)
+                    .background(Color.White.copy(alpha = 0.78f), RoundedCornerShape(50)),
         )
     }
 }
@@ -660,7 +689,7 @@ private fun HeaderCellOneLine(
     modifier: Modifier,
     text: String,
     color: Color,
-    alignEnd: Boolean
+    alignEnd: Boolean,
 ) {
     Text(
         modifier = modifier,
@@ -669,8 +698,12 @@ private fun HeaderCellOneLine(
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Clip,
-        textAlign = if (alignEnd) androidx.compose.ui.text.style.TextAlign.End
-        else androidx.compose.ui.text.style.TextAlign.Start
+        textAlign =
+            if (alignEnd) {
+                androidx.compose.ui.text.style.TextAlign.End
+            } else {
+                androidx.compose.ui.text.style.TextAlign.Start
+            },
     )
 }
 
@@ -680,7 +713,7 @@ private fun LabelCell(
     text: String,
     compact: Boolean = false,
     endPadding: Dp = 6.dp,
-    alignEnd: Boolean = true
+    alignEnd: Boolean = true,
 ) {
     Text(
         modifier = modifier.padding(end = endPadding),
@@ -689,8 +722,12 @@ private fun LabelCell(
         color = Color.White,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        textAlign = if (alignEnd) androidx.compose.ui.text.style.TextAlign.End
-        else androidx.compose.ui.text.style.TextAlign.Start
+        textAlign =
+            if (alignEnd) {
+                androidx.compose.ui.text.style.TextAlign.End
+            } else {
+                androidx.compose.ui.text.style.TextAlign.Start
+            },
     )
 }
 
@@ -698,7 +735,7 @@ private fun LabelCell(
 private fun ValueCell(
     modifier: Modifier,
     text: String,
-    compact: Boolean = false
+    compact: Boolean = false,
 ) {
     Text(
         modifier = modifier,
@@ -707,17 +744,18 @@ private fun ValueCell(
         color = Color.White,
         maxLines = 1,
         overflow = TextOverflow.Clip,
-        textAlign = androidx.compose.ui.text.style.TextAlign.End
+        textAlign = androidx.compose.ui.text.style.TextAlign.End,
     )
 }
 
 @Composable
 private fun DividerLine(color: Color) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(color)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(color),
     )
 }
 
@@ -725,14 +763,14 @@ private fun DividerLine(color: Color) {
 private fun PopupSurface(
     onDismiss: () -> Unit,
     sizing: InspectionPopupSizing,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = remember(sizing.surfaceCornerRadius) { RoundedCornerShape(sizing.surfaceCornerRadius) }
     DialogSurface(
         onDismiss = onDismiss,
         shape = shape,
         sizing = sizing,
-        content = content
+        content = content,
     )
 }
 
@@ -741,32 +779,33 @@ private fun DialogSurface(
     onDismiss: () -> Unit,
     shape: RoundedCornerShape,
     sizing: InspectionPopupSizing,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .pointerInput(Unit) {
-                var totalDrag = 0f
-                detectVerticalDragGestures(
-                    onDragEnd = { totalDrag = 0f },
-                    onDragCancel = { totalDrag = 0f }
-                ) { _, dragAmount ->
-                    totalDrag += dragAmount
-                    if (abs(totalDrag) > DragDismissPx) {
-                        onDismiss()
-                        totalDrag = 0f
+        modifier =
+            Modifier
+                .pointerInput(Unit) {
+                    var totalDrag = 0f
+                    detectVerticalDragGestures(
+                        onDragEnd = { totalDrag = 0f },
+                        onDragCancel = { totalDrag = 0f },
+                    ) { _, dragAmount ->
+                        totalDrag += dragAmount
+                        if (abs(totalDrag) > DragDismissPx) {
+                            onDismiss()
+                            totalDrag = 0f
+                        }
                     }
                 }
-            }
-            // Slightly tighter padding to move content upward
-            .background(Color.Black.copy(alpha = 0.82f), shape)
-            .padding(
-                start = sizing.surfacePaddingHorizontal,
-                end = sizing.surfacePaddingHorizontal,
-                top = sizing.surfaceTopPadding,
-                bottom = sizing.surfaceBottomPadding
-            ),
-        verticalArrangement = Arrangement.spacedBy(sizing.surfaceContentSpacing)
+                // Slightly tighter padding to move content upward
+                .background(Color.Black.copy(alpha = 0.82f), shape)
+                .padding(
+                    start = sizing.surfacePaddingHorizontal,
+                    end = sizing.surfacePaddingHorizontal,
+                    top = sizing.surfaceTopPadding,
+                    bottom = sizing.surfaceBottomPadding,
+                ),
+        verticalArrangement = Arrangement.spacedBy(sizing.surfaceContentSpacing),
     ) {
         content()
     }
@@ -777,19 +816,21 @@ private fun DialogSurface(
  */
 @Composable
 private fun SwipeHandleHint(
-    sizing: InspectionPopupSizing
+    sizing: InspectionPopupSizing,
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = sizing.handleBottomPadding),
-        contentAlignment = Alignment.Center
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = sizing.handleBottomPadding),
+        contentAlignment = Alignment.Center,
     ) {
         Box(
-            modifier = Modifier
-                .width(26.dp)
-                .height(3.dp)
-                .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50))
+            modifier =
+                Modifier
+                    .width(26.dp)
+                    .height(3.dp)
+                    .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
         )
     }
 }

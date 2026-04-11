@@ -29,14 +29,19 @@ internal object EnergyDiagnostics {
 
     fun maxBufferedLines(): Int = MAX_LINES
 
-    fun recordSample(context: Context, reason: String, detail: String = "") {
+    fun recordSample(
+        context: Context,
+        reason: String,
+        detail: String = "",
+    ) {
         if (!DebugTelemetry.isEnabled()) return
 
         val batteryManager = context.getSystemService(BatteryManager::class.java)
         val powerManager = context.getSystemService(PowerManager::class.java)
-        val batteryIntent = runCatching {
-            context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        }.getOrNull()
+        val batteryIntent =
+            runCatching {
+                context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            }.getOrNull()
 
         val levelPct = batteryPercent(batteryIntent)
         val batteryStatus = batteryStatus(batteryIntent)
@@ -50,41 +55,47 @@ internal object EnergyDiagnostics {
 
         val powerSave = powerManager?.isPowerSaveMode ?: false
         val interactive = powerManager?.isInteractive ?: false
-        val thermal = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && powerManager != null) {
-            powerManager.currentThermalStatus.toString()
-        } else {
-            "na"
-        }
-
-        val line = buildString {
-            append("reason=").append(reason)
-            if (detail.isNotBlank()) {
-                append(" ").append(detail)
+        val thermal =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && powerManager != null) {
+                powerManager.currentThermalStatus.toString()
+            } else {
+                "na"
             }
-            append(" level=").append(levelPct)
-            append(" status=").append(batteryStatus)
-            append(" plugged=").append(plugged)
-            append(" tempC=").append(temperatureC)
-            append(" voltMv=").append(voltageMv)
-            append(" curNowUa=").append(propertyOrNa(currentNowUa))
-            append(" curAvgUa=").append(propertyOrNa(currentAvgUa))
-            append(" capPropPct=").append(propertyOrNa(capacityPct))
-            append(" saver=").append(powerSave)
-            append(" interactive=").append(interactive)
-            append(" thermal=").append(thermal)
-        }
+
+        val line =
+            buildString {
+                append("reason=").append(reason)
+                if (detail.isNotBlank()) {
+                    append(" ").append(detail)
+                }
+                append(" level=").append(levelPct)
+                append(" status=").append(batteryStatus)
+                append(" plugged=").append(plugged)
+                append(" tempC=").append(temperatureC)
+                append(" voltMv=").append(voltageMv)
+                append(" curNowUa=").append(propertyOrNa(currentNowUa))
+                append(" curAvgUa=").append(propertyOrNa(currentAvgUa))
+                append(" capPropPct=").append(propertyOrNa(capacityPct))
+                append(" saver=").append(powerSave)
+                append(" interactive=").append(interactive)
+                append(" thermal=").append(thermal)
+            }
 
         push(line)
         DebugTelemetry.log(TAG, line)
     }
 
-    fun recordEvent(reason: String, detail: String = "") {
+    fun recordEvent(
+        reason: String,
+        detail: String = "",
+    ) {
         if (!DebugTelemetry.isEnabled()) return
-        val line = if (detail.isBlank()) {
-            "reason=$reason"
-        } else {
-            "reason=$reason $detail"
-        }
+        val line =
+            if (detail.isBlank()) {
+                "reason=$reason"
+            } else {
+                "reason=$reason $detail"
+            }
         push(line)
         DebugTelemetry.log(TAG, line)
     }
@@ -113,8 +124,9 @@ internal object EnergyDiagnostics {
     }
 
     private fun batteryTemperatureC(intent: Intent?): String {
-        val tempTenths = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
-            ?: Int.MIN_VALUE
+        val tempTenths =
+            intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
+                ?: Int.MIN_VALUE
         if (tempTenths == Int.MIN_VALUE) return "na"
         return "%.1f".format(tempTenths / 10f)
     }
@@ -125,22 +137,20 @@ internal object EnergyDiagnostics {
         return voltage.toString()
     }
 
-    private fun batteryStatus(intent: Intent?): String {
-        return when (intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1) {
+    private fun batteryStatus(intent: Intent?): String =
+        when (intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1) {
             BatteryManager.BATTERY_STATUS_CHARGING -> "charging"
             BatteryManager.BATTERY_STATUS_DISCHARGING -> "discharging"
             BatteryManager.BATTERY_STATUS_FULL -> "full"
             BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "not_charging"
             else -> "unknown"
         }
-    }
 
-    private fun batteryPlugged(intent: Intent?): String {
-        return when (intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) {
+    private fun batteryPlugged(intent: Intent?): String =
+        when (intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) {
             BatteryManager.BATTERY_PLUGGED_AC -> "ac"
             BatteryManager.BATTERY_PLUGGED_USB -> "usb"
             BatteryManager.BATTERY_PLUGGED_WIRELESS -> "wireless"
             else -> "battery"
         }
-    }
 }

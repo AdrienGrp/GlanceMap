@@ -5,7 +5,7 @@ import java.io.File
 
 data class AppDerivedCacheCleanupResult(
     val deletedTargets: Int,
-    val deletedBytes: Long
+    val deletedBytes: Long,
 )
 
 object AppDerivedCacheCleaner {
@@ -35,35 +35,44 @@ object AppDerivedCacheCleaner {
 
         return AppDerivedCacheCleanupResult(
             deletedTargets = deletedTargets,
-            deletedBytes = deletedBytes
+            deletedBytes = deletedBytes,
         )
     }
 
-    private fun collectExternalCacheTargets(root: File?, out: MutableSet<File>) {
+    private fun collectExternalCacheTargets(
+        root: File?,
+        out: MutableSet<File>,
+    ) {
         if (root == null || !root.exists() || !root.isDirectory) return
-        root.listFiles()
+        root
+            .listFiles()
             ?.asSequence()
             ?.filter { candidate ->
-                candidate.isDirectory && (
-                    candidate.name.startsWith(MAP_CACHE_PREFIX) ||
-                        candidate.name == RELIEF_OVERLAY_CACHE_DIR_NAME ||
-                        candidate.name == LEGACY_SLOPE_OVERLAY_CACHE_DIR_NAME
+                candidate.isDirectory &&
+                    (
+                        candidate.name.startsWith(MAP_CACHE_PREFIX) ||
+                            candidate.name == RELIEF_OVERLAY_CACHE_DIR_NAME ||
+                            candidate.name == LEGACY_SLOPE_OVERLAY_CACHE_DIR_NAME
                     )
-            }
-            ?.forEach(out::add)
+            }?.forEach(out::add)
     }
 
-    private fun collectInternalCacheTargets(root: File?, out: MutableSet<File>) {
+    private fun collectInternalCacheTargets(
+        root: File?,
+        out: MutableSet<File>,
+    ) {
         if (root == null || !root.exists() || !root.isDirectory) return
-        root.listFiles()
+        root
+            .listFiles()
             ?.asSequence()
             ?.filter { candidate ->
-                (candidate.isFile &&
-                    candidate.name.startsWith(DYNAMIC_THEME_PREFIX) &&
-                    candidate.name.endsWith(DYNAMIC_THEME_SUFFIX)) ||
+                (
+                    candidate.isFile &&
+                        candidate.name.startsWith(DYNAMIC_THEME_PREFIX) &&
+                        candidate.name.endsWith(DYNAMIC_THEME_SUFFIX)
+                ) ||
                     (candidate.isDirectory && candidate.name == ELEVATE_RESOURCES_DIR_NAME)
-            }
-            ?.forEach(out::add)
+            }?.forEach(out::add)
     }
 
     private fun targetSizeBytes(target: File): Long {

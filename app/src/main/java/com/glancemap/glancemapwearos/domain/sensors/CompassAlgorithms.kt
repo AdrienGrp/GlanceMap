@@ -11,10 +11,12 @@ internal fun resolveHeadingSensor(sensorManager: SensorManager): Sensor? {
         sensorManager.getDefaultSensor(Sensor.TYPE_HEADING, true)
     }.getOrNull()?.let { return it }
 
-    val headingStringType = runCatching { Sensor.STRING_TYPE_HEADING }
-        .getOrDefault("android.sensor.heading")
-    val allSensors = runCatching { sensorManager.getSensorList(Sensor.TYPE_ALL) }
-        .getOrDefault(emptyList())
+    val headingStringType =
+        runCatching { Sensor.STRING_TYPE_HEADING }
+            .getOrDefault("android.sensor.heading")
+    val allSensors =
+        runCatching { sensorManager.getSensorList(Sensor.TYPE_ALL) }
+            .getOrDefault(emptyList())
     return allSensors.firstOrNull { sensor ->
         sensor.type == Sensor.TYPE_HEADING || sensor.stringType == headingStringType
     }
@@ -69,12 +71,14 @@ internal const val MAG_FIELD_EMA_ALPHA = 0.22f
 internal const val DEADBAND_CONVERGENCE_ALPHA = 0.08f
 internal const val DEADBAND_CONVERGENCE_EPSILON_DEG = 0.04f
 
-enum class HeadingSource(val telemetryToken: String) {
+enum class HeadingSource(
+    val telemetryToken: String,
+) {
     NONE("none"),
     FUSED_ORIENTATION("google_fused"),
     HEADING_SENSOR("heading_sensor"),
     ROTATION_VECTOR("rotation_vector"),
-    MAG_ACCEL_FALLBACK("mag_accel_fallback")
+    MAG_ACCEL_FALLBACK("mag_accel_fallback"),
 }
 
 data class HeadingSourceStatus(
@@ -82,7 +86,7 @@ data class HeadingSourceStatus(
     val activeSource: HeadingSource,
     val headingSensorAvailable: Boolean,
     val rotationVectorAvailable: Boolean,
-    val magAccelFallbackAvailable: Boolean
+    val magAccelFallbackAvailable: Boolean,
 )
 
 data class NorthReferenceStatus(
@@ -90,29 +94,30 @@ data class NorthReferenceStatus(
     val effectiveMode: NorthReferenceMode,
     val declinationAvailable: Boolean,
     val waitingForDeclination: Boolean,
-    val pipeline: HeadingPipeline
+    val pipeline: HeadingPipeline,
 )
 
 enum class HeadingPipeline {
     NONE,
     HEADING_SENSOR,
     ROTATION_VECTOR,
-    MAG_ACCEL_FALLBACK
+    MAG_ACCEL_FALLBACK,
 }
 
 internal fun resolveHeadingPipeline(
     mode: CompassHeadingSourceMode,
     headingSensorAvailable: Boolean,
     rotationVectorAvailable: Boolean,
-    magAccelFallbackAvailable: Boolean
-): HeadingPipeline {
-    return when (mode) {
-        CompassHeadingSourceMode.AUTO -> when {
-            headingSensorAvailable -> HeadingPipeline.HEADING_SENSOR
-            rotationVectorAvailable -> HeadingPipeline.ROTATION_VECTOR
-            magAccelFallbackAvailable -> HeadingPipeline.MAG_ACCEL_FALLBACK
-            else -> HeadingPipeline.NONE
-        }
+    magAccelFallbackAvailable: Boolean,
+): HeadingPipeline =
+    when (mode) {
+        CompassHeadingSourceMode.AUTO ->
+            when {
+                headingSensorAvailable -> HeadingPipeline.HEADING_SENSOR
+                rotationVectorAvailable -> HeadingPipeline.ROTATION_VECTOR
+                magAccelFallbackAvailable -> HeadingPipeline.MAG_ACCEL_FALLBACK
+                else -> HeadingPipeline.NONE
+            }
         CompassHeadingSourceMode.TYPE_HEADING ->
             if (headingSensorAvailable) HeadingPipeline.HEADING_SENSOR else HeadingPipeline.NONE
         CompassHeadingSourceMode.ROTATION_VECTOR ->
@@ -120,52 +125,58 @@ internal fun resolveHeadingPipeline(
         CompassHeadingSourceMode.MAGNETOMETER ->
             if (magAccelFallbackAvailable) HeadingPipeline.MAG_ACCEL_FALLBACK else HeadingPipeline.NONE
     }
-}
 
 internal fun resolveNorthReferenceStatus(
     requestedMode: NorthReferenceMode,
     pipeline: HeadingPipeline,
-    declinationAvailable: Boolean
+    declinationAvailable: Boolean,
 ): NorthReferenceStatus {
-    val effectiveMode = when (pipeline) {
-        HeadingPipeline.HEADING_SENSOR -> when (requestedMode) {
-            NorthReferenceMode.TRUE -> NorthReferenceMode.TRUE
-            NorthReferenceMode.MAGNETIC ->
-                if (declinationAvailable) NorthReferenceMode.MAGNETIC else NorthReferenceMode.TRUE
+    val effectiveMode =
+        when (pipeline) {
+            HeadingPipeline.HEADING_SENSOR ->
+                when (requestedMode) {
+                    NorthReferenceMode.TRUE -> NorthReferenceMode.TRUE
+                    NorthReferenceMode.MAGNETIC ->
+                        if (declinationAvailable) NorthReferenceMode.MAGNETIC else NorthReferenceMode.TRUE
+                }
+            HeadingPipeline.ROTATION_VECTOR,
+            HeadingPipeline.MAG_ACCEL_FALLBACK,
+            ->
+                when (requestedMode) {
+                    NorthReferenceMode.TRUE ->
+                        if (declinationAvailable) NorthReferenceMode.TRUE else NorthReferenceMode.MAGNETIC
+                    NorthReferenceMode.MAGNETIC -> NorthReferenceMode.MAGNETIC
+                }
+            HeadingPipeline.NONE ->
+                when (requestedMode) {
+                    NorthReferenceMode.TRUE ->
+                        if (declinationAvailable) NorthReferenceMode.TRUE else NorthReferenceMode.MAGNETIC
+                    NorthReferenceMode.MAGNETIC -> NorthReferenceMode.MAGNETIC
+                }
         }
-        HeadingPipeline.ROTATION_VECTOR,
-        HeadingPipeline.MAG_ACCEL_FALLBACK -> when (requestedMode) {
-            NorthReferenceMode.TRUE ->
-                if (declinationAvailable) NorthReferenceMode.TRUE else NorthReferenceMode.MAGNETIC
-            NorthReferenceMode.MAGNETIC -> NorthReferenceMode.MAGNETIC
-        }
-        HeadingPipeline.NONE -> when (requestedMode) {
-            NorthReferenceMode.TRUE ->
-                if (declinationAvailable) NorthReferenceMode.TRUE else NorthReferenceMode.MAGNETIC
-            NorthReferenceMode.MAGNETIC -> NorthReferenceMode.MAGNETIC
-        }
-    }
     return NorthReferenceStatus(
         requestedMode = requestedMode,
         effectiveMode = effectiveMode,
         declinationAvailable = declinationAvailable,
         waitingForDeclination = effectiveMode != requestedMode,
-        pipeline = pipeline
+        pipeline = pipeline,
     )
 }
 
-internal enum class StartupTransientAction(val telemetryToken: String) {
+internal enum class StartupTransientAction(
+    val telemetryToken: String,
+) {
     IGNORE_AWAIT_CONFIRMATION("await_confirmation"),
     IGNORE_REPLACE_CANDIDATE("replace_candidate"),
     ACCEPT_CONFIRMED("confirmed"),
-    ACCEPT_FORCED("forced_after_budget")
+    ACCEPT_FORCED("forced_after_budget"),
 }
 
 internal data class StartupTransientDecision(
     val action: StartupTransientAction,
     val nextCandidateHeadingDeg: Float?,
     val nextRemainingSamplesToIgnore: Int,
-    val acceptedHeadingDeg: Float?
+    val acceptedHeadingDeg: Float?,
 )
 
 internal fun resolveStartupTransientAction(
@@ -174,7 +185,7 @@ internal fun resolveStartupTransientAction(
     remainingSamplesToIgnore: Int,
     withinStartupWindow: Boolean,
     usingRotationVector: Boolean,
-    hasInit: Boolean
+    hasInit: Boolean,
 ): StartupTransientDecision? {
     if (!withinStartupWindow || !usingRotationVector || hasInit || remainingSamplesToIgnore <= 0) {
         return null
@@ -184,7 +195,7 @@ internal fun resolveStartupTransientAction(
             action = StartupTransientAction.IGNORE_AWAIT_CONFIRMATION,
             nextCandidateHeadingDeg = rawDeg,
             nextRemainingSamplesToIgnore = remainingSamplesToIgnore - 1,
-            acceptedHeadingDeg = null
+            acceptedHeadingDeg = null,
         )
     }
     val deltaDeg = abs(shortestAngleDiffDeg(target = rawDeg, current = candidateHeadingDeg))
@@ -193,7 +204,7 @@ internal fun resolveStartupTransientAction(
             action = StartupTransientAction.ACCEPT_CONFIRMED,
             nextCandidateHeadingDeg = null,
             nextRemainingSamplesToIgnore = 0,
-            acceptedHeadingDeg = rawDeg
+            acceptedHeadingDeg = rawDeg,
         )
     }
     return if (remainingSamplesToIgnore > 1) {
@@ -201,14 +212,14 @@ internal fun resolveStartupTransientAction(
             action = StartupTransientAction.IGNORE_REPLACE_CANDIDATE,
             nextCandidateHeadingDeg = rawDeg,
             nextRemainingSamplesToIgnore = remainingSamplesToIgnore - 1,
-            acceptedHeadingDeg = null
+            acceptedHeadingDeg = null,
         )
     } else {
         StartupTransientDecision(
             action = StartupTransientAction.ACCEPT_FORCED,
             nextCandidateHeadingDeg = null,
             nextRemainingSamplesToIgnore = 0,
-            acceptedHeadingDeg = rawDeg
+            acceptedHeadingDeg = rawDeg,
         )
     }
 }
@@ -217,14 +228,17 @@ internal fun shouldMaskStartupHeadingPublish(
     candidateHeadingDeg: Float,
     displayedHeadingDeg: Float,
     remainingPublishesToMask: Int,
-    withinMaskWindow: Boolean
+    withinMaskWindow: Boolean,
 ): Boolean {
     if (!withinMaskWindow || remainingPublishesToMask <= 0) return false
     val deltaDeg = abs(shortestAngleDiffDeg(target = candidateHeadingDeg, current = displayedHeadingDeg))
     return deltaDeg >= STARTUP_HEADING_PUBLISH_MASK_MIN_DELTA_DEG
 }
 
-internal fun shortestAngleDiffDeg(target: Float, current: Float): Float {
+internal fun shortestAngleDiffDeg(
+    target: Float,
+    current: Float,
+): Float {
     var diff = (target - current + 540f) % 360f - 180f
     if (abs(diff + 180f) < 1e-3f) {
         val rawSigned = target - current
@@ -238,12 +252,13 @@ internal fun normalize360Deg(deg: Float): Float = (deg % 360f + 360f) % 360f
 internal fun headingWithNorthReference(
     azimuthDeg: Float,
     declinationDeg: Float?,
-    northReferenceMode: NorthReferenceMode
+    northReferenceMode: NorthReferenceMode,
 ): Float {
-    val correction = when (northReferenceMode) {
-        NorthReferenceMode.TRUE -> declinationDeg ?: 0f
-        NorthReferenceMode.MAGNETIC -> 0f
-    }
+    val correction =
+        when (northReferenceMode) {
+            NorthReferenceMode.TRUE -> declinationDeg ?: 0f
+            NorthReferenceMode.MAGNETIC -> 0f
+        }
     return normalize360Deg(azimuthDeg + correction)
 }
 
@@ -251,7 +266,7 @@ internal fun remapHeadingForNorthReferenceSwitch(
     currentHeadingDeg: Float,
     fromMode: NorthReferenceMode,
     toMode: NorthReferenceMode,
-    declinationDeg: Float?
+    declinationDeg: Float?,
 ): Float {
     if (!currentHeadingDeg.isFinite()) return currentHeadingDeg
     if (fromMode == toMode) return normalize360Deg(currentHeadingDeg)
@@ -270,7 +285,7 @@ internal fun deadbandConvergenceAlpha(
     minDeltaDeg: Float,
     isFastTurn: Boolean,
     isModerateTurn: Boolean,
-    isNoisy: Boolean
+    isNoisy: Boolean,
 ): Float {
     if (!diffDeg.isFinite() || !minDeltaDeg.isFinite()) return 0f
     if (isFastTurn || isModerateTurn || isNoisy) return 0f
@@ -283,21 +298,20 @@ internal fun deadbandConvergenceAlpha(
 internal fun resolveHeadingSmoothingMinDelta(
     isFastTurn: Boolean,
     isModerateTurn: Boolean,
-    isNoisy: Boolean
-): Float {
-    return when {
+    isNoisy: Boolean,
+): Float =
+    when {
         isFastTurn -> 0.35f
         isModerateTurn -> 0.60f
         isNoisy -> 1.5f
         else -> 0.4f
     }
-}
 
 internal fun resolveHeadingSmoothingAlpha(
     diffDeg: Float,
     isFastTurn: Boolean,
     isModerateTurn: Boolean,
-    isNoisy: Boolean
+    isNoisy: Boolean,
 ): Float {
     val absDiff = abs(diffDeg)
     return when {
@@ -312,18 +326,19 @@ internal enum class LargeJumpAction {
     NONE,
     ACCEPT_IMMEDIATE,
     ACCEPT_CONFIRMED,
-    REJECT_PENDING
+    REJECT_PENDING,
 }
 
 internal fun resolveLargeJumpAction(
     jumpDeg: Float,
     inRelock: Boolean,
     hasPendingLargeJump: Boolean,
-    pendingDeltaDeg: Float
+    pendingDeltaDeg: Float,
 ): LargeJumpAction {
     if (jumpDeg <= HEADING_LARGE_JUMP_REJECT_DEG) return LargeJumpAction.NONE
     if (inRelock) return LargeJumpAction.ACCEPT_IMMEDIATE
-    if (hasPendingLargeJump && pendingDeltaDeg.isFinite() &&
+    if (hasPendingLargeJump &&
+        pendingDeltaDeg.isFinite() &&
         pendingDeltaDeg <= HEADING_LARGE_JUMP_CONFIRM_MAX_DELTA_DEG
     ) {
         return LargeJumpAction.ACCEPT_CONFIRMED
@@ -335,76 +350,85 @@ internal data class MagneticInterferenceState(
     val strengthUt: Float,
     val emaUt: Float,
     val holdUntilElapsedMs: Long,
-    val detected: Boolean
+    val detected: Boolean,
 )
 
 internal data class MagneticInterferenceStep(
     val state: MagneticInterferenceState,
     val reason: String,
     val smoothedStrengthUt: Float,
-    val deltaUt: Float
+    val deltaUt: Float,
 )
 
 internal fun stepMagneticInterferenceState(
     state: MagneticInterferenceState,
     strengthUt: Float,
     nowElapsedMs: Long,
-    startupGraceUntilElapsedMs: Long
+    startupGraceUntilElapsedMs: Long,
 ): MagneticInterferenceStep {
     if (nowElapsedMs < startupGraceUntilElapsedMs) {
         return MagneticInterferenceStep(
-            state = state.copy(
-                strengthUt = Float.NaN,
-                emaUt = Float.NaN,
-                holdUntilElapsedMs = 0L,
-                detected = false
-            ),
+            state =
+                state.copy(
+                    strengthUt = Float.NaN,
+                    emaUt = Float.NaN,
+                    holdUntilElapsedMs = 0L,
+                    detected = false,
+                ),
             reason = "startup_grace",
             smoothedStrengthUt = Float.NaN,
-            deltaUt = 0f
+            deltaUt = 0f,
         )
     }
 
     val previousStrengthUt = state.strengthUt
-    val emaUt = if (!state.emaUt.isFinite()) {
-        strengthUt
-    } else {
-        MAG_FIELD_EMA_ALPHA * strengthUt + (1f - MAG_FIELD_EMA_ALPHA) * state.emaUt
-    }
+    val emaUt =
+        if (!state.emaUt.isFinite()) {
+            strengthUt
+        } else {
+            MAG_FIELD_EMA_ALPHA * strengthUt + (1f - MAG_FIELD_EMA_ALPHA) * state.emaUt
+        }
     val outOfRange = emaUt < MAG_FIELD_MIN_VALID_UT || emaUt > MAG_FIELD_MAX_VALID_UT
-    val deltaUt = if (previousStrengthUt.isFinite()) {
-        abs(strengthUt - previousStrengthUt)
-    } else {
-        0f
-    }
+    val deltaUt =
+        if (previousStrengthUt.isFinite()) {
+            abs(strengthUt - previousStrengthUt)
+        } else {
+            0f
+        }
     val spike = previousStrengthUt.isFinite() && deltaUt >= MAG_FIELD_SPIKE_THRESHOLD_UT
-    val holdUntilElapsedMs = if (outOfRange || spike) {
-        nowElapsedMs + MAG_INTERFERENCE_HOLD_MS
-    } else {
-        state.holdUntilElapsedMs
-    }
+    val holdUntilElapsedMs =
+        if (outOfRange || spike) {
+            nowElapsedMs + MAG_INTERFERENCE_HOLD_MS
+        } else {
+            state.holdUntilElapsedMs
+        }
     val detected = nowElapsedMs < holdUntilElapsedMs
-    val reason = when {
-        outOfRange && spike -> "range+spike"
-        outOfRange -> "range"
-        spike -> "spike"
-        else -> "hold_expired"
-    }
+    val reason =
+        when {
+            outOfRange && spike -> "range+spike"
+            outOfRange -> "range"
+            spike -> "spike"
+            else -> "hold_expired"
+        }
 
     return MagneticInterferenceStep(
-        state = MagneticInterferenceState(
-            strengthUt = strengthUt,
-            emaUt = emaUt,
-            holdUntilElapsedMs = holdUntilElapsedMs,
-            detected = detected
-        ),
+        state =
+            MagneticInterferenceState(
+                strengthUt = strengthUt,
+                emaUt = emaUt,
+                holdUntilElapsedMs = holdUntilElapsedMs,
+                detected = detected,
+            ),
         reason = reason,
         smoothedStrengthUt = emaUt,
-        deltaUt = deltaUt
+        deltaUt = deltaUt,
     )
 }
 
-internal fun inferHeadingAccuracy(noiseDeg: Float, turnRateDegPerSec: Float): Int {
+internal fun inferHeadingAccuracy(
+    noiseDeg: Float,
+    turnRateDegPerSec: Float,
+): Int {
     if (!noiseDeg.isFinite()) return SensorManager.SENSOR_STATUS_UNRELIABLE
     return when {
         turnRateDegPerSec >= FAST_TURN_RATE_DEG_PER_SEC && noiseDeg > HEADING_NOISE_IMPROVING_DEG ->
@@ -422,18 +446,19 @@ internal fun combineCompassAccuracy(
     sensorAccuracy: Int,
     inferredAccuracy: Int,
     usingRotationVector: Boolean,
-    hasMagneticInterference: Boolean = false
+    hasMagneticInterference: Boolean = false,
 ): Int {
     val sensorRank = accuracyRank(sensorAccuracy)
     val inferredRank = accuracyRank(inferredAccuracy)
-    var combinedRank = when {
-        sensorRank == 0 && inferredRank == 0 -> 0
-        sensorRank == 0 && usingRotationVector -> 1
-        inferredRank == 0 && sensorRank >= 1 -> 1
-        sensorRank == 0 -> 0
-        inferredRank == 0 -> 0
-        else -> minOf(sensorRank, inferredRank)
-    }
+    var combinedRank =
+        when {
+            sensorRank == 0 && inferredRank == 0 -> 0
+            sensorRank == 0 && usingRotationVector -> 1
+            inferredRank == 0 && sensorRank >= 1 -> 1
+            sensorRank == 0 -> 0
+            inferredRank == 0 -> 0
+            else -> minOf(sensorRank, inferredRank)
+        }
     if (hasMagneticInterference) {
         combinedRank = minOf(combinedRank, 1)
     }
@@ -452,29 +477,27 @@ internal fun headingAccuracyFromUncertainty(uncertaintyDeg: Float): Int {
     }
 }
 
-private fun accuracyRank(accuracy: Int): Int {
-    return when (accuracy) {
+private fun accuracyRank(accuracy: Int): Int =
+    when (accuracy) {
         SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> 3
         SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> 2
         SensorManager.SENSOR_STATUS_ACCURACY_LOW -> 1
         else -> 0
     }
-}
 
-private fun accuracyFromRank(rank: Int): Int {
-    return when (rank.coerceIn(0, 3)) {
+private fun accuracyFromRank(rank: Int): Int =
+    when (rank.coerceIn(0, 3)) {
         3 -> SensorManager.SENSOR_STATUS_ACCURACY_HIGH
         2 -> SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
         1 -> SensorManager.SENSOR_STATUS_ACCURACY_LOW
         else -> SensorManager.SENSOR_STATUS_UNRELIABLE
     }
-}
 
 internal fun distanceMeters(
     lat1: Double,
     lon1: Double,
     lat2: Double,
-    lon2: Double
+    lon2: Double,
 ): Float {
     if (!lat1.isFinite() || !lon1.isFinite()) return Float.POSITIVE_INFINITY
     val result = FloatArray(1)
@@ -483,5 +506,7 @@ internal fun distanceMeters(
 }
 
 internal fun Float.format(digits: Int): String = "%.${digits}f".format(this)
+
 internal fun Float?.formatOrNA(digits: Int): String = this?.let { "%.${digits}f".format(it) } ?: "n/a"
+
 internal fun Double.format(digits: Int): String = "%.${digits}f".format(this)

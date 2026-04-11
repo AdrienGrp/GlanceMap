@@ -18,49 +18,55 @@ object MapsforgeMapBoundsParser {
 
     suspend fun readBboxString(
         context: Context,
-        uri: Uri
-    ): String = withContext(Dispatchers.IO) {
-        val stream = context.contentResolver.openInputStream(uri)
-            ?: throw IllegalStateException("Cannot open map file stream.")
+        uri: Uri,
+    ): String =
+        withContext(Dispatchers.IO) {
+            val stream =
+                context.contentResolver.openInputStream(uri)
+                    ?: throw IllegalStateException("Cannot open map file stream.")
 
-        stream.use { input ->
-            val magicAndHeaderSize = readExactly(input, MAGIC_BYTES.size + 4)
-            val magic = String(magicAndHeaderSize, 0, MAGIC_BYTES.size, Charsets.UTF_8)
-            if (magic != MAGIC) {
-                throw IllegalArgumentException("Selected file is not a mapsforge .map file.")
+            stream.use { input ->
+                val magicAndHeaderSize = readExactly(input, MAGIC_BYTES.size + 4)
+                val magic = String(magicAndHeaderSize, 0, MAGIC_BYTES.size, Charsets.UTF_8)
+                if (magic != MAGIC) {
+                    throw IllegalArgumentException("Selected file is not a mapsforge .map file.")
+                }
+
+                val remainingHeaderSize =
+                    ByteBuffer
+                        .wrap(magicAndHeaderSize, MAGIC_BYTES.size, 4)
+                        .order(ByteOrder.BIG_ENDIAN)
+                        .int
+                if (remainingHeaderSize < HEADER_MIN_BYTES || remainingHeaderSize > HEADER_MAX_BYTES) {
+                    throw IllegalArgumentException("Invalid map header size.")
+                }
+
+                val header = readExactly(input, remainingHeaderSize)
+                val bb = ByteBuffer.wrap(header).order(ByteOrder.BIG_ENDIAN)
+
+                val fileVersion = bb.int
+                if (fileVersion < 3 || fileVersion > 5) {
+                    throw IllegalArgumentException("Unsupported mapsforge file version: $fileVersion")
+                }
+
+                // file size and map date exist in header; skip them here.
+                bb.long
+                bb.long
+
+                val minLat = bb.int / 1_000_000.0
+                val minLon = bb.int / 1_000_000.0
+                val maxLat = bb.int / 1_000_000.0
+                val maxLon = bb.int / 1_000_000.0
+
+                validateBounds(minLat, minLon, maxLat, maxLon)
+                formatBbox(minLon, minLat, maxLon, maxLat)
             }
-
-            val remainingHeaderSize = ByteBuffer
-                .wrap(magicAndHeaderSize, MAGIC_BYTES.size, 4)
-                .order(ByteOrder.BIG_ENDIAN)
-                .int
-            if (remainingHeaderSize < HEADER_MIN_BYTES || remainingHeaderSize > HEADER_MAX_BYTES) {
-                throw IllegalArgumentException("Invalid map header size.")
-            }
-
-            val header = readExactly(input, remainingHeaderSize)
-            val bb = ByteBuffer.wrap(header).order(ByteOrder.BIG_ENDIAN)
-
-            val fileVersion = bb.int
-            if (fileVersion < 3 || fileVersion > 5) {
-                throw IllegalArgumentException("Unsupported mapsforge file version: $fileVersion")
-            }
-
-            // file size and map date exist in header; skip them here.
-            bb.long
-            bb.long
-
-            val minLat = bb.int / 1_000_000.0
-            val minLon = bb.int / 1_000_000.0
-            val maxLat = bb.int / 1_000_000.0
-            val maxLon = bb.int / 1_000_000.0
-
-            validateBounds(minLat, minLon, maxLat, maxLon)
-            formatBbox(minLon, minLat, maxLon, maxLat)
         }
-    }
 
-    private fun readExactly(input: InputStream, size: Int): ByteArray {
+    private fun readExactly(
+        input: InputStream,
+        size: Int,
+    ): ByteArray {
         val out = ByteArray(size)
         var offset = 0
         while (offset < size) {
@@ -75,7 +81,7 @@ object MapsforgeMapBoundsParser {
         minLat: Double,
         minLon: Double,
         maxLat: Double,
-        maxLon: Double
+        maxLon: Double,
     ) {
         if (!minLat.isFinite() || !minLon.isFinite() || !maxLat.isFinite() || !maxLon.isFinite()) {
             throw IllegalArgumentException("Map bounding box is invalid.")
@@ -92,12 +98,14 @@ object MapsforgeMapBoundsParser {
         minLon: Double,
         minLat: Double,
         maxLon: Double,
-        maxLat: Double
-    ): String {
-        return String.format(
+        maxLat: Double,
+    ): String =
+        String.format(
             Locale.US,
             "%.6f,%.6f,%.6f,%.6f",
-            minLon, minLat, maxLon, maxLat
+            minLon,
+            minLat,
+            maxLon,
+            maxLat,
         )
-    }
 }

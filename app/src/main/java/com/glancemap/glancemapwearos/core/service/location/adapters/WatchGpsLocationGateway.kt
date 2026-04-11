@@ -8,30 +8,30 @@ import android.location.LocationManager
 import android.os.CancellationSignal
 import android.os.SystemClock
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
-import java.util.ArrayDeque
-import java.util.concurrent.Executor
-import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.ArrayDeque
+import java.util.concurrent.Executor
+import kotlin.coroutines.resume
 
 internal class WatchGpsLocationGateway(
     private val locationManager: LocationManager,
     private val packageManager: PackageManager,
-    private val callbackExecutor: Executor
+    private val callbackExecutor: Executor,
 ) : LocationGateway {
     private data class LocationSignature(
         val elapsedRealtimeNanos: Long,
         val timeMs: Long,
         val latitudeE7: Int,
         val longitudeE7: Int,
-        val accuracyDeciMeters: Int
+        val accuracyDeciMeters: Int,
     )
 
     private data class SanitizedBatch(
         val locations: List<Location>,
-        val duplicateCount: Int
+        val duplicateCount: Int,
     )
 
     private companion object {
@@ -40,6 +40,7 @@ internal class WatchGpsLocationGateway(
 
     private val activeListeners = LinkedHashSet<LocationListener>()
     private val requestMutex = Mutex()
+
     @Volatile private var registeringListener: LocationListener? = null
     private val recentLocationSignatures = LinkedHashSet<LocationSignature>()
     private val recentLocationSignatureOrder = ArrayDeque<LocationSignature>()
@@ -60,7 +61,7 @@ internal class WatchGpsLocationGateway(
                 locationManager.getCurrentLocation(
                     LocationManager.GPS_PROVIDER,
                     cancellationSignal,
-                    callbackExecutor
+                    callbackExecutor,
                 ) { location ->
                     if (continuation.isActive) {
                         continuation.resume(location)
@@ -79,43 +80,44 @@ internal class WatchGpsLocationGateway(
     @SuppressLint("MissingPermission")
     override suspend fun requestLocationUpdates(
         request: LocationUpdateRequestParams,
-        sink: LocationUpdateSink
+        sink: LocationUpdateSink,
     ) {
         requestMutex.withLock {
             ensureGpsProviderAvailable()
             removeLocationUpdatesLocked()
             clearRecentLocationSignatures()
-            val listener = object : LocationListener {
-                override fun onLocationChanged(location: Location) {
-                    sink.onLocationAvailability(true)
-                    emitLocations(
-                        sink = sink,
-                        rawLocations = listOf(location)
-                    )
-                }
-
-                override fun onLocationChanged(locations: MutableList<Location>) {
-                    if (locations.isNotEmpty()) {
+            val listener =
+                object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
                         sink.onLocationAvailability(true)
                         emitLocations(
                             sink = sink,
-                            rawLocations = locations.toList()
+                            rawLocations = listOf(location),
                         )
                     }
-                }
 
-                override fun onProviderEnabled(provider: String) {
-                    if (provider == LocationManager.GPS_PROVIDER) {
-                        sink.onLocationAvailability(true)
+                    override fun onLocationChanged(locations: MutableList<Location>) {
+                        if (locations.isNotEmpty()) {
+                            sink.onLocationAvailability(true)
+                            emitLocations(
+                                sink = sink,
+                                rawLocations = locations.toList(),
+                            )
+                        }
+                    }
+
+                    override fun onProviderEnabled(provider: String) {
+                        if (provider == LocationManager.GPS_PROVIDER) {
+                            sink.onLocationAvailability(true)
+                        }
+                    }
+
+                    override fun onProviderDisabled(provider: String) {
+                        if (provider == LocationManager.GPS_PROVIDER) {
+                            sink.onLocationAvailability(false)
+                        }
                     }
                 }
-
-                override fun onProviderDisabled(provider: String) {
-                    if (provider == LocationManager.GPS_PROVIDER) {
-                        sink.onLocationAvailability(false)
-                    }
-                }
-            }
 
             sink.onLocationAvailability(isGpsProviderEnabled())
             registeringListener = listener
@@ -125,7 +127,7 @@ internal class WatchGpsLocationGateway(
                     request.intervalMs,
                     request.minDistanceMeters,
                     callbackExecutor,
-                    listener
+                    listener,
                 )
                 synchronized(activeListeners) {
                     activeListeners += listener
@@ -168,9 +170,10 @@ internal class WatchGpsLocationGateway(
         clearRecentLocationSignatures()
         val listeners = drainListeners(includeRegisteringListener = true)
         listeners.forEach { listener ->
-            val removed = runCatching {
-                locationManager.removeUpdates(listener)
-            }.isSuccess
+            val removed =
+                runCatching {
+                    locationManager.removeUpdates(listener)
+                }.isSuccess
             if (removed) {
                 synchronized(activeListeners) {
                     activeListeners.remove(listener)
@@ -179,7 +182,10 @@ internal class WatchGpsLocationGateway(
         }
     }
 
-    private fun emitLocations(sink: LocationUpdateSink, rawLocations: List<Location>) {
+    private fun emitLocations(
+        sink: LocationUpdateSink,
+        rawLocations: List<Location>,
+    ) {
         val sanitized = sanitizeLocations(rawLocations)
         if (sanitized.locations.isEmpty()) return
         sink.onLocations(
@@ -187,8 +193,8 @@ internal class WatchGpsLocationGateway(
                 origin = LocationSourceMode.WATCH_GPS,
                 candidates = sanitized.locations,
                 rawCandidateCount = rawLocations.size,
-                duplicateCandidatesDropped = sanitized.duplicateCount
-            )
+                duplicateCandidatesDropped = sanitized.duplicateCount,
+            ),
         )
     }
 
@@ -230,7 +236,7 @@ internal class WatchGpsLocationGateway(
         }
         return SanitizedBatch(
             locations = uniqueLocations,
-            duplicateCount = duplicateCount
+            duplicateCount = duplicateCount,
         )
     }
 
@@ -251,44 +257,44 @@ internal class WatchGpsLocationGateway(
     }
 
     private fun ensureGpsProviderAvailable() {
-        val availabilityReason = resolveWatchGpsAvailabilityReason(
-            hasGpsHardwareFeature = hasGpsHardwareFeature(),
-            isGpsProviderPresent = isGpsProviderPresent(),
-            isGpsProviderEnabled = isGpsProviderEnabled()
-        )
+        val availabilityReason =
+            resolveWatchGpsAvailabilityReason(
+                hasGpsHardwareFeature = hasGpsHardwareFeature(),
+                isGpsProviderPresent = isGpsProviderPresent(),
+                isGpsProviderEnabled = isGpsProviderEnabled(),
+            )
         if (availabilityReason != WatchGpsAvailabilityReason.AVAILABLE) {
             throw WatchGpsUnavailableException(reason = availabilityReason)
         }
     }
 
-    private fun hasGpsHardwareFeature(): Boolean {
-        return runCatching { packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS) }
+    private fun hasGpsHardwareFeature(): Boolean =
+        runCatching { packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS) }
             .getOrDefault(false)
-    }
 
-    private fun isGpsProviderPresent(): Boolean {
-        return runCatching { locationManager.allProviders.contains(LocationManager.GPS_PROVIDER) }
+    private fun isGpsProviderPresent(): Boolean =
+        runCatching { locationManager.allProviders.contains(LocationManager.GPS_PROVIDER) }
             .getOrDefault(false)
-    }
 
-    private fun isGpsProviderEnabled(): Boolean {
-        return runCatching { locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) }
+    private fun isGpsProviderEnabled(): Boolean =
+        runCatching { locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) }
             .getOrDefault(false)
-    }
 
-    private fun locationAgeMs(location: Location, nowElapsedMs: Long): Long {
+    private fun locationAgeMs(
+        location: Location,
+        nowElapsedMs: Long,
+    ): Long {
         val locationElapsedMs = location.elapsedRealtimeNanos / 1_000_000L
         if (locationElapsedMs <= 0L) return Long.MAX_VALUE
         return (nowElapsedMs - locationElapsedMs).coerceAtLeast(0L)
     }
 
-    private fun Location.signature(): LocationSignature {
-        return LocationSignature(
+    private fun Location.signature(): LocationSignature =
+        LocationSignature(
             elapsedRealtimeNanos = elapsedRealtimeNanos,
             timeMs = time,
             latitudeE7 = (latitude * 1e7).toInt(),
             longitudeE7 = (longitude * 1e7).toInt(),
-            accuracyDeciMeters = (accuracy * 10f).toInt()
+            accuracyDeciMeters = (accuracy * 10f).toInt(),
         )
-    }
 }

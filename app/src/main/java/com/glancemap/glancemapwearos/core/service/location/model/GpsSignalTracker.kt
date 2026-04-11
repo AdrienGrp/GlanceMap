@@ -1,8 +1,8 @@
 package com.glancemap.glancemapwearos.core.service.location.model
 
-import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_DEGRADED_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_ACCURACY_FLOOR_M
 import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_ACCURACY_FLOOR_TOLERANCE_M
+import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_DEGRADED_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_DEGRADED_STREAK_THRESHOLD
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import kotlin.math.abs
@@ -22,32 +22,38 @@ internal class GpsSignalTracker {
             watchGpsDegradedFixStreak = 0
             watchGpsDegradedSinceMs = 0L
         }
-        snapshot = snapshot.copy(
-            watchGpsOnlyActive = watchGpsOnlyActive,
-            watchGpsDegraded = watchGpsOnlyActive && watchGpsDegradedSinceMs > 0L,
-            watchGpsDegradedFixStreak = if (watchGpsOnlyActive) watchGpsDegradedFixStreak else 0,
-            watchGpsDegradedSinceElapsedMs = if (watchGpsOnlyActive) watchGpsDegradedSinceMs else 0L
-        )
+        snapshot =
+            snapshot.copy(
+                watchGpsOnlyActive = watchGpsOnlyActive,
+                watchGpsDegraded = watchGpsOnlyActive && watchGpsDegradedSinceMs > 0L,
+                watchGpsDegradedFixStreak = if (watchGpsOnlyActive) watchGpsDegradedFixStreak else 0,
+                watchGpsDegradedSinceElapsedMs = if (watchGpsOnlyActive) watchGpsDegradedSinceMs else 0L,
+            )
     }
 
-    fun onLocationAvailability(isAvailable: Boolean, nowElapsedMs: Long): Boolean {
+    fun onLocationAvailability(
+        isAvailable: Boolean,
+        nowElapsedMs: Long,
+    ): Boolean {
         val previous = snapshot
         val changed = previous.isLocationAvailable != isAvailable
         if (changed) {
             if (isAvailable) {
                 locationUnavailableSinceMs = 0L
-                snapshot = previous.copy(
-                    isLocationAvailable = true,
-                    unavailableSinceElapsedMs = 0L
-                )
+                snapshot =
+                    previous.copy(
+                        isLocationAvailable = true,
+                        unavailableSinceElapsedMs = 0L,
+                    )
             } else {
                 if (locationUnavailableSinceMs <= 0L) {
                     locationUnavailableSinceMs = nowElapsedMs
                 }
-                snapshot = previous.copy(
-                    isLocationAvailable = false,
-                    unavailableSinceElapsedMs = locationUnavailableSinceMs
-                )
+                snapshot =
+                    previous.copy(
+                        isLocationAvailable = false,
+                        unavailableSinceElapsedMs = locationUnavailableSinceMs,
+                    )
             }
         }
         val shouldLog = !hasLoggedAvailabilityState || changed
@@ -62,14 +68,15 @@ internal class GpsSignalTracker {
         ageMs: Long,
         accuracyM: Float,
         freshnessMaxAgeMs: Long,
-        sourceMode: LocationSourceMode?
+        sourceMode: LocationSourceMode?,
     ): GpsSignalSample {
         locationUnavailableSinceMs = 0L
-        val fixElapsedMs = if (ageMs == Long.MAX_VALUE) {
-            0L
-        } else {
-            (nowElapsedMs - ageMs).coerceAtLeast(0L)
-        }
+        val fixElapsedMs =
+            if (ageMs == Long.MAX_VALUE) {
+                0L
+            } else {
+                (nowElapsedMs - ageMs).coerceAtLeast(0L)
+            }
         val fixFresh = ageMs != Long.MAX_VALUE && ageMs <= freshnessMaxAgeMs
         val watchGpsOnlyActive = sourceMode == LocationSourceMode.WATCH_GPS
         val nearKnownAccuracyFloor = isNearKnownWatchGpsAccuracyFloor(accuracyM)
@@ -90,19 +97,20 @@ internal class GpsSignalTracker {
             watchGpsDegradedSinceMs = 0L
         }
         val watchGpsDegraded = watchGpsOnlyActive && watchGpsDegradedSinceMs > 0L
-        snapshot = GpsSignalSnapshot(
-            lastFixElapsedRealtimeMs = fixElapsedMs,
-            lastFixAgeMs = ageMs,
-            lastFixAccuracyM = accuracyM,
-            lastFixFresh = fixFresh,
-            lastFixFreshMaxAgeMs = freshnessMaxAgeMs,
-            isLocationAvailable = true,
-            unavailableSinceElapsedMs = 0L,
-            watchGpsOnlyActive = watchGpsOnlyActive,
-            watchGpsDegraded = watchGpsDegraded,
-            watchGpsDegradedFixStreak = watchGpsDegradedFixStreak,
-            watchGpsDegradedSinceElapsedMs = watchGpsDegradedSinceMs
-        )
+        snapshot =
+            GpsSignalSnapshot(
+                lastFixElapsedRealtimeMs = fixElapsedMs,
+                lastFixAgeMs = ageMs,
+                lastFixAccuracyM = accuracyM,
+                lastFixFresh = fixFresh,
+                lastFixFreshMaxAgeMs = freshnessMaxAgeMs,
+                isLocationAvailable = true,
+                unavailableSinceElapsedMs = 0L,
+                watchGpsOnlyActive = watchGpsOnlyActive,
+                watchGpsDegraded = watchGpsDegraded,
+                watchGpsDegradedFixStreak = watchGpsDegradedFixStreak,
+                watchGpsDegradedSinceElapsedMs = watchGpsDegradedSinceMs,
+            )
         return GpsSignalSample(
             ageMs = ageMs,
             fresh = fixFresh,
@@ -111,7 +119,7 @@ internal class GpsSignalTracker {
             sourceMode = sourceMode,
             watchGpsDegraded = watchGpsDegraded,
             watchGpsDegradedFixStreak = watchGpsDegradedFixStreak,
-            watchGpsDegradedSinceElapsedMs = watchGpsDegradedSinceMs
+            watchGpsDegradedSinceElapsedMs = watchGpsDegradedSinceMs,
         )
     }
 
@@ -119,10 +127,11 @@ internal class GpsSignalTracker {
         locationUnavailableSinceMs = nowElapsedMs
         watchGpsDegradedFixStreak = 0
         watchGpsDegradedSinceMs = 0L
-        snapshot = GpsSignalSnapshot(
-            isLocationAvailable = false,
-            unavailableSinceElapsedMs = nowElapsedMs
-        )
+        snapshot =
+            GpsSignalSnapshot(
+                isLocationAvailable = false,
+                unavailableSinceElapsedMs = nowElapsedMs,
+            )
     }
 
     fun reset() {
@@ -147,5 +156,5 @@ internal data class GpsSignalSample(
     val sourceMode: LocationSourceMode?,
     val watchGpsDegraded: Boolean,
     val watchGpsDegradedFixStreak: Int,
-    val watchGpsDegradedSinceElapsedMs: Long
+    val watchGpsDegradedSinceElapsedMs: Long,
 )

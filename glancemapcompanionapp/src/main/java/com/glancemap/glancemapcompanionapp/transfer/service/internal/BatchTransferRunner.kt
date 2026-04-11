@@ -22,8 +22,8 @@ import com.glancemap.glancemapcompanionapp.transfer.strategy.TransferResult
 import com.glancemap.glancemapcompanionapp.transfer.strategy.TransferStrategy
 import com.glancemap.glancemapcompanionapp.transfer.util.NotificationHelper
 import com.glancemap.glancemapcompanionapp.transfer.util.TransferUtils
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -45,7 +45,7 @@ internal class BatchTransferRunner(
     private val requestPauseOnWatch: (nodeId: String, transferId: String) -> Unit,
     private val setActiveTransfer: (transferId: String, nodeId: String) -> Unit,
     private val clearActiveTransfer: () -> Unit,
-    private val addHistoryItems: (List<FileTransferHistoryItem>) -> Unit
+    private val addHistoryItems: (List<FileTransferHistoryItem>) -> Unit,
 ) {
     private val paused = AtomicBoolean(false)
     private val cancelRequested = AtomicBoolean(false)
@@ -53,25 +53,34 @@ internal class BatchTransferRunner(
     private val historyIdCounter = AtomicLong(System.currentTimeMillis())
     private val freshHttpRetryCounts = mutableMapOf<String, Int>()
     private val freshHttpRetryBestSentBytes = mutableMapOf<String, Long>()
+
     @Volatile private var activeStrategy: TransferStrategy? = null
+
     @Volatile private var sharedHttpStrategyRef: HttpTransferServer? = null
+
     @Volatile private var currentTransferIdInternal: String? = null
+
     @Volatile private var currentTargetNodeIdInternal: String? = null
+
     @Volatile private var currentFileNameInternal: String? = null
 
-    fun loadFilesFromUris(ctx: Context, uris: List<Uri>) {
+    fun loadFilesFromUris(
+        ctx: Context,
+        uris: List<Uri>,
+    ) {
         if (uris.isEmpty()) {
             clearSelectedFiles(clearStatusMessage = true)
             return
         }
 
-        val supportedItems = uris.mapNotNull { uri ->
-            val details = TransferUtils.getFileDetails(ctx, uri) ?: return@mapNotNull null
-            val (rawName, size) = details
-            val name = rawName.ifBlank { "file.bin" }
-            if (!isSupportedTransferFileName(name)) return@mapNotNull null
-            FileItem(uri = uri, displayName = name, size = size)
-        }
+        val supportedItems =
+            uris.mapNotNull { uri ->
+                val details = TransferUtils.getFileDetails(ctx, uri) ?: return@mapNotNull null
+                val (rawName, size) = details
+                val name = rawName.ifBlank { "file.bin" }
+                if (!isSupportedTransferFileName(name)) return@mapNotNull null
+                FileItem(uri = uri, displayName = name, size = size)
+            }
 
         val skippedCount = (uris.size - supportedItems.size).coerceAtLeast(0)
         val first = supportedItems.firstOrNull()
@@ -82,11 +91,12 @@ internal class BatchTransferRunner(
         }
 
         val sizeMB = (first.size / 1_048_576L).toInt()
-        val status = if (skippedCount > 0) {
-            "Selected ${supportedItems.size} file(s); skipped $skippedCount unsupported."
-        } else {
-            "Selected ${supportedItems.size} file(s)"
-        }
+        val status =
+            if (skippedCount > 0) {
+                "Selected ${supportedItems.size} file(s); skipped $skippedCount unsupported."
+            } else {
+                "Selected ${supportedItems.size} file(s)"
+            }
 
         uiState.update {
             it.copy(
@@ -95,14 +105,14 @@ internal class BatchTransferRunner(
                 selectedFileUri = first.uri,
                 selectedFileName = first.displayName,
                 selectedFileSizeMb = sizeMB,
-                statusMessage = status
+                statusMessage = status,
             )
         }
     }
 
     fun clearSelectedFiles(
         statusMessage: String? = null,
-        clearStatusMessage: Boolean = false
+        clearStatusMessage: Boolean = false,
     ) {
         uiState.update {
             it.copy(
@@ -111,11 +121,12 @@ internal class BatchTransferRunner(
                 selectedFileUri = null,
                 selectedFileName = null,
                 selectedFileSizeMb = 0,
-                statusMessage = when {
-                    statusMessage != null -> statusMessage
-                    clearStatusMessage -> ""
-                    else -> it.statusMessage
-                }
+                statusMessage =
+                    when {
+                        statusMessage != null -> statusMessage
+                        clearStatusMessage -> ""
+                        else -> it.statusMessage
+                    },
             )
         }
     }
@@ -123,7 +134,7 @@ internal class BatchTransferRunner(
     suspend fun runBatch(
         fileUris: List<Uri>,
         targetNode: WatchNode,
-        strategyFactory: TransferStrategyFactory
+        strategyFactory: TransferStrategyFactory,
     ) {
         val batchStartMs = SystemClock.elapsedRealtime()
         paused.set(false)
@@ -136,7 +147,7 @@ internal class BatchTransferRunner(
         uiUpdater.reset()
         PhoneTransferDiagnostics.log(
             "Batch",
-            "Start batch files=${fileUris.size} targetNode=${targetNode.displayName}(${targetNode.id})"
+            "Start batch files=${fileUris.size} targetNode=${targetNode.displayName}(${targetNode.id})",
         )
 
         uiState.update {
@@ -147,7 +158,7 @@ internal class BatchTransferRunner(
                 pauseReason = "",
                 statusMessage = "Preparing…",
                 progress = 0f,
-                progressText = "Starting…"
+                progressText = "Starting…",
             )
         }
         notificationHelper.startForeground("Preparing…")
@@ -157,38 +168,41 @@ internal class BatchTransferRunner(
         Log.d(TAG, "Built ${items.size} transfer item(s) in ${SystemClock.elapsedRealtime() - buildStartMs}ms")
         PhoneTransferDiagnostics.log(
             "Batch",
-            "Built ${items.size} item(s) in ${SystemClock.elapsedRealtime() - buildStartMs}ms"
+            "Built ${items.size} item(s) in ${SystemClock.elapsedRealtime() - buildStartMs}ms",
         )
         uiUpdater.update(0f, "Checking existing files on watch…")
 
         val preflightStartMs = SystemClock.elapsedRealtime()
-        val (conflicts, itemsToTransfer) = preflightFilterExistingFiles(
-            nodeId = targetNode.id,
-            items = items
-        )
+        val (conflicts, itemsToTransfer) =
+            preflightFilterExistingFiles(
+                nodeId = targetNode.id,
+                items = items,
+            )
         Log.d(
             TAG,
             "Preflight finished in ${SystemClock.elapsedRealtime() - preflightStartMs}ms " +
-                "(conflicts=${conflicts.size}, transfer=${itemsToTransfer.size})"
+                "(conflicts=${conflicts.size}, transfer=${itemsToTransfer.size})",
         )
         PhoneTransferDiagnostics.log(
             "Batch",
-            "Preflight finished in ${SystemClock.elapsedRealtime() - preflightStartMs}ms conflicts=${conflicts.size} transfer=${itemsToTransfer.size}"
+            "Preflight finished in ${SystemClock.elapsedRealtime() - preflightStartMs}ms conflicts=${conflicts.size} transfer=${itemsToTransfer.size}",
         )
 
         if (conflicts.isNotEmpty()) {
-            val skippedHistory = conflicts.map {
-                FileTransferHistoryItem(nextHistoryId(), it.displayName, "Skipped (already exists)", false)
-            }
+            val skippedHistory =
+                conflicts.map {
+                    FileTransferHistoryItem(nextHistoryId(), it.displayName, "Skipped (already exists)", false)
+                }
             addHistoryItems(skippedHistory)
         }
 
         if (itemsToTransfer.isEmpty()) {
-            val msg = if (conflicts.size == 1) {
-                "'${conflicts.first().displayName}' already exists on the watch. Nothing to transfer."
-            } else {
-                "${conflicts.size} files already exist on the watch. Nothing to transfer."
-            }
+            val msg =
+                if (conflicts.size == 1) {
+                    "'${conflicts.first().displayName}' already exists on the watch. Nothing to transfer."
+                } else {
+                    "${conflicts.size} files already exist on the watch. Nothing to transfer."
+                }
 
             uiState.update {
                 it.copy(
@@ -198,7 +212,7 @@ internal class BatchTransferRunner(
                     isPaused = false,
                     canResume = false,
                     pauseReason = "",
-                    progress = 0f
+                    progress = 0f,
                 )
             }
             notificationHelper.cancelForeground()
@@ -209,40 +223,45 @@ internal class BatchTransferRunner(
             uiUpdater.update(0f, "Skipped ${conflicts.size} file(s) already on watch. Transferring ${itemsToTransfer.size}…")
         }
 
-        val selectionContext = strategyFactory.buildSelectionContext(
-            context = context,
-            totalSizesBytes = itemsToTransfer.map { it.size }
-        )
-        val transferPlans = itemsToTransfer.map { item ->
-            PlannedTransfer(
-                item = item,
-                strategyKind = strategyFactory.decide(item.size, selectionContext)
+        val selectionContext =
+            strategyFactory.buildSelectionContext(
+                context = context,
+                totalSizesBytes = itemsToTransfer.map { it.size },
             )
-        }
+        val transferPlans =
+            itemsToTransfer.map { item ->
+                PlannedTransfer(
+                    item = item,
+                    strategyKind = strategyFactory.decide(item.size, selectionContext),
+                )
+            }
         val strategyCounts = transferPlans.groupingBy { it.strategyKind }.eachCount()
         Log.d(
             TAG,
             "Strategy plan for batch: wifiAvailable=${selectionContext.wifiAvailable}, " +
-                "preferSharedHttp=${selectionContext.preferSharedHttpForBatch}, counts=$strategyCounts"
+                "preferSharedHttp=${selectionContext.preferSharedHttpForBatch}, counts=$strategyCounts",
         )
         PhoneTransferDiagnostics.log(
             "Batch",
-            "Strategy plan wifiAvailable=${selectionContext.wifiAvailable} preferSharedHttp=${selectionContext.preferSharedHttpForBatch} counts=$strategyCounts"
+            "Strategy plan wifiAvailable=${selectionContext.wifiAvailable} preferSharedHttp=${selectionContext.preferSharedHttpForBatch} counts=$strategyCounts",
         )
 
         val anyRequiresWifi = transferPlans.any { TransferStrategyFactory.usesWifi(it.strategyKind) }
 
-        val wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "GlanceMap:FileTransferBatch"
-        ).apply { setReferenceCounted(false) }
+        val wakeLock =
+            powerManager
+                .newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "GlanceMap:FileTransferBatch",
+                ).apply { setReferenceCounted(false) }
 
-        val wifiLock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "GlanceMap:WifiTransferBatch")
-        } else {
-            @Suppress("DEPRECATION")
-            wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "GlanceMap:WifiTransferBatch")
-        }.apply { setReferenceCounted(false) }
+        val wifiLock =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "GlanceMap:WifiTransferBatch")
+            } else {
+                @Suppress("DEPRECATION")
+                wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "GlanceMap:WifiTransferBatch")
+            }.apply { setReferenceCounted(false) }
         var sharedHttpStrategy: HttpTransferServer? = null
         var preferChannelForRemainingBatch = false
         sharedHttpStrategyRef = null
@@ -255,7 +274,7 @@ internal class BatchTransferRunner(
                 val ip = TransferUtils.getWifiIpAddress(context)
                 if (ip.isNullOrBlank()) {
                     throw IllegalStateException(
-                        "Wi-Fi required for this transfer batch. Connect the watch to the same Wi-Fi or to this phone’s hotspot."
+                        "Wi-Fi required for this transfer batch. Connect the watch to the same Wi-Fi or to this phone’s hotspot.",
                     )
                 }
             }
@@ -266,47 +285,51 @@ internal class BatchTransferRunner(
                 val n = transferPlans.size
                 val prefix = "File ${index + 1}/$n: ${item.displayName}"
                 val fileStartMs = SystemClock.elapsedRealtime()
-                val effectiveStrategyKind = if (
-                    preferChannelForRemainingBatch &&
-                    plan.strategyKind == TransferStrategyKind.HTTP &&
-                    item.size <= TransferStrategyFactory.CHANNEL_FALLBACK_MAX_BYTES
-                ) {
-                    TransferStrategyKind.CHANNEL
-                } else {
-                    plan.strategyKind
-                }
+                val effectiveStrategyKind =
+                    if (
+                        preferChannelForRemainingBatch &&
+                        plan.strategyKind == TransferStrategyKind.HTTP &&
+                        item.size <= TransferStrategyFactory.CHANNEL_FALLBACK_MAX_BYTES
+                    ) {
+                        TransferStrategyKind.CHANNEL
+                    } else {
+                        plan.strategyKind
+                    }
 
                 val transferId = UUID.randomUUID().toString()
                 val safeFileName = Uri.encode(item.displayName)
                 val isMapLikeFile = isMapLikeTransferFile(item.displayName)
                 throwIfCancellationRequested()
-                var strategy: TransferStrategy = when (effectiveStrategyKind) {
-                    TransferStrategyKind.HTTP -> sharedHttpStrategy ?: HttpTransferServer().also {
-                        sharedHttpStrategy = it
-                        sharedHttpStrategyRef = it
-                    }
+                var strategy: TransferStrategy =
+                    when (effectiveStrategyKind) {
+                        TransferStrategyKind.HTTP ->
+                            sharedHttpStrategy ?: HttpTransferServer().also {
+                                sharedHttpStrategy = it
+                                sharedHttpStrategyRef = it
+                            }
 
-                    else -> strategyFactory.create(effectiveStrategyKind)
-                }
-                val strategyReason = when {
-                    effectiveStrategyKind != plan.strategyKind ->
-                        "override=preferChannelForRemainingBatch plannedWas=${plan.strategyKind}"
-                    item.size <= 0L ->
-                        if (selectionContext.wifiAvailable) "unknownSize+wifi→HTTP" else "unknownSize+noWifi→CHANNEL"
-                    TransferStrategyFactory.isMessageClientEligible(item.size) ->
-                        "size≤80KB→MESSAGE"
-                    selectionContext.preferSharedHttpForBatch &&
-                        TransferStrategyFactory.isSharedHttpBatchEligible(item.size) ->
-                        "batchHTTP(wifi+multiFile+≥1MB)"
-                    item.size <= TransferStrategyFactory.CHANNEL_PREFERRED_MAX_BYTES ->
-                        "size≤2MB→CHANNEL"
-                    selectionContext.wifiAvailable ->
-                        "size>2MB+wifi→HTTP"
-                    item.size <= TransferStrategyFactory.CHANNEL_FALLBACK_MAX_BYTES ->
-                        "size>2MB+noWifi≤50MB→CHANNEL"
-                    else ->
-                        "size>50MB+noWifi→HTTP(noFallback)"
-                }
+                        else -> strategyFactory.create(effectiveStrategyKind)
+                    }
+                val strategyReason =
+                    when {
+                        effectiveStrategyKind != plan.strategyKind ->
+                            "override=preferChannelForRemainingBatch plannedWas=${plan.strategyKind}"
+                        item.size <= 0L ->
+                            if (selectionContext.wifiAvailable) "unknownSize+wifi→HTTP" else "unknownSize+noWifi→CHANNEL"
+                        TransferStrategyFactory.isMessageClientEligible(item.size) ->
+                            "size≤80KB→MESSAGE"
+                        selectionContext.preferSharedHttpForBatch &&
+                            TransferStrategyFactory.isSharedHttpBatchEligible(item.size) ->
+                            "batchHTTP(wifi+multiFile+≥1MB)"
+                        item.size <= TransferStrategyFactory.CHANNEL_PREFERRED_MAX_BYTES ->
+                            "size≤2MB→CHANNEL"
+                        selectionContext.wifiAvailable ->
+                            "size>2MB+wifi→HTTP"
+                        item.size <= TransferStrategyFactory.CHANNEL_FALLBACK_MAX_BYTES ->
+                            "size>2MB+noWifi≤50MB→CHANNEL"
+                        else ->
+                            "size>50MB+noWifi→HTTP(noFallback)"
+                    }
 
                 @Suppress("DEPRECATION")
                 val wifiInfo = if (effectiveStrategyKind == TransferStrategyKind.HTTP) wifiManager.connectionInfo else null
@@ -315,57 +338,61 @@ internal class BatchTransferRunner(
 
                 Log.d(
                     TAG,
-                    "Starting ${item.displayName} via ${effectiveStrategyKind} " +
-                        "(size=${item.size} bytes, batchIndex=${index + 1}/$n, reason=$strategyReason)"
+                    "Starting ${item.displayName} via $effectiveStrategyKind " +
+                        "(size=${item.size} bytes, batchIndex=${index + 1}/$n, reason=$strategyReason)",
                 )
                 PhoneTransferDiagnostics.log(
                     "Batch",
                     "File ${index + 1}/$n start name=${item.displayName} strategy=$effectiveStrategyKind " +
                         "reason=$strategyReason size=${item.size}" +
-                        (if (wifiRssi != null) " rssi=${wifiRssi}dBm linkSpeed=${wifiLinkSpeed}Mbps" else "")
+                        (if (wifiRssi != null) " rssi=${wifiRssi}dBm linkSpeed=${wifiLinkSpeed}Mbps" else ""),
                 )
-                val hashPhaseWeight = when {
-                    effectiveStrategyKind == TransferStrategyKind.HTTP && isMapLikeFile -> 0.12f
-                    effectiveStrategyKind == TransferStrategyKind.HTTP -> 0.05f
-                    effectiveStrategyKind == TransferStrategyKind.MESSAGE -> 0f // in-memory, instant
-                    else -> 0.03f // Channel: small files, fast hash
-                }
-                val fileSha256 = if (effectiveStrategyKind == TransferStrategyKind.MESSAGE) {
-                    // Message: checksum is computed inline from the in-memory bytes
-                    awaitIfPaused()
-                    null
-                } else {
-                    uiUpdater.update(
-                        (index.toFloat() / n.toFloat()).coerceIn(0f, 1f),
-                        "$prefix\nPreparing checksum…"
-                    )
-                    TransferUtils.computeSha256Cached(
-                        context = context,
-                        uri = item.uri,
-                        knownDisplayName = item.displayName,
-                        knownSize = item.size,
-                        awaitIfPaused = { awaitIfPaused() },
-                        onProgress = { hashProgress, hashText ->
-                            val p = hashProgress.coerceIn(0f, 1f)
-                            val overall = (
-                                index.toFloat() + (hashPhaseWeight * p)
-                                ) / n.toFloat()
-                            uiUpdater.update(
-                                overall.coerceIn(0f, 1f),
-                                "$prefix\n$hashText"
-                            )
-                        }
-                    ) ?: throw IllegalStateException("Failed to compute SHA-256 for ${item.displayName}")
-                }
+                val hashPhaseWeight =
+                    when {
+                        effectiveStrategyKind == TransferStrategyKind.HTTP && isMapLikeFile -> 0.12f
+                        effectiveStrategyKind == TransferStrategyKind.HTTP -> 0.05f
+                        effectiveStrategyKind == TransferStrategyKind.MESSAGE -> 0f // in-memory, instant
+                        else -> 0.03f // Channel: small files, fast hash
+                    }
+                val fileSha256 =
+                    if (effectiveStrategyKind == TransferStrategyKind.MESSAGE) {
+                        // Message: checksum is computed inline from the in-memory bytes
+                        awaitIfPaused()
+                        null
+                    } else {
+                        uiUpdater.update(
+                            (index.toFloat() / n.toFloat()).coerceIn(0f, 1f),
+                            "$prefix\nPreparing checksum…",
+                        )
+                        TransferUtils.computeSha256Cached(
+                            context = context,
+                            uri = item.uri,
+                            knownDisplayName = item.displayName,
+                            knownSize = item.size,
+                            awaitIfPaused = { awaitIfPaused() },
+                            onProgress = { hashProgress, hashText ->
+                                val p = hashProgress.coerceIn(0f, 1f)
+                                val overall =
+                                    (
+                                        index.toFloat() + (hashPhaseWeight * p)
+                                    ) / n.toFloat()
+                                uiUpdater.update(
+                                    overall.coerceIn(0f, 1f),
+                                    "$prefix\n$hashText",
+                                )
+                            },
+                        ) ?: throw IllegalStateException("Failed to compute SHA-256 for ${item.displayName}")
+                    }
 
-                var metadata = TransferMetadata(
-                    transferId = transferId,
-                    safeFileName = safeFileName,
-                    displayFileName = item.displayName,
-                    totalSize = item.size,
-                    isMapFile = isMapLikeFile,
-                    checksumSha256 = fileSha256
-                )
+                var metadata =
+                    TransferMetadata(
+                        transferId = transferId,
+                        safeFileName = safeFileName,
+                        displayFileName = item.displayName,
+                        totalSize = item.size,
+                        isMapFile = isMapLikeFile,
+                        checksumSha256 = fileSha256,
+                    )
 
                 val progressReporter: (Float, String) -> Unit = { fileProg, text ->
                     val p = fileProg.coerceIn(0f, 1f)
@@ -379,44 +406,45 @@ internal class BatchTransferRunner(
                 while (true) {
                     fileAttemptCount++
                     fileStrategiesAttempted += effectiveStrategyKind.name
-                    result = runTransferAttempt(
-                        strategy = strategy,
-                        fileUri = item.uri,
-                        targetNodeId = targetNode.id,
-                        metadata = metadata,
-                        onProgress = progressReporter
-                    )
+                    result =
+                        runTransferAttempt(
+                            strategy = strategy,
+                            fileUri = item.uri,
+                            targetNodeId = targetNode.id,
+                            metadata = metadata,
+                            onProgress = progressReporter,
+                        )
                     throwIfCancellationRequested()
 
                     if (isManualHttpPauseResult(result)) {
                         PhoneTransferDiagnostics.warn(
                             "Batch",
-                            "HTTP pause acknowledged file=${item.displayName}"
+                            "HTTP pause acknowledged file=${item.displayName}",
                         )
                         uiUpdater.update(
                             uiState.value.progress.coerceIn(0f, 1f),
-                            buildManualPauseProgressText(prefix, uiState.value.progressText)
+                            buildManualPauseProgressText(prefix, uiState.value.progressText),
                         )
                         awaitIfPaused()
                         throwIfCancellationRequested()
 
                         PhoneTransferDiagnostics.log(
                             "Batch",
-                            "Restart paused HTTP transfer file=${item.displayName}"
+                            "Restart paused HTTP transfer file=${item.displayName}",
                         )
                         existenceChecker.markNodeRecovering(
                             nodeId = targetNode.id,
                             durationMs = MANUAL_HTTP_RESUME_RECOVERY_WINDOW_MS,
-                            reason = "manual_http_resume:${item.displayName}"
+                            reason = "manual_http_resume:${item.displayName}",
                         )
                         uiUpdater.update(
                             uiState.value.progress.coerceIn(0f, 1f),
-                            "$prefix\nResuming current file from partial…"
+                            "$prefix\nResuming current file from partial…",
                         )
                         existenceChecker.awaitResponsive(
                             nodeId = targetNode.id,
                             timeoutMs = MANUAL_HTTP_RESUME_WAIT_MS,
-                            reason = "manual_http_resume:${item.displayName}"
+                            reason = "manual_http_resume:${item.displayName}",
                         )
                         delay(MANUAL_HTTP_RESUME_DELAY_MS)
                         runCatching { sharedHttpStrategy?.close() }
@@ -434,35 +462,36 @@ internal class BatchTransferRunner(
                             targetNodeId = targetNode.id,
                             transferId = metadata.transferId,
                             fileName = item.displayName,
-                            reason = "fresh_http_retry"
+                            reason = "fresh_http_retry",
                         )
                         existenceChecker.markNodeRecovering(
                             nodeId = targetNode.id,
                             durationMs = WATCH_RECOVERY_WINDOW_MS,
-                            reason = "fresh_http_retry:${item.displayName}"
+                            reason = "fresh_http_retry:${item.displayName}",
                         )
                         Log.d(
                             TAG,
                             "Retrying ${item.displayName} with a fresh HTTP endpoint. " +
-                                "Reason=${result.message}"
+                                "Reason=${result.message}",
                         )
                         PhoneTransferDiagnostics.warn(
                             "Batch",
-                            "Retry with fresh HTTP endpoint file=${item.displayName} reason=${result.message}"
+                            "Retry with fresh HTTP endpoint file=${item.displayName} reason=${result.message}",
                         )
                         uiUpdater.update(
                             (index.toFloat() / n.toFloat()).coerceIn(0f, 1f),
-                            "$prefix\n${buildHttpRetryText(result)}"
+                            "$prefix\n${buildHttpRetryText(result)}",
                         )
                         uiUpdater.update(
                             (index.toFloat() / n.toFloat()).coerceIn(0f, 1f),
-                            "$prefix\nWaiting for watch to reconnect before retrying…"
+                            "$prefix\nWaiting for watch to reconnect before retrying…",
                         )
-                        val watchResponsive = existenceChecker.awaitResponsive(
-                            nodeId = targetNode.id,
-                            timeoutMs = WATCH_RECOVERY_WAIT_MS,
-                            reason = "fresh_http_retry:${item.displayName}"
-                        )
+                        val watchResponsive =
+                            existenceChecker.awaitResponsive(
+                                nodeId = targetNode.id,
+                                timeoutMs = WATCH_RECOVERY_WAIT_MS,
+                                reason = "fresh_http_retry:${item.displayName}",
+                            )
                         delay(FRESH_HTTP_RETRY_DELAY_MS)
                         incrementFreshHttpRetryCount(item)
 
@@ -472,12 +501,13 @@ internal class BatchTransferRunner(
                         if (!watchResponsive) {
                             PhoneTransferDiagnostics.warn(
                                 "Batch",
-                                "Watch still not responsive before HTTP retry file=${item.displayName}"
+                                "Watch still not responsive before HTTP retry file=${item.displayName}",
                             )
-                            result = TransferResult(
-                                success = false,
-                                message = "${HttpTransferServer.RESULT_HTTP_RECONNECT_TIMEOUT_PREFIX} detail=Watch did not answer after reconnect for ${item.displayName}"
-                            )
+                            result =
+                                TransferResult(
+                                    success = false,
+                                    message = "${HttpTransferServer.RESULT_HTTP_RECONNECT_TIMEOUT_PREFIX} detail=Watch did not answer after reconnect for ${item.displayName}",
+                                )
                             break
                         }
 
@@ -494,7 +524,7 @@ internal class BatchTransferRunner(
                             targetNodeId = targetNode.id,
                             transferId = metadata.transferId,
                             fileName = item.displayName,
-                            reason = "channel_fallback"
+                            reason = "channel_fallback",
                         )
                         if (
                             effectiveStrategyKind == TransferStrategyKind.HTTP &&
@@ -504,30 +534,31 @@ internal class BatchTransferRunner(
                             Log.d(
                                 TAG,
                                 "HTTP became unfavorable for this batch after ${item.displayName}; " +
-                                    "remaining eligible files will use Bluetooth. Reason=${result.message}"
+                                    "remaining eligible files will use Bluetooth. Reason=${result.message}",
                             )
                             PhoneTransferDiagnostics.warn(
                                 "Batch",
-                                "Prefer channel for remaining batch after file=${item.displayName} reason=${result.message}"
+                                "Prefer channel for remaining batch after file=${item.displayName} reason=${result.message}",
                             )
                         }
                         uiUpdater.update(
                             (index.toFloat() / n.toFloat()).coerceIn(0f, 1f),
-                            "$prefix\nHTTP failed, retrying via Bluetooth…"
+                            "$prefix\nHTTP failed, retrying via Bluetooth…",
                         )
                         val retryTransferId = UUID.randomUUID().toString()
                         val retryMetadata = metadata.copy(transferId = retryTransferId)
                         fileAttemptCount++
                         fileStrategiesAttempted += "CHANNEL(fallback)"
-                        result = normalizeRetryFileExists(
-                            runTransferAttempt(
-                                strategy = ChannelClientStrategy(),
-                                fileUri = item.uri,
-                                targetNodeId = targetNode.id,
-                                metadata = retryMetadata,
-                                onProgress = progressReporter
+                        result =
+                            normalizeRetryFileExists(
+                                runTransferAttempt(
+                                    strategy = ChannelClientStrategy(),
+                                    fileUri = item.uri,
+                                    targetNodeId = targetNode.id,
+                                    metadata = retryMetadata,
+                                    onProgress = progressReporter,
+                                ),
                             )
-                        )
                     }
                     break
                 }
@@ -540,14 +571,14 @@ internal class BatchTransferRunner(
                 val fileSpeedMBps = if (fileDurationMs > 0) fileSizeMB / (fileDurationMs / 1000.0) else 0.0
                 Log.d(
                     TAG,
-                    "Completed ${item.displayName} via ${effectiveStrategyKind} in " +
-                        "${fileDurationMs}ms (${String.format("%.2f", fileSpeedMBps)} MB/s)"
+                    "Completed ${item.displayName} via $effectiveStrategyKind in " +
+                        "${fileDurationMs}ms (${String.format("%.2f", fileSpeedMBps)} MB/s)",
                 )
                 PhoneTransferDiagnostics.log(
                     "Batch",
                     "Summary file=${item.displayName} strategy=$effectiveStrategyKind size=${item.size} " +
                         "durationMs=$fileDurationMs speedMBps=${String.format("%.2f", fileSpeedMBps)} " +
-                        "attempts=$fileAttemptCount strategiesUsed=${fileStrategiesAttempted.joinToString("→")}"
+                        "attempts=$fileAttemptCount strategiesUsed=${fileStrategiesAttempted.joinToString("→")}",
                 )
 
                 addHistoryItems(
@@ -556,9 +587,9 @@ internal class BatchTransferRunner(
                             nextHistoryId(),
                             item.displayName,
                             result.message.ifBlank { "Transfer complete" },
-                            true
-                        )
-                    )
+                            true,
+                        ),
+                    ),
                 )
                 clearFreshHttpRetryTracking(item)
             }
@@ -568,8 +599,12 @@ internal class BatchTransferRunner(
 
             uiState.update {
                 it.copy(
-                    statusMessage = if (skipped > 0) "Transfer Complete ($sent sent, $skipped skipped)"
-                    else "Transfer Complete ($sent file(s))",
+                    statusMessage =
+                        if (skipped > 0) {
+                            "Transfer Complete ($sent sent, $skipped skipped)"
+                        } else {
+                            "Transfer Complete ($sent file(s))"
+                        },
                     isTransferring = false,
                     isPaused = false,
                     canResume = false,
@@ -580,20 +615,19 @@ internal class BatchTransferRunner(
                     selectedFileDisplayNames = emptyList(),
                     selectedFileUri = null,
                     selectedFileName = null,
-                    selectedFileSizeMb = 0
+                    selectedFileSizeMb = 0,
                 )
             }
 
             notificationHelper.showCompletion(
                 if (skipped > 0) "$sent sent, $skipped skipped" else "$sent file(s)",
-                targetNode.displayName
+                targetNode.displayName,
             )
             Log.d(TAG, "Batch completed in ${SystemClock.elapsedRealtime() - batchStartMs}ms")
             PhoneTransferDiagnostics.log(
                 "Batch",
-                "Batch complete sent=$sent skipped=$skipped durationMs=${SystemClock.elapsedRealtime() - batchStartMs}"
+                "Batch complete sent=$sent skipped=$skipped durationMs=${SystemClock.elapsedRealtime() - batchStartMs}",
             )
-
         } finally {
             paused.set(false)
             cancelRequested.set(false)
@@ -623,13 +657,13 @@ internal class BatchTransferRunner(
                 canResume = false,
                 pauseReason = "",
                 statusMessage = "Cancelling…",
-                progressText = "Stopping current transfer…"
+                progressText = "Stopping current transfer…",
             )
         }
         notificationHelper.updateProgress(
             (uiState.value.progress * 100f).toInt(),
             "Stopping current transfer…",
-            false
+            false,
         )
         return true
     }
@@ -652,7 +686,7 @@ internal class BatchTransferRunner(
                 isPaused = false,
                 canResume = false,
                 pauseReason = "",
-                progressText = ""
+                progressText = "",
             )
         }
         notificationHelper.cancelForeground()
@@ -663,25 +697,29 @@ internal class BatchTransferRunner(
                     nextHistoryId(),
                     label ?: "Transfer",
                     "Cancelled",
-                    false
-                )
-            )
+                    false,
+                ),
+            ),
         )
     }
 
-    fun handleError(e: Exception, fileName: String?) {
+    fun handleError(
+        e: Exception,
+        fileName: String?,
+    ) {
         Log.e("BatchTransferRunner", "Transfer failed", e)
         PhoneTransferDiagnostics.error(
             "Batch",
             "Transfer failed file=${fileName ?: "Batch"}",
-            e
+            e,
         )
         paused.set(false)
         cancelRequested.set(false)
         activeStrategy = null
         sharedHttpStrategyRef = null
-        val errorMessage = e.localizedMessage?.trim().takeUnless { it.isNullOrEmpty() }
-            ?: "Unknown transfer error"
+        val errorMessage =
+            e.localizedMessage?.trim().takeUnless { it.isNullOrEmpty() }
+                ?: "Unknown transfer error"
 
         addHistoryItems(
             listOf(
@@ -689,9 +727,9 @@ internal class BatchTransferRunner(
                     nextHistoryId(),
                     fileName ?: "Batch",
                     "Failed: ${e.message}",
-                    false
-                )
-            )
+                    false,
+                ),
+            ),
         )
 
         uiState.update {
@@ -700,7 +738,7 @@ internal class BatchTransferRunner(
                 isTransferring = false,
                 isPaused = false,
                 canResume = false,
-                pauseReason = ""
+                pauseReason = "",
             )
         }
         notificationHelper.showError(message = errorMessage)
@@ -719,31 +757,33 @@ internal class BatchTransferRunner(
             httpPauseRequested.set(true)
             PhoneTransferDiagnostics.warn(
                 "Batch",
-                "Manual HTTP pause requested file=${fileName.orEmpty()} id=$transferId"
+                "Manual HTTP pause requested file=${fileName.orEmpty()} id=$transferId",
             )
             httpStrategy.requestPause(transferId)
             requestPauseOnWatch(nodeId, transferId)
-            val progressText = buildManualPauseProgressText(
-                filePrefix = uiState.value.progressText
-                    .lineSequence()
-                    .firstOrNull { it.startsWith("File ", ignoreCase = true) }
-                    ?: fileName?.let { "File: $it" }
-                    ?: "",
-                existingText = uiState.value.progressText
-            )
+            val progressText =
+                buildManualPauseProgressText(
+                    filePrefix =
+                        uiState.value.progressText
+                            .lineSequence()
+                            .firstOrNull { it.startsWith("File ", ignoreCase = true) }
+                            ?: fileName?.let { "File: $it" }
+                            ?: "",
+                    existingText = uiState.value.progressText,
+                )
             uiState.update {
                 it.copy(
                     isPaused = true,
                     canResume = true,
                     pauseReason = "Paused by user",
                     statusMessage = "Paused",
-                    progressText = progressText
+                    progressText = progressText,
                 )
             }
             notificationHelper.updateProgress(
                 (uiState.value.progress * 100f).toInt(),
                 progressText,
-                true
+                true,
             )
             return true
         }
@@ -756,7 +796,7 @@ internal class BatchTransferRunner(
                 canResume = true,
                 pauseReason = "Paused by user",
                 statusMessage = "Paused",
-                progressText = "Paused by user"
+                progressText = "Paused by user",
             )
         }
         notificationHelper.updateProgress((uiState.value.progress * 100f).toInt(), "Paused by user", true)
@@ -776,7 +816,7 @@ internal class BatchTransferRunner(
                 canResume = false,
                 pauseReason = "",
                 statusMessage = "Resuming…",
-                progressText = "Resuming…"
+                progressText = "Resuming…",
             )
         }
         notificationHelper.updateProgress((uiState.value.progress * 100f).toInt(), "Resuming…", false)
@@ -797,8 +837,9 @@ internal class BatchTransferRunner(
     private suspend fun buildFileItems(fileUris: List<Uri>): List<FileItem> {
         val items = mutableListOf<FileItem>()
         for (uri in fileUris) {
-            val details = TransferUtils.getFileDetails(context, uri)
-                ?: throw IllegalStateException("Could not read file details")
+            val details =
+                TransferUtils.getFileDetails(context, uri)
+                    ?: throw IllegalStateException("Could not read file details")
 
             val (rawName, size) = details
             val name = rawName.ifBlank { "file.bin" }
@@ -813,15 +854,16 @@ internal class BatchTransferRunner(
 
     private suspend fun preflightFilterExistingFiles(
         nodeId: String,
-        items: List<FileItem>
+        items: List<FileItem>,
     ): Pair<List<FileItem>, List<FileItem>> {
-        val existsResults = existenceChecker.checkBatch(
-            nodeId = nodeId,
-            fileNames = items.map { it.displayName }
-        )
+        val existsResults =
+            existenceChecker.checkBatch(
+                nodeId = nodeId,
+                fileNames = items.map { it.displayName },
+            )
         if (existsResults == null || existsResults.size != items.size) {
             throw IllegalStateException(
-                "Could not verify existing files. The watch did not answer in time."
+                "Could not verify existing files. The watch did not answer in time.",
             )
         }
 
@@ -853,7 +895,7 @@ internal class BatchTransferRunner(
         fileUri: Uri,
         targetNodeId: String,
         metadata: TransferMetadata,
-        onProgress: (Float, String) -> Unit
+        onProgress: (Float, String) -> Unit,
     ): TransferResult {
         val ackDeferred: CompletableDeferred<TransferResult> = ackRegistry.register(metadata.transferId)
         activeStrategy = strategy
@@ -870,7 +912,7 @@ internal class BatchTransferRunner(
                 metadata = metadata,
                 ackDeferred = ackDeferred,
                 awaitIfPaused = { awaitIfPaused() },
-                onProgress = onProgress
+                onProgress = onProgress,
             )
         } finally {
             activeStrategy = null
@@ -891,7 +933,7 @@ internal class BatchTransferRunner(
     private fun shouldRetryHttpWithFreshEndpoint(
         strategy: TransferStrategy,
         item: FileItem,
-        result: TransferResult
+        result: TransferResult,
     ): Boolean {
         if (result.success) return false
         if (strategy !is HttpTransferServer) return false
@@ -901,11 +943,12 @@ internal class BatchTransferRunner(
         val currentRetryCount = freshHttpRetryCount(item)
         val currentSentBytes = extractTransferredBytesFromRetryMessage(result.message)
         val previousBestSentBytes = freshHttpRetryBestSentBytes[retryKey]
-        val progressedMeaningfully = hasMeaningfulFreshHttpRetryProgress(
-            previousSentBytes = previousBestSentBytes,
-            currentSentBytes = currentSentBytes,
-            totalSize = item.size
-        )
+        val progressedMeaningfully =
+            hasMeaningfulFreshHttpRetryProgress(
+                previousSentBytes = previousBestSentBytes,
+                currentSentBytes = currentSentBytes,
+                totalSize = item.size,
+            )
         if (currentSentBytes != null && currentSentBytes > (previousBestSentBytes ?: Long.MIN_VALUE)) {
             freshHttpRetryBestSentBytes[retryKey] = currentSentBytes
         }
@@ -917,7 +960,7 @@ internal class BatchTransferRunner(
         ) {
             PhoneTransferDiagnostics.warn(
                 "Batch",
-                "Stop fresh HTTP retries after repeated unreachable endpoint file=${item.displayName} retries=$currentRetryCount"
+                "Stop fresh HTTP retries after repeated unreachable endpoint file=${item.displayName} retries=$currentRetryCount",
             )
             return false
         }
@@ -928,11 +971,11 @@ internal class BatchTransferRunner(
             Log.d(
                 TAG,
                 "Extending HTTP retry budget for ${item.displayName} after forward progress " +
-                    "(previousSent=$previousBestSentBytes, sent=$currentSentBytes)"
+                    "(previousSent=$previousBestSentBytes, sent=$currentSentBytes)",
             )
             PhoneTransferDiagnostics.log(
                 "Batch",
-                "Extend HTTP retry budget file=${item.displayName} previousSent=${previousBestSentBytes ?: -1} sent=${currentSentBytes ?: -1}"
+                "Extend HTTP retry budget file=${item.displayName} previousSent=${previousBestSentBytes ?: -1} sent=${currentSentBytes ?: -1}",
             )
         }
 
@@ -978,18 +1021,18 @@ internal class BatchTransferRunner(
         targetNodeId: String,
         transferId: String,
         fileName: String,
-        reason: String
+        reason: String,
     ) {
         PhoneTransferDiagnostics.warn(
             "Batch",
-            "Supersede watch transfer file=$fileName oldId=$transferId reason=$reason"
+            "Supersede watch transfer file=$fileName oldId=$transferId reason=$reason",
         )
         runCatching {
             cancelTransferOnWatch(targetNodeId, transferId)
         }.onFailure {
             PhoneTransferDiagnostics.warn(
                 "Batch",
-                "Supersede cancel failed file=$fileName oldId=$transferId reason=$reason msg=${it.message}"
+                "Supersede cancel failed file=$fileName oldId=$transferId reason=$reason msg=${it.message}",
             )
         }
         delay(SUPERSEDE_CANCEL_SETTLE_MS)

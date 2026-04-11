@@ -2,7 +2,6 @@ package com.glancemap.glancemapwearos.core.service.transfer.datalayer
 
 import android.net.Uri
 import android.util.Log
-import com.google.android.gms.wearable.MessageEvent
 import com.glancemap.glancemapwearos.core.service.DataLayerListenerService
 import com.glancemap.glancemapwearos.core.service.WatchTransferForegroundService
 import com.glancemap.glancemapwearos.core.service.diagnostics.TransferDiagnostics
@@ -10,6 +9,7 @@ import com.glancemap.glancemapwearos.core.service.transfer.contract.ReceiverMeta
 import com.glancemap.glancemapwearos.core.service.transfer.runtime.TransferSessionState
 import com.glancemap.glancemapwearos.core.service.transfer.storage.WatchFileOps
 import com.glancemap.shared.transfer.TransferDataLayerContract
+import com.google.android.gms.wearable.MessageEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -19,7 +19,7 @@ internal class DataLayerWifiTransferRequestHandler(
     private val fileOps: WatchFileOps,
     private val sessionState: TransferSessionState,
     private val sendStatus: suspend (sourceNodeId: String, transferId: String, phase: String, detail: String) -> Unit,
-    private val sendAck: suspend (sourceNodeId: String, transferId: String, status: String, detail: String) -> Unit
+    private val sendAck: suspend (sourceNodeId: String, transferId: String, status: String, detail: String) -> Unit,
 ) {
     private val appScope get() = service.appScope()
 
@@ -41,29 +41,31 @@ internal class DataLayerWifiTransferRequestHandler(
         val protocol = payload.optString("protocol", "http")
         val httpPath = payload.optString("path", "")
         val checksumSha256 = payload.optString("sha256", "").trim().ifBlank { null }
-        val authToken = payload.optString(TransferDataLayerContract.HTTP_AUTH_TOKEN_JSON_KEY, "")
-            .trim()
-            .ifBlank { null }
+        val authToken =
+            payload
+                .optString(TransferDataLayerContract.HTTP_AUTH_TOKEN_JSON_KEY, "")
+                .trim()
+                .ifBlank { null }
 
         if (transferId.isBlank() || ip.isBlank() || port <= 0 || safeName.isBlank()) {
             Log.w(TAG, "Missing fields in Wi-Fi request: $payload")
             TransferDiagnostics.warn(
                 "WiFiReq",
-                "Missing START_WIFI_TRANSFER fields id=$transferId ipBlank=${ip.isBlank()} port=$port nameBlank=${safeName.isBlank()}"
+                "Missing START_WIFI_TRANSFER fields id=$transferId ipBlank=${ip.isBlank()} port=$port nameBlank=${safeName.isBlank()}",
             )
             return
         }
 
         Log.d(
             TAG,
-            "START_WIFI_TRANSFER id=$transferId protocol=$protocol ip=$ip port=$port path=$httpPath size=$totalSize name=$safeName"
+            "START_WIFI_TRANSFER id=$transferId protocol=$protocol ip=$ip port=$port path=$httpPath size=$totalSize name=$safeName",
         )
 
         val fileName = fileOps.sanitizeFileName(Uri.decode(safeName))
         val notificationId = transferId.hashCode()
         TransferDiagnostics.log(
             "WiFiReq",
-            "START id=$transferId file=$fileName protocol=$protocol size=$totalSize path=$httpPath sourceNode=$sourceNodeId"
+            "START id=$transferId file=$fileName protocol=$protocol size=$totalSize path=$httpPath sourceNode=$sourceNodeId",
         )
 
         if (protocol == "http") {
@@ -72,25 +74,26 @@ internal class DataLayerWifiTransferRequestHandler(
                 if (existingTransfer.transferId == transferId) {
                     TransferDiagnostics.warn(
                         "WiFiReq",
-                        "Duplicate START ignored id=$transferId file=$fileName sourceNode=$sourceNodeId"
+                        "Duplicate START ignored id=$transferId file=$fileName sourceNode=$sourceNodeId",
                     )
                     return
                 }
                 TransferDiagnostics.warn(
                     "WiFiReq",
-                    "Superseding HTTP transfer oldId=${existingTransfer.transferId} newId=$transferId file=$fileName"
+                    "Superseding HTTP transfer oldId=${existingTransfer.transferId} newId=$transferId file=$fileName",
                 )
             }
-            val cancelled = sessionState.cancelTransfersForFile(
-                sourceNodeId = sourceNodeId,
-                fileName = fileName,
-                reason = "Superseded by newer transferId=$transferId",
-                excludeTransferId = transferId
-            )
+            val cancelled =
+                sessionState.cancelTransfersForFile(
+                    sourceNodeId = sourceNodeId,
+                    fileName = fileName,
+                    reason = "Superseded by newer transferId=$transferId",
+                    excludeTransferId = transferId,
+                )
             if (cancelled > 0) {
                 TransferDiagnostics.warn(
                     "WiFiReq",
-                    "Cancelled stale HTTP transfers count=$cancelled newId=$transferId file=$fileName"
+                    "Cancelled stale HTTP transfers count=$cancelled newId=$transferId file=$fileName",
                 )
             }
         }
@@ -98,7 +101,7 @@ internal class DataLayerWifiTransferRequestHandler(
         if (protocol == "http" && checksumSha256.isNullOrBlank()) {
             TransferDiagnostics.warn(
                 "WiFiReq",
-                "Missing checksum for HTTP transfer id=$transferId file=$fileName"
+                "Missing checksum for HTTP transfer id=$transferId file=$fileName",
             )
             service.releasePrewarmWakeLock("http_rejected_missing_checksum:$fileName")
             appScope.launch(Dispatchers.IO) {
@@ -112,7 +115,7 @@ internal class DataLayerWifiTransferRequestHandler(
         if (protocol == "http" && authToken.isNullOrBlank()) {
             TransferDiagnostics.warn(
                 "WiFiReq",
-                "Missing auth token for HTTP transfer id=$transferId file=$fileName"
+                "Missing auth token for HTTP transfer id=$transferId file=$fileName",
             )
             service.releasePrewarmWakeLock("http_rejected_missing_token:$fileName")
             appScope.launch(Dispatchers.IO) {
@@ -123,17 +126,18 @@ internal class DataLayerWifiTransferRequestHandler(
             return
         }
 
-        val metadata = ReceiverMetadata(
-            transferId = transferId,
-            fileName = fileName,
-            totalSize = totalSize,
-            sourceNodeId = sourceNodeId,
-            notificationId = notificationId,
-            checksumSha256 = checksumSha256,
-            authToken = authToken,
-            ip = ip,
-            port = port
-        )
+        val metadata =
+            ReceiverMetadata(
+                transferId = transferId,
+                fileName = fileName,
+                totalSize = totalSize,
+                sourceNodeId = sourceNodeId,
+                notificationId = notificationId,
+                checksumSha256 = checksumSha256,
+                authToken = authToken,
+                ip = ip,
+                port = port,
+            )
 
         if (protocol == "http") {
             runCatching {
@@ -142,16 +146,16 @@ internal class DataLayerWifiTransferRequestHandler(
                         transferId = transferId,
                         fileName = fileName,
                         sourceNodeId = sourceNodeId,
-                        job = null
-                    )
+                        job = null,
+                    ),
                 )
                 TransferDiagnostics.log(
                     "WiFiReq",
-                    "Register active HTTP transfer id=$transferId file=$fileName sourceNode=$sourceNodeId"
+                    "Register active HTTP transfer id=$transferId file=$fileName sourceNode=$sourceNodeId",
                 )
                 TransferDiagnostics.log(
                     "WiFiReq",
-                    "Dispatch HTTP transfer via foreground service id=${metadata.transferId} file=${metadata.fileName}"
+                    "Dispatch HTTP transfer via foreground service id=${metadata.transferId} file=${metadata.fileName}",
                 )
                 WatchTransferForegroundService.startHttpTransfer(service, metadata, httpPath)
             }.onFailure { error ->
@@ -160,7 +164,7 @@ internal class DataLayerWifiTransferRequestHandler(
                 TransferDiagnostics.error(
                     "WiFiReq",
                     "Failed to launch foreground transfer id=${metadata.transferId} file=${metadata.fileName}",
-                    error
+                    error,
                 )
                 appScope.launch(Dispatchers.IO) {
                     val msg = error.message ?: "FAILED_TO_START_HTTP_SERVICE"
@@ -173,7 +177,7 @@ internal class DataLayerWifiTransferRequestHandler(
             Log.w(TAG, msg)
             TransferDiagnostics.warn(
                 "WiFiReq",
-                "Unsupported protocol id=${metadata.transferId} file=${metadata.fileName} protocol=$protocol"
+                "Unsupported protocol id=${metadata.transferId} file=${metadata.fileName} protocol=$protocol",
             )
             service.releasePrewarmWakeLock("http_rejected_protocol:${metadata.fileName}")
             appScope.launch(Dispatchers.IO) {

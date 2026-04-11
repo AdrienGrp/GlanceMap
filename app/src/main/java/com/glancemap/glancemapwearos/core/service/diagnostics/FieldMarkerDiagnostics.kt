@@ -13,7 +13,8 @@ internal object FieldMarkerDiagnostics {
     private val lines = ArrayDeque<String>()
     private var droppedLines: Int = 0
     private val tsFormatter: DateTimeFormatter =
-        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+        DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
             .withZone(ZoneId.systemDefault())
 
     fun clear() {
@@ -29,7 +30,10 @@ internal object FieldMarkerDiagnostics {
 
     fun maxBufferedLines(): Int = MAX_LINES
 
-    fun recordMarker(type: String, note: String = "") {
+    fun recordMarker(
+        type: String,
+        note: String = "",
+    ) {
         val safeType = sanitizeToken(type, fallback = "manual")
         val safeNote = sanitizeToken(note, fallback = "na")
         val payload = "type=$safeType note=$safeNote"
@@ -51,11 +55,16 @@ internal object FieldMarkerDiagnostics {
         }
     }
 
-    private fun sanitizeToken(value: String, fallback: String): String {
-        val cleaned = value.trim()
-            .replace(Regex("\\s+"), "_")
-            .replace(Regex("[^A-Za-z0-9_\\-.:]"), "")
-            .take(64)
+    private fun sanitizeToken(
+        value: String,
+        fallback: String,
+    ): String {
+        val cleaned =
+            value
+                .trim()
+                .replace(Regex("\\s+"), "_")
+                .replace(Regex("[^A-Za-z0-9_\\-.:]"), "")
+                .take(64)
         return if (cleaned.isBlank()) fallback else cleaned
     }
 }

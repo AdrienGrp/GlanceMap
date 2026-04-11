@@ -7,7 +7,7 @@ import androidx.core.content.ContextCompat
 
 internal data class LocationPermissionSnapshot(
     val hasFinePermission: Boolean,
-    val hasCoarsePermission: Boolean
+    val hasCoarsePermission: Boolean,
 ) {
     val hasAnyPermission: Boolean
         get() = hasFinePermission || hasCoarsePermission
@@ -15,17 +15,19 @@ internal data class LocationPermissionSnapshot(
 
 internal object LocationPermissionChecker {
     fun read(context: Context): LocationPermissionSnapshot {
-        val hasFinePermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        val hasCoarsePermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        val hasFinePermission =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarsePermission =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
         return LocationPermissionSnapshot(
             hasFinePermission = hasFinePermission,
-            hasCoarsePermission = hasCoarsePermission
+            hasCoarsePermission = hasCoarsePermission,
         )
     }
 }

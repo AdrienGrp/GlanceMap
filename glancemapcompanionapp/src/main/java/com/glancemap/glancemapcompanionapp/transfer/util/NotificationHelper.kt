@@ -15,12 +15,13 @@ import androidx.core.app.ServiceCompat
 import com.glancemap.glancemapcompanionapp.MainActivityMobile
 import com.glancemap.glancemapcompanionapp.R
 import com.glancemap.glancemapcompanionapp.diagnostics.PhoneDebugCapture
-import com.glancemap.glancemapcompanionapp.transfer.service.FileTransferService
 import com.glancemap.glancemapcompanionapp.transfer.presentation.TransferTextFormatter
+import com.glancemap.glancemapcompanionapp.transfer.service.FileTransferService
 import kotlin.math.abs
 
-class NotificationHelper(private val service: Service) {
-
+class NotificationHelper(
+    private val service: Service,
+) {
     companion object {
         const val CHANNEL_ID = "file_transfer_channel"
         const val NOTIFICATION_ID = 1
@@ -46,27 +47,31 @@ class NotificationHelper(private val service: Service) {
     private var isTransferNotificationActive: Boolean = false
 
     // Launch the app when tapping the notification
-    private val contentIntent = Intent(service, MainActivityMobile::class.java).let {
-        PendingIntent.getActivity(
-            service,
-            REQ_OPEN_APP,
-            it,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-    }
+    private val contentIntent =
+        Intent(service, MainActivityMobile::class.java).let {
+            PendingIntent.getActivity(
+                service,
+                REQ_OPEN_APP,
+                it,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        }
 
     fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "File Transfers", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL_ID, "File Transfers", NotificationManager.IMPORTANCE_LOW),
             )
         }
     }
 
     fun startForeground(text: String) {
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-        } else 0
+        val type =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            } else {
+                0
+            }
 
         // Reset throttling on new transfer
         lastUpdateTimeMs = 0L
@@ -78,7 +83,7 @@ class NotificationHelper(private val service: Service) {
             service,
             NOTIFICATION_ID,
             buildNotification(progress = -1, text = text, isPaused = false).build(),
-            type
+            type,
         )
     }
 
@@ -86,7 +91,10 @@ class NotificationHelper(private val service: Service) {
      * Backward compatible call.
      * Use progress < 0 for indeterminate (Connecting / Waiting…).
      */
-    fun updateProgress(progress: Int, text: String) {
+    fun updateProgress(
+        progress: Int,
+        text: String,
+    ) {
         updateProgress(progress = progress, text = text, isPaused = false)
     }
 
@@ -94,7 +102,11 @@ class NotificationHelper(private val service: Service) {
      * New version: allows pause/resume toggle.
      * Use progress < 0 for indeterminate.
      */
-    fun updateProgress(progress: Int, text: String, isPaused: Boolean) {
+    fun updateProgress(
+        progress: Int,
+        text: String,
+        isPaused: Boolean,
+    ) {
         if (!isTransferNotificationActive) return
 
         val now = SystemClock.elapsedRealtime()
@@ -113,13 +125,17 @@ class NotificationHelper(private val service: Service) {
         nm.notify(NOTIFICATION_ID, buildNotification(progress, text, isPaused).build())
     }
 
-    fun showCompletion(fileName: String, targetName: String) {
+    fun showCompletion(
+        fileName: String,
+        targetName: String,
+    ) {
         // Make sure the foreground is not left "ongoing"
         stopForeground()
 
         nm.notify(
             NOTIFICATION_ID,
-            NotificationCompat.Builder(service, CHANNEL_ID)
+            NotificationCompat
+                .Builder(service, CHANNEL_ID)
                 .setContentTitle("Transfer Complete")
                 .setContentText("Sent $fileName to $targetName")
                 .setSmallIcon(smallNotificationIconRes)
@@ -128,20 +144,24 @@ class NotificationHelper(private val service: Service) {
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(contentIntent)
-                .build()
+                .build(),
         )
     }
 
     /**
      * ✅ Call this when a transfer fails, so the user can swipe it away.
      */
-    fun showError(title: String = "Transfer Failed", message: String) {
+    fun showError(
+        title: String = "Transfer Failed",
+        message: String,
+    ) {
         // Remove any foreground ongoing notification first
         stopForeground()
 
         nm.notify(
             NOTIFICATION_ID,
-            NotificationCompat.Builder(service, CHANNEL_ID)
+            NotificationCompat
+                .Builder(service, CHANNEL_ID)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setSmallIcon(smallNotificationIconRes)
@@ -150,7 +170,7 @@ class NotificationHelper(private val service: Service) {
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(contentIntent)
-                .build()
+                .build(),
         )
     }
 
@@ -171,14 +191,19 @@ class NotificationHelper(private val service: Service) {
         nm.cancel(NOTIFICATION_ID)
     }
 
-    private fun buildNotification(progress: Int, text: String, isPaused: Boolean): NotificationCompat.Builder {
+    private fun buildNotification(
+        progress: Int,
+        text: String,
+        isPaused: Boolean,
+    ): NotificationCompat.Builder {
         val normalizedText = text.trim().ifBlank { "Transferring…" }
-        val presentation = TransferTextFormatter.buildNotificationPresentation(
-            rawText = normalizedText,
-            progress = progress,
-            isPaused = isPaused,
-            showTechnicalDetails = PhoneDebugCapture.isActive()
-        )
+        val presentation =
+            TransferTextFormatter.buildNotificationPresentation(
+                rawText = normalizedText,
+                progress = progress,
+                isPaused = isPaused,
+                showTechnicalDetails = PhoneDebugCapture.isActive(),
+            )
         val waitingForReconnect = presentation.waitingForReconnect
         val title = presentation.title
         val bodyText = presentation.contentText
@@ -186,41 +211,47 @@ class NotificationHelper(private val service: Service) {
         val subText = presentation.subText
 
         // Cancel action -> service
-        val cancelIntent = Intent(service, FileTransferService::class.java).apply {
-            action = FileTransferService.ACTION_CANCEL
-        }
-        val cancelPending = PendingIntent.getService(
-            service,
-            REQ_CANCEL,
-            cancelIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val cancelIntent =
+            Intent(service, FileTransferService::class.java).apply {
+                action = FileTransferService.ACTION_CANCEL
+            }
+        val cancelPending =
+            PendingIntent.getService(
+                service,
+                REQ_CANCEL,
+                cancelIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
 
         val toggleAction = if (isPaused) FileTransferService.ACTION_RESUME else FileTransferService.ACTION_PAUSE
         val toggleLabel = if (isPaused) "Resume" else "Pause"
         val toggleIcon = if (isPaused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause
 
-        val toggleIntent = Intent(service, FileTransferService::class.java).apply {
-            action = toggleAction
-        }
-        val togglePending = PendingIntent.getService(
-            service,
-            REQ_TOGGLE,
-            toggleIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val toggleIntent =
+            Intent(service, FileTransferService::class.java).apply {
+                action = toggleAction
+            }
+        val togglePending =
+            PendingIntent.getService(
+                service,
+                REQ_TOGGLE,
+                toggleIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
 
-        val builder = NotificationCompat.Builder(service, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(bodyText)
-            .setSmallIcon(smallNotificationIconRes)
-            .setLargeIcon(largeNotificationIcon)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(expandedBody))
-            .setContentIntent(contentIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", cancelPending)
+        val builder =
+            NotificationCompat
+                .Builder(service, CHANNEL_ID)
+                .setContentTitle(title)
+                .setContentText(bodyText)
+                .setSmallIcon(smallNotificationIconRes)
+                .setLargeIcon(largeNotificationIcon)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(expandedBody))
+                .setContentIntent(contentIntent)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", cancelPending)
 
         if (!waitingForReconnect) {
             builder.addAction(toggleIcon, toggleLabel, togglePending)

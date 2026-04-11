@@ -6,7 +6,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class LocationActivityClassifierTest {
-
     @Test
     fun startsInActiveState() {
         val classifier = LocationActivityClassifier()
@@ -26,8 +25,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
                 hasExitWindowHistory = false,
-                exitDisplacementMeters = 0f
-            )
+                exitDisplacementMeters = 0f,
+            ),
         )
 
         assertEquals(
@@ -38,8 +37,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
                 hasExitWindowHistory = false,
-                exitDisplacementMeters = 0f
-            )
+                exitDisplacementMeters = 0f,
+            ),
         )
 
         assertEquals(
@@ -50,8 +49,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
                 hasExitWindowHistory = false,
-                exitDisplacementMeters = 0f
-            )
+                exitDisplacementMeters = 0f,
+            ),
         )
     }
 
@@ -66,7 +65,7 @@ class LocationActivityClassifierTest {
             hasEnterWindowHistory = true,
             enterDisplacementMeters = 2f,
             hasExitWindowHistory = false,
-            exitDisplacementMeters = 0f
+            exitDisplacementMeters = 0f,
         )
 
         // Break enter condition with large displacement.
@@ -76,7 +75,7 @@ class LocationActivityClassifierTest {
             hasEnterWindowHistory = true,
             enterDisplacementMeters = 40f,
             hasExitWindowHistory = false,
-            exitDisplacementMeters = 0f
+            exitDisplacementMeters = 0f,
         )
 
         assertEquals(
@@ -87,8 +86,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
                 hasExitWindowHistory = false,
-                exitDisplacementMeters = 0f
-            )
+                exitDisplacementMeters = 0f,
+            ),
         )
 
         assertEquals(
@@ -99,8 +98,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
                 hasExitWindowHistory = false,
-                exitDisplacementMeters = 0f
-            )
+                exitDisplacementMeters = 0f,
+            ),
         )
 
         assertEquals(
@@ -111,8 +110,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
                 hasExitWindowHistory = false,
-                exitDisplacementMeters = 0f
-            )
+                exitDisplacementMeters = 0f,
+            ),
         )
     }
 
@@ -129,8 +128,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 1f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 25f
-            )
+                exitDisplacementMeters = 25f,
+            ),
         )
 
         assertEquals(
@@ -141,8 +140,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 1f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 25f
-            )
+                exitDisplacementMeters = 25f,
+            ),
         )
 
         assertEquals(
@@ -153,8 +152,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 1f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 25f
-            )
+                exitDisplacementMeters = 25f,
+            ),
         )
     }
 
@@ -172,8 +171,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 40f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 40f
-            )
+                exitDisplacementMeters = 40f,
+            ),
         )
 
         // User slows/stops: stationary candidate starts but not confirmed yet.
@@ -185,8 +184,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 5f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 3f
-            )
+                exitDisplacementMeters = 3f,
+            ),
         )
         assertEquals(
             LocationActivityState.ACTIVE,
@@ -196,8 +195,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 5f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 3f
-            )
+                exitDisplacementMeters = 3f,
+            ),
         )
 
         // After confirm window, should enter STATIONARY.
@@ -209,8 +208,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 5f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 3f
-            )
+                exitDisplacementMeters = 3f,
+            ),
         )
 
         // Starts moving again: active candidate starts, still STATIONARY before confirmation.
@@ -222,8 +221,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 20f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 28f
-            )
+                exitDisplacementMeters = 28f,
+            ),
         )
         assertEquals(
             LocationActivityState.STATIONARY,
@@ -233,8 +232,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 20f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 28f
-            )
+                exitDisplacementMeters = 28f,
+            ),
         )
 
         // After confirm window, should return to ACTIVE.
@@ -246,8 +245,8 @@ class LocationActivityClassifierTest {
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 20f,
                 hasExitWindowHistory = true,
-                exitDisplacementMeters = 28f
-            )
+                exitDisplacementMeters = 28f,
+            ),
         )
     }
 }

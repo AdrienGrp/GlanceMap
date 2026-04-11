@@ -53,8 +53,8 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.CompassMarke
 import com.glancemap.glancemapwearos.presentation.features.navigate.compassMarkerQualityRank
 import com.glancemap.glancemapwearos.presentation.features.navigate.compassQualityReadingFromRenderState
 import com.glancemap.glancemapwearos.presentation.features.navigate.compassQualityTransitionHoldMs
-import com.glancemap.glancemapwearos.presentation.features.navigate.hasMeaningfulCompassErrorImprovement
 import com.glancemap.glancemapwearos.presentation.features.navigate.coneColorArgbForQuality
+import com.glancemap.glancemapwearos.presentation.features.navigate.hasMeaningfulCompassErrorImprovement
 import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -64,7 +64,7 @@ import kotlin.math.roundToInt
 fun CompassRecalibrationDialog(
     compassViewModel: CompassViewModel,
     onApplyRecalibration: () -> Unit,
-    onComplete: (Boolean) -> Unit
+    onComplete: (Boolean) -> Unit,
 ) {
     KeepScreenOnEffect()
 
@@ -77,10 +77,11 @@ fun CompassRecalibrationDialog(
     val vibrator = remember { vibratorFrom(context) }
     val compassRenderState by compassViewModel.renderState.collectAsState()
     val compassAccuracy = compassRenderState.accuracy
-    val compassQualityReading = compassQualityReadingFromRenderState(
-        renderState = compassRenderState,
-        nowElapsedMs = SystemClock.elapsedRealtime()
-    )
+    val compassQualityReading =
+        compassQualityReadingFromRenderState(
+            renderState = compassRenderState,
+            nowElapsedMs = SystemClock.elapsedRealtime(),
+        )
     val activeHeadingSource = compassRenderState.headingSource
     val headingSourceStatus = compassRenderState.headingSourceStatus
     val activeProviderType = compassRenderState.providerType
@@ -116,73 +117,76 @@ fun CompassRecalibrationDialog(
             headingSourceStatus.headingSensorAvailable ||
             headingSourceStatus.rotationVectorAvailable ||
             headingSourceStatus.magAccelFallbackAvailable
-    val hasQualitySample = when (activeProviderType) {
-        CompassProviderType.GOOGLE_FUSED -> compassQualityReading.hasQualitySample
-        CompassProviderType.SENSOR_MANAGER -> activeHeadingSource != HeadingSource.NONE
-    }
+    val hasQualitySample =
+        when (activeProviderType) {
+            CompassProviderType.GOOGLE_FUSED -> compassQualityReading.hasQualitySample
+            CompassProviderType.SENSOR_MANAGER -> activeHeadingSource != HeadingSource.NONE
+        }
     val rawQuality = compassQualityReading.quality
-    val rawHeadingErrorDeg = if (
-        activeProviderType == CompassProviderType.GOOGLE_FUSED &&
+    val rawHeadingErrorDeg =
+        if (
+            activeProviderType == CompassProviderType.GOOGLE_FUSED &&
             hasQualitySample &&
             !compassQualityReading.isStale
-    ) {
-        compassQualityReading.headingErrorDeg
-    } else {
-        null
-    }
+        ) {
+            compassQualityReading.headingErrorDeg
+        } else {
+            null
+        }
     val scrollState = rememberScrollState()
     val focusRequester = remember { FocusRequester() }
 
     DisposableEffect(lifecycleOwner) {
         val lifecycle = lifecycleOwner.lifecycle
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_PAUSE -> {
-                    isDialogResumed = false
-                    if (
-                        pauseStartedAtMs == 0L &&
-                        (phase == CalibrationPhase.MEASURING || phase == CalibrationPhase.HOLD_STILL)
-                    ) {
-                        pauseStartedAtMs = SystemClock.elapsedRealtime()
-                        logCompassCalibrationTelemetry(
-                            "lifecycle_pause phase=${phase.name} countdownStarted=$countdownStarted " +
-                                "fusedRefreshApplied=$fusedRefreshApplied"
-                        )
-                    }
-                }
-
-                Lifecycle.Event.ON_RESUME -> {
-                    isDialogResumed = true
-                    val pausedAtMs = pauseStartedAtMs
-                    if (pausedAtMs > 0L) {
-                        val pausedDurationMs =
-                            (SystemClock.elapsedRealtime() - pausedAtMs).coerceAtLeast(0L)
-                        if (phase == CalibrationPhase.MEASURING && countdownStarted && startedAtMs > 0L) {
-                            startedAtMs += pausedDurationMs
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_PAUSE -> {
+                        isDialogResumed = false
+                        if (
+                            pauseStartedAtMs == 0L &&
+                            (phase == CalibrationPhase.MEASURING || phase == CalibrationPhase.HOLD_STILL)
+                        ) {
+                            pauseStartedAtMs = SystemClock.elapsedRealtime()
+                            logCompassCalibrationTelemetry(
+                                "lifecycle_pause phase=${phase.name} countdownStarted=$countdownStarted " +
+                                    "fusedRefreshApplied=$fusedRefreshApplied",
+                            )
                         }
-                        if (phase == CalibrationPhase.HOLD_STILL && holdStillStartedAtMs > 0L) {
-                            holdStillStartedAtMs += pausedDurationMs
-                            if (
-                                activeProviderType == CompassProviderType.GOOGLE_FUSED &&
-                                fusedRefreshApplied
-                            ) {
-                                onApplyRecalibration()
-                                logCompassCalibrationTelemetry(
-                                    "lifecycle_resume_recalibrate phase=${phase.name} pausedMs=$pausedDurationMs"
-                                )
+                    }
+
+                    Lifecycle.Event.ON_RESUME -> {
+                        isDialogResumed = true
+                        val pausedAtMs = pauseStartedAtMs
+                        if (pausedAtMs > 0L) {
+                            val pausedDurationMs =
+                                (SystemClock.elapsedRealtime() - pausedAtMs).coerceAtLeast(0L)
+                            if (phase == CalibrationPhase.MEASURING && countdownStarted && startedAtMs > 0L) {
+                                startedAtMs += pausedDurationMs
                             }
+                            if (phase == CalibrationPhase.HOLD_STILL && holdStillStartedAtMs > 0L) {
+                                holdStillStartedAtMs += pausedDurationMs
+                                if (
+                                    activeProviderType == CompassProviderType.GOOGLE_FUSED &&
+                                    fusedRefreshApplied
+                                ) {
+                                    onApplyRecalibration()
+                                    logCompassCalibrationTelemetry(
+                                        "lifecycle_resume_recalibrate phase=${phase.name} pausedMs=$pausedDurationMs",
+                                    )
+                                }
+                            }
+                            pauseStartedAtMs = 0L
+                            logCompassCalibrationTelemetry(
+                                "lifecycle_resume phase=${phase.name} pausedMs=$pausedDurationMs " +
+                                    "countdownStarted=$countdownStarted fusedRefreshApplied=$fusedRefreshApplied",
+                            )
                         }
-                        pauseStartedAtMs = 0L
-                        logCompassCalibrationTelemetry(
-                            "lifecycle_resume phase=${phase.name} pausedMs=$pausedDurationMs " +
-                                "countdownStarted=$countdownStarted fusedRefreshApplied=$fusedRefreshApplied"
-                        )
                     }
-                }
 
-                else -> Unit
+                    else -> Unit
+                }
             }
-        }
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
@@ -199,26 +203,25 @@ fun CompassRecalibrationDialog(
                 "result=${(resultQuality ?: displayedQuality).name} " +
                 "initialErrorDeg=${initialHeadingErrorDeg.formatHeadingErrorTelemetry()} " +
                 "resultErrorDeg=${resultHeadingErrorDeg.formatHeadingErrorTelemetry()} " +
-                "fusedRefreshApplied=$fusedRefreshApplied"
+                "fusedRefreshApplied=$fusedRefreshApplied",
         )
         onComplete(success)
     }
 
-    fun currentResultSuccess(): Boolean {
-        return didCompleteCompassRecalibration(
+    fun currentResultSuccess(): Boolean =
+        didCompleteCompassRecalibration(
             providerType = activeProviderType,
             qualityImproved = qualityImproved,
             headingErrorImproved = headingErrorImproved,
             resultQuality = resultQuality ?: displayedQuality,
             fusedRefreshApplied = fusedRefreshApplied,
-            awaitingFusedRefreshValidation = awaitingFusedRefreshValidation
+            awaitingFusedRefreshValidation = awaitingFusedRefreshValidation,
         )
-    }
 
     fun restartCalibrationFlow() {
         logCompassCalibrationTelemetry(
             "flow_restart provider=${activeProviderType.name} " +
-                "raw=${rawQuality?.name ?: "UNKNOWN"} rawErrorDeg=${rawHeadingErrorDeg.formatHeadingErrorTelemetry()}"
+                "raw=${rawQuality?.name ?: "UNKNOWN"} rawErrorDeg=${rawHeadingErrorDeg.formatHeadingErrorTelemetry()}",
         )
         phase = CalibrationPhase.MEASURING
         remainingMs = CALIBRATION_TIMEOUT_MS
@@ -249,7 +252,7 @@ fun CompassRecalibrationDialog(
             "fused_refresh_apply provider=${activeProviderType.name} trigger=$trigger " +
                 "source=${activeHeadingSource.telemetryToken} accuracy=$compassAccuracy " +
                 "displayed=${displayedQuality.name} raw=${rawQuality?.name ?: "UNKNOWN"} " +
-                "rawErrorDeg=${rawHeadingErrorDeg.formatHeadingErrorTelemetry()}"
+                "rawErrorDeg=${rawHeadingErrorDeg.formatHeadingErrorTelemetry()}",
         )
         onApplyRecalibration()
         fusedRefreshApplied = true
@@ -272,7 +275,7 @@ fun CompassRecalibrationDialog(
         if (phase != CalibrationPhase.MEASURING) return@LaunchedEffect
         if (!hasAnyHeadingSource) {
             logCompassCalibrationTelemetry(
-                "dialog_unsupported reason=no_heading_source provider=${activeProviderType.name}"
+                "dialog_unsupported reason=no_heading_source provider=${activeProviderType.name}",
             )
             phase = CalibrationPhase.UNSUPPORTED
             return@LaunchedEffect
@@ -284,7 +287,7 @@ fun CompassRecalibrationDialog(
         delay(COMPASS_SOURCE_RESOLUTION_TIMEOUT_MS)
         if (phase == CalibrationPhase.MEASURING && activeHeadingSource == HeadingSource.NONE) {
             logCompassCalibrationTelemetry(
-                "dialog_unsupported reason=source_resolution_timeout provider=${activeProviderType.name}"
+                "dialog_unsupported reason=source_resolution_timeout provider=${activeProviderType.name}",
             )
             phase = CalibrationPhase.UNSUPPORTED
         }
@@ -297,7 +300,7 @@ fun CompassRecalibrationDialog(
         countdownStarted,
         hasDisplayedInitialQuality,
         initialQualityDisplayedAtMs,
-        isDialogResumed
+        isDialogResumed,
     ) {
         if (!isDialogResumed) return@LaunchedEffect
         if (phase != CalibrationPhase.MEASURING) return@LaunchedEffect
@@ -320,7 +323,7 @@ fun CompassRecalibrationDialog(
             "move_phase_started provider=${activeProviderType.name} " +
                 "source=${activeHeadingSource.telemetryToken} " +
                 "initial=${(rawQuality ?: displayedQuality).name} accuracy=$compassAccuracy " +
-                "initialErrorDeg=${rawHeadingErrorDeg.formatHeadingErrorTelemetry()}"
+                "initialErrorDeg=${rawHeadingErrorDeg.formatHeadingErrorTelemetry()}",
         )
     }
 
@@ -338,7 +341,7 @@ fun CompassRecalibrationDialog(
                 logCompassCalibrationTelemetry(
                     "move_phase_complete provider=${activeProviderType.name} " +
                         "displayed=${displayedQuality.name} raw=${rawQuality?.name ?: "UNKNOWN"} " +
-                        "rawErrorDeg=${rawHeadingErrorDeg.formatHeadingErrorTelemetry()}"
+                        "rawErrorDeg=${rawHeadingErrorDeg.formatHeadingErrorTelemetry()}",
                 )
                 if (activeProviderType == CompassProviderType.GOOGLE_FUSED) {
                     startFusedRefreshValidation(trigger = "auto_after_move")
@@ -371,31 +374,35 @@ fun CompassRecalibrationDialog(
         if (!isDialogResumed) return@LaunchedEffect
         if (phase != CalibrationPhase.HOLD_STILL) return@LaunchedEffect
         if (holdStillStartedAtMs <= 0L) return@LaunchedEffect
-        val timeoutMs = currentHoldStillTimeoutMs(
-            awaitingFusedRefreshValidation = awaitingFusedRefreshValidation
-        )
+        val timeoutMs =
+            currentHoldStillTimeoutMs(
+                awaitingFusedRefreshValidation = awaitingFusedRefreshValidation,
+            )
         while (phase == CalibrationPhase.HOLD_STILL) {
             val now = SystemClock.elapsedRealtime()
             holdStillRemainingMs =
                 (timeoutMs - (now - holdStillStartedAtMs)).coerceAtLeast(0L)
             if (holdStillRemainingMs == 0L) {
-                val finalQuality = summarizeHoldStillQuality(
-                    samples = holdStillQualitySamples,
-                    fallback = rawQuality ?: displayedQuality
-                )
-                val finalHeadingErrorDeg = summarizeHoldStillHeadingError(
-                    samples = holdStillHeadingErrorSamples,
-                    fallback = rawHeadingErrorDeg
-                )
+                val finalQuality =
+                    summarizeHoldStillQuality(
+                        samples = holdStillQualitySamples,
+                        fallback = rawQuality ?: displayedQuality,
+                    )
+                val finalHeadingErrorDeg =
+                    summarizeHoldStillHeadingError(
+                        samples = holdStillHeadingErrorSamples,
+                        fallback = rawHeadingErrorDeg,
+                    )
                 resultQuality = finalQuality
                 resultHeadingErrorDeg = finalHeadingErrorDeg
                 displayedQuality = finalQuality
                 qualityImproved =
                     compassQualityRank(finalQuality) > compassQualityRank(initialQuality ?: finalQuality)
-                headingErrorImproved = hasMeaningfulCompassErrorImprovement(
-                    initialHeadingErrorDeg = initialHeadingErrorDeg,
-                    finalHeadingErrorDeg = finalHeadingErrorDeg
-                )
+                headingErrorImproved =
+                    hasMeaningfulCompassErrorImprovement(
+                        initialHeadingErrorDeg = initialHeadingErrorDeg,
+                        finalHeadingErrorDeg = finalHeadingErrorDeg,
+                    )
                 logCompassCalibrationTelemetry(
                     "result_ready provider=${activeProviderType.name} " +
                         "initial=${(initialQuality ?: finalQuality).name} " +
@@ -405,7 +412,7 @@ fun CompassRecalibrationDialog(
                         "errorImproved=$headingErrorImproved " +
                         "samples=${holdStillQualitySamples.size} " +
                         "fusedRefreshApplied=$fusedRefreshApplied " +
-                        "awaitingFusedRefreshValidation=$awaitingFusedRefreshValidation"
+                        "awaitingFusedRefreshValidation=$awaitingFusedRefreshValidation",
                 )
                 awaitingFusedRefreshValidation = false
                 phase = CalibrationPhase.RESULT
@@ -433,8 +440,8 @@ fun CompassRecalibrationDialog(
         delay(
             compassQualityTransitionHoldMs(
                 from = displayedQuality,
-                to = rawQuality
-            )
+                to = rawQuality,
+            ),
         )
         if (phase == CalibrationPhase.MEASURING && activeHeadingSource != HeadingSource.NONE) {
             displayedQuality = rawQuality
@@ -444,7 +451,7 @@ fun CompassRecalibrationDialog(
     LaunchedEffect(Unit) {
         logCompassCalibrationTelemetry(
             "dialog_open provider=${activeProviderType.name} source=${activeHeadingSource.telemetryToken} " +
-                "accuracy=$compassAccuracy hasAnyHeadingSource=$hasAnyHeadingSource"
+                "accuracy=$compassAccuracy hasAnyHeadingSource=$hasAnyHeadingSource",
         )
     }
 
@@ -452,7 +459,7 @@ fun CompassRecalibrationDialog(
         logCompassCalibrationTelemetry(
             "phase=${phase.name} provider=${activeProviderType.name} " +
                 "fusedRefreshApplied=$fusedRefreshApplied " +
-                "awaitingFusedRefreshValidation=$awaitingFusedRefreshValidation"
+                "awaitingFusedRefreshValidation=$awaitingFusedRefreshValidation",
         )
     }
 
@@ -464,7 +471,7 @@ fun CompassRecalibrationDialog(
                 "raw=${rawQuality?.name ?: "UNKNOWN"} accuracy=$compassAccuracy " +
                 "rawErrorDeg=${rawHeadingErrorDeg.formatHeadingErrorTelemetry()} " +
                 "sampleAgeMs=${compassQualityReading.sampleAgeMs ?: -1L} " +
-                "stale=${compassQualityReading.isStale}"
+                "stale=${compassQualityReading.isStale}",
         )
     }
 
@@ -489,25 +496,26 @@ fun CompassRecalibrationDialog(
         activeProviderType,
         fusedRefreshApplied,
         awaitingFusedRefreshValidation,
-        resultQuality
+        resultQuality,
     ) {
         if (phase == CalibrationPhase.RESULT) {
             if (!successHapticPlayed) {
                 successHapticPlayed = true
-                val durationMs = if (
-                    didCompleteCompassRecalibration(
-                        providerType = activeProviderType,
-                        qualityImproved = qualityImproved,
-                        headingErrorImproved = headingErrorImproved,
-                        resultQuality = resultQuality ?: displayedQuality,
-                        fusedRefreshApplied = fusedRefreshApplied,
-                        awaitingFusedRefreshValidation = awaitingFusedRefreshValidation
-                    )
-                ) {
-                    90L
-                } else {
-                    45L
-                }
+                val durationMs =
+                    if (
+                        didCompleteCompassRecalibration(
+                            providerType = activeProviderType,
+                            qualityImproved = qualityImproved,
+                            headingErrorImproved = headingErrorImproved,
+                            resultQuality = resultQuality ?: displayedQuality,
+                            fusedRefreshApplied = fusedRefreshApplied,
+                            awaitingFusedRefreshValidation = awaitingFusedRefreshValidation,
+                        )
+                    ) {
+                        90L
+                    } else {
+                        45L
+                    }
                 vibrator?.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
             }
         } else {
@@ -520,55 +528,57 @@ fun CompassRecalibrationDialog(
 
     Dialog(
         visible = true,
-        onDismissRequest = { finish(false) }
+        onDismissRequest = { finish(false) },
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.95f))
-                .padding(vertical = tokens.viewportVerticalInset),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.95f))
+                    .padding(vertical = tokens.viewportVerticalInset),
+            contentAlignment = Alignment.Center,
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(tokens.dialogContentSpacing),
-                modifier = Modifier
-                    .fillMaxWidth(tokens.dialogWidthFraction)
-                    .heightIn(max = dialogMaxHeight)
-                    .onPreRotaryScrollEvent { event ->
-                        val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
-                        abs(consumed) > 0.5f
-                    }
-                    .focusRequester(focusRequester)
-                    .focusable()
-                    .verticalScroll(scrollState)
-                    .padding(
-                        horizontal = tokens.dialogHorizontalPadding,
-                        vertical = tokens.dialogVerticalPadding
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxWidth(tokens.dialogWidthFraction)
+                        .heightIn(max = dialogMaxHeight)
+                        .onPreRotaryScrollEvent { event ->
+                            val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
+                            abs(consumed) > 0.5f
+                        }.focusRequester(focusRequester)
+                        .focusable()
+                        .verticalScroll(scrollState)
+                        .padding(
+                            horizontal = tokens.dialogHorizontalPadding,
+                            vertical = tokens.dialogVerticalPadding,
+                        ),
             ) {
                 Text(
                     text = "Recalibrate Compass",
                     fontSize = tokens.titleFontSize,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = tokens.titleTopPadding)
+                    modifier = Modifier.padding(top = tokens.titleTopPadding),
                 )
 
                 Text(
-                    text = compassRecalibrationBodyText(
-                        phase = phase,
-                        providerType = activeProviderType,
-                        hasAnyHeadingSource = hasAnyHeadingSource,
-                        initialQuality = initialQuality ?: displayedQuality,
-                        resultQuality = resultQuality ?: displayedQuality,
-                        qualityImproved = qualityImproved,
-                        initialHeadingErrorDeg = initialHeadingErrorDeg,
-                        resultHeadingErrorDeg = resultHeadingErrorDeg,
-                        headingErrorImproved = headingErrorImproved
-                    ),
+                    text =
+                        compassRecalibrationBodyText(
+                            phase = phase,
+                            providerType = activeProviderType,
+                            hasAnyHeadingSource = hasAnyHeadingSource,
+                            initialQuality = initialQuality ?: displayedQuality,
+                            resultQuality = resultQuality ?: displayedQuality,
+                            qualityImproved = qualityImproved,
+                            initialHeadingErrorDeg = initialHeadingErrorDeg,
+                            resultHeadingErrorDeg = resultHeadingErrorDeg,
+                            headingErrorImproved = headingErrorImproved,
+                        ),
                     fontSize = tokens.bodyFontSize,
                     lineHeight = tokens.bodyLineHeight,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
 
                 if (
@@ -576,10 +586,11 @@ fun CompassRecalibrationDialog(
                     phase == CalibrationPhase.HOLD_STILL ||
                     phase == CalibrationPhase.RESULT
                 ) {
-                    val meterQuality = when {
-                        phase == CalibrationPhase.HOLD_STILL -> displayedQuality
-                        else -> resultQuality ?: displayedQuality
-                    }
+                    val meterQuality =
+                        when {
+                            phase == CalibrationPhase.HOLD_STILL -> displayedQuality
+                            else -> resultQuality ?: displayedQuality
+                        }
                     QualityMeter(
                         hasQualitySample = hasQualitySample,
                         quality = meterQuality,
@@ -587,45 +598,49 @@ fun CompassRecalibrationDialog(
                         barSpacing = tokens.qualityMeterSpacing,
                         barWidth = tokens.qualityBarWidth,
                         barHeight = tokens.qualityBarHeight,
-                        barCornerRadius = tokens.qualityBarCornerRadius
+                        barCornerRadius = tokens.qualityBarCornerRadius,
                     )
                     Text(
-                        text = compassQualityLabel(
-                            hasQualitySample = hasQualitySample,
-                            quality = meterQuality,
-                            providerType = activeProviderType,
-                            headingErrorDeg = when {
-                                phase == CalibrationPhase.RESULT -> resultHeadingErrorDeg
-                                else -> rawHeadingErrorDeg
-                            }
-                        ),
+                        text =
+                            compassQualityLabel(
+                                hasQualitySample = hasQualitySample,
+                                quality = meterQuality,
+                                providerType = activeProviderType,
+                                headingErrorDeg =
+                                    when {
+                                        phase == CalibrationPhase.RESULT -> resultHeadingErrorDeg
+                                        else -> rawHeadingErrorDeg
+                                    },
+                            ),
                         fontSize = tokens.qualityFontSize,
-                        color = compassQualityLabelColor(
-                            hasQualitySample = hasQualitySample,
-                            quality = meterQuality
-                        )
+                        color =
+                            compassQualityLabelColor(
+                                hasQualitySample = hasQualitySample,
+                                quality = meterQuality,
+                            ),
                     )
                 }
 
                 if (phase == CalibrationPhase.MEASURING || phase == CalibrationPhase.HOLD_STILL) {
                     Text(
-                        text = when (phase) {
-                            CalibrationPhase.MEASURING -> {
-                                if (countdownStarted) {
-                                    "Move phase: ${(remainingMs / 1000L).coerceAtLeast(0L)}s"
-                                } else {
-                                    "Move phase: Checking sensor..."
+                        text =
+                            when (phase) {
+                                CalibrationPhase.MEASURING -> {
+                                    if (countdownStarted) {
+                                        "Move phase: ${(remainingMs / 1000L).coerceAtLeast(0L)}s"
+                                    } else {
+                                        "Move phase: Checking sensor..."
+                                    }
                                 }
-                            }
 
-                            CalibrationPhase.HOLD_STILL -> {
-                                "Hold still: ${(holdStillRemainingMs / 1000L).coerceAtLeast(0L)}s"
-                            }
+                                CalibrationPhase.HOLD_STILL -> {
+                                    "Hold still: ${(holdStillRemainingMs / 1000L).coerceAtLeast(0L)}s"
+                                }
 
-                            else -> ""
-                        },
+                                else -> ""
+                            },
                         fontSize = tokens.timerFontSize,
-                        color = Color.White
+                        color = Color.White,
                     )
                 }
 
@@ -638,7 +653,7 @@ fun CompassRecalibrationDialog(
                                 finish(false)
                             },
                             widthFraction = tokens.skipButtonWidthFraction,
-                            textFontSize = tokens.actionTextFontSize
+                            textFontSize = tokens.actionTextFontSize,
                         )
                     }
 
@@ -650,17 +665,18 @@ fun CompassRecalibrationDialog(
                                 finish(false)
                             },
                             widthFraction = tokens.skipButtonWidthFraction,
-                            textFontSize = tokens.actionTextFontSize
+                            textFontSize = tokens.actionTextFontSize,
                         )
                     }
 
                     CalibrationPhase.RESULT -> {
                         SingleActionButton(
-                            label = recalibrationResultButtonLabel(
-                                providerType = activeProviderType,
-                                fusedRefreshApplied = fusedRefreshApplied,
-                                succeeded = currentResultSuccess()
-                            ),
+                            label =
+                                recalibrationResultButtonLabel(
+                                    providerType = activeProviderType,
+                                    fusedRefreshApplied = fusedRefreshApplied,
+                                    succeeded = currentResultSuccess(),
+                                ),
                             onClick = {
                                 val succeeded = currentResultSuccess()
                                 logCompassCalibrationTelemetry(
@@ -672,7 +688,7 @@ fun CompassRecalibrationDialog(
                                         "displayed=${displayedQuality.name} " +
                                         "result=${resultQuality?.name ?: "UNKNOWN"} " +
                                         "initialErrorDeg=${initialHeadingErrorDeg.formatHeadingErrorTelemetry()} " +
-                                        "resultErrorDeg=${resultHeadingErrorDeg.formatHeadingErrorTelemetry()}"
+                                        "resultErrorDeg=${resultHeadingErrorDeg.formatHeadingErrorTelemetry()}",
                                 )
                                 when {
                                     activeProviderType == CompassProviderType.GOOGLE_FUSED && succeeded ->
@@ -690,7 +706,7 @@ fun CompassRecalibrationDialog(
                                 }
                             },
                             widthFraction = tokens.singleActionWidthFraction,
-                            textFontSize = tokens.actionTextFontSize
+                            textFontSize = tokens.actionTextFontSize,
                         )
                     }
 
@@ -702,7 +718,7 @@ fun CompassRecalibrationDialog(
                                 finish(false)
                             },
                             widthFraction = tokens.singleActionWidthFraction,
-                            textFontSize = tokens.actionTextFontSize
+                            textFontSize = tokens.actionTextFontSize,
                         )
                     }
                 }
@@ -720,9 +736,9 @@ private fun compassRecalibrationBodyText(
     qualityImproved: Boolean,
     initialHeadingErrorDeg: Float?,
     resultHeadingErrorDeg: Float?,
-    headingErrorImproved: Boolean
-): String {
-    return when (phase) {
+    headingErrorImproved: Boolean,
+): String =
+    when (phase) {
         CalibrationPhase.MEASURING -> {
             if (providerType == CompassProviderType.GOOGLE_FUSED) {
                 "Move watch in a slow figure-8,\nthen rotate wrist or body naturally.\nWe'll refresh heading automatically."
@@ -779,26 +795,23 @@ private fun compassRecalibrationBodyText(
             }
         }
     }
-}
 
 private fun recalibrationResultButtonLabel(
     providerType: CompassProviderType,
     fusedRefreshApplied: Boolean,
-    succeeded: Boolean
-): String {
-    return when {
+    succeeded: Boolean,
+): String =
+    when {
         providerType == CompassProviderType.GOOGLE_FUSED && fusedRefreshApplied && !succeeded -> "Try Again"
         else -> "Done"
     }
-}
 
-private fun currentHoldStillTimeoutMs(awaitingFusedRefreshValidation: Boolean): Long {
-    return if (awaitingFusedRefreshValidation) {
+private fun currentHoldStillTimeoutMs(awaitingFusedRefreshValidation: Boolean): Long =
+    if (awaitingFusedRefreshValidation) {
         FUSED_REFRESH_RECHECK_TIMEOUT_MS
     } else {
         HOLD_STILL_TIMEOUT_MS
     }
-}
 
 private fun didCompleteCompassRecalibration(
     providerType: CompassProviderType,
@@ -806,9 +819,9 @@ private fun didCompleteCompassRecalibration(
     headingErrorImproved: Boolean,
     resultQuality: CompassMarkerQuality,
     fusedRefreshApplied: Boolean,
-    awaitingFusedRefreshValidation: Boolean
-): Boolean {
-    return when (providerType) {
+    awaitingFusedRefreshValidation: Boolean,
+): Boolean =
+    when (providerType) {
         CompassProviderType.GOOGLE_FUSED ->
             fusedRefreshApplied &&
                 !awaitingFusedRefreshValidation &&
@@ -817,10 +830,9 @@ private fun didCompleteCompassRecalibration(
                         headingErrorImproved ||
                         compassMarkerQualityRank(resultQuality) >=
                         compassMarkerQualityRank(CompassMarkerQuality.MEDIUM)
-                    )
+                )
         CompassProviderType.SENSOR_MANAGER -> qualityImproved
     }
-}
 
 private const val FUSED_REFRESH_RECHECK_TIMEOUT_MS = 4_000L
 private const val CALIBRATION_DIALOG_TELEMETRY_TAG = "CalibrationTelemetry"
@@ -832,7 +844,7 @@ private fun logCompassCalibrationTelemetry(message: String) {
 
 private fun summarizeHoldStillQuality(
     samples: List<CompassMarkerQuality>,
-    fallback: CompassMarkerQuality
+    fallback: CompassMarkerQuality,
 ): CompassMarkerQuality {
     if (samples.isEmpty()) return fallback
     val sortedRanks = samples.map(::compassQualityRank).sorted()
@@ -842,39 +854,36 @@ private fun summarizeHoldStillQuality(
 
 private fun summarizeHoldStillHeadingError(
     samples: List<Float>,
-    fallback: Float?
+    fallback: Float?,
 ): Float? {
     if (samples.isEmpty()) return fallback
     val sortedSamples = samples.sorted()
     return sortedSamples[sortedSamples.size / 2]
 }
 
-private fun compassQualityRank(quality: CompassMarkerQuality): Int {
-    return when (quality) {
+private fun compassQualityRank(quality: CompassMarkerQuality): Int =
+    when (quality) {
         CompassMarkerQuality.UNRELIABLE -> 0
         CompassMarkerQuality.LOW -> 1
         CompassMarkerQuality.MEDIUM -> 2
         CompassMarkerQuality.GOOD -> 3
     }
-}
 
-private fun compassQualityFromRank(rank: Int): CompassMarkerQuality {
-    return when (rank.coerceIn(0, 3)) {
+private fun compassQualityFromRank(rank: Int): CompassMarkerQuality =
+    when (rank.coerceIn(0, 3)) {
         3 -> CompassMarkerQuality.GOOD
         2 -> CompassMarkerQuality.MEDIUM
         1 -> CompassMarkerQuality.LOW
         else -> CompassMarkerQuality.UNRELIABLE
     }
-}
 
-private fun compassQualityShortLabel(quality: CompassMarkerQuality): String {
-    return when (quality) {
+private fun compassQualityShortLabel(quality: CompassMarkerQuality): String =
+    when (quality) {
         CompassMarkerQuality.GOOD -> "Good"
         CompassMarkerQuality.MEDIUM -> "Caution"
         CompassMarkerQuality.LOW -> "Poor"
         CompassMarkerQuality.UNRELIABLE -> "Unreliable"
     }
-}
 
 @Composable
 private fun QualityMeter(
@@ -884,39 +893,42 @@ private fun QualityMeter(
     barSpacing: Dp,
     barWidth: Dp,
     barHeight: Dp,
-    barCornerRadius: Dp
+    barCornerRadius: Dp,
 ) {
-    val active = if (!hasQualitySample) {
-        0
-    } else {
-        when (quality) {
-            CompassMarkerQuality.UNRELIABLE -> 1
-            CompassMarkerQuality.LOW -> 2
-            CompassMarkerQuality.MEDIUM -> 3
-            CompassMarkerQuality.GOOD -> 4
+    val active =
+        if (!hasQualitySample) {
+            0
+        } else {
+            when (quality) {
+                CompassMarkerQuality.UNRELIABLE -> 1
+                CompassMarkerQuality.LOW -> 2
+                CompassMarkerQuality.MEDIUM -> 3
+                CompassMarkerQuality.GOOD -> 4
+            }
         }
-    }
     Row(
         modifier = Modifier.fillMaxWidth(widthFraction),
         horizontalArrangement = Arrangement.spacedBy(barSpacing, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(4) { idx ->
             val on = idx < active
             Box(
-                modifier = Modifier
-                    .size(width = barWidth, height = barHeight)
-                    .background(
-                        color = if (on) {
-                            compassQualityLabelColor(
-                                hasQualitySample = hasQualitySample,
-                                quality = quality
-                            )
-                        } else {
-                            Color.White.copy(alpha = 0.18f)
-                        },
-                        shape = RoundedCornerShape(barCornerRadius)
-                    )
+                modifier =
+                    Modifier
+                        .size(width = barWidth, height = barHeight)
+                        .background(
+                            color =
+                                if (on) {
+                                    compassQualityLabelColor(
+                                        hasQualitySample = hasQualitySample,
+                                        quality = quality,
+                                    )
+                                } else {
+                                    Color.White.copy(alpha = 0.18f)
+                                },
+                            shape = RoundedCornerShape(barCornerRadius),
+                        ),
             )
         }
     }
@@ -927,7 +939,7 @@ private fun SingleActionButton(
     label: String,
     onClick: () -> Unit,
     widthFraction: Float,
-    textFontSize: TextUnit
+    textFontSize: TextUnit,
 ) {
     Button(onClick = onClick, modifier = Modifier.fillMaxWidth(widthFraction)) {
         Text(text = label, fontSize = textFontSize)
@@ -938,15 +950,16 @@ private fun compassQualityLabel(
     hasQualitySample: Boolean,
     quality: CompassMarkerQuality,
     providerType: CompassProviderType,
-    headingErrorDeg: Float?
+    headingErrorDeg: Float?,
 ): String {
     if (!hasQualitySample) return "Compass quality: Checking..."
-    val label = when (quality) {
-        CompassMarkerQuality.GOOD -> "Compass quality: Good"
-        CompassMarkerQuality.MEDIUM -> "Compass quality: Caution"
-        CompassMarkerQuality.LOW -> "Compass quality: Poor"
-        CompassMarkerQuality.UNRELIABLE -> "Compass quality: Unreliable"
-    }
+    val label =
+        when (quality) {
+            CompassMarkerQuality.GOOD -> "Compass quality: Good"
+            CompassMarkerQuality.MEDIUM -> "Compass quality: Caution"
+            CompassMarkerQuality.LOW -> "Compass quality: Poor"
+            CompassMarkerQuality.UNRELIABLE -> "Compass quality: Unreliable"
+        }
     if (providerType != CompassProviderType.GOOGLE_FUSED) return label
     val safeHeadingErrorDeg = headingErrorDeg?.takeIf { it.isFinite() && it >= 0f } ?: return label
     return "$label (${safeHeadingErrorDeg.roundToInt()}°)"
@@ -954,7 +967,7 @@ private fun compassQualityLabel(
 
 private fun compassQualityLabelColor(
     hasQualitySample: Boolean,
-    quality: CompassMarkerQuality
+    quality: CompassMarkerQuality,
 ): Color {
     if (!hasQualitySample) return Color(0xFFB0BEC5)
     return Color(coneColorArgbForQuality(quality))
@@ -962,15 +975,14 @@ private fun compassQualityLabelColor(
 
 private fun qualitySummaryForUi(
     quality: CompassMarkerQuality,
-    headingErrorDeg: Float?
+    headingErrorDeg: Float?,
 ): String {
     val label = compassQualityShortLabel(quality)
     val safeHeadingErrorDeg = headingErrorDeg?.takeIf { it.isFinite() && it >= 0f } ?: return label
     return "$label (${safeHeadingErrorDeg.roundToInt()}°)"
 }
 
-private fun Float?.formatHeadingErrorTelemetry(): String {
-    return this?.takeIf { it.isFinite() && it >= 0f }?.let { value ->
+private fun Float?.formatHeadingErrorTelemetry(): String =
+    this?.takeIf { it.isFinite() && it >= 0f }?.let { value ->
         "%.1f".format(value)
     } ?: "n/a"
-}

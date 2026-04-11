@@ -12,13 +12,15 @@ import kotlin.math.roundToInt
 
 internal class GpsAccuracyCircleLayer(
     private val fillPaint: Paint,
-    private val strokePaint: Paint
+    private val strokePaint: Paint,
 ) : Layer() {
     var anchorMarker: RotatableMarker? = null
     var radiusMeters: Float = 0f
 
     @Volatile private var cachedZoom: Byte = (-1).toByte()
+
     @Volatile private var cachedTileSize: Int = -1
+
     @Volatile private var cachedMapSize: Long = 0L
 
     override fun draw(
@@ -26,7 +28,7 @@ internal class GpsAccuracyCircleLayer(
         zoomLevel: Byte,
         canvas: Canvas,
         topLeft: Point,
-        mapViewRotation: Rotation
+        mapViewRotation: Rotation,
     ) {
         if (!isVisible) return
 
@@ -37,22 +39,30 @@ internal class GpsAccuracyCircleLayer(
         if (!safeRadiusMeters.isFinite() || safeRadiusMeters <= 0f) return
 
         val mapSize = getCachedMapSize(zoomLevel, displayModel.tileSize)
-        val centerX = (MercatorProjection.longitudeToPixelX(markerLatLong.longitude, mapSize) - topLeft.x)
-            .roundToInt()
-        val centerY = (MercatorProjection.latitudeToPixelY(markerLatLong.latitude, mapSize) - topLeft.y)
-            .roundToInt()
+        val centerX =
+            (MercatorProjection.longitudeToPixelX(markerLatLong.longitude, mapSize) - topLeft.x)
+                .roundToInt()
+        val centerY =
+            (MercatorProjection.latitudeToPixelY(markerLatLong.latitude, mapSize) - topLeft.y)
+                .roundToInt()
 
-        val radiusPx = MercatorProjection.metersToPixels(
-            safeRadiusMeters,
-            markerLatLong.latitude,
-            mapSize
-        ).roundToInt().coerceAtLeast(1)
+        val radiusPx =
+            MercatorProjection
+                .metersToPixels(
+                    safeRadiusMeters,
+                    markerLatLong.latitude,
+                    mapSize,
+                ).roundToInt()
+                .coerceAtLeast(1)
 
         canvas.drawCircle(centerX, centerY, radiusPx, fillPaint)
         canvas.drawCircle(centerX, centerY, radiusPx, strokePaint)
     }
 
-    private fun getCachedMapSize(zoomLevel: Byte, tileSize: Int): Long {
+    private fun getCachedMapSize(
+        zoomLevel: Byte,
+        tileSize: Int,
+    ): Long {
         if (cachedZoom != zoomLevel || cachedTileSize != tileSize) {
             cachedZoom = zoomLevel
             cachedTileSize = tileSize

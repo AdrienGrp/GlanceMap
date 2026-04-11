@@ -18,7 +18,7 @@ internal fun OfflineStartCenteringEffect(
     mapViewModel: MapViewModel,
     selectedMapPath: String?,
     activeGpxDetails: List<GpxTrackDetails>,
-    skipInitialCentering: Boolean = false
+    skipInitialCentering: Boolean = false,
 ) {
     LaunchedEffect(isOfflineMode) {
         if (!isOfflineMode) {
@@ -32,13 +32,14 @@ internal fun OfflineStartCenteringEffect(
         activeGpxDetails,
         skipInitialCentering,
         mapViewModel,
-        mapView
+        mapView,
     ) {
         if (!isOfflineMode) return@LaunchedEffect
-        val forceStartupCenter = mapViewModel.shouldForceOfflineStartCenter(
-            selectedMapPath = selectedMapPath,
-            activeGpxDetails = activeGpxDetails
-        )
+        val forceStartupCenter =
+            mapViewModel.shouldForceOfflineStartCenter(
+                selectedMapPath = selectedMapPath,
+                activeGpxDetails = activeGpxDetails,
+            )
         if (!skipInitialCentering && !forceStartupCenter) {
             mapViewModel.restoreOfflineViewport(selectedMapPath, activeGpxDetails)?.let { (center, zoomLevel) ->
                 mapView.model.mapViewPosition.setZoomLevel(zoomLevel.toByte(), false)
@@ -55,25 +56,26 @@ internal fun OfflineStartCenteringEffect(
             if (forceStartupCenter) {
                 mapViewModel.consumeForcedOfflineStartCenter(
                     selectedMapPath = selectedMapPath,
-                    activeGpxDetails = activeGpxDetails
+                    activeGpxDetails = activeGpxDetails,
                 )
             }
             return@LaunchedEffect
         }
 
-        val targetCenter = withContext(Dispatchers.IO) {
-            if (forceStartupCenter && !selectedMapPath.isNullOrBlank()) {
-                resolveSelectedMapCenter(selectedMapPath)
-            } else {
-                resolveOfflineStartCenter(selectedMapPath, activeGpxDetails)
+        val targetCenter =
+            withContext(Dispatchers.IO) {
+                if (forceStartupCenter && !selectedMapPath.isNullOrBlank()) {
+                    resolveSelectedMapCenter(selectedMapPath)
+                } else {
+                    resolveOfflineStartCenter(selectedMapPath, activeGpxDetails)
+                }
             }
-        }
         targetCenter?.let { mapView.setCenter(it) }
         mapViewModel.markOfflineStartCenterHandled(selectedMapPath, activeGpxDetails)
         if (forceStartupCenter) {
             mapViewModel.consumeForcedOfflineStartCenter(
                 selectedMapPath = selectedMapPath,
-                activeGpxDetails = activeGpxDetails
+                activeGpxDetails = activeGpxDetails,
             )
         }
     }
@@ -81,10 +83,8 @@ internal fun OfflineStartCenteringEffect(
 
 private fun resolveOfflineStartCenter(
     selectedMapPath: String?,
-    activeGpxDetails: List<GpxTrackDetails>
-): LatLong? {
-    return resolveSelectedMapCenter(selectedMapPath) ?: resolveActiveGpxCenter(activeGpxDetails)
-}
+    activeGpxDetails: List<GpxTrackDetails>,
+): LatLong? = resolveSelectedMapCenter(selectedMapPath) ?: resolveActiveGpxCenter(activeGpxDetails)
 
 private fun resolveSelectedMapCenter(selectedMapPath: String?): LatLong? {
     val path = selectedMapPath?.takeIf { it.isNotBlank() } ?: return null
@@ -93,14 +93,15 @@ private fun resolveSelectedMapCenter(selectedMapPath: String?): LatLong? {
 
     return runCatching {
         val map = MapFile(mapFile)
-        val bbox = try {
-            map.boundingBox()
-        } finally {
-            runCatching { map.close() }
-        }
+        val bbox =
+            try {
+                map.boundingBox()
+            } finally {
+                runCatching { map.close() }
+            }
         LatLong(
             (bbox.minLatitude + bbox.maxLatitude) * 0.5,
-            (bbox.minLongitude + bbox.maxLongitude) * 0.5
+            (bbox.minLongitude + bbox.maxLongitude) * 0.5,
         )
     }.getOrNull()
 }
@@ -128,6 +129,6 @@ private fun resolveActiveGpxCenter(activeGpxDetails: List<GpxTrackDetails>): Lat
     if (!hasPoint) return null
     return LatLong(
         (minLat + maxLat) * 0.5,
-        (minLon + maxLon) * 0.5
+        (minLon + maxLon) * 0.5,
     )
 }

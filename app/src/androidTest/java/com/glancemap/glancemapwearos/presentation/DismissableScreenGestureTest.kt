@@ -20,14 +20,13 @@ import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
 import com.glancemap.glancemapwearos.test.SmallRoundWatchLargeText
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
-import com.glancemap.glancemapwearos.test.WithWearDeviceConfig
+import com.glancemap.glancemapwearos.test.withWearDeviceConfig
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class DismissableScreenGestureTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -50,7 +49,8 @@ class DismissableScreenGestureTest {
     fun shortDragBelowThreshold_doesNotNavigateAway() {
         launchDismissableHost(MediumSquareWatch)
 
-        composeRule.onNodeWithTag(TAG_DISMISSABLE_EDGE)
+        composeRule
+            .onNodeWithTag(TAG_DISMISSABLE_EDGE)
             .performTouchInput {
                 down(centerRight)
                 moveBy(Offset(-20f, 0f))
@@ -58,15 +58,16 @@ class DismissableScreenGestureTest {
             }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag(TAG_DISMISSABLE_DESTINATION)
+        composeRule
+            .onNodeWithTag(TAG_DISMISSABLE_DESTINATION)
             .assertIsDisplayed()
     }
 
     private fun launchDismissableHost(config: WearDeviceTestConfig) {
         composeRule.setContent {
-            WithWearDeviceConfig(config = config) {
+            withWearDeviceConfig(config = config) {
                 GlanceMapTheme {
-                    DismissableScreenTestHost()
+                    dismissableScreenTestHost()
                 }
             }
         }
@@ -76,7 +77,8 @@ class DismissableScreenGestureTest {
     private fun assertRightEdgeDragNavigates(config: WearDeviceTestConfig) {
         launchDismissableHost(config)
 
-        composeRule.onNodeWithTag(TAG_DISMISSABLE_EDGE)
+        composeRule
+            .onNodeWithTag(TAG_DISMISSABLE_EDGE)
             .performTouchInput {
                 down(centerRight)
                 moveBy(Offset(-200f, 0f))
@@ -84,33 +86,34 @@ class DismissableScreenGestureTest {
             }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag(TAG_NAVIGATE_DESTINATION)
+        composeRule
+            .onNodeWithTag(TAG_NAVIGATE_DESTINATION)
             .assertIsDisplayed()
     }
 
     @Composable
-    private fun DismissableScreenTestHost() {
+    private fun dismissableScreenTestHost() {
         val navController = rememberNavController()
 
         NavHost(
             navController = navController,
-            startDestination = WatchRoutes.SETTINGS
+            startDestination = WatchRoutes.SETTINGS,
         ) {
             composable(WatchRoutes.NAVIGATE) {
                 Text(
                     text = "Navigate destination",
-                    modifier = Modifier.testTag(TAG_NAVIGATE_DESTINATION)
+                    modifier = Modifier.testTag(TAG_NAVIGATE_DESTINATION),
                 )
             }
             composable(WatchRoutes.SETTINGS) {
                 DismissableScreen(
                     onDismiss = { navController.popBackStack() },
                     onSwipeLeftNavigate = { navController.navigateBackToNavigate() },
-                    edgeGestureTestTag = TAG_DISMISSABLE_EDGE
+                    edgeGestureTestTag = TAG_DISMISSABLE_EDGE,
                 ) {
                     Text(
                         text = "Dismissable destination",
-                        modifier = Modifier.testTag(TAG_DISMISSABLE_DESTINATION)
+                        modifier = Modifier.testTag(TAG_DISMISSABLE_DESTINATION),
                     )
                 }
             }

@@ -7,16 +7,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
-import kotlinx.coroutines.launch
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import org.mapsforge.core.model.Rotation
 import org.mapsforge.map.android.view.MapView
 import java.io.File
@@ -38,18 +38,19 @@ fun NavigationOrientationEffect(
     locationMarker: RotatableMarker?,
     onRenderedHeadingChanged: (Float) -> Unit,
     onRenderedMapRotationChanged: (Float) -> Unit,
-    requestMapRedraw: () -> Unit
+    requestMapRedraw: () -> Unit,
 ) {
     val mv = mapView ?: return
     val marker = locationMarker
 
-    val navMode = remember(isCompassMode, isAutoCentering) {
-        when {
-            !isAutoCentering -> NavMode.PANNING
-            isCompassMode -> NavMode.COMPASS_FOLLOW
-            else -> NavMode.NORTH_UP_FOLLOW
+    val navMode =
+        remember(isCompassMode, isAutoCentering) {
+            when {
+                !isAutoCentering -> NavMode.PANNING
+                isCompassMode -> NavMode.COMPASS_FOLLOW
+                else -> NavMode.NORTH_UP_FOLLOW
+            }
         }
-    }
 
     val displayedHeading = remember { mutableFloatStateOf(normalize360(renderStateFlow.value.headingDeg)) }
     val displayedMapRot = remember { mutableFloatStateOf(0f) }
@@ -74,16 +75,17 @@ fun NavigationOrientationEffect(
     }
 
     fun applyMarkersForMode(targetNavMode: NavMode) {
-        val markerState = markerRenderStateForMode(
-            navMode = targetNavMode,
-            displayedHeadingDeg = displayedHeading.floatValue,
-            displayedMapRotationDeg = displayedMapRot.floatValue,
-            frozenMapRotationDeg = frozenRotationDeg.floatValue,
-            showRealMarkerInCompassMode = showRealMarkerInCompassMode
-        )
+        val markerState =
+            markerRenderStateForMode(
+                navMode = targetNavMode,
+                displayedHeadingDeg = displayedHeading.floatValue,
+                displayedMapRotationDeg = displayedMapRot.floatValue,
+                frozenMapRotationDeg = frozenRotationDeg.floatValue,
+                showRealMarkerInCompassMode = showRealMarkerInCompassMode,
+            )
         applyMarkerRenderState(
             marker = marker,
-            state = markerState
+            state = markerState,
         )
     }
 
@@ -96,15 +98,16 @@ fun NavigationOrientationEffect(
     LaunchedEffect(
         navMode,
         mv,
-        forceNorthUpInPanning
+        forceNorthUpInPanning,
     ) {
         val renderStateNow = renderStateFlow.value
         val headingNow = normalize360(renderStateNow.headingDeg)
-        val shouldSeedCachedHeading = navMode == NavMode.COMPASS_FOLLOW &&
-            shouldSeedCompassFollowMapWithCachedHeading(
-                renderState = renderStateNow,
-                nowElapsedMs = SystemClock.elapsedRealtime()
-            )
+        val shouldSeedCachedHeading =
+            navMode == NavMode.COMPASS_FOLLOW &&
+                shouldSeedCompassFollowMapWithCachedHeading(
+                    renderState = renderStateNow,
+                    nowElapsedMs = SystemClock.elapsedRealtime(),
+                )
         if (
             navMode != NavMode.COMPASS_FOLLOW ||
             shouldDriveCompassFollowMap(renderStateNow) ||
@@ -142,7 +145,7 @@ fun NavigationOrientationEffect(
         navMode,
         marker,
         showRealMarkerInCompassMode,
-        forceNorthUpInPanning
+        forceNorthUpInPanning,
     ) {
         applyMarkersForMode(navMode)
         requestMapRedraw()
@@ -157,7 +160,7 @@ fun NavigationOrientationEffect(
         renderStateFlow,
         requestMapRedraw,
         showRealMarkerInCompassMode,
-        forceNorthUpInPanning
+        forceNorthUpInPanning,
     ) {
         // Local var: safe because both coroutines run on Main (single-threaded).
         var liveTarget = normalize360(renderStateFlow.value.headingDeg)
@@ -169,8 +172,7 @@ fun NavigationOrientationEffect(
                 .map { state ->
                     latestRenderState = state
                     normalize360(state.headingDeg)
-                }
-                .distinctUntilChanged()
+                }.distinctUntilChanged()
                 .collect { heading ->
                     if (navMode != NavMode.COMPASS_FOLLOW || shouldDriveCompassFollowMap(latestRenderState)) {
                         liveTarget = heading
@@ -212,7 +214,10 @@ fun NavigationOrientationEffect(
     }
 }
 
-private fun angleDeltaDeg(target: Float, current: Float): Float {
+private fun angleDeltaDeg(
+    target: Float,
+    current: Float,
+): Float {
     var d = (target - current) % 360f
     if (d > 180f) d -= 360f
     if (d < -180f) d += 360f
@@ -236,7 +241,7 @@ internal fun shouldDriveCompassFollowMap(renderState: CompassRenderState): Boole
 
 internal fun shouldSeedCompassFollowMapWithCachedHeading(
     renderState: CompassRenderState,
-    nowElapsedMs: Long
+    nowElapsedMs: Long,
 ): Boolean {
     if (renderState.providerType != CompassProviderType.GOOGLE_FUSED) return false
     val sampleAtElapsedMs = renderState.headingSampleElapsedRealtimeMs ?: return false
@@ -246,11 +251,14 @@ internal fun shouldSeedCompassFollowMapWithCachedHeading(
 }
 
 private fun normalize360(deg: Float): Float = (deg % 360f + 360f) % 360f
+
 private const val MAP_ROTATION_APPLY_EPSILON_DEG = 0.05f
+
 // Interpolation factor per display frame (~60fps). At 0.5, closes half the remaining
 // gap each frame: a 10° step reaches <0.1° in ~7 frames (~117ms). Tracks 50Hz sensor
 // updates with at most 1-2 frames of visual lag.
 private const val HEADING_ANIMATION_ALPHA = 0.5f
+
 // Stop animating when within this threshold — sub-pixel on any WearOS display.
 private const val HEADING_ANIMATION_DONE_DEG = 0.05f
 private const val GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS = 30_000L
@@ -270,7 +278,7 @@ private fun MapView.trySetMapsforgeRotation(degrees: Float): Boolean {
 fun MapThemeEffect(
     mapRenderer: MapRenderer?,
     themeKey: String,
-    themeFile: File?
+    themeFile: File?,
 ) {
     LaunchedEffect(mapRenderer, themeKey) {
         val renderer = mapRenderer ?: return@LaunchedEffect
@@ -279,7 +287,7 @@ fun MapThemeEffect(
             mapsforgeThemeName = null,
             bundledThemeId = MapsforgeThemeCatalog.ELEVATE_THEME_ID,
             hillShadingEnabled = false,
-            reliefOverlayEnabled = false
+            reliefOverlayEnabled = false,
         )
     }
 }

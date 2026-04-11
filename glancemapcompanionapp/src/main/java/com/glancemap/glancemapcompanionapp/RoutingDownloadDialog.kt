@@ -2,9 +2,9 @@ package com.glancemap.glancemapcompanionapp
 
 import android.content.Context
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -48,7 +48,7 @@ internal fun RoutingDownloadDialog(
     watchInstalledMapsStatusMessage: String?,
     lastRoutingDownloadedFiles: List<GeneratedPhoneFile>,
     saveGeneratedFilesOnPhone: (List<GeneratedPhoneFile>) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     var bboxInput by remember { mutableStateOf("") }
     var mapMenuExpanded by remember { mutableStateOf(false) }
@@ -59,76 +59,86 @@ internal fun RoutingDownloadDialog(
         mutableStateOf(watchInstalledMaps.firstOrNull()?.filePath.orEmpty())
     }
 
-    val selectedRoutingMapCandidate = remember(uiState.selectedWatch?.id, selectedWatchMapKey, watchInstalledMaps) {
-        if (uiState.selectedWatch == null) {
-            null
-        } else {
-            watchInstalledMaps.firstOrNull { it.filePath == selectedWatchMapKey }
-                ?: watchInstalledMaps.firstOrNull()
-        }
-    }
-    val resolvedRoutingBbox = remember(areaMethod, bboxInput, selectedRoutingMapCandidate) {
-        when (areaMethod) {
-            RoutingAreaMethod.WATCH_MAP -> selectedRoutingMapCandidate?.bbox.orEmpty()
-            RoutingAreaMethod.MANUAL_BBOX -> bboxInput.trim()
-        }
-    }
-    val routingTiles = remember(resolvedRoutingBbox) {
-        runCatching {
-            if (resolvedRoutingBbox.isBlank()) {
-                emptyList()
+    val selectedRoutingMapCandidate =
+        remember(uiState.selectedWatch?.id, selectedWatchMapKey, watchInstalledMaps) {
+            if (uiState.selectedWatch == null) {
+                null
             } else {
-                BRouterTileMath.tileFileNamesForBbox(resolvedRoutingBbox)
+                watchInstalledMaps.firstOrNull { it.filePath == selectedWatchMapKey }
+                    ?: watchInstalledMaps.firstOrNull()
             }
-        }.getOrDefault(emptyList())
-    }
-    val routingBboxError = remember(resolvedRoutingBbox) {
-        if (resolvedRoutingBbox.isBlank()) {
-            null
-        } else {
-            runCatching {
-                BRouterTileMath.parseBbox(resolvedRoutingBbox)
-            }.exceptionOrNull()?.localizedMessage
         }
-    }
-    val routingAreaMethodLabel = when (areaMethod) {
-        RoutingAreaMethod.WATCH_MAP -> "Auto from watch map"
-        RoutingAreaMethod.MANUAL_BBOX -> "Enter BBox manually"
-    }
-    val routingAreaMethodDescription = when (areaMethod) {
-        RoutingAreaMethod.WATCH_MAP -> "Use the bbox of a .map already present on the watch."
-        RoutingAreaMethod.MANUAL_BBOX -> "Enter west,south,east,north manually."
-    }
+    val resolvedRoutingBbox =
+        remember(areaMethod, bboxInput, selectedRoutingMapCandidate) {
+            when (areaMethod) {
+                RoutingAreaMethod.WATCH_MAP -> selectedRoutingMapCandidate?.bbox.orEmpty()
+                RoutingAreaMethod.MANUAL_BBOX -> bboxInput.trim()
+            }
+        }
+    val routingTiles =
+        remember(resolvedRoutingBbox) {
+            runCatching {
+                if (resolvedRoutingBbox.isBlank()) {
+                    emptyList()
+                } else {
+                    BRouterTileMath.tileFileNamesForBbox(resolvedRoutingBbox)
+                }
+            }.getOrDefault(emptyList())
+        }
+    val routingBboxError =
+        remember(resolvedRoutingBbox) {
+            if (resolvedRoutingBbox.isBlank()) {
+                null
+            } else {
+                runCatching {
+                    BRouterTileMath.parseBbox(resolvedRoutingBbox)
+                }.exceptionOrNull()?.localizedMessage
+            }
+        }
+    val routingAreaMethodLabel =
+        when (areaMethod) {
+            RoutingAreaMethod.WATCH_MAP -> "Auto from watch map"
+            RoutingAreaMethod.MANUAL_BBOX -> "Enter BBox manually"
+        }
+    val routingAreaMethodDescription =
+        when (areaMethod) {
+            RoutingAreaMethod.WATCH_MAP -> "Use the bbox of a .map already present on the watch."
+            RoutingAreaMethod.MANUAL_BBOX -> "Enter west,south,east,north manually."
+        }
     val routingWatchIsSelected = uiState.selectedWatch != null
-    val selectedWatchReachable = isSelectedWatchReachable(
-        selectedWatch = uiState.selectedWatch,
-        availableWatches = uiState.availableWatches
-    )
-    val routingWatchSelectionLabel = when {
-        uiState.selectedWatch == null && uiState.availableWatches.isEmpty() -> "No watch found"
-        uiState.selectedWatch == null -> "Select watch"
-        selectedWatchReachable -> uiState.selectedWatch.displayName
-        else -> "${uiState.selectedWatch.displayName} (Disconnected)"
-    }
-    val routingMapSelectionLabel = selectedRoutingMapCandidate?.fileName ?: when {
-        uiState.selectedWatch == null -> "Select watch first"
-        !selectedWatchReachable -> "Reconnect watch first"
-        isLoadingWatchInstalledMaps -> "Loading watch maps..."
-        else -> "Select map on watch"
-    }
+    val selectedWatchReachable =
+        isSelectedWatchReachable(
+            selectedWatch = uiState.selectedWatch,
+            availableWatches = uiState.availableWatches,
+        )
+    val routingWatchSelectionLabel =
+        when {
+            uiState.selectedWatch == null && uiState.availableWatches.isEmpty() -> "No watch found"
+            uiState.selectedWatch == null -> "Select watch"
+            selectedWatchReachable -> uiState.selectedWatch.displayName
+            else -> "${uiState.selectedWatch.displayName} (Disconnected)"
+        }
+    val routingMapSelectionLabel =
+        selectedRoutingMapCandidate?.fileName ?: when {
+            uiState.selectedWatch == null -> "Select watch first"
+            !selectedWatchReachable -> "Reconnect watch first"
+            isLoadingWatchInstalledMaps -> "Loading watch maps..."
+            else -> "Select map on watch"
+        }
     val routingCompletedSuccessfully =
         routingDownloadProgress.completed && routingDownloadProgress.success
-    val canDownloadRouting = !isDownloadingRouting &&
-        routingBboxError == null &&
-        resolvedRoutingBbox.isNotBlank() &&
-        routingTiles.isNotEmpty()
+    val canDownloadRouting =
+        !isDownloadingRouting &&
+            routingBboxError == null &&
+            resolvedRoutingBbox.isNotBlank() &&
+            routingTiles.isNotEmpty()
     val routingScrollState = rememberScrollState()
     val routingStatusBringIntoViewRequester = remember { BringIntoViewRequester() }
 
     LaunchedEffect(
         routingDownloadProgress.isRunning,
         routingDownloadProgress.completed,
-        routingDownloadProgress.message
+        routingDownloadProgress.message,
     ) {
         if (routingDownloadProgress.isRunning || routingDownloadProgress.completed) {
             routingStatusBringIntoViewRequester.bringIntoView()
@@ -142,59 +152,65 @@ internal fun RoutingDownloadDialog(
         title = { Text("Download routing data") },
         text = {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = adaptive.refugesDialogMaxHeight)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = adaptive.refugesDialogMaxHeight),
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(end = 10.dp)
-                        .verticalScroll(routingScrollState),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(end = 10.dp)
+                            .verticalScroll(routingScrollState),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
                         "BRouter routing packs (.rd5) are downloaded on the phone, then added to section 2 so you can decide if you want to send them.",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
 
                     Text(
                         "Select watch",
-                        style = MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelSmall,
                     )
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(6.dp))
+                    androidx.compose.foundation.layout
+                        .Spacer(modifier = Modifier.size(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
                             OutlinedButton(
                                 onClick = { watchMenuExpanded = true },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !isDownloadingRouting && uiState.availableWatches.isNotEmpty(),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = when {
-                                        selectedWatchReachable -> Color(0xFF2E7D32)
-                                        routingWatchIsSelected -> MaterialTheme.colorScheme.error
-                                        else -> MaterialTheme.colorScheme.onSurface
-                                    },
-                                    containerColor = when {
-                                        selectedWatchReachable -> Color(0x1A2E7D32)
-                                        routingWatchIsSelected -> MaterialTheme.colorScheme.errorContainer
-                                        else -> Color.Transparent
-                                    }
-                                )
+                                colors =
+                                    ButtonDefaults.outlinedButtonColors(
+                                        contentColor =
+                                            when {
+                                                selectedWatchReachable -> Color(0xFF2E7D32)
+                                                routingWatchIsSelected -> MaterialTheme.colorScheme.error
+                                                else -> MaterialTheme.colorScheme.onSurface
+                                            },
+                                        containerColor =
+                                            when {
+                                                selectedWatchReachable -> Color(0x1A2E7D32)
+                                                routingWatchIsSelected -> MaterialTheme.colorScheme.errorContainer
+                                                else -> Color.Transparent
+                                            },
+                                    ),
                             ) {
                                 Text(
                                     routingWatchSelectionLabel,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                             DropdownMenu(
                                 expanded = watchMenuExpanded,
-                                onDismissRequest = { watchMenuExpanded = false }
+                                onDismissRequest = { watchMenuExpanded = false },
                             ) {
                                 uiState.availableWatches.forEach { watch ->
                                     DropdownMenuItem(
@@ -202,7 +218,7 @@ internal fun RoutingDownloadDialog(
                                             Text(
                                                 watch.displayName,
                                                 maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                                overflow = TextOverflow.Ellipsis,
                                             )
                                         },
                                         onClick = {
@@ -210,7 +226,7 @@ internal fun RoutingDownloadDialog(
                                             selectedWatchMapKey = ""
                                             mapMenuExpanded = false
                                             watchMenuExpanded = false
-                                        }
+                                        },
                                     )
                                 }
                             }
@@ -218,12 +234,12 @@ internal fun RoutingDownloadDialog(
                         IconButton(
                             onClick = { viewModel.findWatchNodes() },
                             enabled = !isDownloadingRouting,
-                            modifier = Modifier.size(30.dp)
+                            modifier = Modifier.size(30.dp),
                         ) {
                             Icon(
                                 Icons.Default.Refresh,
                                 contentDescription = "Refresh Watch List",
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(18.dp),
                             )
                         }
                     }
@@ -231,35 +247,35 @@ internal fun RoutingDownloadDialog(
                         Text(
                             "${selectedWatchDisconnectedStatusMessage()} You can also switch to manual BBox.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
                         )
                     } else if (uiState.availableWatches.isEmpty()) {
                         Text(
                             "No watches found. Keep the watch app open and tap refresh.",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     } else if (uiState.selectedWatch == null) {
                         Text(
                             "Select a watch first if you want to use Auto from watch map.",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
 
                     Text(
                         "Select area source",
-                        style = MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelSmall,
                     )
                     Box(modifier = Modifier.fillMaxWidth()) {
                         OutlinedButton(
                             onClick = { areaMethodMenuExpanded = true },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !isDownloadingRouting
+                            enabled = !isDownloadingRouting,
                         ) {
                             Text(routingAreaMethodLabel)
                         }
                         DropdownMenu(
                             expanded = areaMethodMenuExpanded,
-                            onDismissRequest = { areaMethodMenuExpanded = false }
+                            onDismissRequest = { areaMethodMenuExpanded = false },
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Auto from watch map") },
@@ -267,44 +283,44 @@ internal fun RoutingDownloadDialog(
                                     areaMethod = RoutingAreaMethod.WATCH_MAP
                                     areaMethodMenuExpanded = false
                                 },
-                                enabled = selectedWatchReachable
+                                enabled = selectedWatchReachable,
                             )
                             DropdownMenuItem(
                                 text = { Text("Enter BBox manually") },
                                 onClick = {
                                     areaMethod = RoutingAreaMethod.MANUAL_BBOX
                                     areaMethodMenuExpanded = false
-                                }
+                                },
                             )
                         }
                     }
                     Text(
                         routingAreaMethodDescription,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
 
                     when (areaMethod) {
                         RoutingAreaMethod.WATCH_MAP -> {
                             Text(
                                 "Select map on watch",
-                                style = MaterialTheme.typography.labelSmall
+                                style = MaterialTheme.typography.labelSmall,
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(modifier = Modifier.weight(1f)) {
                                     OutlinedButton(
                                         onClick = { mapMenuExpanded = true },
                                         modifier = Modifier.fillMaxWidth(),
-                                        enabled = selectedWatchReachable && !isLoadingWatchInstalledMaps
+                                        enabled = selectedWatchReachable && !isLoadingWatchInstalledMaps,
                                     ) {
                                         Text(routingMapSelectionLabel)
                                     }
                                     DropdownMenu(
                                         expanded = mapMenuExpanded,
-                                        onDismissRequest = { mapMenuExpanded = false }
+                                        onDismissRequest = { mapMenuExpanded = false },
                                     ) {
                                         watchInstalledMaps.forEach { candidate ->
                                             DropdownMenuItem(
@@ -312,7 +328,7 @@ internal fun RoutingDownloadDialog(
                                                 onClick = {
                                                     selectedWatchMapKey = candidate.filePath
                                                     mapMenuExpanded = false
-                                                }
+                                                },
                                             )
                                         }
                                     }
@@ -321,16 +337,16 @@ internal fun RoutingDownloadDialog(
                                     onClick = {
                                         viewModel.refreshWatchInstalledMaps(
                                             context = context,
-                                            showToastIfUnavailable = true
+                                            showToastIfUnavailable = true,
                                         )
                                     },
                                     enabled = selectedWatchReachable && !isLoadingWatchInstalledMaps,
-                                    modifier = Modifier.size(30.dp)
+                                    modifier = Modifier.size(30.dp),
                                 ) {
                                     Icon(
                                         Icons.Default.Refresh,
                                         contentDescription = "Refresh Watch Maps",
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(18.dp),
                                     )
                                 }
                             }
@@ -339,21 +355,21 @@ internal fun RoutingDownloadDialog(
                                     Text(
                                         "${selectedWatchDisconnectedStatusMessage()} Use manual BBox while the watch is disconnected.",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
+                                        color = MaterialTheme.colorScheme.error,
                                     )
                                 }
 
                                 isLoadingWatchInstalledMaps -> {
                                     Text(
                                         "Loading watch maps...",
-                                        style = MaterialTheme.typography.bodySmall
+                                        style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
 
                                 uiState.selectedWatch == null -> {
                                     Text(
                                         "Select a watch in section 3 first, or switch to manual BBox.",
-                                        style = MaterialTheme.typography.bodySmall
+                                        style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
 
@@ -361,21 +377,21 @@ internal fun RoutingDownloadDialog(
                                     Text(
                                         watchInstalledMapsStatusMessage.orEmpty(),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
+                                        color = MaterialTheme.colorScheme.error,
                                     )
                                 }
 
                                 watchInstalledMaps.isEmpty() -> {
                                     Text(
                                         "No .map files found on watch. Transfer a map first, or switch area method.",
-                                        style = MaterialTheme.typography.bodySmall
+                                        style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
 
                                 selectedRoutingMapCandidate != null -> {
                                     Text(
                                         "Area BBox: ${selectedRoutingMapCandidate.bbox}",
-                                        style = MaterialTheme.typography.bodySmall
+                                        style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
                             }
@@ -384,13 +400,13 @@ internal fun RoutingDownloadDialog(
                         RoutingAreaMethod.MANUAL_BBOX -> {
                             Text(
                                 "Enter BBox (rectangle) as west,south,east,north (minLon,minLat,maxLon,maxLat). Example: 1.40,42.43,1.79,42.66",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
                             )
                             OutlinedTextField(
                                 value = bboxInput,
                                 onValueChange = { bboxInput = it },
                                 label = { Text("BBox") },
-                                singleLine = true
+                                singleLine = true,
                             )
                         }
                     }
@@ -399,27 +415,28 @@ internal fun RoutingDownloadDialog(
                         Text(
                             routingBboxError,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
                         )
                     }
 
                     if (routingTiles.isNotEmpty()) {
                         Text(
                             "Routing packs (${routingTiles.size})",
-                            style = MaterialTheme.typography.labelSmall
+                            style = MaterialTheme.typography.labelSmall,
                         )
                         Text(
                             routingTiles.joinToString(", "),
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
 
                     if (routingDownloadProgress.isRunning || routingDownloadProgress.completed) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .bringIntoViewRequester(routingStatusBringIntoViewRequester),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(routingStatusBringIntoViewRequester),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             val progressValue =
                                 (routingDownloadProgress.progressPercent / 100f).coerceIn(0f, 1f)
@@ -431,45 +448,46 @@ internal fun RoutingDownloadDialog(
                                         "Routing download finished."
                                     }
                                 },
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
                             )
                             LinearProgressIndicator(
                                 progress = { progressValue },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 if (routingDownloadProgress.detail.isNotBlank()) {
                                     Text(
                                         routingDownloadProgress.detail,
-                                        style = MaterialTheme.typography.labelSmall
+                                        style = MaterialTheme.typography.labelSmall,
                                     )
                                 } else {
                                     Spacer(modifier = Modifier)
                                 }
                                 Text(
                                     "${routingDownloadProgress.progressPercent}%",
-                                    style = MaterialTheme.typography.labelSmall
+                                    style = MaterialTheme.typography.labelSmall,
                                 )
                             }
                             if (routingDownloadProgress.message.isNotBlank()) {
                                 Text(
                                     routingDownloadProgress.message,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (routingDownloadProgress.success) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.error
-                                    }
+                                    color =
+                                        if (routingDownloadProgress.success) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.error
+                                        },
                                 )
                             }
                             if (routingCompletedSuccessfully) {
                                 Text(
                                     "Download complete. You can save the routing file(s) on phone or send them to the watch.",
-                                    style = MaterialTheme.typography.bodySmall
+                                    style = MaterialTheme.typography.bodySmall,
                                 )
                             }
                         }
@@ -477,9 +495,10 @@ internal fun RoutingDownloadDialog(
                 }
                 PageScrollbar(
                     scrollState = routingScrollState,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight(),
                 )
             }
         },
@@ -490,7 +509,7 @@ internal fun RoutingDownloadDialog(
                         onDismiss()
                         viewModel.resetRoutingDownloadProgress()
                         viewModel.sendFiles(context)
-                    }
+                    },
                 ) {
                     Text("Send")
                 }
@@ -501,10 +520,10 @@ internal fun RoutingDownloadDialog(
                         viewModel.downloadRoutingByBbox(
                             context = context,
                             bbox = resolvedRoutingBbox,
-                            appendToSelection = true
+                            appendToSelection = true,
                         )
                     },
-                    enabled = canDownloadRouting && !isDownloadingRouting
+                    enabled = canDownloadRouting && !isDownloadingRouting,
                 ) {
                     Text(if (isDownloadingRouting) "Downloading..." else "Download")
                 }
@@ -517,13 +536,13 @@ internal fun RoutingDownloadDialog(
                         onClick = {
                             viewModel.resetRoutingDownloadProgress()
                             onDismiss()
-                        }
+                        },
                     ) {
                         Text("Cancel")
                     }
                     TextButton(
                         onClick = { saveGeneratedFilesOnPhone(lastRoutingDownloadedFiles) },
-                        enabled = lastRoutingDownloadedFiles.isNotEmpty()
+                        enabled = lastRoutingDownloadedFiles.isNotEmpty(),
                     ) {
                         Text("Save on phone")
                     }
@@ -538,11 +557,11 @@ internal fun RoutingDownloadDialog(
                             onDismiss()
                         }
                     },
-                    enabled = true
+                    enabled = true,
                 ) {
                     Text("Cancel")
                 }
             }
-        }
+        },
     )
 }

@@ -45,67 +45,71 @@ internal fun BoxScope.RouteShortcutTray(
     onToggleExpanded: () -> Unit,
     onKeepAppOpenClick: () -> Unit,
     onGpxToolsClick: () -> Unit,
-    onCreatePoiClick: () -> Unit
+    onCreatePoiClick: () -> Unit,
 ) {
     Box(
-        modifier = Modifier
-            .align(Alignment.CenterEnd)
-            .padding(end = edgePadding)
+        modifier =
+            Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = edgePadding),
     ) {
         AnimatedVisibility(
             visible = expanded,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = anchorSize + adjacentAccessoryWidth + 8.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = anchorSize + adjacentAccessoryWidth + 8.dp),
             enter = fadeIn(),
-            exit = fadeOut()
+            exit = fadeOut(),
         ) {
             Column(
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 ShortcutActionChip(
                     text = "Sleep",
                     height = actionHeight,
-                    onClick = onKeepAppOpenClick
+                    onClick = onKeepAppOpenClick,
                 ) {
                     Icon(
-                        imageVector = if (keepAppOpen) {
-                            Icons.Default.Visibility
-                        } else {
-                            Icons.Default.VisibilityOff
-                        },
+                        imageVector =
+                            if (keepAppOpen) {
+                                Icons.Default.Visibility
+                            } else {
+                                Icons.Default.VisibilityOff
+                            },
                         contentDescription = null,
                         modifier = Modifier.size(iconSize),
-                        tint = if (keepAppOpen) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            Color.White
-                        }
+                        tint =
+                            if (keepAppOpen) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                Color.White
+                            },
                     )
                 }
                 ShortcutActionChip(
                     text = "GPX",
                     height = actionHeight,
-                    onClick = onGpxToolsClick
+                    onClick = onGpxToolsClick,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = null,
                         modifier = Modifier.size(iconSize),
-                        tint = Color.White
+                        tint = Color.White,
                     )
                 }
                 ShortcutActionChip(
                     text = "POI",
                     height = actionHeight,
-                    onClick = onCreatePoiClick
+                    onClick = onCreatePoiClick,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = null,
                         modifier = Modifier.size(iconSize),
-                        tint = Color(0xFFFFD54F)
+                        tint = Color(0xFFFFD54F),
                     )
                 }
             }
@@ -113,25 +117,27 @@ internal fun BoxScope.RouteShortcutTray(
 
         IconButton(
             onClick = onToggleExpanded,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .size(anchorSize),
-            colors = IconButtonDefaults.iconButtonColors(
-                containerColor = Color.Black.copy(alpha = 0.78f),
-                contentColor = Color.White
-            )
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(anchorSize),
+            colors =
+                IconButtonDefaults.iconButtonColors(
+                    containerColor = Color.Black.copy(alpha = 0.78f),
+                    contentColor = Color.White,
+                ),
         ) {
             if (expanded) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close shortcuts",
-                    modifier = Modifier.size(iconSize)
+                    modifier = Modifier.size(iconSize),
                 )
             } else {
                 Icon(
                     imageVector = Icons.Default.ViewComfyAlt,
                     contentDescription = "Open shortcuts",
-                    modifier = Modifier.size(iconSize)
+                    modifier = Modifier.size(iconSize),
                 )
             }
         }
@@ -143,22 +149,24 @@ private fun ShortcutActionChip(
     text: String,
     height: Dp,
     onClick: () -> Unit,
-    icon: (@Composable () -> Unit)? = null
+    icon: (@Composable () -> Unit)? = null,
 ) {
     Button(
         onClick = onClick,
-        modifier = Modifier
-            .width(82.dp)
-            .size(height = height, width = 82.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Black.copy(alpha = 0.78f),
-            contentColor = Color.White
-        ),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+        modifier =
+            Modifier
+                .width(82.dp)
+                .size(height = height, width = 82.dp),
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = Color.Black.copy(alpha = 0.78f),
+                contentColor = Color.White,
+            ),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             icon?.invoke()
             Text(text = text, maxLines = 1)

@@ -3,28 +3,26 @@ package com.glancemap.glancemapwearos.presentation.features.maps
 import org.mapsforge.core.model.BoundingBox
 import org.mapsforge.core.model.Point
 import org.mapsforge.core.util.MercatorProjection
-import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
 
 internal data class ElevationSampleKey(
     val quantizedLat: Int,
-    val quantizedLon: Int
+    val quantizedLon: Int,
 )
 
 internal data class ElevationSampleCacheEntry(
     val valueMeters: Double?,
-    val sampledAtElapsedMs: Long
+    val sampledAtElapsedMs: Long,
 )
 
 internal enum class RuntimeProfile {
     OVERLOADED,
     MOVING,
     SETTLING,
-    IDLE
+    IDLE,
 }
 
 internal data class RuntimePolicy(
@@ -33,12 +31,12 @@ internal data class RuntimePolicy(
     val prefetchQuality: OverlayBuildQuality,
     val maxRenderTiles: Int,
     val maxPrefetchTiles: Int,
-    val maxPendingJobs: Int
+    val maxPendingJobs: Int,
 )
 
 internal data class OverlayBuildRequest(
     val key: OverlayTileKey,
-    val quality: OverlayBuildQuality
+    val quality: OverlayBuildQuality,
 )
 
 internal data class VisibleTile(
@@ -46,12 +44,12 @@ internal data class VisibleTile(
     val left: Int,
     val top: Int,
     val right: Int,
-    val bottom: Int
+    val bottom: Int,
 )
 
 internal data class FinePriorityState(
     val centerPriorityCount: Int,
-    val allowFullFine: Boolean
+    val allowFullFine: Boolean,
 )
 
 internal data class FallbackTileSource(
@@ -59,13 +57,13 @@ internal data class FallbackTileSource(
     val srcLeft: Int,
     val srcTop: Int,
     val srcRight: Int,
-    val srcBottom: Int
+    val srcBottom: Int,
 )
 
 internal fun tileIntersectsViewport(
     tile: VisibleTile,
     viewportWidth: Int,
-    viewportHeight: Int
+    viewportHeight: Int,
 ): Boolean {
     if (viewportWidth <= 0 || viewportHeight <= 0) return false
     return tile.right > 0 &&
@@ -78,21 +76,22 @@ internal fun prioritizeVisibleTiles(
     tiles: List<VisibleTile>,
     viewportWidth: Int,
     viewportHeight: Int,
-    maxTiles: Int
+    maxTiles: Int,
 ): List<VisibleTile> {
     if (tiles.isEmpty()) return emptyList()
     if (maxTiles <= 0) return emptyList()
 
     val centerX = viewportWidth * 0.5
     val centerY = viewportHeight * 0.5
-    val prioritized = tiles
-        .sortedBy { tile ->
-            val tileCenterX = (tile.left + tile.right) * 0.5
-            val tileCenterY = (tile.top + tile.bottom) * 0.5
-            val dx = tileCenterX - centerX
-            val dy = tileCenterY - centerY
-            (dx * dx) + (dy * dy)
-        }
+    val prioritized =
+        tiles
+            .sortedBy { tile ->
+                val tileCenterX = (tile.left + tile.right) * 0.5
+                val tileCenterY = (tile.top + tile.bottom) * 0.5
+                val dx = tileCenterX - centerX
+                val dy = tileCenterY - centerY
+                (dx * dx) + (dy * dy)
+            }
     return if (prioritized.size <= maxTiles) prioritized else prioritized.take(maxTiles)
 }
 
@@ -100,7 +99,7 @@ internal fun buildReliefFinePriorityState(
     renderTiles: List<VisibleTile>,
     policy: RuntimePolicy,
     idleFinePriorityTiles: Int,
-    entryForKey: (OverlayTileKey) -> OverlayTileEntry?
+    entryForKey: (OverlayTileKey) -> OverlayTileEntry?,
 ): FinePriorityState {
     if (renderTiles.isEmpty() || policy.profile != RuntimeProfile.IDLE || policy.visibleQuality != OverlayBuildQuality.FINE) {
         return FinePriorityState(centerPriorityCount = 0, allowFullFine = true)
@@ -109,24 +108,25 @@ internal fun buildReliefFinePriorityState(
     if (centerPriorityCount <= 0) {
         return FinePriorityState(centerPriorityCount = 0, allowFullFine = true)
     }
-    val centerFineReadyCount = renderTiles
-        .take(centerPriorityCount)
-        .count { tile ->
-            val entry = entryForKey(tile.key)
-            entry?.status == OverlayTileStatus.READY &&
-                entry.quality.rank >= OverlayBuildQuality.FINE.rank
-        }
+    val centerFineReadyCount =
+        renderTiles
+            .take(centerPriorityCount)
+            .count { tile ->
+                val entry = entryForKey(tile.key)
+                entry?.status == OverlayTileStatus.READY &&
+                    entry.quality.rank >= OverlayBuildQuality.FINE.rank
+            }
     val requiredFineCenterCount = ((centerPriorityCount * 3) + 3) / 4
     return FinePriorityState(
         centerPriorityCount = centerPriorityCount,
-        allowFullFine = centerFineReadyCount >= requiredFineCenterCount
+        allowFullFine = centerFineReadyCount >= requiredFineCenterCount,
     )
 }
 
 internal fun resolveReliefVisibleQualityForTile(
     tileIndex: Int,
     policy: RuntimePolicy,
-    finePriorityState: FinePriorityState
+    finePriorityState: FinePriorityState,
 ): OverlayBuildQuality {
     if (policy.profile != RuntimeProfile.IDLE || policy.visibleQuality != OverlayBuildQuality.FINE) {
         return policy.visibleQuality
@@ -147,7 +147,7 @@ internal fun computeVisibleTiles(
     mapSize: Long,
     tileSize: Int,
     topLeftPoint: Point,
-    marginTiles: Int
+    marginTiles: Int,
 ): List<VisibleTile> {
     val tileSizeD = tileSize.toDouble()
     val mapSizeD = mapSize.toDouble()
@@ -180,25 +180,27 @@ internal fun computeVisibleTiles(
     for (tileY in yStart..yEnd) {
         for (tileX in xStart..xEnd) {
             val wrappedTileX = reliefFloorMod(tileX, tileCountPerAxis)
-            val key = OverlayTileKey(
-                zoom = zoomLevel,
-                tileX = wrappedTileX,
-                tileY = tileY,
-                tileSize = tileSize
-            )
+            val key =
+                OverlayTileKey(
+                    zoom = zoomLevel,
+                    tileX = wrappedTileX,
+                    tileY = tileY,
+                    tileSize = tileSize,
+                )
 
             val tileWorldX = tileX.toDouble() * tileSizeD
             val tileWorldY = tileY.toDouble() * tileSizeD
 
             val left = round(tileWorldX - topLeftPoint.x).toInt()
             val top = round(tileWorldY - topLeftPoint.y).toInt()
-            out += VisibleTile(
-                key = key,
-                left = left,
-                top = top,
-                right = left + tileSize,
-                bottom = top + tileSize
-            )
+            out +=
+                VisibleTile(
+                    key = key,
+                    left = left,
+                    top = top,
+                    right = left + tileSize,
+                    bottom = top + tileSize,
+                )
         }
     }
 
@@ -208,7 +210,7 @@ internal fun computeVisibleTiles(
 internal fun readyTileAlpha(
     entry: OverlayTileEntry,
     nowElapsedMs: Long,
-    fadeInMs: Long
+    fadeInMs: Long,
 ): Float {
     if (entry.status != OverlayTileStatus.READY) return 1f
     if (entry.drawMode != OverlayTileDrawMode.FADE_FROM_FALLBACK) return 1f
@@ -219,17 +221,20 @@ internal fun readyTileAlpha(
 internal fun quantizedElevationSampleKey(
     lat: Double,
     lon: Double,
-    quantizationFactor: Double
+    quantizationFactor: Double,
 ): ElevationSampleKey {
     val quantizedLat = round(lat * quantizationFactor).toInt()
     val quantizedLon = round(lon * quantizationFactor).toInt()
     return ElevationSampleKey(
         quantizedLat = quantizedLat,
-        quantizedLon = quantizedLon
+        quantizedLon = quantizedLon,
     )
 }
 
-private fun reliefFloorMod(value: Long, modulus: Long): Long {
+private fun reliefFloorMod(
+    value: Long,
+    modulus: Long,
+): Long {
     if (modulus <= 0L) return 0L
     val remainder = value % modulus
     return if (remainder < 0L) remainder + modulus else remainder

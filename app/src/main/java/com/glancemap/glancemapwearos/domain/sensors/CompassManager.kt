@@ -17,37 +17,51 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class CompassManager private constructor(context: Context) {
+class CompassManager private constructor(
+    context: Context,
+) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val sensorManagerProvider = SensorManagerOrientationProvider(appContext)
-    private val fusedOrientationProvider = FusedOrientationProviderAdapter(
-        context = appContext,
-        fallbackProvider = sensorManagerProvider
-    )
-    private val providers: Map<CompassProviderType, CompassOrientationProvider> = mapOf(
-        CompassProviderType.SENSOR_MANAGER to sensorManagerProvider,
-        CompassProviderType.GOOGLE_FUSED to fusedOrientationProvider
-    )
-    private val activeProvider = MutableStateFlow(
-        providers.getValue(CompassProviderType.GOOGLE_FUSED)
-    )
+    private val fusedOrientationProvider =
+        FusedOrientationProviderAdapter(
+            context = appContext,
+            fallbackProvider = sensorManagerProvider,
+        )
+    private val providers: Map<CompassProviderType, CompassOrientationProvider> =
+        mapOf(
+            CompassProviderType.SENSOR_MANAGER to sensorManagerProvider,
+            CompassProviderType.GOOGLE_FUSED to fusedOrientationProvider,
+        )
+    private val activeProvider =
+        MutableStateFlow(
+            providers.getValue(CompassProviderType.GOOGLE_FUSED),
+        )
+
     @Volatile private var requestedProviderType: CompassProviderType = CompassProviderType.GOOGLE_FUSED
+
     @Volatile private var started = false
+
     @Volatile private var lowPowerMode = false
+
     @Volatile private var northReferenceMode: NorthReferenceMode = NorthReferenceMode.TRUE
+
     @Volatile private var headingSourceMode: CompassHeadingSourceMode = CompassHeadingSourceMode.AUTO
+
     @Volatile private var lastApproximateDeclinationSeed: ApproximateDeclinationSeed? = null
+
     @Volatile private var lastDeclinationLocation: Location? = null
+
     @Volatile private var pendingStopJob: Job? = null
 
-    val renderState: StateFlow<CompassRenderState> = activeProvider
-        .flatMapLatest { provider -> provider.renderState }
-        .stateIn(
-            scope = scope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = activeProvider.value.renderState.value
-        )
+    val renderState: StateFlow<CompassRenderState> =
+        activeProvider
+            .flatMapLatest { provider -> provider.renderState }
+            .stateIn(
+                scope = scope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = activeProvider.value.renderState.value,
+            )
 
     @Synchronized
     fun start(lowPower: Boolean = false) {
@@ -55,30 +69,34 @@ class CompassManager private constructor(context: Context) {
         lowPowerMode = lowPower
         started = true
         logDiagnostics(
-            "manager start requested=${requestedProviderType.name} lowPower=$lowPower"
+            "manager start requested=${requestedProviderType.name} lowPower=$lowPower",
         )
         syncActiveProvider(forceRefresh = false)
         activeProvider.value.start(lowPower = lowPower)
     }
 
     @Synchronized
-    fun stop(reason: String = "unspecified", delayMs: Long = 0L) {
+    fun stop(
+        reason: String = "unspecified",
+        delayMs: Long = 0L,
+    ) {
         if (delayMs > 0L) {
             cancelPendingStopLocked()
-            val scheduledJob = scope.launch {
-                delay(delayMs)
-                synchronized(this@CompassManager) {
-                    if (pendingStopJob !== this.coroutineContext[Job]) return@synchronized
-                    pendingStopJob = null
-                    stopNow(reason = "${reason}_delayed")
+            val scheduledJob =
+                scope.launch {
+                    delay(delayMs)
+                    synchronized(this@CompassManager) {
+                        if (pendingStopJob !== this.coroutineContext[Job]) return@synchronized
+                        pendingStopJob = null
+                        stopNow(reason = "${reason}_delayed")
+                    }
                 }
-            }
             pendingStopJob = scheduledJob
             logDiagnostics(
                 "manager stop scheduled requested=${requestedProviderType.name} " +
                     "reason=$reason delayMs=$delayMs " +
                     "active=${activeProvider.value.providerType.name} " +
-                    "renderProvider=${activeProvider.value.renderState.value.providerType.name}"
+                    "renderProvider=${activeProvider.value.renderState.value.providerType.name}",
             )
             return
         }
@@ -92,7 +110,7 @@ class CompassManager private constructor(context: Context) {
             "manager stop requested=${requestedProviderType.name} " +
                 "reason=$reason " +
                 "active=${activeProvider.value.providerType.name} " +
-                "renderProvider=${activeProvider.value.renderState.value.providerType.name}"
+                "renderProvider=${activeProvider.value.renderState.value.providerType.name}",
         )
         activeProvider.value.stop()
     }
@@ -102,7 +120,7 @@ class CompassManager private constructor(context: Context) {
         logDiagnostics(
             "manager recalibrate requested=${requestedProviderType.name} " +
                 "active=${activeProvider.value.providerType.name} " +
-                "renderProvider=${activeProvider.value.renderState.value.providerType.name}"
+                "renderProvider=${activeProvider.value.renderState.value.providerType.name}",
         )
         activeProvider.value.recalibrate()
     }
@@ -127,24 +145,28 @@ class CompassManager private constructor(context: Context) {
     fun primeDeclinationFromApproximateLocation(
         latitude: Double,
         longitude: Double,
-        altitudeM: Float = 0f
+        altitudeM: Float = 0f,
     ) {
-        lastApproximateDeclinationSeed = ApproximateDeclinationSeed(
-            latitude = latitude,
-            longitude = longitude,
-            altitudeM = altitudeM
-        )
+        lastApproximateDeclinationSeed =
+            ApproximateDeclinationSeed(
+                latitude = latitude,
+                longitude = longitude,
+                altitudeM = altitudeM,
+            )
         providers.values.forEach { provider ->
             provider.primeDeclinationFromApproximateLocation(
                 latitude = latitude,
                 longitude = longitude,
-                altitudeM = altitudeM
+                altitudeM = altitudeM,
             )
         }
     }
 
     @Synchronized
-    fun setNorthReferenceMode(mode: NorthReferenceMode, forceRefresh: Boolean = false) {
+    fun setNorthReferenceMode(
+        mode: NorthReferenceMode,
+        forceRefresh: Boolean = false,
+    ) {
         northReferenceMode = mode
         providers.values.forEach { provider ->
             provider.setNorthReferenceMode(mode, forceRefresh = forceRefresh)
@@ -152,7 +174,10 @@ class CompassManager private constructor(context: Context) {
     }
 
     @Synchronized
-    fun setHeadingSourceMode(mode: CompassHeadingSourceMode, forceRefresh: Boolean = false) {
+    fun setHeadingSourceMode(
+        mode: CompassHeadingSourceMode,
+        forceRefresh: Boolean = false,
+    ) {
         headingSourceMode = mode
         providers.values.forEach { provider ->
             provider.setHeadingSourceMode(mode, forceRefresh = forceRefresh)
@@ -160,9 +185,12 @@ class CompassManager private constructor(context: Context) {
     }
 
     @Synchronized
-    fun setProviderType(type: CompassProviderType, forceRefresh: Boolean = false) {
+    fun setProviderType(
+        type: CompassProviderType,
+        forceRefresh: Boolean = false,
+    ) {
         logDiagnostics(
-            "provider_request requested=${type.name} forceRefresh=$forceRefresh started=$started"
+            "provider_request requested=${type.name} forceRefresh=$forceRefresh started=$started",
         )
         requestedProviderType = type
         syncActiveProvider(forceRefresh = forceRefresh)
@@ -172,11 +200,10 @@ class CompassManager private constructor(context: Context) {
         @Volatile
         private var INSTANCE: CompassManager? = null
 
-        fun getInstance(context: Context): CompassManager {
-            return INSTANCE ?: synchronized(this) {
+        fun getInstance(context: Context): CompassManager =
+            INSTANCE ?: synchronized(this) {
                 INSTANCE ?: CompassManager(context.applicationContext).also { INSTANCE = it }
             }
-        }
     }
 
     @Synchronized
@@ -187,7 +214,7 @@ class CompassManager private constructor(context: Context) {
             if (forceRefresh) {
                 logDiagnostics(
                     "provider_refresh active=${currentProvider.providerType.name} " +
-                        "forceRefresh=true started=$started"
+                        "forceRefresh=true started=$started",
                 )
                 applyProviderState(resolvedProvider, forceRefresh = true)
                 if (started) {
@@ -200,7 +227,7 @@ class CompassManager private constructor(context: Context) {
 
         logDiagnostics(
             "provider_switch from=${currentProvider.providerType.name} " +
-                "to=${resolvedProvider.providerType.name} forceRefresh=$forceRefresh started=$started"
+                "to=${resolvedProvider.providerType.name} forceRefresh=$forceRefresh started=$started",
         )
         if (started) {
             currentProvider.stop()
@@ -216,7 +243,7 @@ class CompassManager private constructor(context: Context) {
 
     private fun applyProviderState(
         provider: CompassOrientationProvider,
-        forceRefresh: Boolean
+        forceRefresh: Boolean,
     ) {
         provider.setLowPowerMode(lowPowerMode)
         provider.setNorthReferenceMode(northReferenceMode, forceRefresh = forceRefresh)
@@ -225,7 +252,7 @@ class CompassManager private constructor(context: Context) {
             provider.primeDeclinationFromApproximateLocation(
                 latitude = seed.latitude,
                 longitude = seed.longitude,
-                altitudeM = seed.altitudeM
+                altitudeM = seed.altitudeM,
             )
         }
         lastDeclinationLocation?.let { location ->
@@ -247,5 +274,5 @@ class CompassManager private constructor(context: Context) {
 private data class ApproximateDeclinationSeed(
     val latitude: Double,
     val longitude: Double,
-    val altitudeM: Float
+    val altitudeM: Float,
 )

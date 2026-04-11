@@ -1,16 +1,16 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
-import android.content.Context
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -30,10 +30,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
@@ -51,12 +51,6 @@ import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
-import com.google.android.horologist.compose.material.Chip
-import com.google.android.horologist.compose.material.ToggleChip
-import com.google.android.horologist.compose.material.ToggleChipToggleControl
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.FusionReplayTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.CrashDiagnosticsStore
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsEmailHandoff
@@ -67,13 +61,19 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnos
 import com.glancemap.glancemapwearos.core.service.diagnostics.GnssDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.FusionReplayTelemetry
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.glancemap.shared.transfer.TransferDataLayerContract
-import kotlinx.coroutines.delay
+import com.google.android.horologist.annotations.ExperimentalHorologistApi
+import com.google.android.horologist.compose.layout.ScreenScaffold
+import com.google.android.horologist.compose.material.Chip
+import com.google.android.horologist.compose.material.ToggleChip
+import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -90,7 +90,7 @@ private const val DIAGNOSTICS_DEFAULT_STATUS = "Export to support email"
 private enum class DiagnosticsExportDialogMode {
     GENERATING,
     CHECK_PHONE,
-    FAILED
+    FAILED,
 }
 
 @OptIn(ExperimentalHorologistApi::class)
@@ -98,17 +98,18 @@ private enum class DiagnosticsExportDialogMode {
 fun DebuggingSettingsScreen(
     viewModel: SettingsViewModel,
     compassViewModel: CompassViewModel,
-    onOpenGeneralSettings: () -> Unit
+    onOpenGeneralSettings: () -> Unit,
 ) {
     val screenSize = rememberWearScreenSize()
-    val listTokens = rememberSettingsListTokens(
-        compactTop = 12.dp,
-        standardTop = 14.dp,
-        expandedTop = 16.dp,
-        compactBottom = 12.dp,
-        standardBottom = 14.dp,
-        expandedBottom = 16.dp
-    )
+    val listTokens =
+        rememberSettingsListTokens(
+            compactTop = 12.dp,
+            standardTop = 14.dp,
+            expandedTop = 16.dp,
+            compactBottom = 12.dp,
+            standardBottom = 14.dp,
+            expandedBottom = 16.dp,
+        )
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -130,22 +131,25 @@ fun DebuggingSettingsScreen(
     var exportDialogMode by remember { mutableStateOf<DiagnosticsExportDialogMode?>(null) }
     var exportDialogMessage by remember { mutableStateOf("") }
     var captureSummaryLabel by remember { mutableStateOf("fix=0 drop=0 pred=0 blend=0 log=0") }
-    val helpPrefs = remember(context) {
-        context.getSharedPreferences(DEBUG_HELP_PREFS, Context.MODE_PRIVATE)
-    }
+    val helpPrefs =
+        remember(context) {
+            context.getSharedPreferences(DEBUG_HELP_PREFS, Context.MODE_PRIVATE)
+        }
     val hasExportedDiagnostics = exportedDiagnosticsCount > 0
 
     val listState = rememberScalingLazyListState()
-    val infoButtonSize = when (screenSize) {
-        WearScreenSize.LARGE -> 24.dp
-        WearScreenSize.MEDIUM -> 22.dp
-        WearScreenSize.SMALL -> 20.dp
-    }
-    val infoIconSize = when (screenSize) {
-        WearScreenSize.LARGE -> 14.dp
-        WearScreenSize.MEDIUM -> 13.dp
-        WearScreenSize.SMALL -> 12.dp
-    }
+    val infoButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 24.dp
+            WearScreenSize.MEDIUM -> 22.dp
+            WearScreenSize.SMALL -> 20.dp
+        }
+    val infoIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 14.dp
+            WearScreenSize.MEDIUM -> 13.dp
+            WearScreenSize.SMALL -> 12.dp
+        }
 
     LaunchedEffect(gpsDebugTelemetry) {
         DebugTelemetry.setEnabled(gpsDebugTelemetry)
@@ -154,12 +158,12 @@ fun DebuggingSettingsScreen(
             EnergyDiagnostics.recordSample(
                 context = context,
                 reason = "capture_toggle_on",
-                detail = "source=debug_screen"
+                detail = "source=debug_screen",
             )
         } else {
             EnergyDiagnostics.recordEvent(
                 reason = "capture_toggle_off",
-                detail = "source=debug_screen"
+                detail = "source=debug_screen",
             )
         }
         while (isActive) {
@@ -178,9 +182,10 @@ fun DebuggingSettingsScreen(
     }
 
     LaunchedEffect(context) {
-        val existingExportCount = withContext(Dispatchers.IO) {
-            DiagnosticsExporter.exportedFileCount(context)
-        }
+        val existingExportCount =
+            withContext(Dispatchers.IO) {
+                DiagnosticsExporter.exportedFileCount(context)
+            }
         exportedDiagnosticsCount = existingExportCount
         if (existingExportCount > 0 && diagnosticsExportStatus == DIAGNOSTICS_DEFAULT_STATUS) {
             diagnosticsExportStatus = buildRetryReadyLabel(existingExportCount)
@@ -203,45 +208,48 @@ fun DebuggingSettingsScreen(
     ScreenScaffold(scrollState = listState) {
         DiagnosticsExportInfoDialog(
             visible = showExportInfoDialog,
-            onDismiss = { dismissExportInfoDialog() }
+            onDismiss = { dismissExportInfoDialog() },
         )
         DiagnosticsExportStatusDialog(
             mode = exportDialogMode,
             message = exportDialogMessage,
-            onDismiss = { exportDialogMode = null }
+            onDismiss = { exportDialogMode = null },
         )
 
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
             autoCentering = AutoCenteringParams(itemIndex = 2),
-            contentPadding = PaddingValues(
-                start = listTokens.horizontalPadding,
-                end = listTokens.horizontalPadding,
-                top = listTokens.topPadding,
-                bottom = listTokens.bottomPadding
-            ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing)
+            contentPadding =
+                PaddingValues(
+                    start = listTokens.horizontalPadding,
+                    end = listTokens.horizontalPadding,
+                    top = listTokens.topPadding,
+                    bottom = listTokens.bottomPadding,
+                ),
+            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
         ) {
             item {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     IconButton(
                         onClick = { showExportInfoDialog = true },
-                        modifier = Modifier
-                            .size(infoButtonSize)
-                            .wrapContentSize(align = Alignment.Center),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = Color.White
-                        )
+                        modifier =
+                            Modifier
+                                .size(infoButtonSize)
+                                .wrapContentSize(align = Alignment.Center),
+                        colors =
+                            IconButtonDefaults.iconButtonColors(
+                                containerColor = Color.Black.copy(alpha = 0.7f),
+                                contentColor = Color.White,
+                            ),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Info,
                             contentDescription = "Diagnostics export info",
-                            modifier = Modifier.size(infoIconSize)
+                            modifier = Modifier.size(infoIconSize),
                         )
                     }
                 }
@@ -254,11 +262,12 @@ fun DebuggingSettingsScreen(
             item {
                 Chip(
                     label = "1. Clean Previous Logs",
-                    secondaryLabel = if (exportInProgress) {
-                        "Export in progress..."
-                    } else {
-                        cleanCaptureStatus
-                    },
+                    secondaryLabel =
+                        if (exportInProgress) {
+                            "Export in progress..."
+                        } else {
+                            cleanCaptureStatus
+                        },
                     onClick = {
                         if (exportInProgress) return@Chip
                         DebugTelemetry.clear()
@@ -273,7 +282,7 @@ fun DebuggingSettingsScreen(
                         cleanCaptureStatus = CLEAN_CAPTURE_CLEARED_LABEL
                         cleanCaptureResetToken += 1L
                         diagnosticsExportStatus = "Cleared. Start capture."
-                    }
+                    },
                 )
             }
 
@@ -285,44 +294,48 @@ fun DebuggingSettingsScreen(
                         viewModel.setGpsDebugTelemetry(it)
                         FieldMarkerDiagnostics.recordMarker(
                             type = if (it) "capture_start" else "capture_stop",
-                            note = "source=capture_toggle"
+                            note = "source=capture_toggle",
                         )
-                        diagnosticsExportStatus = if (it) {
-                            "Capturing..."
-                        } else if (hasExportedDiagnostics) {
-                            buildRetryReadyLabel(exportedDiagnosticsCount)
-                        } else if (DebugTelemetry.size() > 0) {
-                            "Send to phone"
-                        } else {
-                            "Capture off."
-                        }
+                        diagnosticsExportStatus =
+                            if (it) {
+                                "Capturing..."
+                            } else if (hasExportedDiagnostics) {
+                                buildRetryReadyLabel(exportedDiagnosticsCount)
+                            } else if (DebugTelemetry.size() > 0) {
+                                "Send to phone"
+                            } else {
+                                "Capture off."
+                            }
                     },
                     label = "2. Start Capturing",
-                    secondaryLabel = if (gpsDebugTelemetry) {
-                        "Capturing..."
-                    } else if (exportInProgress) {
-                        "Export in progress..."
-                    } else {
-                        "Off - tap to start"
-                    },
-                    toggleControl = ToggleChipToggleControl.Switch
+                    secondaryLabel =
+                        if (gpsDebugTelemetry) {
+                            "Capturing..."
+                        } else if (exportInProgress) {
+                            "Export in progress..."
+                        } else {
+                            "Off - tap to start"
+                        },
+                    toggleControl = ToggleChipToggleControl.Switch,
                 )
             }
 
             item {
                 Chip(
-                    label = if (hasExportedDiagnostics && !gpsDebugTelemetry) {
-                        "3. Resend Diagnostic"
-                    } else {
-                        "3. Export Diagnostic"
-                    },
-                    secondaryLabel = if (exportInProgress) {
-                        "Exporting..."
-                    } else if (gpsDebugTelemetry) {
-                        "Stop & export"
-                    } else {
-                        diagnosticsExportStatus
-                    },
+                    label =
+                        if (hasExportedDiagnostics && !gpsDebugTelemetry) {
+                            "3. Resend Diagnostic"
+                        } else {
+                            "3. Export Diagnostic"
+                        },
+                    secondaryLabel =
+                        if (exportInProgress) {
+                            "Exporting..."
+                        } else if (gpsDebugTelemetry) {
+                            "Stop & export"
+                        } else {
+                            diagnosticsExportStatus
+                        },
                     onClick = {
                         if (exportInProgress) return@Chip
                         coroutineScope.launch {
@@ -332,9 +345,10 @@ fun DebuggingSettingsScreen(
                             val captureWasEnabled = DebugTelemetry.isEnabled()
                             try {
                                 val hasBufferedLogs = DebugTelemetry.size() > 0
-                                val hasExistingExport = withContext(Dispatchers.IO) {
-                                    DiagnosticsExporter.latestExportFile(context) != null
-                                }
+                                val hasExistingExport =
+                                    withContext(Dispatchers.IO) {
+                                        DiagnosticsExporter.latestExportFile(context) != null
+                                    }
                                 val canExport = captureWasEnabled || hasBufferedLogs || hasExistingExport
                                 if (!canExport) {
                                     exportDialogMode = null
@@ -350,62 +364,68 @@ fun DebuggingSettingsScreen(
                                     DebugTelemetry.setEnabled(false)
                                 }
 
-                                val diagnosticsFile = withContext(Dispatchers.IO) {
-                                    DiagnosticsExporter.export(
-                                        context = context,
-                                        settings = DiagnosticsSettingsSnapshot(
-                                            gpsIntervalMs = gpsIntervalMs,
-                                            watchGpsOnly = isWatchGpsOnly,
-                                            keepAppOpen = keepAppOpen,
-                                            gpsInAmbientMode = gpsInAmbientMode,
-                                            gpsDebugTelemetry = captureWasEnabled
-                                        ),
-                                        reuseLatestIfAvailable = !captureWasEnabled
-                                    )
-                                }
-                                exportedDiagnosticsCount = withContext(Dispatchers.IO) {
-                                    DiagnosticsExporter.exportedFileCount(context)
-                                }
+                                val diagnosticsFile =
+                                    withContext(Dispatchers.IO) {
+                                        DiagnosticsExporter.export(
+                                            context = context,
+                                            settings =
+                                                DiagnosticsSettingsSnapshot(
+                                                    gpsIntervalMs = gpsIntervalMs,
+                                                    watchGpsOnly = isWatchGpsOnly,
+                                                    keepAppOpen = keepAppOpen,
+                                                    gpsInAmbientMode = gpsInAmbientMode,
+                                                    gpsDebugTelemetry = captureWasEnabled,
+                                                ),
+                                            reuseLatestIfAvailable = !captureWasEnabled,
+                                        )
+                                    }
+                                exportedDiagnosticsCount =
+                                    withContext(Dispatchers.IO) {
+                                        DiagnosticsExporter.exportedFileCount(context)
+                                    }
                                 exportDialogMessage = "Sending diagnostics to your phone..."
 
                                 val subject =
                                     "${TransferDataLayerContract.DIAGNOSTICS_SUBJECT_PREFIX} ${diagnosticsFile.nameWithoutExtension}"
 
                                 // Prefer phone handoff first because many watches have no mail/share app.
-                                val handedOff = withContext(Dispatchers.IO) {
-                                    DiagnosticsEmailHandoff.sendToPhone(
-                                        context = context,
-                                        diagnosticsFile = diagnosticsFile,
-                                        subject = subject
-                                    )
-                                }
+                                val handedOff =
+                                    withContext(Dispatchers.IO) {
+                                        DiagnosticsEmailHandoff.sendToPhone(
+                                            context = context,
+                                            diagnosticsFile = diagnosticsFile,
+                                            subject = subject,
+                                        )
+                                    }
                                 if (handedOff) {
                                     diagnosticsExportStatus = "Check phone. Tap resend if needed."
                                     exportDialogMode = DiagnosticsExportDialogMode.CHECK_PHONE
                                     exportDialogMessage =
                                         "Check your phone to send the diagnostics.\n" +
-                                            "If you dismissed the phone prompt there, tap Resend here."
+                                        "If you dismissed the phone prompt there, tap Resend here."
                                     return@launch
                                 }
                                 exportDialogMode = null
 
-                                val uri = FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    diagnosticsFile
-                                )
-
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(
-                                        Intent.EXTRA_EMAIL,
-                                        arrayOf(TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL)
+                                val uri =
+                                    FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        diagnosticsFile,
                                     )
-                                    putExtra(Intent.EXTRA_SUBJECT, subject)
-                                    putExtra(Intent.EXTRA_TEXT, "Diagnostics export attached from watch.")
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
+
+                                val shareIntent =
+                                    Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(
+                                            Intent.EXTRA_EMAIL,
+                                            arrayOf(TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL),
+                                        )
+                                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                                        putExtra(Intent.EXTRA_TEXT, "Diagnostics export attached from watch.")
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
 
                                 val hasWatchTargets =
                                     context.packageManager.queryIntentActivities(shareIntent, 0).isNotEmpty()
@@ -414,22 +434,23 @@ fun DebuggingSettingsScreen(
                                     exportDialogMode = DiagnosticsExportDialogMode.FAILED
                                     exportDialogMessage =
                                         "Couldn't send diagnostics to your phone.\n" +
-                                            "Tap Resend Diagnostic to try again."
+                                        "Tap Resend Diagnostic to try again."
                                     return@launch
                                 }
 
-                                val chooser = Intent.createChooser(shareIntent, "Send diagnostics").apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
+                                val chooser =
+                                    Intent.createChooser(shareIntent, "Send diagnostics").apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
                                 runCatching { context.startActivity(chooser) }
                                     .onSuccess {
-                                        diagnosticsExportStatus = if (captureWasEnabled) {
-                                            "Confirm send on phone. Capture off."
-                                        } else {
-                                            "Confirm send on phone."
-                                        }
-                                    }
-                                    .onFailure {
+                                        diagnosticsExportStatus =
+                                            if (captureWasEnabled) {
+                                                "Confirm send on phone. Capture off."
+                                            } else {
+                                                "Confirm send on phone."
+                                            }
+                                    }.onFailure {
                                         diagnosticsExportStatus = buildRetryReadyLabel(exportedDiagnosticsCount)
                                         exportDialogMode = DiagnosticsExportDialogMode.FAILED
                                         exportDialogMessage =
@@ -454,7 +475,7 @@ fun DebuggingSettingsScreen(
                                 exportInProgress = false
                             }
                         }
-                    }
+                    },
                 )
             }
         }
@@ -465,19 +486,20 @@ fun DebuggingSettingsScreen(
 private fun DiagnosticsExportStatusDialog(
     mode: DiagnosticsExportDialogMode?,
     message: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     if (mode == null) return
 
     val adaptive = rememberWearAdaptiveSpec()
     val dismissible = mode != DiagnosticsExportDialogMode.GENERATING
-    val title = if (mode == DiagnosticsExportDialogMode.GENERATING) {
-        "Preparing diagnostics"
-    } else if (mode == DiagnosticsExportDialogMode.FAILED) {
-        "Export failed"
-    } else {
-        "Diagnostics ready"
-    }
+    val title =
+        if (mode == DiagnosticsExportDialogMode.GENERATING) {
+            "Preparing diagnostics"
+        } else if (mode == DiagnosticsExportDialogMode.FAILED) {
+            "Export failed"
+        } else {
+            "Diagnostics ready"
+        }
 
     Dialog(
         onDismissRequest = {
@@ -485,34 +507,36 @@ private fun DiagnosticsExportStatusDialog(
                 onDismiss()
             }
         },
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            dismissOnBackPress = dismissible,
-            dismissOnClickOutside = dismissible
-        )
+        properties =
+            DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = dismissible,
+                dismissOnClickOutside = dismissible,
+            ),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    horizontal = if (adaptive.isRound) 24.dp else 20.dp,
-                    vertical = if (adaptive.isRound) 18.dp else 16.dp
-                ),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal = if (adaptive.isRound) 24.dp else 20.dp,
+                        vertical = if (adaptive.isRound) 18.dp else 16.dp,
+                    ),
+            contentAlignment = Alignment.Center,
         ) {
             androidx.compose.foundation.layout.Column(
-                modifier = Modifier
-                    .width(184.dp)
-                    .background(
-                        Color.Black.copy(alpha = 0.92f),
-                        RoundedCornerShape(adaptive.dialogCornerRadius)
-                    )
-                    .padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding
-                    ),
+                modifier =
+                    Modifier
+                        .width(184.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.92f),
+                            RoundedCornerShape(adaptive.dialogCornerRadius),
+                        ).padding(
+                            horizontal = adaptive.dialogHorizontalPadding,
+                            vertical = adaptive.dialogVerticalPadding,
+                        ),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (mode == DiagnosticsExportDialogMode.GENERATING) {
                     RouteToolBusySpinner(size = 30.dp)
@@ -520,12 +544,12 @@ private fun DiagnosticsExportStatusDialog(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
                 Text(
                     text = message,
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
                 )
                 if (dismissible) {
                     Button(onClick = onDismiss) {
@@ -540,7 +564,7 @@ private fun DiagnosticsExportStatusDialog(
 @Composable
 private fun DiagnosticsExportInfoDialog(
     visible: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     if (!visible) return
     val adaptive = rememberWearAdaptiveSpec()
@@ -552,68 +576,71 @@ private fun DiagnosticsExportInfoDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         androidx.compose.foundation.layout.Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Color.Black.copy(alpha = 0.82f),
-                    RoundedCornerShape(adaptive.dialogCornerRadius)
-                )
-                .padding(
-                    horizontal = adaptive.dialogHorizontalPadding,
-                    vertical = adaptive.dialogVerticalPadding
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color.Black.copy(alpha = 0.82f),
+                        RoundedCornerShape(adaptive.dialogCornerRadius),
+                    ).padding(
+                        horizontal = adaptive.dialogHorizontalPadding,
+                        vertical = adaptive.dialogVerticalPadding,
+                    ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        var totalDrag = 0f
-                        detectVerticalDragGestures(
-                            onDragEnd = { totalDrag = 0f },
-                            onDragCancel = { totalDrag = 0f }
-                        ) { _, dragAmount ->
-                            totalDrag += dragAmount
-                            if (totalDrag > DEBUG_INFO_DRAG_DISMISS_PX) {
-                                onDismiss()
-                                totalDrag = 0f
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            var totalDrag = 0f
+                            detectVerticalDragGestures(
+                                onDragEnd = { totalDrag = 0f },
+                                onDragCancel = { totalDrag = 0f },
+                            ) { _, dragAmount ->
+                                totalDrag += dragAmount
+                                if (totalDrag > DEBUG_INFO_DRAG_DISMISS_PX) {
+                                    onDismiss()
+                                    totalDrag = 0f
+                                }
                             }
-                        }
-                    },
-                contentAlignment = Alignment.Center
+                        },
+                contentAlignment = Alignment.Center,
             ) {
                 Box(
-                    modifier = Modifier
-                        .width(26.dp)
-                        .height(3.dp)
-                        .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50))
+                    modifier =
+                        Modifier
+                            .width(26.dp)
+                            .height(3.dp)
+                            .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
                 )
             }
             Text(
                 text = "Diagnostics Export",
                 style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = adaptive.dialogBodyMaxHeight)
-                    .onPreRotaryScrollEvent { event ->
-                        val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
-                        abs(consumed) > 0.5f
-                    }
-                    .focusRequester(focusRequester)
-                    .focusable()
-                    .verticalScroll(scrollState),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = adaptive.dialogBodyMaxHeight)
+                        .onPreRotaryScrollEvent { event ->
+                            val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
+                            abs(consumed) > 0.5f
+                        }.focusRequester(focusRequester)
+                        .focusable()
+                        .verticalScroll(scrollState),
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "After export, check your phone.\n" +
-                        "The phone opens the email draft with diagnostics attached.\n" +
-                        "If you dismiss the phone prompt, come back here and tap Resend.\n" +
-                        "If phone handoff is unavailable, the watch needs a mail/share app.",
-                    textAlign = TextAlign.Center
+                    text =
+                        "After export, check your phone.\n" +
+                            "The phone opens the email draft with diagnostics attached.\n" +
+                            "If you dismiss the phone prompt, come back here and tap Resend.\n" +
+                            "If phone handoff is unavailable, the watch needs a mail/share app.",
+                    textAlign = TextAlign.Center,
                 )
             }
         }

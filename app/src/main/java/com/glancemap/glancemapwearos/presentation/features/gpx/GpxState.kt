@@ -11,18 +11,14 @@ data class GpxFileState(
     val distance: Double,
     val elevationGain: Double,
     val estimatedDurationSec: Double?,
-    val isActive: Boolean = false
+    val isActive: Boolean = false,
 ) {
     val displayTitle: String
         get() = title?.takeIf { it.isNotBlank() } ?: name
 
-    fun formattedDistance(isMetric: Boolean): Pair<String, String> {
-        return UnitFormatter.formatDistance(distance, isMetric)
-    }
+    fun formattedDistance(isMetric: Boolean): Pair<String, String> = UnitFormatter.formatDistance(distance, isMetric)
 
-    fun formattedElevation(isMetric: Boolean): Pair<String, String> {
-        return UnitFormatter.formatElevation(elevationGain, isMetric)
-    }
+    fun formattedElevation(isMetric: Boolean): Pair<String, String> = UnitFormatter.formatElevation(elevationGain, isMetric)
 
     fun formattedEtaShort(): String = DurationFormatter.formatDurationShort(estimatedDurationSec)
 }
@@ -30,7 +26,7 @@ data class GpxFileState(
 data class TrackPoint(
     val latLong: LatLong,
     val elevation: Double?,
-    val hasTimestamp: Boolean = false
+    val hasTimestamp: Boolean = false,
 )
 
 data class GpxTrackDetails(
@@ -40,13 +36,13 @@ data class GpxTrackDetails(
     val distance: Double,
     val elevationGain: Double,
     val startPoint: LatLong?,
-    val endPoint: LatLong?
+    val endPoint: LatLong?,
 )
 
 data class TrackPosition(
     val trackId: String,
     val segmentIndex: Int,
-    val t: Double
+    val t: Double,
 )
 
 data class GpxInspectionAStats(
@@ -57,14 +53,14 @@ data class GpxInspectionAStats(
     val distanceToEnd: Double,
     val elevationGainToEnd: Double,
     val elevationLossToEnd: Double,
-    val durationToEndSec: Double?
+    val durationToEndSec: Double?,
 )
 
 data class GpxInspectionLeg(
     val distance: Double,
     val elevationGain: Double,
     val elevationLoss: Double,
-    val durationSec: Double?
+    val durationSec: Double?,
 )
 
 data class ElevationSample(
@@ -72,7 +68,7 @@ data class ElevationSample(
     val elevation: Double,
     val cumulativeAscent: Double,
     val cumulativeDescent: Double,
-    val cumulativeDurationSec: Double?
+    val cumulativeDurationSec: Double?,
 )
 
 data class GpxElevationProfileUiState(
@@ -84,7 +80,7 @@ data class GpxElevationProfileUiState(
     val totalDurationSec: Double?,
     val samples: List<ElevationSample>,
     val minElevation: Double?,
-    val maxElevation: Double?
+    val maxElevation: Double?,
 )
 
 sealed interface GpxInspectionUiState {
@@ -93,12 +89,12 @@ sealed interface GpxInspectionUiState {
 
 data class InspectionAUiState(
     override val trackTitle: String?,
-    val a: GpxInspectionAStats
+    val a: GpxInspectionAStats,
 ) : GpxInspectionUiState
 
 data class InspectionABUiState(
     override val trackTitle: String?,
     val sToA: GpxInspectionLeg,
     val aToB: GpxInspectionLeg,
-    val bToE: GpxInspectionLeg
+    val bToE: GpxInspectionLeg,
 ) : GpxInspectionUiState

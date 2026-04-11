@@ -1,9 +1,9 @@
 package com.glancemap.glancemapwearos.presentation.features.maps.theme
 
+import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.SystemClock
-import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,7 +32,7 @@ import java.util.Locale
 private enum class OverlayPreset {
     DEFAULT,
     MINIMAL,
-    ALL_ON
+    ALL_ON,
 }
 
 data class DemDownloadUiState(
@@ -45,7 +45,7 @@ data class DemDownloadUiState(
     val failedTiles: Int = 0,
     val networkUnavailable: Boolean = false,
     val statusMessage: String = "",
-    val lastCompletedAtMillis: Long = 0L
+    val lastCompletedAtMillis: Long = 0L,
 )
 
 private data class DemDownloadResult(
@@ -55,17 +55,17 @@ private data class DemDownloadResult(
     val skippedTiles: Int,
     val failedTiles: Int,
     val networkUnavailable: Boolean,
-    val statusMessage: String
+    val statusMessage: String,
 )
 
 private data class DemTileDownloadOutcome(
     val success: Boolean,
-    val networkUnavailable: Boolean
+    val networkUnavailable: Boolean,
 )
 
 class ThemeViewModel(
     private val themeRepository: ThemeRepository,
-    private val context: Context
+    private val context: Context,
 ) : ViewModel() {
     companion object {
         private const val DEM3_BASE_URL = "https://download.mapsforge.org/maps/dem/dem3"
@@ -83,11 +83,12 @@ class ThemeViewModel(
     val demDownloadUiState: StateFlow<DemDownloadUiState> = _demDownloadUiState.asStateFlow()
 
     val themeItems: StateFlow<List<ThemeListItem>> =
-        themeRepository.getThemeItems()
+        themeRepository
+            .getThemeItems()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = emptyList()
+                initialValue = emptyList(),
             )
 
     fun setTheme(themeId: String) {
@@ -110,19 +111,22 @@ class ThemeViewModel(
             Log.d("Theme", "toggleOverlay called with: $overlayId")
 
             val snapshot = themeItems.first()
-            val currentStyleId = snapshot
-                .filterIsInstance<ThemeListItem.Style>()
-                .firstOrNull { it.selected }?.id
-                ?: run {
-                    Log.w("Theme", "toggleOverlay: no selected style found, ignoring")
-                    return@launch
-                }
+            val currentStyleId =
+                snapshot
+                    .filterIsInstance<ThemeListItem.Style>()
+                    .firstOrNull { it.selected }
+                    ?.id
+                    ?: run {
+                        Log.w("Theme", "toggleOverlay: no selected style found, ignoring")
+                        return@launch
+                    }
 
-            val bundledThemeSelected = snapshot
-                .filterIsInstance<ThemeListItem.ThemeOption>()
-                .firstOrNull { it.selected }
-                ?.id
-                .let { MapsforgeThemeCatalog.isBundledAssetTheme(it) }
+            val bundledThemeSelected =
+                snapshot
+                    .filterIsInstance<ThemeListItem.ThemeOption>()
+                    .firstOrNull { it.selected }
+                    ?.id
+                    .let { MapsforgeThemeCatalog.isBundledAssetTheme(it) }
             if (!bundledThemeSelected) {
                 Log.d("Theme", "toggleOverlay ignored because bundled asset theme is not selected")
                 return@launch
@@ -153,43 +157,49 @@ class ThemeViewModel(
         viewModelScope.launch {
             val snapshot = themeItems.first()
 
-            val selectedThemeId = snapshot
-                .filterIsInstance<ThemeListItem.ThemeOption>()
-                .firstOrNull { it.selected }
-                ?.id
+            val selectedThemeId =
+                snapshot
+                    .filterIsInstance<ThemeListItem.ThemeOption>()
+                    .firstOrNull { it.selected }
+                    ?.id
             if (!MapsforgeThemeCatalog.isBundledAssetTheme(selectedThemeId)) return@launch
 
-            val currentStyleId = snapshot
-                .filterIsInstance<ThemeListItem.Style>()
-                .firstOrNull { it.selected }
-                ?.id
-                ?: ThemeRepositoryImpl.DEFAULT_STYLE_ID
+            val currentStyleId =
+                snapshot
+                    .filterIsInstance<ThemeListItem.Style>()
+                    .firstOrNull { it.selected }
+                    ?.id
+                    ?: ThemeRepositoryImpl.DEFAULT_STYLE_ID
 
             val overlays = snapshot.filterIsInstance<ThemeListItem.Overlay>()
             if (overlays.isEmpty()) return@launch
 
-            val enabledOverlayIds = when (preset) {
-                OverlayPreset.DEFAULT -> overlays
-                    .asSequence()
-                    .filter { it.defaultEnabled }
-                    .map { it.layerId }
-                    .toSet()
+            val enabledOverlayIds =
+                when (preset) {
+                    OverlayPreset.DEFAULT ->
+                        overlays
+                            .asSequence()
+                            .filter { it.defaultEnabled }
+                            .map { it.layerId }
+                            .toSet()
 
-                OverlayPreset.ALL_ON -> overlays
-                    .asSequence()
-                    .map { it.layerId }
-                    .toSet()
+                    OverlayPreset.ALL_ON ->
+                        overlays
+                            .asSequence()
+                            .map { it.layerId }
+                            .toSet()
 
-                OverlayPreset.MINIMAL -> overlays
-                    .asSequence()
-                    .filter { isMinimalOverlay(it.layerId) }
-                    .map { it.layerId }
-                    .toSet()
-            }
+                    OverlayPreset.MINIMAL ->
+                        overlays
+                            .asSequence()
+                            .filter { isMinimalOverlay(it.layerId) }
+                            .map { it.layerId }
+                            .toSet()
+                }
 
             themeRepository.setOverlaysForStyle(
                 styleId = currentStyleId,
-                enabledOverlayLayerIds = enabledOverlayIds
+                enabledOverlayLayerIds = enabledOverlayIds,
             )
         }
     }
@@ -210,7 +220,10 @@ class ThemeViewModel(
             id.contains("schneepark")
     }
 
-    fun setGlobalToggle(toggleId: String, enabled: Boolean) {
+    fun setGlobalToggle(
+        toggleId: String,
+        enabled: Boolean,
+    ) {
         viewModelScope.launch {
             when (toggleId) {
                 ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID -> {
@@ -241,97 +254,106 @@ class ThemeViewModel(
 
         viewModelScope.launch {
             if (mapPath.isNullOrBlank()) {
-                _demDownloadUiState.value = DemDownloadUiState(
-                    activeMapPath = null,
-                    statusMessage = "No map selected. Select a .map first.",
-                    lastCompletedAtMillis = System.currentTimeMillis()
-                )
+                _demDownloadUiState.value =
+                    DemDownloadUiState(
+                        activeMapPath = null,
+                        statusMessage = "No map selected. Select a .map first.",
+                        lastCompletedAtMillis = System.currentTimeMillis(),
+                    )
                 return@launch
             }
 
             val selectedMapFile = File(mapPath)
             if (!selectedMapFile.exists()) {
-                _demDownloadUiState.value = DemDownloadUiState(
-                    activeMapPath = null,
-                    statusMessage = "Selected map not found on watch.",
-                    lastCompletedAtMillis = System.currentTimeMillis()
-                )
+                _demDownloadUiState.value =
+                    DemDownloadUiState(
+                        activeMapPath = null,
+                        statusMessage = "Selected map not found on watch.",
+                        lastCompletedAtMillis = System.currentTimeMillis(),
+                    )
                 return@launch
             }
 
-            _demDownloadUiState.value = DemDownloadUiState(
-                isDownloading = true,
-                activeMapPath = mapPath,
-                statusMessage = "Checking watch internet..."
-            )
+            _demDownloadUiState.value =
+                DemDownloadUiState(
+                    isDownloading = true,
+                    activeMapPath = mapPath,
+                    statusMessage = "Checking watch internet...",
+                )
 
             if (!waitForWatchInternetConnection()) {
-                _demDownloadUiState.value = DemDownloadUiState(
-                    isDownloading = false,
-                    activeMapPath = null,
-                    networkUnavailable = true,
-                    statusMessage = DEM_NO_INTERNET_MESSAGE,
-                    lastCompletedAtMillis = System.currentTimeMillis()
-                )
+                _demDownloadUiState.value =
+                    DemDownloadUiState(
+                        isDownloading = false,
+                        activeMapPath = null,
+                        networkUnavailable = true,
+                        statusMessage = DEM_NO_INTERNET_MESSAGE,
+                        lastCompletedAtMillis = System.currentTimeMillis(),
+                    )
                 return@launch
             }
 
-            _demDownloadUiState.value = _demDownloadUiState.value.copy(
-                statusMessage = "Reading map area..."
-            )
+            _demDownloadUiState.value =
+                _demDownloadUiState.value.copy(
+                    statusMessage = "Reading map area...",
+                )
 
             runCatching {
                 withContext(Dispatchers.IO) {
                     downloadDemForMapInternal(selectedMapFile)
                 }
             }.onSuccess { result ->
-                _demDownloadUiState.value = DemDownloadUiState(
-                    isDownloading = false,
-                    activeMapPath = null,
-                    totalTiles = result.totalTiles,
-                    processedTiles = result.processedTiles,
-                    downloadedTiles = result.downloadedTiles,
-                    skippedTiles = result.skippedTiles,
-                    failedTiles = result.failedTiles,
-                    networkUnavailable = result.networkUnavailable,
-                    statusMessage = result.statusMessage,
-                    lastCompletedAtMillis = System.currentTimeMillis()
-                )
+                _demDownloadUiState.value =
+                    DemDownloadUiState(
+                        isDownloading = false,
+                        activeMapPath = null,
+                        totalTiles = result.totalTiles,
+                        processedTiles = result.processedTiles,
+                        downloadedTiles = result.downloadedTiles,
+                        skippedTiles = result.skippedTiles,
+                        failedTiles = result.failedTiles,
+                        networkUnavailable = result.networkUnavailable,
+                        statusMessage = result.statusMessage,
+                        lastCompletedAtMillis = System.currentTimeMillis(),
+                    )
             }.onFailure { error ->
                 Log.e(TAG, "DEM download failed", error)
-                val networkUnavailable = classifyDemFailureAsNetworkUnavailable(
-                    throwable = error,
-                    internetAvailableNow = hasWatchInternetConnection()
-                )
-                _demDownloadUiState.value = DemDownloadUiState(
-                    isDownloading = false,
-                    activeMapPath = null,
-                    networkUnavailable = networkUnavailable,
-                    statusMessage = buildDemFailureMessage(error, networkUnavailable),
-                    lastCompletedAtMillis = System.currentTimeMillis()
-                )
+                val networkUnavailable =
+                    classifyDemFailureAsNetworkUnavailable(
+                        throwable = error,
+                        internetAvailableNow = hasWatchInternetConnection(),
+                    )
+                _demDownloadUiState.value =
+                    DemDownloadUiState(
+                        isDownloading = false,
+                        activeMapPath = null,
+                        networkUnavailable = networkUnavailable,
+                        statusMessage = buildDemFailureMessage(error, networkUnavailable),
+                        lastCompletedAtMillis = System.currentTimeMillis(),
+                    )
             }
         }
     }
 
-    suspend fun isDemReadyForMap(mapPath: String?): Boolean {
-        return withContext(Dispatchers.IO) {
+    suspend fun isDemReadyForMap(mapPath: String?): Boolean =
+        withContext(Dispatchers.IO) {
             Dem3CoverageUtils.isReadyForMap(appContext, mapPath)
         }
-    }
 
     private suspend fun downloadDemForMapInternal(selectedMapFile: File): DemDownloadResult {
-        val tileIds = Dem3CoverageUtils.requiredTileIdsForMap(selectedMapFile)
-            ?.sorted()
-            ?: return DemDownloadResult(
-                totalTiles = 0,
-                processedTiles = 0,
-                downloadedTiles = 0,
-                skippedTiles = 0,
-                failedTiles = 0,
-                networkUnavailable = false,
-                statusMessage = "Failed reading selected map area."
-            )
+        val tileIds =
+            Dem3CoverageUtils
+                .requiredTileIdsForMap(selectedMapFile)
+                ?.sorted()
+                ?: return DemDownloadResult(
+                    totalTiles = 0,
+                    processedTiles = 0,
+                    downloadedTiles = 0,
+                    skippedTiles = 0,
+                    failedTiles = 0,
+                    networkUnavailable = false,
+                    statusMessage = "Failed reading selected map area.",
+                )
 
         if (tileIds.isEmpty()) {
             return DemDownloadResult(
@@ -341,7 +363,7 @@ class ThemeViewModel(
                 skippedTiles = 0,
                 failedTiles = 0,
                 networkUnavailable = false,
-                statusMessage = "No DEM tiles required for this map."
+                statusMessage = "No DEM tiles required for this map.",
             )
         }
 
@@ -356,16 +378,17 @@ class ThemeViewModel(
 
         for ((index, tileId) in tileIds.withIndex()) {
             val processed = index + 1
-            _demDownloadUiState.value = _demDownloadUiState.value.copy(
-                isDownloading = true,
-                activeMapPath = selectedMapFile.absolutePath,
-                totalTiles = tileIds.size,
-                processedTiles = processed,
-                downloadedTiles = downloaded,
-                skippedTiles = skipped,
-                failedTiles = failed,
-                statusMessage = "Downloading..."
-            )
+            _demDownloadUiState.value =
+                _demDownloadUiState.value.copy(
+                    isDownloading = true,
+                    activeMapPath = selectedMapFile.absolutePath,
+                    totalTiles = tileIds.size,
+                    processedTiles = processed,
+                    downloadedTiles = downloaded,
+                    skippedTiles = skipped,
+                    failedTiles = failed,
+                    statusMessage = "Downloading...",
+                )
 
             val (folder, fileName) = tilePathSegments(tileId)
             val localDir = File(outputRoot, folder).apply { mkdirs() }
@@ -377,12 +400,13 @@ class ThemeViewModel(
             }
 
             val url = "$DEM3_BASE_URL/$folder/$fileName"
-            val outcome = downloadTileWithRetries(
-                url = url,
-                target = localFile,
-                processed = processed,
-                total = tileIds.size
-            )
+            val outcome =
+                downloadTileWithRetries(
+                    url = url,
+                    target = localFile,
+                    processed = processed,
+                    total = tileIds.size,
+                )
 
             processedTiles = processed
             if (outcome.success) {
@@ -401,19 +425,21 @@ class ThemeViewModel(
         }
 
         val remaining = (tileIds.size - processedTiles).coerceAtLeast(0)
-        val summary = buildDemSummaryMessage(
-            downloaded = downloaded,
-            skipped = skipped,
-            failed = failed,
-            remaining = remaining
-        )
-        val finalMessage = when {
-            networkUnavailable && remaining > 0 ->
-                "No internet on watch. $downloaded downloaded, $skipped already on watch, $remaining remaining. Reconnect and retry to finish DEM."
-            networkUnavailable ->
-                DEM_NO_INTERNET_MESSAGE
-            else -> summary
-        }
+        val summary =
+            buildDemSummaryMessage(
+                downloaded = downloaded,
+                skipped = skipped,
+                failed = failed,
+                remaining = remaining,
+            )
+        val finalMessage =
+            when {
+                networkUnavailable && remaining > 0 ->
+                    "No internet on watch. $downloaded downloaded, $skipped already on watch, $remaining remaining. Reconnect and retry to finish DEM."
+                networkUnavailable ->
+                    DEM_NO_INTERNET_MESSAGE
+                else -> summary
+            }
         return DemDownloadResult(
             totalTiles = tileIds.size,
             processedTiles = processedTiles,
@@ -421,7 +447,7 @@ class ThemeViewModel(
             skippedTiles = skipped,
             failedTiles = failed,
             networkUnavailable = networkUnavailable,
-            statusMessage = finalMessage
+            statusMessage = finalMessage,
         )
     }
 
@@ -429,9 +455,9 @@ class ThemeViewModel(
         downloaded: Int,
         skipped: Int,
         failed: Int,
-        remaining: Int
-    ): String {
-        return when {
+        remaining: Int,
+    ): String =
+        when {
             failed == 0 && downloaded > 0 && skipped == 0 ->
                 "DEM ready: $downloaded tile(s) downloaded."
             failed == 0 && downloaded > 0 && skipped > 0 ->
@@ -445,23 +471,24 @@ class ThemeViewModel(
             else ->
                 "DEM partial: $downloaded downloaded, $skipped on watch, $failed failed."
         }
-    }
 
-    private fun getDemOutputRoot(): File {
-        return Dem3CoverageUtils.demRootDir(appContext)
-    }
+    private fun getDemOutputRoot(): File = Dem3CoverageUtils.demRootDir(appContext)
 
-    private fun downloadFile(url: String, target: File) {
+    private fun downloadFile(
+        url: String,
+        target: File,
+    ) {
         val tmp = File(target.parentFile, "${target.name}.tmp")
         if (tmp.exists()) tmp.delete()
 
-        val connection = (URI(url).toURL().openConnection() as HttpURLConnection).apply {
-            connectTimeout = 20_000
-            readTimeout = 60_000
-            requestMethod = "GET"
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", DEM3_USER_AGENT)
-        }
+        val connection =
+            (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+                connectTimeout = 20_000
+                readTimeout = 60_000
+                requestMethod = "GET"
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", DEM3_USER_AGENT)
+            }
 
         try {
             val code = connection.responseCode
@@ -490,37 +517,39 @@ class ThemeViewModel(
         url: String,
         target: File,
         processed: Int,
-        total: Int
+        total: Int,
     ): DemTileDownloadOutcome {
         var lastError: Throwable? = null
 
         repeat(DEM_TILE_MAX_ATTEMPTS) { attemptIndex ->
             val attemptNumber = attemptIndex + 1
             if (attemptNumber > 1) {
-                _demDownloadUiState.value = _demDownloadUiState.value.copy(
-                    statusMessage = "Retrying download (attempt $attemptNumber/$DEM_TILE_MAX_ATTEMPTS)..."
-                )
+                _demDownloadUiState.value =
+                    _demDownloadUiState.value.copy(
+                        statusMessage = "Retrying download (attempt $attemptNumber/$DEM_TILE_MAX_ATTEMPTS)...",
+                    )
             }
 
             if (!hasWatchInternetConnection()) {
                 return DemTileDownloadOutcome(
                     success = false,
-                    networkUnavailable = true
+                    networkUnavailable = true,
                 )
             }
 
-            val success = runCatching {
-                downloadFile(url = url, target = target)
-                true
-            }.getOrElse { error ->
-                lastError = error
-                false
-            }
+            val success =
+                runCatching {
+                    downloadFile(url = url, target = target)
+                    true
+                }.getOrElse { error ->
+                    lastError = error
+                    false
+                }
 
             if (success) {
                 return DemTileDownloadOutcome(
                     success = true,
-                    networkUnavailable = false
+                    networkUnavailable = false,
                 )
             }
 
@@ -529,19 +558,20 @@ class ThemeViewModel(
                 Log.w(
                     TAG,
                     "Failed downloading DEM tile $processed/$total from $url on attempt $attemptNumber/$DEM_TILE_MAX_ATTEMPTS",
-                    error
+                    error,
                 )
             }
 
             if (attemptNumber >= DEM_TILE_MAX_ATTEMPTS || !isRetryableDemDownloadFailure(error)) {
                 return DemTileDownloadOutcome(
                     success = false,
-                    networkUnavailable = error?.let {
-                        classifyDemFailureAsNetworkUnavailable(
-                            throwable = it,
-                            internetAvailableNow = hasWatchInternetConnection()
-                        )
-                    } == true
+                    networkUnavailable =
+                        error?.let {
+                            classifyDemFailureAsNetworkUnavailable(
+                                throwable = it,
+                                internetAvailableNow = hasWatchInternetConnection(),
+                            )
+                        } == true,
                 )
             }
 
@@ -550,12 +580,13 @@ class ThemeViewModel(
 
         return DemTileDownloadOutcome(
             success = false,
-            networkUnavailable = lastError?.let {
-                classifyDemFailureAsNetworkUnavailable(
-                    throwable = it,
-                    internetAvailableNow = hasWatchInternetConnection()
-                )
-            } == true
+            networkUnavailable =
+                lastError?.let {
+                    classifyDemFailureAsNetworkUnavailable(
+                        throwable = it,
+                        internetAvailableNow = hasWatchInternetConnection(),
+                    )
+                } == true,
         )
     }
 
@@ -578,8 +609,9 @@ class ThemeViewModel(
     }
 
     private fun hasWatchInternetConnection(): Boolean {
-        val connectivityManager = appContext.getSystemService(ConnectivityManager::class.java)
-            ?: return false
+        val connectivityManager =
+            appContext.getSystemService(ConnectivityManager::class.java)
+                ?: return false
         val activeNetwork = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)

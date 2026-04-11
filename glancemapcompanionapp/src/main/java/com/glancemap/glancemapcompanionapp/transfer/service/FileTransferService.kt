@@ -12,16 +12,14 @@ import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.glancemap.glancemapcompanionapp.FileTransferUiState
-import com.glancemap.glancemapcompanionapp.WatchInstalledMap
 import com.glancemap.glancemapcompanionapp.WatchNode
 import com.glancemap.glancemapcompanionapp.diagnostics.PhoneTransferDiagnostics
 import com.glancemap.glancemapcompanionapp.transfer.FileExistenceChecker
+import com.glancemap.glancemapcompanionapp.transfer.TransferStrategyFactory
 import com.glancemap.glancemapcompanionapp.transfer.WatchFileDeleteRequester
 import com.glancemap.glancemapcompanionapp.transfer.WatchInstalledMapsRequester
-import com.glancemap.glancemapcompanionapp.transfer.datalayer.DataLayerPaths
 import com.glancemap.glancemapcompanionapp.transfer.datalayer.PhoneDataLayerEvent
 import com.glancemap.glancemapcompanionapp.transfer.datalayer.PhoneDataLayerRepository
-import com.glancemap.glancemapcompanionapp.transfer.TransferStrategyFactory
 import com.glancemap.glancemapcompanionapp.transfer.service.internal.AckRegistry
 import com.glancemap.glancemapcompanionapp.transfer.service.internal.BatchTransferRunner
 import com.glancemap.glancemapcompanionapp.transfer.service.internal.HistoryStore
@@ -42,7 +40,6 @@ import org.json.JSONObject
 import java.util.Locale
 
 class FileTransferService : LifecycleService() {
-
     private val binder = LocalBinder()
     private var transferJob: Job? = null
 
@@ -69,6 +66,7 @@ class FileTransferService : LifecycleService() {
 
     // ✅ track current transfer for cancel propagation
     @Volatile private var activeTransferId: String? = null
+
     @Volatile private var activeTargetNodeId: String? = null
 
     inner class LocalBinder : Binder() {
@@ -80,54 +78,58 @@ class FileTransferService : LifecycleService() {
 
         notificationHelper = NotificationHelper(this).apply { createNotificationChannel() }
         dataLayerRepository = PhoneDataLayerRepository(this)
-        existenceChecker = FileExistenceChecker { nodeId, path, payload ->
-            dataLayerRepository.sendMessage(nodeId, path, payload)
-        }
-        deleteRequester = WatchFileDeleteRequester { nodeId, path, payload ->
-            dataLayerRepository.sendMessage(nodeId, path, payload)
-        }
-        installedMapsRequester = WatchInstalledMapsRequester { nodeId, path, payload ->
-            dataLayerRepository.sendMessage(nodeId, path, payload)
-        }
+        existenceChecker =
+            FileExistenceChecker { nodeId, path, payload ->
+                dataLayerRepository.sendMessage(nodeId, path, payload)
+            }
+        deleteRequester =
+            WatchFileDeleteRequester { nodeId, path, payload ->
+                dataLayerRepository.sendMessage(nodeId, path, payload)
+            }
+        installedMapsRequester =
+            WatchInstalledMapsRequester { nodeId, path, payload ->
+                dataLayerRepository.sendMessage(nodeId, path, payload)
+            }
 
         ackRegistry = AckRegistry()
         historyStore = HistoryStore(this, _uiState)
         uiUpdater = UiProgressUpdater(_uiState, notificationHelper)
 
-        batchRunner = BatchTransferRunner(
-            context = this,
-            uiState = _uiState,
-            notificationHelper = notificationHelper,
-            powerManager = powerManager,
-            wifiManager = wifiManager,
-            existenceChecker = existenceChecker,
-            deleteRequester = deleteRequester,
-            ackRegistry = ackRegistry,
-            uiUpdater = uiUpdater,
-            cancelTransferOnWatch = { nodeId, transferId ->
-                dataLayerRepository.sendCancelTransfer(nodeId, transferId)
-            },
-            requestPauseOnWatch = { nodeId, transferId ->
-                existenceChecker.markNodeRecovering(
-                    nodeId = nodeId,
-                    durationMs = WATCH_RECOVERY_WINDOW_MS,
-                    reason = "user_pause"
-                )
-                sendCancelToWatchBestEffort(nodeId, transferId)
-            },
-            setActiveTransfer = { id, nodeId ->
-                activeTransferId = id
-                activeTargetNodeId = nodeId
-            },
-            clearActiveTransfer = {
-                activeTransferId = null
-                activeTargetNodeId = null
-            },
-            addHistoryItems = { items ->
-                _uiState.update { st -> st.copy(history = (items + st.history).take(10)) }
-                historyStore.save()
-            }
-        )
+        batchRunner =
+            BatchTransferRunner(
+                context = this,
+                uiState = _uiState,
+                notificationHelper = notificationHelper,
+                powerManager = powerManager,
+                wifiManager = wifiManager,
+                existenceChecker = existenceChecker,
+                deleteRequester = deleteRequester,
+                ackRegistry = ackRegistry,
+                uiUpdater = uiUpdater,
+                cancelTransferOnWatch = { nodeId, transferId ->
+                    dataLayerRepository.sendCancelTransfer(nodeId, transferId)
+                },
+                requestPauseOnWatch = { nodeId, transferId ->
+                    existenceChecker.markNodeRecovering(
+                        nodeId = nodeId,
+                        durationMs = WATCH_RECOVERY_WINDOW_MS,
+                        reason = "user_pause",
+                    )
+                    sendCancelToWatchBestEffort(nodeId, transferId)
+                },
+                setActiveTransfer = { id, nodeId ->
+                    activeTransferId = id
+                    activeTargetNodeId = nodeId
+                },
+                clearActiveTransfer = {
+                    activeTransferId = null
+                    activeTargetNodeId = null
+                },
+                addHistoryItems = { items ->
+                    _uiState.update { st -> st.copy(history = (items + st.history).take(10)) }
+                    historyStore.save()
+                },
+            )
 
         historyStore.load()
         observeDataLayer()
@@ -146,21 +148,24 @@ class FileTransferService : LifecycleService() {
         return binder
     }
 
-    override fun onUnbind(intent: Intent?): Boolean {
-        return super.onUnbind(intent)
-    }
+    override fun onUnbind(intent: Intent?): Boolean = super.onUnbind(intent)
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         super.onStartCommand(intent, flags, startId)
 
         when (intent?.action) {
             ACTION_START_MULTI -> {
-                val uris: ArrayList<Uri>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    intent.getParcelableArrayListExtra(EXTRA_FILE_URIS, Uri::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableArrayListExtra(EXTRA_FILE_URIS)
-                }
+                val uris: ArrayList<Uri>? =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableArrayListExtra(EXTRA_FILE_URIS, Uri::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableArrayListExtra(EXTRA_FILE_URIS)
+                    }
 
                 val nodeId = intent.getStringExtra(EXTRA_NODE_ID)
                 val nodeName = intent.getStringExtra(EXTRA_NODE_DISPLAY_NAME)
@@ -178,7 +183,10 @@ class FileTransferService : LifecycleService() {
         return START_NOT_STICKY
     }
 
-    fun loadFilesFromUris(context: Context, uris: List<Uri>) {
+    fun loadFilesFromUris(
+        context: Context,
+        uris: List<Uri>,
+    ) {
         batchRunner.loadFilesFromUris(context, uris)
     }
 
@@ -186,7 +194,10 @@ class FileTransferService : LifecycleService() {
         batchRunner.clearSelectedFiles()
     }
 
-    private fun startBatchTransfer(fileUris: List<Uri>, targetNode: WatchNode) {
+    private fun startBatchTransfer(
+        fileUris: List<Uri>,
+        targetNode: WatchNode,
+    ) {
         cancelReconnectPauseEscalation()
         val previousJob = transferJob
         val previousTransferId = activeTransferId
@@ -195,70 +206,74 @@ class FileTransferService : LifecycleService() {
         if (previousJob != null && previousTransferId != null && previousNodeId != null) {
             PhoneTransferDiagnostics.warn(
                 "Service",
-                "Superseding previous batch oldId=$previousTransferId target=$previousNodeId"
+                "Superseding previous batch oldId=$previousTransferId target=$previousNodeId",
             )
             existenceChecker.markNodeRecovering(
                 nodeId = previousNodeId,
                 durationMs = WATCH_RECOVERY_WINDOW_MS,
-                reason = "batch_restart"
+                reason = "batch_restart",
             )
             sendCancelToWatchBestEffort(previousNodeId, previousTransferId)
         }
-        val crashHandler = CoroutineExceptionHandler { _, throwable ->
-            Log.e(TAG, "Unhandled transfer coroutine failure", throwable)
-            val message = when (throwable) {
-                is OutOfMemoryError ->
-                    "Not enough memory for this transfer. Try smaller files or fewer files at once."
-                else ->
-                    throwable.localizedMessage?.takeIf { it.isNotBlank() }
-                        ?: "Unexpected transfer failure"
-            }
-            batchRunner.handleError(Exception(message), null)
-            activeTransferId = null
-            activeTargetNodeId = null
-            notificationHelper.stopForeground()
-        }
-        transferJob = lifecycleScope.launch(Dispatchers.IO + crashHandler) {
-            try {
-                if (previousJob != null) {
-                    PhoneTransferDiagnostics.warn("Service", "Waiting for previous batch to stop before restart")
-                    runCatching { previousJob.join() }
-                        .onFailure {
-                            PhoneTransferDiagnostics.warn(
-                                "Service",
-                                "Previous batch join ended with ${it.message}"
-                            )
-                        }
-                }
-                PhoneTransferDiagnostics.log(
-                    "Service",
-                    "Launch batch transfer files=${fileUris.size} target=${targetNode.displayName}"
-                )
-                batchRunner.runBatch(
-                    fileUris = fileUris,
-                    targetNode = targetNode,
-                    strategyFactory = TransferStrategyFactory
-                )
-            } catch (ce: CancellationException) {
-                PhoneTransferDiagnostics.warn("Service", "Transfer coroutine cancelled")
-                sendCancelToWatchBestEffort()
-                batchRunner.handleCancel("Batch")
-            } catch (e: Exception) {
-                PhoneTransferDiagnostics.error("Service", "Transfer coroutine failed", e)
-                batchRunner.handleError(e, null)
-            } catch (t: Throwable) {
-                val wrapped = Exception(
-                    t.localizedMessage?.takeIf { it.isNotBlank() }
-                        ?: "Unexpected transfer failure",
-                    t
-                )
-                batchRunner.handleError(wrapped, null)
-            } finally {
+        val crashHandler =
+            CoroutineExceptionHandler { _, throwable ->
+                Log.e(TAG, "Unhandled transfer coroutine failure", throwable)
+                val message =
+                    when (throwable) {
+                        is OutOfMemoryError ->
+                            "Not enough memory for this transfer. Try smaller files or fewer files at once."
+                        else ->
+                            throwable.localizedMessage?.takeIf { it.isNotBlank() }
+                                ?: "Unexpected transfer failure"
+                    }
+                batchRunner.handleError(Exception(message), null)
                 activeTransferId = null
                 activeTargetNodeId = null
                 notificationHelper.stopForeground()
             }
-        }
+        transferJob =
+            lifecycleScope.launch(Dispatchers.IO + crashHandler) {
+                try {
+                    if (previousJob != null) {
+                        PhoneTransferDiagnostics.warn("Service", "Waiting for previous batch to stop before restart")
+                        runCatching { previousJob.join() }
+                            .onFailure {
+                                PhoneTransferDiagnostics.warn(
+                                    "Service",
+                                    "Previous batch join ended with ${it.message}",
+                                )
+                            }
+                    }
+                    PhoneTransferDiagnostics.log(
+                        "Service",
+                        "Launch batch transfer files=${fileUris.size} target=${targetNode.displayName}",
+                    )
+                    batchRunner.runBatch(
+                        fileUris = fileUris,
+                        targetNode = targetNode,
+                        strategyFactory = TransferStrategyFactory,
+                    )
+                } catch (ce: CancellationException) {
+                    PhoneTransferDiagnostics.warn("Service", "Transfer coroutine cancelled")
+                    sendCancelToWatchBestEffort()
+                    batchRunner.handleCancel("Batch")
+                } catch (e: Exception) {
+                    PhoneTransferDiagnostics.error("Service", "Transfer coroutine failed", e)
+                    batchRunner.handleError(e, null)
+                } catch (t: Throwable) {
+                    val wrapped =
+                        Exception(
+                            t.localizedMessage?.takeIf { it.isNotBlank() }
+                                ?: "Unexpected transfer failure",
+                            t,
+                        )
+                    batchRunner.handleError(wrapped, null)
+                } finally {
+                    activeTransferId = null
+                    activeTargetNodeId = null
+                    notificationHelper.stopForeground()
+                }
+            }
     }
 
     fun cancelTransfer() {
@@ -271,7 +286,7 @@ class FileTransferService : LifecycleService() {
             existenceChecker.markNodeRecovering(
                 nodeId = nodeId,
                 durationMs = WATCH_RECOVERY_WINDOW_MS,
-                reason = "user_cancel"
+                reason = "user_cancel",
             )
         }
         ackRegistry.completeAll(TransferResult(false, "Cancelled"))
@@ -303,7 +318,7 @@ class FileTransferService : LifecycleService() {
 
     private fun sendCancelToWatchBestEffort(
         targetNodeId: String? = activeTargetNodeId,
-        transferId: String? = activeTransferId
+        transferId: String? = activeTransferId,
     ) {
         val id = transferId ?: return
         val node = targetNodeId ?: return
@@ -329,9 +344,7 @@ class FileTransferService : LifecycleService() {
         _uiState.update { it.copy(selectedWatch = watch) }
     }
 
-    suspend fun requestInstalledMaps(nodeId: String): WatchInstalledMapsRequester.Result {
-        return installedMapsRequester.list(nodeId)
-    }
+    suspend fun requestInstalledMaps(nodeId: String): WatchInstalledMapsRequester.Result = installedMapsRequester.list(nodeId)
 
     private fun handleStatusUpdate(data: ByteArray) {
         runCatching {
@@ -342,14 +355,14 @@ class FileTransferService : LifecycleService() {
                 if (currentTransferId == null) {
                     PhoneTransferDiagnostics.warn(
                         "Service",
-                        "Ignoring stale watch status id=$transferId phase=${json.optString("phase", "")}"
+                        "Ignoring stale watch status id=$transferId phase=${json.optString("phase", "")}",
                     )
                     return
                 }
                 if (transferId != currentTransferId) {
                     PhoneTransferDiagnostics.warn(
                         "Service",
-                        "Ignoring watch status id=$transferId active=$currentTransferId phase=${json.optString("phase", "")}"
+                        "Ignoring watch status id=$transferId active=$currentTransferId phase=${json.optString("phase", "")}",
                     )
                     return
                 }
@@ -361,11 +374,12 @@ class FileTransferService : LifecycleService() {
                 "PAUSED" -> {
                     val pauseText = detail.ifBlank { "Paused (waiting for network)" }
                     val waitingForReconnect = isReconnectPauseDetail(pauseText)
-                    val progressText = if (waitingForReconnect) {
-                        buildReconnectProgressText(_uiState.value.progressText)
-                    } else {
-                        mergeProgressPrefix(_uiState.value.progressText, pauseText)
-                    }
+                    val progressText =
+                        if (waitingForReconnect) {
+                            buildReconnectProgressText(_uiState.value.progressText)
+                        } else {
+                            mergeProgressPrefix(_uiState.value.progressText, pauseText)
+                        }
                     PhoneTransferDiagnostics.warn("Service", "Watch status PAUSED detail=$pauseText")
                     _uiState.update { st ->
                         if (st.isPaused && st.canResume) {
@@ -376,19 +390,19 @@ class FileTransferService : LifecycleService() {
                                 canResume = false,
                                 pauseReason = pauseText,
                                 statusMessage = if (waitingForReconnect) "Waiting for watch reconnect…" else pauseText,
-                                progressText = progressText
+                                progressText = progressText,
                             )
                         }
                     }
                     notificationHelper.updateProgress(
                         (_uiState.value.progress * 100).toInt(),
                         progressText,
-                        _uiState.value.isPaused
+                        _uiState.value.isPaused,
                     )
                     if (waitingForReconnect) {
                         scheduleReconnectPauseEscalation(
                             transferId = transferId.ifBlank { currentTransferId },
-                            pauseText = pauseText
+                            pauseText = pauseText,
                         )
                     } else {
                         cancelReconnectPauseEscalation()
@@ -409,14 +423,14 @@ class FileTransferService : LifecycleService() {
                                 canResume = false,
                                 pauseReason = "",
                                 statusMessage = resumeText,
-                                progressText = progressText
+                                progressText = progressText,
                             )
                         }
                     }
                     notificationHelper.updateProgress(
                         (_uiState.value.progress * 100).toInt(),
                         _uiState.value.progressText.ifBlank { progressText },
-                        _uiState.value.isPaused
+                        _uiState.value.isPaused,
                     )
                 }
             }
@@ -429,7 +443,7 @@ class FileTransferService : LifecycleService() {
                 notificationHelper.updateProgress(
                     (_uiState.value.progress * 100).toInt(),
                     mergedText,
-                    _uiState.value.isPaused
+                    _uiState.value.isPaused,
                 )
             }
         }.onFailure {
@@ -447,10 +461,11 @@ class FileTransferService : LifecycleService() {
     }
 
     private fun buildReconnectProgressText(existingText: String): String {
-        val lines = existingText
-            .lines()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
+        val lines =
+            existingText
+                .lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
 
         if (lines.any { it.contains("Waiting for watch reconnect", ignoreCase = true) }) {
             return existingText
@@ -464,13 +479,17 @@ class FileTransferService : LifecycleService() {
             .ifBlank { "Waiting for watch reconnect…" }
     }
 
-    private fun mergeProgressPrefix(existingText: String, detail: String): String {
+    private fun mergeProgressPrefix(
+        existingText: String,
+        detail: String,
+    ): String {
         if (detail.isBlank()) return existingText
-        val lines = existingText
-            .lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .toList()
+        val lines =
+            existingText
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toList()
         val firstLine = lines.firstOrNull { it.startsWith("File ", ignoreCase = true) }
         val metricLine = extractMetricLine(lines)
 
@@ -479,97 +498,100 @@ class FileTransferService : LifecycleService() {
             .ifBlank { detail }
     }
 
-    private fun extractMetricLine(lines: List<String>): String? {
-        return lines.lastOrNull {
+    private fun extractMetricLine(lines: List<String>): String? =
+        lines.lastOrNull {
             it.startsWith("HTTP:", ignoreCase = true) ||
                 it.startsWith("Channel:", ignoreCase = true) ||
                 it.startsWith("Message:", ignoreCase = true)
         }
-    }
 
     private fun observeDataLayer() {
         dataLayerObserverJob?.cancel()
-        dataLayerObserverJob = lifecycleScope.launch {
-            runCatching { dataLayerRepository.start() }
-                .onFailure {
-                    Log.e(TAG, "DataLayer start failed", it)
-                    PhoneTransferDiagnostics.error("Service", "DataLayer start failed", it)
-                }
-
-            launch {
-                dataLayerRepository.watches.collect { watches ->
-                    _uiState.update {
-                        it.copy(
-                            availableWatches = watches,
-                            statusMessage = if (watches.isNotEmpty()) "Select a watch" else "No watches found."
-                        )
+        dataLayerObserverJob =
+            lifecycleScope.launch {
+                runCatching { dataLayerRepository.start() }
+                    .onFailure {
+                        Log.e(TAG, "DataLayer start failed", it)
+                        PhoneTransferDiagnostics.error("Service", "DataLayer start failed", it)
                     }
-                }
-            }
 
-            launch {
-                dataLayerRepository.events.collect { event ->
-                    when (event) {
-                        is PhoneDataLayerEvent.TransferStatus -> handleStatusUpdate(event.payload)
-                        is PhoneDataLayerEvent.TransferAck -> {
-                            cancelReconnectPauseEscalation()
-                            ackRegistry.handleAck(event.payload)
-                        }
-                        is PhoneDataLayerEvent.PingResult -> existenceChecker.handlePingResult(event.payload)
-                        is PhoneDataLayerEvent.ExistsResult -> existenceChecker.handleExistsResult(event.payload)
-                        is PhoneDataLayerEvent.BatchExistsResult -> existenceChecker.handleBatchExistsResult(event.payload)
-                        is PhoneDataLayerEvent.DeleteFileResult -> deleteRequester.handleDeleteResult(event.payload)
-                        is PhoneDataLayerEvent.MapListResult -> installedMapsRequester.handleMapListResult(event.payload)
-                        is PhoneDataLayerEvent.Error -> {
-                            _uiState.update { st -> st.copy(statusMessage = event.message) }
+                launch {
+                    dataLayerRepository.watches.collect { watches ->
+                        _uiState.update {
+                            it.copy(
+                                availableWatches = watches,
+                                statusMessage = if (watches.isNotEmpty()) "Select a watch" else "No watches found.",
+                            )
                         }
                     }
                 }
+
+                launch {
+                    dataLayerRepository.events.collect { event ->
+                        when (event) {
+                            is PhoneDataLayerEvent.TransferStatus -> handleStatusUpdate(event.payload)
+                            is PhoneDataLayerEvent.TransferAck -> {
+                                cancelReconnectPauseEscalation()
+                                ackRegistry.handleAck(event.payload)
+                            }
+                            is PhoneDataLayerEvent.PingResult -> existenceChecker.handlePingResult(event.payload)
+                            is PhoneDataLayerEvent.ExistsResult -> existenceChecker.handleExistsResult(event.payload)
+                            is PhoneDataLayerEvent.BatchExistsResult -> existenceChecker.handleBatchExistsResult(event.payload)
+                            is PhoneDataLayerEvent.DeleteFileResult -> deleteRequester.handleDeleteResult(event.payload)
+                            is PhoneDataLayerEvent.MapListResult -> installedMapsRequester.handleMapListResult(event.payload)
+                            is PhoneDataLayerEvent.Error -> {
+                                _uiState.update { st -> st.copy(statusMessage = event.message) }
+                            }
+                        }
+                    }
+                }
             }
-        }
     }
 
     private fun scheduleReconnectPauseEscalation(
         transferId: String?,
-        pauseText: String
+        pauseText: String,
     ) {
         val id = transferId?.takeIf { it.isNotBlank() } ?: return
         if (reconnectPauseTransferId == id && reconnectPauseTimeoutJob?.isActive == true) return
 
         cancelReconnectPauseEscalation()
         reconnectPauseTransferId = id
-        reconnectPauseTimeoutJob = lifecycleScope.launch(Dispatchers.IO) {
-            delay(RECONNECT_PAUSE_TIMEOUT_MS)
-            val state = _uiState.value
-            val currentId = activeTransferId
-            val stillWaitingForReconnect = currentId == id &&
-                state.isPaused &&
-                !state.canResume &&
-                (
-                    isReconnectPauseDetail(state.pauseReason.ifBlank { state.statusMessage }) ||
-                        state.progressText.contains("Waiting for watch reconnect", ignoreCase = true)
-                    )
+        reconnectPauseTimeoutJob =
+            lifecycleScope.launch(Dispatchers.IO) {
+                delay(RECONNECT_PAUSE_TIMEOUT_MS)
+                val state = _uiState.value
+                val currentId = activeTransferId
+                val stillWaitingForReconnect =
+                    currentId == id &&
+                        state.isPaused &&
+                        !state.canResume &&
+                        (
+                            isReconnectPauseDetail(state.pauseReason.ifBlank { state.statusMessage }) ||
+                                state.progressText.contains("Waiting for watch reconnect", ignoreCase = true)
+                        )
 
-            if (!stillWaitingForReconnect) return@launch
+                if (!stillWaitingForReconnect) return@launch
 
-            PhoneTransferDiagnostics.warn(
-                "Service",
-                "Reconnect pause timed out id=$id detail=$pauseText"
-            )
-            val completed = ackRegistry.complete(
-                id,
-                TransferResult(
-                    false,
-                    "${HttpTransferServer.RESULT_HTTP_RECONNECT_TIMEOUT_PREFIX} detail=$pauseText"
-                )
-            )
-            if (completed) {
                 PhoneTransferDiagnostics.warn(
                     "Service",
-                    "Reconnect pause escalated to fresh retry id=$id"
+                    "Reconnect pause timed out id=$id detail=$pauseText",
                 )
+                val completed =
+                    ackRegistry.complete(
+                        id,
+                        TransferResult(
+                            false,
+                            "${HttpTransferServer.RESULT_HTTP_RECONNECT_TIMEOUT_PREFIX} detail=$pauseText",
+                        ),
+                    )
+                if (completed) {
+                    PhoneTransferDiagnostics.warn(
+                        "Service",
+                        "Reconnect pause escalated to fresh retry id=$id",
+                    )
+                }
             }
-        }
     }
 
     private fun cancelReconnectPauseEscalation() {

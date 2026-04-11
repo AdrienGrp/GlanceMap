@@ -5,12 +5,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
 
 internal class TransferSessionState {
-
     data class ActiveHttpTransfer(
         val transferId: String,
         val fileName: String,
         val sourceNodeId: String,
-        val job: Job?
+        val job: Job?,
     )
 
     val transferMutex = Mutex()
@@ -32,7 +31,7 @@ internal class TransferSessionState {
         transferId: String,
         job: Job?,
         fileName: String,
-        sourceNodeId: String
+        sourceNodeId: String,
     ) {
         if (job == null) return
         synchronized(lock) {
@@ -61,9 +60,10 @@ internal class TransferSessionState {
 
     fun activeTransferJob(): Job? = activeTransferJob
 
-    fun fileNameForTransferId(transferId: String): String? = synchronized(lock) {
-        fileNamesById[transferId]
-    }
+    fun fileNameForTransferId(transferId: String): String? =
+        synchronized(lock) {
+            fileNamesById[transferId]
+        }
 
     fun registerHttpTransfer(transfer: ActiveHttpTransfer) {
         synchronized(lock) {
@@ -74,9 +74,13 @@ internal class TransferSessionState {
         }
     }
 
-    fun currentHttpTransfer(sourceNodeId: String, fileName: String): ActiveHttpTransfer? = synchronized(lock) {
-        activeHttpTransfersByKey[key(sourceNodeId, fileName)]
-    }
+    fun currentHttpTransfer(
+        sourceNodeId: String,
+        fileName: String,
+    ): ActiveHttpTransfer? =
+        synchronized(lock) {
+            activeHttpTransfersByKey[key(sourceNodeId, fileName)]
+        }
 
     fun clearHttpTransfer(transferId: String) {
         synchronized(lock) {
@@ -84,7 +88,10 @@ internal class TransferSessionState {
         }
     }
 
-    fun cancelTransferById(transferId: String, reason: String): Boolean {
+    fun cancelTransferById(
+        transferId: String,
+        reason: String,
+    ): Boolean {
         val job = synchronized(lock) { jobsById[transferId] } ?: return false
         job.cancel(CancellationException(reason))
         return true
@@ -94,27 +101,29 @@ internal class TransferSessionState {
         sourceNodeId: String,
         fileName: String,
         reason: String,
-        excludeTransferId: String? = null
+        excludeTransferId: String? = null,
     ): Int {
-        val jobsToCancel = synchronized(lock) {
-            val matchedIds = fileNamesById.keys
-                .filter { it != excludeTransferId }
-                .filter { fileNamesById[it].equals(fileName, ignoreCase = true) }
-                .filter { sourceNodesById[it] == sourceNodeId }
+        val jobsToCancel =
+            synchronized(lock) {
+                val matchedIds =
+                    fileNamesById.keys
+                        .filter { it != excludeTransferId }
+                        .filter { fileNamesById[it].equals(fileName, ignoreCase = true) }
+                        .filter { sourceNodesById[it] == sourceNodeId }
 
-            val jobs = matchedIds.mapNotNull { jobsById[it] }
-            matchedIds.forEach { matchedId ->
-                if (activeTransferId == matchedId) {
-                    activeTransferId = null
-                    activeTransferJob = null
+                val jobs = matchedIds.mapNotNull { jobsById[it] }
+                matchedIds.forEach { matchedId ->
+                    if (activeTransferId == matchedId) {
+                        activeTransferId = null
+                        activeTransferJob = null
+                    }
+                    jobsById.remove(matchedId)
+                    fileNamesById.remove(matchedId)
+                    sourceNodesById.remove(matchedId)
+                    removeHttpTransferLocked(matchedId)
                 }
-                jobsById.remove(matchedId)
-                fileNamesById.remove(matchedId)
-                sourceNodesById.remove(matchedId)
-                removeHttpTransferLocked(matchedId)
+                jobs
             }
-            jobs
-        }
 
         jobsToCancel.forEach { job ->
             job.cancel(CancellationException(reason))
@@ -131,7 +140,8 @@ internal class TransferSessionState {
         }
     }
 
-    private fun key(sourceNodeId: String, fileName: String): String {
-        return "$sourceNodeId|${fileName.lowercase()}"
-    }
+    private fun key(
+        sourceNodeId: String,
+        fileName: String,
+    ): String = "$sourceNodeId|${fileName.lowercase()}"
 }

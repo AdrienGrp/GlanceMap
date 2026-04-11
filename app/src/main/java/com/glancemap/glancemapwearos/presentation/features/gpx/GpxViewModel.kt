@@ -8,37 +8,32 @@ import com.glancemap.glancemapwearos.core.routing.RoutePlanner
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.SyncManager
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
-import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolReshapePreview
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
-import kotlin.math.abs
 import java.io.File
 
 class GpxViewModel(
     private val gpxRepository: GpxRepository,
     private val syncManager: SyncManager,
     private val settingsRepository: SettingsRepository,
-    private val routePlanner: RoutePlanner
+    private val routePlanner: RoutePlanner,
 ) : ViewModel() {
-
     private val _gpxFiles = MutableStateFlow<List<GpxFileState>>(emptyList())
     val gpxFiles: StateFlow<List<GpxFileState>> = _gpxFiles.asStateFlow()
 
@@ -81,13 +76,13 @@ class GpxViewModel(
         val title: String?,
         val distance: Double,
         val elevationGain: Double,
-        val elevationLoss: Double
+        val elevationLoss: Double,
     )
 
     private data class CachedEta(
         val sig: FileSig,
         val modelConfig: GpxEtaModelConfig,
-        val projection: GpxEtaProjection?
+        val projection: GpxEtaProjection?,
     )
 
     private val metaCache = LinkedHashMap<String, CachedMeta>(64, 0.75f, true)
@@ -96,20 +91,22 @@ class GpxViewModel(
 
     private val maxMetaCacheEntries = 128
     private val maxProfileCacheEntries = 24
-    private var etaModelConfig = GpxEtaModelConfig(
-        flatSpeedMps = SettingsRepository.DEFAULT_GPX_FLAT_SPEED_MPS.toDouble(),
-        advancedVerticalRateEnabled = SettingsRepository.DEFAULT_GPX_ADVANCED_ETA_ENABLED,
-        uphillVerticalMetersPerHour = SettingsRepository.DEFAULT_GPX_UPHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
-        downhillVerticalMetersPerHour = SettingsRepository.DEFAULT_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR.toDouble()
-    )
+    private var etaModelConfig =
+        GpxEtaModelConfig(
+            flatSpeedMps = SettingsRepository.DEFAULT_GPX_FLAT_SPEED_MPS.toDouble(),
+            advancedVerticalRateEnabled = SettingsRepository.DEFAULT_GPX_ADVANCED_ETA_ENABLED,
+            uphillVerticalMetersPerHour = SettingsRepository.DEFAULT_GPX_UPHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
+            downhillVerticalMetersPerHour = SettingsRepository.DEFAULT_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
+        )
     private var elevationFilterConfig = GpxElevationFilterDefaults.defaultConfig()
-    private val routeToolOperations = GpxRouteToolOperations(
-        gpxRepository = gpxRepository,
-        routePlanner = routePlanner,
-        activeGpxFiles = { _gpxFiles.value },
-        elevationFilterConfig = { elevationFilterConfig },
-        etaModelConfig = { etaModelConfig }
-    )
+    private val routeToolOperations =
+        GpxRouteToolOperations(
+            gpxRepository = gpxRepository,
+            routePlanner = routePlanner,
+            activeGpxFiles = { _gpxFiles.value },
+            elevationFilterConfig = { elevationFilterConfig },
+            etaModelConfig = { etaModelConfig },
+        )
 
     // Require press to be close to route
     private val pressThresholdMeters = 30.0
@@ -123,73 +120,72 @@ class GpxViewModel(
             settingsRepository.gpxFlatSpeedMps,
             settingsRepository.gpxAdvancedEtaEnabled,
             settingsRepository.gpxUphillVerticalMetersPerHour,
-            settingsRepository.gpxDownhillVerticalMetersPerHour
+            settingsRepository.gpxDownhillVerticalMetersPerHour,
         ) { flatSpeedMps, advancedEnabled, uphillMetersPerHour, downhillMetersPerHour ->
             GpxEtaModelConfig(
-                flatSpeedMps = flatSpeedMps
-                    .toDouble()
-                    .coerceIn(0.0, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS.toDouble()),
+                flatSpeedMps =
+                    flatSpeedMps
+                        .toDouble()
+                        .coerceIn(0.0, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS.toDouble()),
                 advancedVerticalRateEnabled = advancedEnabled,
-                uphillVerticalMetersPerHour = uphillMetersPerHour
-                    .toDouble()
-                    .coerceIn(
-                        SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR.toDouble(),
-                        SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR.toDouble()
-                    ),
-                downhillVerticalMetersPerHour = downhillMetersPerHour
-                    .toDouble()
-                    .coerceIn(
-                        SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR.toDouble(),
-                        SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR.toDouble()
-                    )
+                uphillVerticalMetersPerHour =
+                    uphillMetersPerHour
+                        .toDouble()
+                        .coerceIn(
+                            SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR.toDouble(),
+                            SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
+                        ),
+                downhillVerticalMetersPerHour =
+                    downhillMetersPerHour
+                        .toDouble()
+                        .coerceIn(
+                            SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR.toDouble(),
+                            SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
+                        ),
             )
-        }
-            .onEach { config ->
-                if (config == etaModelConfig) return@onEach
+        }.onEach { config ->
+            if (config == etaModelConfig) return@onEach
 
-                etaModelConfig = config
-                etaCache.clear()
+            etaModelConfig = config
+            etaCache.clear()
 
-                reloadFromDisk()
-                refreshOpenEtaUi()
-            }
-            .launchIn(viewModelScope)
+            reloadFromDisk()
+            refreshOpenEtaUi()
+        }.launchIn(viewModelScope)
 
         combine(
             settingsRepository.gpxElevationSmoothingDistanceMeters,
             settingsRepository.gpxElevationNeutralDiffThresholdMeters,
             settingsRepository.gpxElevationTrendActivationThresholdMeters,
-            settingsRepository.gpxElevationAutoAdjustPerGpx
+            settingsRepository.gpxElevationAutoAdjustPerGpx,
         ) { smoothingDistanceMeters, neutralDiffThresholdMeters, trendActivationThresholdMeters, autoAdjustPerGpx ->
             GpxElevationFilterDefaults.sanitize(
                 GpxElevationFilterConfig(
                     smoothingDistanceMeters = smoothingDistanceMeters,
                     neutralDiffThresholdMeters = neutralDiffThresholdMeters,
                     trendActivationThresholdMeters = trendActivationThresholdMeters,
-                    autoAdjustPerGpx = autoAdjustPerGpx
-                )
+                    autoAdjustPerGpx = autoAdjustPerGpx,
+                ),
             )
-        }
-            .onEach { config ->
-                if (config == elevationFilterConfig) return@onEach
+        }.onEach { config ->
+            if (config == elevationFilterConfig) return@onEach
 
-                elevationFilterConfig = config
-                profileCache.clear()
-                metaCache.clear()
+            elevationFilterConfig = config
+            profileCache.clear()
+            metaCache.clear()
 
-                reloadFromDisk()
-                refreshOpenEtaUi()
-            }
-            .launchIn(viewModelScope)
+            reloadFromDisk()
+            refreshOpenEtaUi()
+        }.launchIn(viewModelScope)
 
         viewModelScope.launch { reloadFromDisk() }
 
-        gpxRepository.getActiveGpxFiles()
+        gpxRepository
+            .getActiveGpxFiles()
             .onEach { activePaths ->
                 val files = gpxRepository.listGpxFiles()
                 loadAndProcessGpxFiles(files, activePaths)
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
 
         syncManager.gpxSyncRequest
             .onEach { reloadFromDisk() }
@@ -216,72 +212,81 @@ class GpxViewModel(
 
     private suspend fun loadAndProcessGpxFiles(
         files: List<File>,
-        activePaths: Set<String>
+        activePaths: Set<String>,
     ) {
         val existingPaths = files.asSequence().map { it.absolutePath }.toSet()
         metaCache.keys.retainAll(existingPaths)
         profileCache.keys.retainAll(existingPaths)
         etaCache.keys.retainAll(existingPaths)
 
-        val fileStates = withContext(Dispatchers.IO) {
-            files.map { file ->
-                val path = file.absolutePath
-                val sig = sigOf(file)
+        val fileStates =
+            withContext(Dispatchers.IO) {
+                files.map { file ->
+                    val path = file.absolutePath
+                    val sig = sigOf(file)
 
-                val cachedMeta = metaCache[path]?.takeIf { it.sig == sig }
-                val cachedProfile = profileCache[path]?.takeIf {
-                    it.sig == sig && it.elevationFilterConfig == elevationFilterConfig
-                }
+                    val cachedMeta = metaCache[path]?.takeIf { it.sig == sig }
+                    val cachedProfile =
+                        profileCache[path]?.takeIf {
+                            it.sig == sig && it.elevationFilterConfig == elevationFilterConfig
+                        }
 
-                val parsed = if (cachedMeta != null && cachedProfile != null) {
-                    null
-                } else {
-                    parseGpxData(file)
-                }
-                val profile = cachedProfile ?: buildProfile(
-                    sig = sig,
-                    pts = parsed?.points ?: emptyList(),
-                    elevationFilterConfig = elevationFilterConfig
-                ).also { created ->
-                    profileCache[path] = created
-                    profileCache.trimTo(maxProfileCacheEntries)
-                }
-                val canonicalMeta = CachedMeta(
-                    sig = sig,
-                    title = cachedMeta?.title ?: parsed?.title,
-                    distance = profile.totalDistance.takeIf { it > 0.0 }
-                        ?: parsed?.totalDistance
-                        ?: 0.0,
-                    elevationGain = profile.totalAscent,
-                    elevationLoss = profile.totalDescent
-                )
-                val meta = if (cachedMeta == canonicalMeta) {
-                    cachedMeta
-                } else {
-                    canonicalMeta.also { created ->
-                        metaCache[path] = created
-                        metaCache.trimTo(maxMetaCacheEntries)
-                    }
-                }
+                    val parsed =
+                        if (cachedMeta != null && cachedProfile != null) {
+                            null
+                        } else {
+                            parseGpxData(file)
+                        }
+                    val profile =
+                        cachedProfile ?: buildProfile(
+                            sig = sig,
+                            pts = parsed?.points ?: emptyList(),
+                            elevationFilterConfig = elevationFilterConfig,
+                        ).also { created ->
+                            profileCache[path] = created
+                            profileCache.trimTo(maxProfileCacheEntries)
+                        }
+                    val canonicalMeta =
+                        CachedMeta(
+                            sig = sig,
+                            title = cachedMeta?.title ?: parsed?.title,
+                            distance =
+                                profile.totalDistance.takeIf { it > 0.0 }
+                                    ?: parsed?.totalDistance
+                                    ?: 0.0,
+                            elevationGain = profile.totalAscent,
+                            elevationLoss = profile.totalDescent,
+                        )
+                    val meta =
+                        if (cachedMeta == canonicalMeta) {
+                            cachedMeta
+                        } else {
+                            canonicalMeta.also { created ->
+                                metaCache[path] = created
+                                metaCache.trimTo(maxMetaCacheEntries)
+                            }
+                        }
 
-                val etaSeconds = getOrBuildEtaProjection(
-                    path = path,
-                    sig = sig,
-                    profile = profile
-                )?.totalSeconds
+                    val etaSeconds =
+                        getOrBuildEtaProjection(
+                            path = path,
+                            sig = sig,
+                            profile = profile,
+                        )?.totalSeconds
 
-                GpxFileState(
-                    name = normalizeUserFacingGpxText(file.nameWithoutExtension)
-                        ?: file.nameWithoutExtension,
-                    path = path,
-                    title = meta.title,
-                    distance = meta.distance,
-                    elevationGain = meta.elevationGain,
-                    estimatedDurationSec = etaSeconds,
-                    isActive = path in activePaths
-                )
+                    GpxFileState(
+                        name =
+                            normalizeUserFacingGpxText(file.nameWithoutExtension)
+                                ?: file.nameWithoutExtension,
+                        path = path,
+                        title = meta.title,
+                        distance = meta.distance,
+                        elevationGain = meta.elevationGain,
+                        estimatedDurationSec = etaSeconds,
+                        isActive = path in activePaths,
+                    )
+                }
             }
-        }
 
         _gpxFiles.value = fileStates
         updateActiveGpxDetails(fileStates.filter { it.isActive })
@@ -320,17 +325,18 @@ class GpxViewModel(
     fun renameGpxFile(
         filePath: String,
         newName: String,
-        onComplete: (Result<Unit>) -> Unit
+        onComplete: (Result<Unit>) -> Unit,
     ) {
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    routeToolOperations.renameGpxFileOnDisk(
-                        filePath = filePath,
-                        newName = newName
-                    )
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        routeToolOperations.renameGpxFileOnDisk(
+                            filePath = filePath,
+                            newName = newName,
+                        )
+                    }
                 }
-            }
             if (result.isSuccess) {
                 metaCache.clear()
                 profileCache.clear()
@@ -345,43 +351,46 @@ class GpxViewModel(
 
     fun showElevationProfile(path: String) {
         viewModelScope.launch {
-            val uiState = withContext(Dispatchers.IO) {
-                val file = File(path)
-                if (!file.exists()) return@withContext null
+            val uiState =
+                withContext(Dispatchers.IO) {
+                    val file = File(path)
+                    if (!file.exists()) return@withContext null
 
-                val profile = getOrBuildProfile(path = path, file = file, sig = sigOf(file))
-                val totalDistance = profile.totalDistance
-                val totalAscent = profile.totalAscent
-                val totalDescent = profile.totalDescent
-                val etaProjection = getOrBuildEtaProjection(path = path, sig = profile.sig, profile = profile)
-                val totalDurationSec = etaProjection?.totalSeconds
-                val rawSamples = profile.points.mapIndexedNotNull { index, point ->
-                    val elevation = point.elevation ?: return@mapIndexedNotNull null
-                    val distance = profile.cumDist.getOrElse(index) { totalDistance }
-                    ElevationSample(
-                        distance = distance,
-                        elevation = elevation,
-                        cumulativeAscent = profile.cumAscent.getOrElse(index) { totalAscent },
-                        cumulativeDescent = profile.cumDescent.getOrElse(index) { totalDescent },
-                        cumulativeDurationSec = etaProjection?.secondsAtPointIndex(index)
+                    val profile = getOrBuildProfile(path = path, file = file, sig = sigOf(file))
+                    val totalDistance = profile.totalDistance
+                    val totalAscent = profile.totalAscent
+                    val totalDescent = profile.totalDescent
+                    val etaProjection = getOrBuildEtaProjection(path = path, sig = profile.sig, profile = profile)
+                    val totalDurationSec = etaProjection?.totalSeconds
+                    val rawSamples =
+                        profile.points.mapIndexedNotNull { index, point ->
+                            val elevation = point.elevation ?: return@mapIndexedNotNull null
+                            val distance = profile.cumDist.getOrElse(index) { totalDistance }
+                            ElevationSample(
+                                distance = distance,
+                                elevation = elevation,
+                                cumulativeAscent = profile.cumAscent.getOrElse(index) { totalAscent },
+                                cumulativeDescent = profile.cumDescent.getOrElse(index) { totalDescent },
+                                cumulativeDurationSec = etaProjection?.secondsAtPointIndex(index),
+                            )
+                        }
+                    val samples = downsampleElevationSamples(rawSamples, maxSamples = 120)
+                    val trackTitle =
+                        _gpxFiles.value.firstOrNull { it.path == path }?.displayTitle
+                            ?: file.nameWithoutExtension
+
+                    GpxElevationProfileUiState(
+                        trackPath = path,
+                        trackTitle = trackTitle,
+                        totalDistance = totalDistance,
+                        totalAscent = totalAscent,
+                        totalDescent = totalDescent,
+                        totalDurationSec = totalDurationSec,
+                        samples = samples,
+                        minElevation = samples.minOfOrNull { it.elevation },
+                        maxElevation = samples.maxOfOrNull { it.elevation },
                     )
                 }
-                val samples = downsampleElevationSamples(rawSamples, maxSamples = 120)
-                val trackTitle = _gpxFiles.value.firstOrNull { it.path == path }?.displayTitle
-                    ?: file.nameWithoutExtension
-
-                GpxElevationProfileUiState(
-                    trackPath = path,
-                    trackTitle = trackTitle,
-                    totalDistance = totalDistance,
-                    totalAscent = totalAscent,
-                    totalDescent = totalDescent,
-                    totalDurationSec = totalDurationSec,
-                    samples = samples,
-                    minElevation = samples.minOfOrNull { it.elevation },
-                    maxElevation = samples.maxOfOrNull { it.elevation }
-                )
-            }
             _elevationProfileUiState.value = uiState
         }
     }
@@ -398,33 +407,38 @@ class GpxViewModel(
     }
 
     private suspend fun updateActiveGpxDetails(activeFiles: List<GpxFileState>) {
-        val details = withContext(Dispatchers.IO) {
-            activeFiles.mapNotNull { fileState ->
-                val file = File(fileState.path)
-                if (!file.exists()) return@mapNotNull null
+        val details =
+            withContext(Dispatchers.IO) {
+                activeFiles.mapNotNull { fileState ->
+                    val file = File(fileState.path)
+                    if (!file.exists()) return@mapNotNull null
 
-                val path = file.absolutePath
-                val profile = getOrBuildProfile(path = path, file = file, sig = sigOf(file))
+                    val path = file.absolutePath
+                    val profile = getOrBuildProfile(path = path, file = file, sig = sigOf(file))
 
-                val start = profile.points.firstOrNull()?.latLong
-                val end = profile.points.lastOrNull()?.latLong
+                    val start = profile.points.firstOrNull()?.latLong
+                    val end = profile.points.lastOrNull()?.latLong
 
-                GpxTrackDetails(
-                    id = path,
-                    points = profile.points.map { it.latLong },
-                    title = fileState.title,
-                    distance = profile.totalDistance,
-                    elevationGain = profile.totalAscent,
-                    startPoint = start,
-                    endPoint = end
-                )
+                    GpxTrackDetails(
+                        id = path,
+                        points = profile.points.map { it.latLong },
+                        title = fileState.title,
+                        distance = profile.totalDistance,
+                        elevationGain = profile.totalAscent,
+                        startPoint = start,
+                        endPoint = end,
+                    )
+                }
             }
-        }
 
         _activeGpxDetails.value = details
     }
 
-    private fun getOrBuildProfile(path: String, file: File, sig: FileSig): TrackProfile {
+    private fun getOrBuildProfile(
+        path: String,
+        file: File,
+        sig: FileSig,
+    ): TrackProfile {
         val cached = profileCache[path]
         if (
             cached != null &&
@@ -437,7 +451,7 @@ class GpxViewModel(
         return buildProfile(
             sig = sig,
             pts = parseGpxPoints(file),
-            elevationFilterConfig = elevationFilterConfig
+            elevationFilterConfig = elevationFilterConfig,
         ).also { profile ->
             profileCache[path] = profile
             profileCache.trimTo(maxProfileCacheEntries)
@@ -447,7 +461,7 @@ class GpxViewModel(
     private fun getOrBuildEtaProjection(
         path: String,
         sig: FileSig,
-        profile: TrackProfile
+        profile: TrackProfile,
     ): GpxEtaProjection? {
         val cached = etaCache[path]
         if (
@@ -459,11 +473,12 @@ class GpxViewModel(
         }
 
         val projection = buildEtaProjection(profile, etaModelConfig)
-        etaCache[path] = CachedEta(
-            sig = sig,
-            modelConfig = etaModelConfig,
-            projection = projection
-        )
+        etaCache[path] =
+            CachedEta(
+                sig = sig,
+                modelConfig = etaModelConfig,
+                projection = projection,
+            )
         etaCache.trimTo(maxProfileCacheEntries)
         return projection
     }
@@ -487,7 +502,7 @@ class GpxViewModel(
 
     private fun downsampleElevationSamples(
         samples: List<ElevationSample>,
-        maxSamples: Int
+        maxSamples: Int,
     ): List<ElevationSample> {
         if (samples.size <= maxSamples || maxSamples <= 1) return samples
 
@@ -510,12 +525,13 @@ class GpxViewModel(
 
             val allowedTrackId = if (selectingB) aPos?.trackId else null
 
-            val found = findClosestTrackPosition(
-                press = press,
-                tracks = tracks,
-                profileProvider = { id -> profileCache[id] },
-                allowedTrackId = allowedTrackId
-            ) ?: return@launch
+            val found =
+                findClosestTrackPosition(
+                    press = press,
+                    tracks = tracks,
+                    profileProvider = { id -> profileCache[id] },
+                    allowedTrackId = allowedTrackId,
+                ) ?: return@launch
 
             val pos = found.pos
             val snapped = found.snapped
@@ -535,10 +551,11 @@ class GpxViewModel(
                 _selectedPointB.value = null
                 _selectedPointA.value = snapped
 
-                popupDelayJob = viewModelScope.launch(Dispatchers.Default) {
-                    delay(popupDelayMs)
-                    publishA(pos.trackId, pos)
-                }
+                popupDelayJob =
+                    viewModelScope.launch(Dispatchers.Default) {
+                        delay(popupDelayMs)
+                        publishA(pos.trackId, pos)
+                    }
             } else {
                 val a = aPos ?: return@launch
                 selectingB = false
@@ -547,10 +564,11 @@ class GpxViewModel(
 
                 _selectedPointB.value = snapped
 
-                popupDelayJob = viewModelScope.launch(Dispatchers.Default) {
-                    delay(popupDelayMs)
-                    publishAB(a.trackId, a, pos)
-                }
+                popupDelayJob =
+                    viewModelScope.launch(Dispatchers.Default) {
+                        delay(popupDelayMs)
+                        publishAB(a.trackId, a, pos)
+                    }
             }
         }
     }
@@ -570,13 +588,14 @@ class GpxViewModel(
         popupDelayJob?.cancel()
 
         selectBTimeoutJob?.cancel()
-        selectBTimeoutJob = viewModelScope.launch {
-            delay(15_000L)
-            if (selectingB && aPos == a) {
-                selectingB = false
-                publishA(a.trackId, a)
+        selectBTimeoutJob =
+            viewModelScope.launch {
+                delay(15_000L)
+                if (selectingB && aPos == a) {
+                    selectingB = false
+                    publishA(a.trackId, a)
+                }
             }
-        }
     }
 
     fun dismissInspection() {
@@ -594,7 +613,7 @@ class GpxViewModel(
     internal fun applyRouteToolModification(
         session: RouteToolSession,
         onProgress: (String) -> Unit = {},
-        onComplete: (Result<RouteToolSaveResult>) -> Unit
+        onComplete: (Result<RouteToolSaveResult>) -> Unit,
     ) {
         if (session.options.toolKind != RouteToolKind.MODIFY) {
             onComplete(Result.failure(IllegalArgumentException("Only GPX modify actions are supported here.")))
@@ -602,9 +621,10 @@ class GpxViewModel(
         }
 
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { routeToolOperations.applyModification(session, onProgress) }
-            }
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching { routeToolOperations.applyModification(session, onProgress) }
+                }
             if (result.isSuccess) {
                 metaCache.clear()
                 profileCache.clear()
@@ -620,7 +640,7 @@ class GpxViewModel(
 
     internal fun previewRouteToolModification(
         session: RouteToolSession,
-        onComplete: (Result<RouteToolModifyPreview>) -> Unit
+        onComplete: (Result<RouteToolModifyPreview>) -> Unit,
     ) {
         if (session.options.toolKind != RouteToolKind.MODIFY) {
             onComplete(Result.failure(IllegalArgumentException("Only GPX modify actions are supported here.")))
@@ -628,9 +648,10 @@ class GpxViewModel(
         }
 
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { routeToolOperations.previewModification(session) }
-            }
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching { routeToolOperations.previewModification(session) }
+                }
             onComplete(result)
         }
     }
@@ -638,7 +659,7 @@ class GpxViewModel(
     internal fun previewRouteToolCreation(
         session: RouteToolSession,
         currentLocation: LatLong?,
-        onComplete: (Result<RouteToolCreatePreview>) -> Unit
+        onComplete: (Result<RouteToolCreatePreview>) -> Unit,
     ) {
         if (session.options.toolKind != RouteToolKind.CREATE) {
             onComplete(Result.failure(IllegalArgumentException("Only GPX create actions are supported here.")))
@@ -646,9 +667,10 @@ class GpxViewModel(
         }
 
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { routeToolOperations.previewCreation(session, currentLocation) }
-            }
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching { routeToolOperations.previewCreation(session, currentLocation) }
+                }
             onComplete(result)
         }
     }
@@ -658,7 +680,7 @@ class GpxViewModel(
         currentLocation: LatLong?,
         preview: RouteToolCreatePreview? = null,
         onProgress: (String) -> Unit = {},
-        onComplete: (Result<RouteToolSaveResult>) -> Unit
+        onComplete: (Result<RouteToolSaveResult>) -> Unit,
     ) {
         if (session.options.toolKind != RouteToolKind.CREATE) {
             onComplete(Result.failure(IllegalArgumentException("Only GPX create actions are supported here.")))
@@ -666,16 +688,17 @@ class GpxViewModel(
         }
 
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    routeToolOperations.applyCreation(
-                        session = session,
-                        currentLocation = currentLocation,
-                        preview = preview,
-                        onProgress = onProgress
-                    )
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        routeToolOperations.applyCreation(
+                            session = session,
+                            currentLocation = currentLocation,
+                            preview = preview,
+                            onProgress = onProgress,
+                        )
+                    }
                 }
-            }
             if (result.isSuccess) {
                 metaCache.clear()
                 profileCache.clear()
@@ -692,12 +715,13 @@ class GpxViewModel(
     internal fun renameRouteToolResult(
         filePath: String,
         newName: String,
-        onComplete: (Result<RouteToolSaveResult>) -> Unit
+        onComplete: (Result<RouteToolSaveResult>) -> Unit,
     ) {
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { routeToolOperations.renameSavedRoute(filePath, newName) }
-            }
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching { routeToolOperations.renameSavedRoute(filePath, newName) }
+                }
             if (result.isSuccess) {
                 metaCache.clear()
                 profileCache.clear()
@@ -714,32 +738,40 @@ class GpxViewModel(
     // Publishing UI state
     // -------------------------------------------------------------------------
 
-    private fun publishA(trackId: String, pos: TrackPosition) {
+    private fun publishA(
+        trackId: String,
+        pos: TrackPosition,
+    ) {
         val profile = profileCache[trackId] ?: return
         val title = activeGpxDetails.value.firstOrNull { it.id == trackId }?.title
         val etaProjection = getOrBuildEtaProjection(path = trackId, sig = profile.sig, profile = profile)
 
-        _inspectionUiState.value = buildInspectionAUiState(
-            trackTitle = title,
-            profile = profile,
-            pos = pos,
-            etaProjection = etaProjection
-        )
+        _inspectionUiState.value =
+            buildInspectionAUiState(
+                trackTitle = title,
+                profile = profile,
+                pos = pos,
+                etaProjection = etaProjection,
+            )
     }
 
-    private fun publishAB(trackId: String, a: TrackPosition, b: TrackPosition) {
+    private fun publishAB(
+        trackId: String,
+        a: TrackPosition,
+        b: TrackPosition,
+    ) {
         if (a.trackId != b.trackId) return
         val profile = profileCache[trackId] ?: return
         val title = activeGpxDetails.value.firstOrNull { it.id == trackId }?.title
         val etaProjection = getOrBuildEtaProjection(path = trackId, sig = profile.sig, profile = profile)
 
-        _inspectionUiState.value = buildInspectionABUiState(
-            trackTitle = title,
-            profile = profile,
-            a = a,
-            b = b,
-            etaProjection = etaProjection
-        )
+        _inspectionUiState.value =
+            buildInspectionABUiState(
+                trackTitle = title,
+                profile = profile,
+                a = a,
+                b = b,
+                etaProjection = etaProjection,
+            )
     }
-
 }

@@ -17,12 +17,13 @@ internal const val DISK_CACHE_CLEANUP_INTERVAL_MS = 60_000L
 internal class ReliefOverlayDiskCache(
     diskCacheRootDir: File?,
     cacheNamespace: String,
-    private val tag: String
+    private val tag: String,
 ) {
     private val normalizedCacheNamespace: String = sanitizeCacheNamespace(cacheNamespace)
-    private val overlayDiskCacheDir: File? = diskCacheRootDir?.let {
-        File(it, "${normalizedCacheNamespace}_v$DISK_CACHE_SCHEMA_VERSION")
-    }
+    private val overlayDiskCacheDir: File? =
+        diskCacheRootDir?.let {
+            File(it, "${normalizedCacheNamespace}_v$DISK_CACHE_SCHEMA_VERSION")
+        }
 
     private val diskCleanupLock = Any()
 
@@ -35,11 +36,12 @@ internal class ReliefOverlayDiskCache(
         val file = overlayTileDiskFile(key) ?: return null
         if (!file.exists() || !file.isFile) return null
 
-        val decoded = runCatching {
-            BitmapFactory.Options().apply { inScaled = false }.let { options ->
-                BitmapFactory.decodeFile(file.absolutePath, options)
-            } ?: return@runCatching null
-        }.getOrNull() ?: return null
+        val decoded =
+            runCatching {
+                BitmapFactory.Options().apply { inScaled = false }.let { options ->
+                    BitmapFactory.decodeFile(file.absolutePath, options)
+                } ?: return@runCatching null
+            }.getOrNull() ?: return null
 
         if (decoded.width != key.tileSize || decoded.height != key.tileSize) {
             runCatching { decoded.recycle() }
@@ -47,23 +49,24 @@ internal class ReliefOverlayDiskCache(
             return null
         }
 
-        val mapsforgeBitmap = runCatching {
-            val out = AndroidGraphicFactory.INSTANCE.createBitmap(key.tileSize, key.tileSize, true)
-            val pixels = IntArray(key.tileSize * key.tileSize)
-            decoded.getPixels(pixels, 0, key.tileSize, 0, 0, key.tileSize, key.tileSize)
-            AndroidGraphicFactory.getBitmap(out).setPixels(
-                pixels,
-                0,
-                key.tileSize,
-                0,
-                0,
-                key.tileSize,
-                key.tileSize
-            )
-            out
-        }.onFailure {
-            runCatching { decoded.recycle() }
-        }.getOrNull()
+        val mapsforgeBitmap =
+            runCatching {
+                val out = AndroidGraphicFactory.INSTANCE.createBitmap(key.tileSize, key.tileSize, true)
+                val pixels = IntArray(key.tileSize * key.tileSize)
+                decoded.getPixels(pixels, 0, key.tileSize, 0, 0, key.tileSize, key.tileSize)
+                AndroidGraphicFactory.getBitmap(out).setPixels(
+                    pixels,
+                    0,
+                    key.tileSize,
+                    0,
+                    0,
+                    key.tileSize,
+                    key.tileSize,
+                )
+                out
+            }.onFailure {
+                runCatching { decoded.recycle() }
+            }.getOrNull()
 
         runCatching { decoded.recycle() }
         if (mapsforgeBitmap == null) {
@@ -76,11 +79,14 @@ internal class ReliefOverlayDiskCache(
             builtElapsedMs = SystemClock.elapsedRealtime(),
             status = OverlayTileStatus.READY,
             drawMode = OverlayTileDrawMode.STEADY,
-            quality = OverlayBuildQuality.FINE
+            quality = OverlayBuildQuality.FINE,
         )
     }
 
-    fun persistOverlayTileEntryToDisk(key: OverlayTileKey, entry: OverlayTileEntry) {
+    fun persistOverlayTileEntryToDisk(
+        key: OverlayTileKey,
+        entry: OverlayTileEntry,
+    ) {
         if (entry.status != OverlayTileStatus.READY) return
         if (entry.quality != OverlayBuildQuality.FINE) return
         val bitmap = entry.bitmap ?: return
@@ -91,7 +97,8 @@ internal class ReliefOverlayDiskCache(
             if (!parent.exists()) parent.mkdirs()
             val temp = File(parent, "${file.name}.tmp")
             FileOutputStream(temp).buffered().use { out ->
-                AndroidGraphicFactory.getBitmap(bitmap)
+                AndroidGraphicFactory
+                    .getBitmap(bitmap)
                     .compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
                 out.flush()
             }
@@ -135,7 +142,7 @@ internal class ReliefOverlayDiskCache(
                     diskCacheCleanupInProgress = false
                 }
             },
-            "relief-overlay-cache-cleanup"
+            "relief-overlay-cache-cleanup",
         ).apply {
             isDaemon = true
             priority = Thread.NORM_PRIORITY - 2
@@ -144,18 +151,21 @@ internal class ReliefOverlayDiskCache(
 
     private fun cleanupOverlayDiskCache(root: File) {
         if (!root.exists() || !root.isDirectory) return
-        val files = runCatching {
-            root.walkTopDown()
-                .maxDepth(4)
-                .filter { file -> file.isFile && file.extension.equals("png", ignoreCase = true) }
-                .toList()
-        }.getOrElse { emptyList() }
+        val files =
+            runCatching {
+                root
+                    .walkTopDown()
+                    .maxDepth(4)
+                    .filter { file -> file.isFile && file.extension.equals("png", ignoreCase = true) }
+                    .toList()
+            }.getOrElse { emptyList() }
         if (files.isEmpty()) return
 
         var remainingFiles = files.size
-        var remainingBytes = files.sumOf { file ->
-            runCatching { file.length() }.getOrDefault(0L)
-        }
+        var remainingBytes =
+            files.sumOf { file ->
+                runCatching { file.length() }.getOrDefault(0L)
+            }
         if (remainingFiles <= DISK_CACHE_MAX_FILES && remainingBytes <= DISK_CACHE_SOFT_LIMIT_BYTES) {
             return
         }
@@ -178,7 +188,8 @@ internal class ReliefOverlayDiskCache(
 
     private fun pruneEmptyCacheDirs(root: File) {
         if (!root.exists() || !root.isDirectory) return
-        root.walkBottomUp()
+        root
+            .walkBottomUp()
             .filter { it.isDirectory && it != root }
             .forEach { dir ->
                 val children = dir.list()
@@ -189,10 +200,12 @@ internal class ReliefOverlayDiskCache(
     }
 
     private fun sanitizeCacheNamespace(raw: String): String {
-        val normalized = raw.trim()
-            .lowercase(Locale.US)
-            .replace(Regex("[^a-z0-9._-]"), "_")
-            .trim('_')
+        val normalized =
+            raw
+                .trim()
+                .lowercase(Locale.US)
+                .replace(Regex("[^a-z0-9._-]"), "_")
+                .trim('_')
         return normalized.ifBlank { "default" }
     }
 }

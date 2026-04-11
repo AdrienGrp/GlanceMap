@@ -4,7 +4,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 
 internal data class MarkerRenderState(
     val isVisible: Boolean,
-    val headingDeg: Float
+    val headingDeg: Float,
 )
 
 internal fun markerRenderStateForMode(
@@ -12,28 +12,30 @@ internal fun markerRenderStateForMode(
     displayedHeadingDeg: Float,
     displayedMapRotationDeg: Float,
     frozenMapRotationDeg: Float,
-    showRealMarkerInCompassMode: Boolean
-): MarkerRenderState {
-    return when (navMode) {
-        NavMode.COMPASS_FOLLOW -> MarkerRenderState(
-            isVisible = showRealMarkerInCompassMode,
-            headingDeg = 0f
-        )
-        NavMode.NORTH_UP_FOLLOW -> MarkerRenderState(
-            isVisible = true,
-            headingDeg = normalizeMarkerHeading360(displayedHeadingDeg + displayedMapRotationDeg)
-        )
-        NavMode.PANNING -> MarkerRenderState(
-            isVisible = true,
-            headingDeg = normalizeMarkerHeading360(displayedHeadingDeg + frozenMapRotationDeg)
-        )
+    showRealMarkerInCompassMode: Boolean,
+): MarkerRenderState =
+    when (navMode) {
+        NavMode.COMPASS_FOLLOW ->
+            MarkerRenderState(
+                isVisible = showRealMarkerInCompassMode,
+                headingDeg = 0f,
+            )
+        NavMode.NORTH_UP_FOLLOW ->
+            MarkerRenderState(
+                isVisible = true,
+                headingDeg = normalizeMarkerHeading360(displayedHeadingDeg + displayedMapRotationDeg),
+            )
+        NavMode.PANNING ->
+            MarkerRenderState(
+                isVisible = true,
+                headingDeg = normalizeMarkerHeading360(displayedHeadingDeg + frozenMapRotationDeg),
+            )
     }
-}
 
 internal fun applyMarkerRenderState(
     marker: RotatableMarker?,
     state: MarkerRenderState,
-    requestRedraw: Boolean = false
+    requestRedraw: Boolean = false,
 ) {
     marker ?: return
     marker.isVisible = state.isVisible

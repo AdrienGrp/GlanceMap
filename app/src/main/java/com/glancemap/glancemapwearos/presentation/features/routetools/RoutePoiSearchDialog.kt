@@ -42,7 +42,7 @@ internal fun RoutePoiSearchDialog(
     state: PoiSearchUiState,
     onDismiss: () -> Unit,
     onSearch: (String) -> Unit,
-    onSelectResult: (PoiSearchResultUiState) -> Unit
+    onSelectResult: (PoiSearchResultUiState) -> Unit,
 ) {
     if (!visible) return
 
@@ -66,45 +66,46 @@ internal fun RoutePoiSearchDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Color.Black.copy(alpha = 0.92f),
-                    RoundedCornerShape(adaptive.dialogCornerRadius)
-                )
-                .padding(
-                    horizontal = adaptive.dialogHorizontalPadding,
-                    vertical = adaptive.dialogVerticalPadding
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color.Black.copy(alpha = 0.92f),
+                        RoundedCornerShape(adaptive.dialogCornerRadius),
+                    ).padding(
+                        horizontal = adaptive.dialogHorizontalPadding,
+                        vertical = adaptive.dialogVerticalPadding,
+                    ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = "Search POI",
                 style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
 
             BasicTextField(
                 value = draftQuery,
                 onValueChange = { draftQuery = it.take(48) },
                 singleLine = true,
-                textStyle = TextStyle(
-                    color = Color.White,
-                    textAlign = TextAlign.Center
-                ),
+                textStyle =
+                    TextStyle(
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                    ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-                    .background(
-                        Color.White.copy(alpha = 0.10f),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .background(
+                            Color.White.copy(alpha = 0.10f),
+                            RoundedCornerShape(12.dp),
+                        ).padding(horizontal = 12.dp, vertical = 10.dp),
                 decorationBox = { innerTextField ->
                     if (draftQuery.isBlank()) {
                         Text(
@@ -112,16 +113,16 @@ internal fun RoutePoiSearchDialog(
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.45f),
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                     innerTextField()
-                }
+                },
             )
 
             Button(
                 onClick = { onSearch(draftQuery) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(if (state.isLoading) "Searching..." else "Search")
             }
@@ -131,46 +132,50 @@ internal fun RoutePoiSearchDialog(
                     text = message,
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFFFFCC80),
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
 
             if (state.results.isNotEmpty()) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = adaptive.helpDialogMaxHeight * 0.72f)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = adaptive.helpDialogMaxHeight * 0.72f)
+                            .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     state.results.forEach { result ->
                         Button(
                             onClick = { onSelectResult(result) },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White.copy(alpha = 0.10f),
-                                contentColor = Color.White
-                            )
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor = Color.White.copy(alpha = 0.10f),
+                                    contentColor = Color.White,
+                                ),
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = result.name,
                                     style = MaterialTheme.typography.labelMedium,
-                                    textAlign = TextAlign.Center
+                                    textAlign = TextAlign.Center,
                                 )
                                 Text(
-                                    text = result.type.name.lowercase()
-                                        .replace('_', ' ')
-                                        .replaceFirstChar { it.uppercase() },
+                                    text =
+                                        result.type.name
+                                            .lowercase()
+                                            .replace('_', ' ')
+                                            .replaceFirstChar { it.uppercase() },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.White.copy(alpha = 0.70f),
-                                    textAlign = TextAlign.Center
+                                    textAlign = TextAlign.Center,
                                 )
                                 Text(
                                     text = result.fileName,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.White.copy(alpha = 0.54f),
-                                    textAlign = TextAlign.Center
+                                    textAlign = TextAlign.Center,
                                 )
                             }
                         }
@@ -181,10 +186,11 @@ internal fun RoutePoiSearchDialog(
             Button(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White.copy(alpha = 0.12f),
-                    contentColor = Color.White
-                )
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.12f),
+                        contentColor = Color.White,
+                    ),
             ) {
                 Text("Close")
             }

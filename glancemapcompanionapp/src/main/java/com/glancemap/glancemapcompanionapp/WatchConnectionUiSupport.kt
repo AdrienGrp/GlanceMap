@@ -5,19 +5,15 @@ import java.util.concurrent.TimeoutException
 
 internal fun isSelectedWatchReachable(
     selectedWatch: WatchNode?,
-    availableWatches: List<WatchNode>
+    availableWatches: List<WatchNode>,
 ): Boolean {
     if (selectedWatch == null) return false
     return availableWatches.any { it.id == selectedWatch.id }
 }
 
-internal fun selectedWatchDisconnectedStatusMessage(): String {
-    return "Selected watch is not currently connected to the phone over Bluetooth / Wear OS. Reconnect it and tap refresh."
-}
+internal fun selectedWatchDisconnectedStatusMessage(): String = "Selected watch is not currently connected to the phone over Bluetooth / Wear OS. Reconnect it and tap refresh."
 
-internal fun selectedWatchTimeoutStatusMessage(): String {
-    return "The watch did not answer. Check the Bluetooth / Wear OS connection, open the watch app, then tap refresh."
-}
+internal fun selectedWatchTimeoutStatusMessage(): String = "The watch did not answer. Check the Bluetooth / Wear OS connection, open the watch app, then tap refresh."
 
 internal fun normalizeWatchMapsStatusMessage(error: Throwable): String {
     if (error is TimeoutException) {

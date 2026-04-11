@@ -22,9 +22,8 @@ import org.mapsforge.core.model.LatLong
 class NavigateViewModel(
     application: Application,
     private val locationViewModel: LocationViewModel,
-    private val compassViewModel: CompassViewModel
+    private val compassViewModel: CompassViewModel,
 ) : AndroidViewModel(application) {
-
     private val _uiState = MutableStateFlow(NavigateUiState())
     val uiState: StateFlow<NavigateUiState> = _uiState.asStateFlow()
 
@@ -33,21 +32,23 @@ class NavigateViewModel(
 
     private val isPanning = MutableStateFlow(false)
 
-    val navMode: StateFlow<NavMode> = combine(
-        settingsRepository.compassMode,
-        isPanning
-    ) { isCompass, panning ->
-        when {
-            panning -> NavMode.PANNING
-            isCompass -> NavMode.COMPASS_FOLLOW
-            else -> NavMode.NORTH_UP_FOLLOW
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NavMode.COMPASS_FOLLOW)
+    val navMode: StateFlow<NavMode> =
+        combine(
+            settingsRepository.compassMode,
+            isPanning,
+        ) { isCompass, panning ->
+            when {
+                panning -> NavMode.PANNING
+                isCompass -> NavMode.COMPASS_FOLLOW
+                else -> NavMode.NORTH_UP_FOLLOW
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NavMode.COMPASS_FOLLOW)
 
     init {
-        navMode.onEach { mode ->
-            _uiState.update { it.copy(navMode = mode) }
-        }.launchIn(viewModelScope)
+        navMode
+            .onEach { mode ->
+                _uiState.update { it.copy(navMode = mode) }
+            }.launchIn(viewModelScope)
     }
 
     fun onUserPanStarted() {

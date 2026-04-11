@@ -41,7 +41,7 @@ data class PoiCategoryUiState(
     val parentId: Int?,
     val depth: Int,
     val hasChildren: Boolean,
-    val enabled: Boolean
+    val enabled: Boolean,
 )
 
 data class PoiFileUiState(
@@ -51,12 +51,12 @@ data class PoiFileUiState(
     val isExpanded: Boolean,
     val categories: List<PoiCategoryUiState>,
     val enabledPoiCount: Int,
-    val totalPoiCount: Int
+    val totalPoiCount: Int,
 )
 
 data class PoiCategoryPreviewKey(
     val filePath: String,
-    val categoryId: Int
+    val categoryId: Int,
 )
 
 data class PoiCategoryPreviewPointUiState(
@@ -65,7 +65,7 @@ data class PoiCategoryPreviewPointUiState(
     val type: PoiType,
     val lat: Double,
     val lon: Double,
-    val details: PoiPointDetails? = null
+    val details: PoiPointDetails? = null,
 )
 
 data class PoiCategoryPreviewUiState(
@@ -73,7 +73,7 @@ data class PoiCategoryPreviewUiState(
     val isLoaded: Boolean = false,
     val totalPoiCount: Int = 0,
     val points: List<PoiCategoryPreviewPointUiState> = emptyList(),
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
 ) {
     val hasMore: Boolean get() = totalPoiCount > points.size
 }
@@ -83,13 +83,13 @@ data class PoiCategoryCountUiState(
     val isLoaded: Boolean = false,
     val enabledPoiCount: Int = 0,
     val totalPoiCount: Int = 0,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
 )
 
 data class PoiOverlaySource(
     val filePath: String,
     val fileName: String,
-    val enabledCategoryIds: Set<Int>
+    val enabledCategoryIds: Set<Int>,
 )
 
 data class PoiOverlayMarker(
@@ -98,7 +98,7 @@ data class PoiOverlayMarker(
     val lon: Double,
     val label: String?,
     val type: PoiType,
-    val details: PoiPointDetails? = null
+    val details: PoiPointDetails? = null,
 )
 
 data class PoiNavigateTarget(
@@ -106,7 +106,7 @@ data class PoiNavigateTarget(
     val lon: Double,
     val label: String?,
     val type: PoiType,
-    val details: PoiPointDetails? = null
+    val details: PoiPointDetails? = null,
 )
 
 data class PoiSearchResultUiState(
@@ -117,33 +117,33 @@ data class PoiSearchResultUiState(
     val type: PoiType,
     val lat: Double,
     val lon: Double,
-    val details: PoiPointDetails? = null
+    val details: PoiPointDetails? = null,
 )
 
 data class PoiSearchUiState(
     val query: String = "",
     val isLoading: Boolean = false,
     val results: List<PoiSearchResultUiState> = emptyList(),
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
 )
 
 class PoiViewModel(
     private val poiRepository: PoiRepository,
     private val userPoiRepository: UserPoiRepository,
     private val settingsRepository: SettingsRepository,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
 ) : ViewModel() {
-
     private companion object {
         private const val CATEGORY_PREVIEW_LIMIT = 200
         private const val SEARCH_RESULT_LIMIT = 20
     }
 
-    private var userPoiSourceState = UserPoiSourceState(
-        fileEnabled = false,
-        categoryEnabled = false,
-        points = emptyList()
-    )
+    private var userPoiSourceState =
+        UserPoiSourceState(
+            fileEnabled = false,
+            categoryEnabled = false,
+            points = emptyList(),
+        )
 
     private val _poiFiles = MutableStateFlow<List<PoiFileUiState>>(emptyList())
     val poiFiles: StateFlow<List<PoiFileUiState>> = _poiFiles.asStateFlow()
@@ -165,18 +165,21 @@ class PoiViewModel(
     val offlineSearchUiState: StateFlow<PoiSearchUiState> = _offlineSearchUiState.asStateFlow()
     private var poiSearchJob: Job? = null
 
-    private val selectedMapPath: StateFlow<String?> = settingsRepository.selectedMapPath
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    private val selectedMapPath: StateFlow<String?> =
+        settingsRepository.selectedMapPath
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val poiTapToCenterEnabled: StateFlow<Boolean> = settingsRepository.poiTapToCenterEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val poiTapToCenterEnabled: StateFlow<Boolean> =
+        settingsRepository.poiTapToCenterEnabled
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    val activeOverlaySources: StateFlow<List<PoiOverlaySource>> = combine(
-        _poiFiles,
-        selectedMapPath
-    ) { files, mapPath ->
-        resolveActiveOverlaySources(files, mapPath)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val activeOverlaySources: StateFlow<List<PoiOverlaySource>> =
+        combine(
+            _poiFiles,
+            selectedMapPath,
+        ) { files, mapPath ->
+            resolveActiveOverlaySources(files, mapPath)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch {
@@ -186,8 +189,7 @@ class PoiViewModel(
         syncManager.poiSyncRequest
             .onEach {
                 reloadFromDisk()
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
     }
 
     fun loadPoiFiles() {
@@ -197,12 +199,16 @@ class PoiViewModel(
     }
 
     fun toggleExpanded(path: String) {
-        _poiFiles.value = _poiFiles.value.map { file ->
-            if (file.path == path) file.copy(isExpanded = !file.isExpanded) else file
-        }
+        _poiFiles.value =
+            _poiFiles.value.map { file ->
+                if (file.path == path) file.copy(isExpanded = !file.isExpanded) else file
+            }
     }
 
-    fun setFileEnabled(path: String, enabled: Boolean) {
+    fun setFileEnabled(
+        path: String,
+        enabled: Boolean,
+    ) {
         viewModelScope.launch {
             if (isUserPoiPath(path)) {
                 userPoiRepository.setFileEnabled(enabled)
@@ -210,11 +216,12 @@ class PoiViewModel(
                 return@launch
             }
             val file = _poiFiles.value.firstOrNull { it.path == path } ?: return@launch
-            val enabledIds = if (enabled) {
-                file.categories.map { it.id }.toSet()
-            } else {
-                emptySet()
-            }
+            val enabledIds =
+                if (enabled) {
+                    file.categories.map { it.id }.toSet()
+                } else {
+                    emptySet()
+                }
 
             poiRepository.setFileEnabled(path, enabled)
             poiRepository.setEnabledCategories(path, enabledIds)
@@ -223,9 +230,10 @@ class PoiViewModel(
                     if (current.path == path) {
                         current.copy(
                             isEnabled = enabled,
-                            categories = current.categories.map { category ->
-                                category.copy(enabled = enabled)
-                            }
+                            categories =
+                                current.categories.map { category ->
+                                    category.copy(enabled = enabled)
+                                },
                         )
                     } else {
                         current
@@ -237,7 +245,10 @@ class PoiViewModel(
         }
     }
 
-    fun setAllCategories(path: String, enabled: Boolean) {
+    fun setAllCategories(
+        path: String,
+        enabled: Boolean,
+    ) {
         viewModelScope.launch {
             if (isUserPoiPath(path)) {
                 userPoiRepository.setCategoryEnabled(enabled)
@@ -261,7 +272,11 @@ class PoiViewModel(
         }
     }
 
-    fun setCategoryEnabled(path: String, categoryId: Int, enabled: Boolean) {
+    fun setCategoryEnabled(
+        path: String,
+        categoryId: Int,
+        enabled: Boolean,
+    ) {
         viewModelScope.launch {
             if (isUserPoiPath(path) && categoryId == USER_POI_CATEGORY_ID) {
                 userPoiRepository.setCategoryEnabled(enabled)
@@ -271,10 +286,12 @@ class PoiViewModel(
             val file = _poiFiles.value.firstOrNull { it.path == path } ?: return@launch
             val descendants = descendantCategoryIds(file, categoryId)
             val ancestors = ancestorCategoryIds(file, categoryId)
-            val currentEnabled = file.categories.asSequence()
-                .filter { it.enabled }
-                .map { it.id }
-                .toMutableSet()
+            val currentEnabled =
+                file.categories
+                    .asSequence()
+                    .filter { it.enabled }
+                    .map { it.id }
+                    .toMutableSet()
 
             if (enabled) {
                 currentEnabled.add(categoryId)
@@ -291,9 +308,10 @@ class PoiViewModel(
                 files.map { item ->
                     if (item.path == path) {
                         item.copy(
-                            categories = item.categories.map { category ->
-                                category.copy(enabled = category.id in currentEnabled)
-                            }
+                            categories =
+                                item.categories.map { category ->
+                                    category.copy(enabled = category.id in currentEnabled)
+                                },
                         )
                     } else {
                         item
@@ -305,7 +323,11 @@ class PoiViewModel(
         }
     }
 
-    fun loadCategoryPreview(path: String, categoryId: Int, forceRefresh: Boolean = false) {
+    fun loadCategoryPreview(
+        path: String,
+        categoryId: Int,
+        forceRefresh: Boolean = false,
+    ) {
         viewModelScope.launch {
             val file = _poiFiles.value.firstOrNull { it.path == path } ?: return@launch
             if (file.categories.none { it.id == categoryId }) return@launch
@@ -320,50 +342,53 @@ class PoiViewModel(
                 previews + (key to PoiCategoryPreviewUiState(isLoading = true))
             }
 
-            val loaded = runCatching {
-                if (isUserPoiPath(path) && categoryId == USER_POI_CATEGORY_ID) {
-                    val points = userPoiSourceState.points.take(CATEGORY_PREVIEW_LIMIT)
-                    return@runCatching PoiCategoryPreviewUiState(
-                        isLoading = false,
-                        isLoaded = true,
-                        totalPoiCount = userPoiSourceState.points.size,
-                        points = points.map { point -> point.toPreviewUiState() }
-                    )
-                }
-                val categoryIds = setOf(categoryId)
-                val totalPoiCount = poiRepository.countPoiPoints(path, categoryIds)
-                val points = if (totalPoiCount > 0) {
-                    poiRepository.queryPoiPointsByCategories(
-                        path = path,
-                        categoryIds = categoryIds,
-                        limit = CATEGORY_PREVIEW_LIMIT
-                    )
-                } else {
-                    emptyList()
-                }
-
-                PoiCategoryPreviewUiState(
-                    isLoading = false,
-                    isLoaded = true,
-                    totalPoiCount = totalPoiCount,
-                    points = points.map { point ->
-                        PoiCategoryPreviewPointUiState(
-                            id = point.id,
-                            name = point.name?.takeIf { it.isNotBlank() } ?: "Unnamed POI",
-                            type = point.type,
-                            lat = point.lat,
-                            lon = point.lon,
-                            details = point.details
+            val loaded =
+                runCatching {
+                    if (isUserPoiPath(path) && categoryId == USER_POI_CATEGORY_ID) {
+                        val points = userPoiSourceState.points.take(CATEGORY_PREVIEW_LIMIT)
+                        return@runCatching PoiCategoryPreviewUiState(
+                            isLoading = false,
+                            isLoaded = true,
+                            totalPoiCount = userPoiSourceState.points.size,
+                            points = points.map { point -> point.toPreviewUiState() },
                         )
                     }
-                )
-            }.getOrElse {
-                PoiCategoryPreviewUiState(
-                    isLoading = false,
-                    isLoaded = true,
-                    errorMessage = "Unable to load POI."
-                )
-            }
+                    val categoryIds = setOf(categoryId)
+                    val totalPoiCount = poiRepository.countPoiPoints(path, categoryIds)
+                    val points =
+                        if (totalPoiCount > 0) {
+                            poiRepository.queryPoiPointsByCategories(
+                                path = path,
+                                categoryIds = categoryIds,
+                                limit = CATEGORY_PREVIEW_LIMIT,
+                            )
+                        } else {
+                            emptyList()
+                        }
+
+                    PoiCategoryPreviewUiState(
+                        isLoading = false,
+                        isLoaded = true,
+                        totalPoiCount = totalPoiCount,
+                        points =
+                            points.map { point ->
+                                PoiCategoryPreviewPointUiState(
+                                    id = point.id,
+                                    name = point.name?.takeIf { it.isNotBlank() } ?: "Unnamed POI",
+                                    type = point.type,
+                                    lat = point.lat,
+                                    lon = point.lon,
+                                    details = point.details,
+                                )
+                            },
+                    )
+                }.getOrElse {
+                    PoiCategoryPreviewUiState(
+                        isLoading = false,
+                        isLoaded = true,
+                        errorMessage = "Unable to load POI.",
+                    )
+                }
 
             _categoryPreviews.update { previews ->
                 previews + (key to loaded)
@@ -371,7 +396,11 @@ class PoiViewModel(
         }
     }
 
-    fun loadCategoryCount(path: String, categoryId: Int, forceRefresh: Boolean = false) {
+    fun loadCategoryCount(
+        path: String,
+        categoryId: Int,
+        forceRefresh: Boolean = false,
+    ) {
         viewModelScope.launch {
             val file = _poiFiles.value.firstOrNull { it.path == path } ?: return@launch
             if (file.categories.none { it.id == categoryId }) return@launch
@@ -386,52 +415,59 @@ class PoiViewModel(
                 counts + (key to PoiCategoryCountUiState(isLoading = true))
             }
 
-            val loaded = runCatching {
-                if (isUserPoiPath(path) && categoryId == USER_POI_CATEGORY_ID) {
-                    val totalPoiCount = userPoiSourceState.points.size
-                    val enabledPoiCount = if (file.isEnabled && file.categories.any { it.enabled }) {
-                        totalPoiCount
-                    } else {
-                        0
+            val loaded =
+                runCatching {
+                    if (isUserPoiPath(path) && categoryId == USER_POI_CATEGORY_ID) {
+                        val totalPoiCount = userPoiSourceState.points.size
+                        val enabledPoiCount =
+                            if (file.isEnabled && file.categories.any { it.enabled }) {
+                                totalPoiCount
+                            } else {
+                                0
+                            }
+                        return@runCatching PoiCategoryCountUiState(
+                            isLoading = false,
+                            isLoaded = true,
+                            enabledPoiCount = enabledPoiCount,
+                            totalPoiCount = totalPoiCount,
+                        )
                     }
-                    return@runCatching PoiCategoryCountUiState(
+                    val scopedCategoryIds =
+                        buildSet {
+                            add(categoryId)
+                            addAll(descendantCategoryIds(file, categoryId))
+                        }
+                    val totalPoiCount = poiRepository.countPoiPoints(path, scopedCategoryIds)
+                    val enabledIds =
+                        file.categories
+                            .asSequence()
+                            .filter { it.enabled }
+                            .map { it.id }
+                            .toSet()
+                    val enabledScopedCategoryIds =
+                        scopedCategoryIds.filterTo(mutableSetOf()) {
+                            it in enabledIds
+                        }
+                    val enabledPoiCount =
+                        when {
+                            enabledScopedCategoryIds.isEmpty() -> 0
+                            enabledScopedCategoryIds == scopedCategoryIds -> totalPoiCount
+                            else -> poiRepository.countPoiPoints(path, enabledScopedCategoryIds)
+                        }
+
+                    PoiCategoryCountUiState(
                         isLoading = false,
                         isLoaded = true,
                         enabledPoiCount = enabledPoiCount,
-                        totalPoiCount = totalPoiCount
+                        totalPoiCount = totalPoiCount,
+                    )
+                }.getOrElse {
+                    PoiCategoryCountUiState(
+                        isLoading = false,
+                        isLoaded = true,
+                        errorMessage = "Unable to load counts.",
                     )
                 }
-                val scopedCategoryIds = buildSet {
-                    add(categoryId)
-                    addAll(descendantCategoryIds(file, categoryId))
-                }
-                val totalPoiCount = poiRepository.countPoiPoints(path, scopedCategoryIds)
-                val enabledIds = file.categories.asSequence()
-                    .filter { it.enabled }
-                    .map { it.id }
-                    .toSet()
-                val enabledScopedCategoryIds = scopedCategoryIds.filterTo(mutableSetOf()) {
-                    it in enabledIds
-                }
-                val enabledPoiCount = when {
-                    enabledScopedCategoryIds.isEmpty() -> 0
-                    enabledScopedCategoryIds == scopedCategoryIds -> totalPoiCount
-                    else -> poiRepository.countPoiPoints(path, enabledScopedCategoryIds)
-                }
-
-                PoiCategoryCountUiState(
-                    isLoading = false,
-                    isLoaded = true,
-                    enabledPoiCount = enabledPoiCount,
-                    totalPoiCount = totalPoiCount
-                )
-            }.getOrElse {
-                PoiCategoryCountUiState(
-                    isLoading = false,
-                    isLoaded = true,
-                    errorMessage = "Unable to load counts."
-                )
-            }
 
             _categoryCounts.update { counts ->
                 counts + (key to loaded)
@@ -464,16 +500,20 @@ class PoiViewModel(
     }
 
     fun requestNavigateToPoi(point: PoiCategoryPreviewPointUiState) {
-        _navigateTarget.value = PoiNavigateTarget(
-            lat = point.lat,
-            lon = point.lon,
-            label = point.name,
-            type = point.type,
-            details = point.details
-        )
+        _navigateTarget.value =
+            PoiNavigateTarget(
+                lat = point.lat,
+                lon = point.lon,
+                label = point.name,
+                type = point.type,
+                details = point.details,
+            )
     }
 
-    suspend fun renameMyCreationPoi(id: Long, newName: String) {
+    suspend fun renameMyCreationPoi(
+        id: Long,
+        newName: String,
+    ) {
         withContext(Dispatchers.IO) {
             userPoiRepository.renamePoi(id = id, newName = newName)
         }
@@ -506,175 +546,191 @@ class PoiViewModel(
         }
 
         if (normalizedQuery.length < 2) {
-            _offlineSearchUiState.value = PoiSearchUiState(
-                query = normalizedQuery,
-                errorMessage = "Type at least 2 letters."
-            )
+            _offlineSearchUiState.value =
+                PoiSearchUiState(
+                    query = normalizedQuery,
+                    errorMessage = "Type at least 2 letters.",
+                )
             return
         }
 
         val sources = activeOverlaySources.value
         if (sources.isEmpty()) {
-            _offlineSearchUiState.value = PoiSearchUiState(
-                query = normalizedQuery,
-                errorMessage = "Enable a POI source first."
-            )
+            _offlineSearchUiState.value =
+                PoiSearchUiState(
+                    query = normalizedQuery,
+                    errorMessage = "Enable a POI source first.",
+                )
             return
         }
 
-        _offlineSearchUiState.value = PoiSearchUiState(
-            query = normalizedQuery,
-            isLoading = true
-        )
+        _offlineSearchUiState.value =
+            PoiSearchUiState(
+                query = normalizedQuery,
+                isLoading = true,
+            )
 
-        poiSearchJob = viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                val perFileLimit = max(10, SEARCH_RESULT_LIMIT)
-                val aggregated = mutableListOf<PoiSearchResultUiState>()
+        poiSearchJob =
+            viewModelScope.launch {
+                val result =
+                    withContext(Dispatchers.IO) {
+                        val perFileLimit = max(10, SEARCH_RESULT_LIMIT)
+                        val aggregated = mutableListOf<PoiSearchResultUiState>()
 
-                sources.forEach { source ->
-                    if (isUserPoiPath(source.filePath)) {
-                        searchUserPoiPoints(normalizedQuery, perFileLimit).forEach { point ->
-                            aggregated += point
+                        sources.forEach { source ->
+                            if (isUserPoiPath(source.filePath)) {
+                                searchUserPoiPoints(normalizedQuery, perFileLimit).forEach { point ->
+                                    aggregated += point
+                                }
+                            } else {
+                                poiRepository
+                                    .searchPoiPoints(
+                                        path = source.filePath,
+                                        query = normalizedQuery,
+                                        enabledCategoryIds = source.enabledCategoryIds,
+                                        limit = perFileLimit,
+                                    ).forEach { point ->
+                                        val name = point.name?.takeIf { it.isNotBlank() } ?: return@forEach
+                                        aggregated +=
+                                            PoiSearchResultUiState(
+                                                id = point.id,
+                                                filePath = source.filePath,
+                                                fileName = source.fileName,
+                                                name = name,
+                                                type = point.type,
+                                                lat = point.lat,
+                                                lon = point.lon,
+                                                details = point.details,
+                                            )
+                                    }
+                            }
                         }
-                    } else {
-                        poiRepository.searchPoiPoints(
-                            path = source.filePath,
-                            query = normalizedQuery,
-                            enabledCategoryIds = source.enabledCategoryIds,
-                            limit = perFileLimit
-                        ).forEach { point ->
-                            val name = point.name?.takeIf { it.isNotBlank() } ?: return@forEach
-                            aggregated += PoiSearchResultUiState(
-                                id = point.id,
-                                filePath = source.filePath,
-                                fileName = source.fileName,
-                                name = name,
-                                type = point.type,
-                                lat = point.lat,
-                                lon = point.lon,
-                                details = point.details
-                            )
-                        }
+
+                        val queryLower = normalizedQuery.lowercase(Locale.ROOT)
+                        val collator =
+                            Collator.getInstance(Locale.getDefault()).apply {
+                                strength = Collator.PRIMARY
+                            }
+                        aggregated
+                            .distinctBy { "${it.filePath}#${it.id}" }
+                            .sortedWith(
+                                compareBy<PoiSearchResultUiState>(
+                                    { poiSearchMatchRank(it.name, queryLower) },
+                                    { it.fileName.lowercase(Locale.ROOT) },
+                                ).thenComparator { left, right ->
+                                    collator.compare(left.name, right.name)
+                                },
+                            ).take(SEARCH_RESULT_LIMIT)
                     }
-                }
 
-                val queryLower = normalizedQuery.lowercase(Locale.ROOT)
-                val collator = Collator.getInstance(Locale.getDefault()).apply {
-                    strength = Collator.PRIMARY
-                }
-                aggregated
-                    .distinctBy { "${it.filePath}#${it.id}" }
-                    .sortedWith(
-                        compareBy<PoiSearchResultUiState>(
-                            { poiSearchMatchRank(it.name, queryLower) },
-                            { it.fileName.lowercase(Locale.ROOT) }
-                        ).thenComparator { left, right ->
-                            collator.compare(left.name, right.name)
-                        }
-                    )
-                    .take(SEARCH_RESULT_LIMIT)
+                _offlineSearchUiState.value =
+                    if (result.isEmpty()) {
+                        PoiSearchUiState(
+                            query = normalizedQuery,
+                            isLoading = false,
+                            errorMessage = "No offline POI found.",
+                        )
+                    } else {
+                        PoiSearchUiState(
+                            query = normalizedQuery,
+                            isLoading = false,
+                            results = result,
+                        )
+                    }
             }
-
-            _offlineSearchUiState.value = if (result.isEmpty()) {
-                PoiSearchUiState(
-                    query = normalizedQuery,
-                    isLoading = false,
-                    errorMessage = "No offline POI found."
-                )
-            } else {
-                PoiSearchUiState(
-                    query = normalizedQuery,
-                    isLoading = false,
-                    results = result
-                )
-            }
-        }
     }
 
     suspend fun queryVisibleMarkers(
         viewport: PoiViewport,
-        zoomLevel: Int
-    ): List<PoiOverlayMarker> = withContext(Dispatchers.IO) {
-        if (zoomLevel < 10) return@withContext emptyList()
-        val sources = activeOverlaySources.value
-        if (sources.isEmpty()) return@withContext emptyList()
+        zoomLevel: Int,
+    ): List<PoiOverlayMarker> =
+        withContext(Dispatchers.IO) {
+            if (zoomLevel < 10) return@withContext emptyList()
+            val sources = activeOverlaySources.value
+            if (sources.isEmpty()) return@withContext emptyList()
 
-        val maxTotal = when {
-            zoomLevel >= 16 -> 220
-            zoomLevel >= 14 -> 170
-            else -> 130
-        }
-        val perFileLimit = max(40, maxTotal / sources.size)
-        val markers = ArrayList<PoiOverlayMarker>(maxTotal)
+            val maxTotal =
+                when {
+                    zoomLevel >= 16 -> 220
+                    zoomLevel >= 14 -> 170
+                    else -> 130
+                }
+            val perFileLimit = max(40, maxTotal / sources.size)
+            val markers = ArrayList<PoiOverlayMarker>(maxTotal)
 
-        for (source in sources) {
-            val remaining = maxTotal - markers.size
-            if (remaining <= 0) break
-            val fileLimit = min(perFileLimit, remaining)
-            val points = if (isUserPoiPath(source.filePath)) {
-                queryUserPoiPoints(
-                    viewport = viewport,
-                    limit = fileLimit
-                )
-            } else {
-                poiRepository.queryPoiPoints(
-                    path = source.filePath,
-                    viewport = viewport,
-                    enabledCategoryIds = source.enabledCategoryIds,
-                    limit = fileLimit
-                )
+            for (source in sources) {
+                val remaining = maxTotal - markers.size
+                if (remaining <= 0) break
+                val fileLimit = min(perFileLimit, remaining)
+                val points =
+                    if (isUserPoiPath(source.filePath)) {
+                        queryUserPoiPoints(
+                            viewport = viewport,
+                            limit = fileLimit,
+                        )
+                    } else {
+                        poiRepository.queryPoiPoints(
+                            path = source.filePath,
+                            viewport = viewport,
+                            enabledCategoryIds = source.enabledCategoryIds,
+                            limit = fileLimit,
+                        )
+                    }
+
+                points.forEach { point ->
+                    markers +=
+                        PoiOverlayMarker(
+                            key = "${source.filePath}#${point.id}",
+                            lat = point.lat,
+                            lon = point.lon,
+                            label = point.name,
+                            type = point.type,
+                            details = point.details,
+                        )
+                }
             }
 
-            points.forEach { point ->
-                markers += PoiOverlayMarker(
-                    key = "${source.filePath}#${point.id}",
-                    lat = point.lat,
-                    lon = point.lon,
-                    label = point.name,
-                    type = point.type,
-                    details = point.details
-                )
-            }
+            markers
         }
-
-        markers
-    }
 
     private suspend fun reloadFromDisk() {
         val previousExpanded = _poiFiles.value.associate { it.path to it.isExpanded }
         val files = poiRepository.listPoiFiles()
         userPoiSourceState = userPoiRepository.readSourceState()
 
-        val importedFiles = withContext(Dispatchers.IO) {
-            files.map { file ->
-                val categories = poiRepository.readCategories(file.absolutePath)
-                val categoryIds = categories.map { it.id }.toSet()
-                val enabledIds = poiRepository.getEnabledCategories(file.absolutePath, categoryIds)
-                val isEnabled = poiRepository.isFileEnabled(file.absolutePath)
-                val (enabledPoiCount, totalPoiCount) = computePoiCounts(
-                    path = file.absolutePath,
-                    allCategoryIds = categoryIds,
-                    enabledCategoryIds = enabledIds
-                )
+        val importedFiles =
+            withContext(Dispatchers.IO) {
+                files.map { file ->
+                    val categories = poiRepository.readCategories(file.absolutePath)
+                    val categoryIds = categories.map { it.id }.toSet()
+                    val enabledIds = poiRepository.getEnabledCategories(file.absolutePath, categoryIds)
+                    val isEnabled = poiRepository.isFileEnabled(file.absolutePath)
+                    val (enabledPoiCount, totalPoiCount) =
+                        computePoiCounts(
+                            path = file.absolutePath,
+                            allCategoryIds = categoryIds,
+                            enabledCategoryIds = enabledIds,
+                        )
 
-                PoiFileUiState(
-                    name = file.nameWithoutExtension,
-                    path = file.absolutePath,
-                    isEnabled = isEnabled,
-                    isExpanded = previousExpanded[file.absolutePath] ?: false,
-                    categories = categories.map { category ->
-                        category.toUiState(enabled = category.id in enabledIds)
-                    },
-                    enabledPoiCount = enabledPoiCount,
-                    totalPoiCount = totalPoiCount
-                )
+                    PoiFileUiState(
+                        name = file.nameWithoutExtension,
+                        path = file.absolutePath,
+                        isEnabled = isEnabled,
+                        isExpanded = previousExpanded[file.absolutePath] ?: false,
+                        categories =
+                            categories.map { category ->
+                                category.toUiState(enabled = category.id in enabledIds)
+                            },
+                        enabledPoiCount = enabledPoiCount,
+                        totalPoiCount = totalPoiCount,
+                    )
+                }
             }
-        }
 
-        val syntheticUserFile = buildUserPoiFileUiState(
-            isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: userPoiSourceState.points.isNotEmpty()
-        )
+        val syntheticUserFile =
+            buildUserPoiFileUiState(
+                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: userPoiSourceState.points.isNotEmpty(),
+            )
 
         _poiFiles.value = listOf(syntheticUserFile) + importedFiles
         _categoryPreviews.value = emptyMap()
@@ -684,22 +740,25 @@ class PoiViewModel(
     private suspend fun refreshPoiCounts(path: String) {
         val file = _poiFiles.value.firstOrNull { it.path == path } ?: return
         val allCategoryIds = file.categories.map { it.id }.toSet()
-        val enabledCategoryIds = file.categories.asSequence()
-            .filter { it.enabled }
-            .map { it.id }
-            .toSet()
-        val (enabledPoiCount, totalPoiCount) = computePoiCounts(
-            path = path,
-            allCategoryIds = allCategoryIds,
-            enabledCategoryIds = enabledCategoryIds
-        )
+        val enabledCategoryIds =
+            file.categories
+                .asSequence()
+                .filter { it.enabled }
+                .map { it.id }
+                .toSet()
+        val (enabledPoiCount, totalPoiCount) =
+            computePoiCounts(
+                path = path,
+                allCategoryIds = allCategoryIds,
+                enabledCategoryIds = enabledCategoryIds,
+            )
 
         _poiFiles.update { files ->
             files.map { current ->
                 if (current.path == path) {
                     current.copy(
                         enabledPoiCount = enabledPoiCount,
-                        totalPoiCount = totalPoiCount
+                        totalPoiCount = totalPoiCount,
                     )
                 } else {
                     current
@@ -711,7 +770,7 @@ class PoiViewModel(
     private suspend fun computePoiCounts(
         path: String,
         allCategoryIds: Set<Int>,
-        enabledCategoryIds: Set<Int>
+        enabledCategoryIds: Set<Int>,
     ): Pair<Int, Int> {
         if (isUserPoiPath(path)) {
             val totalPoiCount = userPoiSourceState.points.size
@@ -720,11 +779,12 @@ class PoiViewModel(
         }
         if (allCategoryIds.isEmpty()) return 0 to 0
         val totalPoiCount = poiRepository.countPoiPoints(path, allCategoryIds)
-        val enabledPoiCount = when {
-            enabledCategoryIds.isEmpty() -> 0
-            enabledCategoryIds == allCategoryIds -> totalPoiCount
-            else -> poiRepository.countPoiPoints(path, enabledCategoryIds)
-        }
+        val enabledPoiCount =
+            when {
+                enabledCategoryIds.isEmpty() -> 0
+                enabledCategoryIds == allCategoryIds -> totalPoiCount
+                else -> poiRepository.countPoiPoints(path, enabledCategoryIds)
+            }
         return enabledPoiCount to totalPoiCount
     }
 
@@ -736,47 +796,56 @@ class PoiViewModel(
 
     private fun resolveActiveOverlaySources(
         files: List<PoiFileUiState>,
-        selectedMapPath: String?
+        selectedMapPath: String?,
     ): List<PoiOverlaySource> {
-        val enabledFiles = files.asSequence()
-            .filter { it.isEnabled }
-            .mapNotNull { file ->
-                val enabledIds = file.categories.asSequence()
-                    .filter { it.enabled }
-                    .map { it.id }
-                    .toSet()
-                if (enabledIds.isEmpty()) {
-                    null
-                } else {
-                    PoiOverlaySource(
-                        filePath = file.path,
-                        fileName = file.name,
-                        enabledCategoryIds = enabledIds
-                    )
-                }
-            }
-            .toList()
+        val enabledFiles =
+            files
+                .asSequence()
+                .filter { it.isEnabled }
+                .mapNotNull { file ->
+                    val enabledIds =
+                        file.categories
+                            .asSequence()
+                            .filter { it.enabled }
+                            .map { it.id }
+                            .toSet()
+                    if (enabledIds.isEmpty()) {
+                        null
+                    } else {
+                        PoiOverlaySource(
+                            filePath = file.path,
+                            fileName = file.name,
+                            enabledCategoryIds = enabledIds,
+                        )
+                    }
+                }.toList()
 
         if (enabledFiles.isEmpty()) return emptyList()
 
         val alwaysIncluded = enabledFiles.filter { isUserPoiPath(it.filePath) }
         val mapScoped = enabledFiles.filterNot { isUserPoiPath(it.filePath) }
 
-        val mapBase = selectedMapPath
-            ?.let { File(it).nameWithoutExtension.lowercase(Locale.ROOT) }
-            ?.takeIf { it.isNotBlank() }
-            ?: return alwaysIncluded + mapScoped
+        val mapBase =
+            selectedMapPath
+                ?.let { File(it).nameWithoutExtension.lowercase(Locale.ROOT) }
+                ?.takeIf { it.isNotBlank() }
+                ?: return alwaysIncluded + mapScoped
 
-        val exact = mapScoped.filter { source ->
-            File(source.filePath).nameWithoutExtension.lowercase(Locale.ROOT) == mapBase
-        }
+        val exact =
+            mapScoped.filter { source ->
+                File(source.filePath).nameWithoutExtension.lowercase(Locale.ROOT) == mapBase
+            }
         return alwaysIncluded + if (exact.isNotEmpty()) exact else mapScoped
     }
 
-    suspend fun createMyCreationPoiAt(lat: Double, lon: Double): UserPoiRecord {
-        val record = withContext(Dispatchers.IO) {
-            userPoiRepository.createPoi(lat = lat, lon = lon)
-        }
+    suspend fun createMyCreationPoiAt(
+        lat: Double,
+        lon: Double,
+    ): UserPoiRecord {
+        val record =
+            withContext(Dispatchers.IO) {
+                userPoiRepository.createPoi(lat = lat, lon = lon)
+            }
         reloadFromDisk()
         return record
     }
@@ -789,31 +858,32 @@ class PoiViewModel(
             path = USER_POI_SOURCE_PATH,
             isEnabled = enabled,
             isExpanded = isExpanded,
-            categories = listOf(
-                PoiCategoryUiState(
-                    id = USER_POI_CATEGORY_ID,
-                    name = USER_POI_CATEGORY_NAME,
-                    parentId = null,
-                    depth = 0,
-                    hasChildren = false,
-                    enabled = enabled
-                )
-            ),
+            categories =
+                listOf(
+                    PoiCategoryUiState(
+                        id = USER_POI_CATEGORY_ID,
+                        name = USER_POI_CATEGORY_NAME,
+                        parentId = null,
+                        depth = 0,
+                        hasChildren = false,
+                        enabled = enabled,
+                    ),
+                ),
             enabledPoiCount = if (enabled) totalPoiCount else 0,
-            totalPoiCount = totalPoiCount
+            totalPoiCount = totalPoiCount,
         )
     }
 
     private fun queryUserPoiPoints(
         viewport: PoiViewport,
-        limit: Int
-    ): List<com.glancemap.glancemapwearos.data.repository.PoiPoint> {
-        return userPoiSourceState.points.asSequence()
+        limit: Int,
+    ): List<com.glancemap.glancemapwearos.data.repository.PoiPoint> =
+        userPoiSourceState.points
+            .asSequence()
             .filter { point ->
                 point.lat in viewport.minLat..viewport.maxLat &&
                     point.lon in viewport.minLon..viewport.maxLon
-            }
-            .take(limit)
+            }.take(limit)
             .map { point ->
                 com.glancemap.glancemapwearos.data.repository.PoiPoint(
                     id = point.id,
@@ -821,18 +891,17 @@ class PoiViewModel(
                     lon = point.lon,
                     name = point.name,
                     type = PoiType.CUSTOM,
-                    details = point.details
+                    details = point.details,
                 )
-            }
-            .toList()
-    }
+            }.toList()
 
     private fun searchUserPoiPoints(
         query: String,
-        limit: Int
+        limit: Int,
     ): List<PoiSearchResultUiState> {
         val queryLower = query.lowercase(Locale.ROOT)
-        return userPoiSourceState.points.asSequence()
+        return userPoiSourceState.points
+            .asSequence()
             .filter { point -> point.name.lowercase(Locale.ROOT).contains(queryLower) }
             .sortedBy { poiSearchMatchRank(it.name, queryLower) }
             .take(limit)
@@ -845,28 +914,30 @@ class PoiViewModel(
                     type = PoiType.CUSTOM,
                     lat = point.lat,
                     lon = point.lon,
-                    details = point.details
+                    details = point.details,
                 )
-            }
-            .toList()
+            }.toList()
     }
 
-    private fun UserPoiRecord.toPreviewUiState(): PoiCategoryPreviewPointUiState {
-        return PoiCategoryPreviewPointUiState(
+    private fun UserPoiRecord.toPreviewUiState(): PoiCategoryPreviewPointUiState =
+        PoiCategoryPreviewPointUiState(
             id = id,
             name = name,
             type = PoiType.CUSTOM,
             lat = lat,
             lon = lon,
-            details = details
+            details = details,
         )
-    }
 
     private fun isUserPoiPath(path: String): Boolean = path == USER_POI_SOURCE_PATH
 
-    private fun descendantCategoryIds(file: PoiFileUiState, categoryId: Int): Set<Int> {
+    private fun descendantCategoryIds(
+        file: PoiFileUiState,
+        categoryId: Int,
+    ): Set<Int> {
         val childrenByParent = file.categories.groupBy { it.parentId }
         val result = mutableSetOf<Int>()
+
         fun walk(parent: Int) {
             childrenByParent[parent].orEmpty().forEach { child ->
                 if (result.add(child.id)) {
@@ -878,7 +949,10 @@ class PoiViewModel(
         return result
     }
 
-    private fun ancestorCategoryIds(file: PoiFileUiState, categoryId: Int): Set<Int> {
+    private fun ancestorCategoryIds(
+        file: PoiFileUiState,
+        categoryId: Int,
+    ): Set<Int> {
         val byId = file.categories.associateBy { it.id }
         val result = mutableSetOf<Int>()
         var current = byId[categoryId]
@@ -894,18 +968,20 @@ class PoiViewModel(
         return result
     }
 
-    private fun PoiCategory.toUiState(enabled: Boolean): PoiCategoryUiState {
-        return PoiCategoryUiState(
+    private fun PoiCategory.toUiState(enabled: Boolean): PoiCategoryUiState =
+        PoiCategoryUiState(
             id = id,
             name = name,
             parentId = parentId,
             depth = depth,
             hasChildren = hasChildren,
-            enabled = enabled
+            enabled = enabled,
         )
-    }
 
-    private fun poiSearchMatchRank(name: String, queryLower: String): Int {
+    private fun poiSearchMatchRank(
+        name: String,
+        queryLower: String,
+    ): Int {
         val normalized = name.trim().lowercase(Locale.ROOT)
         return when {
             normalized == queryLower -> 0

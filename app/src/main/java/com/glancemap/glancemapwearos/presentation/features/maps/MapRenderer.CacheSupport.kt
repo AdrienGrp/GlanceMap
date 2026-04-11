@@ -28,32 +28,37 @@ private data class MapRendererCacheBucketInfo(
     val name: String,
     val dir: File,
     val lastUsedMs: Long,
-    val sizeBytes: Long
+    val sizeBytes: Long,
 )
 
 internal fun captureMapRendererCacheDiagnostics(context: Context): MapRenderer.CacheDiagnosticsSnapshot {
     val prefs = context.getSharedPreferences(CACHE_CLEANUP_PREFS_NAME, Context.MODE_PRIVATE)
     val tileCacheRoot = context.externalCacheDir ?: context.cacheDir
-    val tileCacheBuckets = tileCacheRoot
-        .listFiles()
-        ?.asSequence()
-        ?.filter { it.isDirectory && it.name.startsWith(CACHE_ID_PREFIX) }
-        ?.toList()
-        ?: emptyList()
+    val tileCacheBuckets =
+        tileCacheRoot
+            .listFiles()
+            ?.asSequence()
+            ?.filter { it.isDirectory && it.name.startsWith(CACHE_ID_PREFIX) }
+            ?.toList()
+            ?: emptyList()
     val activeTileCacheId = prefs.getString(KEY_ACTIVE_CACHE_ID, null)?.trim()?.takeIf { it.isNotEmpty() }
-    val activeTileCacheLastUsedMs = prefs.getLong(KEY_ACTIVE_CACHE_UPDATED_MS, 0L)
-        .takeIf { it > 0L }
-    val activeTileCacheSizeBytes = activeTileCacheId
-        ?.let { id -> tileCacheBuckets.firstOrNull { it.name == id } }
-        ?.let { dir -> mapRendererDirectorySizeBytes(dir) }
+    val activeTileCacheLastUsedMs =
+        prefs
+            .getLong(KEY_ACTIVE_CACHE_UPDATED_MS, 0L)
+            .takeIf { it > 0L }
+    val activeTileCacheSizeBytes =
+        activeTileCacheId
+            ?.let { id -> tileCacheBuckets.firstOrNull { it.name == id } }
+            ?.let { dir -> mapRendererDirectorySizeBytes(dir) }
     val reliefOverlayRootDir = File(tileCacheRoot, RELIEF_OVERLAY_CACHE_DIR_NAME)
     val reliefOverlayEntries = reliefOverlayRootDir.listFiles()?.toList().orEmpty()
-    val bundledThemeDirs = context.cacheDir
-        .listFiles()
-        ?.asSequence()
-        ?.filter { it.isDirectory && it.name.startsWith(BUNDLED_THEME_CACHE_DIR_PREFIX) }
-        ?.toList()
-        ?: emptyList()
+    val bundledThemeDirs =
+        context.cacheDir
+            .listFiles()
+            ?.asSequence()
+            ?.filter { it.isDirectory && it.name.startsWith(BUNDLED_THEME_CACHE_DIR_PREFIX) }
+            ?.toList()
+            ?: emptyList()
 
     return MapRenderer.CacheDiagnosticsSnapshot(
         activeTileCacheId = activeTileCacheId,
@@ -63,13 +68,14 @@ internal fun captureMapRendererCacheDiagnostics(context: Context): MapRenderer.C
         activeTileCacheSizeBytes = activeTileCacheSizeBytes,
         lastCleanupMs = prefs.getLong(KEY_CACHE_LAST_CLEANUP_MS, 0L).takeIf { it > 0L },
         reliefOverlayNamespaceCount = reliefOverlayEntries.count { it.isDirectory || it.isFile },
-        reliefOverlayCacheSizeBytes = if (reliefOverlayRootDir.exists()) {
-            mapRendererDirectorySizeBytes(reliefOverlayRootDir)
-        } else {
-            0L
-        },
+        reliefOverlayCacheSizeBytes =
+            if (reliefOverlayRootDir.exists()) {
+                mapRendererDirectorySizeBytes(reliefOverlayRootDir)
+            } else {
+                0L
+            },
         bundledThemeCacheDirCount = bundledThemeDirs.size,
-        bundledThemeCacheTotalSizeBytes = bundledThemeDirs.sumOf { mapRendererDirectorySizeBytes(it) }
+        bundledThemeCacheTotalSizeBytes = bundledThemeDirs.sumOf { mapRendererDirectorySizeBytes(it) },
     )
 }
 
@@ -86,52 +92,57 @@ internal fun resolveMapRendererDesiredCacheId(
     mapSignature: String?,
     demSignature: String?,
     hillShadingEnabled: Boolean,
-    elevationLabelsMetric: Boolean
+    elevationLabelsMetric: Boolean,
 ): String {
     val mapPart = mapSignature ?: "MAP:NONE"
-    val demPart = if (hillShadingEnabled) {
-        demSignature ?: "DEM:NONE"
-    } else {
-        "DEM:OFF"
-    }
+    val demPart =
+        if (hillShadingEnabled) {
+            demSignature ?: "DEM:NONE"
+        } else {
+            "DEM:OFF"
+        }
     val unitPart = if (elevationLabelsMetric) "UNITS:METRIC" else "UNITS:IMPERIAL"
     val signature = "$mapPart|$demPart|$unitPart"
 
     val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray(Charsets.UTF_8))
-    val shortHex = digest.take(CACHE_HASH_BYTES).joinToString(separator = "") { byte ->
-        "%02x".format(byte)
-    }
+    val shortHex =
+        digest.take(CACHE_HASH_BYTES).joinToString(separator = "") { byte ->
+            "%02x".format(byte)
+        }
     return "${CACHE_ID_PREFIX}_$shortHex"
 }
 
 internal fun resolveMapRendererReliefOverlayCacheNamespace(currentDemSignature: String?): String {
     val demPart = currentDemSignature ?: "DEM:NONE"
-    val signature = buildString {
-        append("RELIEF")
-        append("|")
-        append(demPart)
-        append("|MODEL:ALPINE_V2")
-        append("|STEP:12,10,8")
-        append("|MIN_ZOOM:13")
-        append("|VOLUME:4,28")
-        append("|STEEP:21,48")
-        append("|RIDGE_GULLY:4,24")
-    }
+    val signature =
+        buildString {
+            append("RELIEF")
+            append("|")
+            append(demPart)
+            append("|MODEL:ALPINE_V2")
+            append("|STEP:12,10,8")
+            append("|MIN_ZOOM:13")
+            append("|VOLUME:4,28")
+            append("|STEEP:21,48")
+            append("|RIDGE_GULLY:4,24")
+        }
     val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray(Charsets.UTF_8))
-    val shortHex = digest.take(RELIEF_OVERLAY_CACHE_HASH_BYTES).joinToString(separator = "") { byte ->
-        "%02x".format(byte)
-    }
+    val shortHex =
+        digest.take(RELIEF_OVERLAY_CACHE_HASH_BYTES).joinToString(separator = "") { byte ->
+            "%02x".format(byte)
+        }
     return "relief_$shortHex"
 }
 
 internal fun markMapRendererCacheBucketUsed(
     context: Context,
     cacheMaintenancePrefs: SharedPreferences,
-    cacheId: String
+    cacheId: String,
 ) {
     runCatching {
         val now = System.currentTimeMillis()
-        cacheMaintenancePrefs.edit()
+        cacheMaintenancePrefs
+            .edit()
             .putString(KEY_ACTIVE_CACHE_ID, cacheId)
             .putLong(KEY_ACTIVE_CACHE_UPDATED_MS, now)
             .apply()
@@ -151,16 +162,17 @@ internal fun markMapRendererCacheBucketUsed(
 internal fun cleanupMapRendererPersistentCacheBuckets(
     cacheRoot: File,
     nowMs: Long,
-    keepIds: Set<String>
+    keepIds: Set<String>,
 ) {
     val initial = listMapRendererCacheBuckets(cacheRoot)
     if (initial.isEmpty()) return
 
     var buckets = initial
 
-    val stale = buckets.filter { bucket ->
-        bucket.name !in keepIds && (nowMs - bucket.lastUsedMs) > CACHE_MAX_AGE_MS
-    }
+    val stale =
+        buckets.filter { bucket ->
+            bucket.name !in keepIds && (nowMs - bucket.lastUsedMs) > CACHE_MAX_AGE_MS
+        }
     stale.forEach { bucket ->
         if (deleteMapRendererCacheBucket(bucket.dir)) {
             Log.d(MAP_RENDERER_CACHE_TAG, "Deleted stale cache bucket: ${bucket.name}")
@@ -174,11 +186,12 @@ internal fun cleanupMapRendererPersistentCacheBuckets(
     var totalBytes = buckets.sumOf { it.sizeBytes }
     if (totalBytes <= CACHE_SOFT_LIMIT_BYTES) return
 
-    val keptRecentNames = buckets
-        .sortedByDescending { it.lastUsedMs }
-        .take(CACHE_KEEP_RECENT_COUNT)
-        .map { it.name }
-        .toSet()
+    val keptRecentNames =
+        buckets
+            .sortedByDescending { it.lastUsedMs }
+            .take(CACHE_KEEP_RECENT_COUNT)
+            .map { it.name }
+            .toSet()
 
     val protected = keepIds + keptRecentNames
     val deletedNames = mutableSetOf<String>()
@@ -198,31 +211,33 @@ internal fun cleanupMapRendererPersistentCacheBuckets(
     tryDeleteOrdered(
         buckets
             .filter { it.name !in protected }
-            .sortedBy { it.lastUsedMs }
+            .sortedBy { it.lastUsedMs },
     )
 
     if (totalBytes > CACHE_TARGET_LIMIT_BYTES) {
         tryDeleteOrdered(
             buckets
                 .filter { it.name !in keepIds }
-                .sortedBy { it.lastUsedMs }
+                .sortedBy { it.lastUsedMs },
         )
     }
 }
 
 private fun listMapRendererCacheBuckets(cacheRoot: File): List<MapRendererCacheBucketInfo> {
-    val dirs = cacheRoot.listFiles()
-        ?.asSequence()
-        ?.filter { it.isDirectory && it.name.startsWith(CACHE_ID_PREFIX) }
-        ?.toList()
-        ?: emptyList()
+    val dirs =
+        cacheRoot
+            .listFiles()
+            ?.asSequence()
+            ?.filter { it.isDirectory && it.name.startsWith(CACHE_ID_PREFIX) }
+            ?.toList()
+            ?: emptyList()
 
     return dirs.map { dir ->
         MapRendererCacheBucketInfo(
             name = dir.name,
             dir = dir,
             lastUsedMs = mapRendererBucketLastUsedMs(dir),
-            sizeBytes = mapRendererDirectorySizeBytes(dir)
+            sizeBytes = mapRendererDirectorySizeBytes(dir),
         )
     }
 }
@@ -244,11 +259,10 @@ private fun mapRendererDirectorySizeBytes(root: File): Long {
     return total
 }
 
-private fun deleteMapRendererCacheBucket(dir: File): Boolean {
-    return runCatching {
+private fun deleteMapRendererCacheBucket(dir: File): Boolean =
+    runCatching {
         if (!dir.exists()) true else dir.deleteRecursively()
     }.getOrElse { error ->
         Log.w(MAP_RENDERER_CACHE_TAG, "Failed deleting cache bucket: ${dir.absolutePath}", error)
         false
     }
-}

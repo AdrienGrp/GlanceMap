@@ -3,8 +3,12 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -20,20 +24,16 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
-import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun PoiSettingsScreen(
     viewModel: SettingsViewModel,
-    onOpenGeneralSettings: () -> Unit
+    onOpenGeneralSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
     val poiIconSizePx by viewModel.poiIconSizePx.collectAsState()
@@ -42,20 +42,22 @@ fun PoiSettingsScreen(
     val poiPopupManualCloseOnly by viewModel.poiPopupManualCloseOnly.collectAsState()
     var showIconSizePicker by remember { mutableStateOf(false) }
     var showTapActionPicker by remember { mutableStateOf(false) }
-    val iconSizeOptions = remember {
-        listOf(
-            SettingsRepository.POI_ICON_SIZE_DEFAULT_PX to "Default",
-            SettingsRepository.POI_ICON_SIZE_SMALL_PX to "Small",
-            SettingsRepository.POI_ICON_SIZE_MEDIUM_PX to "Medium",
-            SettingsRepository.POI_ICON_SIZE_LARGE_PX to "Big"
-        )
-    }
-    val tapActionOptions = remember {
-        listOf(
-            true to "Open Navigate at POI",
-            false to "Disabled"
-        )
-    }
+    val iconSizeOptions =
+        remember {
+            listOf(
+                SettingsRepository.POI_ICON_SIZE_DEFAULT_PX to "Default",
+                SettingsRepository.POI_ICON_SIZE_SMALL_PX to "Small",
+                SettingsRepository.POI_ICON_SIZE_MEDIUM_PX to "Medium",
+                SettingsRepository.POI_ICON_SIZE_LARGE_PX to "Big",
+            )
+        }
+    val tapActionOptions =
+        remember {
+            listOf(
+                true to "Open Navigate at POI",
+                false to "Disabled",
+            )
+        }
 
     val listState = rememberScalingLazyListState()
 
@@ -63,14 +65,15 @@ fun PoiSettingsScreen(
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(
-                start = listTokens.horizontalPadding,
-                end = listTokens.horizontalPadding,
-                top = listTokens.topPadding,
-                bottom = listTokens.bottomPadding
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = listTokens.horizontalPadding,
+                    end = listTokens.horizontalPadding,
+                    top = listTokens.topPadding,
+                    bottom = listTokens.bottomPadding,
+                ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {
                 GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
@@ -80,19 +83,20 @@ fun PoiSettingsScreen(
                     label = "POI icon size",
                     secondaryLabel = poiIconSizeLabel(poiIconSizePx),
                     iconImageVector = Icons.Filled.UnfoldMore,
-                    onClick = { showIconSizePicker = true }
+                    onClick = { showIconSizePicker = true },
                 )
             }
             item {
                 SettingsPickerChip(
                     label = "POI list tap action",
-                    secondaryLabel = if (poiTapToCenterEnabled) {
-                        "Open Navigate at POI"
-                    } else {
-                        "Disabled"
-                    },
+                    secondaryLabel =
+                        if (poiTapToCenterEnabled) {
+                            "Open Navigate at POI"
+                        } else {
+                            "Disabled"
+                        },
                     iconImageVector = Icons.Filled.UnfoldMore,
-                    onClick = { showTapActionPicker = true }
+                    onClick = { showTapActionPicker = true },
                 )
             }
             item {
@@ -103,13 +107,14 @@ fun PoiSettingsScreen(
                         viewModel.setPoiPopupManualCloseOnly(!enabled)
                     },
                     onTimeoutChange = { target ->
-                        val clamped = target
-                            .coerceAtLeast(SettingsRepository.POI_POPUP_TIMEOUT_MIN_SECONDS)
-                            .coerceAtMost(SettingsRepository.POI_POPUP_TIMEOUT_MAX_SECONDS)
+                        val clamped =
+                            target
+                                .coerceAtLeast(SettingsRepository.POI_POPUP_TIMEOUT_MIN_SECONDS)
+                                .coerceAtMost(SettingsRepository.POI_POPUP_TIMEOUT_MAX_SECONDS)
                         if (clamped != poiPopupTimeoutSeconds) {
                             viewModel.setPoiPopupTimeoutSeconds(clamped)
                         }
-                    }
+                    },
                 )
             }
         }
@@ -121,7 +126,7 @@ fun PoiSettingsScreen(
         selectedValue = poiIconSizePx,
         options = iconSizeOptions,
         onDismiss = { showIconSizePicker = false },
-        onSelect = { selected -> viewModel.setPoiIconSizePx(selected) }
+        onSelect = { selected -> viewModel.setPoiIconSizePx(selected) },
     )
     OptionPickerDialog(
         visible = showTapActionPicker,
@@ -129,16 +134,17 @@ fun PoiSettingsScreen(
         selectedValue = poiTapToCenterEnabled,
         options = tapActionOptions,
         onDismiss = { showTapActionPicker = false },
-        onSelect = { selected -> viewModel.setPoiTapToCenterEnabled(selected) }
+        onSelect = { selected -> viewModel.setPoiTapToCenterEnabled(selected) },
     )
 }
 
-private fun poiIconSizeLabel(sizePx: Int): String = when (sizePx) {
-    SettingsRepository.POI_ICON_SIZE_SMALL_PX -> "Small"
-    SettingsRepository.POI_ICON_SIZE_MEDIUM_PX -> "Medium"
-    SettingsRepository.POI_ICON_SIZE_LARGE_PX -> "Big"
-    else -> "Default"
-}
+private fun poiIconSizeLabel(sizePx: Int): String =
+    when (sizePx) {
+        SettingsRepository.POI_ICON_SIZE_SMALL_PX -> "Small"
+        SettingsRepository.POI_ICON_SIZE_MEDIUM_PX -> "Medium"
+        SettingsRepository.POI_ICON_SIZE_LARGE_PX -> "Big"
+        else -> "Default"
+    }
 
 @Composable
 @OptIn(ExperimentalHorologistApi::class)
@@ -146,16 +152,16 @@ private fun PoiPopupTimeoutSettings(
     autoTimeoutEnabled: Boolean,
     poiPopupTimeoutSeconds: Int,
     onAutoTimeoutToggle: (Boolean) -> Unit,
-    onTimeoutChange: (Int) -> Unit
+    onTimeoutChange: (Int) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         SettingsToggleChip(
             checked = autoTimeoutEnabled,
             onCheckedChanged = onAutoTimeoutToggle,
-            label = "POI popup timeout"
+            label = "POI popup timeout",
         )
 
         if (autoTimeoutEnabled) {
@@ -163,7 +169,7 @@ private fun PoiPopupTimeoutSettings(
                 timeoutSeconds = poiPopupTimeoutSeconds,
                 minSeconds = SettingsRepository.POI_POPUP_TIMEOUT_MIN_SECONDS,
                 maxSeconds = SettingsRepository.POI_POPUP_TIMEOUT_MAX_SECONDS,
-                onValueChange = onTimeoutChange
+                onValueChange = onTimeoutChange,
             )
         }
     }
@@ -174,19 +180,19 @@ private fun PoiPopupTimeoutSlider(
     timeoutSeconds: Int,
     minSeconds: Int,
     maxSeconds: Int,
-    onValueChange: (Int) -> Unit
+    onValueChange: (Int) -> Unit,
 ) {
     var internalValue by remember(timeoutSeconds) { mutableStateOf(timeoutSeconds.toFloat()) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
             "Popup timeout: ${internalValue.toInt()}s",
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
         Slider(
             value = internalValue,
@@ -199,7 +205,7 @@ private fun PoiPopupTimeoutSlider(
             steps = (maxSeconds - minSeconds - 1).coerceAtLeast(0),
             increaseIcon = { Icon(Icons.Filled.Add, contentDescription = "Increase timeout") },
             decreaseIcon = { Icon(Icons.Filled.Remove, contentDescription = "Decrease timeout") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

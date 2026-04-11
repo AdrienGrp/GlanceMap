@@ -7,13 +7,13 @@ import org.junit.Test
 import org.mapsforge.core.model.LatLong
 
 class GpxEtaEstimatorTest {
-
     @Test
     fun buildsSharedProjectionForTotalAndIntermediateTimes() {
-        val profile = testProfile(
-            segmentLengths = doubleArrayOf(100.0, 200.0),
-            elevations = listOf(100.0, 100.0, 100.0)
-        )
+        val profile =
+            testProfile(
+                segmentLengths = doubleArrayOf(100.0, 200.0),
+                elevations = listOf(100.0, 100.0, 100.0),
+            )
 
         val projection = buildEtaProjection(profile, flatSpeedMps = 2.0)
 
@@ -27,19 +27,20 @@ class GpxEtaEstimatorTest {
                 TrackPosition(
                     trackId = "test",
                     segmentIndex = 1,
-                    t = 0.25
-                )
+                    t = 0.25,
+                ),
             )!!,
-            1e-6
+            1e-6,
         )
     }
 
     @Test
     fun returnsNullProjectionWhenFlatSpeedIsNotPositive() {
-        val profile = testProfile(
-            segmentLengths = doubleArrayOf(100.0),
-            elevations = listOf(100.0, 100.0)
-        )
+        val profile =
+            testProfile(
+                segmentLengths = doubleArrayOf(100.0),
+                elevations = listOf(100.0, 100.0),
+            )
 
         assertNull(buildEtaProjection(profile, flatSpeedMps = 0.0))
         assertNull(buildEtaProjection(profile, flatSpeedMps = -1.0))
@@ -47,10 +48,11 @@ class GpxEtaEstimatorTest {
 
     @Test
     fun appliesGradeAdjustmentInsideSharedProjection() {
-        val profile = testProfile(
-            segmentLengths = doubleArrayOf(100.0),
-            elevations = listOf(100.0, 110.0)
-        )
+        val profile =
+            testProfile(
+                segmentLengths = doubleArrayOf(100.0),
+                elevations = listOf(100.0, 110.0),
+            )
 
         val projection = buildEtaProjection(profile, flatSpeedMps = 2.0)
 
@@ -60,20 +62,23 @@ class GpxEtaEstimatorTest {
 
     @Test
     fun capsSteepUphillWhenAdvancedRateIsEnabled() {
-        val profile = testProfile(
-            segmentLengths = doubleArrayOf(100.0),
-            elevations = listOf(100.0, 130.0)
-        )
-
-        val projection = buildEtaProjection(
-            profile = profile,
-            config = GpxEtaModelConfig(
-                flatSpeedMps = 2.0,
-                advancedVerticalRateEnabled = true,
-                uphillVerticalMetersPerHour = 300.0,
-                downhillVerticalMetersPerHour = 900.0
+        val profile =
+            testProfile(
+                segmentLengths = doubleArrayOf(100.0),
+                elevations = listOf(100.0, 130.0),
             )
-        )
+
+        val projection =
+            buildEtaProjection(
+                profile = profile,
+                config =
+                    GpxEtaModelConfig(
+                        flatSpeedMps = 2.0,
+                        advancedVerticalRateEnabled = true,
+                        uphillVerticalMetersPerHour = 300.0,
+                        downhillVerticalMetersPerHour = 900.0,
+                    ),
+            )
 
         checkNotNull(projection)
         assertEquals(360.0, projection.totalSeconds!!, 0.02)
@@ -81,20 +86,23 @@ class GpxEtaEstimatorTest {
 
     @Test
     fun speedsUpModerateUphillWhenAdvancedRateIsHigherThanBaseline() {
-        val profile = testProfile(
-            segmentLengths = doubleArrayOf(100.0),
-            elevations = listOf(100.0, 110.0)
-        )
-
-        val projection = buildEtaProjection(
-            profile = profile,
-            config = GpxEtaModelConfig(
-                flatSpeedMps = 2.0,
-                advancedVerticalRateEnabled = true,
-                uphillVerticalMetersPerHour = 600.0,
-                downhillVerticalMetersPerHour = 900.0
+        val profile =
+            testProfile(
+                segmentLengths = doubleArrayOf(100.0),
+                elevations = listOf(100.0, 110.0),
             )
-        )
+
+        val projection =
+            buildEtaProjection(
+                profile = profile,
+                config =
+                    GpxEtaModelConfig(
+                        flatSpeedMps = 2.0,
+                        advancedVerticalRateEnabled = true,
+                        uphillVerticalMetersPerHour = 600.0,
+                        downhillVerticalMetersPerHour = 900.0,
+                    ),
+            )
 
         checkNotNull(projection)
         assertEquals(60.0, projection.totalSeconds!!, 0.02)
@@ -102,20 +110,23 @@ class GpxEtaEstimatorTest {
 
     @Test
     fun capsSteepDownhillWhenAdvancedRateIsEnabled() {
-        val profile = testProfile(
-            segmentLengths = doubleArrayOf(100.0),
-            elevations = listOf(130.0, 110.0)
-        )
-
-        val projection = buildEtaProjection(
-            profile = profile,
-            config = GpxEtaModelConfig(
-                flatSpeedMps = 2.0,
-                advancedVerticalRateEnabled = true,
-                uphillVerticalMetersPerHour = 600.0,
-                downhillVerticalMetersPerHour = 600.0
+        val profile =
+            testProfile(
+                segmentLengths = doubleArrayOf(100.0),
+                elevations = listOf(130.0, 110.0),
             )
-        )
+
+        val projection =
+            buildEtaProjection(
+                profile = profile,
+                config =
+                    GpxEtaModelConfig(
+                        flatSpeedMps = 2.0,
+                        advancedVerticalRateEnabled = true,
+                        uphillVerticalMetersPerHour = 600.0,
+                        downhillVerticalMetersPerHour = 600.0,
+                    ),
+            )
 
         checkNotNull(projection)
         assertEquals(120.0, projection.totalSeconds!!, 0.02)
@@ -123,20 +134,23 @@ class GpxEtaEstimatorTest {
 
     @Test
     fun speedsUpSteepDownhillWhenAdvancedRateIsHigherThanBaseline() {
-        val profile = testProfile(
-            segmentLengths = doubleArrayOf(100.0),
-            elevations = listOf(130.0, 110.0)
-        )
-
-        val projection = buildEtaProjection(
-            profile = profile,
-            config = GpxEtaModelConfig(
-                flatSpeedMps = 2.0,
-                advancedVerticalRateEnabled = true,
-                uphillVerticalMetersPerHour = 600.0,
-                downhillVerticalMetersPerHour = 1200.0
+        val profile =
+            testProfile(
+                segmentLengths = doubleArrayOf(100.0),
+                elevations = listOf(130.0, 110.0),
             )
-        )
+
+        val projection =
+            buildEtaProjection(
+                profile = profile,
+                config =
+                    GpxEtaModelConfig(
+                        flatSpeedMps = 2.0,
+                        advancedVerticalRateEnabled = true,
+                        uphillVerticalMetersPerHour = 600.0,
+                        downhillVerticalMetersPerHour = 1200.0,
+                    ),
+            )
 
         checkNotNull(projection)
         assertEquals(60.0, projection.totalSeconds!!, 0.02)
@@ -144,7 +158,7 @@ class GpxEtaEstimatorTest {
 
     private fun testProfile(
         segmentLengths: DoubleArray,
-        elevations: List<Double>
+        elevations: List<Double>,
     ): TrackProfile {
         require(elevations.size == segmentLengths.size + 1) {
             "Need exactly one more elevation than segment length."
@@ -155,12 +169,13 @@ class GpxEtaEstimatorTest {
             cumulativeDistances[index + 1] = cumulativeDistances[index] + segmentLengths[index]
         }
 
-        val points = elevations.mapIndexed { index, elevation ->
-            TrackPoint(
-                latLong = LatLong(0.0, index.toDouble()),
-                elevation = elevation
-            )
-        }
+        val points =
+            elevations.mapIndexed { index, elevation ->
+                TrackPoint(
+                    latLong = LatLong(0.0, index.toDouble()),
+                    elevation = elevation,
+                )
+            }
 
         return TrackProfile(
             sig = FileSig(lastModified = 0L, length = points.size.toLong()),
@@ -169,7 +184,7 @@ class GpxEtaEstimatorTest {
             segLen = segmentLengths,
             cumDist = cumulativeDistances,
             cumAscent = DoubleArray(elevations.size),
-            cumDescent = DoubleArray(elevations.size)
+            cumDescent = DoubleArray(elevations.size),
         )
     }
 }

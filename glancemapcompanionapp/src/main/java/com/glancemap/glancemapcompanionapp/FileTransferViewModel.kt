@@ -43,7 +43,7 @@ import java.util.ArrayList
 
 enum class PoiImportSource {
     REFUGES,
-    OSM
+    OSM,
 }
 
 data class PoiImportProgressState(
@@ -52,7 +52,7 @@ data class PoiImportProgressState(
     val status: String = "",
     val completed: Boolean = false,
     val success: Boolean = false,
-    val message: String = ""
+    val message: String = "",
 )
 
 data class RoutingDownloadProgressState(
@@ -62,12 +62,12 @@ data class RoutingDownloadProgressState(
     val detail: String = "",
     val completed: Boolean = false,
     val success: Boolean = false,
-    val message: String = ""
+    val message: String = "",
 )
 
 data class GeneratedPhoneFile(
     val uri: Uri,
-    val fileName: String
+    val fileName: String,
 )
 
 class FileTransferViewModel : ViewModel() {
@@ -153,69 +153,75 @@ class FileTransferViewModel : ViewModel() {
     private var poiImportJob: Job? = null
     private var routingDownloadJob: Job? = null
 
-    private val connection = object : ServiceConnection {
-        override fun onServiceConnected(className: ComponentName, binder: IBinder) {
-            val localBinder = binder as? FileTransferService.LocalBinder
-            if (localBinder == null) {
-                Log.e("FileTransferVM", "Unexpected binder type: ${binder::class.java.name}")
+    private val connection =
+        object : ServiceConnection {
+            override fun onServiceConnected(
+                className: ComponentName,
+                binder: IBinder,
+            ) {
+                val localBinder = binder as? FileTransferService.LocalBinder
+                if (localBinder == null) {
+                    Log.e("FileTransferVM", "Unexpected binder type: ${binder::class.java.name}")
+                    isBound = false
+                    serviceRef = null
+                    return
+                }
+                val boundService = localBinder.getService()
+                serviceRef = WeakReference(boundService)
+                isBound = true
+
+                // ✅ Prevent multiple collectors
+                stateCollectJob?.cancel()
+                stateCollectJob =
+                    viewModelScope.launch {
+                        var previousSelectedWatchId: String? = null
+                        var previousSelectedWatchReachable = false
+                        boundService.uiState.collect { serviceState ->
+                            _uiState.value = serviceState
+                            val currentSelectedWatchId = serviceState.selectedWatch?.id
+                            val currentSelectedWatchReachable =
+                                isSelectedWatchReachable(
+                                    selectedWatch = serviceState.selectedWatch,
+                                    availableWatches = serviceState.availableWatches,
+                                )
+                            val selectedChanged = currentSelectedWatchId != previousSelectedWatchId
+                            val reachabilityChanged =
+                                currentSelectedWatchReachable != previousSelectedWatchReachable
+
+                            if (selectedChanged || reachabilityChanged) {
+                                _watchInstalledMapsStatusMessage.value = null
+                            }
+                            if (selectedChanged || (reachabilityChanged && !currentSelectedWatchReachable)) {
+                                _watchInstalledMaps.value = emptyList()
+                            }
+
+                            previousSelectedWatchId = currentSelectedWatchId
+                            previousSelectedWatchReachable = currentSelectedWatchReachable
+                        }
+                    }
+
+                // ✅ Apply pending multi-selection
+                if (pendingFileUris.isNotEmpty()) {
+                    if (!_uiState.value.isTransferring) {
+                        boundService.loadFilesFromUris(boundService, pendingFileUris)
+                    }
+                    pendingFileUris = emptyList()
+                }
+                if (pendingWatchMapsRefresh && _uiState.value.selectedWatch != null) {
+                    refreshWatchInstalledMaps(
+                        context = boundService,
+                        showToastIfUnavailable = false,
+                    )
+                }
+            }
+
+            override fun onServiceDisconnected(name: ComponentName) {
+                stateCollectJob?.cancel()
+                stateCollectJob = null
                 isBound = false
                 serviceRef = null
-                return
-            }
-            val boundService = localBinder.getService()
-            serviceRef = WeakReference(boundService)
-            isBound = true
-
-            // ✅ Prevent multiple collectors
-            stateCollectJob?.cancel()
-            stateCollectJob = viewModelScope.launch {
-                var previousSelectedWatchId: String? = null
-                var previousSelectedWatchReachable = false
-                boundService.uiState.collect { serviceState ->
-                    _uiState.value = serviceState
-                    val currentSelectedWatchId = serviceState.selectedWatch?.id
-                    val currentSelectedWatchReachable = isSelectedWatchReachable(
-                        selectedWatch = serviceState.selectedWatch,
-                        availableWatches = serviceState.availableWatches
-                    )
-                    val selectedChanged = currentSelectedWatchId != previousSelectedWatchId
-                    val reachabilityChanged =
-                        currentSelectedWatchReachable != previousSelectedWatchReachable
-
-                    if (selectedChanged || reachabilityChanged) {
-                        _watchInstalledMapsStatusMessage.value = null
-                    }
-                    if (selectedChanged || (reachabilityChanged && !currentSelectedWatchReachable)) {
-                        _watchInstalledMaps.value = emptyList()
-                    }
-
-                    previousSelectedWatchId = currentSelectedWatchId
-                    previousSelectedWatchReachable = currentSelectedWatchReachable
-                }
-            }
-
-            // ✅ Apply pending multi-selection
-            if (pendingFileUris.isNotEmpty()) {
-                if (!_uiState.value.isTransferring) {
-                    boundService.loadFilesFromUris(boundService, pendingFileUris)
-                }
-                pendingFileUris = emptyList()
-            }
-            if (pendingWatchMapsRefresh && _uiState.value.selectedWatch != null) {
-                refreshWatchInstalledMaps(
-                    context = boundService,
-                    showToastIfUnavailable = false
-                )
             }
         }
-
-        override fun onServiceDisconnected(name: ComponentName) {
-            stateCollectJob?.cancel()
-            stateCollectJob = null
-            isBound = false
-            serviceRef = null
-        }
-    }
 
     fun bindService(context: Context) {
         if (_lastRefugesRequest.value == null) {
@@ -242,19 +248,25 @@ class FileTransferViewModel : ViewModel() {
         serviceRef?.get()?.searchForWatches()
     }
 
-    fun onWatchSelected(context: Context, watch: WatchNode) {
+    fun onWatchSelected(
+        context: Context,
+        watch: WatchNode,
+    ) {
         serviceRef?.get()?.onWatchSelected(watch)
         _uiState.value = _uiState.value.copy(selectedWatch = watch)
         _watchInstalledMaps.value = emptyList()
         _watchInstalledMapsStatusMessage.value = null
         refreshWatchInstalledMaps(
             context = context.applicationContext,
-            showToastIfUnavailable = false
+            showToastIfUnavailable = false,
         )
     }
 
     // ✅ multi-load from picker
-    fun loadFilesFromUris(context: Context, uris: List<Uri>) {
+    fun loadFilesFromUris(
+        context: Context,
+        uris: List<Uri>,
+    ) {
         if (_uiState.value.isTransferring) {
             Toast.makeText(context, "Transfer in progress. Please wait or cancel.", Toast.LENGTH_SHORT).show()
             return
@@ -263,37 +275,41 @@ class FileTransferViewModel : ViewModel() {
 
         val appContext = context.applicationContext
         viewModelScope.launch {
-            val prepared = runCatching {
-                withContext(Dispatchers.IO) {
-                    prepareSelectedUrisForTransfer(
-                        context = appContext,
-                        uris = uris,
-                        refugesImporter = getRefugesImporter(appContext),
-                        gpxWaypointPoiImporter = getGpxWaypointPoiImporter(appContext),
-                        maxGeoJsonImportBytes = MAX_GEOJSON_IMPORT_BYTES,
-                        maxGpxWaypointImportBytes = MAX_GPX_WAYPOINT_IMPORT_BYTES
-                    )
+            val prepared =
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        prepareSelectedUrisForTransfer(
+                            context = appContext,
+                            uris = uris,
+                            refugesImporter = getRefugesImporter(appContext),
+                            gpxWaypointPoiImporter = getGpxWaypointPoiImporter(appContext),
+                            maxGeoJsonImportBytes = MAX_GEOJSON_IMPORT_BYTES,
+                            maxGpxWaypointImportBytes = MAX_GPX_WAYPOINT_IMPORT_BYTES,
+                        )
+                    }
+                }.getOrElse { error ->
+                    val message =
+                        error.localizedMessage?.takeIf { it.isNotBlank() }
+                            ?: "Failed to read selected file(s)."
+                    Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
+                    return@launch
                 }
-            }.getOrElse { error ->
-                val message = error.localizedMessage?.takeIf { it.isNotBlank() }
-                    ?: "Failed to read selected file(s)."
-                Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
-                return@launch
-            }
 
             if (prepared.convertedGeoJsonCount > 0) {
-                Toast.makeText(
-                    appContext,
-                    "Converted ${prepared.convertedGeoJsonCount} file(s) to .poi",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast
+                    .makeText(
+                        appContext,
+                        "Converted ${prepared.convertedGeoJsonCount} file(s) to .poi",
+                        Toast.LENGTH_SHORT,
+                    ).show()
             }
             if (prepared.extractedPoiFromGpxCount > 0) {
-                val message = if (prepared.extractedPoiFromMixedGpxCount > 0) {
-                    "Extracted POI from ${prepared.extractedPoiFromGpxCount} GPX file(s), route kept when present."
-                } else {
-                    "Converted ${prepared.extractedPoiFromGpxCount} waypoint GPX file(s) to .poi"
-                }
+                val message =
+                    if (prepared.extractedPoiFromMixedGpxCount > 0) {
+                        "Extracted POI from ${prepared.extractedPoiFromGpxCount} GPX file(s), route kept when present."
+                    } else {
+                        "Converted ${prepared.extractedPoiFromGpxCount} waypoint GPX file(s) to .poi"
+                    }
                 Toast.makeText(appContext, message, Toast.LENGTH_SHORT).show()
             }
 
@@ -301,7 +317,10 @@ class FileTransferViewModel : ViewModel() {
         }
     }
 
-    private fun deliverSelectedUris(context: Context, uris: List<Uri>) {
+    private fun deliverSelectedUris(
+        context: Context,
+        uris: List<Uri>,
+    ) {
         if (isBound && serviceRef?.get() != null) {
             serviceRef?.get()?.loadFilesFromUris(context, uris)
         } else {
@@ -319,12 +338,13 @@ class FileTransferViewModel : ViewModel() {
             return
         }
 
-        val intent = Intent(context, FileTransferService::class.java).apply {
-            action = FileTransferService.ACTION_START_MULTI
-            putParcelableArrayListExtra(FileTransferService.EXTRA_FILE_URIS, ArrayList(uris))
-            putExtra(FileTransferService.EXTRA_NODE_ID, watch.id)
-            putExtra(FileTransferService.EXTRA_NODE_DISPLAY_NAME, watch.displayName)
-        }
+        val intent =
+            Intent(context, FileTransferService::class.java).apply {
+                action = FileTransferService.ACTION_START_MULTI
+                putParcelableArrayListExtra(FileTransferService.EXTRA_FILE_URIS, ArrayList(uris))
+                putExtra(FileTransferService.EXTRA_NODE_ID, watch.id)
+                putExtra(FileTransferService.EXTRA_NODE_DISPLAY_NAME, watch.displayName)
+            }
 
         ContextCompat.startForegroundService(context, intent)
     }
@@ -339,21 +359,26 @@ class FileTransferViewModel : ViewModel() {
             _lastRoutingRequest.value = getBRouterTileDownloader(appContext).getLastRequest()
         }
 
-        val mode = if (_useDetailedRefugesRegionPresets.value) {
-            RefugesRegionPresetMode.DETAILED_MASSIFS
-        } else {
-            RefugesRegionPresetMode.COMPACT_ZONES
-        }
+        val mode =
+            if (_useDetailedRefugesRegionPresets.value) {
+                RefugesRegionPresetMode.DETAILED_MASSIFS
+            } else {
+                RefugesRegionPresetMode.COMPACT_ZONES
+            }
         if (hasLoadedRefugesPresets && loadedRefugesRegionPresetMode == mode) return
         loadRefugesRegionPresets(appContext, mode = mode, forceRefresh = false)
     }
 
-    fun setUseDetailedRefugesRegionPresets(context: Context, enabled: Boolean) {
-        val mode = if (enabled) {
-            RefugesRegionPresetMode.DETAILED_MASSIFS
-        } else {
-            RefugesRegionPresetMode.COMPACT_ZONES
-        }
+    fun setUseDetailedRefugesRegionPresets(
+        context: Context,
+        enabled: Boolean,
+    ) {
+        val mode =
+            if (enabled) {
+                RefugesRegionPresetMode.DETAILED_MASSIFS
+            } else {
+                RefugesRegionPresetMode.COMPACT_ZONES
+            }
         if (
             _useDetailedRefugesRegionPresets.value == enabled &&
             hasLoadedRefugesPresets &&
@@ -367,7 +392,7 @@ class FileTransferViewModel : ViewModel() {
 
     fun refreshWatchInstalledMaps(
         context: Context,
-        showToastIfUnavailable: Boolean = true
+        showToastIfUnavailable: Boolean = true,
     ) {
         val selectedWatch = _uiState.value.selectedWatch
         if (selectedWatch == null) {
@@ -401,13 +426,17 @@ class FileTransferViewModel : ViewModel() {
             _isLoadingWatchInstalledMaps.value = true
             _watchInstalledMapsStatusMessage.value = null
             try {
-                when (val result = withContext(Dispatchers.IO) {
-                    service.requestInstalledMaps(selectedWatch.id)
-                }) {
+                when (
+                    val result =
+                        withContext(Dispatchers.IO) {
+                            service.requestInstalledMaps(selectedWatch.id)
+                        }
+                ) {
                     is WatchInstalledMapsRequester.Result.Success -> {
-                        _watchInstalledMaps.value = result.maps
-                            .filter { it.bbox.isNotBlank() }
-                            .sortedBy { it.fileName.lowercase() }
+                        _watchInstalledMaps.value =
+                            result.maps
+                                .filter { it.bbox.isNotBlank() }
+                                .sortedBy { it.fileName.lowercase() }
                     }
 
                     is WatchInstalledMapsRequester.Result.Timeout -> {
@@ -419,22 +448,24 @@ class FileTransferViewModel : ViewModel() {
                         _watchInstalledMaps.value = emptyList()
                         val message = normalizeWatchMapsStatusMessage(result.exception)
                         _watchInstalledMapsStatusMessage.value = message
-                        Toast.makeText(
-                            context.applicationContext,
-                            message,
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast
+                            .makeText(
+                                context.applicationContext,
+                                message,
+                                Toast.LENGTH_SHORT,
+                            ).show()
                     }
                 }
             } catch (e: Exception) {
                 _watchInstalledMaps.value = emptyList()
                 val message = normalizeWatchMapsStatusMessage(e)
                 _watchInstalledMapsStatusMessage.value = message
-                Toast.makeText(
-                    context.applicationContext,
-                    message,
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast
+                    .makeText(
+                        context.applicationContext,
+                        message,
+                        Toast.LENGTH_SHORT,
+                    ).show()
             } finally {
                 _isLoadingWatchInstalledMaps.value = false
             }
@@ -446,7 +477,7 @@ class FileTransferViewModel : ViewModel() {
         bbox: String,
         fileName: String,
         selectedTypeIds: Set<Int> = RefugesGeoJsonPoiImporter.defaultPointTypeIds(),
-        appendToSelection: Boolean = true
+        appendToSelection: Boolean = true,
     ) {
         importPoiByBbox(
             context = context,
@@ -455,7 +486,7 @@ class FileTransferViewModel : ViewModel() {
             source = PoiImportSource.REFUGES,
             enrichWithOsm = false,
             selectedRefugesTypeIds = selectedTypeIds,
-            appendToSelection = appendToSelection
+            appendToSelection = appendToSelection,
         )
     }
 
@@ -467,64 +498,70 @@ class FileTransferViewModel : ViewModel() {
         enrichWithOsm: Boolean,
         selectedRefugesTypeIds: Set<Int> = RefugesGeoJsonPoiImporter.defaultPointTypeIds(),
         selectedOsmCategoryIds: Set<String> = defaultOsmPoiCategoryIds(),
-        appendToSelection: Boolean = true
+        appendToSelection: Boolean = true,
     ) {
         runRefugesImport(context, appendToSelection) { refugesImporter, reportProgress ->
             val appContext = context.applicationContext
             when (source) {
                 PoiImportSource.REFUGES -> {
-                    val refugesResult = refugesImporter.importFromBbox(
-                        bboxInput = bbox,
-                        fileNameInput = fileName,
-                        typePointIds = selectedRefugesTypeIds,
-                        reportProgress = { percent, status ->
-                            reportProgress(
-                                scaleStageProgress(
-                                    percent = percent,
-                                    start = if (enrichWithOsm) {
-                                        REFUGES_ENRICH_STAGE_START_PERCENT
-                                    } else {
-                                        REFUGES_DIRECT_STAGE_START_PERCENT
-                                    },
-                                    end = if (enrichWithOsm) {
-                                        REFUGES_ENRICH_STAGE_END_PERCENT
-                                    } else {
-                                        REFUGES_DIRECT_STAGE_END_PERCENT
-                                    }
-                                ),
-                                status
-                            )
-                        }
-                    )
+                    val refugesResult =
+                        refugesImporter.importFromBbox(
+                            bboxInput = bbox,
+                            fileNameInput = fileName,
+                            typePointIds = selectedRefugesTypeIds,
+                            reportProgress = { percent, status ->
+                                reportProgress(
+                                    scaleStageProgress(
+                                        percent = percent,
+                                        start =
+                                            if (enrichWithOsm) {
+                                                REFUGES_ENRICH_STAGE_START_PERCENT
+                                            } else {
+                                                REFUGES_DIRECT_STAGE_START_PERCENT
+                                            },
+                                        end =
+                                            if (enrichWithOsm) {
+                                                REFUGES_ENRICH_STAGE_END_PERCENT
+                                            } else {
+                                                REFUGES_DIRECT_STAGE_END_PERCENT
+                                            },
+                                    ),
+                                    status,
+                                )
+                            },
+                        )
                     if (!enrichWithOsm) {
                         refugesResult
                     } else {
                         reportProgress(60, "Importing OSM data for enrichment…")
                         val osmTempFileName = buildOsmEnrichTempFileName(refugesResult.fileName)
-                        val osmResult = getOsmImporter(appContext).importFromBbox(
-                            bboxInput = bbox,
-                            fileNameInput = osmTempFileName,
-                            selectedCategoryIds = selectedOsmCategoryIds,
-                            reportProgress = { percent, status ->
-                                reportProgress(
-                                    scaleStageProgress(
-                                        percent = percent,
-                                        start = OSM_ENRICH_STAGE_START_PERCENT,
-                                        end = OSM_ENRICH_STAGE_END_PERCENT
-                                    ),
-                                    status
-                                )
-                            }
-                        )
+                        val osmResult =
+                            getOsmImporter(appContext).importFromBbox(
+                                bboxInput = bbox,
+                                fileNameInput = osmTempFileName,
+                                selectedCategoryIds = selectedOsmCategoryIds,
+                                reportProgress = { percent, status ->
+                                    reportProgress(
+                                        scaleStageProgress(
+                                            percent = percent,
+                                            start = OSM_ENRICH_STAGE_START_PERCENT,
+                                            end = OSM_ENRICH_STAGE_END_PERCENT,
+                                        ),
+                                        status,
+                                    )
+                                },
+                            )
                         reportProgress(80, "Merging Refuges.info + OSM…")
-                        val merged = getPoiFileMerger(appContext).mergeImportedFiles(
-                            outputFileName = refugesResult.fileName,
-                            sourceFileNamesInPriorityOrder = listOf(
-                                refugesResult.fileName,
-                                osmResult.fileName
-                            ),
-                            bboxQuery = refugesResult.bbox
-                        )
+                        val merged =
+                            getPoiFileMerger(appContext).mergeImportedFiles(
+                                outputFileName = refugesResult.fileName,
+                                sourceFileNamesInPriorityOrder =
+                                    listOf(
+                                        refugesResult.fileName,
+                                        osmResult.fileName,
+                                    ),
+                                bboxQuery = refugesResult.bbox,
+                            )
                         runCatching {
                             File(appContext.filesDir, "refuges-poi/${osmResult.fileName}").delete()
                         }
@@ -535,23 +572,24 @@ class FileTransferViewModel : ViewModel() {
 
                 PoiImportSource.OSM -> {
                     reportProgress(OSM_DIRECT_STAGE_START_PERCENT, "Preparing OpenStreetMap import…")
-                    getOsmImporter(appContext).importFromBbox(
-                        bboxInput = bbox,
-                        fileNameInput = fileName,
-                        selectedCategoryIds = selectedOsmCategoryIds,
-                        reportProgress = { percent, status ->
-                            reportProgress(
-                                scaleStageProgress(
-                                    percent = percent,
-                                    start = OSM_DIRECT_STAGE_START_PERCENT,
-                                    end = OSM_DIRECT_STAGE_END_PERCENT
-                                ),
-                                status
-                            )
+                    getOsmImporter(appContext)
+                        .importFromBbox(
+                            bboxInput = bbox,
+                            fileNameInput = fileName,
+                            selectedCategoryIds = selectedOsmCategoryIds,
+                            reportProgress = { percent, status ->
+                                reportProgress(
+                                    scaleStageProgress(
+                                        percent = percent,
+                                        start = OSM_DIRECT_STAGE_START_PERCENT,
+                                        end = OSM_DIRECT_STAGE_END_PERCENT,
+                                    ),
+                                    status,
+                                )
+                            },
+                        ).also {
+                            reportProgress(90, "Finalizing OSM POI…")
                         }
-                    ).also {
-                        reportProgress(90, "Finalizing OSM POI…")
-                    }
                 }
             }
         }
@@ -559,7 +597,7 @@ class FileTransferViewModel : ViewModel() {
 
     fun refreshLastRefuges(
         context: Context,
-        appendToSelection: Boolean = true
+        appendToSelection: Boolean = true,
     ) {
         val appContext = context.applicationContext
         val importer = getRefugesImporter(appContext)
@@ -577,11 +615,11 @@ class FileTransferViewModel : ViewModel() {
                         scaleStageProgress(
                             percent = percent,
                             start = REFUGES_DIRECT_STAGE_START_PERCENT,
-                            end = REFUGES_DIRECT_STAGE_END_PERCENT
+                            end = REFUGES_DIRECT_STAGE_END_PERCENT,
                         ),
-                        status
+                        status,
                     )
-                }
+                },
             )
         }
     }
@@ -591,29 +629,31 @@ class FileTransferViewModel : ViewModel() {
         mapUri: Uri,
         fileName: String,
         selectedTypeIds: Set<Int> = RefugesGeoJsonPoiImporter.defaultPointTypeIds(),
-        appendToSelection: Boolean = true
+        appendToSelection: Boolean = true,
     ) {
         runRefugesImport(context, appendToSelection) { importer, reportProgress ->
             reportProgress(20, "Reading map bounds…")
-            val bbox = MapsforgeMapBoundsParser.readBboxString(
-                context = context.applicationContext,
-                uri = mapUri
-            )
+            val bbox =
+                MapsforgeMapBoundsParser.readBboxString(
+                    context = context.applicationContext,
+                    uri = mapUri,
+                )
             reportProgress(35, "Importing from Refuges.info…")
-            importer.importFromBbox(
-                bboxInput = bbox,
-                fileNameInput = fileName,
-                typePointIds = selectedTypeIds
-            ).also {
-                reportProgress(90, "Finalizing POI…")
-            }
+            importer
+                .importFromBbox(
+                    bboxInput = bbox,
+                    fileNameInput = fileName,
+                    typePointIds = selectedTypeIds,
+                ).also {
+                    reportProgress(90, "Finalizing POI…")
+                }
         }
     }
 
     fun importRefugesFromGeoJson(
         context: Context,
         uri: Uri,
-        appendToSelection: Boolean = true
+        appendToSelection: Boolean = true,
     ) {
         runRefugesImport(context, appendToSelection) { importer, reportProgress ->
             val appContext = context.applicationContext
@@ -621,18 +661,19 @@ class FileTransferViewModel : ViewModel() {
             val geoJsonSize = queryUriSize(appContext, uri)
             if (geoJsonSize != null && geoJsonSize > MAX_GEOJSON_IMPORT_BYTES) {
                 throw IllegalArgumentException(
-                    "GeoJSON is too large (${geoJsonSize / (1024 * 1024)}MB). Please use a smaller file."
+                    "GeoJSON is too large (${geoJsonSize / (1024 * 1024)}MB). Please use a smaller file.",
                 )
             }
             val text = readGeoJsonTextWithLimit(appContext, uri, MAX_GEOJSON_IMPORT_BYTES)
             val poiFileName = suggestPoiFileName(appContext, uri)
             reportProgress(60, "Converting GeoJSON to POI…")
-            importer.importFromGeoJsonText(
-                geoJsonText = text,
-                fileNameInput = poiFileName
-            ).also {
-                reportProgress(90, "Finalizing POI…")
-            }
+            importer
+                .importFromGeoJsonText(
+                    geoJsonText = text,
+                    fileNameInput = poiFileName,
+                ).also {
+                    reportProgress(90, "Finalizing POI…")
+                }
         }
     }
 
@@ -641,8 +682,8 @@ class FileTransferViewModel : ViewModel() {
         appendToSelection: Boolean,
         request: suspend (
             RefugesGeoJsonPoiImporter,
-            reportProgress: (percent: Int, status: String) -> Unit
-        ) -> RefugesImportResult
+            reportProgress: (percent: Int, status: String) -> Unit,
+        ) -> RefugesImportResult,
     ) {
         if (_isImportingRefuges.value) {
             Toast.makeText(context, "POI import already running.", Toast.LENGTH_SHORT).show()
@@ -654,86 +695,98 @@ class FileTransferViewModel : ViewModel() {
         }
 
         val appContext = context.applicationContext
-        poiImportJob = viewModelScope.launch {
-            _isImportingRefuges.value = true
-            _lastImportedPoiFile.value = null
-            _poiImportProgress.value = PoiImportProgressState(
-                isRunning = true,
-                progressPercent = 0,
-                status = "Starting import…",
-                completed = false,
-                success = false,
-                message = ""
-            )
-            try {
-                val importer = getRefugesImporter(appContext)
-                val result = withContext(Dispatchers.IO) {
-                    request(importer) { percent, status ->
-                        _poiImportProgress.value = _poiImportProgress.value.copy(
-                            progressPercent = percent.coerceIn(0, 100),
-                            status = status
-                        )
-                    }
-                }
-                _lastRefugesRequest.value = importer.getLastRequest()
-
-                _poiImportProgress.value = _poiImportProgress.value.copy(
-                    progressPercent = 95,
-                    status = "Adding imported POI to selected files…"
-                )
-                val existing = if (appendToSelection) _uiState.value.selectedFileUris else emptyList()
-                val merged = (existing + result.poiUri).distinctBy { it.toString() }
-                loadFilesFromUris(appContext, merged)
-
-                val successMessage = "POI imported: ${result.pointCount} points"
-                _lastImportedPoiFile.value = GeneratedPhoneFile(
-                    uri = result.poiUri,
-                    fileName = result.fileName
-                )
-                _poiImportProgress.value = _poiImportProgress.value.copy(
-                    isRunning = false,
-                    progressPercent = 100,
-                    status = "Import complete.",
-                    completed = true,
-                    success = true,
-                    message = successMessage
-                )
-                Toast.makeText(
-                    appContext,
-                    successMessage,
-                    Toast.LENGTH_LONG
-                ).show()
-            } catch (t: Throwable) {
-                if (t is CancellationException) {
-                    val message = "POI import cancelled."
-                    _poiImportProgress.value = _poiImportProgress.value.copy(
-                        isRunning = false,
-                        completed = true,
+        poiImportJob =
+            viewModelScope.launch {
+                _isImportingRefuges.value = true
+                _lastImportedPoiFile.value = null
+                _poiImportProgress.value =
+                    PoiImportProgressState(
+                        isRunning = true,
+                        progressPercent = 0,
+                        status = "Starting import…",
+                        completed = false,
                         success = false,
-                        status = "Cancelled.",
-                        message = message
+                        message = "",
                     )
-                    Toast.makeText(appContext, message, Toast.LENGTH_SHORT).show()
-                    return@launch
+                try {
+                    val importer = getRefugesImporter(appContext)
+                    val result =
+                        withContext(Dispatchers.IO) {
+                            request(importer) { percent, status ->
+                                _poiImportProgress.value =
+                                    _poiImportProgress.value.copy(
+                                        progressPercent = percent.coerceIn(0, 100),
+                                        status = status,
+                                    )
+                            }
+                        }
+                    _lastRefugesRequest.value = importer.getLastRequest()
+
+                    _poiImportProgress.value =
+                        _poiImportProgress.value.copy(
+                            progressPercent = 95,
+                            status = "Adding imported POI to selected files…",
+                        )
+                    val existing = if (appendToSelection) _uiState.value.selectedFileUris else emptyList()
+                    val merged = (existing + result.poiUri).distinctBy { it.toString() }
+                    loadFilesFromUris(appContext, merged)
+
+                    val successMessage = "POI imported: ${result.pointCount} points"
+                    _lastImportedPoiFile.value =
+                        GeneratedPhoneFile(
+                            uri = result.poiUri,
+                            fileName = result.fileName,
+                        )
+                    _poiImportProgress.value =
+                        _poiImportProgress.value.copy(
+                            isRunning = false,
+                            progressPercent = 100,
+                            status = "Import complete.",
+                            completed = true,
+                            success = true,
+                            message = successMessage,
+                        )
+                    Toast
+                        .makeText(
+                            appContext,
+                            successMessage,
+                            Toast.LENGTH_LONG,
+                        ).show()
+                } catch (t: Throwable) {
+                    if (t is CancellationException) {
+                        val message = "POI import cancelled."
+                        _poiImportProgress.value =
+                            _poiImportProgress.value.copy(
+                                isRunning = false,
+                                completed = true,
+                                success = false,
+                                status = "Cancelled.",
+                                message = message,
+                            )
+                        Toast.makeText(appContext, message, Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                    val message =
+                        when (t) {
+                            is OutOfMemoryError ->
+                                "Import area is too large for this phone. Please use a smaller area."
+                            else ->
+                                t.localizedMessage?.takeIf { it.isNotBlank() }
+                                    ?: "POI import failed."
+                        }
+                    _poiImportProgress.value =
+                        _poiImportProgress.value.copy(
+                            isRunning = false,
+                            completed = true,
+                            success = false,
+                            message = message,
+                        )
+                    Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
+                } finally {
+                    _isImportingRefuges.value = false
+                    poiImportJob = null
                 }
-                val message = when (t) {
-                    is OutOfMemoryError ->
-                        "Import area is too large for this phone. Please use a smaller area."
-                    else -> t.localizedMessage?.takeIf { it.isNotBlank() }
-                        ?: "POI import failed."
-                }
-                _poiImportProgress.value = _poiImportProgress.value.copy(
-                    isRunning = false,
-                    completed = true,
-                    success = false,
-                    message = message
-                )
-                Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
-            } finally {
-                _isImportingRefuges.value = false
-                poiImportJob = null
             }
-        }
     }
 
     fun resetPoiImportProgress() {
@@ -744,9 +797,10 @@ class FileTransferViewModel : ViewModel() {
         val job = poiImportJob
         if (job?.isActive != true) return
 
-        _poiImportProgress.value = _poiImportProgress.value.copy(
-            status = "Cancelling POI import…"
-        )
+        _poiImportProgress.value =
+            _poiImportProgress.value.copy(
+                status = "Cancelling POI import…",
+            )
         osmOverpassImporter?.cancelActiveImport()
         job.cancel(CancellationException("Cancelled by user"))
     }
@@ -759,10 +813,11 @@ class FileTransferViewModel : ViewModel() {
         val job = routingDownloadJob
         if (job?.isActive != true) return
 
-        _routingDownloadProgress.value = _routingDownloadProgress.value.copy(
-            status = "Cancelling routing download…",
-            detail = ""
-        )
+        _routingDownloadProgress.value =
+            _routingDownloadProgress.value.copy(
+                status = "Cancelling routing download…",
+                detail = "",
+            )
         brouterTileDownloader?.cancelActiveDownload()
         job.cancel(CancellationException("Cancelled by user"))
     }
@@ -771,7 +826,7 @@ class FileTransferViewModel : ViewModel() {
         context: Context,
         bbox: String,
         appendToSelection: Boolean = true,
-        forceRefresh: Boolean = false
+        forceRefresh: Boolean = false,
     ) {
         if (_isDownloadingRouting.value) {
             Toast.makeText(context, "Routing download already running.", Toast.LENGTH_SHORT).show()
@@ -783,105 +838,117 @@ class FileTransferViewModel : ViewModel() {
         }
 
         val appContext = context.applicationContext
-        routingDownloadJob = viewModelScope.launch {
-            _isDownloadingRouting.value = true
-            _lastRoutingDownloadedFiles.value = emptyList()
-            _routingDownloadProgress.value = RoutingDownloadProgressState(
-                isRunning = true,
-                progressPercent = 0,
-                status = "Preparing routing packs…",
-                detail = ""
-            )
-            try {
-                val downloader = getBRouterTileDownloader(appContext)
-                val result = withContext(Dispatchers.IO) {
-                    downloader.downloadForBbox(
-                        bboxInput = bbox,
-                        reportProgress = { percent, status, detail ->
-                            _routingDownloadProgress.value = _routingDownloadProgress.value.copy(
-                                progressPercent = percent.coerceIn(0, 100),
-                                status = status,
-                                detail = detail
-                            )
-                        },
-                        forceRefresh = forceRefresh
-                    )
-                }
-
-                _lastRoutingRequest.value = downloader.getLastRequest()
-
-                _routingDownloadProgress.value = _routingDownloadProgress.value.copy(
-                    progressPercent = 95,
-                    status = if (forceRefresh) {
-                        "Refreshing selected routing packs…"
-                    } else {
-                        "Adding routing packs to selected files…"
-                    },
-                    detail = ""
-                )
-
-                val existing = if (appendToSelection) _uiState.value.selectedFileUris else emptyList()
-                val merged = (existing + result.tileUris).distinctBy { it.toString() }
-                loadFilesFromUris(appContext, merged)
-
-                val message = when {
-                    forceRefresh && result.downloadedCount > 0 ->
-                        "Routing refreshed: ${result.downloadedCount} pack(s) updated."
-                    result.downloadedCount > 0 && result.skippedCount > 0 ->
-                        "Routing ready: ${result.downloadedCount} downloaded, ${result.skippedCount} already present."
-                    result.downloadedCount > 0 ->
-                        "Routing ready: ${result.downloadedCount} pack(s) downloaded."
-                    else ->
-                        "Routing already available (${result.skippedCount} pack(s) already present)."
-                }
-
-                _lastRoutingDownloadedFiles.value = result.tileUris.zip(result.tileNames).map { (uri, name) ->
-                    GeneratedPhoneFile(uri = uri, fileName = name)
-                }
-                _routingDownloadProgress.value = _routingDownloadProgress.value.copy(
-                    isRunning = false,
-                    progressPercent = 100,
-                    status = "Routing packs ready.",
-                    detail = "",
-                    completed = true,
-                    success = true,
-                    message = message
-                )
-                Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
-            } catch (t: Throwable) {
-                if (t is CancellationException) {
-                    val message = "Routing download cancelled."
-                    _routingDownloadProgress.value = _routingDownloadProgress.value.copy(
-                        isRunning = false,
-                        completed = true,
-                        success = false,
-                        status = "Cancelled.",
+        routingDownloadJob =
+            viewModelScope.launch {
+                _isDownloadingRouting.value = true
+                _lastRoutingDownloadedFiles.value = emptyList()
+                _routingDownloadProgress.value =
+                    RoutingDownloadProgressState(
+                        isRunning = true,
+                        progressPercent = 0,
+                        status = "Preparing routing packs…",
                         detail = "",
-                        message = message
                     )
-                    Toast.makeText(appContext, message, Toast.LENGTH_SHORT).show()
-                    return@launch
+                try {
+                    val downloader = getBRouterTileDownloader(appContext)
+                    val result =
+                        withContext(Dispatchers.IO) {
+                            downloader.downloadForBbox(
+                                bboxInput = bbox,
+                                reportProgress = { percent, status, detail ->
+                                    _routingDownloadProgress.value =
+                                        _routingDownloadProgress.value.copy(
+                                            progressPercent = percent.coerceIn(0, 100),
+                                            status = status,
+                                            detail = detail,
+                                        )
+                                },
+                                forceRefresh = forceRefresh,
+                            )
+                        }
+
+                    _lastRoutingRequest.value = downloader.getLastRequest()
+
+                    _routingDownloadProgress.value =
+                        _routingDownloadProgress.value.copy(
+                            progressPercent = 95,
+                            status =
+                                if (forceRefresh) {
+                                    "Refreshing selected routing packs…"
+                                } else {
+                                    "Adding routing packs to selected files…"
+                                },
+                            detail = "",
+                        )
+
+                    val existing = if (appendToSelection) _uiState.value.selectedFileUris else emptyList()
+                    val merged = (existing + result.tileUris).distinctBy { it.toString() }
+                    loadFilesFromUris(appContext, merged)
+
+                    val message =
+                        when {
+                            forceRefresh && result.downloadedCount > 0 ->
+                                "Routing refreshed: ${result.downloadedCount} pack(s) updated."
+                            result.downloadedCount > 0 && result.skippedCount > 0 ->
+                                "Routing ready: ${result.downloadedCount} downloaded, ${result.skippedCount} already present."
+                            result.downloadedCount > 0 ->
+                                "Routing ready: ${result.downloadedCount} pack(s) downloaded."
+                            else ->
+                                "Routing already available (${result.skippedCount} pack(s) already present)."
+                        }
+
+                    _lastRoutingDownloadedFiles.value =
+                        result.tileUris.zip(result.tileNames).map { (uri, name) ->
+                            GeneratedPhoneFile(uri = uri, fileName = name)
+                        }
+                    _routingDownloadProgress.value =
+                        _routingDownloadProgress.value.copy(
+                            isRunning = false,
+                            progressPercent = 100,
+                            status = "Routing packs ready.",
+                            detail = "",
+                            completed = true,
+                            success = true,
+                            message = message,
+                        )
+                    Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
+                } catch (t: Throwable) {
+                    if (t is CancellationException) {
+                        val message = "Routing download cancelled."
+                        _routingDownloadProgress.value =
+                            _routingDownloadProgress.value.copy(
+                                isRunning = false,
+                                completed = true,
+                                success = false,
+                                status = "Cancelled.",
+                                detail = "",
+                                message = message,
+                            )
+                        Toast.makeText(appContext, message, Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                    val message =
+                        t.localizedMessage?.takeIf { it.isNotBlank() }
+                            ?: "Routing download failed."
+                    _routingDownloadProgress.value =
+                        _routingDownloadProgress.value.copy(
+                            isRunning = false,
+                            completed = true,
+                            success = false,
+                            detail = "",
+                            message = message,
+                        )
+                    Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
+                } finally {
+                    _isDownloadingRouting.value = false
+                    routingDownloadJob = null
                 }
-                val message = t.localizedMessage?.takeIf { it.isNotBlank() }
-                    ?: "Routing download failed."
-                _routingDownloadProgress.value = _routingDownloadProgress.value.copy(
-                    isRunning = false,
-                    completed = true,
-                    success = false,
-                    detail = "",
-                    message = message
-                )
-                Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
-            } finally {
-                _isDownloadingRouting.value = false
-                routingDownloadJob = null
             }
-        }
     }
 
     fun refreshLastRouting(
         context: Context,
-        appendToSelection: Boolean = true
+        appendToSelection: Boolean = true,
     ) {
         val appContext = context.applicationContext
         val downloader = getBRouterTileDownloader(appContext)
@@ -896,34 +963,29 @@ class FileTransferViewModel : ViewModel() {
             context = context,
             bbox = lastRequest.bbox,
             appendToSelection = appendToSelection,
-            forceRefresh = true
+            forceRefresh = true,
         )
     }
 
-    private fun getRefugesImporter(context: Context): RefugesGeoJsonPoiImporter {
-        return refugesImporter ?: RefugesGeoJsonPoiImporter(context).also { refugesImporter = it }
-    }
+    private fun getRefugesImporter(context: Context): RefugesGeoJsonPoiImporter = refugesImporter ?: RefugesGeoJsonPoiImporter(context).also { refugesImporter = it }
 
-    private fun getBRouterTileDownloader(context: Context): BRouterTileDownloader {
-        return brouterTileDownloader ?: BRouterTileDownloader(context).also {
+    private fun getBRouterTileDownloader(context: Context): BRouterTileDownloader =
+        brouterTileDownloader ?: BRouterTileDownloader(context).also {
             brouterTileDownloader = it
         }
-    }
 
-    private fun getOsmImporter(context: Context): OsmOverpassPoiImporter {
-        return osmOverpassImporter
+    private fun getOsmImporter(context: Context): OsmOverpassPoiImporter =
+        osmOverpassImporter
             ?: OsmOverpassPoiImporter(context).also { osmOverpassImporter = it }
-    }
 
-    private fun getGpxWaypointPoiImporter(context: Context): GpxWaypointPoiImporter {
-        return gpxWaypointPoiImporter
+    private fun getGpxWaypointPoiImporter(context: Context): GpxWaypointPoiImporter =
+        gpxWaypointPoiImporter
             ?: GpxWaypointPoiImporter(context).also { gpxWaypointPoiImporter = it }
-    }
 
     private fun scaleStageProgress(
         percent: Int,
         start: Int,
-        end: Int
+        end: Int,
     ): Int {
         val clampedPercent = percent.coerceIn(0, 100)
         val safeStart = start.coerceIn(0, 100)
@@ -932,31 +994,29 @@ class FileTransferViewModel : ViewModel() {
         return (safeStart + ((clampedPercent * span) / 100)).coerceIn(safeStart, safeEnd)
     }
 
-    private fun getPoiFileMerger(context: Context): PoiFileMerger {
-        return poiFileMerger ?: PoiFileMerger(context).also { poiFileMerger = it }
-    }
+    private fun getPoiFileMerger(context: Context): PoiFileMerger = poiFileMerger ?: PoiFileMerger(context).also { poiFileMerger = it }
 
-    private fun getRefugesRegionPresetRepository(context: Context): RefugesRegionPresetRepository {
-        return refugesRegionPresetRepository
+    private fun getRefugesRegionPresetRepository(context: Context): RefugesRegionPresetRepository =
+        refugesRegionPresetRepository
             ?: RefugesRegionPresetRepository(context).also { refugesRegionPresetRepository = it }
-    }
 
     private fun loadRefugesRegionPresets(
         appContext: Context,
         mode: RefugesRegionPresetMode,
-        forceRefresh: Boolean
+        forceRefresh: Boolean,
     ) {
         hasLoadedRefugesPresets = true
         loadedRefugesRegionPresetMode = mode
         viewModelScope.launch {
-            val presets = runCatching {
-                withContext(Dispatchers.IO) {
-                    getRefugesRegionPresetRepository(appContext).loadPresets(
-                        forceRefresh = forceRefresh,
-                        mode = mode
-                    )
-                }
-            }.getOrDefault(RefugesRegionPresetRepository.defaultPresets())
+            val presets =
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        getRefugesRegionPresetRepository(appContext).loadPresets(
+                            forceRefresh = forceRefresh,
+                            mode = mode,
+                        )
+                    }
+                }.getOrDefault(RefugesRegionPresetRepository.defaultPresets())
             _refugesRegionPresets.value = presets
         }
     }
@@ -979,13 +1039,14 @@ class FileTransferViewModel : ViewModel() {
         if (service != null) {
             service.clearSelectedFiles()
         } else {
-            _uiState.value = _uiState.value.copy(
-                selectedFileUris = emptyList(),
-                selectedFileDisplayNames = emptyList(),
-                selectedFileUri = null,
-                selectedFileName = null,
-                selectedFileSizeMb = 0
-            )
+            _uiState.value =
+                _uiState.value.copy(
+                    selectedFileUris = emptyList(),
+                    selectedFileDisplayNames = emptyList(),
+                    selectedFileUri = null,
+                    selectedFileName = null,
+                    selectedFileSizeMb = 0,
+                )
         }
     }
 
@@ -995,11 +1056,12 @@ class FileTransferViewModel : ViewModel() {
 
     fun startPhoneDebugCapture(context: Context) {
         PhoneDebugCapture.start()
-        Toast.makeText(
-            context.applicationContext,
-            "Phone debug capture started",
-            Toast.LENGTH_SHORT
-        ).show()
+        Toast
+            .makeText(
+                context.applicationContext,
+                "Phone debug capture started",
+                Toast.LENGTH_SHORT,
+            ).show()
     }
 
     fun stopPhoneDebugCaptureAndSend(context: Context) {
@@ -1008,11 +1070,12 @@ class FileTransferViewModel : ViewModel() {
             runCatching {
                 CompanionDiagnosticsEmailComposer.composePhoneDiagnosticsEmail(context)
             }.onFailure { error ->
-                Toast.makeText(
-                    context.applicationContext,
-                    error.localizedMessage ?: "Could not open email draft",
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast
+                    .makeText(
+                        context.applicationContext,
+                        error.localizedMessage ?: "Could not open email draft",
+                        Toast.LENGTH_LONG,
+                    ).show()
             }
         }
     }
@@ -1022,11 +1085,12 @@ class FileTransferViewModel : ViewModel() {
             runCatching {
                 CompanionDiagnosticsEmailComposer.composeLatestPhoneDiagnosticsEmail(context)
             }.onFailure { error ->
-                Toast.makeText(
-                    context.applicationContext,
-                    error.localizedMessage ?: "No saved phone recording available",
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast
+                    .makeText(
+                        context.applicationContext,
+                        error.localizedMessage ?: "No saved phone recording available",
+                        Toast.LENGTH_LONG,
+                    ).show()
             }
         }
     }

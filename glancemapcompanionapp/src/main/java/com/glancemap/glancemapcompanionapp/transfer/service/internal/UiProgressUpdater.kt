@@ -9,7 +9,7 @@ import kotlin.math.abs
 
 internal class UiProgressUpdater(
     private val uiState: MutableStateFlow<FileTransferUiState>,
-    private val notificationHelper: NotificationHelper
+    private val notificationHelper: NotificationHelper,
 ) {
     private var lastUiUpdateMs: Long = 0L
     private var lastUiProgressInt: Int = -1
@@ -21,7 +21,10 @@ internal class UiProgressUpdater(
         lastUiText = ""
     }
 
-    fun update(progress: Float, text: String) {
+    fun update(
+        progress: Float,
+        text: String,
+    ) {
         val p = progress.coerceIn(0f, 1f)
         val pInt = (p * 100).toInt().coerceIn(0, 100)
 
@@ -36,7 +39,10 @@ internal class UiProgressUpdater(
         notificationHelper.updateProgress(pInt, text, paused)
     }
 
-    private fun shouldUpdateUi(progressInt: Int, text: String): Boolean {
+    private fun shouldUpdateUi(
+        progressInt: Int,
+        text: String,
+    ): Boolean {
         val now = SystemClock.elapsedRealtime()
         if (progressInt <= 0 || progressInt >= 100) return true
 

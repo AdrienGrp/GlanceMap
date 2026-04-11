@@ -63,78 +63,84 @@ internal fun PoiFileRow(
     compactMode: Boolean,
     onToggle: (Boolean) -> Unit,
     onToggleExpanded: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
     val cardShape = RoundedCornerShape(if (compactMode) 28.dp else 30.dp)
-    val cardColor = when {
-        file.isEnabled && isUserPoiFile(file.path) -> Color(0xFF6650A6)
-        file.isEnabled -> Color(0xFF574A86)
-        isUserPoiFile(file.path) -> Color(0xFF392F58)
-        else -> Color(0xFF312B45)
-    }
-    val secondaryTint = if (isUserPoiFile(file.path)) {
-        Color(0xFFFFD54F)
-    } else {
-        Color(0xFFFFB74D)
-    }
+    val cardColor =
+        when {
+            file.isEnabled && isUserPoiFile(file.path) -> Color(0xFF6650A6)
+            file.isEnabled -> Color(0xFF574A86)
+            isUserPoiFile(file.path) -> Color(0xFF392F58)
+            else -> Color(0xFF312B45)
+        }
+    val secondaryTint =
+        if (isUserPoiFile(file.path)) {
+            Color(0xFFFFD54F)
+        } else {
+            Color(0xFFFFB74D)
+        }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = if (showDelete) {
-            Arrangement.spacedBy(rowSpacing)
-        } else {
-            Arrangement.Start
-        }
+        horizontalArrangement =
+            if (showDelete) {
+                Arrangement.spacedBy(rowSpacing)
+            } else {
+                Arrangement.Start
+            },
     ) {
         Row(
-            modifier = Modifier
-                .weight(1f)
-                .clip(cardShape)
-                .background(cardColor)
-                .clickable { onToggle(!file.isEnabled) }
-                .padding(
-                    horizontal = if (compactMode) 12.dp else 14.dp,
-                    vertical = if (compactMode) 9.dp else 10.dp
-                ),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .clip(cardShape)
+                    .background(cardColor)
+                    .clickable { onToggle(!file.isEnabled) }
+                    .padding(
+                        horizontal = if (compactMode) 12.dp else 14.dp,
+                        vertical = if (compactMode) 9.dp else 10.dp,
+                    ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (compactMode) 8.dp else 10.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (compactMode) 8.dp else 10.dp),
         ) {
             Icon(
-                imageVector = if (isUserPoiFile(file.path)) {
-                    Icons.Default.Star
-                } else {
-                    Icons.Default.LocationOn
-                },
+                imageVector =
+                    if (isUserPoiFile(file.path)) {
+                        Icons.Default.Star
+                    } else {
+                        Icons.Default.LocationOn
+                    },
                 contentDescription = null,
                 modifier = Modifier.size(if (compactMode) 14.dp else 16.dp),
-                tint = secondaryTint
+                tint = secondaryTint,
             )
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
                     text = file.name,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .basicMarquee(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .basicMarquee(),
                     maxLines = 1,
                     overflow = TextOverflow.Visible,
-                    color = Color(0xFFF5F2FF)
+                    color = Color(0xFFF5F2FF),
                 )
                 Text(
                     text = "${file.enabledPoiCount}/${file.totalPoiCount} POI",
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = if (compactMode) 8.sp else 9.sp,
                     color = Color(0xFFD0D3F2),
-                    maxLines = 1
+                    maxLines = 1,
                 )
             }
             TogglePillIndicator(
                 checked = file.isEnabled,
                 compactMode = compactMode,
-                large = true
+                large = true,
             )
         }
 
@@ -142,42 +148,46 @@ internal fun PoiFileRow(
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier.size(actionButtonSize),
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                )
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = if (isUserPoiFile(file.path)) {
-                        "Delete created POI"
-                    } else {
-                        "Delete POI file"
-                    },
-                    modifier = Modifier.size(actionIconSize)
+                    contentDescription =
+                        if (isUserPoiFile(file.path)) {
+                            "Delete created POI"
+                        } else {
+                            "Delete POI file"
+                        },
+                    modifier = Modifier.size(actionIconSize),
                 )
             }
         } else {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(0.dp)
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 IconButton(
                     onClick = onToggleExpanded,
                     modifier = Modifier.size(actionButtonSize),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.72f),
-                        contentColor = Color.White
-                    )
+                    colors =
+                        IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.72f),
+                            contentColor = Color.White,
+                        ),
                 ) {
                     Icon(
                         imageVector = if (file.isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (isUserPoiFile(file.path)) {
-                            if (file.isExpanded) "Collapse saved places" else "Expand saved places"
-                        } else {
-                            if (file.isExpanded) "Collapse categories" else "Expand categories"
-                        },
-                        modifier = Modifier.size(actionIconSize)
+                        contentDescription =
+                            if (isUserPoiFile(file.path)) {
+                                if (file.isExpanded) "Collapse saved places" else "Expand saved places"
+                            } else {
+                                if (file.isExpanded) "Collapse categories" else "Expand categories"
+                            },
+                        modifier = Modifier.size(actionIconSize),
                     )
                 }
             }
@@ -195,96 +205,103 @@ internal fun PoiCategoryRow(
     actionIconSize: Dp,
     compactMode: Boolean,
     onToggle: (Boolean) -> Unit,
-    onToggleExpanded: () -> Unit
+    onToggleExpanded: () -> Unit,
 ) {
     val cappedDepth = category.depth.coerceIn(0, 4)
     val indent = (cappedDepth * categoryIndentStep.value).dp
     val isSyntheticGroup = category.id < 0
     val inferredType = inferPoiTypeFromCategoryName(category.name)
-    val syntheticType = if (isSyntheticGroup) {
-        inferSyntheticGroupPoiType(category.name)
-    } else {
-        null
-    }
+    val syntheticType =
+        if (isSyntheticGroup) {
+            inferSyntheticGroupPoiType(category.name)
+        } else {
+            null
+        }
     val iconType = syntheticType ?: inferredType
-    val categoryIcon = when {
-        syntheticType != null -> poiTypeCategoryIcon(iconType)
-        category.hasChildren -> if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder
-        else -> poiTypeCategoryIcon(iconType)
-    }
-    val categoryTint = when {
-        syntheticType != null -> poiTypeCategoryTint(iconType)
-        category.hasChildren -> Color(0xFF8FB2FF)
-        else -> poiTypeCategoryTint(iconType)
-    }
-    val countLabel = when {
-        categoryCount == null || categoryCount.isLoading -> "..."
-        categoryCount.errorMessage != null -> "Count unavailable"
-        else -> "${categoryCount.enabledPoiCount}/${categoryCount.totalPoiCount} POI"
-    }
+    val categoryIcon =
+        when {
+            syntheticType != null -> poiTypeCategoryIcon(iconType)
+            category.hasChildren -> if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder
+            else -> poiTypeCategoryIcon(iconType)
+        }
+    val categoryTint =
+        when {
+            syntheticType != null -> poiTypeCategoryTint(iconType)
+            category.hasChildren -> Color(0xFF8FB2FF)
+            else -> poiTypeCategoryTint(iconType)
+        }
+    val countLabel =
+        when {
+            categoryCount == null || categoryCount.isLoading -> "..."
+            categoryCount.errorMessage != null -> "Count unavailable"
+            else -> "${categoryCount.enabledPoiCount}/${categoryCount.totalPoiCount} POI"
+        }
     val cardShape = RoundedCornerShape(if (compactMode) 18.dp else 20.dp)
-    val cardColor = when {
-        category.hasChildren && category.enabled -> Color(0xFF373F63)
-        category.hasChildren -> Color(0xFF262D39)
-        category.enabled -> Color(0xFF2F3547)
-        else -> Color(0xFF20242C)
-    }
+    val cardColor =
+        when {
+            category.hasChildren && category.enabled -> Color(0xFF373F63)
+            category.hasChildren -> Color(0xFF262D39)
+            category.enabled -> Color(0xFF2F3547)
+            else -> Color(0xFF20242C)
+        }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(if (compactMode) 4.dp else 6.dp)
+        horizontalArrangement = Arrangement.spacedBy(if (compactMode) 4.dp else 6.dp),
     ) {
         Box(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = indent)
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .padding(start = indent),
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(cardShape)
-                    .background(cardColor)
-                    .clickable { onToggle(!category.enabled) }
-                    .padding(
-                        horizontal = if (compactMode) 10.dp else 12.dp,
-                        vertical = if (compactMode) 7.dp else 8.dp
-                    ),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(cardShape)
+                        .background(cardColor)
+                        .clickable { onToggle(!category.enabled) }
+                        .padding(
+                            horizontal = if (compactMode) 10.dp else 12.dp,
+                            vertical = if (compactMode) 7.dp else 8.dp,
+                        ),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(if (compactMode) 6.dp else 8.dp)
+                horizontalArrangement = Arrangement.spacedBy(if (compactMode) 6.dp else 8.dp),
             ) {
                 if (categoryIcon != null) {
                     Icon(
                         imageVector = categoryIcon,
                         contentDescription = null,
                         modifier = Modifier.size(if (compactMode) 12.dp else 14.dp),
-                        tint = categoryTint
+                        tint = categoryTint,
                     )
                 }
 
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(1.dp)
+                    verticalArrangement = Arrangement.spacedBy(1.dp),
                 ) {
                     Text(
                         text = category.name,
                         modifier = Modifier.basicMarquee(),
                         maxLines = 1,
                         overflow = TextOverflow.Visible,
-                        color = Color(0xFFF0F2FF)
+                        color = Color(0xFFF0F2FF),
                     )
                     Text(
                         text = countLabel,
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = if (compactMode) 8.sp else 9.sp,
                         color = if (category.hasChildren) Color(0xFFAFC2F5) else Color(0xFF9FB0CD),
-                        maxLines = 1
+                        maxLines = 1,
                     )
                 }
 
                 TogglePillIndicator(
                     checked = category.enabled,
                     compactMode = compactMode,
-                    large = false
+                    large = false,
                 )
             }
         }
@@ -292,19 +309,21 @@ internal fun PoiCategoryRow(
         IconButton(
             onClick = onToggleExpanded,
             modifier = Modifier.size(actionButtonSize),
-            colors = IconButtonDefaults.iconButtonColors(
-                containerColor = Color.Black.copy(alpha = 0.72f),
-                contentColor = Color.White
-            )
+            colors =
+                IconButtonDefaults.iconButtonColors(
+                    containerColor = Color.Black.copy(alpha = 0.72f),
+                    contentColor = Color.White,
+                ),
         ) {
             Icon(
                 imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = if (isExpanded) {
-                    if (category.hasChildren) "Collapse folder" else "Hide POI list"
-                } else {
-                    if (category.hasChildren) "Expand folder" else "Show POI list"
-                },
-                modifier = Modifier.size(actionIconSize)
+                contentDescription =
+                    if (isExpanded) {
+                        if (category.hasChildren) "Collapse folder" else "Hide POI list"
+                    } else {
+                        if (category.hasChildren) "Expand folder" else "Show POI list"
+                    },
+                modifier = Modifier.size(actionIconSize),
             )
         }
     }
@@ -322,7 +341,7 @@ internal fun PoiCategoryPoiRow(
     showRename: Boolean,
     onDelete: () -> Unit,
     onRename: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val cappedDepth = depth.coerceIn(0, 5)
     val indent = (cappedDepth * categoryIndentStep.value).dp
@@ -330,59 +349,62 @@ internal fun PoiCategoryPoiRow(
     val iconSize = if (compactMode) 10.dp else 12.dp
     val textSize = if (compactMode) 10.sp else 11.sp
     val rowShape = RoundedCornerShape(if (compactMode) 14.dp else 16.dp)
-    val rowTint = if (isUserPoiFile(filePath)) {
-        Color(0xFFFFD54F).copy(alpha = 0.07f)
-    } else {
-        Color.White.copy(alpha = 0.035f)
-    }
+    val rowTint =
+        if (isUserPoiFile(filePath)) {
+            Color(0xFFFFD54F).copy(alpha = 0.07f)
+        } else {
+            Color.White.copy(alpha = 0.035f)
+        }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = indent)
-            .clip(rowShape)
-            .background(rowTint)
-            .clickable(
-                enabled = tapToCenterEnabled && !showDelete && !showRename,
-                onClick = onClick
-            )
-            .padding(
-                horizontal = if (compactMode) 8.dp else 10.dp,
-                vertical = if (compactMode) 5.dp else 6.dp
-            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(start = indent)
+                .clip(rowShape)
+                .background(rowTint)
+                .clickable(
+                    enabled = tapToCenterEnabled && !showDelete && !showRename,
+                    onClick = onClick,
+                ).padding(
+                    horizontal = if (compactMode) 8.dp else 10.dp,
+                    vertical = if (compactMode) 5.dp else 6.dp,
+                ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(if (compactMode) 4.dp else 6.dp)
+        horizontalArrangement = Arrangement.spacedBy(if (compactMode) 4.dp else 6.dp),
     ) {
         Row(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (compactMode) 4.dp else 6.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (compactMode) 4.dp else 6.dp),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(iconSize),
-                tint = poiTypeCategoryTint(point.type)
+                tint = poiTypeCategoryTint(point.type),
             )
             Text(
                 text = point.name,
-                modifier = Modifier
-                    .weight(1f)
-                    .basicMarquee(),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .basicMarquee(),
                 maxLines = 1,
                 overflow = TextOverflow.Visible,
                 fontSize = textSize,
-                color = Color(0xFFD3DCFA)
+                color = Color(0xFFD3DCFA),
             )
         }
         if (showRename) {
             IconButton(
                 onClick = onRename,
                 modifier = Modifier.size(if (compactMode) 28.dp else 32.dp),
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
             ) {
                 Icon(Icons.Default.Edit, contentDescription = "Rename saved place")
             }
@@ -390,10 +412,11 @@ internal fun PoiCategoryPoiRow(
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier.size(if (compactMode) 28.dp else 32.dp),
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                )
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
             ) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete saved place")
             }
@@ -405,54 +428,60 @@ internal fun PoiCategoryPoiRow(
 internal fun TogglePillIndicator(
     checked: Boolean,
     compactMode: Boolean,
-    large: Boolean
+    large: Boolean,
 ) {
-    val trackWidth = when {
-        large && compactMode -> 34.dp
-        large -> 38.dp
-        compactMode -> 30.dp
-        else -> 34.dp
-    }
-    val trackHeight = when {
-        large && compactMode -> 20.dp
-        large -> 22.dp
-        compactMode -> 18.dp
-        else -> 20.dp
-    }
-    val thumbSize = when {
-        large && compactMode -> 16.dp
-        large -> 18.dp
-        compactMode -> 14.dp
-        else -> 16.dp
-    }
+    val trackWidth =
+        when {
+            large && compactMode -> 34.dp
+            large -> 38.dp
+            compactMode -> 30.dp
+            else -> 34.dp
+        }
+    val trackHeight =
+        when {
+            large && compactMode -> 20.dp
+            large -> 22.dp
+            compactMode -> 18.dp
+            else -> 20.dp
+        }
+    val thumbSize =
+        when {
+            large && compactMode -> 16.dp
+            large -> 18.dp
+            compactMode -> 14.dp
+            else -> 16.dp
+        }
 
     Box(
-        modifier = Modifier
-            .width(trackWidth)
-            .height(trackHeight)
-            .background(Color.Black.copy(alpha = 0.26f), RoundedCornerShape(50))
-            .padding(2.dp)
+        modifier =
+            Modifier
+                .width(trackWidth)
+                .height(trackHeight)
+                .background(Color.Black.copy(alpha = 0.26f), RoundedCornerShape(50))
+                .padding(2.dp),
     ) {
         Box(
-            modifier = Modifier
-                .align(if (checked) Alignment.CenterEnd else Alignment.CenterStart)
-                .size(thumbSize)
-                .background(
-                    color = if (checked) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        Color(0xFF6F7381)
-                    },
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .align(if (checked) Alignment.CenterEnd else Alignment.CenterStart)
+                    .size(thumbSize)
+                    .background(
+                        color =
+                            if (checked) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                Color(0xFF6F7381)
+                            },
+                        shape = CircleShape,
+                    ),
+            contentAlignment = Alignment.Center,
         ) {
             if (checked) {
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
                     modifier = Modifier.size(if (compactMode) 9.dp else 10.dp),
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = MaterialTheme.colorScheme.onPrimary,
                 )
             }
         }
@@ -465,7 +494,7 @@ internal fun PoiCategoryInfoRow(
     depth: Int,
     categoryIndentStep: Dp,
     compactMode: Boolean,
-    isError: Boolean
+    isError: Boolean,
 ) {
     val cappedDepth = depth.coerceIn(0, 5)
     val indent = (cappedDepth * categoryIndentStep.value).dp
@@ -474,20 +503,21 @@ internal fun PoiCategoryInfoRow(
 
     Text(
         text = text,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = indent),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(start = indent),
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
         fontSize = textSize,
-        color = textColor
+        color = textColor,
     )
 }
 
 internal fun isCategoryVisible(
     category: PoiCategoryUiState,
     categoriesById: Map<Int, PoiCategoryUiState>,
-    expandedCategoryIds: Set<Int>
+    expandedCategoryIds: Set<Int>,
 ): Boolean {
     var currentParent = category.parentId
     val guard = mutableSetOf<Int>()
@@ -514,12 +544,13 @@ internal fun inferSyntheticGroupPoiType(categoryName: String): PoiType? {
 }
 
 internal fun inferPoiTypeFromCategoryName(categoryName: String): PoiType {
-    val normalized = categoryName
-        .lowercase(Locale.ROOT)
-        .replace('’', '\'')
-        .replace('_', ' ')
-        .replace('-', ' ')
-        .trim()
+    val normalized =
+        categoryName
+            .lowercase(Locale.ROOT)
+            .replace('’', '\'')
+            .replace('_', ' ')
+            .replace('-', ' ')
+            .trim()
 
     if (normalized.isBlank()) return PoiType.GENERIC
 
@@ -598,8 +629,8 @@ internal fun inferPoiTypeFromCategoryName(categoryName: String): PoiType {
     }
 }
 
-internal fun poiTypeCategoryIcon(type: PoiType): ImageVector? {
-    return when (type) {
+internal fun poiTypeCategoryIcon(type: PoiType): ImageVector? =
+    when (type) {
         PoiType.PEAK -> Icons.Default.Terrain
         PoiType.WATER -> Icons.Default.WaterDrop
         PoiType.HUT -> Icons.Default.Home
@@ -614,10 +645,9 @@ internal fun poiTypeCategoryIcon(type: PoiType): ImageVector? {
         PoiType.GENERIC -> Icons.Default.LocationOn
         PoiType.CUSTOM -> Icons.Default.Star
     }
-}
 
-internal fun poiTypeCategoryTint(type: PoiType): Color {
-    return when (type) {
+internal fun poiTypeCategoryTint(type: PoiType): Color =
+    when (type) {
         PoiType.PEAK -> Color(0xFFB38B6D)
         PoiType.WATER -> Color(0xFF64B5F6)
         PoiType.HUT -> Color(0xFF8D6E63)
@@ -632,6 +662,5 @@ internal fun poiTypeCategoryTint(type: PoiType): Color {
         PoiType.GENERIC -> Color(0xFFBDBDBD)
         PoiType.CUSTOM -> Color(0xFFFFD54F)
     }
-}
 
 internal fun isUserPoiFile(path: String): Boolean = path == USER_POI_SOURCE_PATH

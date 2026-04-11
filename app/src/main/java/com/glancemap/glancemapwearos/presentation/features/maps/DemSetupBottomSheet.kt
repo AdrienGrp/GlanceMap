@@ -22,10 +22,10 @@ import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
@@ -43,7 +43,7 @@ private const val DEM_SETUP_DRAG_DISMISS_PX = 55f
 @Composable
 fun DemSetupBottomSheet(
     visible: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     if (!visible) return
     val adaptive = rememberWearAdaptiveSpec()
@@ -55,89 +55,92 @@ fun DemSetupBottomSheet(
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Color.Black.copy(alpha = 0.82f),
-                    RoundedCornerShape(adaptive.dialogCornerRadius)
-                )
-                .padding(
-                    horizontal = adaptive.dialogHorizontalPadding,
-                    vertical = adaptive.dialogVerticalPadding
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color.Black.copy(alpha = 0.82f),
+                        RoundedCornerShape(adaptive.dialogCornerRadius),
+                    ).padding(
+                        horizontal = adaptive.dialogHorizontalPadding,
+                        vertical = adaptive.dialogVerticalPadding,
+                    ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        var totalDrag = 0f
-                        detectVerticalDragGestures(
-                            onDragEnd = { totalDrag = 0f },
-                            onDragCancel = { totalDrag = 0f }
-                        ) { _, dragAmount ->
-                            totalDrag += dragAmount
-                            if (totalDrag > DEM_SETUP_DRAG_DISMISS_PX) {
-                                onDismiss()
-                                totalDrag = 0f
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            var totalDrag = 0f
+                            detectVerticalDragGestures(
+                                onDragEnd = { totalDrag = 0f },
+                                onDragCancel = { totalDrag = 0f },
+                            ) { _, dragAmount ->
+                                totalDrag += dragAmount
+                                if (totalDrag > DEM_SETUP_DRAG_DISMISS_PX) {
+                                    onDismiss()
+                                    totalDrag = 0f
+                                }
                             }
-                        }
-                    },
-                contentAlignment = Alignment.Center
+                        },
+                contentAlignment = Alignment.Center,
             ) {
                 Box(
-                    modifier = Modifier
-                        .width(26.dp)
-                        .height(3.dp)
-                        .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50))
+                    modifier =
+                        Modifier
+                            .width(26.dp)
+                            .height(3.dp)
+                            .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
                 )
             }
             Text(
                 text = "DEM Setup",
                 style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = adaptive.dialogBodyMaxHeight)
-                    .onPreRotaryScrollEvent { event ->
-                        val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
-                        abs(consumed) > 0.5f
-                    }
-                    .focusRequester(focusRequester)
-                    .focusable()
-                    .verticalScroll(scrollState),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = adaptive.dialogBodyMaxHeight)
+                        .onPreRotaryScrollEvent { event ->
+                            val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
+                            abs(consumed) > 0.5f
+                        }.focusRequester(focusRequester)
+                        .focusable()
+                        .verticalScroll(scrollState),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Landscape,
                         contentDescription = "Elevation icon",
                         tint = Color(0xFFFFB300),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(16.dp),
                     )
                     Text(
                         text = "DEM",
-                        style = MaterialTheme.typography.titleSmall
+                        style = MaterialTheme.typography.titleSmall,
                     )
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = "DEM means elevation data",
                         tint = Color.White.copy(alpha = 0.82f),
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(14.dp),
                     )
                 }
                 Text(
-                    text = "For each offline map, use the DEM icon to download elevation data (DEM).\n" +
-                        "Grey icon means not downloaded.\n" +
-                        "Green icon means ready for hill/slope layers.",
-                    textAlign = TextAlign.Center
+                    text =
+                        "For each offline map, use the DEM icon to download elevation data (DEM).\n" +
+                            "Grey icon means not downloaded.\n" +
+                            "Green icon means ready for hill/slope layers.",
+                    textAlign = TextAlign.Center,
                 )
             }
         }

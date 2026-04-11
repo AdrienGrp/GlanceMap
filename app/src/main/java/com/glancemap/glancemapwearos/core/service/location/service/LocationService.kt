@@ -11,7 +11,6 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
-import com.google.android.gms.location.LocationServices
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.adapters.FusedLocationGateway
@@ -35,12 +34,12 @@ import com.glancemap.glancemapwearos.core.service.location.config.TELEMETRY_SUMM
 import com.glancemap.glancemapwearos.core.service.location.config.TELEMETRY_TAG
 import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.engine.LocationEngine
-import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.LocationPermissionChecker
 import com.glancemap.glancemapwearos.core.service.location.model.LocationPermissionSnapshot
-import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationTimingProfile
+import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
+import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationTimingProfile
 import com.glancemap.glancemapwearos.core.service.location.notifications.LocationNotificationFactory
 import com.glancemap.glancemapwearos.core.service.location.policy.FixAcceptancePolicy
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
@@ -48,6 +47,7 @@ import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntim
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -64,7 +64,7 @@ class LocationService : Service() {
     private enum class KeepAliveNotificationMode {
         OFF,
         PINNED_NOTIFICATION,
-        LOCATION_FOREGROUND
+        LOCATION_FOREGROUND,
     }
 
     private val binder = LocalBinder()
@@ -82,10 +82,11 @@ class LocationService : Service() {
     private val _currentLocation = MutableStateFlow<Location?>(null)
     val currentLocation = _currentLocation.asStateFlow()
 
-    private val telemetry = LocationServiceTelemetry(
-        tag = TELEMETRY_TAG,
-        summaryIntervalMs = TELEMETRY_SUMMARY_INTERVAL_MS
-    )
+    private val telemetry =
+        LocationServiceTelemetry(
+            tag = TELEMETRY_TAG,
+            summaryIntervalMs = TELEMETRY_SUMMARY_INTERVAL_MS,
+        )
     private val engine = LocationEngine(telemetry = telemetry)
 
     private val _gpsSignalSnapshot = MutableStateFlow(engine.gpsSignalSnapshot)
@@ -98,12 +99,14 @@ class LocationService : Service() {
     private val notificationFactory by lazy { LocationNotificationFactory(this, CHANNEL_ID) }
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
     private val locationManager by lazy { getSystemService(LocationManager::class.java) }
+
     // Dedicated background thread for GPS callbacks — keeps location processing off the
     // UI thread so Compose recomposition and map rendering never delay fix delivery.
     // All downstream writes are either StateFlow (thread-safe) or @Volatile fields.
-    private val locationCallbackThreadDelegate = lazy {
-        HandlerThread("LocationCallbackThread").apply { start() }
-    }
+    private val locationCallbackThreadDelegate =
+        lazy {
+            HandlerThread("LocationCallbackThread").apply { start() }
+        }
     private val locationCallbackThread: HandlerThread by locationCallbackThreadDelegate
     private val locationCallbackExecutor by lazy {
         java.util.concurrent.Executor { command ->
@@ -112,18 +115,31 @@ class LocationService : Service() {
     }
 
     @Volatile private var latestWatchGpsOnly: Boolean = false
+
     @Volatile private var latestAmbientGps: Boolean = false
+
     @Volatile private var latestScreenState: LocationScreenState = LocationScreenState.INTERACTIVE
+
     @Volatile private var latestGpsDebugTelemetry: Boolean = false
+
     @Volatile private var latestUserIntervalMs: Long = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+
     @Volatile private var latestAmbientIntervalMs: Long = SettingsRepository.DEFAULT_AMBIENT_GPS_INTERVAL_MS
+
     @Volatile private var latestTrackingEnabled: Boolean = false
+
     @Volatile private var latestHasFinePermission: Boolean = false
+
     @Volatile private var latestHasCoarsePermission: Boolean = false
+
     @Volatile private var lastAnyAcceptedFixAtElapsedMs: Long = 0L
+
     @Volatile private var lastCallbackAcceptedFixAtElapsedMs: Long = 0L
+
     @Volatile private var lastRequestAppliedAtElapsedMs: Long = 0L
+
     @Volatile private var sourceModeWarmupUntilElapsedMs: Long = 0L
+
     @Volatile private var sourceModeWarmupExpectedOrigin: LocationSourceMode? = null
 
     private var energySampleJob: Job? = null
@@ -145,7 +161,7 @@ class LocationService : Service() {
             lastCallbackAcceptedFixAtElapsedMs = { lastCallbackAcceptedFixAtElapsedMs },
             lastRequestAppliedAtElapsedMs = { lastRequestAppliedAtElapsedMs },
             expectedIntervalMs = { _effectiveUpdateIntervalMs.value },
-            strictFreshMaxAgeMs = { strictFreshMaxAgeMs() }
+            strictFreshMaxAgeMs = { strictFreshMaxAgeMs() },
         )
     }
     private val gnssDiagnosticsCoordinator by lazy {
@@ -161,7 +177,7 @@ class LocationService : Service() {
             watchOnly = { latestWatchGpsOnly },
             sourceMode = { currentLocationSourceMode().telemetryValue },
             ambientModeActive = { isNonInteractiveScreenState() },
-            debugTelemetryEnabled = { latestGpsDebugTelemetry }
+            debugTelemetryEnabled = { latestGpsDebugTelemetry },
         )
     }
 
@@ -169,140 +185,145 @@ class LocationService : Service() {
         super.onCreate()
         val fused = LocationServices.getFusedLocationProviderClient(this)
         fusedLocationGateway = FusedLocationGateway(fused)
-        watchGpsLocationGateway = WatchGpsLocationGateway(
-            locationManager = requireNotNull(locationManager) { "location_manager_unavailable" },
-            packageManager = packageManager,
-            callbackExecutor = locationCallbackExecutor
-        )
+        watchGpsLocationGateway =
+            WatchGpsLocationGateway(
+                locationManager = requireNotNull(locationManager) { "location_manager_unavailable" },
+                packageManager = packageManager,
+                callbackExecutor = locationCallbackExecutor,
+            )
         settingsRepository = (application as GlanceMapWearApp).container.settingsRepository
-        callbackProcessor = LocationCallbackProcessor(
-            engine = engine,
-            telemetry = telemetry,
-            currentPermissions = { currentLocationPermissions() },
-            resolveFixAcceptancePolicy = { permissions, sourceMode ->
-                resolveFixAcceptancePolicy(permissions, sourceMode)
-            },
-            strictFreshMaxAgeMs = { strictFreshMaxAgeMs() },
-            hardMaxAcceptedFixAgeMs = { hardMaxAcceptedFixAgeMs() },
-            sourceModeWarmupExpectedOrigin = { sourceModeWarmupExpectedOrigin },
-            sourceModeWarmupUntilElapsedMs = { sourceModeWarmupUntilElapsedMs },
-            emitGpsSignalSnapshot = { _gpsSignalSnapshot.value = engine.gpsSignalSnapshot },
-            emitAcceptedLocation = { location, acceptedAtMs ->
-                _currentLocation.value = location
-                lastAnyAcceptedFixAtElapsedMs = acceptedAtMs
-                lastCallbackAcceptedFixAtElapsedMs = acceptedAtMs
-            },
-            maybeTriggerAutoFusedFailover = { acceptedLocation, callbackOrigin, nowElapsedMs ->
-                selfHealFailoverCoordinator.maybeTriggerAutoFusedFailover(
-                    acceptedLocation = acceptedLocation,
-                    callbackOrigin = callbackOrigin,
-                    nowElapsedMs = nowElapsedMs
-                )
-            },
-            endHighAccuracyBurstEarly = {
-                immediateLocationCoordinator.endHighAccuracyBurst(reason = "early_fix")
-            }
-        )
-        immediateLocationCoordinator = ImmediateLocationCoordinator(
-            context = this,
-            serviceScope = serviceScope,
-            engine = engine,
-            telemetry = telemetry,
-            readAndStoreLocationPermissions = { readAndStoreLocationPermissions() },
-            resolveFixAcceptancePolicy = { permissions, sourceMode ->
-                resolveFixAcceptancePolicy(permissions, sourceMode)
-            },
-            strictFreshMaxAgeMs = { strictFreshMaxAgeMs() },
-            hardMaxAcceptedFixAgeMs = { hardMaxAcceptedFixAgeMs() },
-            currentLocationSourceMode = { currentLocationSourceMode() },
-            locationGatewayFor = { sourceMode -> locationGatewayFor(sourceMode) },
-            requestLocationUpdateIfNeeded = { requestLocationUpdateIfNeeded() },
-            emitGpsSignalSnapshot = { _gpsSignalSnapshot.value = engine.gpsSignalSnapshot },
-            emitAcceptedImmediateLocation = { location, acceptedAtMs ->
-                _currentLocation.value = location
-                lastAnyAcceptedFixAtElapsedMs = acceptedAtMs
-            },
-            immediateGetCurrentTimeoutMs = IMMEDIATE_GET_CURRENT_TIMEOUT_MS
-        )
-        requestCoordinator = LocationRequestCoordinator(
-            serviceScope = serviceScope,
-            engine = engine,
-            telemetry = telemetry,
-            readAndStoreLocationPermissions = { readAndStoreLocationPermissions() },
-            updateSelfHealMonitor = { selfHealFailoverCoordinator.updateSelfHealMonitor() },
-            updateGnssDiagnostics = { updateGnssDiagnostics(enabled = latestGpsDebugTelemetry) },
-            foregroundRefresh = { refreshKeepAliveNotificationState() },
-            cancelImmediateLocationWork = { reason ->
-                immediateLocationCoordinator.cancelImmediateLocationWork(reason = reason)
-            },
-            currentState = {
-                RequestUpdateState(
-                    bound = isBound.value,
-                    tracking = latestTrackingEnabled,
-                    keepOpen = keepAppOpen.value,
-                    watchOnlyEffective = latestWatchGpsOnly ||
-                        selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps(),
-                    screenState = latestScreenState,
-                    backgroundGps = latestAmbientGps,
-                    userIntervalMs = latestUserIntervalMs,
-                    ambientIntervalMs = latestAmbientIntervalMs
-                )
-            },
-            effectiveUpdateIntervalMs = { _effectiveUpdateIntervalMs.value },
-            strictSourceWarmupMs = SOURCE_MODE_WARMUP_MS,
-            setSourceModeWarmup = { expectedOrigin, untilElapsedMs ->
-                sourceModeWarmupExpectedOrigin = expectedOrigin
-                sourceModeWarmupUntilElapsedMs = untilElapsedMs
-            },
-            clearSourceModeWarmup = {
-                sourceModeWarmupExpectedOrigin = null
-                sourceModeWarmupUntilElapsedMs = 0L
-            },
-            locationGatewayFor = { sourceMode -> locationGatewayFor(sourceMode) },
-            locationUpdateSink = { locationUpdateSink },
-            removeAllLocationUpdates = { removeAllLocationUpdates() },
-            onNoPermissions = { nowElapsedMs ->
-                engine.onNoPermissions(nowElapsedMs = nowElapsedMs)
-                lastAnyAcceptedFixAtElapsedMs = 0L
-                lastCallbackAcceptedFixAtElapsedMs = 0L
-                sourceModeWarmupUntilElapsedMs = 0L
-                sourceModeWarmupExpectedOrigin = null
-                _gpsSignalSnapshot.value = engine.gpsSignalSnapshot
-                _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
-            },
-            onNoRequestSpec = { keepOpen, tracking ->
-                engine.onTrackingDisabled()
-                lastAnyAcceptedFixAtElapsedMs = 0L
-                lastCallbackAcceptedFixAtElapsedMs = 0L
-                sourceModeWarmupUntilElapsedMs = 0L
-                sourceModeWarmupExpectedOrigin = null
-                _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
-                if (!keepOpen && !tracking) {
-                    stopAllAndSelf()
-                }
-            },
-            onRequestApplied = { nowElapsedMs, intervalMs ->
-                lastRequestAppliedAtElapsedMs = nowElapsedMs
-                _effectiveUpdateIntervalMs.value = intervalMs
-            },
-            onRequestFailed = {
-                _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
-            },
-            maybeTriggerInteractiveSelfHealNow = { nowElapsedMs, interactiveTracking, expectedIntervalMs ->
-                selfHealFailoverCoordinator.maybeTriggerInteractiveSelfHealNow(
-                    nowElapsedMs = nowElapsedMs,
-                    interactiveTracking = interactiveTracking,
-                    expectedIntervalMs = expectedIntervalMs
-                )
-            },
-            recordEnergySample = { reason, detail ->
-                EnergyDiagnostics.recordSample(
-                    context = this,
-                    reason = reason,
-                    detail = detail
-                )
-            }
-        )
+        callbackProcessor =
+            LocationCallbackProcessor(
+                engine = engine,
+                telemetry = telemetry,
+                currentPermissions = { currentLocationPermissions() },
+                resolveFixAcceptancePolicy = { permissions, sourceMode ->
+                    resolveFixAcceptancePolicy(permissions, sourceMode)
+                },
+                strictFreshMaxAgeMs = { strictFreshMaxAgeMs() },
+                hardMaxAcceptedFixAgeMs = { hardMaxAcceptedFixAgeMs() },
+                sourceModeWarmupExpectedOrigin = { sourceModeWarmupExpectedOrigin },
+                sourceModeWarmupUntilElapsedMs = { sourceModeWarmupUntilElapsedMs },
+                emitGpsSignalSnapshot = { _gpsSignalSnapshot.value = engine.gpsSignalSnapshot },
+                emitAcceptedLocation = { location, acceptedAtMs ->
+                    _currentLocation.value = location
+                    lastAnyAcceptedFixAtElapsedMs = acceptedAtMs
+                    lastCallbackAcceptedFixAtElapsedMs = acceptedAtMs
+                },
+                maybeTriggerAutoFusedFailover = { acceptedLocation, callbackOrigin, nowElapsedMs ->
+                    selfHealFailoverCoordinator.maybeTriggerAutoFusedFailover(
+                        acceptedLocation = acceptedLocation,
+                        callbackOrigin = callbackOrigin,
+                        nowElapsedMs = nowElapsedMs,
+                    )
+                },
+                endHighAccuracyBurstEarly = {
+                    immediateLocationCoordinator.endHighAccuracyBurst(reason = "early_fix")
+                },
+            )
+        immediateLocationCoordinator =
+            ImmediateLocationCoordinator(
+                context = this,
+                serviceScope = serviceScope,
+                engine = engine,
+                telemetry = telemetry,
+                readAndStoreLocationPermissions = { readAndStoreLocationPermissions() },
+                resolveFixAcceptancePolicy = { permissions, sourceMode ->
+                    resolveFixAcceptancePolicy(permissions, sourceMode)
+                },
+                strictFreshMaxAgeMs = { strictFreshMaxAgeMs() },
+                hardMaxAcceptedFixAgeMs = { hardMaxAcceptedFixAgeMs() },
+                currentLocationSourceMode = { currentLocationSourceMode() },
+                locationGatewayFor = { sourceMode -> locationGatewayFor(sourceMode) },
+                requestLocationUpdateIfNeeded = { requestLocationUpdateIfNeeded() },
+                emitGpsSignalSnapshot = { _gpsSignalSnapshot.value = engine.gpsSignalSnapshot },
+                emitAcceptedImmediateLocation = { location, acceptedAtMs ->
+                    _currentLocation.value = location
+                    lastAnyAcceptedFixAtElapsedMs = acceptedAtMs
+                },
+                immediateGetCurrentTimeoutMs = IMMEDIATE_GET_CURRENT_TIMEOUT_MS,
+            )
+        requestCoordinator =
+            LocationRequestCoordinator(
+                serviceScope = serviceScope,
+                engine = engine,
+                telemetry = telemetry,
+                readAndStoreLocationPermissions = { readAndStoreLocationPermissions() },
+                updateSelfHealMonitor = { selfHealFailoverCoordinator.updateSelfHealMonitor() },
+                updateGnssDiagnostics = { updateGnssDiagnostics(enabled = latestGpsDebugTelemetry) },
+                foregroundRefresh = { refreshKeepAliveNotificationState() },
+                cancelImmediateLocationWork = { reason ->
+                    immediateLocationCoordinator.cancelImmediateLocationWork(reason = reason)
+                },
+                currentState = {
+                    RequestUpdateState(
+                        bound = isBound.value,
+                        tracking = latestTrackingEnabled,
+                        keepOpen = keepAppOpen.value,
+                        watchOnlyEffective =
+                            latestWatchGpsOnly ||
+                                selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps(),
+                        screenState = latestScreenState,
+                        backgroundGps = latestAmbientGps,
+                        userIntervalMs = latestUserIntervalMs,
+                        ambientIntervalMs = latestAmbientIntervalMs,
+                    )
+                },
+                effectiveUpdateIntervalMs = { _effectiveUpdateIntervalMs.value },
+                strictSourceWarmupMs = SOURCE_MODE_WARMUP_MS,
+                setSourceModeWarmup = { expectedOrigin, untilElapsedMs ->
+                    sourceModeWarmupExpectedOrigin = expectedOrigin
+                    sourceModeWarmupUntilElapsedMs = untilElapsedMs
+                },
+                clearSourceModeWarmup = {
+                    sourceModeWarmupExpectedOrigin = null
+                    sourceModeWarmupUntilElapsedMs = 0L
+                },
+                locationGatewayFor = { sourceMode -> locationGatewayFor(sourceMode) },
+                locationUpdateSink = { locationUpdateSink },
+                removeAllLocationUpdates = { removeAllLocationUpdates() },
+                onNoPermissions = { nowElapsedMs ->
+                    engine.onNoPermissions(nowElapsedMs = nowElapsedMs)
+                    lastAnyAcceptedFixAtElapsedMs = 0L
+                    lastCallbackAcceptedFixAtElapsedMs = 0L
+                    sourceModeWarmupUntilElapsedMs = 0L
+                    sourceModeWarmupExpectedOrigin = null
+                    _gpsSignalSnapshot.value = engine.gpsSignalSnapshot
+                    _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+                },
+                onNoRequestSpec = { keepOpen, tracking ->
+                    engine.onTrackingDisabled()
+                    lastAnyAcceptedFixAtElapsedMs = 0L
+                    lastCallbackAcceptedFixAtElapsedMs = 0L
+                    sourceModeWarmupUntilElapsedMs = 0L
+                    sourceModeWarmupExpectedOrigin = null
+                    _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+                    if (!keepOpen && !tracking) {
+                        stopAllAndSelf()
+                    }
+                },
+                onRequestApplied = { nowElapsedMs, intervalMs ->
+                    lastRequestAppliedAtElapsedMs = nowElapsedMs
+                    _effectiveUpdateIntervalMs.value = intervalMs
+                },
+                onRequestFailed = {
+                    _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+                },
+                maybeTriggerInteractiveSelfHealNow = { nowElapsedMs, interactiveTracking, expectedIntervalMs ->
+                    selfHealFailoverCoordinator.maybeTriggerInteractiveSelfHealNow(
+                        nowElapsedMs = nowElapsedMs,
+                        interactiveTracking = interactiveTracking,
+                        expectedIntervalMs = expectedIntervalMs,
+                    )
+                },
+                recordEnergySample = { reason, detail ->
+                    EnergyDiagnostics.recordSample(
+                        context = this,
+                        reason = reason,
+                        detail = detail,
+                    )
+                },
+            )
 
         setupLocationUpdateSink()
 
@@ -323,21 +344,27 @@ class LocationService : Service() {
         observeGpsSettings()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         val hasScreenState = intent?.hasExtra(EXTRA_SCREEN_STATE) == true
         val hasTrackingEnabled = intent?.hasExtra(EXTRA_TRACKING_ENABLED) == true
         if (hasScreenState || hasTrackingEnabled) {
             val screenStateName = intent.getStringExtra(EXTRA_SCREEN_STATE)
-            val screenState = runCatching {
-                LocationScreenState.valueOf(screenStateName.orEmpty())
-            }.getOrDefault(LocationScreenState.INTERACTIVE)
+            val screenState =
+                runCatching {
+                    LocationScreenState.valueOf(screenStateName.orEmpty())
+                }.getOrDefault(LocationScreenState.INTERACTIVE)
             setRuntimeState(
                 screenState = if (hasScreenState) screenState else latestScreenState,
-                trackingEnabled = if (hasTrackingEnabled) {
-                    intent.getBooleanExtra(EXTRA_TRACKING_ENABLED, false)
-                } else {
-                    latestTrackingEnabled
-                }
+                trackingEnabled =
+                    if (hasTrackingEnabled) {
+                        intent.getBooleanExtra(EXTRA_TRACKING_ENABLED, false)
+                    } else {
+                        latestTrackingEnabled
+                    },
             )
         }
         if (intent?.hasExtra(EXTRA_KEEP_APP_OPEN) == true) {
@@ -352,21 +379,22 @@ class LocationService : Service() {
     }
 
     private fun setupLocationUpdateSink() {
-        locationUpdateSink = object : LocationUpdateSink {
-            override fun onLocationAvailability(isAvailable: Boolean) {
-                callbackProcessor.onLocationAvailability(
-                    isAvailable = isAvailable,
-                    nowElapsedMs = SystemClock.elapsedRealtime()
-                )
-            }
+        locationUpdateSink =
+            object : LocationUpdateSink {
+                override fun onLocationAvailability(isAvailable: Boolean) {
+                    callbackProcessor.onLocationAvailability(
+                        isAvailable = isAvailable,
+                        nowElapsedMs = SystemClock.elapsedRealtime(),
+                    )
+                }
 
-            override fun onLocations(event: LocationUpdateEvent) {
-                callbackProcessor.processLocationEvent(
-                    event = event,
-                    nowElapsedMsProvider = { SystemClock.elapsedRealtime() }
-                )
+                override fun onLocations(event: LocationUpdateEvent) {
+                    callbackProcessor.processLocationEvent(
+                        event = event,
+                        nowElapsedMsProvider = { SystemClock.elapsedRealtime() },
+                    )
+                }
             }
-        }
     }
 
     fun requestImmediateLocation(source: String = "service_unknown") {
@@ -375,7 +403,7 @@ class LocationService : Service() {
 
     fun setRuntimeState(
         screenState: LocationScreenState,
-        trackingEnabled: Boolean
+        trackingEnabled: Boolean,
     ) {
         val screenStateChanged = latestScreenState != screenState
         val trackingChanged = latestTrackingEnabled != trackingEnabled
@@ -389,7 +417,7 @@ class LocationService : Service() {
             trackingEnabled = trackingEnabled,
             screenStateChanged = screenStateChanged,
             trackingChanged = trackingChanged,
-            backgroundGpsEnabled = latestAmbientGps
+            backgroundGpsEnabled = latestAmbientGps,
         )
         if (screenStateChanged) {
             telemetry.logScreenState(screenState.name)
@@ -403,7 +431,7 @@ class LocationService : Service() {
             }
             screenState.isNonInteractive && !latestAmbientGps -> {
                 immediateLocationCoordinator.cancelImmediateLocationWork(
-                    reason = "non_interactive_without_gps"
+                    reason = "non_interactive_without_gps",
                 )
             }
         }
@@ -415,14 +443,14 @@ class LocationService : Service() {
     fun setScreenState(screenState: LocationScreenState) {
         setRuntimeState(
             screenState = screenState,
-            trackingEnabled = latestTrackingEnabled
+            trackingEnabled = latestTrackingEnabled,
         )
     }
 
     fun setTrackingEnabled(enabled: Boolean) {
         setRuntimeState(
             screenState = latestScreenState,
-            trackingEnabled = enabled
+            trackingEnabled = enabled,
         )
     }
 
@@ -454,14 +482,14 @@ class LocationService : Service() {
                 settingsRepository.gpsInterval,
                 settingsRepository.ambientGpsInterval,
                 settingsRepository.gpsInAmbientMode,
-                settingsRepository.gpsDebugTelemetry
+                settingsRepository.gpsDebugTelemetry,
             ) { watchOnly, interval, ambientInterval, ambientGps, debugTelemetry ->
                 GpsSettingsState(
                     watchOnly = watchOnly,
                     intervalMs = interval,
                     ambientIntervalMs = ambientInterval,
                     ambientGps = ambientGps,
-                    debugTelemetry = debugTelemetry
+                    debugTelemetry = debugTelemetry,
                 )
             }.collectLatest { state ->
                 onGpsSettingsStateChanged(state)
@@ -504,18 +532,20 @@ class LocationService : Service() {
                 val location = runCatching { currentLocationGateway().getLastLocation() }.getOrNull()
                 if (location != null) {
                     val nowElapsedMs = SystemClock.elapsedRealtime()
-                    val maxCachedAgeMs = (latestUserIntervalMs * 2L)
-                        .coerceIn(BIND_CACHED_FIX_MIN_MAX_AGE_MS, BIND_CACHED_FIX_MAX_MAX_AGE_MS)
+                    val maxCachedAgeMs =
+                        (latestUserIntervalMs * 2L)
+                            .coerceIn(BIND_CACHED_FIX_MIN_MAX_AGE_MS, BIND_CACHED_FIX_MAX_MAX_AGE_MS)
                     val strictMaxAgeMs = strictFreshMaxAgeMs()
                     val effectiveMaxCachedAgeMs = minOf(maxCachedAgeMs, strictMaxAgeMs)
                     val ageMs = LocationFixPolicy.locationAgeMs(location, nowElapsedMs)
 
                     val accuracy = location.accuracy
-                    val maxCachedAccuracyM = if (hasFinePermission) {
-                        BIND_CACHED_FIX_MAX_ACCURACY_M
-                    } else {
-                        BIND_CACHED_FIX_MAX_ACCURACY_COARSE_M
-                    }
+                    val maxCachedAccuracyM =
+                        if (hasFinePermission) {
+                            BIND_CACHED_FIX_MAX_ACCURACY_M
+                        } else {
+                            BIND_CACHED_FIX_MAX_ACCURACY_COARSE_M
+                        }
                     val acceptableCoordinates = LocationFixPolicy.hasValidCoordinates(location)
                     val acceptableAccuracy = accuracy.isFinite() && accuracy <= maxCachedAccuracyM
                     val acceptableAge = ageMs <= effectiveMaxCachedAgeMs
@@ -528,20 +558,21 @@ class LocationService : Service() {
                             freshnessMaxAgeMs = strictMaxAgeMs,
                             sourceMode = currentLocationSourceMode(),
                             provider = location.provider,
-                            accepted = null
+                            accepted = null,
                         )
                         _gpsSignalSnapshot.value = engine.gpsSignalSnapshot
-                        val outputLocation = engine.acceptCachedLocation(
-                            location = location,
-                            nowElapsedMs = nowElapsedMs,
-                            ageMs = ageMs
-                        )
+                        val outputLocation =
+                            engine.acceptCachedLocation(
+                                location = location,
+                                nowElapsedMs = nowElapsedMs,
+                                ageMs = ageMs,
+                            )
                         _currentLocation.value = outputLocation
                         lastAnyAcceptedFixAtElapsedMs = nowElapsedMs
                         telemetry.logCachedLocationAccepted(
                             ageMs = ageMs,
                             accuracyM = accuracy,
-                            provider = location.provider
+                            provider = location.provider,
                         )
                     } else {
                         telemetry.logCachedLocationRejected(
@@ -549,7 +580,7 @@ class LocationService : Service() {
                             accuracyM = accuracy,
                             maxAgeMs = effectiveMaxCachedAgeMs,
                             maxAccuracyM = maxCachedAccuracyM,
-                            provider = location.provider
+                            provider = location.provider,
                         )
                         if (!acceptableCoordinates) {
                             telemetry.logInvalidCoordinatesDropped(
@@ -559,7 +590,7 @@ class LocationService : Service() {
                                 source = "cached_on_bind",
                                 latitude = location.latitude,
                                 longitude = location.longitude,
-                                provider = location.provider
+                                provider = location.provider,
                             )
                         }
                         if (!acceptableAge) {
@@ -569,7 +600,7 @@ class LocationService : Service() {
                                 burst = engine.isBurstActive(),
                                 source = "cached_on_bind",
                                 ageMs = ageMs,
-                                maxAgeMs = effectiveMaxCachedAgeMs
+                                maxAgeMs = effectiveMaxCachedAgeMs,
                             )
                         }
                         requestImmediateLocation(source = "service_bind_cached_reject")
@@ -643,32 +674,32 @@ class LocationService : Service() {
         return permissions
     }
 
-    private fun currentLocationPermissions(): LocationPermissionSnapshot {
-        return LocationPermissionSnapshot(
+    private fun currentLocationPermissions(): LocationPermissionSnapshot =
+        LocationPermissionSnapshot(
             hasFinePermission = latestHasFinePermission,
-            hasCoarsePermission = latestHasCoarsePermission
+            hasCoarsePermission = latestHasCoarsePermission,
         )
-    }
 
     private fun resolveFixAcceptancePolicy(
         permissions: LocationPermissionSnapshot,
-        sourceMode: LocationSourceMode
+        sourceMode: LocationSourceMode,
     ): FixAcceptancePolicy {
         val expectedIntervalMs = engine.currentRequestIntervalOr(_effectiveUpdateIntervalMs.value)
-        val basePolicy = LocationFixPolicy.resolveAcceptancePolicy(
-            hasFinePermission = permissions.hasFinePermission,
-            hasCoarsePermission = permissions.hasCoarsePermission,
-            expectedIntervalMs = expectedIntervalMs,
-            minMaxAgeMs = BIND_CACHED_FIX_MIN_MAX_AGE_MS,
-            fineMaxAgeMs = FIX_MAX_AGE_FINE_MAX_MS,
-            coarseMaxAgeMs = FIX_MAX_AGE_COARSE_MAX_MS,
-            fineMaxAccuracyM = FINE_FIX_MAX_ACCURACY_M,
-            coarseMaxAccuracyM = COARSE_FIX_MAX_ACCURACY_M
-        )
+        val basePolicy =
+            LocationFixPolicy.resolveAcceptancePolicy(
+                hasFinePermission = permissions.hasFinePermission,
+                hasCoarsePermission = permissions.hasCoarsePermission,
+                expectedIntervalMs = expectedIntervalMs,
+                minMaxAgeMs = BIND_CACHED_FIX_MIN_MAX_AGE_MS,
+                fineMaxAgeMs = FIX_MAX_AGE_FINE_MAX_MS,
+                coarseMaxAgeMs = FIX_MAX_AGE_COARSE_MAX_MS,
+                fineMaxAccuracyM = FINE_FIX_MAX_ACCURACY_M,
+                coarseMaxAccuracyM = COARSE_FIX_MAX_ACCURACY_M,
+            )
         return LocationFixPolicy.adaptAcceptanceForSourceMode(
             policy = basePolicy,
             sourceMode = sourceMode,
-            watchGpsMaxAccuracyM = WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
+            watchGpsMaxAccuracyM = WATCH_GPS_MAX_ACCEPTED_ACCURACY_M,
         )
     }
 
@@ -677,14 +708,14 @@ class LocationService : Service() {
         return resolveLocationTimingProfile(expectedIntervalMs).strictFreshFixMaxAgeMs
     }
 
-    private fun hardMaxAcceptedFixAgeMs(): Long {
-        return when (engine.currentRuntimeModeOrNull()) {
+    private fun hardMaxAcceptedFixAgeMs(): Long =
+        when (engine.currentRuntimeModeOrNull()) {
             LocationRuntimeMode.PASSIVE -> HARD_STALE_FIX_MAX_AGE_PASSIVE_MS
             LocationRuntimeMode.INTERACTIVE,
             LocationRuntimeMode.BURST,
-            null -> HARD_STALE_FIX_MAX_AGE_INTERACTIVE_MS
+            null,
+            -> HARD_STALE_FIX_MAX_AGE_INTERACTIVE_MS
         }
-    }
 
     private fun updateGnssDiagnostics(enabled: Boolean) {
         gnssDiagnosticsCoordinator.update(enabled)
@@ -702,31 +733,34 @@ class LocationService : Service() {
         }
 
         if (energySampleJob?.isActive == true) return
-        energySampleJob = serviceScope.launch {
-            EnergyDiagnostics.recordSample(
-                context = this@LocationService,
-                reason = "capture_enabled",
-                detail = "source=location_service"
-            )
-            while (serviceJob.isActive && latestGpsDebugTelemetry) {
+        energySampleJob =
+            serviceScope.launch {
                 EnergyDiagnostics.recordSample(
                     context = this@LocationService,
-                    reason = "periodic",
-                    detail = "effectiveIntervalMs=${_effectiveUpdateIntervalMs.value} " +
-                        "burst=${engine.isBurstActive()} tracking=${latestTrackingEnabled} " +
-                        "bound=${isBound.value} keepOpen=${keepAppOpen.value}"
+                    reason = "capture_enabled",
+                    detail = "source=location_service",
                 )
-                delay(ENERGY_SAMPLE_INTERVAL_MS)
+                while (serviceJob.isActive && latestGpsDebugTelemetry) {
+                    EnergyDiagnostics.recordSample(
+                        context = this@LocationService,
+                        reason = "periodic",
+                        detail =
+                            "effectiveIntervalMs=${_effectiveUpdateIntervalMs.value} " +
+                                "burst=${engine.isBurstActive()} tracking=$latestTrackingEnabled " +
+                                "bound=${isBound.value} keepOpen=${keepAppOpen.value}",
+                    )
+                    delay(ENERGY_SAMPLE_INTERVAL_MS)
+                }
             }
-        }
     }
 
     private fun refreshKeepAliveNotificationState() {
-        val desiredMode = when {
-            !keepAppOpen.value -> KeepAliveNotificationMode.OFF
-            shouldUseLocationForegroundMode() -> KeepAliveNotificationMode.LOCATION_FOREGROUND
-            else -> KeepAliveNotificationMode.PINNED_NOTIFICATION
-        }
+        val desiredMode =
+            when {
+                !keepAppOpen.value -> KeepAliveNotificationMode.OFF
+                shouldUseLocationForegroundMode() -> KeepAliveNotificationMode.LOCATION_FOREGROUND
+                else -> KeepAliveNotificationMode.PINNED_NOTIFICATION
+            }
         if (desiredMode == keepAliveNotificationMode) return
 
         when (desiredMode) {
@@ -738,17 +772,19 @@ class LocationService : Service() {
                 if (keepAliveNotificationMode == KeepAliveNotificationMode.LOCATION_FOREGROUND) {
                     runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
                 }
-                val notification = notificationFactory.buildNotification(
-                    isForegroundPinned = true,
-                    notificationId = NOTIFICATION_ID
-                )
+                val notification =
+                    notificationFactory.buildNotification(
+                        isForegroundPinned = true,
+                        notificationId = NOTIFICATION_ID,
+                    )
                 notificationFactory.show(NOTIFICATION_ID, notification)
             }
             KeepAliveNotificationMode.LOCATION_FOREGROUND -> {
-                val notification = notificationFactory.buildNotification(
-                    isForegroundPinned = true,
-                    notificationId = NOTIFICATION_ID
-                )
+                val notification =
+                    notificationFactory.buildNotification(
+                        isForegroundPinned = true,
+                        notificationId = NOTIFICATION_ID,
+                    )
                 startForeground(NOTIFICATION_ID, notification)
             }
         }
@@ -756,20 +792,15 @@ class LocationService : Service() {
         keepAliveNotificationMode = desiredMode
     }
 
-    private fun currentLocationSourceMode(): LocationSourceMode {
-        return selfHealFailoverCoordinator.currentLocationSourceMode()
-    }
+    private fun currentLocationSourceMode(): LocationSourceMode = selfHealFailoverCoordinator.currentLocationSourceMode()
 
-    private fun currentLocationGateway(): LocationGateway {
-        return locationGatewayFor(currentLocationSourceMode())
-    }
+    private fun currentLocationGateway(): LocationGateway = locationGatewayFor(currentLocationSourceMode())
 
-    private fun locationGatewayFor(sourceMode: LocationSourceMode): LocationGateway {
-        return when (sourceMode) {
+    private fun locationGatewayFor(sourceMode: LocationSourceMode): LocationGateway =
+        when (sourceMode) {
             LocationSourceMode.AUTO_FUSED -> fusedLocationGateway
             LocationSourceMode.WATCH_GPS -> watchGpsLocationGateway
         }
-    }
 
     private suspend fun removeAllLocationUpdates() {
         var firstError: Exception? = null
@@ -794,8 +825,9 @@ class LocationService : Service() {
     }
 
     private fun shouldUseLocationForegroundMode(): Boolean {
-        val locationAllowedByUiState = latestTrackingEnabled &&
-            (latestScreenState.isInteractive || latestAmbientGps)
+        val locationAllowedByUiState =
+            latestTrackingEnabled &&
+                (latestScreenState.isInteractive || latestAmbientGps)
         return locationAllowedByUiState
     }
 

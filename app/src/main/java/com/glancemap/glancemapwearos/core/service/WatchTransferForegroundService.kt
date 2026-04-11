@@ -16,7 +16,6 @@ import com.glancemap.glancemapwearos.core.service.transfer.notifications.Notific
 import com.glancemap.glancemapwearos.core.service.transfer.runtime.TransferLockManager
 import com.glancemap.glancemapwearos.core.service.transfer.runtime.TransferRunner
 import com.glancemap.glancemapwearos.core.service.transfer.runtime.TransferRuntimeHost
-import com.glancemap.glancemapwearos.core.service.transfer.runtime.TransferSessionState
 import com.glancemap.glancemapwearos.core.service.transfer.storage.WatchFileOps
 import com.glancemap.glancemapwearos.data.repository.WatchDataLayerRepository
 import com.glancemap.glancemapwearos.data.repository.WatchDataLayerRepositoryImpl
@@ -29,8 +28,9 @@ import kotlinx.coroutines.sync.withLock
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicInteger
 
-class WatchTransferForegroundService : Service(), TransferRuntimeHost {
-
+class WatchTransferForegroundService :
+    Service(),
+    TransferRuntimeHost {
     override val context: Context
         get() = this
 
@@ -58,17 +58,22 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
         dataLayerRepository = WatchDataLayerRepositoryImpl(this)
         notificationHelper = NotificationHelper(this)
         notificationHelper.createNotificationChannel()
-        runner = TransferRunner(
-            host = this,
-            notificationHelper = notificationHelper,
-            httpReceiver = httpReceiver,
-            sessionState = transferSessionState,
-            sendStatus = dataLayerRepository::sendStatus,
-            sendAck = dataLayerRepository::sendAck
-        )
+        runner =
+            TransferRunner(
+                host = this,
+                notificationHelper = notificationHelper,
+                httpReceiver = httpReceiver,
+                sessionState = transferSessionState,
+                sendStatus = dataLayerRepository::sendStatus,
+                sendAck = dataLayerRepository::sendAck,
+            )
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         if (intent?.action != ACTION_START_HTTP_TRANSFER) {
             stopIfIdle()
             return START_NOT_STICKY
@@ -85,11 +90,11 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
         notificationHelper.startForeground(
             request.metadata.notificationId,
             request.metadata.fileName,
-            "Preparing Download…"
+            "Preparing Download…",
         )
         TransferDiagnostics.log(
             "FgService",
-            "Launch HTTP transfer id=${request.metadata.transferId} file=${request.metadata.fileName} startId=$startId"
+            "Launch HTTP transfer id=${request.metadata.transferId} file=${request.metadata.fileName} startId=$startId",
         )
 
         serviceScope.launch {
@@ -101,12 +106,12 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
                         releasePrewarmWakeLock("http_rejected_exists:$fileName")
                         TransferDiagnostics.warn(
                             "FgService",
-                            "Target file already exists id=${request.metadata.transferId} file=$fileName"
+                            "Target file already exists id=${request.metadata.transferId} file=$fileName",
                         )
                         notificationHelper.startForeground(
                             request.metadata.notificationId,
                             request.metadata.fileName,
-                            "Already exists"
+                            "Already exists",
                         )
                         notificationHelper.stopForeground(request.metadata.notificationId)
                         notificationHelper.showError(request.metadata.notificationId, request.metadata.fileName, "Already exists")
@@ -131,7 +136,7 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
     override fun onDestroy() {
         TransferDiagnostics.warn(
             "FgService",
-            "Destroy instance=$serviceInstanceId activeTransferId=${transferSessionState.activeTransferId().orEmpty()}"
+            "Destroy instance=$serviceInstanceId activeTransferId=${transferSessionState.activeTransferId().orEmpty()}",
         )
         runCatching { httpReceiver.close() }
         serviceScope.cancel()
@@ -155,26 +160,26 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
         resumeOffset: Long,
         keepPartialOnFailure: Boolean,
         computeSha256: Boolean,
-        onProgress: (Long) -> Unit
-    ): String? {
-        return fileOps.saveFile(
+        onProgress: (Long) -> Unit,
+    ): String? =
+        fileOps.saveFile(
             fileName = fileName,
             inputStream = inputStream,
             expectedSize = expectedSize,
             resumeOffset = resumeOffset,
             keepPartialOnFailure = keepPartialOnFailure,
             computeSha256 = computeSha256,
-            onProgress = onProgress
+            onProgress = onProgress,
         )
-    }
 
     override fun getPartialSize(fileName: String): Long = fileOps.getPartialSize(fileName)
 
     override fun deletePartial(fileName: String): Boolean = fileOps.deletePartial(fileName)
 
-    override fun truncatePartial(fileName: String, expectedSize: Long): Boolean {
-        return fileOps.truncatePartial(fileName, expectedSize)
-    }
+    override fun truncatePartial(
+        fileName: String,
+        expectedSize: Long,
+    ): Boolean = fileOps.truncatePartial(fileName, expectedSize)
 
     override fun computePartialFileSha256(fileName: String): String? = fileOps.computePartialFileSha256(fileName)
 
@@ -186,18 +191,22 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
 
     override fun computeFinalFileSha256(
         fileName: String,
-        onProgress: ((bytesRead: Long, totalBytes: Long) -> Unit)?
+        onProgress: ((bytesRead: Long, totalBytes: Long) -> Unit)?,
     ): String? = fileOps.computeFinalFileSha256(fileName, onProgress)
 
-    override fun acquireWakeLock(tag: String, timeoutMs: Long): PowerManager.WakeLock {
-        return lockManager.acquireWakeLock(tag, timeoutMs)
-    }
+    override fun acquireWakeLock(
+        tag: String,
+        timeoutMs: Long,
+    ): PowerManager.WakeLock = lockManager.acquireWakeLock(tag, timeoutMs)
 
     override fun releaseWakeLock(wakeLock: PowerManager.WakeLock) {
         lockManager.releaseWakeLock(wakeLock)
     }
 
-    override fun holdPrewarmWakeLock(reason: String, timeoutMs: Long) {
+    override fun holdPrewarmWakeLock(
+        reason: String,
+        timeoutMs: Long,
+    ) {
         app.transferPrewarmHoldManager.hold(reason, timeoutMs)
     }
 
@@ -205,9 +214,7 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
         app.transferPrewarmHoldManager.release(reason)
     }
 
-    override fun acquireWifiLock(tag: String): WifiManager.WifiLock {
-        return lockManager.acquireWifiLock(tag)
-    }
+    override fun acquireWifiLock(tag: String): WifiManager.WifiLock = lockManager.acquireWifiLock(tag)
 
     override fun releaseWifiLock(wifiLock: WifiManager.WifiLock) {
         lockManager.releaseWifiLock(wifiLock)
@@ -221,7 +228,7 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
 
     private data class TransferRequest(
         val metadata: ReceiverMetadata,
-        val httpPath: String
+        val httpPath: String,
     ) {
         companion object {
             fun fromIntent(intent: Intent): TransferRequest? {
@@ -250,18 +257,19 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
                 }
 
                 return TransferRequest(
-                    metadata = ReceiverMetadata(
-                        transferId = transferId,
-                        fileName = fileName,
-                        totalSize = totalSize,
-                        sourceNodeId = sourceNodeId,
-                        notificationId = notificationId,
-                        checksumSha256 = checksumSha256,
-                        authToken = authToken,
-                        ip = ip,
-                        port = port
-                    ),
-                    httpPath = httpPath
+                    metadata =
+                        ReceiverMetadata(
+                            transferId = transferId,
+                            fileName = fileName,
+                            totalSize = totalSize,
+                            sourceNodeId = sourceNodeId,
+                            notificationId = notificationId,
+                            checksumSha256 = checksumSha256,
+                            authToken = authToken,
+                            ip = ip,
+                            port = port,
+                        ),
+                    httpPath = httpPath,
                 )
             }
         }
@@ -284,21 +292,22 @@ class WatchTransferForegroundService : Service(), TransferRuntimeHost {
         fun startHttpTransfer(
             context: Context,
             metadata: ReceiverMetadata,
-            httpPath: String
+            httpPath: String,
         ) {
-            val intent = Intent(context, WatchTransferForegroundService::class.java).apply {
-                action = ACTION_START_HTTP_TRANSFER
-                putExtra(EXTRA_TRANSFER_ID, metadata.transferId)
-                putExtra(EXTRA_FILE_NAME, metadata.fileName)
-                putExtra(EXTRA_TOTAL_SIZE, metadata.totalSize)
-                putExtra(EXTRA_SOURCE_NODE_ID, metadata.sourceNodeId)
-                putExtra(EXTRA_NOTIFICATION_ID, metadata.notificationId)
-                putExtra(EXTRA_CHECKSUM_SHA256, metadata.checksumSha256)
-                putExtra(EXTRA_AUTH_TOKEN, metadata.authToken)
-                putExtra(EXTRA_IP, metadata.ip)
-                putExtra(EXTRA_PORT, metadata.port)
-                putExtra(EXTRA_HTTP_PATH, httpPath)
-            }
+            val intent =
+                Intent(context, WatchTransferForegroundService::class.java).apply {
+                    action = ACTION_START_HTTP_TRANSFER
+                    putExtra(EXTRA_TRANSFER_ID, metadata.transferId)
+                    putExtra(EXTRA_FILE_NAME, metadata.fileName)
+                    putExtra(EXTRA_TOTAL_SIZE, metadata.totalSize)
+                    putExtra(EXTRA_SOURCE_NODE_ID, metadata.sourceNodeId)
+                    putExtra(EXTRA_NOTIFICATION_ID, metadata.notificationId)
+                    putExtra(EXTRA_CHECKSUM_SHA256, metadata.checksumSha256)
+                    putExtra(EXTRA_AUTH_TOKEN, metadata.authToken)
+                    putExtra(EXTRA_IP, metadata.ip)
+                    putExtra(EXTRA_PORT, metadata.port)
+                    putExtra(EXTRA_HTTP_PATH, httpPath)
+                }
             ContextCompat.startForegroundService(context, intent)
         }
     }

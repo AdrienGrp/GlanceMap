@@ -39,7 +39,7 @@ internal data class CompassRecalibrationDialogTokens(
     val qualityBarCornerRadius: Dp,
     val actionTextFontSize: TextUnit,
     val skipButtonWidthFraction: Float,
-    val singleActionWidthFraction: Float
+    val singleActionWidthFraction: Float,
 )
 
 @Composable
@@ -48,81 +48,83 @@ internal fun rememberCompassRecalibrationDialogTokens(): CompassRecalibrationDia
     return remember(adaptive.windowClass, adaptive.isRound) {
         val windowClass = adaptive.windowClass
         when (windowClass) {
-            WearWindowClass.EXPANDED -> CompassRecalibrationDialogTokens(
-                viewportVerticalInset = 0.dp,
-                titleTopPadding = 0.dp,
-                dialogWidthFraction = if (adaptive.isRound) 0.84f else 0.88f,
-                dialogContentSpacing = 6.dp,
-                dialogHorizontalPadding = 10.dp,
-                dialogVerticalPadding = 8.dp,
-                titleFontSize = 14.sp,
-                bodyFontSize = 11.sp,
-                bodyLineHeight = 13.sp,
-                qualityFontSize = 11.sp,
-                timerFontSize = 10.sp,
-                qualityMeterWidthFraction = 0.70f,
-                qualityMeterSpacing = 6.dp,
-                qualityBarWidth = 20.dp,
-                qualityBarHeight = 5.dp,
-                qualityBarCornerRadius = 3.dp,
-                actionTextFontSize = 11.sp,
-                skipButtonWidthFraction = 0.58f,
-                singleActionWidthFraction = 0.65f
-            )
+            WearWindowClass.EXPANDED ->
+                CompassRecalibrationDialogTokens(
+                    viewportVerticalInset = 0.dp,
+                    titleTopPadding = 0.dp,
+                    dialogWidthFraction = if (adaptive.isRound) 0.84f else 0.88f,
+                    dialogContentSpacing = 6.dp,
+                    dialogHorizontalPadding = 10.dp,
+                    dialogVerticalPadding = 8.dp,
+                    titleFontSize = 14.sp,
+                    bodyFontSize = 11.sp,
+                    bodyLineHeight = 13.sp,
+                    qualityFontSize = 11.sp,
+                    timerFontSize = 10.sp,
+                    qualityMeterWidthFraction = 0.70f,
+                    qualityMeterSpacing = 6.dp,
+                    qualityBarWidth = 20.dp,
+                    qualityBarHeight = 5.dp,
+                    qualityBarCornerRadius = 3.dp,
+                    actionTextFontSize = 11.sp,
+                    skipButtonWidthFraction = 0.58f,
+                    singleActionWidthFraction = 0.65f,
+                )
 
-            WearWindowClass.STANDARD -> CompassRecalibrationDialogTokens(
-                viewportVerticalInset = 0.dp,
-                titleTopPadding = 0.dp,
-                dialogWidthFraction = if (adaptive.isRound) 0.88f else 0.92f,
-                dialogContentSpacing = 5.dp,
-                dialogHorizontalPadding = 9.dp,
-                dialogVerticalPadding = 7.dp,
-                titleFontSize = 13.sp,
-                bodyFontSize = 10.sp,
-                bodyLineHeight = 12.sp,
-                qualityFontSize = 10.sp,
-                timerFontSize = 9.sp,
-                qualityMeterWidthFraction = 0.76f,
-                qualityMeterSpacing = 5.dp,
-                qualityBarWidth = 18.dp,
-                qualityBarHeight = 4.dp,
-                qualityBarCornerRadius = 2.5.dp,
-                actionTextFontSize = 10.sp,
-                skipButtonWidthFraction = 0.64f,
-                singleActionWidthFraction = 0.72f
-            )
+            WearWindowClass.STANDARD ->
+                CompassRecalibrationDialogTokens(
+                    viewportVerticalInset = 0.dp,
+                    titleTopPadding = 0.dp,
+                    dialogWidthFraction = if (adaptive.isRound) 0.88f else 0.92f,
+                    dialogContentSpacing = 5.dp,
+                    dialogHorizontalPadding = 9.dp,
+                    dialogVerticalPadding = 7.dp,
+                    titleFontSize = 13.sp,
+                    bodyFontSize = 10.sp,
+                    bodyLineHeight = 12.sp,
+                    qualityFontSize = 10.sp,
+                    timerFontSize = 9.sp,
+                    qualityMeterWidthFraction = 0.76f,
+                    qualityMeterSpacing = 5.dp,
+                    qualityBarWidth = 18.dp,
+                    qualityBarHeight = 4.dp,
+                    qualityBarCornerRadius = 2.5.dp,
+                    actionTextFontSize = 10.sp,
+                    skipButtonWidthFraction = 0.64f,
+                    singleActionWidthFraction = 0.72f,
+                )
 
-            WearWindowClass.COMPACT -> CompassRecalibrationDialogTokens(
-                viewportVerticalInset = if (adaptive.isRound) 10.dp else 0.dp,
-                titleTopPadding = if (adaptive.isRound) 6.dp else 0.dp,
-                dialogWidthFraction = if (adaptive.isRound) 0.88f else 0.94f,
-                dialogContentSpacing = 4.dp,
-                dialogHorizontalPadding = 8.dp,
-                dialogVerticalPadding = 6.dp,
-                titleFontSize = if (adaptive.isRound) 11.sp else 12.sp,
-                bodyFontSize = 9.sp,
-                bodyLineHeight = 11.sp,
-                qualityFontSize = 9.sp,
-                timerFontSize = 8.sp,
-                qualityMeterWidthFraction = 0.82f,
-                qualityMeterSpacing = 4.dp,
-                qualityBarWidth = 16.dp,
-                qualityBarHeight = 4.dp,
-                qualityBarCornerRadius = 2.dp,
-                actionTextFontSize = 9.sp,
-                skipButtonWidthFraction = 0.72f,
-                singleActionWidthFraction = 0.78f
-            )
+            WearWindowClass.COMPACT ->
+                CompassRecalibrationDialogTokens(
+                    viewportVerticalInset = if (adaptive.isRound) 10.dp else 0.dp,
+                    titleTopPadding = if (adaptive.isRound) 6.dp else 0.dp,
+                    dialogWidthFraction = if (adaptive.isRound) 0.88f else 0.94f,
+                    dialogContentSpacing = 4.dp,
+                    dialogHorizontalPadding = 8.dp,
+                    dialogVerticalPadding = 6.dp,
+                    titleFontSize = if (adaptive.isRound) 11.sp else 12.sp,
+                    bodyFontSize = 9.sp,
+                    bodyLineHeight = 11.sp,
+                    qualityFontSize = 9.sp,
+                    timerFontSize = 8.sp,
+                    qualityMeterWidthFraction = 0.82f,
+                    qualityMeterSpacing = 4.dp,
+                    qualityBarWidth = 16.dp,
+                    qualityBarHeight = 4.dp,
+                    qualityBarCornerRadius = 2.dp,
+                    actionTextFontSize = 9.sp,
+                    skipButtonWidthFraction = 0.72f,
+                    singleActionWidthFraction = 0.78f,
+                )
         }
     }
 }
 
-internal fun vibratorFrom(context: Context): Vibrator? {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+internal fun vibratorFrom(context: Context): Vibrator? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
         vm.defaultVibrator
     } else {
         @Suppress("DEPRECATION")
         context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     }
-}

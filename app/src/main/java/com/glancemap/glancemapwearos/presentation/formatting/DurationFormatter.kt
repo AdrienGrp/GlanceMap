@@ -3,7 +3,6 @@ package com.glancemap.glancemapwearos.presentation.formatting
 import kotlin.math.roundToInt
 
 object DurationFormatter {
-
     fun formatDurationShort(seconds: Double?): String {
         if (seconds == null || !seconds.isFinite() || seconds <= 0.0) return "--"
 

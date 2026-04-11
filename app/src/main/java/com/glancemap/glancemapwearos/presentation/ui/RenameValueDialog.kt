@@ -38,7 +38,7 @@ fun RenameValueDialog(
     isSaving: Boolean,
     error: String?,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String) -> Unit,
 ) {
     if (!visible) return
 
@@ -56,45 +56,46 @@ fun RenameValueDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Color.Black.copy(alpha = 0.90f),
-                    RoundedCornerShape(adaptive.dialogCornerRadius)
-                )
-                .padding(
-                    horizontal = adaptive.dialogHorizontalPadding,
-                    vertical = adaptive.dialogVerticalPadding
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color.Black.copy(alpha = 0.90f),
+                        RoundedCornerShape(adaptive.dialogCornerRadius),
+                    ).padding(
+                        horizontal = adaptive.dialogHorizontalPadding,
+                        vertical = adaptive.dialogVerticalPadding,
+                    ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
 
             BasicTextField(
                 value = draftValue,
                 onValueChange = { draftValue = it.take(64) },
                 singleLine = true,
-                textStyle = TextStyle(
-                    color = Color.White,
-                    textAlign = TextAlign.Center
-                ),
+                textStyle =
+                    TextStyle(
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                    ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-                    .background(
-                        Color.White.copy(alpha = 0.10f),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .background(
+                            Color.White.copy(alpha = 0.10f),
+                            RoundedCornerShape(12.dp),
+                        ).padding(horizontal = 12.dp, vertical = 10.dp),
                 decorationBox = { innerTextField ->
                     if (draftValue.isBlank()) {
                         Text(
@@ -102,11 +103,11 @@ fun RenameValueDialog(
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.45f),
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                     innerTextField()
-                }
+                },
             )
 
             error?.takeIf { it.isNotBlank() }?.let { message ->
@@ -114,14 +115,14 @@ fun RenameValueDialog(
                     text = message,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
 
             Button(
                 onClick = { onConfirm(draftValue) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isSaving
+                enabled = !isSaving,
             ) {
                 Text(if (isSaving) "Saving..." else "Save")
             }
@@ -130,10 +131,11 @@ fun RenameValueDialog(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isSaving,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White.copy(alpha = 0.12f),
-                    contentColor = Color.White
-                )
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.12f),
+                        contentColor = Color.White,
+                    ),
             ) {
                 Text("Cancel")
             }

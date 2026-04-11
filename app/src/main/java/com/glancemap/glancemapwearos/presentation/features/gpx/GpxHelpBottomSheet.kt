@@ -27,63 +27,66 @@ private const val GPX_HELP_DRAG_DISMISS_PX = 55f
 @Composable
 fun GpxHelpBottomSheet(
     visible: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     if (!visible) return
     val adaptive = rememberWearAdaptiveSpec()
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Color.Black.copy(alpha = 0.82f),
-                    RoundedCornerShape(adaptive.dialogCornerRadius)
-                )
-                .padding(
-                    horizontal = adaptive.dialogHorizontalPadding,
-                    vertical = adaptive.dialogVerticalPadding
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color.Black.copy(alpha = 0.82f),
+                        RoundedCornerShape(adaptive.dialogCornerRadius),
+                    ).padding(
+                        horizontal = adaptive.dialogHorizontalPadding,
+                        vertical = adaptive.dialogVerticalPadding,
+                    ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        var totalDrag = 0f
-                        detectVerticalDragGestures(
-                            onDragEnd = { totalDrag = 0f },
-                            onDragCancel = { totalDrag = 0f }
-                        ) { _, dragAmount ->
-                            totalDrag += dragAmount
-                            if (totalDrag > GPX_HELP_DRAG_DISMISS_PX) {
-                                onDismiss()
-                                totalDrag = 0f
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            var totalDrag = 0f
+                            detectVerticalDragGestures(
+                                onDragEnd = { totalDrag = 0f },
+                                onDragCancel = { totalDrag = 0f },
+                            ) { _, dragAmount ->
+                                totalDrag += dragAmount
+                                if (totalDrag > GPX_HELP_DRAG_DISMISS_PX) {
+                                    onDismiss()
+                                    totalDrag = 0f
+                                }
                             }
-                        }
-                    },
-                contentAlignment = Alignment.Center
+                        },
+                contentAlignment = Alignment.Center,
             ) {
                 Box(
-                    modifier = Modifier
-                        .width(26.dp)
-                        .height(3.dp)
-                        .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50))
+                    modifier =
+                        Modifier
+                            .width(26.dp)
+                            .height(3.dp)
+                            .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
                 )
             }
             Text(
                 text = "GPX Actions",
                 style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
             Text(
-                text = "Toggle a track to activate or deactivate.\n" +
-                    "Long press a track to open elevation profile.\n" +
-                    "Use edit mode to delete tracks.\n" +
-                    "Use the gear for GPX settings.",
+                text =
+                    "Toggle a track to activate or deactivate.\n" +
+                        "Long press a track to open elevation profile.\n" +
+                        "Use edit mode to delete tracks.\n" +
+                        "Use the gear for GPX settings.",
                 textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
     }

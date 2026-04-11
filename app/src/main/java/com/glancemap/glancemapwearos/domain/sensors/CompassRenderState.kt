@@ -13,16 +13,16 @@ data class CompassRenderState(
     val headingSource: HeadingSource,
     val headingSourceStatus: HeadingSourceStatus,
     val northReferenceStatus: NorthReferenceStatus,
-    val magneticInterference: Boolean
+    val magneticInterference: Boolean,
 )
 
 internal fun initialCompassRenderState(
     providerType: CompassProviderType,
     headingSensorAvailable: Boolean = false,
     rotationVectorAvailable: Boolean = false,
-    magAccelFallbackAvailable: Boolean = false
-): CompassRenderState {
-    return CompassRenderState(
+    magAccelFallbackAvailable: Boolean = false,
+): CompassRenderState =
+    CompassRenderState(
         providerType = providerType,
         headingDeg = 0f,
         accuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
@@ -31,20 +31,21 @@ internal fun initialCompassRenderState(
         headingSampleElapsedRealtimeMs = null,
         headingSampleStale = false,
         headingSource = HeadingSource.NONE,
-        headingSourceStatus = HeadingSourceStatus(
-            requestedMode = CompassHeadingSourceMode.AUTO,
-            activeSource = HeadingSource.NONE,
-            headingSensorAvailable = headingSensorAvailable,
-            rotationVectorAvailable = rotationVectorAvailable,
-            magAccelFallbackAvailable = magAccelFallbackAvailable
-        ),
-        northReferenceStatus = NorthReferenceStatus(
-            requestedMode = NorthReferenceMode.TRUE,
-            effectiveMode = NorthReferenceMode.MAGNETIC,
-            declinationAvailable = false,
-            waitingForDeclination = true,
-            pipeline = HeadingPipeline.NONE
-        ),
-        magneticInterference = false
+        headingSourceStatus =
+            HeadingSourceStatus(
+                requestedMode = CompassHeadingSourceMode.AUTO,
+                activeSource = HeadingSource.NONE,
+                headingSensorAvailable = headingSensorAvailable,
+                rotationVectorAvailable = rotationVectorAvailable,
+                magAccelFallbackAvailable = magAccelFallbackAvailable,
+            ),
+        northReferenceStatus =
+            NorthReferenceStatus(
+                requestedMode = NorthReferenceMode.TRUE,
+                effectiveMode = NorthReferenceMode.MAGNETIC,
+                declinationAvailable = false,
+                waitingForDeclination = true,
+                pipeline = HeadingPipeline.NONE,
+            ),
+        magneticInterference = false,
     )
-}

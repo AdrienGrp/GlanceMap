@@ -50,7 +50,7 @@ internal fun RouteToolResultDialog(
     onDismiss: () -> Unit,
     onDelete: () -> Unit,
     onRenameOpen: () -> Unit,
-    onRenameConfirm: (String) -> Unit
+    onRenameConfirm: (String) -> Unit,
 ) {
     if (!visible || result == null) return
 
@@ -69,7 +69,7 @@ internal fun RouteToolResultDialog(
                     showRenameDialog = false
                 }
             },
-            onConfirm = onRenameConfirm
+            onConfirm = onRenameConfirm,
         )
     }
 
@@ -80,66 +80,68 @@ internal fun RouteToolResultDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    horizontal = if (adaptive.isRound) 18.dp else 14.dp,
-                    vertical = if (adaptive.isRound) 16.dp else 14.dp
-                ),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal = if (adaptive.isRound) 18.dp else 14.dp,
+                        vertical = if (adaptive.isRound) 16.dp else 14.dp,
+                    ),
+            contentAlignment = Alignment.Center,
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Color.Black.copy(alpha = 0.90f),
-                        RoundedCornerShape(adaptive.dialogCornerRadius)
-                    )
-                    .padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding
-                    ),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Color.Black.copy(alpha = 0.90f),
+                            RoundedCornerShape(adaptive.dialogCornerRadius),
+                        ).padding(
+                            horizontal = adaptive.dialogHorizontalPadding,
+                            vertical = adaptive.dialogVerticalPadding,
+                        ),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.Top,
                 ) {
                     Column(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.Start,
-                        verticalArrangement = Arrangement.spacedBy(1.dp)
+                        verticalArrangement = Arrangement.spacedBy(1.dp),
                     ) {
                         Text(
                             text = result.displayTitle,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Start,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
 
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         IconButton(
                             onClick = onDelete,
                             modifier = Modifier.size(34.dp),
                             enabled = !renameInProgress,
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
+                            colors =
+                                IconButtonDefaults.iconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                ),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete GPX"
+                                contentDescription = "Delete GPX",
                             )
                         }
                         IconButton(
@@ -149,14 +151,15 @@ internal fun RouteToolResultDialog(
                             },
                             modifier = Modifier.size(34.dp),
                             enabled = !renameInProgress,
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.White.copy(alpha = 0.10f),
-                                contentColor = Color.White
-                            )
+                            colors =
+                                IconButtonDefaults.iconButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.10f),
+                                    contentColor = Color.White,
+                                ),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
-                                contentDescription = "Rename GPX"
+                                contentDescription = "Rename GPX",
                             )
                         }
                     }
@@ -164,40 +167,41 @@ internal fun RouteToolResultDialog(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     RouteStatTile(
                         modifier = Modifier.weight(1f),
                         label = "Dist",
-                        value = "$distanceValue $distanceUnit"
+                        value = "$distanceValue $distanceUnit",
                     )
                     RouteStatTile(
                         modifier = Modifier.weight(1f),
                         label = "Time",
-                        value = etaValue
+                        value = etaValue,
                     )
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     RouteStatTile(
                         modifier = Modifier.weight(1f),
                         labelIcon = Icons.Default.ArrowUpward,
-                        value = "$gainValue $gainUnit"
+                        value = "$gainValue $gainUnit",
                     )
                     RouteStatTile(
                         modifier = Modifier.weight(1f),
                         labelIcon = Icons.Default.ArrowDownward,
-                        value = "$lossValue $lossUnit"
+                        value = "$lossValue $lossUnit",
                     )
                 }
 
                 Button(
                     onClick = onDismiss,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(34.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(34.dp),
                 ) {
                     Text("Done")
                 }
@@ -211,36 +215,36 @@ private fun RouteStatTile(
     modifier: Modifier,
     label: String? = null,
     labelIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    value: String
+    value: String,
 ) {
     Column(
-        modifier = modifier
-            .background(
-                Color.White.copy(alpha = 0.10f),
-                RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 6.dp, vertical = 5.dp),
+        modifier =
+            modifier
+                .background(
+                    Color.White.copy(alpha = 0.10f),
+                    RoundedCornerShape(12.dp),
+                ).padding(horizontal = 6.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(1.dp)
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         if (labelIcon != null) {
             Icon(
                 imageVector = labelIcon,
                 contentDescription = null,
                 modifier = Modifier.size(14.dp),
-                tint = Color.White.copy(alpha = 0.72f)
+                tint = Color.White.copy(alpha = 0.72f),
             )
         } else if (label != null) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.72f)
+                color = Color.White.copy(alpha = 0.72f),
             )
         }
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
     }
 }

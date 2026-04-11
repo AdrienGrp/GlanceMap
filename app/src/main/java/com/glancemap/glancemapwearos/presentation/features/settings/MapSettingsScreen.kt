@@ -12,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
@@ -20,13 +19,13 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
 import androidx.wear.compose.material3.Text
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepositoryImpl
 import com.glancemap.glancemapwearos.domain.model.maps.theme.ThemeListItem
 import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupBottomSheet
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.google.android.horologist.annotations.ExperimentalHorologistApi
+import com.google.android.horologist.compose.layout.ScreenScaffold
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalHorologistApi::class)
@@ -35,7 +34,7 @@ fun MapSettingsScreen(
     navController: NavHostController,
     viewModel: SettingsViewModel,
     themeViewModel: ThemeViewModel,
-    onOpenGeneralSettings: () -> Unit
+    onOpenGeneralSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
     val autoRecenterEnabled by viewModel.autoRecenterEnabled.collectAsState()
@@ -46,54 +45,59 @@ fun MapSettingsScreen(
     val selectedMapPath by viewModel.selectedMapPath.collectAsState()
     val scope = rememberCoroutineScope()
     var showDemSetupDialog by remember { mutableStateOf(false) }
-    val hillShadingEnabled = remember(themeItems) {
-        themeItems
-            .filterIsInstance<ThemeListItem.GlobalToggle>()
-            .firstOrNull { it.id == ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID }
-            ?.enabled
-            ?: false
-    }
-    val hillShadingSupported = remember(themeItems) {
-        themeItems
-            .filterIsInstance<ThemeListItem.GlobalToggle>()
-            .firstOrNull { it.id == ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID }
-            ?.supported
-            ?: false
-    }
-    val reliefOverlayEnabled = remember(themeItems) {
-        themeItems
-            .filterIsInstance<ThemeListItem.GlobalToggle>()
-            .firstOrNull { it.id == ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID }
-            ?.enabled
-            ?: false
-    }
+    val hillShadingEnabled =
+        remember(themeItems) {
+            themeItems
+                .filterIsInstance<ThemeListItem.GlobalToggle>()
+                .firstOrNull { it.id == ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID }
+                ?.enabled
+                ?: false
+        }
+    val hillShadingSupported =
+        remember(themeItems) {
+            themeItems
+                .filterIsInstance<ThemeListItem.GlobalToggle>()
+                .firstOrNull { it.id == ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID }
+                ?.supported
+                ?: false
+        }
+    val reliefOverlayEnabled =
+        remember(themeItems) {
+            themeItems
+                .filterIsInstance<ThemeListItem.GlobalToggle>()
+                .firstOrNull { it.id == ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID }
+                ?.enabled
+                ?: false
+        }
     val hillShadingChecked = hillShadingEnabled && hillShadingSupported
-    val hillShadingSecondaryLabel = when {
-        !hillShadingSupported -> "Not supported by this theme"
-        hillShadingEnabled -> "On"
-        else -> "Off"
-    }
+    val hillShadingSecondaryLabel =
+        when {
+            !hillShadingSupported -> "Not supported by this theme"
+            hillShadingEnabled -> "On"
+            else -> "Off"
+        }
     val reliefOverlaySecondaryLabel = if (reliefOverlayEnabled) "On" else "Off"
 
     val listState = rememberScalingLazyListState()
 
     DemSetupBottomSheet(
         visible = showDemSetupDialog,
-        onDismiss = { showDemSetupDialog = false }
+        onDismiss = { showDemSetupDialog = false },
     )
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(
-                start = listTokens.horizontalPadding,
-                end = listTokens.horizontalPadding,
-                top = listTokens.topPadding,
-                bottom = listTokens.bottomPadding
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = listTokens.horizontalPadding,
+                    end = listTokens.horizontalPadding,
+                    top = listTokens.topPadding,
+                    bottom = listTokens.bottomPadding,
+                ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {
                 GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
@@ -104,7 +108,7 @@ fun MapSettingsScreen(
                     onCheckedChanged = {
                         viewModel.setAutoRecenterEnabled(it)
                     },
-                    label = "Auto recenter"
+                    label = "Auto recenter",
                 )
             }
             if (autoRecenterEnabled) {
@@ -133,7 +137,7 @@ fun MapSettingsScreen(
                         }
                     },
                     label = "Live elevation",
-                    secondaryLabel = if (liveElevation) "On" else "Off"
+                    secondaryLabel = if (liveElevation) "On" else "Off",
                 )
             }
             item {
@@ -141,7 +145,7 @@ fun MapSettingsScreen(
                     checked = liveDistance,
                     onCheckedChanged = { viewModel.setLiveDistance(it) },
                     label = "Live distance",
-                    secondaryLabel = if (liveDistance) "On" else "Off"
+                    secondaryLabel = if (liveDistance) "On" else "Off",
                 )
             }
             item {
@@ -164,7 +168,7 @@ fun MapSettingsScreen(
                         }
                     },
                     label = "Hill shading",
-                    secondaryLabel = hillShadingSecondaryLabel
+                    secondaryLabel = hillShadingSecondaryLabel,
                 )
             }
             item {
@@ -186,28 +190,28 @@ fun MapSettingsScreen(
                         }
                     },
                     label = "Slope overlay",
-                    secondaryLabel = reliefOverlaySecondaryLabel
+                    secondaryLabel = reliefOverlaySecondaryLabel,
                 )
             }
             item {
                 SettingsSectionChip(
                     label = "Theme",
                     secondaryLabel = "Open theme settings",
-                    onClick = { navController.navigate(WatchRoutes.THEME_SETTINGS) }
+                    onClick = { navController.navigate(WatchRoutes.THEME_SETTINGS) },
                 )
             }
             item {
                 SettingsSectionChip(
                     label = "Display",
                     secondaryLabel = "Open display settings",
-                    onClick = { navController.navigate(WatchRoutes.MAP_DISPLAY_SETTINGS) }
+                    onClick = { navController.navigate(WatchRoutes.MAP_DISPLAY_SETTINGS) },
                 )
             }
             item {
                 SettingsSectionChip(
                     label = "Zoom",
                     secondaryLabel = "Open zoom settings",
-                    onClick = { navController.navigate(WatchRoutes.MAP_ZOOM_SETTINGS) }
+                    onClick = { navController.navigate(WatchRoutes.MAP_ZOOM_SETTINGS) },
                 )
             }
         }
@@ -215,30 +219,33 @@ fun MapSettingsScreen(
 }
 
 @Composable
-private fun RecenterDelaySetting(delay: Int, onValueChange: (Int) -> Unit) {
+private fun RecenterDelaySetting(
+    delay: Int,
+    onValueChange: (Int) -> Unit,
+) {
     var internalValue by remember(delay) { mutableStateOf(delay.toFloat()) }
-    
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
             "Recenter Delay: ${internalValue.toInt()}s",
             style = MaterialTheme.typography.titleMedium,
-            maxLines = 1, 
-            overflow = TextOverflow.Ellipsis
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Slider(
             value = internalValue,
-            onValueChange = { 
+            onValueChange = {
                 internalValue = it
-                onValueChange(it.toInt()) 
+                onValueChange(it.toInt())
             },
             valueRange = 1f..30f,
             steps = 28,
             increaseIcon = { Icon(Icons.Filled.Add, contentDescription = "Increase") },
             decreaseIcon = { Icon(Icons.Filled.Remove, contentDescription = "Decrease") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

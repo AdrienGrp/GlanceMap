@@ -3,15 +3,15 @@ package com.glancemap.glancemapwearos.core.service.location.adapters
 import android.annotation.SuppressLint
 import android.location.Location
 import android.os.Looper
-import com.google.android.gms.location.Granularity
-import com.google.android.gms.location.LocationAvailability
+import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.Granularity
+import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -22,37 +22,39 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 internal class FusedLocationGateway(
-    private val client: FusedLocationProviderClient
+    private val client: FusedLocationProviderClient,
 ) : LocationGateway {
     private val requestMutex = Mutex()
     private val activeCallbacks = LinkedHashSet<LocationCallback>()
+
     @Volatile private var registeringCallback: LocationCallback? = null
 
     @SuppressLint("MissingPermission")
     override suspend fun getCurrentLocation(request: CurrentLocationRequestParams): Location? {
-        val currentRequest = CurrentLocationRequest.Builder()
-            .setPriority(request.priority)
-            .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
-            .setMaxUpdateAgeMillis(request.maxUpdateAgeMs)
-            .setDurationMillis(request.durationMs)
-            .build()
+        val currentRequest =
+            CurrentLocationRequest
+                .Builder()
+                .setPriority(request.priority)
+                .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
+                .setMaxUpdateAgeMillis(request.maxUpdateAgeMs)
+                .setDurationMillis(request.durationMs)
+                .build()
         return suspendCancellableCoroutine { continuation ->
             val cancellationTokenSource = CancellationTokenSource()
             continuation.invokeOnCancellation {
                 cancellationTokenSource.cancel()
             }
-            client.getCurrentLocation(currentRequest, cancellationTokenSource.token)
+            client
+                .getCurrentLocation(currentRequest, cancellationTokenSource.token)
                 .addOnSuccessListener { location ->
                     if (continuation.isActive) {
                         continuation.resume(location)
                     }
-                }
-                .addOnFailureListener { error ->
+                }.addOnFailureListener { error ->
                     if (continuation.isActive) {
                         continuation.resumeWithException(error)
                     }
-                }
-                .addOnCanceledListener {
+                }.addOnCanceledListener {
                     if (continuation.isActive) {
                         continuation.cancel()
                     }
@@ -61,39 +63,40 @@ internal class FusedLocationGateway(
     }
 
     @SuppressLint("MissingPermission")
-    override suspend fun getLastLocation(): Location? {
-        return client.lastLocation.await()
-    }
+    override suspend fun getLastLocation(): Location? = client.lastLocation.await()
 
     @SuppressLint("MissingPermission")
     override suspend fun requestLocationUpdates(
         request: LocationUpdateRequestParams,
-        sink: LocationUpdateSink
+        sink: LocationUpdateSink,
     ) {
         requestMutex.withLock {
             removeLocationUpdatesLocked()
-            val callback = object : LocationCallback() {
-                override fun onLocationAvailability(locationAvailability: LocationAvailability) {
-                    sink.onLocationAvailability(locationAvailability.isLocationAvailable)
-                }
+            val callback =
+                object : LocationCallback() {
+                    override fun onLocationAvailability(locationAvailability: LocationAvailability) {
+                        sink.onLocationAvailability(locationAvailability.isLocationAvailable)
+                    }
 
-                override fun onLocationResult(result: LocationResult) {
-                    sink.onLocations(
-                        LocationUpdateEvent(
-                            origin = LocationSourceMode.AUTO_FUSED,
-                            candidates = result.locations,
-                            lastCandidate = result.lastLocation,
-                            rawCandidateCount = result.locations.size
+                    override fun onLocationResult(result: LocationResult) {
+                        sink.onLocations(
+                            LocationUpdateEvent(
+                                origin = LocationSourceMode.AUTO_FUSED,
+                                candidates = result.locations,
+                                lastCandidate = result.lastLocation,
+                                rawCandidateCount = result.locations.size,
+                            ),
                         )
-                    )
+                    }
                 }
-            }
-            val locationRequest = LocationRequest.Builder(request.priority, request.intervalMs)
-                .setMinUpdateIntervalMillis(request.intervalMs)
-                .setMinUpdateDistanceMeters(request.minDistanceMeters)
-                .setWaitForAccurateLocation(request.waitForAccurateLocation)
-                .setMaxUpdateDelayMillis(request.maxUpdateDelayMs)
-                .build()
+            val locationRequest =
+                LocationRequest
+                    .Builder(request.priority, request.intervalMs)
+                    .setMinUpdateIntervalMillis(request.intervalMs)
+                    .setMinUpdateDistanceMeters(request.minDistanceMeters)
+                    .setWaitForAccurateLocation(request.waitForAccurateLocation)
+                    .setMaxUpdateDelayMillis(request.maxUpdateDelayMs)
+                    .build()
             registeringCallback = callback
             try {
                 client.requestLocationUpdates(locationRequest, callback, Looper.getMainLooper()).await()

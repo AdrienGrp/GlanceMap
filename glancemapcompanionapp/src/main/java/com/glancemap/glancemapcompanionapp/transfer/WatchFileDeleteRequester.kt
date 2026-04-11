@@ -20,21 +20,24 @@ import java.util.concurrent.ConcurrentHashMap
  *   JSON: { "id": "<requestId>", "ok": true/false }
  */
 class WatchFileDeleteRequester(
-    private val sendMessage: suspend (nodeId: String, path: String, payload: ByteArray) -> Unit
+    private val sendMessage: suspend (nodeId: String, path: String, payload: ByteArray) -> Unit,
 ) {
-
     private val pendingRequests = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
 
-    suspend fun delete(nodeId: String, fileName: String): Boolean? {
+    suspend fun delete(
+        nodeId: String,
+        fileName: String,
+    ): Boolean? {
         val requestId = UUID.randomUUID().toString()
         val deferred = CompletableDeferred<Boolean>()
         pendingRequests[requestId] = deferred
 
-        val payload = JSONObject()
-            .put("id", requestId)
-            .put("name", Uri.encode(fileName))
-            .toString()
-            .toByteArray(Charsets.UTF_8)
+        val payload =
+            JSONObject()
+                .put("id", requestId)
+                .put("name", Uri.encode(fileName))
+                .toString()
+                .toByteArray(Charsets.UTF_8)
 
         return try {
             sendMessage(nodeId, DataLayerPaths.PATH_DELETE_FILE, payload)

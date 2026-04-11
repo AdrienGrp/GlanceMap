@@ -10,7 +10,7 @@ internal data class PositionMeasurement(
     val yMeters: Double,
     val accuracyMeters: Float,
     val elapsedMs: Long,
-    val speedMps: Float? = null
+    val speedMps: Float? = null,
 )
 
 internal data class FilteredPositionEstimate(
@@ -19,7 +19,7 @@ internal data class FilteredPositionEstimate(
     val vxMps: Double,
     val vyMps: Double,
     val positionStdDevMeters: Float,
-    val elapsedMs: Long
+    val elapsedMs: Long,
 ) {
     val speedMps: Float
         get() = hypot(vxMps, vyMps).toFloat()
@@ -44,89 +44,99 @@ internal class AdaptivePositionFilter {
                 xMeters = measurement.xMeters,
                 yMeters = measurement.yMeters,
                 positionVariance = accuracyMeters.toDouble() * accuracyMeters.toDouble(),
-                velocityVariance = initialVelocityVariance(accuracyMeters)
+                velocityVariance = initialVelocityVariance(accuracyMeters),
             )
             lastMeasurementElapsedMs = measurement.elapsedMs.coerceAtLeast(0L)
             return estimateFor(elapsedMs = lastMeasurementElapsedMs)
         }
 
-        val sanitizedElapsedMs = measurement.elapsedMs
-            .coerceAtLeast(lastMeasurementElapsedMs)
-            .coerceAtLeast(0L)
+        val sanitizedElapsedMs =
+            measurement.elapsedMs
+                .coerceAtLeast(lastMeasurementElapsedMs)
+                .coerceAtLeast(0L)
         val dtMs = (sanitizedElapsedMs - lastMeasurementElapsedMs).coerceAtLeast(0L)
         val boundedDtSec = dtMs.coerceIn(MIN_DT_MS, MAX_DT_MS).toDouble() / 1_000.0
 
         if (dtMs > 0L) {
             kalman.predict(
                 dtSec = boundedDtSec,
-                accelerationSigmaMps2 = processNoiseAccelerationSigma(
-                    speedMps = measurement.speedMps,
-                    accuracyMeters = accuracyMeters
-                )
+                accelerationSigmaMps2 =
+                    processNoiseAccelerationSigma(
+                        speedMps = measurement.speedMps,
+                        accuracyMeters = accuracyMeters,
+                    ),
             )
         }
 
-        val innovationDistance = hypot(
-            measurement.xMeters - kalman.positionX(),
-            measurement.yMeters - kalman.positionY()
-        )
+        val innovationDistance =
+            hypot(
+                measurement.xMeters - kalman.positionX(),
+                measurement.yMeters - kalman.positionY(),
+            )
         kalman.update(
             measuredXMeters = measurement.xMeters,
             measuredYMeters = measurement.yMeters,
-            measurementVariance = measurementVariance(
-                accuracyMeters = accuracyMeters,
-                innovationDistanceMeters = innovationDistance
-            )
+            measurementVariance =
+                measurementVariance(
+                    accuracyMeters = accuracyMeters,
+                    innovationDistanceMeters = innovationDistance,
+                ),
         )
         lastMeasurementElapsedMs = sanitizedElapsedMs
         return estimateFor(elapsedMs = sanitizedElapsedMs)
     }
 
-    private fun estimateFor(elapsedMs: Long): FilteredPositionEstimate {
-        return FilteredPositionEstimate(
+    private fun estimateFor(elapsedMs: Long): FilteredPositionEstimate =
+        FilteredPositionEstimate(
             xMeters = kalman.positionX(),
             yMeters = kalman.positionY(),
             vxMps = kalman.velocityX(),
             vyMps = kalman.velocityY(),
             positionStdDevMeters = kalman.positionStdDevMeters(),
-            elapsedMs = elapsedMs
+            elapsedMs = elapsedMs,
         )
-    }
 
-    private fun processNoiseAccelerationSigma(speedMps: Float?, accuracyMeters: Float): Double {
+    private fun processNoiseAccelerationSigma(
+        speedMps: Float?,
+        accuracyMeters: Float,
+    ): Double {
         val speed = sanitizeSpeed(speedMps)
-        val base = when {
-            speed < 0.4f -> 0.9
-            speed < 1.4f -> 1.5
-            speed < 2.6f -> 2.3
-            else -> 3.2
-        }
+        val base =
+            when {
+                speed < 0.4f -> 0.9
+                speed < 1.4f -> 1.5
+                speed < 2.6f -> 2.3
+                else -> 3.2
+            }
         val accuracyBoost = (accuracyMeters / 25f).coerceIn(0f, 1.8f)
         return base + accuracyBoost
     }
 
     private fun measurementVariance(
         accuracyMeters: Float,
-        innovationDistanceMeters: Double
+        innovationDistanceMeters: Double,
     ): Double {
         val clampedAccuracy = accuracyMeters.coerceAtLeast(MIN_MEASUREMENT_ACCURACY_M)
         val baseVariance = clampedAccuracy.toDouble() * clampedAccuracy.toDouble()
-        val expectedInnovationMeters = max(
-            clampedAccuracy.toDouble() * EXPECTED_INNOVATION_ACCURACY_MULTIPLIER,
-            MIN_EXPECTED_INNOVATION_M
-        )
-        val innovationScale = max(
-            1.0,
-            innovationDistanceMeters / expectedInnovationMeters
-        ).coerceAtMost(MAX_INNOVATION_SCALE)
+        val expectedInnovationMeters =
+            max(
+                clampedAccuracy.toDouble() * EXPECTED_INNOVATION_ACCURACY_MULTIPLIER,
+                MIN_EXPECTED_INNOVATION_M,
+            )
+        val innovationScale =
+            max(
+                1.0,
+                innovationDistanceMeters / expectedInnovationMeters,
+            ).coerceAtMost(MAX_INNOVATION_SCALE)
         return baseVariance * innovationScale * innovationScale
     }
 
     private fun initialVelocityVariance(accuracyMeters: Float): Double {
-        val sigma = max(
-            MIN_INITIAL_VELOCITY_SIGMA_MPS.toDouble(),
-            accuracyMeters.toDouble() / INITIAL_VELOCITY_ACCURACY_DIVISOR
-        )
+        val sigma =
+            max(
+                MIN_INITIAL_VELOCITY_SIGMA_MPS.toDouble(),
+                accuracyMeters.toDouble() / INITIAL_VELOCITY_ACCURACY_DIVISOR,
+            )
         return sigma * sigma
     }
 
@@ -160,7 +170,7 @@ private class PositionKalmanFilter {
         xMeters: Double,
         yMeters: Double,
         positionVariance: Double,
-        velocityVariance: Double
+        velocityVariance: Double,
     ) {
         reset()
         state[STATE_X] = xMeters
@@ -172,16 +182,20 @@ private class PositionKalmanFilter {
         initialized = true
     }
 
-    fun predict(dtSec: Double, accelerationSigmaMps2: Double) {
+    fun predict(
+        dtSec: Double,
+        accelerationSigmaMps2: Double,
+    ) {
         if (!initialized) return
         if (dtSec <= 0.0) return
 
-        val transition = arrayOf(
-            doubleArrayOf(1.0, 0.0, dtSec, 0.0),
-            doubleArrayOf(0.0, 1.0, 0.0, dtSec),
-            doubleArrayOf(0.0, 0.0, 1.0, 0.0),
-            doubleArrayOf(0.0, 0.0, 0.0, 1.0)
-        )
+        val transition =
+            arrayOf(
+                doubleArrayOf(1.0, 0.0, dtSec, 0.0),
+                doubleArrayOf(0.0, 1.0, 0.0, dtSec),
+                doubleArrayOf(0.0, 0.0, 1.0, 0.0),
+                doubleArrayOf(0.0, 0.0, 0.0, 1.0),
+            )
         val predictedState = DoubleArray(STATE_DIMENSION)
         for (row in 0 until STATE_DIMENSION) {
             for (col in 0 until STATE_DIMENSION) {
@@ -207,10 +221,11 @@ private class PositionKalmanFilter {
             }
         }
 
-        val processNoise = processNoiseMatrix(
-            dtSec = dtSec,
-            accelerationSigmaMps2 = accelerationSigmaMps2
-        )
+        val processNoise =
+            processNoiseMatrix(
+                dtSec = dtSec,
+                accelerationSigmaMps2 = accelerationSigmaMps2,
+            )
         for (row in 0 until STATE_DIMENSION) {
             for (col in 0 until STATE_DIMENSION) {
                 covariance[row][col] = predictedCovariance[row][col] + processNoise[row][col]
@@ -222,14 +237,14 @@ private class PositionKalmanFilter {
     fun update(
         measuredXMeters: Double,
         measuredYMeters: Double,
-        measurementVariance: Double
+        measurementVariance: Double,
     ) {
         if (!initialized) {
             initialize(
                 xMeters = measuredXMeters,
                 yMeters = measuredYMeters,
                 positionVariance = measurementVariance,
-                velocityVariance = measurementVariance
+                velocityVariance = measurementVariance,
             )
             return
         }
@@ -281,16 +296,17 @@ private class PositionKalmanFilter {
     fun velocityY(): Double = state[STATE_VY]
 
     fun positionStdDevMeters(): Float {
-        val variance = (
-            covariance[STATE_X][STATE_X] +
-                covariance[STATE_Y][STATE_Y]
+        val variance =
+            (
+                covariance[STATE_X][STATE_X] +
+                    covariance[STATE_Y][STATE_Y]
             ) / 2.0
         return sqrt(variance.coerceAtLeast(MIN_VARIANCE)).toFloat()
     }
 
     private fun processNoiseMatrix(
         dtSec: Double,
-        accelerationSigmaMps2: Double
+        accelerationSigmaMps2: Double,
     ): Array<DoubleArray> {
         val dt2 = dtSec * dtSec
         val dt3 = dt2 * dtSec
@@ -303,7 +319,7 @@ private class PositionKalmanFilter {
             doubleArrayOf(qPos, 0.0, qCross, 0.0),
             doubleArrayOf(0.0, qPos, 0.0, qCross),
             doubleArrayOf(qCross, 0.0, qVelocity, 0.0),
-            doubleArrayOf(0.0, qCross, 0.0, qVelocity)
+            doubleArrayOf(0.0, qCross, 0.0, qVelocity),
         )
     }
 
@@ -320,15 +336,16 @@ private class PositionKalmanFilter {
         }
     }
 
-    private fun copyVector(source: DoubleArray, target: DoubleArray) {
+    private fun copyVector(
+        source: DoubleArray,
+        target: DoubleArray,
+    ) {
         for (index in source.indices) {
             target[index] = source[index]
         }
     }
 
-    private fun copyMatrix(source: Array<DoubleArray>): Array<DoubleArray> {
-        return Array(source.size) { source[it].copyOf() }
-    }
+    private fun copyMatrix(source: Array<DoubleArray>): Array<DoubleArray> = Array(source.size) { source[it].copyOf() }
 }
 
 private fun normalizeBearingDegrees(bearingDeg: Float): Float {

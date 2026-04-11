@@ -8,7 +8,6 @@ import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 
 internal class AckRegistry {
-
     private val pending = ConcurrentHashMap<String, CompletableDeferred<TransferResult>>()
 
     fun register(id: String): CompletableDeferred<TransferResult> {
@@ -21,7 +20,10 @@ internal class AckRegistry {
         pending.remove(id)?.cancel()
     }
 
-    fun complete(id: String, result: TransferResult): Boolean {
+    fun complete(
+        id: String,
+        result: TransferResult,
+    ): Boolean {
         val deferred = pending.remove(id) ?: return false
         if (!deferred.isCompleted) deferred.complete(result)
         return true
@@ -44,13 +46,14 @@ internal class AckRegistry {
             if (status == "DONE" || status == "ERROR") {
                 PhoneTransferDiagnostics.log(
                     "Ack",
-                    "ACK id=$id status=$status detail=${detail.ifBlank { "na" }}"
+                    "ACK id=$id status=$status detail=${detail.ifBlank { "na" }}",
                 )
-                val result = if (status == "DONE") {
-                    TransferResult(true, "Transfer successful")
-                } else {
-                    TransferResult(false, detail.ifBlank { "Watch reported error" })
-                }
+                val result =
+                    if (status == "DONE") {
+                        TransferResult(true, "Transfer successful")
+                    } else {
+                        TransferResult(false, detail.ifBlank { "Watch reported error" })
+                    }
                 pending.remove(id)?.complete(result)
             }
         }.onFailure {

@@ -18,28 +18,28 @@ private enum class LocationRequestMode {
     BURST,
     STATIONARY_BOUND,
     STATIONARY_BACKGROUND,
-    OTHERWISE
+    OTHERWISE,
 }
 
 private data class ModeSample(
     val atEpochMs: Long,
-    val mode: LocationRequestMode
+    val mode: LocationRequestMode,
 )
 
 private enum class RequestBackendMode {
     AUTO_FUSED,
-    WATCH_GPS
+    WATCH_GPS,
 }
 
 private data class BackendSample(
     val atEpochMs: Long,
-    val backend: RequestBackendMode
+    val backend: RequestBackendMode,
 )
 
 internal data class TelemetryWindow(
     val lines: List<String>,
     val firstAtMs: Long?,
-    val lastAtMs: Long?
+    val lastAtMs: Long?,
 )
 
 private data class ModeDurations(
@@ -47,19 +47,19 @@ private data class ModeDurations(
     val stationaryBoundMs: Long,
     val stationaryBackgroundMs: Long,
     val otherwiseMs: Long,
-    val coverageMs: Long
+    val coverageMs: Long,
 )
 
 private data class BackendDurations(
     val autoFusedMs: Long,
     val watchGpsMs: Long,
     val coverageMs: Long,
-    val switchCount: Int
+    val switchCount: Int,
 )
 
 internal fun deriveTelemetryInsights(
     lines: List<String>,
-    captureWindowEndEpochMs: Long?
+    captureWindowEndEpochMs: Long?,
 ): TelemetryInsights {
     if (lines.isEmpty()) return TelemetryInsights()
 
@@ -274,14 +274,16 @@ internal fun deriveTelemetryInsights(
         }
     }
 
-    val modeDurations = accumulateModeDurations(
-        samples = modeSamples,
-        captureWindowEndEpochMs = captureWindowEndEpochMs
-    )
-    val backendDurations = accumulateBackendDurations(
-        samples = backendSamples,
-        captureWindowEndEpochMs = captureWindowEndEpochMs
-    )
+    val modeDurations =
+        accumulateModeDurations(
+            samples = modeSamples,
+            captureWindowEndEpochMs = captureWindowEndEpochMs,
+        )
+    val backendDurations =
+        accumulateBackendDurations(
+            samples = backendSamples,
+            captureWindowEndEpochMs = captureWindowEndEpochMs,
+        )
 
     return TelemetryInsights(
         burstStartCount = burstStartCount,
@@ -346,27 +348,27 @@ internal fun deriveTelemetryInsights(
         fixProviderGpsCount = fixProviderGpsCount,
         fixProviderFusedCount = fixProviderFusedCount,
         screenOnFixGapSampleCount = screenOnFixGapSampleCount,
-        screenOnFixGapAvgMs = if (screenOnFixGapSampleCount > 0) {
-            screenOnFixGapSumMs / screenOnFixGapSampleCount
-        } else {
-            null
-        },
-        screenOnFixGapMaxMs = screenOnFixGapMaxMs
+        screenOnFixGapAvgMs =
+            if (screenOnFixGapSampleCount > 0) {
+                screenOnFixGapSumMs / screenOnFixGapSampleCount
+            } else {
+                null
+            },
+        screenOnFixGapMaxMs = screenOnFixGapMaxMs,
     )
 }
 
 internal fun resolveCaptureWindowEndEpochMs(
     captureSession: DebugTelemetry.CaptureSessionSnapshot,
-    exportNowEpochMs: Long
-): Long? {
-    return captureSession.endedAtMs
+    exportNowEpochMs: Long,
+): Long? =
+    captureSession.endedAtMs
         ?: if (captureSession.active) exportNowEpochMs else null
-}
 
 internal fun toTelemetryWindow(
     lines: List<String>,
     startEpochMs: Long?,
-    endEpochMs: Long?
+    endEpochMs: Long?,
 ): TelemetryWindow {
     if (lines.isEmpty()) {
         return TelemetryWindow(lines = emptyList(), firstAtMs = null, lastAtMs = null)
@@ -375,16 +377,17 @@ internal fun toTelemetryWindow(
         return TelemetryWindow(
             lines = lines,
             firstAtMs = parseTelemetryLineEpochMs(lines.first()),
-            lastAtMs = parseTelemetryLineEpochMs(lines.last())
+            lastAtMs = parseTelemetryLineEpochMs(lines.last()),
         )
     }
 
-    val filtered = lines.filter { line ->
-        val ts = parseTelemetryLineEpochMs(line) ?: return@filter false
-        val afterStart = ts >= startEpochMs
-        val beforeEnd = endEpochMs?.let { ts <= it } ?: true
-        afterStart && beforeEnd
-    }
+    val filtered =
+        lines.filter { line ->
+            val ts = parseTelemetryLineEpochMs(line) ?: return@filter false
+            val afterStart = ts >= startEpochMs
+            val beforeEnd = endEpochMs?.let { ts <= it } ?: true
+            afterStart && beforeEnd
+        }
 
     val firstAtMs = filtered.firstOrNull()?.let(::parseTelemetryLineEpochMs)
     val lastAtMs = filtered.lastOrNull()?.let(::parseTelemetryLineEpochMs)
@@ -418,13 +421,12 @@ private fun parseRequestMode(line: String): LocationRequestMode? {
     }
 }
 
-private fun parseBackendMode(token: String?): RequestBackendMode? {
-    return when (token?.lowercase()) {
+private fun parseBackendMode(token: String?): RequestBackendMode? =
+    when (token?.lowercase()) {
         "auto_fused" -> RequestBackendMode.AUTO_FUSED
         "watch_gps" -> RequestBackendMode.WATCH_GPS
         else -> null
     }
-}
 
 private fun parseTelemetryLineEpochMs(line: String): Long? {
     val separatorIndex = line.indexOf(" [")
@@ -436,7 +438,10 @@ private fun parseTelemetryLineEpochMs(line: String): Long? {
     }.getOrNull()
 }
 
-private fun extractTokenValue(line: String, key: String): String? {
+private fun extractTokenValue(
+    line: String,
+    key: String,
+): String? {
     val index = line.indexOf(key)
     if (index < 0) return null
     val start = index + key.length
@@ -445,42 +450,47 @@ private fun extractTokenValue(line: String, key: String): String? {
     return line.substring(start, end).trim()
 }
 
-private fun parseBooleanToken(line: String, key: String): Boolean? {
-    return extractTokenValue(line, key)?.toBooleanStrictOrNull()
-}
+private fun parseBooleanToken(
+    line: String,
+    key: String,
+): Boolean? = extractTokenValue(line, key)?.toBooleanStrictOrNull()
 
-private fun parseIntToken(line: String, key: String): Int? {
-    return extractTokenValue(line, key)?.toIntOrNull()
-}
+private fun parseIntToken(
+    line: String,
+    key: String,
+): Int? = extractTokenValue(line, key)?.toIntOrNull()
 
-private fun parseFloatToken(line: String, key: String): Float? {
-    return extractTokenValue(line, key)?.toFloatOrNull()
-}
+private fun parseFloatToken(
+    line: String,
+    key: String,
+): Float? = extractTokenValue(line, key)?.toFloatOrNull()
 
-internal fun formatBooleanToken(value: Boolean?): String {
-    return value?.toString() ?: "na"
-}
+internal fun formatBooleanToken(value: Boolean?): String = value?.toString() ?: "na"
 
-internal fun formatAverage(total: Int, count: Int): String {
+internal fun formatAverage(
+    total: Int,
+    count: Int,
+): String {
     if (count <= 0) return "na"
     return "%.2f".format(total.toDouble() / count.toDouble())
 }
 
-internal fun formatRatePercent(numerator: Int, denominator: Int): String {
+internal fun formatRatePercent(
+    numerator: Int,
+    denominator: Int,
+): String {
     if (denominator <= 0) return "na"
     val pct = numerator.toDouble() * 100.0 / denominator.toDouble()
     return "%.2f".format(pct)
 }
 
-private fun formatOneDecimalOrNa(value: Number?): String {
-    return value?.let { String.format(Locale.US, "%.1f", it.toDouble()) } ?: "na"
-}
+private fun formatOneDecimalOrNa(value: Number?): String = value?.let { String.format(Locale.US, "%.1f", it.toDouble()) } ?: "na"
 
 internal fun writeAcceptedFixQualitySection(
     writer: BufferedWriter,
     prefix: String,
     summary: AcceptedFixSummary,
-    quality: ObservedFixQualitySummary
+    quality: ObservedFixQualitySummary,
 ) {
     writer.appendLine("${prefix}AcceptedFixCount=${summary.acceptedFixCount}")
     writer.appendLine("${prefix}CallbackFixCount=${summary.callbackFixCount}")
@@ -502,22 +512,22 @@ internal fun writeAcceptedFixQualitySection(
     writer.appendLine("${prefix}ObservedFixQualityReason=${quality.reason}")
 }
 
-internal fun deriveAcceptedFixSummariesFromLines(lines: List<String>): AcceptedFixSummaries {
-    return AcceptedFixSummaries(
+internal fun deriveAcceptedFixSummariesFromLines(lines: List<String>): AcceptedFixSummaries =
+    AcceptedFixSummaries(
         overall = summarizeAcceptedFixes(lines = lines, originFilter = null),
         autoFused = summarizeAcceptedFixes(lines = lines, originFilter = "auto_fused"),
-        watchGps = summarizeAcceptedFixes(lines = lines, originFilter = "watch_gps")
+        watchGps = summarizeAcceptedFixes(lines = lines, originFilter = "watch_gps"),
     )
-}
 
 private fun summarizeAcceptedFixes(
     lines: List<String>,
-    originFilter: String?
+    originFilter: String?,
 ): AcceptedFixSummary {
-    val relevantLines = lines.filter { line ->
-        "fixAccepted: source=" in line &&
-            (originFilter == null || extractTokenValue(line, "origin=") == originFilter)
-    }
+    val relevantLines =
+        lines.filter { line ->
+            "fixAccepted: source=" in line &&
+                (originFilter == null || extractTokenValue(line, "origin=") == originFilter)
+        }
     if (relevantLines.isEmpty()) return AcceptedFixSummary()
 
     val accuracies = mutableListOf<Float>()
@@ -556,27 +566,28 @@ private fun summarizeAcceptedFixes(
         reportedAccuracyAllSame = sortedAccuracies.isNotEmpty() && sortedAccuracies.first() == sortedAccuracies.last(),
         ageMedianMs = percentileLong(sortedAges, 0.5),
         ageP90Ms = percentileLong(sortedAges, 0.9),
-        ageMaxMs = sortedAges.lastOrNull()
+        ageMaxMs = sortedAges.lastOrNull(),
     )
 }
 
 internal fun inferObservedFixQualityFromSummary(
     summary: AcceptedFixSummary,
     origin: String?,
-    gnssInsights: GnssInsights
+    gnssInsights: GnssInsights,
 ): ObservedFixQualitySummary {
     if (summary.acceptedFixCount <= 0) {
         return ObservedFixQualitySummary()
     }
 
-    val reportedAccuracyReliability = when {
-        origin == "watch_gps" &&
-            summary.reportedAccuracyAllSame &&
-            summary.reportedAccuracyMedianM == 125f -> "suspect_constant_watch_gps"
-        summary.reportedAccuracyAllSame && summary.acceptedFixCount >= 3 -> "suspect_constant"
-        summary.reportedAccuracyDistinctCount <= 1 -> "low_variation"
-        else -> "variable"
-    }
+    val reportedAccuracyReliability =
+        when {
+            origin == "watch_gps" &&
+                summary.reportedAccuracyAllSame &&
+                summary.reportedAccuracyMedianM == 125f -> "suspect_constant_watch_gps"
+            summary.reportedAccuracyAllSame && summary.acceptedFixCount >= 3 -> "suspect_constant"
+            summary.reportedAccuracyDistinctCount <= 1 -> "low_variation"
+            else -> "variable"
+        }
 
     var score = 0
     summary.ageP90Ms?.let { ageP90 ->
@@ -604,27 +615,30 @@ internal fun inferObservedFixQualityFromSummary(
         }
     }
 
-    val quality = when {
-        score >= 6 -> "good"
-        score >= 3 -> "moderate"
-        else -> "weak"
-    }
-    val confidence = when {
-        origin == "watch_gps" && summary.acceptedFixCount >= 5 && gnssInsights.statusSampleCount >= 3 -> "high"
-        summary.acceptedFixCount >= 3 -> "medium"
-        else -> "low"
-    }
+    val quality =
+        when {
+            score >= 6 -> "good"
+            score >= 3 -> "moderate"
+            else -> "weak"
+        }
+    val confidence =
+        when {
+            origin == "watch_gps" && summary.acceptedFixCount >= 5 && gnssInsights.statusSampleCount >= 3 -> "high"
+            summary.acceptedFixCount >= 3 -> "medium"
+            else -> "low"
+        }
 
     return ObservedFixQualitySummary(
         quality = quality,
         confidence = confidence,
         reportedAccuracyReliability = reportedAccuracyReliability,
-        reason = buildObservedFixQualityReason(
-            summary = summary,
-            origin = origin,
-            gnssInsights = gnssInsights,
-            reportedAccuracyReliability = reportedAccuracyReliability
-        )
+        reason =
+            buildObservedFixQualityReason(
+                summary = summary,
+                origin = origin,
+                gnssInsights = gnssInsights,
+                reportedAccuracyReliability = reportedAccuracyReliability,
+            ),
     )
 }
 
@@ -632,21 +646,23 @@ private fun buildObservedFixQualityReason(
     summary: AcceptedFixSummary,
     origin: String?,
     gnssInsights: GnssInsights,
-    reportedAccuracyReliability: String
+    reportedAccuracyReliability: String,
 ): String {
-    val freshness = buildString {
-        append("fresh accepted fixes")
-        summary.ageP90Ms?.let { append(" p90AgeMs=").append(it) }
-        summary.ageMaxMs?.let { append(" maxAgeMs=").append(it) }
-    }
+    val freshness =
+        buildString {
+            append("fresh accepted fixes")
+            summary.ageP90Ms?.let { append(" p90AgeMs=").append(it) }
+            summary.ageMaxMs?.let { append(" maxAgeMs=").append(it) }
+        }
     if (origin != "watch_gps") {
         return freshness
     }
-    val gnssSupport = buildString {
-        append("gnss usedInFixAvg=").append("%.1f".format(gnssInsights.usedInFixAvg))
-        append(" cn0AvgDbHz=").append(gnssInsights.cn0AvgDbHz?.let { "%.1f".format(it) } ?: "na")
-        append(" firstFixCount=").append(gnssInsights.firstFixCount)
-    }
+    val gnssSupport =
+        buildString {
+            append("gnss usedInFixAvg=").append("%.1f".format(gnssInsights.usedInFixAvg))
+            append(" cn0AvgDbHz=").append(gnssInsights.cn0AvgDbHz?.let { "%.1f".format(it) } ?: "na")
+            append(" firstFixCount=").append(gnssInsights.firstFixCount)
+        }
     return if (reportedAccuracyReliability == "suspect_constant_watch_gps") {
         "$freshness with $gnssSupport despite constant reported accuracy"
     } else {
@@ -654,13 +670,19 @@ private fun buildObservedFixQualityReason(
     }
 }
 
-private fun percentileFloat(sortedValues: List<Float>, fraction: Double): Float? {
+private fun percentileFloat(
+    sortedValues: List<Float>,
+    fraction: Double,
+): Float? {
     if (sortedValues.isEmpty()) return null
     val index = ((sortedValues.lastIndex) * fraction).toInt().coerceIn(0, sortedValues.lastIndex)
     return sortedValues[index]
 }
 
-private fun percentileLong(sortedValues: List<Long>, fraction: Double): Long? {
+private fun percentileLong(
+    sortedValues: List<Long>,
+    fraction: Double,
+): Long? {
     if (sortedValues.isEmpty()) return null
     val index = ((sortedValues.lastIndex) * fraction).toInt().coerceIn(0, sortedValues.lastIndex)
     return sortedValues[index]
@@ -749,26 +771,30 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
         }
     }
 
-    val firstFixTtffAvgMs = if (firstFixCount > 0) {
-        (firstFixTtffTotalMs / firstFixCount).coerceAtLeast(0L)
-    } else {
-        0L
-    }
-    val satellitesAvg = if (statusSampleCount > 0) {
-        satellitesTotal.toDouble() / statusSampleCount.toDouble()
-    } else {
-        0.0
-    }
-    val usedInFixAvg = if (statusSampleCount > 0) {
-        usedInFixTotal.toDouble() / statusSampleCount.toDouble()
-    } else {
-        0.0
-    }
-    val cn0AvgDbHz = if (cn0SampleCount > 0) {
-        cn0Total / cn0SampleCount.toDouble()
-    } else {
-        null
-    }
+    val firstFixTtffAvgMs =
+        if (firstFixCount > 0) {
+            (firstFixTtffTotalMs / firstFixCount).coerceAtLeast(0L)
+        } else {
+            0L
+        }
+    val satellitesAvg =
+        if (statusSampleCount > 0) {
+            satellitesTotal.toDouble() / statusSampleCount.toDouble()
+        } else {
+            0.0
+        }
+    val usedInFixAvg =
+        if (statusSampleCount > 0) {
+            usedInFixTotal.toDouble() / statusSampleCount.toDouble()
+        } else {
+            0.0
+        }
+    val cn0AvgDbHz =
+        if (cn0SampleCount > 0) {
+            cn0Total / cn0SampleCount.toDouble()
+        } else {
+            null
+        }
 
     return GnssInsights(
         statusSampleCount = statusSampleCount,
@@ -776,11 +802,12 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
         stoppedCount = stoppedCount,
         firstFixCount = firstFixCount,
         firstFixTtffAvgMs = firstFixTtffAvgMs,
-        firstFixTtffMinMs = if (firstFixCount > 0 && firstFixTtffMinMs != Int.MAX_VALUE) {
-            firstFixTtffMinMs
-        } else {
-            0
-        },
+        firstFixTtffMinMs =
+            if (firstFixCount > 0 && firstFixTtffMinMs != Int.MAX_VALUE) {
+                firstFixTtffMinMs
+            } else {
+                0
+            },
         firstFixTtffMaxMs = if (firstFixCount > 0) firstFixTtffMaxMs else 0,
         satellitesAvg = satellitesAvg,
         satellitesMax = satellitesMax,
@@ -793,13 +820,13 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
         l5ObservedStatusCount = l5ObservedStatusCount,
         dualBandObservedStatusCount = dualBandObservedStatusCount,
         l1SatelliteMax = l1SatelliteMax,
-        l5SatelliteMax = l5SatelliteMax
+        l5SatelliteMax = l5SatelliteMax,
     )
 }
 
 private fun accumulateModeDurations(
     samples: List<ModeSample>,
-    captureWindowEndEpochMs: Long?
+    captureWindowEndEpochMs: Long?,
 ): ModeDurations {
     if (samples.isEmpty()) {
         return ModeDurations(
@@ -807,7 +834,7 @@ private fun accumulateModeDurations(
             stationaryBoundMs = 0L,
             stationaryBackgroundMs = 0L,
             otherwiseMs = 0L,
-            coverageMs = 0L
+            coverageMs = 0L,
         )
     }
 
@@ -818,11 +845,12 @@ private fun accumulateModeDurations(
 
     for (index in samples.indices) {
         val current = samples[index]
-        val nextAtMs = if (index < samples.lastIndex) {
-            samples[index + 1].atEpochMs
-        } else {
-            captureWindowEndEpochMs ?: current.atEpochMs
-        }
+        val nextAtMs =
+            if (index < samples.lastIndex) {
+                samples[index + 1].atEpochMs
+            } else {
+                captureWindowEndEpochMs ?: current.atEpochMs
+            }
         val deltaMs = (nextAtMs - current.atEpochMs).coerceAtLeast(0L)
         when (current.mode) {
             LocationRequestMode.BURST -> burstMs += deltaMs
@@ -837,20 +865,20 @@ private fun accumulateModeDurations(
         stationaryBoundMs = stationaryBoundMs,
         stationaryBackgroundMs = stationaryBackgroundMs,
         otherwiseMs = otherwiseMs,
-        coverageMs = burstMs + stationaryBoundMs + stationaryBackgroundMs + otherwiseMs
+        coverageMs = burstMs + stationaryBoundMs + stationaryBackgroundMs + otherwiseMs,
     )
 }
 
 private fun accumulateBackendDurations(
     samples: List<BackendSample>,
-    captureWindowEndEpochMs: Long?
+    captureWindowEndEpochMs: Long?,
 ): BackendDurations {
     if (samples.isEmpty()) {
         return BackendDurations(
             autoFusedMs = 0L,
             watchGpsMs = 0L,
             coverageMs = 0L,
-            switchCount = 0
+            switchCount = 0,
         )
     }
 
@@ -863,11 +891,12 @@ private fun accumulateBackendDurations(
         if (index > 0 && samples[index - 1].backend != current.backend) {
             switchCount += 1
         }
-        val nextAtMs = if (index < samples.lastIndex) {
-            samples[index + 1].atEpochMs
-        } else {
-            captureWindowEndEpochMs ?: current.atEpochMs
-        }
+        val nextAtMs =
+            if (index < samples.lastIndex) {
+                samples[index + 1].atEpochMs
+            } else {
+                captureWindowEndEpochMs ?: current.atEpochMs
+            }
         val deltaMs = (nextAtMs - current.atEpochMs).coerceAtLeast(0L)
         when (current.backend) {
             RequestBackendMode.AUTO_FUSED -> autoFusedMs += deltaMs
@@ -879,6 +908,6 @@ private fun accumulateBackendDurations(
         autoFusedMs = autoFusedMs,
         watchGpsMs = watchGpsMs,
         coverageMs = autoFusedMs + watchGpsMs,
-        switchCount = switchCount
+        switchCount = switchCount,
     )
 }

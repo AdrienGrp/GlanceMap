@@ -1,18 +1,18 @@
 package com.glancemap.glancemapcompanionapp.filepicker
 
 import android.content.Context
-import androidx.compose.foundation.text.InlineTextContent
-import androidx.compose.foundation.text.appendInlineContent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -49,15 +49,16 @@ internal fun DebugCaptureDialog(
     context: Context,
     viewModel: FileTransferViewModel,
     debugCaptureState: PhoneDebugCaptureState,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
-    val hasSavedPhoneRecording = remember(debugCaptureState.active, debugCaptureState.sessionId) {
-        if (debugCaptureState.active) {
-            false
-        } else {
-            CompanionDiagnosticsEmailComposer.hasSavedPhoneDiagnostics(context)
+    val hasSavedPhoneRecording =
+        remember(debugCaptureState.active, debugCaptureState.sessionId) {
+            if (debugCaptureState.active) {
+                false
+            } else {
+                CompanionDiagnosticsEmailComposer.hasSavedPhoneDiagnostics(context)
+            }
         }
-    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -67,7 +68,7 @@ internal fun DebugCaptureDialog(
                     "Phone debug capture"
                 } else {
                     "Start phone debug capture?"
-                }
+                },
             )
         },
         text = {
@@ -81,7 +82,7 @@ internal fun DebugCaptureDialog(
                             append("\n\nA saved phone recording is available and can be resent.")
                         }
                     }
-                }
+                },
             )
         },
         confirmButton = {
@@ -90,7 +91,7 @@ internal fun DebugCaptureDialog(
                     onClick = {
                         onDismiss()
                         viewModel.stopPhoneDebugCaptureAndSend(context)
-                    }
+                    },
                 ) {
                     Text("Stop & email")
                 }
@@ -101,7 +102,7 @@ internal fun DebugCaptureDialog(
                             onClick = {
                                 onDismiss()
                                 viewModel.sendLastPhoneDebugCapture(context)
-                            }
+                            },
                         ) {
                             Text("Send last recording")
                         }
@@ -110,7 +111,7 @@ internal fun DebugCaptureDialog(
                         onClick = {
                             onDismiss()
                             viewModel.startPhoneDebugCapture(context)
-                        }
+                        },
                     ) {
                         Text("Start recording")
                     }
@@ -121,7 +122,7 @@ internal fun DebugCaptureDialog(
             TextButton(onClick = onDismiss) {
                 Text(if (debugCaptureState.active) "Keep recording" else "Cancel")
             }
-        }
+        },
     )
 }
 
@@ -137,7 +138,7 @@ internal fun ManagePhoneFilesDialog(
     phoneStoredFilesSummary: PhoneStoredFilesSummary,
     onRefreshRequested: () -> Unit,
     onDismiss: () -> Unit,
-    coroutineScope: CoroutineScope
+    coroutineScope: CoroutineScope,
 ) {
     AlertDialog(
         onDismissRequest = {
@@ -147,34 +148,34 @@ internal fun ManagePhoneFilesDialog(
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
                     "Generated POI and routing files stay in the companion app until you clear them.",
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
                 )
                 if (isLoadingPhoneStoredFiles) {
                     Text(
                         "Loading phone files...",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 } else {
                     PhoneStoredFilesSummaryRow(
                         label = "Imported POI",
                         group = phoneStoredFilesSummary.poi,
-                        context = context
+                        context = context,
                     )
                     PhoneStoredFilesSummaryRow(
                         label = "Routing packs (.rd5)",
                         group = phoneStoredFilesSummary.routing,
-                        context = context
+                        context = context,
                     )
                 }
                 if (isClearingPhoneStoredFiles) {
                     Text(
                         "Clearing phone files...",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
@@ -182,29 +183,31 @@ internal fun ManagePhoneFilesDialog(
                     onClick = {
                         coroutineScope.launch {
                             onIsClearingPhoneStoredFilesChange(true)
-                            val result = withContext(Dispatchers.IO) {
-                                clearPhoneStoredFiles(
-                                    context = context,
-                                    clearPoi = true,
-                                    clearRouting = false
-                                )
-                            }
+                            val result =
+                                withContext(Dispatchers.IO) {
+                                    clearPhoneStoredFiles(
+                                        context = context,
+                                        clearPoi = true,
+                                        clearRouting = false,
+                                    )
+                                }
                             removeClearedGeneratedFilesFromSelection(
                                 context = context,
                                 viewModel = viewModel,
                                 uiState = uiState,
-                                removedFileNames = result.removedFileNames
+                                removedFileNames = result.removedFileNames,
                             )
                             onRefreshRequested()
                             onIsClearingPhoneStoredFilesChange(false)
                             Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
                         }
                     },
-                    enabled = !uiLocked &&
-                        !isLoadingPhoneStoredFiles &&
-                        !isClearingPhoneStoredFiles &&
-                        phoneStoredFilesSummary.poi.fileCount > 0,
-                    modifier = Modifier.fillMaxWidth()
+                    enabled =
+                        !uiLocked &&
+                            !isLoadingPhoneStoredFiles &&
+                            !isClearingPhoneStoredFiles &&
+                            phoneStoredFilesSummary.poi.fileCount > 0,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Clear POI")
                 }
@@ -212,29 +215,31 @@ internal fun ManagePhoneFilesDialog(
                     onClick = {
                         coroutineScope.launch {
                             onIsClearingPhoneStoredFilesChange(true)
-                            val result = withContext(Dispatchers.IO) {
-                                clearPhoneStoredFiles(
-                                    context = context,
-                                    clearPoi = false,
-                                    clearRouting = true
-                                )
-                            }
+                            val result =
+                                withContext(Dispatchers.IO) {
+                                    clearPhoneStoredFiles(
+                                        context = context,
+                                        clearPoi = false,
+                                        clearRouting = true,
+                                    )
+                                }
                             removeClearedGeneratedFilesFromSelection(
                                 context = context,
                                 viewModel = viewModel,
                                 uiState = uiState,
-                                removedFileNames = result.removedFileNames
+                                removedFileNames = result.removedFileNames,
                             )
                             onRefreshRequested()
                             onIsClearingPhoneStoredFilesChange(false)
                             Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
                         }
                     },
-                    enabled = !uiLocked &&
-                        !isLoadingPhoneStoredFiles &&
-                        !isClearingPhoneStoredFiles &&
-                        phoneStoredFilesSummary.routing.fileCount > 0,
-                    modifier = Modifier.fillMaxWidth()
+                    enabled =
+                        !uiLocked &&
+                            !isLoadingPhoneStoredFiles &&
+                            !isClearingPhoneStoredFiles &&
+                            phoneStoredFilesSummary.routing.fileCount > 0,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Clear routing")
                 }
@@ -242,30 +247,34 @@ internal fun ManagePhoneFilesDialog(
                     onClick = {
                         coroutineScope.launch {
                             onIsClearingPhoneStoredFilesChange(true)
-                            val result = withContext(Dispatchers.IO) {
-                                clearPhoneStoredFiles(
-                                    context = context,
-                                    clearPoi = true,
-                                    clearRouting = true
-                                )
-                            }
+                            val result =
+                                withContext(Dispatchers.IO) {
+                                    clearPhoneStoredFiles(
+                                        context = context,
+                                        clearPoi = true,
+                                        clearRouting = true,
+                                    )
+                                }
                             removeClearedGeneratedFilesFromSelection(
                                 context = context,
                                 viewModel = viewModel,
                                 uiState = uiState,
-                                removedFileNames = result.removedFileNames
+                                removedFileNames = result.removedFileNames,
                             )
                             onRefreshRequested()
                             onIsClearingPhoneStoredFilesChange(false)
                             Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
                         }
                     },
-                    enabled = !uiLocked &&
-                        !isLoadingPhoneStoredFiles &&
-                        !isClearingPhoneStoredFiles &&
-                        (phoneStoredFilesSummary.poi.fileCount > 0 ||
-                            phoneStoredFilesSummary.routing.fileCount > 0),
-                    modifier = Modifier.fillMaxWidth()
+                    enabled =
+                        !uiLocked &&
+                            !isLoadingPhoneStoredFiles &&
+                            !isClearingPhoneStoredFiles &&
+                            (
+                                phoneStoredFilesSummary.poi.fileCount > 0 ||
+                                    phoneStoredFilesSummary.routing.fileCount > 0
+                            ),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Clear all")
                 }
@@ -274,65 +283,70 @@ internal fun ManagePhoneFilesDialog(
         confirmButton = {
             TextButton(
                 onClick = onDismiss,
-                enabled = !isClearingPhoneStoredFiles
+                enabled = !isClearingPhoneStoredFiles,
             ) {
                 Text("Close")
             }
-        }
+        },
     )
 }
 
 @Composable
 internal fun FilePickerQuickGuideDialog(
     adaptive: CompanionAdaptiveSpec,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
-    val keepAppOpenInlineContent = remember {
-        mapOf(
-            "keep_app_open_icon" to InlineTextContent(
-                Placeholder(
-                    width = 1.em,
-                    height = 1.em,
-                    placeholderVerticalAlign = PlaceholderVerticalAlign.Center
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Visibility,
-                    contentDescription = "Keep app open"
-                )
-            }
-        )
-    }
-    val keepAppOpenGuideText = remember {
-        buildAnnotatedString {
-            append("• On the watch, enable Keep app open ")
-            appendInlineContent("keep_app_open_icon", "[keep app open]")
-            append(" for long transfers.")
+    val keepAppOpenInlineContent =
+        remember {
+            mapOf(
+                "keep_app_open_icon" to
+                    InlineTextContent(
+                        Placeholder(
+                            width = 1.em,
+                            height = 1.em,
+                            placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Visibility,
+                            contentDescription = "Keep app open",
+                        )
+                    },
+            )
         }
-    }
+    val keepAppOpenGuideText =
+        remember {
+            buildAnnotatedString {
+                append("• On the watch, enable Keep app open ")
+                appendInlineContent("keep_app_open_icon", "[keep app open]")
+                append(" for long transfers.")
+            }
+        }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Quick guide") },
         text = {
             val quickGuideScrollState = rememberScrollState()
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = adaptive.quickGuideDialogMaxHeight)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = adaptive.quickGuideDialogMaxHeight),
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(end = 10.dp)
-                        .verticalScroll(quickGuideScrollState),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(end = 10.dp)
+                            .verticalScroll(quickGuideScrollState),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text("Best practices", style = MaterialTheme.typography.labelLarge)
                     Text("• For best speed and reliability, keep phone and watch on the same Wi-Fi network or on the phone hotspot.")
                     Text("• For large .map files, keep the watch on charger when possible.")
                     Text(
                         text = keepAppOpenGuideText,
-                        inlineContent = keepAppOpenInlineContent
+                        inlineContent = keepAppOpenInlineContent,
                     )
                     Text("• The watch screen does not need to stay on, but keeping the app open helps more than keeping the display awake.")
                     Text("• If a transfer stops or stalls, send the same file again. It usually resumes from the partial file already on the watch instead of restarting from zero.")
@@ -362,9 +376,10 @@ internal fun FilePickerQuickGuideDialog(
                 }
                 PageScrollbar(
                     scrollState = quickGuideScrollState,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight(),
                 )
             }
         },
@@ -372,14 +387,14 @@ internal fun FilePickerQuickGuideDialog(
             TextButton(onClick = onDismiss) {
                 Text("Got it")
             }
-        }
+        },
     )
 }
 
 @Composable
 internal fun CancelTransferDialog(
     onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -394,6 +409,6 @@ internal fun CancelTransferDialog(
             TextButton(onClick = onDismiss) {
                 Text("No, Continue")
             }
-        }
+        },
     )
 }

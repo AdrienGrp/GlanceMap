@@ -14,27 +14,25 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
 import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
 import com.glancemap.glancemapwearos.test.SmallRoundWatchLargeText
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
-import com.glancemap.glancemapwearos.test.WithWearDeviceConfig
+import com.glancemap.glancemapwearos.test.withWearDeviceConfig
+import com.google.android.horologist.annotations.ExperimentalHorologistApi
+import com.google.android.horologist.compose.layout.ScreenScaffold
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SettingsMenuDenseLayoutTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -57,7 +55,8 @@ class SettingsMenuDenseLayoutTest {
         launchDenseMenu(config = config)
 
         composeRule.onNodeWithText("General").assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_UNITS_CHIP)
+        composeRule
+            .onNodeWithTag(TAG_UNITS_CHIP)
             .assertIsDisplayed()
             .assertHasClickAction()
 
@@ -65,7 +64,8 @@ class SettingsMenuDenseLayoutTest {
             denseMenuCenterItemIndex.value = 11
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag(TAG_CLEAR_PARTIAL_CHIP)
+        composeRule
+            .onNodeWithTag(TAG_CLEAR_PARTIAL_CHIP)
             .assertIsDisplayed()
             .assertHasClickAction()
 
@@ -74,7 +74,8 @@ class SettingsMenuDenseLayoutTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag(TAG_CREDITS_CHIP)
+        composeRule
+            .onNodeWithTag(TAG_CREDITS_CHIP)
             .assertIsDisplayed()
             .assertHasClickAction()
     }
@@ -82,9 +83,9 @@ class SettingsMenuDenseLayoutTest {
     private fun launchDenseMenu(config: WearDeviceTestConfig) {
         denseMenuCenterItemIndex.value = 1
         composeRule.setContent {
-            WithWearDeviceConfig(config = config) {
+            withWearDeviceConfig(config = config) {
                 GlanceMapTheme {
-                    DenseSettingsMenuShowcase()
+                    denseSettingsMenuShowcase()
                 }
             }
         }
@@ -94,33 +95,36 @@ class SettingsMenuDenseLayoutTest {
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
-private fun DenseSettingsMenuShowcase() {
+private fun denseSettingsMenuShowcase() {
     key(denseMenuCenterItemIndex.value) {
-        val listState = rememberScalingLazyListState(
-            initialCenterItemIndex = denseMenuCenterItemIndex.value
-        )
+        val listState =
+            rememberScalingLazyListState(
+                initialCenterItemIndex = denseMenuCenterItemIndex.value,
+            )
         val listTokens = rememberSettingsListTokens()
 
         ScreenScaffold(scrollState = listState) {
             ScalingLazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag(TAG_SETTINGS_LIST),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .testTag(TAG_SETTINGS_LIST),
                 state = listState,
-                contentPadding = PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding
-                ),
-                verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing)
+                contentPadding =
+                    PaddingValues(
+                        start = listTokens.horizontalPadding,
+                        end = listTokens.horizontalPadding,
+                        top = listTokens.topPadding,
+                        bottom = listTokens.bottomPadding,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
             ) {
                 item {
                     Text(
                         text = "General",
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 item {
@@ -128,62 +132,62 @@ private fun DenseSettingsMenuShowcase() {
                         label = "Units",
                         secondaryLabel = "Metric",
                         onClick = {},
-                        modifier = Modifier.testTag(TAG_UNITS_CHIP)
+                        modifier = Modifier.testTag(TAG_UNITS_CHIP),
                     )
                 }
                 item {
                     SettingsSectionChip(
                         label = "GPS settings",
-                        onClick = {}
+                        onClick = {},
                     )
                 }
                 item {
                     SettingsSectionChip(
                         label = "Compass settings",
-                        onClick = {}
+                        onClick = {},
                     )
                 }
                 item {
                     Text(
                         text = "Screen settings",
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
                 item {
                     SettingsSectionChip(
                         label = "POI settings",
-                        onClick = {}
+                        onClick = {},
                     )
                 }
                 item {
                     SettingsSectionChip(
                         label = "GPX settings",
-                        onClick = {}
+                        onClick = {},
                     )
                 }
                 item {
                     SettingsSectionChip(
                         label = "Map settings",
-                        onClick = {}
+                        onClick = {},
                     )
                 }
                 item {
                     Text(
                         text = "Advanced settings",
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
                 item {
                     SettingsSectionChip(
                         label = "Debugging",
-                        onClick = {}
+                        onClick = {},
                     )
                 }
                 item {
                     SettingsPickerChip(
                         label = "Clear cache",
                         iconImageVector = null,
-                        onClick = {}
+                        onClick = {},
                     )
                 }
                 item {
@@ -192,21 +196,21 @@ private fun DenseSettingsMenuShowcase() {
                         secondaryLabel = "1 file · 123.4 MB",
                         iconImageVector = null,
                         onClick = {},
-                        modifier = Modifier.testTag(TAG_CLEAR_PARTIAL_CHIP)
+                        modifier = Modifier.testTag(TAG_CLEAR_PARTIAL_CHIP),
                     )
                 }
                 item {
                     SettingsPickerChip(
                         label = "Reset to Default",
                         iconImageVector = null,
-                        onClick = {}
+                        onClick = {},
                     )
                 }
                 item {
                     SettingsSectionChip(
                         label = "Credits & Legal",
                         onClick = {},
-                        modifier = Modifier.testTag(TAG_CREDITS_CHIP)
+                        modifier = Modifier.testTag(TAG_CREDITS_CHIP),
                     )
                 }
             }

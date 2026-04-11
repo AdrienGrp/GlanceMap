@@ -8,7 +8,10 @@ import kotlin.math.roundToInt
 
 private const val METERS_TO_FEET = 3.28084
 
-internal fun convertMapEleValueToDisplayText(rawEleValue: String, isMetric: Boolean): String? {
+internal fun convertMapEleValueToDisplayText(
+    rawEleValue: String,
+    isMetric: Boolean,
+): String? {
     if (isMetric) return rawEleValue
 
     val normalized = rawEleValue.trim().replace(',', '.')
@@ -18,18 +21,22 @@ internal fun convertMapEleValueToDisplayText(rawEleValue: String, isMetric: Bool
 }
 
 internal class ElevationLabelThemeCallback(
-    private val isMetricProvider: () -> Boolean
+    private val isMetricProvider: () -> Boolean,
 ) : ThemeCallbackAdapter() {
+    override fun getText(
+        poi: PointOfInterest,
+        text: String,
+    ): String = convertIfElevationLabel(text = text, tags = poi.tags)
 
-    override fun getText(poi: PointOfInterest, text: String): String {
-        return convertIfElevationLabel(text = text, tags = poi.tags)
-    }
+    override fun getText(
+        way: PolylineContainer,
+        text: String,
+    ): String = convertIfElevationLabel(text = text, tags = way.getTags())
 
-    override fun getText(way: PolylineContainer, text: String): String {
-        return convertIfElevationLabel(text = text, tags = way.getTags())
-    }
-
-    private fun convertIfElevationLabel(text: String, tags: List<Tag>): String {
+    private fun convertIfElevationLabel(
+        text: String,
+        tags: List<Tag>,
+    ): String {
         val elevationValue = tags.firstOrNull { it.key == "ele" }?.value ?: return text
         if (text != elevationValue) return text
         return convertMapEleValueToDisplayText(elevationValue, isMetricProvider()) ?: text

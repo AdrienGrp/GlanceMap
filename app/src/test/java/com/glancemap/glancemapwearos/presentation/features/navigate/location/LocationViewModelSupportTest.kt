@@ -5,7 +5,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocationViewModelSupportTest {
-
     @Test
     fun startupFreshFixRequestAlwaysBypassesFreshnessSkip() {
         assertTrue(shouldForceUiImmediateLocationRequest("ui_startup_fresh_fix"))

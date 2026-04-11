@@ -3,7 +3,7 @@ package com.glancemap.glancemapwearos.core.service.location.model
 enum class LocationScreenState {
     INTERACTIVE,
     AMBIENT,
-    SCREEN_OFF
+    SCREEN_OFF,
 }
 
 internal val LocationScreenState.isInteractive: Boolean
@@ -14,11 +14,10 @@ internal val LocationScreenState.isNonInteractive: Boolean
 
 internal fun resolveLocationScreenState(
     isAmbient: Boolean,
-    isDeviceInteractive: Boolean
-): LocationScreenState {
-    return when {
+    isDeviceInteractive: Boolean,
+): LocationScreenState =
+    when {
         isAmbient -> LocationScreenState.AMBIENT
         !isDeviceInteractive -> LocationScreenState.SCREEN_OFF
         else -> LocationScreenState.INTERACTIVE
     }
-}

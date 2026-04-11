@@ -7,15 +7,16 @@ import org.junit.Test
 import org.mapsforge.core.model.LatLong
 
 class RouteToolSessionTest {
-
     @Test
     fun reshapeRouteUsesSelectThenReplaceFlow() {
-        val initial = RouteToolSession(
-            options = RouteToolOptions(
-                toolKind = RouteToolKind.MODIFY,
-                modifyMode = RouteModifyMode.RESHAPE_ROUTE
+        val initial =
+            RouteToolSession(
+                options =
+                    RouteToolOptions(
+                        toolKind = RouteToolKind.MODIFY,
+                        modifyMode = RouteModifyMode.RESHAPE_ROUTE,
+                    ),
             )
-        )
 
         assertEquals(RouteSelectionTarget.RESHAPE_POINT, initial.currentSelectionTarget)
         assertEquals("Place route point, then check.", initial.instructionText)
@@ -33,12 +34,14 @@ class RouteToolSessionTest {
 
     @Test
     fun multiPointCreateAppendsPointsWithoutCompletingSession() {
-        val initial = RouteToolSession(
-            options = RouteToolOptions(
-                toolKind = RouteToolKind.CREATE,
-                createMode = RouteCreateMode.MULTI_POINT_CHAIN
+        val initial =
+            RouteToolSession(
+                options =
+                    RouteToolOptions(
+                        toolKind = RouteToolKind.CREATE,
+                        createMode = RouteCreateMode.MULTI_POINT_CHAIN,
+                    ),
             )
-        )
 
         assertEquals(RouteSelectionTarget.DESTINATION, initial.currentSelectionTarget)
         assertEquals("Place start, then check.", initial.instructionText)
@@ -60,12 +63,14 @@ class RouteToolSessionTest {
 
     @Test
     fun reverseGpxCompletesImmediatelyWithoutPointSelection() {
-        val session = RouteToolSession(
-            options = RouteToolOptions(
-                toolKind = RouteToolKind.MODIFY,
-                modifyMode = RouteModifyMode.REVERSE_GPX
+        val session =
+            RouteToolSession(
+                options =
+                    RouteToolOptions(
+                        toolKind = RouteToolKind.MODIFY,
+                        modifyMode = RouteModifyMode.REVERSE_GPX,
+                    ),
             )
-        )
 
         assertNull(session.currentSelectionTarget)
         assertTrue(session.isComplete)
@@ -74,13 +79,15 @@ class RouteToolSessionTest {
 
     @Test
     fun loopRetryAdvancesVariationCounter() {
-        val session = RouteToolSession(
-            options = RouteToolOptions(
-                toolKind = RouteToolKind.CREATE,
-                createMode = RouteCreateMode.LOOP_AROUND_HERE
-            ),
-            pointA = LatLong(42.5, 1.5)
-        )
+        val session =
+            RouteToolSession(
+                options =
+                    RouteToolOptions(
+                        toolKind = RouteToolKind.CREATE,
+                        createMode = RouteCreateMode.LOOP_AROUND_HERE,
+                    ),
+                pointA = LatLong(42.5, 1.5),
+            )
 
         val retried = session.advanceLoopVariation()
 

@@ -10,11 +10,11 @@ internal data class LocationActivityClassifierConfig(
     val exitActiveWindowMs: Long = 12000L,
     val exitActiveConfirmMs: Long = 4000L,
     val exitActiveSpeedThresholdMps: Float = 0.70f,
-    val exitActiveDistanceThresholdMeters: Float = 18.0f
+    val exitActiveDistanceThresholdMeters: Float = 18.0f,
 )
 
 internal class LocationActivityClassifier(
-    private val config: LocationActivityClassifierConfig = LocationActivityClassifierConfig()
+    private val config: LocationActivityClassifierConfig = LocationActivityClassifierConfig(),
 ) {
     var state: LocationActivityState = LocationActivityState.ACTIVE
         private set
@@ -31,53 +31,54 @@ internal class LocationActivityClassifier(
         hasEnterWindowHistory: Boolean,
         enterDisplacementMeters: Float,
         hasExitWindowHistory: Boolean,
-        exitDisplacementMeters: Float
+        exitDisplacementMeters: Float,
     ): LocationActivityState {
         val enterSpeedOk =
             speedMps == null || speedMps <= config.enterStationarySpeedThresholdMps
         val enterStationaryCondition =
             hasEnterWindowHistory &&
-                    enterSpeedOk &&
-                    enterDisplacementMeters <= config.enterStationaryDistanceThresholdMeters
+                enterSpeedOk &&
+                enterDisplacementMeters <= config.enterStationaryDistanceThresholdMeters
 
         val exitActiveBySpeed =
             speedMps != null && speedMps >= config.exitActiveSpeedThresholdMps
         val exitActiveByDisplacement =
             hasExitWindowHistory &&
-                    exitDisplacementMeters >= config.exitActiveDistanceThresholdMeters
+                exitDisplacementMeters >= config.exitActiveDistanceThresholdMeters
         val exitToActiveCondition = exitActiveBySpeed || exitActiveByDisplacement
 
-        state = when (state) {
-            LocationActivityState.ACTIVE -> {
-                activeCandidateSinceMs = 0L
-                if (enterStationaryCondition) {
-                    if (stationaryCandidateSinceMs == 0L) {
-                        stationaryCandidateSinceMs = nowElapsedMs
-                    }
-                    val enterReady =
-                        nowElapsedMs - stationaryCandidateSinceMs >= config.enterStationaryConfirmMs
-                    if (enterReady) LocationActivityState.STATIONARY else LocationActivityState.ACTIVE
-                } else {
-                    stationaryCandidateSinceMs = 0L
-                    LocationActivityState.ACTIVE
-                }
-            }
-
-            LocationActivityState.STATIONARY -> {
-                stationaryCandidateSinceMs = 0L
-                if (exitToActiveCondition) {
-                    if (activeCandidateSinceMs == 0L) {
-                        activeCandidateSinceMs = nowElapsedMs
-                    }
-                    val exitReady =
-                        nowElapsedMs - activeCandidateSinceMs >= config.exitActiveConfirmMs
-                    if (exitReady) LocationActivityState.ACTIVE else LocationActivityState.STATIONARY
-                } else {
+        state =
+            when (state) {
+                LocationActivityState.ACTIVE -> {
                     activeCandidateSinceMs = 0L
-                    LocationActivityState.STATIONARY
+                    if (enterStationaryCondition) {
+                        if (stationaryCandidateSinceMs == 0L) {
+                            stationaryCandidateSinceMs = nowElapsedMs
+                        }
+                        val enterReady =
+                            nowElapsedMs - stationaryCandidateSinceMs >= config.enterStationaryConfirmMs
+                        if (enterReady) LocationActivityState.STATIONARY else LocationActivityState.ACTIVE
+                    } else {
+                        stationaryCandidateSinceMs = 0L
+                        LocationActivityState.ACTIVE
+                    }
+                }
+
+                LocationActivityState.STATIONARY -> {
+                    stationaryCandidateSinceMs = 0L
+                    if (exitToActiveCondition) {
+                        if (activeCandidateSinceMs == 0L) {
+                            activeCandidateSinceMs = nowElapsedMs
+                        }
+                        val exitReady =
+                            nowElapsedMs - activeCandidateSinceMs >= config.exitActiveConfirmMs
+                        if (exitReady) LocationActivityState.ACTIVE else LocationActivityState.STATIONARY
+                    } else {
+                        activeCandidateSinceMs = 0L
+                        LocationActivityState.STATIONARY
+                    }
                 }
             }
-        }
 
         return state
     }

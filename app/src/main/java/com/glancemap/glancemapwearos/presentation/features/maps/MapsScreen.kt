@@ -1,14 +1,12 @@
 @file:OptIn(
     com.google.android.horologist.annotations.ExperimentalHorologistApi::class,
-    androidx.compose.foundation.ExperimentalFoundationApi::class
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
 )
 
 package com.glancemap.glancemapwearos.presentation.features.maps
 
 import android.content.Context
-import com.glancemap.glancemapwearos.R
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,14 +14,21 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Downloading
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Landscape
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -34,14 +39,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavHostController
 import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
@@ -51,29 +59,18 @@ import androidx.wear.compose.material3.LinearProgressIndicator
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
-import androidx.wear.compose.material3.AlertDialog
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
-import com.google.android.horologist.compose.layout.ScalingLazyColumn
-import com.google.android.horologist.compose.layout.rememberResponsiveColumnState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.CallSplit
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Downloading
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Landscape
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
+import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
+import com.google.android.horologist.annotations.ExperimentalHorologistApi
+import com.google.android.horologist.compose.layout.ScalingLazyColumn
+import com.google.android.horologist.compose.layout.ScreenScaffold
+import com.google.android.horologist.compose.layout.rememberResponsiveColumnState
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -86,7 +83,7 @@ private val MAP_DATA_ICON_SIZE = 15.dp
 fun MapsScreen(
     navController: NavHostController,
     mapViewModel: MapViewModel,
-    themeViewModel: ThemeViewModel
+    themeViewModel: ThemeViewModel,
 ) {
     val context = LocalContext.current
     val screenSize = rememberWearScreenSize()
@@ -116,81 +113,95 @@ fun MapsScreen(
     var routingPackToDelete by remember { mutableStateOf<RoutingPackFileState?>(null) }
     var showDeleteAllRoutingDialog by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
-    val helpPrefs = remember(context) {
-        context.getSharedPreferences(MAPS_HELP_PREFS, Context.MODE_PRIVATE)
-    }
-    val listHorizontalPadding = when (screenSize) {
-        WearScreenSize.LARGE -> 16.dp
-        WearScreenSize.MEDIUM -> 14.dp
-        WearScreenSize.SMALL -> 12.dp
-    }
-    val listTopPadding = when (screenSize) {
-        WearScreenSize.LARGE -> 6.dp
-        WearScreenSize.MEDIUM -> 5.dp
-        WearScreenSize.SMALL -> 4.dp
-    }
-    val listBottomPadding = when (screenSize) {
-        WearScreenSize.LARGE -> 8.dp
-        WearScreenSize.MEDIUM -> 7.dp
-        WearScreenSize.SMALL -> 6.dp
-    }
-    val headerTopPadding = when (screenSize) {
-        WearScreenSize.LARGE -> 8.dp
-        WearScreenSize.MEDIUM -> 6.dp
-        WearScreenSize.SMALL -> 4.dp
-    }
-    val headerBottomPadding = when (screenSize) {
-        WearScreenSize.LARGE -> 2.dp
-        WearScreenSize.MEDIUM -> 2.dp
-        WearScreenSize.SMALL -> 1.dp
-    }
-    val headerActionButtonSize = when (screenSize) {
-        WearScreenSize.LARGE -> 24.dp
-        WearScreenSize.MEDIUM -> 22.dp
-        WearScreenSize.SMALL -> 20.dp
-    }
-    val headerActionIconSize = when (screenSize) {
-        WearScreenSize.LARGE -> 14.dp
-        WearScreenSize.MEDIUM -> 13.dp
-        WearScreenSize.SMALL -> 12.dp
-    }
-    val headerActionSpacing = when (screenSize) {
-        WearScreenSize.LARGE -> 4.dp
-        WearScreenSize.MEDIUM -> 3.dp
-        WearScreenSize.SMALL -> 2.dp
-    }
-    val emptyStatePadding = when (screenSize) {
-        WearScreenSize.LARGE -> 16.dp
-        WearScreenSize.MEDIUM -> 14.dp
-        WearScreenSize.SMALL -> 12.dp
-    }
-    val settingsBottomPadding = when (screenSize) {
-        WearScreenSize.LARGE -> 5.dp
-        WearScreenSize.MEDIUM -> 4.dp
-        WearScreenSize.SMALL -> 3.dp
-    }
-    val settingsButtonSize = when (screenSize) {
-        WearScreenSize.LARGE -> 28.dp
-        WearScreenSize.MEDIUM -> 26.dp
-        WearScreenSize.SMALL -> 24.dp
-    }
-    val rowSpacing = when (screenSize) {
-        WearScreenSize.LARGE -> 8.dp
-        WearScreenSize.MEDIUM -> 7.dp
-        WearScreenSize.SMALL -> 6.dp
-    }
+    val helpPrefs =
+        remember(context) {
+            context.getSharedPreferences(MAPS_HELP_PREFS, Context.MODE_PRIVATE)
+        }
+    val listHorizontalPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 16.dp
+            WearScreenSize.MEDIUM -> 14.dp
+            WearScreenSize.SMALL -> 12.dp
+        }
+    val listTopPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 6.dp
+            WearScreenSize.MEDIUM -> 5.dp
+            WearScreenSize.SMALL -> 4.dp
+        }
+    val listBottomPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 8.dp
+            WearScreenSize.MEDIUM -> 7.dp
+            WearScreenSize.SMALL -> 6.dp
+        }
+    val headerTopPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 8.dp
+            WearScreenSize.MEDIUM -> 6.dp
+            WearScreenSize.SMALL -> 4.dp
+        }
+    val headerBottomPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 2.dp
+            WearScreenSize.MEDIUM -> 2.dp
+            WearScreenSize.SMALL -> 1.dp
+        }
+    val headerActionButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 24.dp
+            WearScreenSize.MEDIUM -> 22.dp
+            WearScreenSize.SMALL -> 20.dp
+        }
+    val headerActionIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 14.dp
+            WearScreenSize.MEDIUM -> 13.dp
+            WearScreenSize.SMALL -> 12.dp
+        }
+    val headerActionSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 4.dp
+            WearScreenSize.MEDIUM -> 3.dp
+            WearScreenSize.SMALL -> 2.dp
+        }
+    val emptyStatePadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 16.dp
+            WearScreenSize.MEDIUM -> 14.dp
+            WearScreenSize.SMALL -> 12.dp
+        }
+    val settingsBottomPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 5.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
+    val settingsButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 28.dp
+            WearScreenSize.MEDIUM -> 26.dp
+            WearScreenSize.SMALL -> 24.dp
+        }
+    val rowSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 8.dp
+            WearScreenSize.MEDIUM -> 7.dp
+            WearScreenSize.SMALL -> 6.dp
+        }
     val headerTopSafePadding = headerTopPadding + adaptive.headerTopSafeInset
 
-    val columnState = rememberResponsiveColumnState(
-        contentPadding = {
-            PaddingValues(
-                top = listTopPadding,
-                start = listHorizontalPadding,
-                end = listHorizontalPadding,
-                bottom = listBottomPadding
-            )
-        }
-    )
+    val columnState =
+        rememberResponsiveColumnState(
+            contentPadding = {
+                PaddingValues(
+                    top = listTopPadding,
+                    start = listHorizontalPadding,
+                    end = listHorizontalPadding,
+                    bottom = listBottomPadding,
+                )
+            },
+        )
 
     // 🔁 Ensure we always reload when this screen is first shown
     LaunchedEffect(Unit) {
@@ -218,7 +229,7 @@ fun MapsScreen(
     LaunchedEffect(
         demDownloadState.isDownloading,
         demDownloadState.statusMessage,
-        demDownloadState.lastCompletedAtMillis
+        demDownloadState.lastCompletedAtMillis,
     ) {
         val message = demDownloadState.statusMessage
         if (message.isBlank()) {
@@ -236,11 +247,12 @@ fun MapsScreen(
         }
         lastShownDemCompletionAt = completedAt
         if (demDownloadState.networkUnavailable) {
-            demNetworkErrorMessage = if (message.isBlank()) {
-                "No internet on watch. Connect Wi-Fi or phone internet, then retry DEM download."
-            } else {
-                message
-            }
+            demNetworkErrorMessage =
+                if (message.isBlank()) {
+                    "No internet on watch. Connect Wi-Fi or phone internet, then retry DEM download."
+                } else {
+                    message
+                }
             showDemNetworkErrorDialog = true
             visibleDemStatusMessage = ""
             return@LaunchedEffect
@@ -256,7 +268,6 @@ fun MapsScreen(
     }
 
     ScreenScaffold(scrollState = columnState) {
-
         val showDeleteDialog = showDeleteDialogState.value
         val mapToDelete = mapToDeleteState.value
 
@@ -275,7 +286,7 @@ fun MapsScreen(
             onDismiss = {
                 showDeleteDialogState.value = false
                 mapToDeleteState.value = null
-            }
+            },
         )
 
         RenameValueDialog(
@@ -298,19 +309,20 @@ fun MapsScreen(
                 renameError = null
                 mapViewModel.renameMapFile(
                     filePath = target.path,
-                    newName = newName
+                    newName = newName,
                 ) { result ->
                     renameInProgress = false
-                    result.onSuccess {
-                        showRenameDialog = false
-                        mapToRename = null
-                        renameError = null
-                    }.onFailure { error ->
-                        renameError = error.localizedMessage?.takeIf { it.isNotBlank() }
-                            ?: "Failed to rename the map."
-                    }
+                    result
+                        .onSuccess {
+                            showRenameDialog = false
+                            mapToRename = null
+                            renameError = null
+                        }.onFailure { error ->
+                            renameError = error.localizedMessage?.takeIf { it.isNotBlank() }
+                                ?: "Failed to rename the map."
+                        }
                 }
-            }
+            },
         )
 
         AlertDialog(
@@ -321,14 +333,14 @@ fun MapsScreen(
                 Text(
                     demNetworkErrorMessage.ifBlank {
                         "No internet on watch. Connect Wi-Fi or phone internet, then retry DEM download."
-                    }
+                    },
                 )
             },
             confirmButton = {
                 Button(onClick = { showDemNetworkErrorDialog = false }) {
                     Text("OK")
                 }
-            }
+            },
         )
 
         AlertDialog(
@@ -342,7 +354,7 @@ fun MapsScreen(
                 Button(onClick = { routingInfoMap = null }) {
                     Text("OK")
                 }
-            }
+            },
         )
 
         DeleteConfirmationDialog(
@@ -353,7 +365,7 @@ fun MapsScreen(
                 routingPackToDelete?.let { mapViewModel.deleteRoutingPackFile(it.path) }
                 routingPackToDelete = null
             },
-            onDismiss = { routingPackToDelete = null }
+            onDismiss = { routingPackToDelete = null },
         )
 
         DeleteConfirmationDialog(
@@ -364,7 +376,7 @@ fun MapsScreen(
                 mapViewModel.deleteAllRoutingPackFiles()
                 showDeleteAllRoutingDialog = false
             },
-            onDismiss = { showDeleteAllRoutingDialog = false }
+            onDismiss = { showDeleteAllRoutingDialog = false },
         )
 
         AlertDialog(
@@ -373,59 +385,61 @@ fun MapsScreen(
             title = { Text("Routing data") },
             text = {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = adaptive.helpDialogMaxHeight)
-                        .verticalScroll(rememberScrollState()),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = adaptive.helpDialogMaxHeight)
+                            .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
                         text = routingPackSummary(routingPackFiles),
                         style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                     if (routingPackFiles.isEmpty()) {
                         Text(
                             text = "No routing packs installed on the watch.",
                             style = MaterialTheme.typography.bodySmall,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
                         )
                     } else {
                         routingPackFiles.forEach { pack ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Column(
                                     modifier = Modifier.weight(1f),
-                                    horizontalAlignment = Alignment.Start
+                                    horizontalAlignment = Alignment.Start,
                                 ) {
                                     Text(
                                         text = pack.name,
                                         style = MaterialTheme.typography.labelMedium,
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                     Text(
                                         text = formatRoutingStorageSize(pack.sizeBytes),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = Color.White.copy(alpha = 0.68f)
+                                        color = Color.White.copy(alpha = 0.68f),
                                     )
                                 }
                                 IconButton(
                                     onClick = { routingPackToDelete = pack },
                                     modifier = Modifier.size(26.dp),
-                                    colors = IconButtonDefaults.iconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                    )
+                                    colors =
+                                        IconButtonDefaults.iconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                        ),
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
                                         contentDescription = "Delete routing pack",
-                                        modifier = Modifier.size(14.dp)
+                                        modifier = Modifier.size(14.dp),
                                     )
                                 }
                             }
@@ -442,15 +456,16 @@ fun MapsScreen(
                 if (routingPackFiles.isNotEmpty()) {
                     Button(
                         onClick = { showDeleteAllRoutingDialog = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        )
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            ),
                     ) {
                         Text("Delete all")
                     }
                 }
-            }
+            },
         )
 
         AlertDialog(
@@ -459,10 +474,11 @@ fun MapsScreen(
             title = { Text("Map Actions") },
             text = {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = adaptive.helpDialogMaxHeight)
-                        .verticalScroll(rememberScrollState())
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = adaptive.helpDialogMaxHeight)
+                            .verticalScroll(rememberScrollState()),
                 ) {
                     Text(
                         "Toggle a map to activate/deactivate.\n" +
@@ -475,38 +491,39 @@ fun MapsScreen(
                             "Hill/slope layers need DEM files.\n" +
                             "Use rename mode to rename maps.\n" +
                             "Use delete mode to remove maps.\n" +
-                            "Use the gear for map settings."
+                            "Use the gear for map settings.",
                     )
                 }
-            }
+            },
         )
         DemSetupBottomSheet(
             visible = showFirstEntryDemDialog,
-            onDismiss = { dismissFirstEntryDemDialog() }
+            onDismiss = { dismissFirstEntryDemDialog() },
         )
 
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         ) {
             // Header + actions
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = headerTopSafePadding, bottom = headerBottomPadding),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = headerTopSafePadding, bottom = headerBottomPadding),
+                contentAlignment = Alignment.Center,
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(headerActionSpacing)
+                    verticalArrangement = Arrangement.spacedBy(headerActionSpacing),
                 ) {
                     Text(
                         text = "Offline maps",
                         style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         IconButton(
                             onClick = {
@@ -514,15 +531,16 @@ fun MapsScreen(
                                 showHelpDialog = true
                             },
                             modifier = Modifier.size(headerActionButtonSize),
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.7f),
-                                contentColor = Color.White
-                            )
+                            colors =
+                                IconButtonDefaults.iconButtonColors(
+                                    containerColor = Color.Black.copy(alpha = 0.7f),
+                                    contentColor = Color.White,
+                                ),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = "Map actions help",
-                                modifier = Modifier.size(headerActionIconSize)
+                                modifier = Modifier.size(headerActionIconSize),
                             )
                         }
                         IconButton(
@@ -532,15 +550,16 @@ fun MapsScreen(
                                 showRoutingDataDialog = true
                             },
                             modifier = Modifier.size(headerActionButtonSize),
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.7f),
-                                contentColor = Color.White
-                            )
+                            colors =
+                                IconButtonDefaults.iconButtonColors(
+                                    containerColor = Color.Black.copy(alpha = 0.7f),
+                                    contentColor = Color.White,
+                                ),
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.CallSplit,
                                 contentDescription = "Routing data",
-                                modifier = Modifier.size(headerActionIconSize)
+                                modifier = Modifier.size(headerActionIconSize),
                             )
                         }
                         if (mapFiles.isNotEmpty()) {
@@ -554,27 +573,31 @@ fun MapsScreen(
                                     }
                                 },
                                 modifier = Modifier.size(headerActionButtonSize),
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    containerColor = if (isRenameMode) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        Color.Black.copy(alpha = 0.7f)
-                                    },
-                                    contentColor = if (isRenameMode) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        Color.White
-                                    }
-                                )
+                                colors =
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor =
+                                            if (isRenameMode) {
+                                                MaterialTheme.colorScheme.primaryContainer
+                                            } else {
+                                                Color.Black.copy(alpha = 0.7f)
+                                            },
+                                        contentColor =
+                                            if (isRenameMode) {
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            } else {
+                                                Color.White
+                                            },
+                                    ),
                             ) {
                                 Icon(
                                     imageVector = if (isRenameMode) Icons.Default.Close else Icons.Default.Edit,
-                                    contentDescription = if (isRenameMode) {
-                                        "Exit rename mode"
-                                    } else {
-                                        "Enter rename mode"
-                                    },
-                                    modifier = Modifier.size(headerActionIconSize)
+                                    contentDescription =
+                                        if (isRenameMode) {
+                                            "Exit rename mode"
+                                        } else {
+                                            "Enter rename mode"
+                                        },
+                                    modifier = Modifier.size(headerActionIconSize),
                                 )
                             }
                             IconButton(
@@ -587,27 +610,31 @@ fun MapsScreen(
                                     }
                                 },
                                 modifier = Modifier.size(headerActionButtonSize),
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    containerColor = if (isDeleteMode) {
-                                        MaterialTheme.colorScheme.errorContainer
-                                    } else {
-                                        Color.Black.copy(alpha = 0.7f)
-                                    },
-                                    contentColor = if (isDeleteMode) {
-                                        MaterialTheme.colorScheme.onErrorContainer
-                                    } else {
-                                        Color.White
-                                    }
-                                )
+                                colors =
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor =
+                                            if (isDeleteMode) {
+                                                MaterialTheme.colorScheme.errorContainer
+                                            } else {
+                                                Color.Black.copy(alpha = 0.7f)
+                                            },
+                                        contentColor =
+                                            if (isDeleteMode) {
+                                                MaterialTheme.colorScheme.onErrorContainer
+                                            } else {
+                                                Color.White
+                                            },
+                                    ),
                             ) {
                                 Icon(
                                     imageVector = if (isDeleteMode) Icons.Default.Close else Icons.Default.Delete,
-                                    contentDescription = if (isDeleteMode) {
-                                        "Exit delete mode"
-                                    } else {
-                                        "Enter delete mode"
-                                    },
-                                    modifier = Modifier.size(headerActionIconSize)
+                                    contentDescription =
+                                        if (isDeleteMode) {
+                                            "Exit delete mode"
+                                        } else {
+                                            "Enter delete mode"
+                                        },
+                                    modifier = Modifier.size(headerActionIconSize),
                                 )
                             }
                         }
@@ -616,13 +643,13 @@ fun MapsScreen(
                         Text(
                             text = "Rename mode",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     } else if (isDeleteMode) {
                         Text(
                             text = "Delete mode",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
                         )
                     }
                 }
@@ -630,20 +657,21 @@ fun MapsScreen(
 
             // Middle list
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
             ) {
                 ScalingLazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    columnState = columnState
+                    columnState = columnState,
                 ) {
                     if (mapFiles.isEmpty()) {
                         item {
                             Text(
                                 text = "Use the companion phone app to add .map files to your watch.",
                                 modifier = Modifier.padding(emptyStatePadding),
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
                             )
                         }
                     }
@@ -653,7 +681,7 @@ fun MapsScreen(
                             isSelected = selectedMapPath == mapFile.path,
                             onToggle = { isChecked ->
                                 mapViewModel.selectMapPath(
-                                    if (isChecked) mapFile.path else null
+                                    if (isChecked) mapFile.path else null,
                                 )
                             },
                             onRename = {
@@ -669,14 +697,15 @@ fun MapsScreen(
                             showRename = isRenameMode,
                             rowSpacing = rowSpacing,
                             isDemDownloadRunning = demDownloadState.isDownloading,
-                            isDemDownloadingForThisMap = demDownloadState.isDownloading &&
-                                demDownloadState.activeMapPath == mapFile.path,
+                            isDemDownloadingForThisMap =
+                                demDownloadState.isDownloading &&
+                                    demDownloadState.activeMapPath == mapFile.path,
                             onDownloadDem = {
                                 themeViewModel.downloadDemForMap(mapFile.path)
                             },
                             onShowRoutingInfo = {
                                 routingInfoMap = mapFile
-                            }
+                            },
                         )
                     }
                 }
@@ -687,27 +716,29 @@ fun MapsScreen(
 
             if (showDemStatusBlock) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     if (demDownloadState.isDownloading && demDownloadState.totalTiles > 0) {
-                        val progress = (
-                            demDownloadState.processedTiles.toFloat() /
-                                demDownloadState.totalTiles.toFloat()
+                        val progress =
+                            (
+                                demDownloadState.processedTiles.toFloat() /
+                                    demDownloadState.totalTiles.toFloat()
                             ).coerceIn(0f, 1f)
 
                         LinearProgressIndicator(
                             progress = { progress },
-                            modifier = Modifier.fillMaxWidth(0.72f)
+                            modifier = Modifier.fillMaxWidth(0.72f),
                         )
 
                         Text(
                             text = "DEM ${demDownloadState.processedTiles}/${demDownloadState.totalTiles}",
                             style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
                         )
                     }
 
@@ -718,7 +749,7 @@ fun MapsScreen(
                             color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
-                            maxLines = 3
+                            maxLines = 3,
                         )
                     }
                 }
@@ -726,19 +757,22 @@ fun MapsScreen(
 
             // Bottom settings button
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = settingsBottomPadding)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = settingsBottomPadding),
             ) {
                 IconButton(
                     onClick = { navController.navigate(WatchRoutes.MAP_SETTINGS) },
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(settingsButtonSize),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.8f),
-                        contentColor = Color.White
-                    )
+                    modifier =
+                        Modifier
+                            .align(Alignment.Center)
+                            .size(settingsButtonSize),
+                    colors =
+                        IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.8f),
+                            contentColor = Color.White,
+                        ),
                 ) {
                     Icon(Icons.Default.Settings, contentDescription = "Map Settings")
                 }
@@ -760,16 +794,17 @@ private fun MapItem(
     isDemDownloadRunning: Boolean,
     isDemDownloadingForThisMap: Boolean,
     onDownloadDem: () -> Unit,
-    onShowRoutingInfo: () -> Unit
+    onShowRoutingInfo: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = if (showDelete || showRename) {
-            Arrangement.spacedBy(rowSpacing)
-        } else {
-            Arrangement.Start
-        }
+        horizontalArrangement =
+            if (showDelete || showRename) {
+                Arrangement.spacedBy(rowSpacing)
+            } else {
+                Arrangement.Start
+            },
     ) {
         SwitchButton(
             modifier = Modifier.weight(1f),
@@ -780,51 +815,55 @@ private fun MapItem(
                     text = mapFile.name,
                     modifier = Modifier.basicMarquee(),
                     maxLines = 1,
-                    overflow = TextOverflow.Visible
+                    overflow = TextOverflow.Visible,
                 )
-            }
+            },
         )
 
         if (showRename) {
             Button(
                 onClick = onRename,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
             ) {
                 Icon(
                     imageVector = Icons.Default.Edit,
-                    contentDescription = "Rename"
+                    contentDescription = "Rename",
                 )
             }
         } else if (showDelete) {
             Button(
                 onClick = onDelete,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete"
+                    contentDescription = "Delete",
                 )
             }
         } else {
-            val demIconTint = when {
-                isDemDownloadingForThisMap -> Color(0xFF6EC8FF)
-                mapFile.demReady -> Color(0xFF76E36A)
-                else -> Color(0xFF8E8E8E)
-            }
-            val routingIconTint = when {
-                !mapFile.routingCoverageKnown || mapFile.routingAvailableSegments == 0 -> Color(0xFF8E8E8E)
-                mapFile.routingReady -> Color(0xFF76E36A)
-                else -> Color(0xFFFFC857)
-            }
+            val demIconTint =
+                when {
+                    isDemDownloadingForThisMap -> Color(0xFF6EC8FF)
+                    mapFile.demReady -> Color(0xFF76E36A)
+                    else -> Color(0xFF8E8E8E)
+                }
+            val routingIconTint =
+                when {
+                    !mapFile.routingCoverageKnown || mapFile.routingAvailableSegments == 0 -> Color(0xFF8E8E8E)
+                    mapFile.routingReady -> Color(0xFF76E36A)
+                    else -> Color(0xFFFFC857)
+                }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.wrapContentWidth()
+                modifier = Modifier.wrapContentWidth(),
             ) {
                 IconButton(
                     onClick = {
@@ -834,19 +873,20 @@ private fun MapItem(
                     },
                     enabled = !isDemDownloadRunning || mapFile.demReady,
                     modifier = Modifier.size(MAP_DATA_BADGE_SIZE),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.72f),
-                        contentColor = demIconTint,
-                        disabledContainerColor = Color.Black.copy(alpha = 0.42f),
-                        disabledContentColor = demIconTint.copy(alpha = 0.6f)
-                    )
+                    colors =
+                        IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.72f),
+                            contentColor = demIconTint,
+                            disabledContainerColor = Color.Black.copy(alpha = 0.42f),
+                            disabledContentColor = demIconTint.copy(alpha = 0.6f),
+                        ),
                 ) {
                     when {
                         isDemDownloadingForThisMap -> {
                             Icon(
                                 imageVector = Icons.Default.Downloading,
                                 contentDescription = "DEM downloading",
-                                modifier = Modifier.size(MAP_DATA_ICON_SIZE)
+                                modifier = Modifier.size(MAP_DATA_ICON_SIZE),
                             )
                         }
 
@@ -854,7 +894,7 @@ private fun MapItem(
                             Icon(
                                 imageVector = Icons.Default.Landscape,
                                 contentDescription = "DEM downloaded",
-                                modifier = Modifier.size(MAP_DATA_ICON_SIZE)
+                                modifier = Modifier.size(MAP_DATA_ICON_SIZE),
                             )
                         }
 
@@ -862,7 +902,7 @@ private fun MapItem(
                             Icon(
                                 painter = painterResource(R.drawable.ic_dem_download),
                                 contentDescription = "Download DEM",
-                                modifier = Modifier.size(MAP_DATA_ICON_SIZE)
+                                modifier = Modifier.size(MAP_DATA_ICON_SIZE),
                             )
                         }
                     }
@@ -871,15 +911,16 @@ private fun MapItem(
                 IconButton(
                     onClick = onShowRoutingInfo,
                     modifier = Modifier.size(MAP_DATA_BADGE_SIZE),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.72f),
-                        contentColor = routingIconTint
-                    )
+                    colors =
+                        IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.72f),
+                            contentColor = routingIconTint,
+                        ),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.CallSplit,
                         contentDescription = "Routing coverage",
-                        modifier = Modifier.size(MAP_DATA_ICON_SIZE)
+                        modifier = Modifier.size(MAP_DATA_ICON_SIZE),
                     )
                 }
             }

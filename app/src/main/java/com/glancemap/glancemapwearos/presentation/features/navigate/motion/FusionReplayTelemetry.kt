@@ -13,7 +13,7 @@ internal data class FusionReplaySummary(
     val toStationary: Int,
     val toMoving: Int,
     val maxJumpMeters: Float,
-    val maxImpliedSpeedMps: Float
+    val maxImpliedSpeedMps: Float,
 )
 
 internal object FusionReplayTelemetry {
@@ -51,20 +51,21 @@ internal object FusionReplayTelemetry {
         }
     }
 
-    fun summary(): FusionReplaySummary = synchronized(lock) {
-        val avgBlend = if (blendStarts > 0) blendDurationTotalMs / blendStarts else 0L
-        FusionReplaySummary(
-            acceptedFixes = acceptedFixes,
-            outlierDrops = outlierDrops,
-            predictions = predictions,
-            blendStarts = blendStarts,
-            avgBlendDurationMs = avgBlend,
-            toStationary = toStationary,
-            toMoving = toMoving,
-            maxJumpMeters = maxJumpMeters,
-            maxImpliedSpeedMps = maxImpliedSpeedMps
-        )
-    }
+    fun summary(): FusionReplaySummary =
+        synchronized(lock) {
+            val avgBlend = if (blendStarts > 0) blendDurationTotalMs / blendStarts else 0L
+            FusionReplaySummary(
+                acceptedFixes = acceptedFixes,
+                outlierDrops = outlierDrops,
+                predictions = predictions,
+                blendStarts = blendStarts,
+                avgBlendDurationMs = avgBlend,
+                toStationary = toStationary,
+                toMoving = toMoving,
+                maxJumpMeters = maxJumpMeters,
+                maxImpliedSpeedMps = maxImpliedSpeedMps,
+            )
+        }
 
     fun summaryLabel(): String {
         val s = summary()
@@ -85,7 +86,7 @@ internal object FusionReplayTelemetry {
         bearingDeg: Float,
         motionState: String,
         jumpMeters: Float,
-        blendDurationMs: Long?
+        blendDurationMs: Long?,
     ) {
         synchronized(lock) {
             ensureSession(nowElapsedMs)
@@ -97,9 +98,10 @@ internal object FusionReplayTelemetry {
             }
             addLine(
                 nowElapsedMs = nowElapsedMs,
-                payload = "FIX_ACCEPT lat=${latLong.latitude.format(6)} lon=${latLong.longitude.format(6)} " +
+                payload =
+                    "FIX_ACCEPT lat=${latLong.latitude.format(6)} lon=${latLong.longitude.format(6)} " +
                         "acc=${accuracyM.format(1)} speed=${speedMps.format(2)} bearing=${bearingDeg.format(1)} " +
-                        "state=$motionState jumpM=${jumpMeters.format(1)} blendMs=${blendDurationMs ?: 0L}"
+                        "state=$motionState jumpM=${jumpMeters.format(1)} blendMs=${blendDurationMs ?: 0L}",
             )
         }
     }
@@ -109,7 +111,7 @@ internal object FusionReplayTelemetry {
         jumpMeters: Float,
         impliedSpeedMps: Float,
         accuracyM: Float,
-        dtSec: Float
+        dtSec: Float,
     ) {
         synchronized(lock) {
             ensureSession(nowElapsedMs)
@@ -118,8 +120,9 @@ internal object FusionReplayTelemetry {
             maxImpliedSpeedMps = max(maxImpliedSpeedMps, impliedSpeedMps)
             addLine(
                 nowElapsedMs = nowElapsedMs,
-                payload = "FIX_DROP jumpM=${jumpMeters.format(1)} impliedSpeed=${impliedSpeedMps.format(1)} " +
-                        "acc=${accuracyM.format(1)} dt=${dtSec.format(2)}"
+                payload =
+                    "FIX_DROP jumpM=${jumpMeters.format(1)} impliedSpeed=${impliedSpeedMps.format(1)} " +
+                        "acc=${accuracyM.format(1)} dt=${dtSec.format(2)}",
             )
         }
     }
@@ -128,7 +131,7 @@ internal object FusionReplayTelemetry {
         nowElapsedMs: Long,
         fromState: String,
         toState: String,
-        speedMps: Float
+        speedMps: Float,
     ) {
         synchronized(lock) {
             ensureSession(nowElapsedMs)
@@ -139,7 +142,7 @@ internal object FusionReplayTelemetry {
             }
             addLine(
                 nowElapsedMs = nowElapsedMs,
-                payload = "MOTION from=$fromState to=$toState speed=${speedMps.format(2)}"
+                payload = "MOTION from=$fromState to=$toState speed=${speedMps.format(2)}",
             )
         }
     }
@@ -150,20 +153,24 @@ internal object FusionReplayTelemetry {
         speedMps: Float,
         bearingDeg: Float,
         motionState: String,
-        staleMs: Long
+        staleMs: Long,
     ) {
         synchronized(lock) {
             ensureSession(nowElapsedMs)
             predictions += 1
             addLine(
                 nowElapsedMs = nowElapsedMs,
-                payload = "PREDICT lat=${latLong.latitude.format(6)} lon=${latLong.longitude.format(6)} " +
-                        "speed=${speedMps.format(2)} bearing=${bearingDeg.format(1)} state=$motionState staleMs=$staleMs"
+                payload =
+                    "PREDICT lat=${latLong.latitude.format(6)} lon=${latLong.longitude.format(6)} " +
+                        "speed=${speedMps.format(2)} bearing=${bearingDeg.format(1)} state=$motionState staleMs=$staleMs",
             )
         }
     }
 
-    private fun addLine(nowElapsedMs: Long, payload: String) {
+    private fun addLine(
+        nowElapsedMs: Long,
+        payload: String,
+    ) {
         val relativeMs = (nowElapsedMs - sessionStartElapsedMs).coerceAtLeast(0L)
         lines.addLast("+${relativeMs}ms $payload")
         while (lines.size > MAX_LINES) {
@@ -180,4 +187,5 @@ internal object FusionReplayTelemetry {
 }
 
 private fun Double.format(digits: Int): String = "%.${digits}f".format(this)
+
 private fun Float.format(digits: Int): String = "%.${digits}f".format(this)

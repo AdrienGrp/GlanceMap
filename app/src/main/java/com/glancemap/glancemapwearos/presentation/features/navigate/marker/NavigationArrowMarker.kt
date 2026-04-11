@@ -4,28 +4,34 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 
-internal fun drawArrowMarker(canvas: Canvas, sizePx: Int) {
+internal fun drawArrowMarker(
+    canvas: Canvas,
+    sizePx: Int,
+) {
     val size = sizePx.toFloat()
     val center = size * 0.5f
 
     // Distinct "navigation arrow" silhouette to avoid reading as a dot at small sizes.
-    val path = Path().apply {
-        moveTo(center, size * 0.05f)
-        lineTo(size * 0.20f, size * 0.88f)
-        lineTo(center, size * 0.70f)
-        lineTo(size * 0.80f, size * 0.88f)
-        close()
-    }
+    val path =
+        Path().apply {
+            moveTo(center, size * 0.05f)
+            lineTo(size * 0.20f, size * 0.88f)
+            lineTo(center, size * 0.70f)
+            lineTo(size * 0.80f, size * 0.88f)
+            close()
+        }
 
-    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = NAVIGATION_MARKER_BLUE_ARGB
-        style = Paint.Style.FILL
-    }
-    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xAA001A33.toInt()
-        style = Paint.Style.STROKE
-        strokeWidth = size * 0.04f
-    }
+    val fillPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = NAVIGATION_MARKER_BLUE_ARGB
+            style = Paint.Style.FILL
+        }
+    val strokePaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xAA001A33.toInt()
+            style = Paint.Style.STROKE
+            strokeWidth = size * 0.04f
+        }
 
     canvas.drawPath(path, fillPaint)
     canvas.drawPath(path, strokePaint)

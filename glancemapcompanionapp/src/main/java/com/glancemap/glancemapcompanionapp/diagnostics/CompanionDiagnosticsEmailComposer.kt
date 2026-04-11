@@ -28,50 +28,55 @@ object CompanionDiagnosticsEmailComposer {
 
     fun composeLatestPhoneDiagnosticsEmail(context: Context) {
         val appContext = context.applicationContext
-        val file = latestSavedPhoneDiagnosticsFile(appContext)
-            ?: throw IllegalStateException("No saved phone recording available")
+        val file =
+            latestSavedPhoneDiagnosticsFile(appContext)
+                ?: throw IllegalStateException("No saved phone recording available")
         composeEmailWithFile(context, file)
     }
 
-    fun hasSavedPhoneDiagnostics(context: Context): Boolean {
-        return latestSavedPhoneDiagnosticsFile(context.applicationContext) != null
-    }
+    fun hasSavedPhoneDiagnostics(context: Context): Boolean = latestSavedPhoneDiagnosticsFile(context.applicationContext) != null
 
     fun latestSavedPhoneDiagnosticsFile(context: Context): File? {
         val dir = diagnosticsDir(context.applicationContext)
-        return dir.listFiles()
+        return dir
+            .listFiles()
             ?.asSequence()
             ?.filter { file ->
                 file.isFile &&
                     file.name.startsWith(PHONE_DIAGNOSTICS_PREFIX) &&
                     file.name.endsWith(".txt")
-            }
-            ?.maxByOrNull { it.lastModified() }
+            }?.maxByOrNull { it.lastModified() }
     }
 
-    private fun composeEmailWithFile(context: Context, file: File) {
+    private fun composeEmailWithFile(
+        context: Context,
+        file: File,
+    ) {
         val appContext = context.applicationContext
-        val uri = FileProvider.getUriForFile(
-            appContext,
-            "${appContext.packageName}.fileprovider",
-            file
-        )
+        val uri =
+            FileProvider.getUriForFile(
+                appContext,
+                "${appContext.packageName}.fileprovider",
+                file,
+            )
         val subject =
             "${TransferDataLayerContract.DIAGNOSTICS_SUBJECT_PREFIX} ${file.nameWithoutExtension}"
         val body = "Phone diagnostics attached.\nFile: ${file.name}"
 
-        val emailIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_EMAIL, arrayOf(TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL))
-            putExtra(Intent.EXTRA_SUBJECT, subject)
-            putExtra(Intent.EXTRA_TEXT, body)
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
+        val emailIntent =
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL))
+                putExtra(Intent.EXTRA_SUBJECT, subject)
+                putExtra(Intent.EXTRA_TEXT, body)
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
 
-        val chooserIntent = Intent.createChooser(emailIntent, "Send diagnostics").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val chooserIntent =
+            Intent.createChooser(emailIntent, "Send diagnostics").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
 
         try {
             context.startActivity(chooserIntent)
@@ -80,7 +85,10 @@ object CompanionDiagnosticsEmailComposer {
         }
     }
 
-    private fun saveLatestPhoneDiagnosticsFile(context: Context, text: String): File {
+    private fun saveLatestPhoneDiagnosticsFile(
+        context: Context,
+        text: String,
+    ): File {
         val dir = diagnosticsDir(context)
         if (!dir.exists()) {
             dir.mkdirs()
@@ -97,26 +105,29 @@ object CompanionDiagnosticsEmailComposer {
         }
 
         val captureState = PhoneDebugCapture.state.value
-        val sessionPart = captureState.sessionId.takeIf { it > 0L }?.let { "_s$it" }.orEmpty()
+        val sessionPart =
+            captureState.sessionId
+                .takeIf { it > 0L }
+                ?.let { "_s$it" }
+                .orEmpty()
         val devicePart = buildDeviceSlug()
         val fileName =
-            "${PHONE_DIAGNOSTICS_PREFIX}${filenameFormatter.format(Instant.now())}_${devicePart}${sessionPart}.txt"
+            "${PHONE_DIAGNOSTICS_PREFIX}${filenameFormatter.format(Instant.now())}_${devicePart}$sessionPart.txt"
         val file = File(dir, fileName)
         file.writeText(text)
         return file
     }
 
-    private fun diagnosticsDir(context: Context): File {
-        return File(context.filesDir, DIAGNOSTICS_DIR_NAME)
-    }
+    private fun diagnosticsDir(context: Context): File = File(context.filesDir, DIAGNOSTICS_DIR_NAME)
 
     private fun buildDeviceSlug(): String {
         val raw = "${Build.MANUFACTURER}_${Build.MODEL}"
-        val normalized = raw
-            .lowercase(Locale.US)
-            .replace(Regex("[^a-z0-9]+"), "_")
-            .trim('_')
-            .ifBlank { "android_phone" }
+        val normalized =
+            raw
+                .lowercase(Locale.US)
+                .replace(Regex("[^a-z0-9]+"), "_")
+                .trim('_')
+                .ifBlank { "android_phone" }
         return normalized.take(40)
     }
 }

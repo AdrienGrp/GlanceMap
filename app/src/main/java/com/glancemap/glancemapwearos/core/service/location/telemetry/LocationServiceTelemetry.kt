@@ -1,11 +1,11 @@
 package com.glancemap.glancemapwearos.core.service.location.telemetry
 
-import com.glancemap.glancemapwearos.core.service.location.activity.LocationActivityState
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.location.activity.LocationActivityState
 
 internal class LocationServiceTelemetry(
     private val tag: String,
-    private val summaryIntervalMs: Long
+    private val summaryIntervalMs: Long,
 ) {
     private var summaryWindowStartedAtMs: Long = 0L
     private var locationCallbacks: Int = 0
@@ -31,17 +31,29 @@ internal class LocationServiceTelemetry(
         locationCallbacks += 1
     }
 
-    fun onFilteredByAccuracy(nowElapsedMs: Long, activityState: LocationActivityState, burst: Boolean) {
+    fun onFilteredByAccuracy(
+        nowElapsedMs: Long,
+        activityState: LocationActivityState,
+        burst: Boolean,
+    ) {
         filteredByAccuracy += 1
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
 
-    fun onFilteredByJitter(nowElapsedMs: Long, activityState: LocationActivityState, burst: Boolean) {
+    fun onFilteredByJitter(
+        nowElapsedMs: Long,
+        activityState: LocationActivityState,
+        burst: Boolean,
+    ) {
         filteredByJitter += 1
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
 
-    fun onFilteredByStale(nowElapsedMs: Long, activityState: LocationActivityState, burst: Boolean) {
+    fun onFilteredByStale(
+        nowElapsedMs: Long,
+        activityState: LocationActivityState,
+        burst: Boolean,
+    ) {
         filteredByStale += 1
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
@@ -52,7 +64,7 @@ internal class LocationServiceTelemetry(
         burst: Boolean,
         source: String,
         ageMs: Long,
-        maxAgeMs: Long
+        maxAgeMs: Long,
     ) {
         filteredByStale += 1
         log("staleFix: dropped source=$source ageMs=$ageMs maxAgeMs=$maxAgeMs")
@@ -67,12 +79,12 @@ internal class LocationServiceTelemetry(
         accuracyM: Float,
         maxAccuracyM: Float,
         ageMs: Long,
-        maxAgeMs: Long
+        maxAgeMs: Long,
     ) {
         filteredByAccuracy += 1
         log(
             "accuracyFix: dropped source=$source accuracyM=${accuracyM.format(1)} " +
-                "maxAccuracyM=${maxAccuracyM.format(1)} ageMs=$ageMs maxAgeMs=$maxAgeMs"
+                "maxAccuracyM=${maxAccuracyM.format(1)} ageMs=$ageMs maxAgeMs=$maxAgeMs",
         )
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
@@ -84,12 +96,12 @@ internal class LocationServiceTelemetry(
         source: String,
         latitude: Double,
         longitude: Double,
-        provider: String?
+        provider: String?,
     ) {
         filteredByInvalidCoordinates += 1
         log(
             "coordFix: dropped source=$source lat=$latitude lon=$longitude " +
-                "provider=${provider ?: "unknown"}"
+                "provider=${provider ?: "unknown"}",
         )
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
@@ -103,13 +115,13 @@ internal class LocationServiceTelemetry(
         maxAllowedM: Float,
         gapMs: Long,
         previousSpeedMps: Float,
-        candidateSpeedMps: Float
+        candidateSpeedMps: Float,
     ) {
         filteredByJitter += 1
         log(
             "jumpFix: deferred source=$source jumpM=${jumpM.format(1)} " +
                 "maxAllowedM=${maxAllowedM.format(1)} gapMs=$gapMs " +
-                "prevSpeedMps=${previousSpeedMps.format(2)} candSpeedMps=${candidateSpeedMps.format(2)}"
+                "prevSpeedMps=${previousSpeedMps.format(2)} candSpeedMps=${candidateSpeedMps.format(2)}",
         )
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
@@ -118,11 +130,11 @@ internal class LocationServiceTelemetry(
         source: String,
         jumpM: Float,
         confirmRadiusM: Float,
-        gapMs: Long
+        gapMs: Long,
     ) {
         log(
             "jumpFix: confirmed source=$source jumpM=${jumpM.format(1)} " +
-                "confirmRadiusM=${confirmRadiusM.format(1)} gapMs=$gapMs"
+                "confirmRadiusM=${confirmRadiusM.format(1)} gapMs=$gapMs",
         )
     }
 
@@ -134,7 +146,7 @@ internal class LocationServiceTelemetry(
         ageMs: Long,
         accuracyM: Float,
         provider: String?,
-        origin: String
+        origin: String,
     ) {
         callbackAcceptedFixes += 1
         onAcceptedFix(
@@ -146,7 +158,7 @@ internal class LocationServiceTelemetry(
             ageMs = ageMs,
             accuracyM = accuracyM,
             provider = provider,
-            origin = origin
+            origin = origin,
         )
     }
 
@@ -158,7 +170,7 @@ internal class LocationServiceTelemetry(
         ageMs: Long,
         accuracyM: Float,
         provider: String?,
-        origin: String
+        origin: String,
     ) {
         immediateAcceptedFixes += 1
         onAcceptedFix(
@@ -170,7 +182,7 @@ internal class LocationServiceTelemetry(
             ageMs = ageMs,
             accuracyM = accuracyM,
             provider = provider,
-            origin = origin
+            origin = origin,
         )
     }
 
@@ -178,7 +190,7 @@ internal class LocationServiceTelemetry(
         nowElapsedMs: Long,
         activityState: LocationActivityState,
         burst: Boolean,
-        source: String
+        source: String,
     ) {
         immediateSkippedCooldown += 1
         log("immediateRequest: skipCooldown source=$source")
@@ -189,19 +201,27 @@ internal class LocationServiceTelemetry(
         nowElapsedMs: Long,
         activityState: LocationActivityState,
         burst: Boolean,
-        source: String
+        source: String,
     ) {
         immediateSkippedBurst += 1
         log("immediateRequest: skipBurst source=$source")
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
 
-    fun onImmediateRequestStarted(durationMs: Long, burstId: Long, source: String) {
+    fun onImmediateRequestStarted(
+        durationMs: Long,
+        burstId: Long,
+        source: String,
+    ) {
         immediateRequests += 1
         log("immediateRequest: burstStart id=$burstId source=$source durationMs=$durationMs")
     }
 
-    fun onImmediateRequestEnded(burstId: Long, reason: String = "timer", source: String) {
+    fun onImmediateRequestEnded(
+        burstId: Long,
+        reason: String = "timer",
+        source: String,
+    ) {
         log("immediateRequest: burstEnd id=$burstId source=$source reason=$reason")
     }
 
@@ -209,7 +229,7 @@ internal class LocationServiceTelemetry(
         source: String,
         backend: String,
         errorType: String,
-        errorDetail: String? = null
+        errorDetail: String? = null,
     ) {
         val detailSuffix = errorDetail?.takeIf { it.isNotBlank() }?.let { " errorDetail=$it" } ?: ""
         log("getCurrentLocation: failed source=$source backend=$backend errorType=$errorType$detailSuffix")
@@ -221,13 +241,13 @@ internal class LocationServiceTelemetry(
         minDistanceMeters: Float,
         backend: String,
         errorType: String,
-        errorDetail: String? = null
+        errorDetail: String? = null,
     ) {
         val detailSuffix = errorDetail?.takeIf { it.isNotBlank() }?.let { " errorDetail=$it" } ?: ""
         log(
             "requestUpdates failed: priority=$priority intervalMs=$intervalMs " +
                 "minDistanceM=${minDistanceMeters.format(1)} backend=$backend " +
-                "errorType=$errorType$detailSuffix"
+                "errorType=$errorType$detailSuffix",
         )
     }
 
@@ -235,11 +255,11 @@ internal class LocationServiceTelemetry(
         fixGapMs: Long,
         staleThresholdMs: Long,
         expectedIntervalMs: Long,
-        activityState: LocationActivityState
+        activityState: LocationActivityState,
     ) {
         log(
             "selfHeal: trigger fixGapMs=$fixGapMs staleThresholdMs=$staleThresholdMs " +
-                "expectedIntervalMs=$expectedIntervalMs state=${activityState.name}"
+                "expectedIntervalMs=$expectedIntervalMs state=${activityState.name}",
         )
     }
 
@@ -247,12 +267,12 @@ internal class LocationServiceTelemetry(
         unavailableForMs: Long,
         staleThresholdMs: Long,
         expectedIntervalMs: Long,
-        activityState: LocationActivityState
+        activityState: LocationActivityState,
     ) {
         log(
             "availabilityRecovery: trigger unavailableForMs=$unavailableForMs " +
                 "staleThresholdMs=$staleThresholdMs expectedIntervalMs=$expectedIntervalMs " +
-                "state=${activityState.name}"
+                "state=${activityState.name}",
         )
     }
 
@@ -260,10 +280,15 @@ internal class LocationServiceTelemetry(
         log("locationAvailability: available=$available")
     }
 
-    fun logGpsSignalSample(ageMs: Long, fresh: Boolean, maxAgeMs: Long, accuracyM: Float) {
+    fun logGpsSignalSample(
+        ageMs: Long,
+        fresh: Boolean,
+        maxAgeMs: Long,
+        accuracyM: Float,
+    ) {
         log(
             "gpsSignal: sample ageMs=$ageMs fresh=$fresh maxAgeMs=$maxAgeMs " +
-            "accuracyM=${accuracyM.format(1)}"
+                "accuracyM=${accuracyM.format(1)}",
         )
     }
 
@@ -276,19 +301,20 @@ internal class LocationServiceTelemetry(
         watchGpsDegraded: Boolean,
         watchGpsDegradedFixStreak: Int,
         provider: String?,
-        accepted: Boolean?
+        accepted: Boolean?,
     ) {
-        val acceptedToken = when (accepted) {
-            true -> "true"
-            false -> "false"
-            null -> "na"
-        }
+        val acceptedToken =
+            when (accepted) {
+                true -> "true"
+                false -> "false"
+                null -> "na"
+            }
         log(
             "gpsSignal: sample ageMs=$ageMs fresh=$fresh maxAgeMs=$maxAgeMs " +
                 "accuracyM=${accuracyM.format(1)} sourceMode=$sourceMode " +
                 "provider=${provider ?: "unknown"} accepted=$acceptedToken " +
                 "watchGpsDegraded=$watchGpsDegraded " +
-                "watchGpsDegradedFixStreak=$watchGpsDegradedFixStreak"
+                "watchGpsDegradedFixStreak=$watchGpsDegradedFixStreak",
         )
     }
 
@@ -296,11 +322,11 @@ internal class LocationServiceTelemetry(
         degraded: Boolean,
         accuracyM: Float,
         streak: Int,
-        sourceMode: String
+        sourceMode: String,
     ) {
         log(
             "watchGpsDegraded: state=${if (degraded) "entered" else "cleared"} " +
-                "sourceMode=$sourceMode accuracyM=${accuracyM.format(1)} streak=$streak"
+                "sourceMode=$sourceMode accuracyM=${accuracyM.format(1)} streak=$streak",
         )
     }
 
@@ -309,19 +335,22 @@ internal class LocationServiceTelemetry(
         streak: Int,
         requiredStreak: Int,
         thresholdM: Float,
-        fixGapMs: Long
+        fixGapMs: Long,
     ) {
         log(
             "sourceFailover: auto_fused->watch_gps reason=accuracy_plateau " +
                 "accuracyM=${accuracyM.format(1)} streak=$streak requiredStreak=$requiredStreak " +
-                "thresholdM=${thresholdM.format(1)} fixGapMs=$fixGapMs"
+                "thresholdM=${thresholdM.format(1)} fixGapMs=$fixGapMs",
         )
     }
 
-    fun logAutoFusedFallbackTriggeredNoFix(fixGapMs: Long, thresholdMs: Long) {
+    fun logAutoFusedFallbackTriggeredNoFix(
+        fixGapMs: Long,
+        thresholdMs: Long,
+    ) {
         log(
             "sourceFailover: auto_fused->watch_gps reason=no_fix_gap " +
-                "fixGapMs=$fixGapMs thresholdMs=$thresholdMs"
+                "fixGapMs=$fixGapMs thresholdMs=$thresholdMs",
         )
     }
 
@@ -333,19 +362,23 @@ internal class LocationServiceTelemetry(
         reason: String,
         fallbackDurationMs: Long,
         fixGapMs: Long,
-        expectedIntervalMs: Long
+        expectedIntervalMs: Long,
     ) {
         log(
             "sourceFailover: watch_gps->auto_fused reason=$reason " +
                 "fallbackDurationMs=$fallbackDurationMs fixGapMs=$fixGapMs " +
-                "expectedIntervalMs=$expectedIntervalMs"
+                "expectedIntervalMs=$expectedIntervalMs",
         )
     }
 
-    fun logCachedLocationAccepted(ageMs: Long, accuracyM: Float, provider: String?) {
+    fun logCachedLocationAccepted(
+        ageMs: Long,
+        accuracyM: Float,
+        provider: String?,
+    ) {
         log(
             "cachedLocation: accepted ageMs=$ageMs accuracyM=$accuracyM " +
-                "provider=${provider ?: "unknown"}"
+                "provider=${provider ?: "unknown"}",
         )
     }
 
@@ -354,11 +387,11 @@ internal class LocationServiceTelemetry(
         accuracyM: Float,
         maxAgeMs: Long,
         maxAccuracyM: Float,
-        provider: String?
+        provider: String?,
     ) {
         log(
             "cachedLocation: rejected ageMs=$ageMs accuracyM=$accuracyM " +
-                "maxAgeMs=$maxAgeMs maxAccuracyM=$maxAccuracyM provider=${provider ?: "unknown"}"
+                "maxAgeMs=$maxAgeMs maxAccuracyM=$maxAccuracyM provider=${provider ?: "unknown"}",
         )
     }
 
@@ -368,12 +401,12 @@ internal class LocationServiceTelemetry(
         burst: Boolean,
         callbackOrigin: String,
         provider: String?,
-        expectedOrigin: String
+        expectedOrigin: String,
     ) {
         filteredBySourceMismatch += 1
         log(
             "sourceMismatch: dropped callbackOrigin=$callbackOrigin " +
-                "expectedOrigin=$expectedOrigin provider=${provider ?: "unknown"}"
+                "expectedOrigin=$expectedOrigin provider=${provider ?: "unknown"}",
         )
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
@@ -395,25 +428,33 @@ internal class LocationServiceTelemetry(
         trackingEnabled: Boolean,
         screenStateChanged: Boolean,
         trackingChanged: Boolean,
-        backgroundGpsEnabled: Boolean
+        backgroundGpsEnabled: Boolean,
     ) {
-        val changedFields = buildList {
-            if (screenStateChanged) add("screenState")
-            if (trackingChanged) add("tracking")
-        }.joinToString(separator = ",")
+        val changedFields =
+            buildList {
+                if (screenStateChanged) add("screenState")
+                if (trackingChanged) add("tracking")
+            }.joinToString(separator = ",")
         log(
             "runtimeState: screenState=$screenState trackingEnabled=$trackingEnabled " +
-                "backgroundGpsEnabled=$backgroundGpsEnabled changed=$changedFields"
+                "backgroundGpsEnabled=$backgroundGpsEnabled changed=$changedFields",
         )
     }
 
-    fun logImmediateLocationWorkCancelled(reason: String, cancelledBurst: Boolean, cancelledFetch: Boolean) {
+    fun logImmediateLocationWorkCancelled(
+        reason: String,
+        cancelledBurst: Boolean,
+        cancelledFetch: Boolean,
+    ) {
         log(
-            "immediateWork: cancelled reason=$reason burst=$cancelledBurst fetch=$cancelledFetch"
+            "immediateWork: cancelled reason=$reason burst=$cancelledBurst fetch=$cancelledFetch",
         )
     }
 
-    fun logActivityTransition(from: LocationActivityState, to: LocationActivityState) {
+    fun logActivityTransition(
+        from: LocationActivityState,
+        to: LocationActivityState,
+    ) {
         log("activityState: ${from.name} -> ${to.name}")
     }
 
@@ -432,7 +473,7 @@ internal class LocationServiceTelemetry(
         interactive: Boolean,
         screenState: String,
         hasFinePermission: Boolean,
-        hasCoarsePermission: Boolean
+        hasCoarsePermission: Boolean,
     ) {
         if (burst && runtimeMode == "INTERACTIVE") {
             burstInteractiveDoubleApplyCount += 1
@@ -443,7 +484,7 @@ internal class LocationServiceTelemetry(
                 "bound=$bound keepOpen=$keepOpen watchOnly=$watchOnly burst=$burst " +
                 "backend=$backend mode=$runtimeMode trackingEnabled=$trackingEnabled " +
                 "interactive=$interactive screenState=$screenState " +
-                "finePermission=$hasFinePermission coarsePermission=$hasCoarsePermission"
+                "finePermission=$hasFinePermission coarsePermission=$hasCoarsePermission",
         )
     }
 
@@ -453,12 +494,12 @@ internal class LocationServiceTelemetry(
         acceptedCandidates: Int,
         fallbackUsed: Boolean,
         callbackOrigin: String,
-        duplicateCandidatesDropped: Int
+        duplicateCandidatesDropped: Int,
     ) {
         log(
             "locationBatch: raw=$rawCandidates normalized=$normalizedCandidates " +
                 "accepted=$acceptedCandidates fallback=$fallbackUsed " +
-                "origin=$callbackOrigin duplicatesDropped=$duplicateCandidatesDropped"
+                "origin=$callbackOrigin duplicatesDropped=$duplicateCandidatesDropped",
         )
     }
 
@@ -488,12 +529,12 @@ internal class LocationServiceTelemetry(
         ageMs: Long,
         accuracyM: Float,
         provider: String?,
-        origin: String
+        origin: String,
     ) {
         recordAcceptedFix(nowElapsedMs)
         log(
             "fixAccepted: source=$source detail=$sourceDetail ageMs=$ageMs " +
-                "accuracyM=${accuracyM.format(1)} origin=$origin provider=${provider ?: "unknown"}"
+                "accuracyM=${accuracyM.format(1)} origin=$origin provider=${provider ?: "unknown"}",
         )
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
@@ -501,7 +542,7 @@ internal class LocationServiceTelemetry(
     private fun maybeLogSummary(
         nowElapsedMs: Long,
         activityState: LocationActivityState?,
-        burst: Boolean?
+        burst: Boolean?,
     ) {
         if (!DebugTelemetry.isEnabled()) return
         if (summaryWindowStartedAtMs == 0L) {
@@ -530,7 +571,7 @@ internal class LocationServiceTelemetry(
                 "skipBurst=$immediateSkippedBurst " +
                 "burstInteractiveDoubleApply=$burstInteractiveDoubleApplyCount " +
                 "state=${activityState?.name ?: "UNKNOWN"} " +
-                "burst=${burst ?: false}"
+                "burst=${burst ?: false}",
         )
 
         locationCallbacks = 0

@@ -14,10 +14,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import com.google.android.gms.wearable.MessageEvent
-import com.google.android.gms.wearable.WearableListenerService
 import com.glancemap.glancemapcompanionapp.R
 import com.glancemap.shared.transfer.TransferDataLayerContract
+import com.google.android.gms.wearable.MessageEvent
+import com.google.android.gms.wearable.WearableListenerService
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -28,26 +28,30 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
         super.onMessageReceived(messageEvent)
         if (messageEvent.path != TransferDataLayerContract.PATH_DIAGNOSTICS_EMAIL_REQUEST) return
 
-        val payload = runCatching { parsePayload(messageEvent.data) }.getOrElse {
-            Log.w(TAG, "Invalid diagnostics payload: ${it.message}")
-            return
-        }
+        val payload =
+            runCatching { parsePayload(messageEvent.data) }.getOrElse {
+                Log.w(TAG, "Invalid diagnostics payload: ${it.message}")
+                return
+            }
 
-        val diagnosticsFile = runCatching { saveDiagnosticsFile(payload.fileName, payload.text) }.getOrElse {
-            Log.w(TAG, "Failed to save diagnostics payload: ${it.message}")
-            return
-        }
+        val diagnosticsFile =
+            runCatching { saveDiagnosticsFile(payload.fileName, payload.text) }.getOrElse {
+                Log.w(TAG, "Failed to save diagnostics payload: ${it.message}")
+                return
+            }
 
-        val emailIntent = buildEmailIntent(
-            targetEmail = payload.email,
-            subject = payload.subject,
-            diagnosticsFile = diagnosticsFile,
-            truncated = payload.truncated
-        )
+        val emailIntent =
+            buildEmailIntent(
+                targetEmail = payload.email,
+                subject = payload.subject,
+                diagnosticsFile = diagnosticsFile,
+                truncated = payload.truncated,
+            )
 
-        val chooserIntent = Intent.createChooser(emailIntent, "Send diagnostics").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val chooserIntent =
+            Intent.createChooser(emailIntent, "Send diagnostics").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
 
         runCatching { startActivity(chooserIntent) }
             .onFailure { error ->
@@ -59,10 +63,11 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
     private fun parsePayload(data: ByteArray): DiagnosticsPayload {
         val json = JSONObject(String(data, Charsets.UTF_8))
         val email = json.optString("email", TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL)
-        val subject = json.optString(
-            "subject",
-            "${TransferDataLayerContract.DIAGNOSTICS_SUBJECT_PREFIX} watch diagnostics"
-        )
+        val subject =
+            json.optString(
+                "subject",
+                "${TransferDataLayerContract.DIAGNOSTICS_SUBJECT_PREFIX} watch diagnostics",
+            )
         val fileName = json.optString("fileName", "glancemap_diagnostics.txt")
         val encoding = json.optString("encoding", "")
         val truncated = json.optBoolean("truncated", false)
@@ -72,25 +77,30 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
         require(encoding == "gzip_base64_utf8_text") { "Unsupported encoding: $encoding" }
 
         val compressed = Base64.decode(content, Base64.DEFAULT)
-        val text = GZIPInputStream(ByteArrayInputStream(compressed)).bufferedReader(Charsets.UTF_8).use {
-            it.readText()
-        }
+        val text =
+            GZIPInputStream(ByteArrayInputStream(compressed)).bufferedReader(Charsets.UTF_8).use {
+                it.readText()
+            }
 
         return DiagnosticsPayload(
             email = email,
             subject = subject,
             fileName = fileName,
             truncated = truncated,
-            text = text
+            text = text,
         )
     }
 
-    private fun saveDiagnosticsFile(fileName: String, text: String): File {
-        val safeFileName = fileName
-            .replace("\\", "_")
-            .replace("/", "_")
-            .trim()
-            .ifBlank { "glancemap_diagnostics.txt" }
+    private fun saveDiagnosticsFile(
+        fileName: String,
+        text: String,
+    ): File {
+        val safeFileName =
+            fileName
+                .replace("\\", "_")
+                .replace("/", "_")
+                .trim()
+                .ifBlank { "glancemap_diagnostics.txt" }
 
         val dir = File(cacheDir, "diagnostics_mail")
         if (!dir.exists()) {
@@ -106,18 +116,20 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
         targetEmail: String,
         subject: String,
         diagnosticsFile: File,
-        truncated: Boolean
+        truncated: Boolean,
     ): Intent {
-        val uri = FileProvider.getUriForFile(
-            this,
-            "${packageName}.fileprovider",
-            diagnosticsFile
-        )
-        val body = if (truncated) {
-            "Diagnostics export attached. Note: payload was truncated to fit watch transfer limits."
-        } else {
-            "Diagnostics export attached."
-        }
+        val uri =
+            FileProvider.getUriForFile(
+                this,
+                "$packageName.fileprovider",
+                diagnosticsFile,
+            )
+        val body =
+            if (truncated) {
+                "Diagnostics export attached. Note: payload was truncated to fit watch transfer limits."
+            } else {
+                "Diagnostics export attached."
+            }
 
         return Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
@@ -131,27 +143,33 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
     }
 
     @SuppressLint("MissingPermission")
-    private fun showComposeNotification(emailIntent: Intent, subject: String) {
+    private fun showComposeNotification(
+        emailIntent: Intent,
+        subject: String,
+    ) {
         if (!canPostNotifications()) {
             Log.w(TAG, "Skipping diagnostics notification: POST_NOTIFICATIONS not granted")
             return
         }
 
         ensureNotificationChannel()
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            subject.hashCode(),
-            emailIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_companionapp)
-            .setContentTitle("Diagnostics Ready")
-            .setContentText("Tap to open email draft")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .build()
+        val pendingIntent =
+            PendingIntent.getActivity(
+                this,
+                subject.hashCode(),
+                emailIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val notification =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher_companionapp)
+                .setContentTitle("Diagnostics Ready")
+                .setContentText("Tap to open email draft")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .build()
 
         runCatching {
             NotificationManagerCompat.from(this).notify(subject.hashCode(), notification)
@@ -164,18 +182,19 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
         return ContextCompat.checkSelfPermission(
             this,
-            Manifest.permission.POST_NOTIFICATIONS
+            Manifest.permission.POST_NOTIFICATIONS,
         ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Diagnostics Email",
-            NotificationManager.IMPORTANCE_HIGH
-        )
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID,
+                "Diagnostics Email",
+                NotificationManager.IMPORTANCE_HIGH,
+            )
         channel.description = "Notifications for diagnostics email drafts"
         manager.createNotificationChannel(channel)
     }
@@ -185,7 +204,7 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
         val subject: String,
         val fileName: String,
         val truncated: Boolean,
-        val text: String
+        val text: String,
     )
 
     private companion object {

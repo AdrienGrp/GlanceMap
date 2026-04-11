@@ -14,100 +14,190 @@ import java.util.Locale
 data class GpxWaypointPoiImportOutcome(
     val poiResult: RefugesImportResult?,
     val hasTrackOrRoutePoints: Boolean,
-    val waypointCount: Int
+    val waypointCount: Int,
 )
 
 class GpxWaypointPoiImporter(
-    private val context: Context
+    private val context: Context,
 ) {
     private companion object {
         private val NAV_ARROW_REGEX = Regex("[↰↱↲↳←→↑↓⇦⇨]")
-        private val NAV_INSTRUCTION_START_REGEX = Regex(
-            pattern = "^(turn|continue|keep|bear|head|take|follow|arrive|destination|u[- ]?turn|roundabout|at the roundabout|tournez|continuer|prenez|suivre|arrivee|abbiegen|weiter|nehmen|ziel|svolta|continua|prendi|arrivo|gire|tome|llegada)\\b",
-            option = RegexOption.IGNORE_CASE
-        )
-        private val NAV_ACTION_KEYWORDS = setOf(
-            "turn", "continue", "keep", "bear", "head", "take", "follow",
-            "arrive", "destination", "u-turn", "uturn", "roundabout",
-            "tournez", "continuer", "prenez", "suivre", "arrivee",
-            "abbiegen", "geradeaus", "kreisverkehr", "ausfahrt",
-            "svolta", "continua", "rotatoria", "uscita",
-            "gire", "continuez", "rotonda", "salida"
-        )
-        private val NAV_DIRECTION_KEYWORDS = setOf(
-            "left", "right", "straight", "slight left", "slight right", "sharp left", "sharp right",
-            "gauche", "droite", "tout droit",
-            "links", "rechts", "geradeaus",
-            "sinistra", "destra", "dritto",
-            "izquierda", "derecha", "recto"
-        )
-        private val NAV_CONTEXT_KEYWORDS = setOf(
-            "onto", "towards", "toward", "exit", "junction", "fork", "merge",
-            "rond-point", "sortie", "track", "road", "street", "trail",
-            "ausfahrt", "kreisverkehr", "strasse", "weg",
-            "rotonda", "salida", "rotatoria", "uscita"
-        )
-        private val STRONG_POI_KEYWORDS = setOf(
-            "peak", "summit", "sommet", "mountain",
-            "water", "spring", "source", "font", "fountain", "drinking",
-            "camp", "bivouac", "bivacco",
-            "hut", "refuge", "cabane", "abri", "gite", "gite", "shelter",
-            "viewpoint", "belved", "panorama", "lookout",
-            "toilet", "wc", "parking", "restaurant", "cafe", "bar",
-            "grotte", "cave"
-        )
+        private val NAV_INSTRUCTION_START_REGEX =
+            Regex(
+                pattern = "^(turn|continue|keep|bear|head|take|follow|arrive|destination|u[- ]?turn|roundabout|at the roundabout|tournez|continuer|prenez|suivre|arrivee|abbiegen|weiter|nehmen|ziel|svolta|continua|prendi|arrivo|gire|tome|llegada)\\b",
+                option = RegexOption.IGNORE_CASE,
+            )
+        private val NAV_ACTION_KEYWORDS =
+            setOf(
+                "turn",
+                "continue",
+                "keep",
+                "bear",
+                "head",
+                "take",
+                "follow",
+                "arrive",
+                "destination",
+                "u-turn",
+                "uturn",
+                "roundabout",
+                "tournez",
+                "continuer",
+                "prenez",
+                "suivre",
+                "arrivee",
+                "abbiegen",
+                "geradeaus",
+                "kreisverkehr",
+                "ausfahrt",
+                "svolta",
+                "continua",
+                "rotatoria",
+                "uscita",
+                "gire",
+                "continuez",
+                "rotonda",
+                "salida",
+            )
+        private val NAV_DIRECTION_KEYWORDS =
+            setOf(
+                "left",
+                "right",
+                "straight",
+                "slight left",
+                "slight right",
+                "sharp left",
+                "sharp right",
+                "gauche",
+                "droite",
+                "tout droit",
+                "links",
+                "rechts",
+                "geradeaus",
+                "sinistra",
+                "destra",
+                "dritto",
+                "izquierda",
+                "derecha",
+                "recto",
+            )
+        private val NAV_CONTEXT_KEYWORDS =
+            setOf(
+                "onto",
+                "towards",
+                "toward",
+                "exit",
+                "junction",
+                "fork",
+                "merge",
+                "rond-point",
+                "sortie",
+                "track",
+                "road",
+                "street",
+                "trail",
+                "ausfahrt",
+                "kreisverkehr",
+                "strasse",
+                "weg",
+                "rotonda",
+                "salida",
+                "rotatoria",
+                "uscita",
+            )
+        private val STRONG_POI_KEYWORDS =
+            setOf(
+                "peak",
+                "summit",
+                "sommet",
+                "mountain",
+                "water",
+                "spring",
+                "source",
+                "font",
+                "fountain",
+                "drinking",
+                "camp",
+                "bivouac",
+                "bivacco",
+                "hut",
+                "refuge",
+                "cabane",
+                "abri",
+                "gite",
+                "gite",
+                "shelter",
+                "viewpoint",
+                "belved",
+                "panorama",
+                "lookout",
+                "toilet",
+                "wc",
+                "parking",
+                "restaurant",
+                "cafe",
+                "bar",
+                "grotte",
+                "cave",
+            )
     }
 
     suspend fun importWaypointsFromGpxText(
         gpxText: String,
         fileNameInput: String,
-        categoryNameInput: String
-    ): GpxWaypointPoiImportOutcome = withContext(Dispatchers.IO) {
-        val parsed = parseGpxWaypoints(
-            gpxText = gpxText,
-            categoryName = normalizeCategoryName(categoryNameInput)
-        )
-        if (parsed.points.isEmpty()) {
-            return@withContext GpxWaypointPoiImportOutcome(
-                poiResult = null,
+        categoryNameInput: String,
+    ): GpxWaypointPoiImportOutcome =
+        withContext(Dispatchers.IO) {
+            val parsed =
+                parseGpxWaypoints(
+                    gpxText = gpxText,
+                    categoryName = normalizeCategoryName(categoryNameInput),
+                )
+            if (parsed.points.isEmpty()) {
+                return@withContext GpxWaypointPoiImportOutcome(
+                    poiResult = null,
+                    hasTrackOrRoutePoints = parsed.hasTrackOrRoutePoints,
+                    waypointCount = 0,
+                )
+            }
+
+            val outputDir = File(context.filesDir, "refuges-poi").apply { mkdirs() }
+            val outputFile = File(outputDir, normalizeFileName(fileNameInput))
+            val categoryCount =
+                PoiSqliteCodec.write(
+                    file = outputFile,
+                    points = parsed.points,
+                    options =
+                        PoiSqliteWriteOptions(
+                            comment = "Data source: GPX waypoints",
+                            writer = "glancemap-gpx-waypoint-importer-1",
+                            extraMetadata = linkedMapOf("gpx_waypoints_import" to "true"),
+                        ),
+                )
+            val uri: Uri =
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    outputFile,
+                )
+
+            GpxWaypointPoiImportOutcome(
+                poiResult =
+                    RefugesImportResult(
+                        poiUri = uri,
+                        fileName = outputFile.name,
+                        pointCount = parsed.points.size,
+                        categoryCount = categoryCount,
+                        bbox = "",
+                    ),
                 hasTrackOrRoutePoints = parsed.hasTrackOrRoutePoints,
-                waypointCount = 0
+                waypointCount = parsed.points.size,
             )
         }
 
-        val outputDir = File(context.filesDir, "refuges-poi").apply { mkdirs() }
-        val outputFile = File(outputDir, normalizeFileName(fileNameInput))
-        val categoryCount = PoiSqliteCodec.write(
-            file = outputFile,
-            points = parsed.points,
-            options = PoiSqliteWriteOptions(
-                comment = "Data source: GPX waypoints",
-                writer = "glancemap-gpx-waypoint-importer-1",
-                extraMetadata = linkedMapOf("gpx_waypoints_import" to "true")
-            )
-        )
-        val uri: Uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            outputFile
-        )
-
-        GpxWaypointPoiImportOutcome(
-            poiResult = RefugesImportResult(
-                poiUri = uri,
-                fileName = outputFile.name,
-                pointCount = parsed.points.size,
-                categoryCount = categoryCount,
-                bbox = ""
-            ),
-            hasTrackOrRoutePoints = parsed.hasTrackOrRoutePoints,
-            waypointCount = parsed.points.size
-        )
-    }
-
     private fun parseGpxWaypoints(
         gpxText: String,
-        categoryName: String
+        categoryName: String,
     ): ParsedGpxWaypoints {
         val parser = XmlPullParserFactory.newInstance().newPullParser()
         parser.setInput(StringReader(gpxText))
@@ -147,12 +237,15 @@ class GpxWaypointPoiImporter(
                         "type" -> if (inWaypoint) currentType = parser.nextText().trim().ifBlank { null }
                         "src" -> if (inWaypoint) currentSource = parser.nextText().trim().ifBlank { null }
                         "ele" -> if (inWaypoint) currentElevation = parser.nextText().trim().ifBlank { null }
-                        "link" -> if (inWaypoint) {
-                            val href = parser.getAttributeValue(null, "href")
-                                ?.trim()
-                                ?.takeIf { it.isNotBlank() }
-                            if (href != null) currentWebsite = href
-                        }
+                        "link" ->
+                            if (inWaypoint) {
+                                val href =
+                                    parser
+                                        .getAttributeValue(null, "href")
+                                        ?.trim()
+                                        ?.takeIf { it.isNotBlank() }
+                                if (href != null) currentWebsite = href
+                            }
                     }
                 }
                 XmlPullParser.END_TAG -> {
@@ -161,16 +254,17 @@ class GpxWaypointPoiImporter(
                         val lat = currentLat
                         val lon = currentLon
                         if (lat != null && lon != null && lat.isFinite() && lon.isFinite()) {
-                            rawWaypoints += RawGpxWaypoint(
-                                lat = lat,
-                                lon = lon,
-                                name = currentName,
-                                description = currentDescription,
-                                type = currentType,
-                                source = currentSource,
-                                website = currentWebsite,
-                                elevation = currentElevation
-                            )
+                            rawWaypoints +=
+                                RawGpxWaypoint(
+                                    lat = lat,
+                                    lon = lon,
+                                    name = currentName,
+                                    description = currentDescription,
+                                    type = currentType,
+                                    source = currentSource,
+                                    website = currentWebsite,
+                                    elevation = currentElevation,
+                                )
                         }
                     }
                 }
@@ -184,7 +278,7 @@ class GpxWaypointPoiImporter(
                 isLikelyNavigationInstruction(
                     name = waypoint.name,
                     description = waypoint.description,
-                    type = waypoint.type
+                    type = waypoint.type,
                 )
             ) {
                 return@forEach
@@ -196,29 +290,30 @@ class GpxWaypointPoiImporter(
                     description = waypoint.description,
                     type = waypoint.type,
                     website = waypoint.website,
-                    elevation = waypoint.elevation
+                    elevation = waypoint.elevation,
                 )
             ) {
                 return@forEach
             }
-            val point = buildPoiPoint(
-                lat = waypoint.lat,
-                lon = waypoint.lon,
-                categoryName = categoryName,
-                name = waypoint.name,
-                description = waypoint.description,
-                type = waypoint.type,
-                source = waypoint.source,
-                website = waypoint.website,
-                elevation = waypoint.elevation
-            )
+            val point =
+                buildPoiPoint(
+                    lat = waypoint.lat,
+                    lon = waypoint.lon,
+                    categoryName = categoryName,
+                    name = waypoint.name,
+                    description = waypoint.description,
+                    type = waypoint.type,
+                    source = waypoint.source,
+                    website = waypoint.website,
+                    elevation = waypoint.elevation,
+                )
             val key = dedupKey(point)
             dedup.putIfAbsent(key, point)
         }
 
         return ParsedGpxWaypoints(
             points = dedup.values.toList(),
-            hasTrackOrRoutePoints = hasTrackOrRoutePoints
+            hasTrackOrRoutePoints = hasTrackOrRoutePoints,
         )
     }
 
@@ -231,19 +326,25 @@ class GpxWaypointPoiImporter(
         type: String?,
         source: String?,
         website: String?,
-        elevation: String?
+        elevation: String?,
     ): PoiSqlitePoint {
         val cleanName = name?.trim().takeUnless { it.isNullOrBlank() } ?: "Waypoint"
         val cleanType = type?.trim().orEmpty()
         val cleanDescription = sanitizeDescription(description)
         val cleanSource = source?.trim().takeUnless { it.isNullOrBlank() } ?: "gpx_waypoint"
         val cleanWebsite = website?.trim().takeUnless { it.isNullOrBlank() }
-        val cleanElevation = elevation?.trim()?.toDoubleOrNull()?.toInt()?.takeIf { it > 0 }
-        val (poiKey, poiValue) = inferPoiTag(
-            type = cleanType,
-            name = cleanName,
-            description = cleanDescription.orEmpty()
-        )
+        val cleanElevation =
+            elevation
+                ?.trim()
+                ?.toDoubleOrNull()
+                ?.toInt()
+                ?.takeIf { it > 0 }
+        val (poiKey, poiValue) =
+            inferPoiTag(
+                type = cleanType,
+                name = cleanName,
+                description = cleanDescription.orEmpty(),
+            )
 
         val tags = linkedMapOf<String, String>()
         tags["name"] = cleanName
@@ -268,11 +369,15 @@ class GpxWaypointPoiImporter(
             lat = lat,
             lon = lon,
             categoryName = categoryName,
-            tags = tags
+            tags = tags,
         )
     }
 
-    private fun inferPoiTag(type: String, name: String, description: String): Pair<String, String> {
+    private fun inferPoiTag(
+        type: String,
+        name: String,
+        description: String,
+    ): Pair<String, String> {
         val haystack = "$type $name $description".lowercase(Locale.ROOT)
         return when {
             "peak" in haystack || "summit" in haystack || "sommet" in haystack -> "natural" to "peak"
@@ -294,7 +399,7 @@ class GpxWaypointPoiImporter(
     private fun isLikelyNavigationInstruction(
         name: String?,
         description: String?,
-        type: String?
+        type: String?,
     ): Boolean {
         val text = normalizeInstructionText(type = type, name = name, description = description)
         if (text.isBlank()) return false
@@ -314,54 +419,61 @@ class GpxWaypointPoiImporter(
         description: String?,
         type: String?,
         website: String?,
-        elevation: String?
+        elevation: String?,
     ): Boolean {
         if (!website.isNullOrBlank()) return true
 
         val cleanName = name?.trim().takeUnless { it.isNullOrBlank() } ?: ""
         val cleanDescription = sanitizeDescription(description).orEmpty()
         val cleanType = type?.trim().orEmpty()
-        val parsedElevation = elevation?.trim()?.toDoubleOrNull()?.toInt()?.takeIf { it > 0 }
+        val parsedElevation =
+            elevation
+                ?.trim()
+                ?.toDoubleOrNull()
+                ?.toInt()
+                ?.takeIf { it > 0 }
 
-        val (poiKey, poiValue) = inferPoiTag(
-            type = cleanType,
-            name = cleanName,
-            description = cleanDescription
-        )
+        val (poiKey, poiValue) =
+            inferPoiTag(
+                type = cleanType,
+                name = cleanName,
+                description = cleanDescription,
+            )
         if (poiKey != "tourism" || poiValue != "information") return true
 
-        val haystack = "$cleanType $cleanName $cleanDescription"
-            .lowercase(Locale.ROOT)
-            .replace('’', '\'')
+        val haystack =
+            "$cleanType $cleanName $cleanDescription"
+                .lowercase(Locale.ROOT)
+                .replace('’', '\'')
         if (STRONG_POI_KEYWORDS.any { keyword -> haystack.contains(keyword) }) return true
 
-        return parsedElevation != null && (
-            "summit" in haystack ||
-                "sommet" in haystack ||
-                "peak" in haystack ||
-                "col" in haystack
+        return parsedElevation != null &&
+            (
+                "summit" in haystack ||
+                    "sommet" in haystack ||
+                    "peak" in haystack ||
+                    "col" in haystack
             )
     }
 
     private fun normalizeInstructionText(
         type: String?,
         name: String?,
-        description: String?
-    ): String {
-        return listOf(type, name, description)
+        description: String?,
+    ): String =
+        listOf(type, name, description)
             .mapNotNull { value ->
                 value?.trim()?.takeIf { it.isNotBlank() }
-            }
-            .joinToString(separator = " ")
+            }.joinToString(separator = " ")
             .lowercase(Locale.ROOT)
             .replace('’', '\'')
             .replace(Regex("\\s+"), " ")
             .trim()
-    }
 
     private fun sanitizeDescription(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
-        return raw.replace('\r', '\n')
+        return raw
+            .replace('\r', '\n')
             .replace(Regex("\\s+"), " ")
             .trim()
             .take(420)
@@ -371,35 +483,47 @@ class GpxWaypointPoiImporter(
     private fun dedupKey(point: PoiSqlitePoint): String {
         val lat = String.format(Locale.US, "%.5f", point.lat)
         val lon = String.format(Locale.US, "%.5f", point.lon)
-        val name = point.tags["name"]?.trim()?.lowercase(Locale.ROOT).orEmpty()
-        val primaryType = listOf("tourism", "amenity", "natural")
-            .firstNotNullOfOrNull { key ->
-                point.tags[key]?.trim()?.lowercase(Locale.ROOT)?.let { "$key=$it" }
-            }.orEmpty()
+        val name =
+            point.tags["name"]
+                ?.trim()
+                ?.lowercase(Locale.ROOT)
+                .orEmpty()
+        val primaryType =
+            listOf("tourism", "amenity", "natural")
+                .firstNotNullOfOrNull { key ->
+                    point.tags[key]
+                        ?.trim()
+                        ?.lowercase(Locale.ROOT)
+                        ?.let { "$key=$it" }
+                }.orEmpty()
         return "$lat,$lon|$name|$primaryType"
     }
 
     private fun normalizeFileName(input: String): String {
-        val base = input.trim()
-            .ifBlank { "gpx-waypoints.poi" }
-            .replace("\\", "_")
-            .replace("/", "_")
-            .replace(Regex("[^A-Za-z0-9._-]"), "_")
-            .trim('_')
-            .ifBlank { "gpx-waypoints.poi" }
+        val base =
+            input
+                .trim()
+                .ifBlank { "gpx-waypoints.poi" }
+                .replace("\\", "_")
+                .replace("/", "_")
+                .replace(Regex("[^A-Za-z0-9._-]"), "_")
+                .trim('_')
+                .ifBlank { "gpx-waypoints.poi" }
         return if (base.lowercase(Locale.ROOT).endsWith(".poi")) base else "$base.poi"
     }
 
     private fun normalizeCategoryName(input: String): String {
-        val normalized = input.trim()
-            .replace(Regex("\\s+"), " ")
-            .ifBlank { "Waypoints" }
+        val normalized =
+            input
+                .trim()
+                .replace(Regex("\\s+"), " ")
+                .ifBlank { "Waypoints" }
         return normalized.take(80)
     }
 
     private data class ParsedGpxWaypoints(
         val points: List<PoiSqlitePoint>,
-        val hasTrackOrRoutePoints: Boolean
+        val hasTrackOrRoutePoints: Boolean,
     )
 
     private data class RawGpxWaypoint(
@@ -410,6 +534,6 @@ class GpxWaypointPoiImporter(
         val type: String?,
         val source: String?,
         val website: String?,
-        val elevation: String?
+        val elevation: String?,
     )
 }

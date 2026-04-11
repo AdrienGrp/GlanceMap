@@ -10,27 +10,28 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 class MarkerStabilizerTest {
-
     @Test
     fun suppressesStreetSideJitterWhenNearlyStationary() {
         val stabilizer = MarkerStabilizer()
         val base = LatLong(48.8566, 2.3522)
         val jitter = moveLatLong(base, bearing = 90f, distanceMeters = 3f)
 
-        val first = stabilizer.onGpsFix(
-            candidate = base,
-            nowElapsedMs = 10_000L,
-            fixElapsedMs = 10_000L,
-            accuracyM = 8f,
-            speedMps = 0.1f
-        )
-        val second = stabilizer.onGpsFix(
-            candidate = jitter,
-            nowElapsedMs = 11_000L,
-            fixElapsedMs = 11_000L,
-            accuracyM = 8f,
-            speedMps = 0.1f
-        )
+        val first =
+            stabilizer.onGpsFix(
+                candidate = base,
+                nowElapsedMs = 10_000L,
+                fixElapsedMs = 10_000L,
+                accuracyM = 8f,
+                speedMps = 0.1f,
+            )
+        val second =
+            stabilizer.onGpsFix(
+                candidate = jitter,
+                nowElapsedMs = 11_000L,
+                fixElapsedMs = 11_000L,
+                accuracyM = 8f,
+                speedMps = 0.1f,
+            )
 
         assertTrue(distanceMeters(first, second) < 0.2f)
     }
@@ -41,20 +42,22 @@ class MarkerStabilizerTest {
         val base = LatLong(48.8566, 2.3522)
         val outlier = moveLatLong(base, bearing = 45f, distanceMeters = 120f)
 
-        val first = stabilizer.onGpsFix(
-            candidate = base,
-            nowElapsedMs = 20_000L,
-            fixElapsedMs = 20_000L,
-            accuracyM = 6f,
-            speedMps = 1f
-        )
-        val second = stabilizer.onGpsFix(
-            candidate = outlier,
-            nowElapsedMs = 21_500L,
-            fixElapsedMs = 21_500L,
-            accuracyM = 25f,
-            speedMps = 0.5f
-        )
+        val first =
+            stabilizer.onGpsFix(
+                candidate = base,
+                nowElapsedMs = 20_000L,
+                fixElapsedMs = 20_000L,
+                accuracyM = 6f,
+                speedMps = 1f,
+            )
+        val second =
+            stabilizer.onGpsFix(
+                candidate = outlier,
+                nowElapsedMs = 21_500L,
+                fixElapsedMs = 21_500L,
+                accuracyM = 25f,
+                speedMps = 0.5f,
+            )
 
         assertTrue(distanceMeters(first, second) < 0.5f)
     }
@@ -70,15 +73,16 @@ class MarkerStabilizerTest {
             nowElapsedMs = 30_000L,
             fixElapsedMs = 30_000L,
             accuracyM = 9f,
-            speedMps = 1.2f
+            speedMps = 1.2f,
         )
-        val blended = stabilizer.onGpsFix(
-            candidate = target,
-            nowElapsedMs = 32_000L,
-            fixElapsedMs = 32_000L,
-            accuracyM = 10f,
-            speedMps = 1.2f
-        )
+        val blended =
+            stabilizer.onGpsFix(
+                candidate = target,
+                nowElapsedMs = 32_000L,
+                fixElapsedMs = 32_000L,
+                accuracyM = 10f,
+                speedMps = 1.2f,
+            )
 
         val advancedMeters = distanceMeters(base, blended)
         val remainingMeters = distanceMeters(blended, target)
@@ -93,20 +97,22 @@ class MarkerStabilizerTest {
         val base = LatLong(48.8566, 2.3522)
         val poor = moveLatLong(base, bearing = 180f, distanceMeters = 25f)
 
-        val first = stabilizer.onGpsFix(
-            candidate = base,
-            nowElapsedMs = 40_000L,
-            fixElapsedMs = 40_000L,
-            accuracyM = 8f,
-            speedMps = 0.6f
-        )
-        val second = stabilizer.onGpsFix(
-            candidate = poor,
-            nowElapsedMs = 41_500L,
-            fixElapsedMs = 41_500L,
-            accuracyM = 60f,
-            speedMps = 0.6f
-        )
+        val first =
+            stabilizer.onGpsFix(
+                candidate = base,
+                nowElapsedMs = 40_000L,
+                fixElapsedMs = 40_000L,
+                accuracyM = 8f,
+                speedMps = 0.6f,
+            )
+        val second =
+            stabilizer.onGpsFix(
+                candidate = poor,
+                nowElapsedMs = 41_500L,
+                fixElapsedMs = 41_500L,
+                accuracyM = 60f,
+                speedMps = 0.6f,
+            )
 
         assertTrue(distanceMeters(first, second) > 0.8f)
     }
@@ -117,20 +123,22 @@ class MarkerStabilizerTest {
         val base = LatLong(48.8566, 2.3522)
         val stale = moveLatLong(base, bearing = 160f, distanceMeters = 30f)
 
-        val first = stabilizer.onGpsFix(
-            candidate = base,
-            nowElapsedMs = 50_000L,
-            fixElapsedMs = 50_000L,
-            accuracyM = 8f,
-            speedMps = 0.8f
-        )
-        val second = stabilizer.onGpsFix(
-            candidate = stale,
-            nowElapsedMs = 65_000L,
-            fixElapsedMs = 55_500L,
-            accuracyM = 12f,
-            speedMps = 0.8f
-        )
+        val first =
+            stabilizer.onGpsFix(
+                candidate = base,
+                nowElapsedMs = 50_000L,
+                fixElapsedMs = 50_000L,
+                accuracyM = 8f,
+                speedMps = 0.8f,
+            )
+        val second =
+            stabilizer.onGpsFix(
+                candidate = stale,
+                nowElapsedMs = 65_000L,
+                fixElapsedMs = 55_500L,
+                accuracyM = 12f,
+                speedMps = 0.8f,
+            )
 
         assertTrue(distanceMeters(first, second) < 0.5f)
     }
@@ -146,15 +154,16 @@ class MarkerStabilizerTest {
             nowElapsedMs = 45_000L,
             fixElapsedMs = 45_000L,
             accuracyM = 8f,
-            speedMps = 0.5f
+            speedMps = 0.5f,
         )
-        val snapped = stabilizer.onGpsFix(
-            candidate = farTarget,
-            nowElapsedMs = 60_000L,
-            fixElapsedMs = 60_000L,
-            accuracyM = 10f,
-            speedMps = 0.4f
-        )
+        val snapped =
+            stabilizer.onGpsFix(
+                candidate = farTarget,
+                nowElapsedMs = 60_000L,
+                fixElapsedMs = 60_000L,
+                accuracyM = 10f,
+                speedMps = 0.4f,
+            )
 
         val movedMeters = distanceMeters(base, snapped)
         val remainingMeters = distanceMeters(snapped, farTarget)
@@ -173,15 +182,16 @@ class MarkerStabilizerTest {
             nowElapsedMs = 45_000L,
             fixElapsedMs = 45_000L,
             accuracyM = 12f,
-            speedMps = 0.5f
+            speedMps = 0.5f,
         )
-        val snapped = stabilizer.onGpsFix(
-            candidate = target,
-            nowElapsedMs = 53_000L,
-            fixElapsedMs = 53_000L,
-            accuracyM = 12f,
-            speedMps = 0.4f
-        )
+        val snapped =
+            stabilizer.onGpsFix(
+                candidate = target,
+                nowElapsedMs = 53_000L,
+                fixElapsedMs = 53_000L,
+                accuracyM = 12f,
+                speedMps = 0.4f,
+            )
 
         assertTrue(distanceMeters(snapped, target) < 0.5f)
     }
@@ -197,15 +207,16 @@ class MarkerStabilizerTest {
             nowElapsedMs = 70_000L,
             fixElapsedMs = 70_000L,
             accuracyM = 8f,
-            speedMps = 1.2f
+            speedMps = 1.2f,
         )
-        val smoothed = stabilizer.onGpsFix(
-            candidate = farTarget,
-            nowElapsedMs = 74_000L,
-            fixElapsedMs = 74_000L,
-            accuracyM = 8f,
-            speedMps = 1.4f
-        )
+        val smoothed =
+            stabilizer.onGpsFix(
+                candidate = farTarget,
+                nowElapsedMs = 74_000L,
+                fixElapsedMs = 74_000L,
+                accuracyM = 8f,
+                speedMps = 1.4f,
+            )
 
         val movedMeters = distanceMeters(base, smoothed)
         val remainingMeters = distanceMeters(smoothed, farTarget)
@@ -219,17 +230,19 @@ class MarkerStabilizerTest {
         val base = LatLong(48.8566, 2.3522)
         val prediction = moveLatLong(base, bearing = 270f, distanceMeters = 15f)
 
-        val first = stabilizer.onGpsFix(
-            candidate = base,
-            nowElapsedMs = 50_000L,
-            fixElapsedMs = 50_000L,
-            accuracyM = 8f,
-            speedMps = 0.4f
-        )
-        val second = stabilizer.onPrediction(
-            candidate = prediction,
-            nowElapsedMs = 61_000L
-        )
+        val first =
+            stabilizer.onGpsFix(
+                candidate = base,
+                nowElapsedMs = 50_000L,
+                fixElapsedMs = 50_000L,
+                accuracyM = 8f,
+                speedMps = 0.4f,
+            )
+        val second =
+            stabilizer.onPrediction(
+                candidate = prediction,
+                nowElapsedMs = 61_000L,
+            )
 
         assertTrue(distanceMeters(first, second) < 0.5f)
     }
@@ -244,12 +257,13 @@ class MarkerStabilizerTest {
             nowElapsedMs = 60_000L,
             fixElapsedMs = 60_000L,
             accuracyM = 12f,
-            speedMps = 1.2f
+            speedMps = 1.2f,
         )
-        val predicted = stabilizer.onPrediction(
-            candidate = moveLatLong(base, bearing = 0f, distanceMeters = 1.6f),
-            nowElapsedMs = 60_900L
-        )
+        val predicted =
+            stabilizer.onPrediction(
+                candidate = moveLatLong(base, bearing = 0f, distanceMeters = 1.6f),
+                nowElapsedMs = 60_900L,
+            )
 
         assertTrue(distanceMeters(base, predicted) > 0.3f)
     }
@@ -264,12 +278,13 @@ class MarkerStabilizerTest {
             nowElapsedMs = 60_000L,
             fixElapsedMs = 60_000L,
             accuracyM = 12f,
-            speedMps = 1.2f
+            speedMps = 1.2f,
         )
-        val predicted = stabilizer.onPrediction(
-            candidate = moveLatLong(base, bearing = 0f, distanceMeters = 1.0f),
-            nowElapsedMs = 60_700L
-        )
+        val predicted =
+            stabilizer.onPrediction(
+                candidate = moveLatLong(base, bearing = 0f, distanceMeters = 1.0f),
+                nowElapsedMs = 60_700L,
+            )
 
         assertTrue(distanceMeters(base, predicted) > 0.15f)
     }
@@ -280,20 +295,22 @@ class MarkerStabilizerTest {
         val base = LatLong(48.8566, 2.3522)
         val drift = moveLatLong(base, bearing = 120f, distanceMeters = 10f)
 
-        val first = stabilizer.onGpsFix(
-            candidate = base,
-            nowElapsedMs = 80_000L,
-            fixElapsedMs = 80_000L,
-            accuracyM = 8f,
-            speedMps = 0.1f
-        )
-        val second = stabilizer.onGpsFix(
-            candidate = drift,
-            nowElapsedMs = 81_500L,
-            fixElapsedMs = 81_500L,
-            accuracyM = 20f,
-            speedMps = 0.2f
-        )
+        val first =
+            stabilizer.onGpsFix(
+                candidate = base,
+                nowElapsedMs = 80_000L,
+                fixElapsedMs = 80_000L,
+                accuracyM = 8f,
+                speedMps = 0.1f,
+            )
+        val second =
+            stabilizer.onGpsFix(
+                candidate = drift,
+                nowElapsedMs = 81_500L,
+                fixElapsedMs = 81_500L,
+                accuracyM = 20f,
+                speedMps = 0.2f,
+            )
 
         assertTrue(distanceMeters(first, second) < 0.5f)
     }
@@ -309,15 +326,16 @@ class MarkerStabilizerTest {
             nowElapsedMs = 90_000L,
             fixElapsedMs = 90_000L,
             accuracyM = 10f,
-            speedMps = 0.2f
+            speedMps = 0.2f,
         )
-        val moved = stabilizer.onGpsFix(
-            candidate = far,
-            nowElapsedMs = 115_000L,
-            fixElapsedMs = 115_000L,
-            accuracyM = 24f,
-            speedMps = 0.3f
-        )
+        val moved =
+            stabilizer.onGpsFix(
+                candidate = far,
+                nowElapsedMs = 115_000L,
+                fixElapsedMs = 115_000L,
+                accuracyM = 24f,
+                speedMps = 0.3f,
+            )
 
         assertTrue(distanceMeters(base, moved) > 0.8f)
     }
@@ -332,15 +350,16 @@ class MarkerStabilizerTest {
             latLong = base,
             fixElapsedMs = 100_000L,
             accuracyM = 8f,
-            speedMps = 1.2f
+            speedMps = 1.2f,
         )
-        val blended = stabilizer.onGpsFix(
-            candidate = target,
-            nowElapsedMs = 102_000L,
-            fixElapsedMs = 102_000L,
-            accuracyM = 8f,
-            speedMps = 1.2f
-        )
+        val blended =
+            stabilizer.onGpsFix(
+                candidate = target,
+                nowElapsedMs = 102_000L,
+                fixElapsedMs = 102_000L,
+                accuracyM = 8f,
+                speedMps = 1.2f,
+            )
 
         assertTrue(distanceMeters(base, blended) > 1f)
         assertTrue(distanceMeters(blended, target) > 1f)
@@ -349,7 +368,10 @@ class MarkerStabilizerTest {
 
 private const val EARTH_RADIUS_METERS = 6_371_000.0
 
-private fun distanceMeters(a: LatLong, b: LatLong): Float {
+private fun distanceMeters(
+    a: LatLong,
+    b: LatLong,
+): Float {
     val lat1 = Math.toRadians(a.latitude)
     val lon1 = Math.toRadians(a.longitude)
     val lat2 = Math.toRadians(b.latitude)

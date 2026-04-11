@@ -10,22 +10,27 @@ internal data class TrackLodLevels(
     val sourceSignature: Long,
     val low: List<LatLong>,
     val medium: List<LatLong>,
-    val full: List<LatLong>
+    val full: List<LatLong>,
 ) {
-    fun pointsForZoom(zoom: Int): List<LatLong> = when {
-        zoom >= 16 -> full
-        zoom >= 14 -> medium
-        else -> low
+    fun pointsForZoom(zoom: Int): List<LatLong> =
+        when {
+            zoom >= 16 -> full
+            zoom >= 14 -> medium
+            else -> low
+        }
+}
+
+private data class XY(
+    val x: Double,
+    val y: Double,
+)
+
+internal fun zoomBucketFor(zoom: Int): Int =
+    when {
+        zoom >= 16 -> 3
+        zoom >= 14 -> 2
+        else -> 1
     }
-}
-
-private data class XY(val x: Double, val y: Double)
-
-internal fun zoomBucketFor(zoom: Int): Int = when {
-    zoom >= 16 -> 3
-    zoom >= 14 -> 2
-    else -> 1
-}
 
 internal fun buildTrackLodLevels(points: List<LatLong>): TrackLodLevels {
     val signature = latLongListSignature(points)
@@ -34,7 +39,7 @@ internal fun buildTrackLodLevels(points: List<LatLong>): TrackLodLevels {
             sourceSignature = signature,
             low = points,
             medium = points,
-            full = points
+            full = points,
         )
     }
 
@@ -44,7 +49,7 @@ internal fun buildTrackLodLevels(points: List<LatLong>): TrackLodLevels {
         sourceSignature = signature,
         low = low,
         medium = medium,
-        full = points
+        full = points,
     )
 }
 
@@ -58,7 +63,10 @@ private fun latLongListSignature(points: List<LatLong>): Long {
     return h
 }
 
-internal fun hasSameLatLongs(a: MutableList<LatLong>, b: List<LatLong>): Boolean {
+internal fun hasSameLatLongs(
+    a: MutableList<LatLong>,
+    b: List<LatLong>,
+): Boolean {
     if (a.size != b.size) return false
     for (i in a.indices) {
         val p = a[i]
@@ -68,7 +76,10 @@ internal fun hasSameLatLongs(a: MutableList<LatLong>, b: List<LatLong>): Boolean
     return true
 }
 
-private fun simplifyTrackRdpMeters(points: List<LatLong>, toleranceMeters: Double): List<LatLong> {
+private fun simplifyTrackRdpMeters(
+    points: List<LatLong>,
+    toleranceMeters: Double,
+): List<LatLong> {
     if (points.size <= 2) return points
 
     val xy = toLocalMeters(points)
@@ -124,12 +135,16 @@ private fun toLocalMeters(points: List<LatLong>): List<XY> {
         val lon = Math.toRadians(ll.longitude)
         XY(
             x = (lon - lon0) * cosLat0 * r,
-            y = (lat - lat0) * r
+            y = (lat - lat0) * r,
         )
     }
 }
 
-private fun perpendicularDistanceSq(p: XY, a: XY, b: XY): Double {
+private fun perpendicularDistanceSq(
+    p: XY,
+    a: XY,
+    b: XY,
+): Double {
     val abx = b.x - a.x
     val aby = b.y - a.y
     val len2 = abx * abx + aby * aby
@@ -153,7 +168,7 @@ private fun perpendicularDistanceSq(p: XY, a: XY, b: XY): Double {
 
 internal fun snapToRenderedTrackOrNull(
     point: LatLong,
-    tracks: List<GpxTrackDetails>
+    tracks: List<GpxTrackDetails>,
 ): LatLong? {
     val zoom: Byte = 20
     val tileSize = 256
@@ -165,7 +180,10 @@ internal fun snapToRenderedTrackOrNull(
         return x to y
     }
 
-    fun toLatLong(x: Double, y: Double): LatLong {
+    fun toLatLong(
+        x: Double,
+        y: Double,
+    ): LatLong {
         val lon = MercatorProjection.pixelXToLongitude(x, mapSize)
         val lat = MercatorProjection.pixelYToLatitude(y, mapSize)
         return LatLong(lat, lon)

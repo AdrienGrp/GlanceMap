@@ -11,9 +11,9 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.SyncManager
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
+import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.LocationViewModel
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
-import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineScope
 
@@ -39,9 +39,8 @@ interface AppContainer {
 
 class DefaultAppContainer(
     private val applicationContext: Context,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
 ) : AppContainer {
-
     override val syncManager: SyncManager by lazy { SyncManager(scope = coroutineScope) }
 
     override val settingsRepository: SettingsRepository by lazy {
@@ -87,7 +86,7 @@ class DefaultAppContainer(
             settingsRepository = settingsRepository,
             mapRepository = mapRepository,
             syncManager = syncManager,
-            themeRepository = themeRepository
+            themeRepository = themeRepository,
         )
     }
 
@@ -96,14 +95,14 @@ class DefaultAppContainer(
             poiRepository = poiRepository,
             userPoiRepository = userPoiRepository,
             settingsRepository = settingsRepository,
-            syncManager = syncManager
+            syncManager = syncManager,
         )
     }
 
     override val themeViewModel: ThemeViewModel by lazy {
         ThemeViewModel(
             themeRepository = themeRepository,
-            context = applicationContext
+            context = applicationContext,
         )
     }
 

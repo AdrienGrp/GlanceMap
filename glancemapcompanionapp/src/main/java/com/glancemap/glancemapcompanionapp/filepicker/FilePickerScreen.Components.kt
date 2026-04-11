@@ -42,17 +42,17 @@ internal fun DownloadActionButton(
     onClick: () -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
-    icon: @Composable () -> Unit
+    icon: @Composable () -> Unit,
 ) {
     FilledTonalButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.height(buttonHeight),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Box(modifier = Modifier.size(iconSize), contentAlignment = Alignment.Center) {
                 icon()
@@ -60,7 +60,7 @@ internal fun DownloadActionButton(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                maxLines = 1
+                maxLines = 1,
             )
         }
     }
@@ -73,28 +73,30 @@ internal fun SectionCard(
     containerPadding: PaddingValues = PaddingValues(10.dp),
     titleContentSpacing: Dp = 6.dp,
     headerAction: (@Composable RowScope.() -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            ),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(containerPadding)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(containerPadding),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
                 headerAction?.invoke(this)
             }
@@ -110,26 +112,26 @@ internal fun HistoryRow(item: FileTransferHistoryItem) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = item.fileName,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = if (item.success) "OK" else "Fail",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (item.success) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                color = if (item.success) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
             )
         }
         if (item.detail.isNotBlank()) {
             Text(
                 text = item.detail,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -138,50 +140,57 @@ internal fun HistoryRow(item: FileTransferHistoryItem) {
 @Composable
 internal fun HistoryScrollbar(
     listState: LazyListState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.18f)
     val thumbColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
 
     Box(
-        modifier = modifier
-            .width(4.dp)
-            .padding(vertical = 2.dp)
-            .drawBehind {
-                val radius = 4.dp.toPx()
-                drawRoundRect(
-                    color = trackColor,
-                    cornerRadius = CornerRadius(radius, radius)
-                )
+        modifier =
+            modifier
+                .width(4.dp)
+                .padding(vertical = 2.dp)
+                .drawBehind {
+                    val radius = 4.dp.toPx()
+                    drawRoundRect(
+                        color = trackColor,
+                        cornerRadius = CornerRadius(radius, radius),
+                    )
 
-                val layoutInfo = listState.layoutInfo
-                val visibleItems = layoutInfo.visibleItemsInfo
-                val totalItemsCount = layoutInfo.totalItemsCount
-                if (visibleItems.isEmpty() || totalItemsCount == 0) return@drawBehind
+                    val layoutInfo = listState.layoutInfo
+                    val visibleItems = layoutInfo.visibleItemsInfo
+                    val totalItemsCount = layoutInfo.totalItemsCount
+                    if (visibleItems.isEmpty() || totalItemsCount == 0) return@drawBehind
 
-                val viewportHeight = size.height
-                if (viewportHeight <= 0f) return@drawBehind
+                    val viewportHeight = size.height
+                    if (viewportHeight <= 0f) return@drawBehind
 
-                val avgItemSize = visibleItems.map { it.size }.average().toFloat().coerceAtLeast(1f)
-                val estimatedContentHeight = avgItemSize * totalItemsCount
-                if (estimatedContentHeight <= viewportHeight) return@drawBehind
+                    val avgItemSize =
+                        visibleItems
+                            .map { it.size }
+                            .average()
+                            .toFloat()
+                            .coerceAtLeast(1f)
+                    val estimatedContentHeight = avgItemSize * totalItemsCount
+                    if (estimatedContentHeight <= viewportHeight) return@drawBehind
 
-                val firstVisible = visibleItems.first()
-                val firstIndexOffsetPx = (firstVisible.index * avgItemSize) - firstVisible.offset
-                val maxScrollPx = (estimatedContentHeight - viewportHeight).coerceAtLeast(1f)
-                val scrollFraction = (firstIndexOffsetPx / maxScrollPx).coerceIn(0f, 1f)
+                    val firstVisible = visibleItems.first()
+                    val firstIndexOffsetPx = (firstVisible.index * avgItemSize) - firstVisible.offset
+                    val maxScrollPx = (estimatedContentHeight - viewportHeight).coerceAtLeast(1f)
+                    val scrollFraction = (firstIndexOffsetPx / maxScrollPx).coerceIn(0f, 1f)
 
-                val thumbHeightPx = (viewportHeight * (viewportHeight / estimatedContentHeight))
-                    .coerceIn(24.dp.toPx(), viewportHeight)
-                val thumbOffsetPx = (viewportHeight - thumbHeightPx) * scrollFraction
+                    val thumbHeightPx =
+                        (viewportHeight * (viewportHeight / estimatedContentHeight))
+                            .coerceIn(24.dp.toPx(), viewportHeight)
+                    val thumbOffsetPx = (viewportHeight - thumbHeightPx) * scrollFraction
 
-                drawRoundRect(
-                    color = thumbColor,
-                    topLeft = Offset(0f, thumbOffsetPx),
-                    size = Size(size.width, thumbHeightPx),
-                    cornerRadius = CornerRadius(radius, radius)
-                )
-            }
+                    drawRoundRect(
+                        color = thumbColor,
+                        topLeft = Offset(0f, thumbOffsetPx),
+                        size = Size(size.width, thumbHeightPx),
+                        cornerRadius = CornerRadius(radius, radius),
+                    )
+                },
     ) {
         // Drawn via drawBehind to avoid composition churn from frequently-changing list layout info.
     }
@@ -190,39 +199,41 @@ internal fun HistoryScrollbar(
 @Composable
 internal fun PageScrollbar(
     scrollState: ScrollState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.14f)
     val thumbColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
 
     Box(
-        modifier = modifier
-            .width(4.dp)
-            .padding(vertical = 2.dp)
-            .drawBehind {
-                val maxScrollPx = scrollState.maxValue.toFloat()
-                val viewportHeight = size.height
-                if (maxScrollPx <= 0f || viewportHeight <= 0f) return@drawBehind
+        modifier =
+            modifier
+                .width(4.dp)
+                .padding(vertical = 2.dp)
+                .drawBehind {
+                    val maxScrollPx = scrollState.maxValue.toFloat()
+                    val viewportHeight = size.height
+                    if (maxScrollPx <= 0f || viewportHeight <= 0f) return@drawBehind
 
-                val radius = 4.dp.toPx()
-                drawRoundRect(
-                    color = trackColor,
-                    cornerRadius = CornerRadius(radius, radius)
-                )
+                    val radius = 4.dp.toPx()
+                    drawRoundRect(
+                        color = trackColor,
+                        cornerRadius = CornerRadius(radius, radius),
+                    )
 
-                val contentHeight = viewportHeight + maxScrollPx
-                val thumbHeightPx = (viewportHeight * (viewportHeight / contentHeight))
-                    .coerceIn(24.dp.toPx(), viewportHeight)
-                val scrollFraction = (scrollState.value / maxScrollPx).coerceIn(0f, 1f)
-                val thumbOffsetPx = (viewportHeight - thumbHeightPx) * scrollFraction
+                    val contentHeight = viewportHeight + maxScrollPx
+                    val thumbHeightPx =
+                        (viewportHeight * (viewportHeight / contentHeight))
+                            .coerceIn(24.dp.toPx(), viewportHeight)
+                    val scrollFraction = (scrollState.value / maxScrollPx).coerceIn(0f, 1f)
+                    val thumbOffsetPx = (viewportHeight - thumbHeightPx) * scrollFraction
 
-                drawRoundRect(
-                    color = thumbColor,
-                    topLeft = Offset(0f, thumbOffsetPx),
-                    size = Size(size.width, thumbHeightPx),
-                    cornerRadius = CornerRadius(radius, radius)
-                )
-            }
+                    drawRoundRect(
+                        color = thumbColor,
+                        topLeft = Offset(0f, thumbOffsetPx),
+                        size = Size(size.width, thumbHeightPx),
+                        cornerRadius = CornerRadius(radius, radius),
+                    )
+                },
     )
 }
 
@@ -230,13 +241,13 @@ internal fun PageScrollbar(
 internal fun PhoneStoredFilesSummaryRow(
     label: String,
     group: PhoneStoredFilesGroup,
-    context: Context
+    context: Context,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium)
         Text(
             text = formatPhoneStoredFilesSummary(context, group),
-            style = MaterialTheme.typography.bodySmall
+            style = MaterialTheme.typography.bodySmall,
         )
     }
 }

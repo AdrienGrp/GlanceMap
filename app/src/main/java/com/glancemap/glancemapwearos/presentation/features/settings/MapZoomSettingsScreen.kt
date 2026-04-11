@@ -6,9 +6,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,7 +36,7 @@ import kotlin.math.pow
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun MapZoomSettingsScreen(
-    viewModel: SettingsViewModel
+    viewModel: SettingsViewModel,
 ) {
     val listTokens = rememberSettingsListTokens()
     val crownZoomEnabled by viewModel.crownZoomEnabled.collectAsState()
@@ -49,11 +49,14 @@ fun MapZoomSettingsScreen(
 
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    val approximateViewportWidthPx = remember(configuration.screenWidthDp, density.density) {
-        with(density) {
-            configuration.screenWidthDp.dp.toPx().toDouble()
+    val approximateViewportWidthPx =
+        remember(configuration.screenWidthDp, density.density) {
+            with(density) {
+                configuration.screenWidthDp.dp
+                    .toPx()
+                    .toDouble()
+            }
         }
-    }
 
     val listState = rememberScalingLazyListState()
 
@@ -61,21 +64,22 @@ fun MapZoomSettingsScreen(
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(
-                start = listTokens.horizontalPadding,
-                end = listTokens.horizontalPadding,
-                top = listTokens.topPadding,
-                bottom = listTokens.bottomPadding
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = listTokens.horizontalPadding,
+                    end = listTokens.horizontalPadding,
+                    top = listTokens.topPadding,
+                    bottom = listTokens.bottomPadding,
+                ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {
                 SettingsToggleChip(
                     checked = crownZoomEnabled,
                     onCheckedChanged = { viewModel.setCrownZoomEnabled(it) },
                     label = "Crown zoom",
-                    secondaryLabel = if (crownZoomEnabled) "Enabled" else "Disabled"
+                    secondaryLabel = if (crownZoomEnabled) "Enabled" else "Disabled",
                 )
             }
             if (crownZoomEnabled) {
@@ -85,7 +89,7 @@ fun MapZoomSettingsScreen(
                         label = "Crown direction",
                         iconImageVector = Icons.Filled.UnfoldMore,
                         secondaryLabel = if (crownZoomInverted) "Inverted" else "Normal",
-                        onClick = { showCrownDirectionPicker = true }
+                        onClick = { showCrownDirectionPicker = true },
                     )
                 }
             }
@@ -95,7 +99,7 @@ fun MapZoomSettingsScreen(
                     value = zoomDefault,
                     isMetric = isMetric,
                     approximateViewportWidthPx = approximateViewportWidthPx,
-                    onValueChange = viewModel::setMapZoomDefault
+                    onValueChange = viewModel::setMapZoomDefault,
                 )
             }
             item {
@@ -104,7 +108,7 @@ fun MapZoomSettingsScreen(
                     value = zoomMin,
                     isMetric = isMetric,
                     approximateViewportWidthPx = approximateViewportWidthPx,
-                    onValueChange = viewModel::setMapZoomMin
+                    onValueChange = viewModel::setMapZoomMin,
                 )
             }
             item {
@@ -113,7 +117,7 @@ fun MapZoomSettingsScreen(
                     value = zoomMax,
                     isMetric = isMetric,
                     approximateViewportWidthPx = approximateViewportWidthPx,
-                    onValueChange = viewModel::setMapZoomMax
+                    onValueChange = viewModel::setMapZoomMax,
                 )
             }
         }
@@ -123,12 +127,13 @@ fun MapZoomSettingsScreen(
         visible = showCrownDirectionPicker,
         title = "Crown direction",
         selectedValue = crownZoomInverted,
-        options = listOf(
-            false to "Normal",
-            true to "Inverted"
-        ),
+        options =
+            listOf(
+                false to "Normal",
+                true to "Inverted",
+            ),
         onDismiss = { showCrownDirectionPicker = false },
-        onSelect = { inverted -> viewModel.setCrownZoomInverted(inverted) }
+        onSelect = { inverted -> viewModel.setCrownZoomInverted(inverted) },
     )
 }
 
@@ -138,24 +143,25 @@ private fun ZoomSetting(
     value: Int,
     isMetric: Boolean,
     approximateViewportWidthPx: Double,
-    onValueChange: (Int) -> Unit
+    onValueChange: (Int) -> Unit,
 ) {
     var internalValue by remember(value) { mutableStateOf(value.toFloat()) }
     val zoomLevel = internalValue.toInt()
-    val approxScaleText = remember(zoomLevel, isMetric, approximateViewportWidthPx) {
-        val approxMeters = approximateScaleMetersForZoom(zoomLevel, approximateViewportWidthPx)
-        "~${formatScaleDistance(approxMeters, isMetric)}"
-    }
+    val approxScaleText =
+        remember(zoomLevel, isMetric, approximateViewportWidthPx) {
+            val approxMeters = approximateScaleMetersForZoom(zoomLevel, approximateViewportWidthPx)
+            "~${formatScaleDistance(approxMeters, isMetric)}"
+        }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
             "$label: $approxScaleText",
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
         Slider(
             value = internalValue,
@@ -167,26 +173,87 @@ private fun ZoomSetting(
             steps = 18,
             increaseIcon = { Icon(Icons.Filled.Add, contentDescription = "Increase") },
             decreaseIcon = { Icon(Icons.Filled.Remove, contentDescription = "Decrease") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
 
-private val MetricScaleStepsMeters = doubleArrayOf(
-    5.0, 10.0, 20.0, 25.0, 50.0, 100.0, 200.0, 250.0, 500.0,
-    1000.0, 2000.0, 2500.0, 5000.0, 10000.0, 20000.0, 25000.0, 50000.0,
-    100000.0, 200000.0, 250000.0, 500000.0, 1000000.0, 2000000.0, 2500000.0, 5000000.0
-)
+private val MetricScaleStepsMeters =
+    doubleArrayOf(
+        5.0,
+        10.0,
+        20.0,
+        25.0,
+        50.0,
+        100.0,
+        200.0,
+        250.0,
+        500.0,
+        1000.0,
+        2000.0,
+        2500.0,
+        5000.0,
+        10000.0,
+        20000.0,
+        25000.0,
+        50000.0,
+        100000.0,
+        200000.0,
+        250000.0,
+        500000.0,
+        1000000.0,
+        2000000.0,
+        2500000.0,
+        5000000.0,
+    )
 
-private val ImperialScaleStepsFeet = doubleArrayOf(
-    20.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 500.0, 800.0, 1000.0, 2000.0, 3000.0, 5000.0, 8000.0
-)
+private val ImperialScaleStepsFeet =
+    doubleArrayOf(
+        20.0,
+        50.0,
+        100.0,
+        150.0,
+        200.0,
+        250.0,
+        300.0,
+        500.0,
+        800.0,
+        1000.0,
+        2000.0,
+        3000.0,
+        5000.0,
+        8000.0,
+    )
 
-private val ImperialScaleStepsMiles = doubleArrayOf(
-    0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 25.0, 30.0, 40.0, 50.0, 80.0, 100.0, 200.0, 250.0, 500.0, 1000.0, 2000.0, 2500.0, 5000.0
-)
+private val ImperialScaleStepsMiles =
+    doubleArrayOf(
+        0.1,
+        0.2,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0,
+        25.0,
+        30.0,
+        40.0,
+        50.0,
+        80.0,
+        100.0,
+        200.0,
+        250.0,
+        500.0,
+        1000.0,
+        2000.0,
+        2500.0,
+        5000.0,
+    )
 
-private fun approximateScaleMetersForZoom(zoom: Int, viewportWidthPx: Double): Double {
+private fun approximateScaleMetersForZoom(
+    zoom: Int,
+    viewportWidthPx: Double,
+): Double {
     val clampedZoom = zoom.coerceIn(1, 20)
     val metersPerPixelAtEquator = 156543.03392 / (2.0.pow(clampedZoom.toDouble()))
     val representativeLatitudeFactor = cos(Math.toRadians(45.0))
@@ -196,7 +263,10 @@ private fun approximateScaleMetersForZoom(zoom: Int, viewportWidthPx: Double): D
     return targetScaleMeters.coerceAtLeast(5.0)
 }
 
-private fun formatScaleDistance(meters: Double, isMetric: Boolean): String {
+private fun formatScaleDistance(
+    meters: Double,
+    isMetric: Boolean,
+): String {
     val roundedMeters = chooseScaleDistanceMeters(meters, isMetric)
     if (isMetric) {
         return if (roundedMeters >= 1000.0) {
@@ -224,7 +294,10 @@ private fun formatScaleDistance(meters: Double, isMetric: Boolean): String {
     }
 }
 
-private fun chooseScaleDistanceMeters(targetMeters: Double, isMetric: Boolean): Double {
+private fun chooseScaleDistanceMeters(
+    targetMeters: Double,
+    isMetric: Boolean,
+): Double {
     if (targetMeters <= 0.0 || !targetMeters.isFinite()) return 0.0
 
     if (isMetric) {
@@ -242,7 +315,10 @@ private fun chooseScaleDistanceMeters(targetMeters: Double, isMetric: Boolean): 
     }
 }
 
-private fun pickLargestNotExceeding(steps: DoubleArray, target: Double): Double {
+private fun pickLargestNotExceeding(
+    steps: DoubleArray,
+    target: Double,
+): Double {
     var candidate = steps.firstOrNull() ?: target
     for (step in steps) {
         if (step <= target) candidate = step else break

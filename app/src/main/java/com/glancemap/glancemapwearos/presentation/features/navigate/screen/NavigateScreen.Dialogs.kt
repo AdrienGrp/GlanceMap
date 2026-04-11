@@ -20,11 +20,11 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolDraftSummaryDialog
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolLoopRetryOption
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolResultDialog
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolProgressDialog
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolDraftSummaryDialog
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolResultDialog
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolsActionPanel
@@ -36,7 +36,7 @@ internal fun NavigateKeepAppOpenDialog(
     visible: Boolean,
     helpDialogMaxHeight: Dp,
     onContinue: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     if (!visible) return
 
@@ -46,23 +46,24 @@ internal fun NavigateKeepAppOpenDialog(
         title = { Text("Sleep mode") },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = helpDialogMaxHeight)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = helpDialogMaxHeight)
+                        .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Row {
                     Icon(
                         imageVector = Icons.Filled.Visibility,
-                        contentDescription = null
+                        contentDescription = null,
                     )
                     Text(" keep the app in foreground (use during navigation)")
                 }
                 Row {
                     Icon(
                         imageVector = Icons.Filled.VisibilityOff,
-                        contentDescription = null
+                        contentDescription = null,
                     )
                     Text(" allow watch to put the app in background")
                 }
@@ -77,7 +78,7 @@ internal fun NavigateKeepAppOpenDialog(
             Button(onClick = onDismiss) {
                 Text("Later")
             }
-        }
+        },
     )
 }
 
@@ -88,7 +89,7 @@ internal fun NavigateCreatedPoiRenameDialog(
     isSaving: Boolean,
     error: String?,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String) -> Unit,
 ) {
     RenameValueDialog(
         visible = visible && pendingRename != null,
@@ -97,7 +98,7 @@ internal fun NavigateCreatedPoiRenameDialog(
         isSaving = isSaving,
         error = error,
         onDismiss = onDismiss,
-        onConfirm = onConfirm
+        onConfirm = onConfirm,
     )
 }
 
@@ -131,7 +132,7 @@ internal fun NavigateRouteToolDialogs(
     onDismissRouteToolResult: () -> Unit,
     onDeleteRouteToolResult: () -> Unit,
     onOpenRouteToolRename: () -> Unit,
-    onConfirmRouteToolRename: (String) -> Unit
+    onConfirmRouteToolRename: (String) -> Unit,
 ) {
     RouteToolsActionPanel(
         visible = showRouteToolsPanel,
@@ -144,7 +145,7 @@ internal fun NavigateRouteToolDialogs(
         onSearchPoi = onSearchPoi,
         onClearPoiSearch = onClearPoiSearch,
         onDismiss = onDismissRouteToolsPanel,
-        onStartSelection = onStartRouteToolSelection
+        onStartSelection = onStartRouteToolSelection,
     )
 
     RouteToolDraftSummaryDialog(
@@ -156,12 +157,12 @@ internal fun NavigateRouteToolDialogs(
         onDismiss = onDismissDraftSummary,
         onConfirmCreate = onConfirmCreateDraft,
         onConfirmModify = onConfirmModifyDraft,
-        onSelectLoopRetryOption = onSelectLoopRetryOption
+        onSelectLoopRetryOption = onSelectLoopRetryOption,
     )
 
     RouteToolProgressDialog(
         visible = routeToolProgressVisible,
-        message = routeToolProgressMessage
+        message = routeToolProgressMessage,
     )
 
     RouteToolResultDialog(
@@ -173,6 +174,6 @@ internal fun NavigateRouteToolDialogs(
         onDismiss = onDismissRouteToolResult,
         onDelete = onDeleteRouteToolResult,
         onRenameOpen = onOpenRouteToolRename,
-        onRenameConfirm = onConfirmRouteToolRename
+        onRenameConfirm = onConfirmRouteToolRename,
     )
 }

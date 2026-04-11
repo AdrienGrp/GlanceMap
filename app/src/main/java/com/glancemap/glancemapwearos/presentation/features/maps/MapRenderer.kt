@@ -14,14 +14,12 @@ import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.util.AndroidUtil
 import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.datastore.MapDataStore
-import org.mapsforge.map.layer.Layer
 import org.mapsforge.map.layer.cache.TileCache
 import org.mapsforge.map.layer.hills.DemFolderFS
 import org.mapsforge.map.layer.hills.HillsRenderConfig
 import org.mapsforge.map.layer.hills.MemoryCachingHgtReaderTileSource
 import org.mapsforge.map.layer.hills.SimpleShadingAlgorithm
 import org.mapsforge.map.layer.renderer.TileRendererLayer
-import org.mapsforge.map.model.common.Observer as MapsforgeObserver
 import org.mapsforge.map.reader.MapFile
 import org.mapsforge.map.rendertheme.XmlRenderTheme
 import java.io.File
@@ -29,12 +27,12 @@ import java.util.Locale
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.min
+import org.mapsforge.map.model.common.Observer as MapsforgeObserver
 
 class MapRenderer(
     private val context: Context,
-    private val mapView: MapView
+    private val mapView: MapView,
 ) {
-
     private data class TileCacheConfig(
         val firstLevelTiles: Int,
         val memoryBudgetBytes: Long,
@@ -45,18 +43,18 @@ class MapRenderer(
         val startupPrewarmTileMargin: Int,
         val startupPrewarmDurationMs: Long,
         val memoryClassMb: Int,
-        val maxHeapBytes: Long
+        val maxHeapBytes: Long,
     )
 
     data class ThemeApplyResult(
         val requiresVisibleTileWait: Boolean = false,
-        val tileUpdateBaselineVersion: Long = 0L
+        val tileUpdateBaselineVersion: Long = 0L,
     )
 
     data class ReliefOverlayState(
         val enabled: Boolean,
         val processing: Boolean,
-        val progressPercent: Int?
+        val progressPercent: Int?,
     )
 
     data class CacheDiagnosticsSnapshot(
@@ -69,7 +67,7 @@ class MapRenderer(
         val reliefOverlayNamespaceCount: Int,
         val reliefOverlayCacheSizeBytes: Long,
         val bundledThemeCacheDirCount: Int,
-        val bundledThemeCacheTotalSizeBytes: Long
+        val bundledThemeCacheTotalSizeBytes: Long,
     )
 
     companion object {
@@ -95,9 +93,7 @@ class MapRenderer(
         private const val CONSTRAINED_STARTUP_PREWARM_TILE_MARGIN = 0
         private const val CONSTRAINED_STARTUP_PREWARM_DURATION_MS = 4_000L
 
-        fun captureCacheDiagnostics(context: Context): CacheDiagnosticsSnapshot {
-            return captureMapRendererCacheDiagnostics(context)
-        }
+        fun captureCacheDiagnostics(context: Context): CacheDiagnosticsSnapshot = captureMapRendererCacheDiagnostics(context)
     }
 
     private var currentMapPath: String? = null
@@ -126,6 +122,7 @@ class MapRenderer(
     private var rebuildTileCacheRequested: Boolean = false
     private var currentTileCacheId: String = "$CACHE_ID_PREFIX-bootstrap"
     private var skipNextStartupTilePrewarm: Boolean = false
+
     @Volatile private var cacheCleanupInProgress: Boolean = false
     private val tileCacheUpdateCounter = AtomicLong(0L)
     private val tileCacheUpdateVersion = MutableStateFlow(0L)
@@ -135,12 +132,13 @@ class MapRenderer(
     private val tileCacheConfig: TileCacheConfig by lazy {
         buildTileCacheConfig()
     }
-    private val tileCacheObserver = object : MapsforgeObserver {
-        override fun onChange() {
-            val nextVersion = tileCacheUpdateCounter.incrementAndGet()
-            tileCacheUpdateVersion.value = nextVersion
+    private val tileCacheObserver =
+        object : MapsforgeObserver {
+            override fun onChange() {
+                val nextVersion = tileCacheUpdateCounter.incrementAndGet()
+                tileCacheUpdateVersion.value = nextVersion
+            }
         }
-    }
     private val cacheMaintenancePrefs by lazy {
         context.getSharedPreferences(CACHE_CLEANUP_PREFS_NAME, Context.MODE_PRIVATE)
     }
@@ -151,13 +149,14 @@ class MapRenderer(
         val tileSize = mapView.model.displayModel.tileSize
         val config = tileCacheConfig
 
-        val cache = AndroidUtil.createExternalStorageTileCache(
-            context,
-            cacheId,
-            config.firstLevelTiles,
-            tileSize,
-            true
-        )
+        val cache =
+            AndroidUtil.createExternalStorageTileCache(
+                context,
+                cacheId,
+                config.firstLevelTiles,
+                tileSize,
+                true,
+            )
         cache.addObserver(tileCacheObserver)
         Log.i(
             TAG,
@@ -168,7 +167,7 @@ class MapRenderer(
                 "constrained=${config.constrainedMemory} " +
                 "prewarm=${config.startupPrewarmEnabled} " +
                 "prewarmZoom=${config.startupPrewarmZoomMinus}/${config.startupPrewarmZoomPlus} " +
-                "prewarmMs=${config.startupPrewarmDurationMs}"
+                "prewarmMs=${config.startupPrewarmDurationMs}",
         )
         markMapRendererCacheBucketUsed(context, cacheMaintenancePrefs, cacheId)
         return cache
@@ -176,55 +175,63 @@ class MapRenderer(
 
     private fun buildTileCacheConfig(): TileCacheConfig {
         val tileSize = mapView.model.displayModel.tileSize
-        val bytesPerPixel = when (AndroidGraphicFactory.INSTANCE.nonTransparentBitmapConfig) {
-            android.graphics.Bitmap.Config.RGB_565 -> 2
-            else -> 4
-        }
+        val bytesPerPixel =
+            when (AndroidGraphicFactory.INSTANCE.nonTransparentBitmapConfig) {
+                android.graphics.Bitmap.Config.RGB_565 -> 2
+                else -> 4
+            }
         val approxTileBytes = tileSize.toLong() * tileSize.toLong() * bytesPerPixel.toLong()
         val maxHeap = Runtime.getRuntime().maxMemory()
         val memoryClassMb = activityManager?.memoryClass ?: 0
         val constrainedMemory =
             (memoryClassMb in 1..CONSTRAINED_MEMORY_CLASS_MB) ||
                 maxHeap <= CONSTRAINED_MAX_HEAP_BYTES
-        val memoryBudgetFraction = if (constrainedMemory) {
-            CONSTRAINED_MEMORY_BUDGET_FRACTION
-        } else {
-            MEMORY_BUDGET_FRACTION
-        }
-        val memoryBudgetCapBytes = if (constrainedMemory) {
-            CONSTRAINED_MEMORY_BUDGET_CAP_BYTES
-        } else {
-            MEMORY_BUDGET_CAP_BYTES
-        }
+        val memoryBudgetFraction =
+            if (constrainedMemory) {
+                CONSTRAINED_MEMORY_BUDGET_FRACTION
+            } else {
+                MEMORY_BUDGET_FRACTION
+            }
+        val memoryBudgetCapBytes =
+            if (constrainedMemory) {
+                CONSTRAINED_MEMORY_BUDGET_CAP_BYTES
+            } else {
+                MEMORY_BUDGET_CAP_BYTES
+            }
         val memoryBudget = min((maxHeap * memoryBudgetFraction).toLong(), memoryBudgetCapBytes)
-        val minTiles = if (constrainedMemory) {
-            CONSTRAINED_FIRST_LEVEL_MIN_TILES
-        } else {
-            FIRST_LEVEL_MIN_TILES
-        }
-        val maxTiles = if (constrainedMemory) {
-            CONSTRAINED_FIRST_LEVEL_MAX_TILES
-        } else {
-            FIRST_LEVEL_MAX_TILES
-        }
+        val minTiles =
+            if (constrainedMemory) {
+                CONSTRAINED_FIRST_LEVEL_MIN_TILES
+            } else {
+                FIRST_LEVEL_MIN_TILES
+            }
+        val maxTiles =
+            if (constrainedMemory) {
+                CONSTRAINED_FIRST_LEVEL_MAX_TILES
+            } else {
+                FIRST_LEVEL_MAX_TILES
+            }
         val computedTiles =
             if (approxTileBytes > 0) (memoryBudget / approxTileBytes).toInt() else minTiles
         val firstLevelTiles = computedTiles.coerceIn(minTiles, maxTiles)
-        val startupPrewarmZoomSteps = if (constrainedMemory) {
-            CONSTRAINED_STARTUP_PREWARM_ZOOM_STEPS
-        } else {
-            STARTUP_PREWARM_ZOOM_STEPS
-        }
-        val startupPrewarmTileMargin = if (constrainedMemory) {
-            CONSTRAINED_STARTUP_PREWARM_TILE_MARGIN
-        } else {
-            STARTUP_PREWARM_TILE_MARGIN
-        }
-        val startupPrewarmDurationMs = if (constrainedMemory) {
-            CONSTRAINED_STARTUP_PREWARM_DURATION_MS
-        } else {
-            STARTUP_PREWARM_DURATION_MS
-        }
+        val startupPrewarmZoomSteps =
+            if (constrainedMemory) {
+                CONSTRAINED_STARTUP_PREWARM_ZOOM_STEPS
+            } else {
+                STARTUP_PREWARM_ZOOM_STEPS
+            }
+        val startupPrewarmTileMargin =
+            if (constrainedMemory) {
+                CONSTRAINED_STARTUP_PREWARM_TILE_MARGIN
+            } else {
+                STARTUP_PREWARM_TILE_MARGIN
+            }
+        val startupPrewarmDurationMs =
+            if (constrainedMemory) {
+                CONSTRAINED_STARTUP_PREWARM_DURATION_MS
+            } else {
+                STARTUP_PREWARM_DURATION_MS
+            }
         return TileCacheConfig(
             firstLevelTiles = firstLevelTiles,
             memoryBudgetBytes = memoryBudget,
@@ -235,7 +242,7 @@ class MapRenderer(
             startupPrewarmTileMargin = startupPrewarmTileMargin,
             startupPrewarmDurationMs = startupPrewarmDurationMs,
             memoryClassMb = memoryClassMb,
-            maxHeapBytes = maxHeap
+            maxHeapBytes = maxHeap,
         )
     }
 
@@ -244,11 +251,13 @@ class MapRenderer(
     private var liveElevationSampler: ReliefOverlayLayer? = null
     private var currentStore: MapDataStore? = null
     private val reliefOverlayStateListeners = CopyOnWriteArraySet<(ReliefOverlayState) -> Unit>()
+
     @Volatile
     private var lastPublishedReliefOverlayState: ReliefOverlayState? = null
-    private val elevationLabelThemeCallback = ElevationLabelThemeCallback {
-        currentElevationLabelsMetric
-    }
+    private val elevationLabelThemeCallback =
+        ElevationLabelThemeCallback {
+            currentElevationLabelsMetric
+        }
 
     init {
         mapView.model.displayModel.backgroundColor = android.graphics.Color.BLACK
@@ -260,29 +269,32 @@ class MapRenderer(
         mapsforgeThemeName: String?,
         bundledThemeId: String,
         hillShadingEnabled: Boolean,
-        reliefOverlayEnabled: Boolean
+        reliefOverlayEnabled: Boolean,
     ): ThemeApplyResult {
         val timingMarker = MapHotPathDiagnostics.begin("mapRenderer.setThemeConfig")
         var timingStatus = "ok"
         var usedLightweightReload = false
         var demChanged = false
         var themeApplyResult = ThemeApplyResult()
-        val normalizedMapsforge = mapsforgeThemeName
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?.uppercase(Locale.ROOT)
-        val normalizedBundledThemeId = if (MapsforgeThemeCatalog.isBundledAssetTheme(bundledThemeId)) {
-            bundledThemeId
-        } else {
-            MapsforgeThemeCatalog.ELEVATE_THEME_ID
-        }
+        val normalizedMapsforge =
+            mapsforgeThemeName
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.uppercase(Locale.ROOT)
+        val normalizedBundledThemeId =
+            if (MapsforgeThemeCatalog.isBundledAssetTheme(bundledThemeId)) {
+                bundledThemeId
+            } else {
+                MapsforgeThemeCatalog.ELEVATE_THEME_ID
+            }
         val reliefOverlayChanged = currentReliefOverlayEnabled != reliefOverlayEnabled
-        val newSignature = computeMapRendererThemeSignature(
-            file = themeFile,
-            mapsforgeThemeName = normalizedMapsforge,
-            bundledThemeId = normalizedBundledThemeId,
-            hillShadingEnabled = hillShadingEnabled
-        )
+        val newSignature =
+            computeMapRendererThemeSignature(
+                file = themeFile,
+                mapsforgeThemeName = normalizedMapsforge,
+                bundledThemeId = normalizedBundledThemeId,
+                hillShadingEnabled = hillShadingEnabled,
+            )
         // Avoid unnecessary work
         if (currentThemeSignature == newSignature) {
             timingStatus = if (reliefOverlayChanged) "relief_overlay_only" else "no_change"
@@ -295,27 +307,28 @@ class MapRenderer(
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = "mapsforge=${normalizedMapsforge != null} hill=$hillShadingEnabled reliefChanged=$reliefOverlayChanged"
+                detail = "mapsforge=${normalizedMapsforge != null} hill=$hillShadingEnabled reliefChanged=$reliefOverlayChanged",
             )
             return themeApplyResult
         }
 
         try {
-            val theme = MapHotPathDiagnostics.measure(
-                stage = "mapRenderer.buildRenderThemeOrNull",
-                detail = "mapsforge=${normalizedMapsforge != null} bundled=$normalizedBundledThemeId"
-            ) {
-                buildMapRendererThemeOrNull(
-                    context = context,
-                    themeFile = themeFile,
-                    mapsforgeThemeName = normalizedMapsforge,
-                    bundledThemeId = normalizedBundledThemeId
-                )
-            } ?: run {
-                timingStatus = "theme_unavailable"
-                Log.w(TAG, "setThemeConfig: theme is null")
-                return themeApplyResult
-            }
+            val theme =
+                MapHotPathDiagnostics.measure(
+                    stage = "mapRenderer.buildRenderThemeOrNull",
+                    detail = "mapsforge=${normalizedMapsforge != null} bundled=$normalizedBundledThemeId",
+                ) {
+                    buildMapRendererThemeOrNull(
+                        context = context,
+                        themeFile = themeFile,
+                        mapsforgeThemeName = normalizedMapsforge,
+                        bundledThemeId = normalizedBundledThemeId,
+                    )
+                } ?: run {
+                    timingStatus = "theme_unavailable"
+                    Log.w(TAG, "setThemeConfig: theme is null")
+                    return themeApplyResult
+                }
 
             currentThemeFile = themeFile
             currentMapsforgeThemeName = normalizedMapsforge
@@ -348,22 +361,24 @@ class MapRenderer(
             // Mapsforge 0.27.0 showed incomplete viewport rendering when reusing the same
             // MapDataStore across TileRendererLayer theme swaps, so prefer a clean layer rebuild.
             rebuildTileCacheRequested = false
-            themeApplyResult = ThemeApplyResult(
-                requiresVisibleTileWait = true,
-                tileUpdateBaselineVersion = tileCacheUpdateCounter.get()
-            )
+            themeApplyResult =
+                ThemeApplyResult(
+                    requiresVisibleTileWait = true,
+                    tileUpdateBaselineVersion = tileCacheUpdateCounter.get(),
+                )
             forceReloadCurrentMapLayer(currentPath)
         } finally {
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = buildString {
-                    append("mapsforge=").append(normalizedMapsforge != null)
-                    append(" hill=").append(hillShadingEnabled)
-                    append(" relief=").append(reliefOverlayEnabled)
-                    append(" demChanged=").append(demChanged)
-                    append(" lightweight=").append(usedLightweightReload)
-                }
+                detail =
+                    buildString {
+                        append("mapsforge=").append(normalizedMapsforge != null)
+                        append(" hill=").append(hillShadingEnabled)
+                        append(" relief=").append(reliefOverlayEnabled)
+                        append(" demChanged=").append(demChanged)
+                        append(" lightweight=").append(usedLightweightReload)
+                    },
             )
         }
         return themeApplyResult
@@ -371,7 +386,7 @@ class MapRenderer(
 
     suspend fun awaitTileCacheUpdateAfter(
         baselineVersion: Long,
-        timeoutMs: Long
+        timeoutMs: Long,
     ): Boolean {
         if (tileCacheUpdateCounter.get() > baselineVersion) return true
         return withTimeoutOrNull(timeoutMs.coerceAtLeast(1L)) {
@@ -399,12 +414,13 @@ class MapRenderer(
         var warmStartupCache = false
         val newMapSignature = computeMapRendererMapSignature(mapPath)
         val newDemSignature = computeDemSignatureOrNull()
-        val desiredCacheId = resolveMapRendererDesiredCacheId(
-            mapSignature = newMapSignature,
-            demSignature = newDemSignature,
-            hillShadingEnabled = currentHillShadingEnabled,
-            elevationLabelsMetric = currentElevationLabelsMetric
-        )
+        val desiredCacheId =
+            resolveMapRendererDesiredCacheId(
+                mapSignature = newMapSignature,
+                demSignature = newDemSignature,
+                hillShadingEnabled = currentHillShadingEnabled,
+                elevationLabelsMetric = currentElevationLabelsMetric,
+            )
         desiredCacheIdForTiming = desiredCacheId
         if (
             mapPath == currentMapPath &&
@@ -417,7 +433,7 @@ class MapRenderer(
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = "cacheId=$desiredCacheId"
+                detail = "cacheId=$desiredCacheId",
             )
             return
         }
@@ -456,17 +472,18 @@ class MapRenderer(
                 return
             }
 
-            val theme = MapHotPathDiagnostics.measure(
-                stage = "mapRenderer.buildRenderThemeOrNull",
-                detail = "mapsforge=${!currentMapsforgeThemeName.isNullOrBlank()} bundled=$currentBundledThemeId"
-            ) {
-                buildMapRendererThemeOrNull(
-                    context = context,
-                    themeFile = currentThemeFile,
-                    mapsforgeThemeName = currentMapsforgeThemeName,
-                    bundledThemeId = currentBundledThemeId
-                )
-            }
+            val theme =
+                MapHotPathDiagnostics.measure(
+                    stage = "mapRenderer.buildRenderThemeOrNull",
+                    detail = "mapsforge=${!currentMapsforgeThemeName.isNullOrBlank()} bundled=$currentBundledThemeId",
+                ) {
+                    buildMapRendererThemeOrNull(
+                        context = context,
+                        themeFile = currentThemeFile,
+                        mapsforgeThemeName = currentMapsforgeThemeName,
+                        bundledThemeId = currentBundledThemeId,
+                    )
+                }
             if (theme == null) {
                 timingStatus = "theme_unavailable"
                 currentMapPath = null
@@ -479,20 +496,22 @@ class MapRenderer(
                 return
             }
 
-            val mapDataStore: MapDataStore = MapHotPathDiagnostics.measure(
-                stage = "mapRenderer.openMapFile",
-                detail = "file=${mapFile.name}"
-            ) {
-                MapFile(mapFile)
-            }
+            val mapDataStore: MapDataStore =
+                MapHotPathDiagnostics.measure(
+                    stage = "mapRenderer.openMapFile",
+                    detail = "file=${mapFile.name}",
+                ) {
+                    MapFile(mapFile)
+                }
             currentStore = mapDataStore
             warmStartupCache = tileCacheConfig.startupPrewarmEnabled && !skipNextStartupTilePrewarm
-            val tileRendererLayer = createTileRendererLayer(
-                mapDataStore = mapDataStore,
-                theme = theme,
-                demSignature = newDemSignature,
-                warmStartupCache = warmStartupCache
-            )
+            val tileRendererLayer =
+                createTileRendererLayer(
+                    mapDataStore = mapDataStore,
+                    theme = theme,
+                    demSignature = newDemSignature,
+                    warmStartupCache = warmStartupCache,
+                )
             skipNextStartupTilePrewarm = false
             currentLayer = tileRendererLayer
             mapView.layerManager.layers.add(0, tileRendererLayer)
@@ -518,12 +537,13 @@ class MapRenderer(
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = buildString {
-                    append("mapPresent=").append(!mapPath.isNullOrBlank())
-                    append(" cacheId=").append(desiredCacheIdForTiming)
-                    append(" cacheRecreated=").append(cacheRecreated)
-                    append(" warmStartupCache=").append(warmStartupCache)
-                }
+                detail =
+                    buildString {
+                        append("mapPresent=").append(!mapPath.isNullOrBlank())
+                        append(" cacheId=").append(desiredCacheIdForTiming)
+                        append(" cacheRecreated=").append(cacheRecreated)
+                        append(" warmStartupCache=").append(warmStartupCache)
+                    },
             )
         }
     }
@@ -554,17 +574,11 @@ class MapRenderer(
         }
     }
 
-    fun isReliefOverlayEnabled(): Boolean {
-        return computeReliefOverlayState().enabled
-    }
+    fun isReliefOverlayEnabled(): Boolean = computeReliefOverlayState().enabled
 
-    fun isReliefOverlayProcessing(): Boolean {
-        return computeReliefOverlayState().processing
-    }
+    fun isReliefOverlayProcessing(): Boolean = computeReliefOverlayState().processing
 
-    fun reliefOverlayProgressPercent(): Int? {
-        return computeReliefOverlayState().progressPercent
-    }
+    fun reliefOverlayProgressPercent(): Int? = computeReliefOverlayState().progressPercent
 
     fun addReliefOverlayStateListener(listener: (ReliefOverlayState) -> Unit) {
         reliefOverlayStateListeners.add(listener)
@@ -575,7 +589,10 @@ class MapRenderer(
         reliefOverlayStateListeners.remove(listener)
     }
 
-    fun sampleElevationMeters(lat: Double, lon: Double): Double? {
+    fun sampleElevationMeters(
+        lat: Double,
+        lon: Double,
+    ): Double? {
         if (currentMapPath.isNullOrBlank()) return null
         val sampler = reliefOverlayLayer ?: getOrCreateLiveElevationSampler()
         return sampler?.sampleElevationMeters(lat, lon)
@@ -636,7 +653,7 @@ class MapRenderer(
         } finally {
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
-                status = timingStatus
+                status = timingStatus,
             )
         }
     }
@@ -650,7 +667,7 @@ class MapRenderer(
 
     private fun rebuildCurrentLayerWithExistingStore(
         theme: XmlRenderTheme,
-        demSignature: String?
+        demSignature: String?,
     ): Boolean {
         val timingMarker = MapHotPathDiagnostics.begin("mapRenderer.rebuildCurrentLayerWithExistingStore")
         var timingStatus = "ok"
@@ -662,12 +679,13 @@ class MapRenderer(
             }
             currentLayer = null
 
-            val tileRendererLayer = createTileRendererLayer(
-                mapDataStore = mapDataStore,
-                theme = theme,
-                demSignature = demSignature,
-                warmStartupCache = false
-            )
+            val tileRendererLayer =
+                createTileRendererLayer(
+                    mapDataStore = mapDataStore,
+                    theme = theme,
+                    demSignature = demSignature,
+                    warmStartupCache = false,
+                )
             currentLayer = tileRendererLayer
             mapView.layerManager.layers.add(0, tileRendererLayer)
             currentDemSignature = demSignature
@@ -684,7 +702,7 @@ class MapRenderer(
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = "demPresent=${demSignature != null}"
+                detail = "demPresent=${demSignature != null}",
             )
         }
     }
@@ -719,7 +737,7 @@ class MapRenderer(
                 layer.setCacheZoomMinus(0)
                 layer.setCacheTileMargin(0)
             },
-            config.startupPrewarmDurationMs
+            config.startupPrewarmDurationMs,
         )
     }
 
@@ -735,7 +753,7 @@ class MapRenderer(
                 timingStatus = "missing_dem"
                 Log.d(
                     TAG,
-                    "Hill shading enabled but no DEM files found in ${demRootDir.absolutePath}."
+                    "Hill shading enabled but no DEM files found in ${demRootDir.absolutePath}.",
                 )
                 destroyHillsRenderConfig()
                 return null
@@ -749,21 +767,23 @@ class MapRenderer(
 
             destroyHillsRenderConfig()
 
-            val config = runCatching {
-                val demFolder = DemFolderFS(demRootDir)
-                val tileSource = MemoryCachingHgtReaderTileSource(
-                    demFolder,
-                    SimpleShadingAlgorithm(),
-                    AndroidGraphicFactory.INSTANCE
-                )
-                HillsRenderConfig(tileSource)
-                    .setMagnitudeScaleFactor(1f)
-                    .indexOnThread()
-            }.getOrElse { e ->
-                timingStatus = "error_${e.javaClass.simpleName}"
-                Log.w(TAG, "Failed to initialize DEM hillshading from ${demRootDir.absolutePath}", e)
-                return null
-            }
+            val config =
+                runCatching {
+                    val demFolder = DemFolderFS(demRootDir)
+                    val tileSource =
+                        MemoryCachingHgtReaderTileSource(
+                            demFolder,
+                            SimpleShadingAlgorithm(),
+                            AndroidGraphicFactory.INSTANCE,
+                        )
+                    HillsRenderConfig(tileSource)
+                        .setMagnitudeScaleFactor(1f)
+                        .indexOnThread()
+                }.getOrElse { e ->
+                    timingStatus = "error_${e.javaClass.simpleName}"
+                    Log.w(TAG, "Failed to initialize DEM hillshading from ${demRootDir.absolutePath}", e)
+                    return null
+                }
 
             timingStatus = "built_new_config"
             hillsRenderConfig = config
@@ -773,7 +793,7 @@ class MapRenderer(
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = "demPresent=${demSignature != null}"
+                detail = "demPresent=${demSignature != null}",
             )
         }
     }
@@ -782,11 +802,11 @@ class MapRenderer(
         mapDataStore: MapDataStore,
         theme: XmlRenderTheme,
         demSignature: String?,
-        warmStartupCache: Boolean
-    ): TileRendererLayer {
-        return MapHotPathDiagnostics.measure(
+        warmStartupCache: Boolean,
+    ): TileRendererLayer =
+        MapHotPathDiagnostics.measure(
             stage = "mapRenderer.createTileRendererLayer",
-            detail = "warmStartupCache=$warmStartupCache demPresent=${demSignature != null}"
+            detail = "warmStartupCache=$warmStartupCache demPresent=${demSignature != null}",
         ) {
             val hillsConfig = buildHillsRenderConfigOrNull(demSignature)
             TileRendererLayer(
@@ -797,7 +817,7 @@ class MapRenderer(
                 true,
                 false,
                 AndroidGraphicFactory.INSTANCE,
-                hillsConfig
+                hillsConfig,
             ).apply {
                 setXmlRenderTheme(theme)
                 trySetThreadPriority(Process.THREAD_PRIORITY_DISPLAY)
@@ -806,7 +826,6 @@ class MapRenderer(
                 }
             }
         }
-    }
 
     private fun destroyHillsRenderConfig() {
         hillsRenderConfig?.interruptAndDestroy()
@@ -826,7 +845,7 @@ class MapRenderer(
         } finally {
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
-                detail = "cacheId=$newCacheId"
+                detail = "cacheId=$newCacheId",
             )
         }
     }
@@ -847,9 +866,10 @@ class MapRenderer(
                     cleanupMapRendererPersistentCacheBuckets(
                         cacheRoot = cacheRoot,
                         nowMs = now,
-                        keepIds = setOf(currentTileCacheId)
+                        keepIds = setOf(currentTileCacheId),
                     )
-                    cacheMaintenancePrefs.edit()
+                    cacheMaintenancePrefs
+                        .edit()
                         .putLong(KEY_CACHE_LAST_CLEANUP_MS, now)
                         .apply()
                 } catch (e: Exception) {
@@ -858,7 +878,7 @@ class MapRenderer(
                     cacheCleanupInProgress = false
                 }
             },
-            "MapCacheCleanup"
+            "MapCacheCleanup",
         ).start()
     }
 
@@ -867,7 +887,7 @@ class MapRenderer(
         return DemSignatureStore.resolveSignature(
             context = context,
             demRootDir = demRootDir,
-            maxDepth = DEM_SCAN_MAX_DEPTH
+            maxDepth = DEM_SCAN_MAX_DEPTH,
         )
     }
 
@@ -884,16 +904,17 @@ class MapRenderer(
 
         if (reliefOverlayLayer == null) {
             val cacheNamespace = resolveMapRendererReliefOverlayCacheNamespace(currentDemSignature)
-            reliefOverlayLayer = ReliefOverlayLayer(
-                demRootDir = demRootDir,
-                diskCacheRootDir = reliefOverlayCacheRootDir,
-                cacheNamespace = cacheNamespace,
-                onProcessingStateChanged = { publishReliefOverlayState() }
-            ).also { layer ->
-                // Keep above rendered map but below interactive overlays.
-                val index = if (mapView.layerManager.layers.size() > 0) 1 else 0
-                mapView.layerManager.layers.add(index, layer)
-            }
+            reliefOverlayLayer =
+                ReliefOverlayLayer(
+                    demRootDir = demRootDir,
+                    diskCacheRootDir = reliefOverlayCacheRootDir,
+                    cacheNamespace = cacheNamespace,
+                    onProcessingStateChanged = { publishReliefOverlayState() },
+                ).also { layer ->
+                    // Keep above rendered map but below interactive overlays.
+                    val index = if (mapView.layerManager.layers.size() > 0) 1 else 0
+                    mapView.layerManager.layers.add(index, layer)
+                }
         }
         publishReliefOverlayState(force = true)
     }
@@ -931,13 +952,13 @@ class MapRenderer(
             return ReliefOverlayState(
                 enabled = false,
                 processing = false,
-                progressPercent = null
+                progressPercent = null,
             )
         }
         return ReliefOverlayState(
             enabled = true,
             processing = reliefOverlayLayer?.isProcessing() == true,
-            progressPercent = reliefOverlayLayer?.progressPercent()
+            progressPercent = reliefOverlayLayer?.progressPercent(),
         )
     }
 

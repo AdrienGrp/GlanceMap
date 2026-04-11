@@ -5,14 +5,14 @@ import org.mapsforge.core.graphics.Bitmap
 internal data class DemTileData(
     val axisLen: Int,
     val rowLen: Int,
-    val samples: ShortArray
+    val samples: ShortArray,
 )
 
 internal data class OverlayTileKey(
     val zoom: Byte,
     val tileX: Long,
     val tileY: Long,
-    val tileSize: Int
+    val tileSize: Int,
 )
 
 internal data class OverlayTileEntry(
@@ -20,7 +20,7 @@ internal data class OverlayTileEntry(
     val builtElapsedMs: Long,
     val status: OverlayTileStatus,
     val drawMode: OverlayTileDrawMode = OverlayTileDrawMode.STEADY,
-    val quality: OverlayBuildQuality = OverlayBuildQuality.FINE
+    val quality: OverlayBuildQuality = OverlayBuildQuality.FINE,
 )
 
 internal data class ReliefSample(
@@ -29,21 +29,23 @@ internal data class ReliefSample(
     val fillIllumination: Double,
     val ridgeMeters: Double,
     val gullyMeters: Double,
-    val ruggednessMeters: Double
+    val ruggednessMeters: Double,
 )
 
 internal enum class OverlayTileStatus {
     READY,
     NO_DATA,
-    FAILED
+    FAILED,
 }
 
 internal enum class OverlayTileDrawMode {
     STEADY,
-    FADE_FROM_FALLBACK
+    FADE_FROM_FALLBACK,
 }
 
-internal enum class OverlayBuildQuality(val rank: Int) {
+internal enum class OverlayBuildQuality(
+    val rank: Int,
+) {
     COARSE(0),
-    FINE(1)
+    FINE(1),
 }

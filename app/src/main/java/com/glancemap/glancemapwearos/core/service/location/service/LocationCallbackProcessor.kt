@@ -12,7 +12,7 @@ import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationSer
 
 internal data class LocationBatchSummary(
     val processedCandidates: Int,
-    val acceptedCandidates: Int
+    val acceptedCandidates: Int,
 )
 
 internal class LocationCallbackProcessor(
@@ -27,65 +27,71 @@ internal class LocationCallbackProcessor(
     private val emitGpsSignalSnapshot: () -> Unit,
     private val emitAcceptedLocation: (Location, Long) -> Unit,
     private val maybeTriggerAutoFusedFailover: (Location, LocationSourceMode, Long) -> Unit,
-    private val endHighAccuracyBurstEarly: () -> Unit
+    private val endHighAccuracyBurstEarly: () -> Unit,
 ) {
-    fun onLocationAvailability(isAvailable: Boolean, nowElapsedMs: Long) {
+    fun onLocationAvailability(
+        isAvailable: Boolean,
+        nowElapsedMs: Long,
+    ) {
         engine.onLocationAvailability(
             isAvailable = isAvailable,
-            nowElapsedMs = nowElapsedMs
+            nowElapsedMs = nowElapsedMs,
         )
         emitGpsSignalSnapshot()
     }
 
     fun processLocationEvent(
         event: LocationUpdateEvent,
-        nowElapsedMsProvider: () -> Long
+        nowElapsedMsProvider: () -> Long,
     ): LocationBatchSummary {
         val fallbackUsed = event.rawCandidateCount == 0 && event.lastCandidate != null
-        val locations = normalizeLocationBatch(
-            candidates = event.candidates,
-            lastCandidate = event.lastCandidate
-        )
+        val locations =
+            normalizeLocationBatch(
+                candidates = event.candidates,
+                lastCandidate = event.lastCandidate,
+            )
         telemetry.onLocationCallback()
-        val summary = if (locations.isEmpty()) {
-            LocationBatchSummary(
-                processedCandidates = 0,
-                acceptedCandidates = 0
-            )
-        } else {
-            processLocationBatch(
-                candidates = locations,
-                callbackOrigin = event.origin,
-                nowElapsedMsProvider = nowElapsedMsProvider
-            )
-        }
+        val summary =
+            if (locations.isEmpty()) {
+                LocationBatchSummary(
+                    processedCandidates = 0,
+                    acceptedCandidates = 0,
+                )
+            } else {
+                processLocationBatch(
+                    candidates = locations,
+                    callbackOrigin = event.origin,
+                    nowElapsedMsProvider = nowElapsedMsProvider,
+                )
+            }
         telemetry.logLocationBatchProcessed(
             rawCandidates = event.rawCandidateCount,
             normalizedCandidates = locations.size,
             acceptedCandidates = summary.acceptedCandidates,
             fallbackUsed = fallbackUsed,
             callbackOrigin = event.origin.telemetryValue,
-            duplicateCandidatesDropped = event.duplicateCandidatesDropped
+            duplicateCandidatesDropped = event.duplicateCandidatesDropped,
         )
         return summary
     }
 
     private fun normalizeLocationBatch(
         candidates: List<Location>,
-        lastCandidate: Location?
+        lastCandidate: Location?,
     ): List<Location> {
-        val normalizedCandidates = if (candidates.isNotEmpty()) {
-            candidates
-        } else {
-            listOfNotNull(lastCandidate)
-        }
+        val normalizedCandidates =
+            if (candidates.isNotEmpty()) {
+                candidates
+            } else {
+                listOfNotNull(lastCandidate)
+            }
         return sortLocationsForBatchProcessing(normalizedCandidates)
     }
 
     private fun processLocationBatch(
         candidates: List<Location>,
         callbackOrigin: LocationSourceMode,
-        nowElapsedMsProvider: () -> Long
+        nowElapsedMsProvider: () -> Long,
     ): LocationBatchSummary {
         var accepted = 0
         candidates.forEach { candidate ->
@@ -95,14 +101,14 @@ internal class LocationCallbackProcessor(
         }
         return LocationBatchSummary(
             processedCandidates = candidates.size,
-            acceptedCandidates = accepted
+            acceptedCandidates = accepted,
         )
     }
 
     private fun processLocationCandidate(
         location: Location,
         nowElapsedMs: Long,
-        callbackOrigin: LocationSourceMode
+        callbackOrigin: LocationSourceMode,
     ): Boolean {
         val permissions = currentPermissions()
         if (!permissions.hasAnyPermission) return false
@@ -115,28 +121,29 @@ internal class LocationCallbackProcessor(
                 source = "callback_candidate_${callbackOrigin.telemetryValue}",
                 latitude = location.latitude,
                 longitude = location.longitude,
-                provider = location.provider
+                provider = location.provider,
             )
             return false
         }
 
-        val expectedSourceMode = engine.currentSourceModeOrNull() ?: run {
-            val warmupExpected = sourceModeWarmupExpectedOrigin()
-            val inWarmup = nowElapsedMs <= sourceModeWarmupUntilElapsedMs()
-            if (inWarmup && warmupExpected == callbackOrigin) {
-                warmupExpected
-            } else {
-                telemetry.logSourceMismatchDropped(
-                    nowElapsedMs = nowElapsedMs,
-                    activityState = engine.activityState(),
-                    burst = engine.isBurstActive(),
-                    callbackOrigin = callbackOrigin.telemetryValue,
-                    provider = location.provider,
-                    expectedOrigin = "none"
-                )
-                return false
+        val expectedSourceMode =
+            engine.currentSourceModeOrNull() ?: run {
+                val warmupExpected = sourceModeWarmupExpectedOrigin()
+                val inWarmup = nowElapsedMs <= sourceModeWarmupUntilElapsedMs()
+                if (inWarmup && warmupExpected == callbackOrigin) {
+                    warmupExpected
+                } else {
+                    telemetry.logSourceMismatchDropped(
+                        nowElapsedMs = nowElapsedMs,
+                        activityState = engine.activityState(),
+                        burst = engine.isBurstActive(),
+                        callbackOrigin = callbackOrigin.telemetryValue,
+                        provider = location.provider,
+                        expectedOrigin = "none",
+                    )
+                    return false
+                }
             }
-        }
 
         if (!LocationSourceGuard.acceptsCallbackOrigin(expectedSourceMode, callbackOrigin)) {
             telemetry.logSourceMismatchDropped(
@@ -145,7 +152,7 @@ internal class LocationCallbackProcessor(
                 burst = engine.isBurstActive(),
                 callbackOrigin = callbackOrigin.telemetryValue,
                 provider = location.provider,
-                expectedOrigin = LocationSourceGuard.expectedOrigin(expectedSourceMode)
+                expectedOrigin = LocationSourceGuard.expectedOrigin(expectedSourceMode),
             )
             return false
         }
@@ -154,23 +161,24 @@ internal class LocationCallbackProcessor(
         maybeTriggerAutoFusedFailover(location, callbackOrigin, nowElapsedMs)
 
         val acceptance = resolveFixAcceptancePolicy(permissions, callbackOrigin)
-        val outcome = engine.processCallbackCandidate(
-            location = location,
-            nowElapsedMs = nowElapsedMs,
-            acceptance = acceptance,
-            strictMaxAgeMs = strictFreshMaxAgeMs(),
-            hardMaxAgeMs = hardMaxAcceptedFixAgeMs(),
-            callbackOrigin = callbackOrigin
-        )
+        val outcome =
+            engine.processCallbackCandidate(
+                location = location,
+                nowElapsedMs = nowElapsedMs,
+                acceptance = acceptance,
+                strictMaxAgeMs = strictFreshMaxAgeMs(),
+                hardMaxAgeMs = hardMaxAcceptedFixAgeMs(),
+                callbackOrigin = callbackOrigin,
+            )
         emitGpsSignalSnapshot()
 
         val acceptedLocation = outcome.acceptedLocation ?: return false
         emitAcceptedLocation(
             engine.filterLocationForOutput(
                 location = acceptedLocation,
-                nowElapsedMs = nowElapsedMs
+                nowElapsedMs = nowElapsedMs,
             ),
-            nowElapsedMs
+            nowElapsedMs,
         )
         if (outcome.shouldEndBurstEarly) {
             endHighAccuracyBurstEarly()
@@ -179,18 +187,17 @@ internal class LocationCallbackProcessor(
     }
 }
 
-internal fun sortLocationsForBatchProcessing(locations: List<Location>): List<Location> {
-    return sortBatchByTimestamp(
+internal fun sortLocationsForBatchProcessing(locations: List<Location>): List<Location> =
+    sortBatchByTimestamp(
         items = locations,
         elapsedRealtimeNanosOf = { it.elapsedRealtimeNanos },
-        wallClockTimeMsOf = { it.time }
+        wallClockTimeMsOf = { it.time },
     )
-}
 
 internal fun <T> sortBatchByTimestamp(
     items: List<T>,
     elapsedRealtimeNanosOf: (T) -> Long,
-    wallClockTimeMsOf: (T) -> Long
+    wallClockTimeMsOf: (T) -> Long,
 ): List<T> {
     if (items.size < 2) return items
 
@@ -200,9 +207,8 @@ internal fun <T> sortBatchByTimestamp(
             .mapIndexed { index, item -> IndexedValue(index, item) }
             .sortedWith(
                 compareBy<IndexedValue<T>> { elapsedRealtimeNanosOf(it.value) }
-                    .thenBy { it.index }
-            )
-            .map { it.value }
+                    .thenBy { it.index },
+            ).map { it.value }
     }
 
     val allHaveWallClockTime = items.all { wallClockTimeMsOf(it) > 0L }
@@ -211,9 +217,8 @@ internal fun <T> sortBatchByTimestamp(
             .mapIndexed { index, item -> IndexedValue(index, item) }
             .sortedWith(
                 compareBy<IndexedValue<T>> { wallClockTimeMsOf(it.value) }
-                    .thenBy { it.index }
-            )
-            .map { it.value }
+                    .thenBy { it.index },
+            ).map { it.value }
     }
 
     return items

@@ -5,17 +5,17 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.CrashDiagnosticsSt
 import com.glancemap.glancemapwearos.core.service.transfer.runtime.TransferPrewarmHoldManager
 import com.glancemap.glancemapwearos.core.service.transfer.runtime.TransferSessionState
 import com.glancemap.glancemapwearos.core.service.transfer.storage.StalePartialTransferCleaner
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class GlanceMapWearApp : Application() {
-
     // Global app-wide IO scope (NOT tied to any Activity/Service lifecycle)
-    val applicationScope: CoroutineScope = CoroutineScope(
-        SupervisorJob() + Dispatchers.IO
-    )
+    val applicationScope: CoroutineScope =
+        CoroutineScope(
+            SupervisorJob() + Dispatchers.IO,
+        )
 
     internal val transferSessionState: TransferSessionState = TransferSessionState()
     internal val transferPrewarmHoldManager: TransferPrewarmHoldManager by lazy {

@@ -11,8 +11,9 @@ import androidx.core.app.ServiceCompat
 import com.glancemap.glancemapwearos.R
 import kotlin.math.abs
 
-class NotificationHelper(private val service: Service) {
-
+class NotificationHelper(
+    private val service: Service,
+) {
     companion object {
         const val CHANNEL_ID = "DataLayerListenerChannel"
 
@@ -30,21 +31,28 @@ class NotificationHelper(private val service: Service) {
 
     fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "File Transfers",
-                NotificationManager.IMPORTANCE_LOW
-            )
+            val channel =
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "File Transfers",
+                    NotificationManager.IMPORTANCE_LOW,
+                )
             notificationManager.createNotificationChannel(channel)
         }
     }
 
     /** Foreground (non-swipeable) */
-    fun startForeground(notificationId: Int, fileName: String, status: String) {
+    fun startForeground(
+        notificationId: Int,
+        fileName: String,
+        status: String,
+    ) {
         val foregroundServiceType =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            } else 0
+            } else {
+                0
+            }
 
         // Reset throttling
         lastUpdateTimeMs = 0L
@@ -55,12 +63,17 @@ class NotificationHelper(private val service: Service) {
             service,
             notificationId,
             buildForegroundNotification(fileName, status, -1).build(),
-            foregroundServiceType
+            foregroundServiceType,
         )
     }
 
     /** Update the foreground notification while transferring */
-    fun updateForeground(notificationId: Int, fileName: String, status: String, progress: Int) {
+    fun updateForeground(
+        notificationId: Int,
+        fileName: String,
+        status: String,
+        progress: Int,
+    ) {
         val now = SystemClock.elapsedRealtime()
 
         val statusChanged = status != lastStatus
@@ -76,7 +89,7 @@ class NotificationHelper(private val service: Service) {
 
         notificationManager.notify(
             notificationId,
-            buildForegroundNotification(fileName, status, progress).build()
+            buildForegroundNotification(fileName, status, progress).build(),
         )
     }
 
@@ -91,28 +104,38 @@ class NotificationHelper(private val service: Service) {
     }
 
     /** Normal (swipeable) completion notification */
-    fun showCompletion(notificationId: Int, fileName: String, status: String = "Saved ✓") {
+    fun showCompletion(
+        notificationId: Int,
+        fileName: String,
+        status: String = "Saved ✓",
+    ) {
         notificationManager.notify(notificationId, buildCompletionNotification(fileName, status).build())
     }
 
     /** Normal (swipeable) error notification */
-    fun showError(notificationId: Int, fileName: String, status: String) {
+    fun showError(
+        notificationId: Int,
+        fileName: String,
+        status: String,
+    ) {
         notificationManager.notify(notificationId, buildErrorNotification(fileName, status).build())
     }
 
     private fun buildForegroundNotification(
         fileName: String,
         status: String,
-        progress: Int
+        progress: Int,
     ): NotificationCompat.Builder {
-        val builder = NotificationCompat.Builder(service, CHANNEL_ID)
-            .setContentTitle("Receiving: $fileName")
-            .setContentText(status)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setOngoing(true) // <-- this makes it non-swipeable
-            .setOnlyAlertOnce(true)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        val builder =
+            NotificationCompat
+                .Builder(service, CHANNEL_ID)
+                .setContentTitle("Receiving: $fileName")
+                .setContentText(status)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setOngoing(true) // <-- this makes it non-swipeable
+                .setOnlyAlertOnce(true)
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
 
         return if (progress < 0) {
             builder.setProgress(0, 0, true) // indeterminate
@@ -121,27 +144,33 @@ class NotificationHelper(private val service: Service) {
         }
     }
 
-    private fun buildCompletionNotification(fileName: String, status: String): NotificationCompat.Builder {
-        return NotificationCompat.Builder(service, CHANNEL_ID)
+    private fun buildCompletionNotification(
+        fileName: String,
+        status: String,
+    ): NotificationCompat.Builder =
+        NotificationCompat
+            .Builder(service, CHANNEL_ID)
             .setContentTitle(fileName)
             .setContentText(status)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setOngoing(false)     // <-- swipeable
-            .setAutoCancel(true)   // <-- disappears when tapped (still swipeable)
+            .setOngoing(false) // <-- swipeable
+            .setAutoCancel(true) // <-- disappears when tapped (still swipeable)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             // optional: auto-remove after 10s (you can delete this line if you want it to stay)
             .setTimeoutAfter(10_000L)
-    }
 
-    private fun buildErrorNotification(fileName: String, status: String): NotificationCompat.Builder {
-        return NotificationCompat.Builder(service, CHANNEL_ID)
+    private fun buildErrorNotification(
+        fileName: String,
+        status: String,
+    ): NotificationCompat.Builder =
+        NotificationCompat
+            .Builder(service, CHANNEL_ID)
             .setContentTitle(fileName)
             .setContentText(status)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setOngoing(false)     // <-- swipeable
+            .setOngoing(false) // <-- swipeable
             .setAutoCancel(true)
             .setOnlyAlertOnce(false)
             .setCategory(NotificationCompat.CATEGORY_ERROR)
-    }
 }

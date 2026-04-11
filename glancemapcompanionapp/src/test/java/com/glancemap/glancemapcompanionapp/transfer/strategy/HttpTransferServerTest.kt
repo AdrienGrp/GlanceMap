@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class HttpTransferServerTest {
-
     private val server = HttpTransferServer()
 
     @Test
@@ -14,8 +13,8 @@ class HttpTransferServerTest {
             server.computeHttpStallTimeoutMs(
                 totalSize = 32L * 1024L * 1024L,
                 resumeOffset = 0L,
-                isMapFile = false
-            )
+                isMapFile = false,
+            ),
         )
     }
 
@@ -26,8 +25,8 @@ class HttpTransferServerTest {
             server.computeHttpStallTimeoutMs(
                 totalSize = 1_032_008_362L,
                 resumeOffset = 631_968_016L,
-                isMapFile = true
-            )
+                isMapFile = true,
+            ),
         )
     }
 
@@ -38,8 +37,8 @@ class HttpTransferServerTest {
             server.computeHttpStallTimeoutMs(
                 totalSize = 1_032_008_362L,
                 resumeOffset = 977_750_480L,
-                isMapFile = true
-            )
+                isMapFile = true,
+            ),
         )
     }
 }

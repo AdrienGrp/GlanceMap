@@ -10,16 +10,15 @@ import com.glancemap.glancemapcompanionapp.transfer.util.TransferUtils
 enum class TransferStrategyKind {
     MESSAGE,
     CHANNEL,
-    HTTP
+    HTTP,
 }
 
 data class TransferSelectionContext(
     val wifiAvailable: Boolean,
-    val preferSharedHttpForBatch: Boolean
+    val preferSharedHttpForBatch: Boolean,
 )
 
 object TransferStrategyFactory {
-
     // Must stay aligned with watch-side TransferConstants.SMALL_FILE_MAX_BYTES.
     private const val MESSAGE_CLIENT_MAX_BYTES: Long = 80L * 1024L // 80KB
     private const val SHARED_HTTP_BATCH_MIN_BYTES: Long = 1L * 1024L * 1024L // 1MB
@@ -30,12 +29,15 @@ object TransferStrategyFactory {
     // Channel fallback if Wi-Fi is not available (Channel can work over BT)
     const val CHANNEL_FALLBACK_MAX_BYTES: Long = 50L * 1024L * 1024L // 50MB
 
-    fun buildSelectionContext(context: Context, totalSizesBytes: List<Long>): TransferSelectionContext {
+    fun buildSelectionContext(
+        context: Context,
+        totalSizesBytes: List<Long>,
+    ): TransferSelectionContext {
         val wifiAvailable = !TransferUtils.getWifiIpAddress(context).isNullOrBlank()
         val sharedHttpBatchCandidateCount = totalSizesBytes.count { isSharedHttpBatchEligible(it) }
         return TransferSelectionContext(
             wifiAvailable = wifiAvailable,
-            preferSharedHttpForBatch = wifiAvailable && sharedHttpBatchCandidateCount >= 2
+            preferSharedHttpForBatch = wifiAvailable && sharedHttpBatchCandidateCount >= 2,
         )
     }
 
@@ -50,7 +52,10 @@ object TransferStrategyFactory {
      *           - Channel up to 50MB
      *           - otherwise: HTTP (caller will fail without Wi-Fi IP)
      */
-    fun decide(totalSizeBytes: Long, selectionContext: TransferSelectionContext): TransferStrategyKind {
+    fun decide(
+        totalSizeBytes: Long,
+        selectionContext: TransferSelectionContext,
+    ): TransferStrategyKind {
         if (totalSizeBytes <= 0L) {
             // Unknown size: avoid MessageClient (it buffers whole file in memory).
             return if (selectionContext.wifiAvailable) TransferStrategyKind.HTTP else TransferStrategyKind.CHANNEL
@@ -81,26 +86,24 @@ object TransferStrategyFactory {
         }
     }
 
-    fun create(kind: TransferStrategyKind): TransferStrategy {
-        return when (kind) {
+    fun create(kind: TransferStrategyKind): TransferStrategy =
+        when (kind) {
             TransferStrategyKind.MESSAGE -> MessageClientStrategy()
             TransferStrategyKind.CHANNEL -> ChannelClientStrategy()
             TransferStrategyKind.HTTP -> HttpTransferServer()
         }
-    }
 
-    fun create(context: Context, totalSizeBytes: Long): TransferStrategy {
+    fun create(
+        context: Context,
+        totalSizeBytes: Long,
+    ): TransferStrategy {
         val selectionContext = buildSelectionContext(context, listOf(totalSizeBytes))
         return create(decide(totalSizeBytes, selectionContext))
     }
 
-    fun isMessageClientEligible(totalSizeBytes: Long): Boolean {
-        return totalSizeBytes > 0L && totalSizeBytes <= MESSAGE_CLIENT_MAX_BYTES
-    }
+    fun isMessageClientEligible(totalSizeBytes: Long): Boolean = totalSizeBytes > 0L && totalSizeBytes <= MESSAGE_CLIENT_MAX_BYTES
 
-    fun isSharedHttpBatchEligible(totalSizeBytes: Long): Boolean {
-        return totalSizeBytes >= SHARED_HTTP_BATCH_MIN_BYTES
-    }
+    fun isSharedHttpBatchEligible(totalSizeBytes: Long): Boolean = totalSizeBytes >= SHARED_HTTP_BATCH_MIN_BYTES
 
     fun usesWifi(kind: TransferStrategyKind): Boolean = kind == TransferStrategyKind.HTTP
 
@@ -109,7 +112,5 @@ object TransferStrategyFactory {
      * Only files > 50MB (or unknown size) require Wi-Fi,
      * because Channel fallback is allowed up to 50MB without Wi-Fi.
      */
-    fun requiresWifi(totalSizeBytes: Long): Boolean {
-        return totalSizeBytes <= 0L || totalSizeBytes > CHANNEL_FALLBACK_MAX_BYTES
-    }
+    fun requiresWifi(totalSizeBytes: Long): Boolean = totalSizeBytes <= 0L || totalSizeBytes > CHANNEL_FALLBACK_MAX_BYTES
 }

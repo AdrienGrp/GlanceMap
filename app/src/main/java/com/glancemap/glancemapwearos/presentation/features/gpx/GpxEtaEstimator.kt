@@ -15,11 +15,11 @@ internal data class GpxEtaModelConfig(
     val flatSpeedMps: Double,
     val advancedVerticalRateEnabled: Boolean = false,
     val uphillVerticalMetersPerHour: Double = 0.0,
-    val downhillVerticalMetersPerHour: Double = 0.0
+    val downhillVerticalMetersPerHour: Double = 0.0,
 )
 
 internal data class GpxEtaProjection(
-    val cumulativeSeconds: DoubleArray
+    val cumulativeSeconds: DoubleArray,
 ) {
     val totalSeconds: Double?
         get() = cumulativeSeconds.lastOrNull()
@@ -45,7 +45,7 @@ internal data class GpxEtaProjection(
 
 private fun buildCumulativeEtaSeconds(
     profile: TrackProfile,
-    config: GpxEtaModelConfig
+    config: GpxEtaModelConfig,
 ): DoubleArray? {
     val flatSpeedMps = config.flatSpeedMps
     if (!flatSpeedMps.isFinite() || flatSpeedMps <= 0.0) return null
@@ -67,24 +67,26 @@ private fun buildCumulativeEtaSeconds(
 
         val e0 = points[i].elevation
         val e1 = points[i + 1].elevation
-        val factor = if (
-            e0 == null || e1 == null || distanceMeters < MIN_SEGMENT_METERS_FOR_GRADE
-        ) {
-            1.0
-        } else {
-            val grade = ((e1 - e0) / distanceMeters).coerceIn(-MAX_ABS_GRADE, MAX_ABS_GRADE)
-            // Normalized Tobler hiking factor; f(0) = 1.0
-            exp(-3.5 * (abs(grade + 0.05) - 0.05))
-        }
+        val factor =
+            if (
+                e0 == null || e1 == null || distanceMeters < MIN_SEGMENT_METERS_FOR_GRADE
+            ) {
+                1.0
+            } else {
+                val grade = ((e1 - e0) / distanceMeters).coerceIn(-MAX_ABS_GRADE, MAX_ABS_GRADE)
+                // Normalized Tobler hiking factor; f(0) = 1.0
+                exp(-3.5 * (abs(grade + 0.05) - 0.05))
+            }
 
         val elevationDeltaMeters = if (e0 != null && e1 != null) e1 - e0 else null
-        val segmentSpeed = applyAdvancedVerticalRateAdjustment(
-            candidateSpeedMps = (flatSpeedMps * factor).coerceAtLeast(minSpeed),
-            elevationDeltaMeters = elevationDeltaMeters,
-            distanceMeters = distanceMeters,
-            minSpeedMps = minSpeed,
-            config = config
-        )
+        val segmentSpeed =
+            applyAdvancedVerticalRateAdjustment(
+                candidateSpeedMps = (flatSpeedMps * factor).coerceAtLeast(minSpeed),
+                elevationDeltaMeters = elevationDeltaMeters,
+                distanceMeters = distanceMeters,
+                minSpeedMps = minSpeed,
+                config = config,
+            )
         cumulative[i + 1] = cumulative[i] + (distanceMeters / segmentSpeed)
     }
 
@@ -93,17 +95,16 @@ private fun buildCumulativeEtaSeconds(
 
 internal fun buildEtaProjection(
     profile: TrackProfile,
-    flatSpeedMps: Double
-): GpxEtaProjection? {
-    return buildEtaProjection(
+    flatSpeedMps: Double,
+): GpxEtaProjection? =
+    buildEtaProjection(
         profile = profile,
-        config = GpxEtaModelConfig(flatSpeedMps = flatSpeedMps)
+        config = GpxEtaModelConfig(flatSpeedMps = flatSpeedMps),
     )
-}
 
 internal fun buildEtaProjection(
     profile: TrackProfile,
-    config: GpxEtaModelConfig
+    config: GpxEtaModelConfig,
 ): GpxEtaProjection? {
     val cumulative = buildCumulativeEtaSeconds(profile, config) ?: return null
     return GpxEtaProjection(cumulativeSeconds = cumulative)
@@ -114,32 +115,37 @@ private fun applyAdvancedVerticalRateAdjustment(
     elevationDeltaMeters: Double?,
     distanceMeters: Double,
     minSpeedMps: Double,
-    config: GpxEtaModelConfig
+    config: GpxEtaModelConfig,
 ): Double {
     if (!config.advancedVerticalRateEnabled) return candidateSpeedMps
     val verticalDelta = elevationDeltaMeters ?: return candidateSpeedMps
     if (distanceMeters < MIN_SEGMENT_METERS_FOR_GRADE) return candidateSpeedMps
 
-    val absGrade = (abs(verticalDelta) / distanceMeters)
-        .coerceIn(0.0, MAX_ABS_GRADE)
+    val absGrade =
+        (abs(verticalDelta) / distanceMeters)
+            .coerceIn(0.0, MAX_ABS_GRADE)
     if (absGrade <= ADVANCED_RATE_EFFECT_START_GRADE) return candidateSpeedMps
 
-    val verticalRateMps = when {
-        verticalDelta > 0.0 -> config.uphillVerticalMetersPerHour / 3600.0
-        verticalDelta < 0.0 -> config.downhillVerticalMetersPerHour / 3600.0
-        else -> return candidateSpeedMps
-    }
+    val verticalRateMps =
+        when {
+            verticalDelta > 0.0 -> config.uphillVerticalMetersPerHour / 3600.0
+            verticalDelta < 0.0 -> config.downhillVerticalMetersPerHour / 3600.0
+            else -> return candidateSpeedMps
+        }
     if (!verticalRateMps.isFinite() || verticalRateMps <= 0.0) return candidateSpeedMps
 
     val baselineVerticalRateMps = (candidateSpeedMps * absGrade).coerceAtLeast(1e-6)
     val rawMultiplier = verticalRateMps / baselineVerticalRateMps
     if (!rawMultiplier.isFinite() || rawMultiplier <= 0.0) return candidateSpeedMps
 
-    val gradeWeight = ((absGrade - ADVANCED_RATE_EFFECT_START_GRADE) /
-        (ADVANCED_RATE_EFFECT_FULL_GRADE - ADVANCED_RATE_EFFECT_START_GRADE))
-        .coerceIn(0.0, 1.0)
-    val adjustedMultiplier = exp(ln(rawMultiplier) * gradeWeight)
-        .coerceIn(ADVANCED_RATE_MIN_MULTIPLIER, ADVANCED_RATE_MAX_MULTIPLIER)
+    val gradeWeight =
+        (
+            (absGrade - ADVANCED_RATE_EFFECT_START_GRADE) /
+                (ADVANCED_RATE_EFFECT_FULL_GRADE - ADVANCED_RATE_EFFECT_START_GRADE)
+        ).coerceIn(0.0, 1.0)
+    val adjustedMultiplier =
+        exp(ln(rawMultiplier) * gradeWeight)
+            .coerceIn(ADVANCED_RATE_MIN_MULTIPLIER, ADVANCED_RATE_MAX_MULTIPLIER)
 
     return (candidateSpeedMps * adjustedMultiplier).coerceAtLeast(minSpeedMps)
 }

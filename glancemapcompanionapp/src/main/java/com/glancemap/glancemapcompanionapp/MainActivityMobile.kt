@@ -2,8 +2,8 @@ package com.glancemap.glancemapcompanionapp
 
 import android.content.Intent
 import android.net.Uri
-import android.os.Bundle
 import android.os.Build
+import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,7 +16,6 @@ import com.glancemap.glancemapcompanionapp.filepicker.FilePickerScreen
 import com.glancemap.glancemapcompanionapp.ui.theme.GlanceMapTheme
 
 class MainActivityMobile : ComponentActivity() {
-
     private var incomingUris by mutableStateOf<List<Uri>>(emptyList())
     private var incomingIntentToken by mutableStateOf(0L)
 
@@ -40,12 +39,12 @@ class MainActivityMobile : ComponentActivity() {
                                     (
                                         Intent.FLAG_GRANT_READ_URI_PERMISSION or
                                             Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-                                        )
-                                )
+                                    )
+                            )
                             if (takeFlags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0) {
                                 contentResolver.takePersistableUriPermission(
                                     uri,
-                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
                                 )
                             }
                         } catch (_: Exception) {
@@ -80,25 +79,27 @@ class MainActivityMobile : ComponentActivity() {
         val uris = LinkedHashSet<Uri>()
         intent.data?.let(uris::add)
 
-        val stream: Uri? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra(Intent.EXTRA_STREAM)
-        }
+        val stream: Uri? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            }
         when (stream) {
             null -> Unit
             else -> uris += stream
         }
 
-        val extraStreams = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
-            }
-        }.getOrNull().orEmpty()
+        val extraStreams =
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
+                }
+            }.getOrNull().orEmpty()
         uris += extraStreams
 
         val clipData = intent.clipData

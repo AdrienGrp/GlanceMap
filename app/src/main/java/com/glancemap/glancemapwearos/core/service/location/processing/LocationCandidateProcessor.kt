@@ -15,13 +15,13 @@ internal data class LocationCandidateEvaluation(
     val acceptedLocation: Location?,
     val acceptedFixAtMs: Long?,
     val activityTransition: LocationActivityTransition?,
-    val shouldEndBurstEarly: Boolean
+    val shouldEndBurstEarly: Boolean,
 )
 
 internal data class ProcessedLocationCandidate(
     val acceptedLocation: Location?,
     val shouldEndBurstEarly: Boolean,
-    val activityStateChanged: Boolean = false
+    val activityStateChanged: Boolean = false,
 )
 
 internal class LocationCandidateProcessor(
@@ -29,7 +29,7 @@ internal class LocationCandidateProcessor(
     private val telemetry: LocationServiceTelemetry,
     private val jitterThresholdMoving: Float,
     private val jitterThresholdStationary: Float,
-    private val burstEarlyStopAccuracyM: Float
+    private val burstEarlyStopAccuracyM: Float,
 ) {
     private var lastLocation: Location? = null
     private var lastAcceptedFixAtMs: Long = 0L
@@ -38,7 +38,11 @@ internal class LocationCandidateProcessor(
 
     fun activityState(): LocationActivityState = activityTracker.state
 
-    fun acceptCachedLocation(location: Location, nowElapsedMs: Long, ageMs: Long) {
+    fun acceptCachedLocation(
+        location: Location,
+        nowElapsedMs: Long,
+        ageMs: Long,
+    ) {
         val fixAtMs = (nowElapsedMs - ageMs).coerceAtLeast(0L)
         lastLocation = location
         lastAcceptedFixAtMs = fixAtMs
@@ -59,7 +63,7 @@ internal class LocationCandidateProcessor(
         hardMaxAgeMs: Long,
         source: String,
         isInHighAccuracyBurst: Boolean,
-        burstEarlyStopMaxAgeMs: Long
+        burstEarlyStopMaxAgeMs: Long,
     ): ProcessedLocationCandidate {
         val ageMs = LocationFixPolicy.locationAgeMs(location, nowElapsedMs)
         if (ageMs == Long.MAX_VALUE || ageMs > hardMaxAgeMs) {
@@ -69,12 +73,12 @@ internal class LocationCandidateProcessor(
                 burst = isInHighAccuracyBurst,
                 source = "${source}_hard_cap",
                 ageMs = ageMs,
-                maxAgeMs = hardMaxAgeMs
+                maxAgeMs = hardMaxAgeMs,
             )
             return ProcessedLocationCandidate(
                 acceptedLocation = null,
                 shouldEndBurstEarly = false,
-                activityStateChanged = false
+                activityStateChanged = false,
             )
         }
         val effectiveMaxAgeMs = minOf(acceptance.maxAgeMs, strictMaxAgeMs)
@@ -86,12 +90,12 @@ internal class LocationCandidateProcessor(
                     burst = isInHighAccuracyBurst,
                     source = source,
                     ageMs = ageMs,
-                    maxAgeMs = effectiveMaxAgeMs
+                    maxAgeMs = effectiveMaxAgeMs,
                 )
                 return ProcessedLocationCandidate(
                     acceptedLocation = null,
                     shouldEndBurstEarly = false,
-                    activityStateChanged = false
+                    activityStateChanged = false,
                 )
             }
             if (!location.accuracy.isFinite() || location.accuracy > acceptance.maxAccuracyM) {
@@ -103,12 +107,12 @@ internal class LocationCandidateProcessor(
                     accuracyM = location.accuracy,
                     maxAccuracyM = acceptance.maxAccuracyM,
                     ageMs = ageMs,
-                    maxAgeMs = effectiveMaxAgeMs
+                    maxAgeMs = effectiveMaxAgeMs,
                 )
                 return ProcessedLocationCandidate(
                     acceptedLocation = null,
                     shouldEndBurstEarly = false,
-                    activityStateChanged = false
+                    activityStateChanged = false,
                 )
             }
         }
@@ -119,13 +123,14 @@ internal class LocationCandidateProcessor(
         lastAcceptedFixAtMs = acceptedFixAtMs
         return ProcessedLocationCandidate(
             acceptedLocation = location,
-            shouldEndBurstEarly = shouldEndBurstEarly(
-                isInHighAccuracyBurst = isInHighAccuracyBurst,
-                accuracyM = location.accuracy,
-                ageMs = ageMs,
-                burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs
-            ),
-            activityStateChanged = false
+            shouldEndBurstEarly =
+                shouldEndBurstEarly(
+                    isInHighAccuracyBurst = isInHighAccuracyBurst,
+                    accuracyM = location.accuracy,
+                    ageMs = ageMs,
+                    burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs,
+                ),
+            activityStateChanged = false,
         )
     }
 
@@ -137,7 +142,7 @@ internal class LocationCandidateProcessor(
         hardMaxAgeMs: Long,
         isInHighAccuracyBurst: Boolean,
         callbackOrigin: LocationSourceMode,
-        burstEarlyStopMaxAgeMs: Long
+        burstEarlyStopMaxAgeMs: Long,
     ): ProcessedLocationCandidate {
         val ageMs = LocationFixPolicy.locationAgeMs(location, nowElapsedMs)
         if (ageMs == Long.MAX_VALUE || ageMs > hardMaxAgeMs) {
@@ -147,12 +152,12 @@ internal class LocationCandidateProcessor(
                 burst = isInHighAccuracyBurst,
                 source = "callback_candidate_hard_cap",
                 ageMs = ageMs,
-                maxAgeMs = hardMaxAgeMs
+                maxAgeMs = hardMaxAgeMs,
             )
             return ProcessedLocationCandidate(
                 acceptedLocation = null,
                 shouldEndBurstEarly = false,
-                activityStateChanged = false
+                activityStateChanged = false,
             )
         }
         val effectiveMaxAgeMs = minOf(acceptance.maxAgeMs, strictMaxAgeMs)
@@ -164,12 +169,12 @@ internal class LocationCandidateProcessor(
                     burst = isInHighAccuracyBurst,
                     source = "callback_candidate",
                     ageMs = ageMs,
-                    maxAgeMs = effectiveMaxAgeMs
+                    maxAgeMs = effectiveMaxAgeMs,
                 )
                 return ProcessedLocationCandidate(
                     acceptedLocation = null,
                     shouldEndBurstEarly = false,
-                    activityStateChanged = false
+                    activityStateChanged = false,
                 )
             }
             if (!location.accuracy.isFinite() || location.accuracy > acceptance.maxAccuracyM) {
@@ -181,12 +186,12 @@ internal class LocationCandidateProcessor(
                     accuracyM = location.accuracy,
                     maxAccuracyM = acceptance.maxAccuracyM,
                     ageMs = ageMs,
-                    maxAgeMs = effectiveMaxAgeMs
+                    maxAgeMs = effectiveMaxAgeMs,
                 )
                 return ProcessedLocationCandidate(
                     acceptedLocation = null,
                     shouldEndBurstEarly = false,
-                    activityStateChanged = false
+                    activityStateChanged = false,
                 )
             }
         }
@@ -195,26 +200,28 @@ internal class LocationCandidateProcessor(
         val acceptedFixAtMs = if (ENABLE_STRICT_FIX_FILTERING) freshFixAtMs else nowElapsedMs
         val previousLocation = lastLocation
         val previousFixAtMs = lastAcceptedFixAtMs
-        val jumpDiagnostics = if (
-            ENABLE_STRICT_FIX_FILTERING &&
-            previousLocation != null &&
-            previousFixAtMs > 0L
-        ) {
-            analyzeJump(
-                previous = previousLocation,
-                previousFixAtMs = previousFixAtMs,
-                candidate = location,
-                candidateFixAtMs = freshFixAtMs
-            )
-        } else {
-            null
-        }
+        val jumpDiagnostics =
+            if (
+                ENABLE_STRICT_FIX_FILTERING &&
+                previousLocation != null &&
+                previousFixAtMs > 0L
+            ) {
+                analyzeJump(
+                    previous = previousLocation,
+                    previousFixAtMs = previousFixAtMs,
+                    candidate = location,
+                    candidateFixAtMs = freshFixAtMs,
+                )
+            } else {
+                null
+            }
 
         if (ENABLE_STRICT_FIX_FILTERING && jumpDiagnostics != null && jumpDiagnostics.suspicious) {
-            val confirmation = confirmPendingJump(
-                candidate = location,
-                candidateFixAtMs = freshFixAtMs
-            )
+            val confirmation =
+                confirmPendingJump(
+                    candidate = location,
+                    candidateFixAtMs = freshFixAtMs,
+                )
             if (!confirmation.confirmed) {
                 pendingJumpLocation = Location(location)
                 pendingJumpSeenAtMs = freshFixAtMs
@@ -227,19 +234,19 @@ internal class LocationCandidateProcessor(
                     maxAllowedM = jumpDiagnostics.maxAllowedMeters,
                     gapMs = jumpDiagnostics.gapMs,
                     previousSpeedMps = jumpDiagnostics.previousSpeedMps,
-                    candidateSpeedMps = jumpDiagnostics.candidateSpeedMps
+                    candidateSpeedMps = jumpDiagnostics.candidateSpeedMps,
                 )
                 return ProcessedLocationCandidate(
                     acceptedLocation = null,
                     shouldEndBurstEarly = false,
-                    activityStateChanged = false
+                    activityStateChanged = false,
                 )
             }
             telemetry.logJumpFixConfirmed(
                 source = "callback_candidate",
                 jumpM = confirmation.jumpMeters,
                 confirmRadiusM = confirmation.confirmRadiusM,
-                gapMs = confirmation.pendingGapMs
+                gapMs = confirmation.pendingGapMs,
             )
         } else {
             pendingJumpLocation = null
@@ -257,20 +264,21 @@ internal class LocationCandidateProcessor(
             ageMs = ageMs,
             accuracyM = location.accuracy,
             provider = location.provider,
-            origin = callbackOrigin.telemetryValue
+            origin = callbackOrigin.telemetryValue,
         )
 
         lastLocation = location
         lastAcceptedFixAtMs = acceptedFixAtMs
         return ProcessedLocationCandidate(
             acceptedLocation = location,
-            shouldEndBurstEarly = shouldEndBurstEarly(
-                isInHighAccuracyBurst = isInHighAccuracyBurst,
-                accuracyM = location.accuracy,
-                ageMs = ageMs,
-                burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs
-            ),
-            activityStateChanged = transition != null
+            shouldEndBurstEarly =
+                shouldEndBurstEarly(
+                    isInHighAccuracyBurst = isInHighAccuracyBurst,
+                    accuracyM = location.accuracy,
+                    ageMs = ageMs,
+                    burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs,
+                ),
+            activityStateChanged = transition != null,
         )
     }
 
@@ -281,20 +289,20 @@ internal class LocationCandidateProcessor(
         acceptance: FixAcceptancePolicy,
         lastLocation: Location?,
         isInHighAccuracyBurst: Boolean,
-        burstEarlyStopMaxAgeMs: Long
+        burstEarlyStopMaxAgeMs: Long,
     ): LocationCandidateEvaluation {
         if (ageMs > acceptance.maxAgeMs) {
             telemetry.onFilteredByStale(
                 nowElapsedMs = nowElapsedMs,
                 activityState = activityTracker.state,
-                burst = isInHighAccuracyBurst
+                burst = isInHighAccuracyBurst,
             )
             return LocationCandidateEvaluation(
                 freshFixAtMs = null,
                 acceptedLocation = null,
                 acceptedFixAtMs = null,
                 activityTransition = null,
-                shouldEndBurstEarly = false
+                shouldEndBurstEarly = false,
             )
         }
 
@@ -302,42 +310,44 @@ internal class LocationCandidateProcessor(
             telemetry.onFilteredByAccuracy(
                 nowElapsedMs = nowElapsedMs,
                 activityState = activityTracker.state,
-                burst = isInHighAccuracyBurst
+                burst = isInHighAccuracyBurst,
             )
             return LocationCandidateEvaluation(
                 freshFixAtMs = null,
                 acceptedLocation = null,
                 acceptedFixAtMs = null,
                 activityTransition = null,
-                shouldEndBurstEarly = false
+                shouldEndBurstEarly = false,
             )
         }
 
         val freshFixAtMs = (nowElapsedMs - ageMs).coerceAtLeast(0L)
         val transition = activityTracker.onAcceptedLocation(location, nowElapsedMs)
 
-        val threshold = if (activityTracker.state == LocationActivityState.STATIONARY) {
-            jitterThresholdStationary
-        } else {
-            jitterThresholdMoving
-        }
+        val threshold =
+            if (activityTracker.state == LocationActivityState.STATIONARY) {
+                jitterThresholdStationary
+            } else {
+                jitterThresholdMoving
+            }
         if (lastLocation != null && location.distanceTo(lastLocation) < threshold) {
             telemetry.onFilteredByJitter(
                 nowElapsedMs = nowElapsedMs,
                 activityState = activityTracker.state,
-                burst = isInHighAccuracyBurst
+                burst = isInHighAccuracyBurst,
             )
             return LocationCandidateEvaluation(
                 freshFixAtMs = freshFixAtMs,
                 acceptedLocation = null,
                 acceptedFixAtMs = null,
                 activityTransition = transition,
-                shouldEndBurstEarly = shouldEndBurstEarly(
-                    isInHighAccuracyBurst = isInHighAccuracyBurst,
-                    accuracyM = location.accuracy,
-                    ageMs = ageMs,
-                    burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs
-                )
+                shouldEndBurstEarly =
+                    shouldEndBurstEarly(
+                        isInHighAccuracyBurst = isInHighAccuracyBurst,
+                        accuracyM = location.accuracy,
+                        ageMs = ageMs,
+                        burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs,
+                    ),
             )
         }
 
@@ -349,7 +359,7 @@ internal class LocationCandidateProcessor(
             ageMs = ageMs,
             accuracyM = location.accuracy,
             provider = location.provider,
-            origin = LocationSourceMode.AUTO_FUSED.telemetryValue
+            origin = LocationSourceMode.AUTO_FUSED.telemetryValue,
         )
 
         return LocationCandidateEvaluation(
@@ -357,12 +367,13 @@ internal class LocationCandidateProcessor(
             acceptedLocation = location,
             acceptedFixAtMs = freshFixAtMs,
             activityTransition = transition,
-            shouldEndBurstEarly = shouldEndBurstEarly(
-                isInHighAccuracyBurst = isInHighAccuracyBurst,
-                accuracyM = location.accuracy,
-                ageMs = ageMs,
-                burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs
-            )
+            shouldEndBurstEarly =
+                shouldEndBurstEarly(
+                    isInHighAccuracyBurst = isInHighAccuracyBurst,
+                    accuracyM = location.accuracy,
+                    ageMs = ageMs,
+                    burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs,
+                ),
         )
     }
 
@@ -370,7 +381,7 @@ internal class LocationCandidateProcessor(
         isInHighAccuracyBurst: Boolean,
         accuracyM: Float,
         ageMs: Long,
-        burstEarlyStopMaxAgeMs: Long
+        burstEarlyStopMaxAgeMs: Long,
     ): Boolean {
         if (!isInHighAccuracyBurst) return false
         if (!accuracyM.isFinite()) return false
@@ -382,7 +393,7 @@ internal class LocationCandidateProcessor(
         previous: Location,
         previousFixAtMs: Long,
         candidate: Location,
-        candidateFixAtMs: Long
+        candidateFixAtMs: Long,
     ): JumpDiagnostics {
         val distanceM = candidate.distanceTo(previous)
         val gapMs = (candidateFixAtMs - previousFixAtMs).coerceAtLeast(1_000L)
@@ -395,11 +406,12 @@ internal class LocationCandidateProcessor(
         val previousAccuracyM = previous.accuracy.takeIf { it.isFinite() } ?: 0f
         val candidateAccuracyM = candidate.accuracy.takeIf { it.isFinite() } ?: 0f
         val accuracyAllowanceM = previousAccuracyM + candidateAccuracyM + JUMP_ACCURACY_BUFFER_M
-        val maxAllowedDistanceM = maxOf(
-            MIN_JUMP_ALLOWANCE_DISTANCE_M,
-            dynamicDistanceAllowanceM,
-            accuracyAllowanceM
-        )
+        val maxAllowedDistanceM =
+            maxOf(
+                MIN_JUMP_ALLOWANCE_DISTANCE_M,
+                dynamicDistanceAllowanceM,
+                accuracyAllowanceM,
+            )
 
         return JumpDiagnostics(
             jumpMeters = distanceM,
@@ -407,33 +419,38 @@ internal class LocationCandidateProcessor(
             gapMs = gapMs,
             previousSpeedMps = previousSpeedMps,
             candidateSpeedMps = candidateSpeedMps,
-            suspicious = distanceM > maxAllowedDistanceM
+            suspicious = distanceM > maxAllowedDistanceM,
         )
     }
 
-    private fun confirmPendingJump(candidate: Location, candidateFixAtMs: Long): JumpConfirmation {
-        val pending = pendingJumpLocation ?: return JumpConfirmation(
-            confirmed = false,
-            jumpMeters = 0f,
-            confirmRadiusM = 0f,
-            pendingGapMs = 0L
-        )
+    private fun confirmPendingJump(
+        candidate: Location,
+        candidateFixAtMs: Long,
+    ): JumpConfirmation {
+        val pending =
+            pendingJumpLocation ?: return JumpConfirmation(
+                confirmed = false,
+                jumpMeters = 0f,
+                confirmRadiusM = 0f,
+                pendingGapMs = 0L,
+            )
         val pendingAgeMs = (candidateFixAtMs - pendingJumpSeenAtMs).coerceAtLeast(0L)
         if (pendingAgeMs > PENDING_JUMP_CONFIRM_WINDOW_MS) {
             return JumpConfirmation(
                 confirmed = false,
                 jumpMeters = pending.distanceTo(candidate),
                 confirmRadiusM = 0f,
-                pendingGapMs = pendingAgeMs
+                pendingGapMs = pendingAgeMs,
             )
         }
 
         val pendingAccuracyM = pending.accuracy.takeIf { it.isFinite() } ?: 0f
         val candidateAccuracyM = candidate.accuracy.takeIf { it.isFinite() } ?: 0f
-        val confirmRadiusM = maxOf(
-            PENDING_JUMP_CONFIRM_MIN_RADIUS_M,
-            pendingAccuracyM + candidateAccuracyM + JUMP_ACCURACY_BUFFER_M
-        )
+        val confirmRadiusM =
+            maxOf(
+                PENDING_JUMP_CONFIRM_MIN_RADIUS_M,
+                pendingAccuracyM + candidateAccuracyM + JUMP_ACCURACY_BUFFER_M,
+            )
         val jumpMeters = candidate.distanceTo(pending)
         val confirmed = jumpMeters <= confirmRadiusM
         if (confirmed) {
@@ -444,7 +461,7 @@ internal class LocationCandidateProcessor(
             confirmed = confirmed,
             jumpMeters = jumpMeters,
             confirmRadiusM = confirmRadiusM,
-            pendingGapMs = pendingAgeMs
+            pendingGapMs = pendingAgeMs,
         )
     }
 
@@ -464,12 +481,12 @@ private data class JumpDiagnostics(
     val gapMs: Long,
     val previousSpeedMps: Float,
     val candidateSpeedMps: Float,
-    val suspicious: Boolean
+    val suspicious: Boolean,
 )
 
 private data class JumpConfirmation(
     val confirmed: Boolean,
     val jumpMeters: Float,
     val confirmRadiusM: Float,
-    val pendingGapMs: Long
+    val pendingGapMs: Long,
 )

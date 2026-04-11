@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 enum class CompassProviderType {
     SENSOR_MANAGER,
-    GOOGLE_FUSED
+    GOOGLE_FUSED,
 }
 
 internal interface CompassOrientationProvider {
@@ -13,15 +13,28 @@ internal interface CompassOrientationProvider {
     val renderState: StateFlow<CompassRenderState>
 
     fun start(lowPower: Boolean = false)
+
     fun stop()
+
     fun recalibrate()
-    fun setNorthReferenceMode(mode: NorthReferenceMode, forceRefresh: Boolean = false)
-    fun setHeadingSourceMode(mode: CompassHeadingSourceMode, forceRefresh: Boolean = false)
+
+    fun setNorthReferenceMode(
+        mode: NorthReferenceMode,
+        forceRefresh: Boolean = false,
+    )
+
+    fun setHeadingSourceMode(
+        mode: CompassHeadingSourceMode,
+        forceRefresh: Boolean = false,
+    )
+
     fun primeDeclinationFromApproximateLocation(
         latitude: Double,
         longitude: Double,
-        altitudeM: Float = 0f
+        altitudeM: Float = 0f,
     )
+
     fun updateDeclinationFromLocation(location: Location)
+
     fun setLowPowerMode(enabled: Boolean)
 }

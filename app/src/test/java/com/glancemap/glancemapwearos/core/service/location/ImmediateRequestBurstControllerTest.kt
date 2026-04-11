@@ -1,19 +1,18 @@
 package com.glancemap.glancemapwearos.core.service.location
 
 import com.glancemap.glancemapwearos.core.service.location.runtime.ImmediateRequestBurstController
-import java.util.Collections
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class ImmediateRequestBurstControllerTest {
-
     @Test
     fun startsBurstWhenIdle() {
         val controller = ImmediateRequestBurstController(cooldownMs = 5_000L)
@@ -73,9 +72,10 @@ class ImmediateRequestBurstControllerTest {
         val pool = Executors.newFixedThreadPool(8)
         val startGate = CountDownLatch(1)
         val doneGate = CountDownLatch(24)
-        val results = Collections.synchronizedList(
-            mutableListOf<ImmediateRequestBurstController.Decision>()
-        )
+        val results =
+            Collections.synchronizedList(
+                mutableListOf<ImmediateRequestBurstController.Decision>(),
+            )
 
         repeat(24) {
             pool.submit {
@@ -98,8 +98,9 @@ class ImmediateRequestBurstControllerTest {
 
         assertEquals(1, startCount)
         assertEquals(23, skipBurstCount + skipCooldownCount)
-        val activeSkip = results.firstOrNull { it is ImmediateRequestBurstController.Decision.SkipActiveBurst }
-            as? ImmediateRequestBurstController.Decision.SkipActiveBurst
+        val activeSkip =
+            results.firstOrNull { it is ImmediateRequestBurstController.Decision.SkipActiveBurst }
+                as? ImmediateRequestBurstController.Decision.SkipActiveBurst
         assertNotNull(activeSkip)
     }
 }

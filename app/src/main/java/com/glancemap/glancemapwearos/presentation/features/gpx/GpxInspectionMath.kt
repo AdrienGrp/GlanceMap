@@ -7,16 +7,15 @@ import kotlin.math.*
 internal data class ClosestTrackPick(
     val pos: TrackPosition,
     val distanceToLineMeters: Double,
-    val snapped: LatLong
+    val snapped: LatLong,
 )
 
 internal fun findClosestTrackPosition(
     press: LatLong,
     tracks: List<GpxTrackDetails>,
     profileProvider: (String) -> TrackProfile?,
-    allowedTrackId: String?
+    allowedTrackId: String?,
 ): ClosestTrackPick? {
-
     var best: ClosestTrackPick? = null
     var bestDist = Double.MAX_VALUE
 
@@ -44,9 +43,8 @@ internal fun findClosestTrackPosition(
 private fun nearestSegmentPickMercator(
     press: LatLong,
     trackId: String,
-    pts: List<TrackPoint>
+    pts: List<TrackPoint>,
 ): ClosestTrackPick {
-
     val zoom: Byte = 20
     val tileSize = 256
     val mapSize: Long = MercatorProjection.getMapSize(zoom, tileSize)
@@ -57,7 +55,10 @@ private fun nearestSegmentPickMercator(
         return x to y
     }
 
-    fun toLatLong(x: Double, y: Double): LatLong {
+    fun toLatLong(
+        x: Double,
+        y: Double,
+    ): LatLong {
         val lon = MercatorProjection.pixelXToLongitude(x, mapSize)
         val lat = MercatorProjection.pixelYToLatitude(y, mapSize)
         return LatLong(lat, lon)
@@ -105,11 +106,14 @@ private fun nearestSegmentPickMercator(
     return ClosestTrackPick(
         pos = TrackPosition(trackId = trackId, segmentIndex = bestI, t = bestT),
         distanceToLineMeters = haversineMeters(press, snapped),
-        snapped = snapped
+        snapped = snapped,
     )
 }
 
-private fun haversineMeters(a: LatLong, b: LatLong): Double {
+private fun haversineMeters(
+    a: LatLong,
+    b: LatLong,
+): Double {
     val r = 6_371_000.0
     val lat1 = Math.toRadians(a.latitude)
     val lat2 = Math.toRadians(b.latitude)

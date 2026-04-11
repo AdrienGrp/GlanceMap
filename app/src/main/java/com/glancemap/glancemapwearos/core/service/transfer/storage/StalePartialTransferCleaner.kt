@@ -7,7 +7,6 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 internal object StalePartialTransferCleaner {
-
     private const val TAG = "StalePartialCleaner"
     private const val DEM_DIR_NAME = "dem3"
     private const val PARTIAL_FILE_SUFFIX = ".part"
@@ -17,7 +16,7 @@ internal object StalePartialTransferCleaner {
         val partialFiles = findPartialFiles(context)
         return PartialFilesSummary(
             count = partialFiles.size,
-            totalBytes = partialFiles.sumOf { it.length().coerceAtLeast(0L) }
+            totalBytes = partialFiles.sumOf { it.length().coerceAtLeast(0L) },
         )
     }
 
@@ -28,13 +27,11 @@ internal object StalePartialTransferCleaner {
         }
     }
 
-    fun clearAll(context: Context): CleanupResult {
-        return deleteMatching(context) { true }
-    }
+    fun clearAll(context: Context): CleanupResult = deleteMatching(context) { true }
 
     private fun deleteMatching(
         context: Context,
-        shouldDelete: (File) -> Boolean
+        shouldDelete: (File) -> Boolean,
     ): CleanupResult {
         var removedFiles = 0
         var freedBytes = 0L
@@ -57,21 +54,22 @@ internal object StalePartialTransferCleaner {
 
         return CleanupResult(
             removedFiles = removedFiles,
-            freedBytes = freedBytes
+            freedBytes = freedBytes,
         )
     }
 
     private fun findPartialFiles(context: Context): List<File> {
-        val roots = linkedSetOf<File>().apply {
-            add(context.getDir("gpx", Context.MODE_PRIVATE))
-            add(context.getDir("maps", Context.MODE_PRIVATE))
-            add(context.getDir("poi", Context.MODE_PRIVATE))
-            add(routingSegmentsDir(context))
-            add(
-                context.getExternalFilesDir(DEM_DIR_NAME)
-                    ?: File(context.getDir("maps", Context.MODE_PRIVATE), DEM_DIR_NAME)
-            )
-        }
+        val roots =
+            linkedSetOf<File>().apply {
+                add(context.getDir("gpx", Context.MODE_PRIVATE))
+                add(context.getDir("maps", Context.MODE_PRIVATE))
+                add(context.getDir("poi", Context.MODE_PRIVATE))
+                add(routingSegmentsDir(context))
+                add(
+                    context.getExternalFilesDir(DEM_DIR_NAME)
+                        ?: File(context.getDir("maps", Context.MODE_PRIVATE), DEM_DIR_NAME),
+                )
+            }
 
         return buildList {
             roots.forEach { root ->
@@ -89,11 +87,11 @@ internal object StalePartialTransferCleaner {
 
     internal data class PartialFilesSummary(
         val count: Int,
-        val totalBytes: Long
+        val totalBytes: Long,
     )
 
     internal data class CleanupResult(
         val removedFiles: Int,
-        val freedBytes: Long
+        val freedBytes: Long,
     )
 }

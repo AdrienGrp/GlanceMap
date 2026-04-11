@@ -14,16 +14,16 @@ import kotlin.math.min
 
 data class RefugesRegionPreset(
     val label: String,
-    val bbox: String
+    val bbox: String,
 )
 
 enum class RefugesRegionPresetMode {
     COMPACT_ZONES,
-    DETAILED_MASSIFS
+    DETAILED_MASSIFS,
 }
 
 class RefugesRegionPresetRepository(
-    private val context: Context
+    private val context: Context,
 ) {
     companion object {
         private const val PREFS_NAME = "refuges_region_presets"
@@ -37,20 +37,21 @@ class RefugesRegionPresetRepository(
         private const val MAX_LAT_SPAN_DEGREES = 12.0
         private const val MAX_BBOX_AREA_DEGREES = 120.0
 
-        fun defaultPresets(): List<RefugesRegionPreset> = listOf(
-            RefugesRegionPreset("Custom", ""),
-            RefugesRegionPreset("Andorra", "1.40,42.43,1.79,42.66"),
-            RefugesRegionPreset("Pyrenees East", "1.20,42.35,3.20,43.05"),
-            RefugesRegionPreset("Pyrenees West", "-2.30,42.60,0.40,43.35"),
-            RefugesRegionPreset("Alps West (FR/IT)", "5.30,44.80,8.30,46.70"),
-            RefugesRegionPreset("Alps North (CH/DE/AT)", "7.60,46.40,12.40,48.60"),
-            RefugesRegionPreset("Alps East (AT/SI)", "12.10,45.80,16.40,48.40"),
-            RefugesRegionPreset("Dolomites", "10.80,45.80,12.60,47.10"),
-            RefugesRegionPreset("Jura", "5.20,45.70,7.20,47.80"),
-            RefugesRegionPreset("Vosges", "6.60,47.40,7.60,49.10"),
-            RefugesRegionPreset("Corsica", "8.45,41.30,9.60,43.10"),
-            RefugesRegionPreset("Sierra Nevada", "-3.65,36.80,-2.65,37.35")
-        )
+        fun defaultPresets(): List<RefugesRegionPreset> =
+            listOf(
+                RefugesRegionPreset("Custom", ""),
+                RefugesRegionPreset("Andorra", "1.40,42.43,1.79,42.66"),
+                RefugesRegionPreset("Pyrenees East", "1.20,42.35,3.20,43.05"),
+                RefugesRegionPreset("Pyrenees West", "-2.30,42.60,0.40,43.35"),
+                RefugesRegionPreset("Alps West (FR/IT)", "5.30,44.80,8.30,46.70"),
+                RefugesRegionPreset("Alps North (CH/DE/AT)", "7.60,46.40,12.40,48.60"),
+                RefugesRegionPreset("Alps East (AT/SI)", "12.10,45.80,16.40,48.40"),
+                RefugesRegionPreset("Dolomites", "10.80,45.80,12.60,47.10"),
+                RefugesRegionPreset("Jura", "5.20,45.70,7.20,47.80"),
+                RefugesRegionPreset("Vosges", "6.60,47.40,7.60,49.10"),
+                RefugesRegionPreset("Corsica", "8.45,41.30,9.60,43.10"),
+                RefugesRegionPreset("Sierra Nevada", "-3.65,36.80,-2.65,37.35"),
+            )
     }
 
     private val prefs by lazy {
@@ -59,36 +60,40 @@ class RefugesRegionPresetRepository(
 
     suspend fun loadPresets(
         forceRefresh: Boolean = false,
-        mode: RefugesRegionPresetMode = RefugesRegionPresetMode.COMPACT_ZONES
-    ): List<RefugesRegionPreset> = withContext(Dispatchers.IO) {
-        val cached = readCachedPresets(mode)
-        val now = System.currentTimeMillis()
-        val isCacheFresh = cached != null && (now - cached.updatedAtMs) <= CACHE_TTL_MS
+        mode: RefugesRegionPresetMode = RefugesRegionPresetMode.COMPACT_ZONES,
+    ): List<RefugesRegionPreset> =
+        withContext(Dispatchers.IO) {
+            val cached = readCachedPresets(mode)
+            val now = System.currentTimeMillis()
+            val isCacheFresh = cached != null && (now - cached.updatedAtMs) <= CACHE_TTL_MS
 
-        if (!forceRefresh && isCacheFresh) {
-            return@withContext cached.presets
+            if (!forceRefresh && isCacheFresh) {
+                return@withContext cached.presets
+            }
+
+            val remote = runCatching { fetchRemotePresets(mode) }.getOrNull()
+            if (!remote.isNullOrEmpty()) {
+                saveCachedPresets(mode, remote, now)
+                return@withContext remote
+            }
+
+            return@withContext cached?.presets?.takeIf { it.isNotEmpty() } ?: defaultPresets()
         }
-
-        val remote = runCatching { fetchRemotePresets(mode) }.getOrNull()
-        if (!remote.isNullOrEmpty()) {
-            saveCachedPresets(mode, remote, now)
-            return@withContext remote
-        }
-
-        return@withContext cached?.presets?.takeIf { it.isNotEmpty() } ?: defaultPresets()
-    }
 
     private fun fetchRemotePresets(mode: RefugesRegionPresetMode): List<RefugesRegionPreset> {
-        val candidates = when (mode) {
-            RefugesRegionPresetMode.COMPACT_ZONES -> listOf(
-                "$API_ENDPOINT?type_polygon=11&format=geojson",
-                "$API_ENDPOINT?type_polygon=11"
-            )
-            RefugesRegionPresetMode.DETAILED_MASSIFS -> listOf(
-                "$API_ENDPOINT?type_polygon=1&format=geojson",
-                "$API_ENDPOINT?type_polygon=1"
-            )
-        }
+        val candidates =
+            when (mode) {
+                RefugesRegionPresetMode.COMPACT_ZONES ->
+                    listOf(
+                        "$API_ENDPOINT?type_polygon=11&format=geojson",
+                        "$API_ENDPOINT?type_polygon=11",
+                    )
+                RefugesRegionPresetMode.DETAILED_MASSIFS ->
+                    listOf(
+                        "$API_ENDPOINT?type_polygon=1&format=geojson",
+                        "$API_ENDPOINT?type_polygon=1",
+                    )
+            }
 
         candidates.forEach { endpoint ->
             val parsed = runCatching { fetchAndParse(endpoint) }.getOrNull()
@@ -99,13 +104,14 @@ class RefugesRegionPresetRepository(
     }
 
     private fun fetchAndParse(endpoint: String): List<RefugesRegionPreset> {
-        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 12_000
-            readTimeout = 20_000
-            setRequestProperty("Accept", "application/geo+json,application/json")
-            setRequestProperty("User-Agent", "GlanceMap-Companion")
-        }
+        val connection =
+            (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 12_000
+                readTimeout = 20_000
+                setRequestProperty("Accept", "application/geo+json,application/json")
+                setRequestProperty("User-Agent", "GlanceMap-Companion")
+            }
 
         try {
             val status = connection.responseCode
@@ -122,16 +128,18 @@ class RefugesRegionPresetRepository(
         val trimmed = body.trim()
         if (trimmed.isBlank()) return emptyList()
 
-        val rawPresets = when {
-            trimmed.startsWith("{") -> parsePresetsFromObject(JSONObject(trimmed))
-            trimmed.startsWith("[") -> parsePresetsFromArray(JSONArray(trimmed))
-            else -> emptyList()
-        }
+        val rawPresets =
+            when {
+                trimmed.startsWith("{") -> parsePresetsFromObject(JSONObject(trimmed))
+                trimmed.startsWith("[") -> parsePresetsFromArray(JSONArray(trimmed))
+                else -> emptyList()
+            }
 
-        val normalized = rawPresets
-            .mapNotNull { normalizePreset(it.label, it.bbox) }
-            .distinctBy { it.bbox }
-            .sortedBy { it.label.lowercase(Locale.ROOT) }
+        val normalized =
+            rawPresets
+                .mapNotNull { normalizePreset(it.label, it.bbox) }
+                .distinctBy { it.bbox }
+                .sortedBy { it.label.lowercase(Locale.ROOT) }
 
         return if (normalized.isEmpty()) {
             emptyList()
@@ -141,13 +149,14 @@ class RefugesRegionPresetRepository(
     }
 
     private fun parsePresetsFromObject(root: JSONObject): List<RawPreset> {
-        val groups = listOfNotNull(
-            root.optJSONArray("features"),
-            root.optJSONArray("polygones"),
-            root.optJSONArray("polygons"),
-            root.optJSONArray("massifs"),
-            root.optJSONArray("results")
-        )
+        val groups =
+            listOfNotNull(
+                root.optJSONArray("features"),
+                root.optJSONArray("polygones"),
+                root.optJSONArray("polygons"),
+                root.optJSONArray("massifs"),
+                root.optJSONArray("results"),
+            )
 
         if (groups.isNotEmpty()) {
             return groups.flatMap { parsePresetsFromArray(it) }
@@ -170,27 +179,29 @@ class RefugesRegionPresetRepository(
     private fun parsePresetFromNode(node: JSONObject): RawPreset? {
         val properties = node.optJSONObject("properties")
 
-        val label = firstNonBlank(
-            properties?.optString("nom", "").orEmpty(),
-            properties?.optString("name", "").orEmpty(),
-            properties?.optString("titre", "").orEmpty(),
-            properties?.optString("title", "").orEmpty(),
-            properties?.optString("massif", "").orEmpty(),
-            properties?.optString("libelle", "").orEmpty(),
-            node.optString("nom", ""),
-            node.optString("name", ""),
-            node.optString("titre", ""),
-            node.optString("title", "")
-        )
+        val label =
+            firstNonBlank(
+                properties?.optString("nom", "").orEmpty(),
+                properties?.optString("name", "").orEmpty(),
+                properties?.optString("titre", "").orEmpty(),
+                properties?.optString("title", "").orEmpty(),
+                properties?.optString("massif", "").orEmpty(),
+                properties?.optString("libelle", "").orEmpty(),
+                node.optString("nom", ""),
+                node.optString("name", ""),
+                node.optString("titre", ""),
+                node.optString("title", ""),
+            )
         if (label.isBlank()) return null
 
-        val bbox = parseBBoxValue(node.opt("bbox"))
-            ?: parseBBoxValue(properties?.opt("bbox"))
-            ?: parseBBoxFromFields(node)
-            ?: parseBBoxFromFields(properties)
-            ?: computeBBoxFromGeometry(node.optJSONObject("geometry"))
-            ?: computeBBoxFromGeometry(properties?.optJSONObject("geometry"))
-            ?: return null
+        val bbox =
+            parseBBoxValue(node.opt("bbox"))
+                ?: parseBBoxValue(properties?.opt("bbox"))
+                ?: parseBBoxFromFields(node)
+                ?: parseBBoxFromFields(properties)
+                ?: computeBBoxFromGeometry(node.optJSONObject("geometry"))
+                ?: computeBBoxFromGeometry(properties?.optJSONObject("geometry"))
+                ?: return null
 
         return RawPreset(label = label, bbox = bbox)
     }
@@ -227,7 +238,10 @@ class RefugesRegionPresetRepository(
         return formatBbox(bounds.minLon, bounds.minLat, bounds.maxLon, bounds.maxLat)
     }
 
-    private fun scanCoordinates(node: Any?, bounds: MutableBounds) {
+    private fun scanCoordinates(
+        node: Any?,
+        bounds: MutableBounds,
+    ) {
         when (node) {
             is JSONArray -> {
                 if (node.length() >= 2) {
@@ -249,7 +263,7 @@ class RefugesRegionPresetRepository(
         minLon: Double,
         minLat: Double,
         maxLon: Double,
-        maxLat: Double
+        maxLat: Double,
     ): String? {
         if (!minLon.isFinite() || !minLat.isFinite() || !maxLon.isFinite() || !maxLat.isFinite()) return null
         if (minLon >= maxLon || minLat >= maxLat) return null
@@ -265,7 +279,10 @@ class RefugesRegionPresetRepository(
         return String.format(
             Locale.US,
             "%.6f,%.6f,%.6f,%.6f",
-            minLon, minLat, maxLon, maxLat
+            minLon,
+            minLat,
+            maxLon,
+            maxLat,
         )
     }
 
@@ -279,32 +296,40 @@ class RefugesRegionPresetRepository(
         return formatBbox(minLon, minLat, maxLon, maxLat)
     }
 
-    private fun normalizePreset(label: String, bbox: String): RefugesRegionPreset? {
+    private fun normalizePreset(
+        label: String,
+        bbox: String,
+    ): RefugesRegionPreset? {
         val safeLabel = label.trim().ifBlank { return null }
         val safeBbox = normalizeBboxString(bbox) ?: return null
         if (safeLabel.equals("custom", ignoreCase = true)) return null
         return RefugesRegionPreset(label = safeLabel, bbox = safeBbox)
     }
 
-    private fun extractDouble(node: JSONObject, vararg keys: String): Double {
+    private fun extractDouble(
+        node: JSONObject,
+        vararg keys: String,
+    ): Double {
         for (key in keys) {
             if (!node.has(key)) continue
             val raw = node.opt(key)
-            val value = when (raw) {
-                is Number -> raw.toDouble()
-                is String -> raw.trim().toDoubleOrNull()
-                else -> null
-            }
+            val value =
+                when (raw) {
+                    is Number -> raw.toDouble()
+                    is String -> raw.trim().toDoubleOrNull()
+                    else -> null
+                }
             if (value != null && value.isFinite()) return value
         }
         return Double.NaN
     }
 
-    private fun firstNonBlank(vararg values: String): String {
-        return values.firstOrNull { it.isNotBlank() }?.trim().orEmpty()
-    }
+    private fun firstNonBlank(vararg values: String): String = values.firstOrNull { it.isNotBlank() }?.trim().orEmpty()
 
-    private fun readResponseText(stream: java.io.InputStream?, maxBytes: Int): String {
+    private fun readResponseText(
+        stream: java.io.InputStream?,
+        maxBytes: Int,
+    ): String {
         if (stream == null) return ""
         stream.use { input ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -341,51 +366,48 @@ class RefugesRegionPresetRepository(
     private fun saveCachedPresets(
         mode: RefugesRegionPresetMode,
         presets: List<RefugesRegionPreset>,
-        nowMs: Long
+        nowMs: Long,
     ) {
-        val items = presets
-            .filter { it.bbox.isNotBlank() }
-            .distinctBy { it.bbox }
-            .sortedBy { it.label.lowercase(Locale.ROOT) }
+        val items =
+            presets
+                .filter { it.bbox.isNotBlank() }
+                .distinctBy { it.bbox }
+                .sortedBy { it.label.lowercase(Locale.ROOT) }
 
         val json = JSONArray()
         items.forEach { preset ->
             json.put(
                 JSONObject()
                     .put("label", preset.label)
-                    .put("bbox", preset.bbox)
+                    .put("bbox", preset.bbox),
             )
         }
 
-        prefs.edit()
+        prefs
+            .edit()
             .putString(cacheJsonKey(mode), json.toString())
             .putLong(cacheUpdatedAtKey(mode), nowMs)
             .apply()
     }
 
-    private fun cacheJsonKey(mode: RefugesRegionPresetMode): String {
-        return KEY_CACHE_JSON_PREFIX + cacheSuffix(mode)
-    }
+    private fun cacheJsonKey(mode: RefugesRegionPresetMode): String = KEY_CACHE_JSON_PREFIX + cacheSuffix(mode)
 
-    private fun cacheUpdatedAtKey(mode: RefugesRegionPresetMode): String {
-        return KEY_CACHE_UPDATED_AT_MS_PREFIX + cacheSuffix(mode)
-    }
+    private fun cacheUpdatedAtKey(mode: RefugesRegionPresetMode): String = KEY_CACHE_UPDATED_AT_MS_PREFIX + cacheSuffix(mode)
 
-    private fun cacheSuffix(mode: RefugesRegionPresetMode): String {
-        return when (mode) {
+    private fun cacheSuffix(mode: RefugesRegionPresetMode): String =
+        when (mode) {
             RefugesRegionPresetMode.COMPACT_ZONES -> "compact_zones"
             RefugesRegionPresetMode.DETAILED_MASSIFS -> "detailed_massifs"
         }
-    }
 
     private data class RawPreset(
         val label: String,
-        val bbox: String
+        val bbox: String,
     )
 
     private data class CachedPresets(
         val presets: List<RefugesRegionPreset>,
-        val updatedAtMs: Long
+        val updatedAtMs: Long,
     )
 
     private class MutableBounds {
@@ -400,7 +422,10 @@ class RefugesRegionPresetRepository(
         var hasValues: Boolean = false
             private set
 
-        fun add(lon: Double, lat: Double) {
+        fun add(
+            lon: Double,
+            lat: Double,
+        ) {
             minLon = min(minLon, lon)
             minLat = min(minLat, lat)
             maxLon = max(maxLon, lon)

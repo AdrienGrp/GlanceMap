@@ -11,7 +11,7 @@ data class ThemeSelection(
     // Global map-layer toggle used by renderer DEM hillshading layer.
     val hillShadingEnabled: Boolean,
     // Global map-layer toggle used by renderer DEM color relief overlay.
-    val reliefOverlayEnabled: Boolean
+    val reliefOverlayEnabled: Boolean,
 )
 
 interface ThemeRepository {
@@ -28,10 +28,22 @@ interface ThemeRepository {
     fun getThemeSelection(): Flow<ThemeSelection>
 
     suspend fun setTheme(themeId: String)
+
     suspend fun setMapStyle(styleId: String)
-    suspend fun toggleOverlay(styleId: String, overlayId: String)
-    suspend fun setOverlaysForStyle(styleId: String, enabledOverlayLayerIds: Set<String>)
+
+    suspend fun toggleOverlay(
+        styleId: String,
+        overlayId: String,
+    )
+
+    suspend fun setOverlaysForStyle(
+        styleId: String,
+        enabledOverlayLayerIds: Set<String>,
+    )
+
     suspend fun setHillShadingEnabled(enabled: Boolean)
+
     suspend fun setReliefOverlayEnabled(enabled: Boolean)
+
     suspend fun resetToDefaults()
 }

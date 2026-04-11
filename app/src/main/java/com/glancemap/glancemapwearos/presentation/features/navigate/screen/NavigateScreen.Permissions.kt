@@ -21,21 +21,22 @@ import androidx.core.content.ContextCompat
 @Composable
 fun rememberLocationPermissionState(
     context: Context,
-    onPermissionsResult: (Boolean) -> Unit
+    onPermissionsResult: (Boolean) -> Unit,
 ): LocationPermissionState {
     var hasLocationPermission by remember {
         mutableStateOf(hasForegroundLocationPermission(context))
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(),
-        onResult = { permissions ->
-            val fineGranted = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false)
-            val coarseGranted = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
-            hasLocationPermission = fineGranted || coarseGranted
-            onPermissionsResult(hasLocationPermission)
-        }
-    )
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions(),
+            onResult = { permissions ->
+                val fineGranted = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false)
+                val coarseGranted = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
+                hasLocationPermission = fineGranted || coarseGranted
+                onPermissionsResult(hasLocationPermission)
+            },
+        )
 
     return LocationPermissionState(
         hasLocationPermission = hasLocationPermission,
@@ -43,10 +44,10 @@ fun rememberLocationPermissionState(
             permissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ),
             )
-        }
+        },
     )
 }
 
@@ -55,18 +56,20 @@ fun rememberLocationPermissionState(
  */
 data class LocationPermissionState(
     val hasLocationPermission: Boolean,
-    val launchPermissions: () -> Unit
+    val launchPermissions: () -> Unit,
 )
 
 private fun hasForegroundLocationPermission(context: Context): Boolean {
-    val fineGranted = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
-    val coarseGranted = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_COARSE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
+    val fineGranted =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+    val coarseGranted =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
     return fineGranted || coarseGranted
 }
 
@@ -76,7 +79,7 @@ private fun hasForegroundLocationPermission(context: Context): Boolean {
 @Composable
 fun rememberNotificationPermissionState(
     context: Context,
-    onPermissionResult: (Boolean) -> Unit = {}
+    onPermissionResult: (Boolean) -> Unit = {},
 ): NotificationPermissionState {
     // Notification permission is only required on API 33+
     val isPermissionRequired = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
@@ -86,21 +89,22 @@ fun rememberNotificationPermissionState(
             if (isPermissionRequired) {
                 ContextCompat.checkSelfPermission(
                     context,
-                    Manifest.permission.POST_NOTIFICATIONS
+                    Manifest.permission.POST_NOTIFICATIONS,
                 ) == PackageManager.PERMISSION_GRANTED
             } else {
                 true
-            }
+            },
         )
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            hasNotificationPermission = isGranted
-            onPermissionResult(isGranted)
-        }
-    )
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { isGranted ->
+                hasNotificationPermission = isGranted
+                onPermissionResult(isGranted)
+            },
+        )
 
     return NotificationPermissionState(
         hasNotificationPermission = hasNotificationPermission,
@@ -109,7 +113,7 @@ fun rememberNotificationPermissionState(
             if (isPermissionRequired) {
                 permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
-        }
+        },
     )
 }
 
@@ -119,5 +123,5 @@ fun rememberNotificationPermissionState(
 data class NotificationPermissionState(
     val hasNotificationPermission: Boolean,
     val isPermissionRequired: Boolean,
-    val launchPermissionRequest: () -> Unit
+    val launchPermissionRequest: () -> Unit,
 )

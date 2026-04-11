@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BRouterTileDownloaderTest {
-
     @Test
     fun `computes overall routing progress within download range`() {
         assertEquals(0, overallRoutingDownloadProgress(stepIndex = 0, totalSteps = 1, stepFraction = 0.0))

@@ -6,48 +6,51 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class CompassManagerMathTest {
-
     @Test
     fun resolveHeadingPipelineAutoPrefersHeadingSensor() {
-        val pipeline = resolveHeadingPipeline(
-            mode = CompassHeadingSourceMode.AUTO,
-            headingSensorAvailable = true,
-            rotationVectorAvailable = true,
-            magAccelFallbackAvailable = true
-        )
+        val pipeline =
+            resolveHeadingPipeline(
+                mode = CompassHeadingSourceMode.AUTO,
+                headingSensorAvailable = true,
+                rotationVectorAvailable = true,
+                magAccelFallbackAvailable = true,
+            )
         assertEquals(HeadingPipeline.HEADING_SENSOR, pipeline)
     }
 
     @Test
     fun resolveHeadingPipelineExplicitHeadingDoesNotSilentlyFallback() {
-        val pipeline = resolveHeadingPipeline(
-            mode = CompassHeadingSourceMode.TYPE_HEADING,
-            headingSensorAvailable = false,
-            rotationVectorAvailable = true,
-            magAccelFallbackAvailable = true
-        )
+        val pipeline =
+            resolveHeadingPipeline(
+                mode = CompassHeadingSourceMode.TYPE_HEADING,
+                headingSensorAvailable = false,
+                rotationVectorAvailable = true,
+                magAccelFallbackAvailable = true,
+            )
         assertEquals(HeadingPipeline.NONE, pipeline)
     }
 
     @Test
     fun resolveHeadingPipelineExplicitRotationVectorDoesNotSilentlyFallback() {
-        val pipeline = resolveHeadingPipeline(
-            mode = CompassHeadingSourceMode.ROTATION_VECTOR,
-            headingSensorAvailable = true,
-            rotationVectorAvailable = false,
-            magAccelFallbackAvailable = true
-        )
+        val pipeline =
+            resolveHeadingPipeline(
+                mode = CompassHeadingSourceMode.ROTATION_VECTOR,
+                headingSensorAvailable = true,
+                rotationVectorAvailable = false,
+                magAccelFallbackAvailable = true,
+            )
         assertEquals(HeadingPipeline.NONE, pipeline)
     }
 
     @Test
     fun resolveHeadingPipelineExplicitMagnetometerDoesNotSilentlyFallback() {
-        val pipeline = resolveHeadingPipeline(
-            mode = CompassHeadingSourceMode.MAGNETOMETER,
-            headingSensorAvailable = true,
-            rotationVectorAvailable = true,
-            magAccelFallbackAvailable = false
-        )
+        val pipeline =
+            resolveHeadingPipeline(
+                mode = CompassHeadingSourceMode.MAGNETOMETER,
+                headingSensorAvailable = true,
+                rotationVectorAvailable = true,
+                magAccelFallbackAvailable = false,
+            )
         assertEquals(HeadingPipeline.NONE, pipeline)
     }
 
@@ -65,28 +68,31 @@ class CompassManagerMathTest {
 
     @Test
     fun inferHeadingAccuracyCapsFastTurnAtMediumWhenNoiseIsLow() {
-        val inferred = inferHeadingAccuracy(
-            noiseDeg = 0.8f,
-            turnRateDegPerSec = 80f
-        )
+        val inferred =
+            inferHeadingAccuracy(
+                noiseDeg = 0.8f,
+                turnRateDegPerSec = 80f,
+            )
         assertEquals(SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM, inferred)
     }
 
     @Test
     fun inferHeadingAccuracyKeepsFastTurnLowWhenNoiseIsHigh() {
-        val inferred = inferHeadingAccuracy(
-            noiseDeg = 7.2f,
-            turnRateDegPerSec = 80f
-        )
+        val inferred =
+            inferHeadingAccuracy(
+                noiseDeg = 7.2f,
+                turnRateDegPerSec = 80f,
+            )
         assertEquals(SensorManager.SENSOR_STATUS_ACCURACY_LOW, inferred)
     }
 
     @Test
     fun inferHeadingAccuracyAllowsModeratelyFastTurnWhenNoiseIsLow() {
-        val inferred = inferHeadingAccuracy(
-            noiseDeg = 0.8f,
-            turnRateDegPerSec = 65f
-        )
+        val inferred =
+            inferHeadingAccuracy(
+                noiseDeg = 0.8f,
+                turnRateDegPerSec = 65f,
+            )
         assertEquals(SensorManager.SENSOR_STATUS_ACCURACY_HIGH, inferred)
     }
 
@@ -94,127 +100,138 @@ class CompassManagerMathTest {
     fun inferHeadingAccuracyUsesRelaxedNoiseThresholds() {
         assertEquals(
             SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
-            inferHeadingAccuracy(noiseDeg = 2.9f, turnRateDegPerSec = 0f)
+            inferHeadingAccuracy(noiseDeg = 2.9f, turnRateDegPerSec = 0f),
         )
         assertEquals(
             SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-            inferHeadingAccuracy(noiseDeg = 5.3f, turnRateDegPerSec = 0f)
+            inferHeadingAccuracy(noiseDeg = 5.3f, turnRateDegPerSec = 0f),
         )
         assertEquals(
             SensorManager.SENSOR_STATUS_ACCURACY_LOW,
-            inferHeadingAccuracy(noiseDeg = 8.7f, turnRateDegPerSec = 0f)
+            inferHeadingAccuracy(noiseDeg = 8.7f, turnRateDegPerSec = 0f),
         )
     }
 
     @Test
     fun combineCompassAccuracyUpgradesRotVecWhenSensorUnavailable() {
-        val combined = combineCompassAccuracy(
-            sensorAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
-            inferredAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
-            usingRotationVector = true
-        )
+        val combined =
+            combineCompassAccuracy(
+                sensorAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                inferredAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
+                usingRotationVector = true,
+            )
         assertEquals(SensorManager.SENSOR_STATUS_ACCURACY_LOW, combined)
     }
 
     @Test
     fun combineCompassAccuracyUsesWeakerSignalWhenBothPresent() {
-        val combined = combineCompassAccuracy(
-            sensorAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
-            inferredAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-            usingRotationVector = true
-        )
+        val combined =
+            combineCompassAccuracy(
+                sensorAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
+                inferredAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
+                usingRotationVector = true,
+            )
         assertEquals(SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM, combined)
     }
 
     @Test
     fun combineCompassAccuracyCapsAtLowWhenMagneticInterferenceDetected() {
-        val combined = combineCompassAccuracy(
-            sensorAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
-            inferredAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
-            usingRotationVector = true,
-            hasMagneticInterference = true
-        )
+        val combined =
+            combineCompassAccuracy(
+                sensorAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
+                inferredAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
+                usingRotationVector = true,
+                hasMagneticInterference = true,
+            )
         assertEquals(SensorManager.SENSOR_STATUS_ACCURACY_LOW, combined)
     }
 
     @Test
     fun combineCompassAccuracyKeepsLowWhenInferenceDropsButSensorStillGood() {
-        val combined = combineCompassAccuracy(
-            sensorAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
-            inferredAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
-            usingRotationVector = true
-        )
+        val combined =
+            combineCompassAccuracy(
+                sensorAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
+                inferredAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                usingRotationVector = true,
+            )
         assertEquals(SensorManager.SENSOR_STATUS_ACCURACY_LOW, combined)
     }
 
     @Test
     fun combineCompassAccuracyStaysUnreliableWhenBothSignalsAreUnreliable() {
-        val combined = combineCompassAccuracy(
-            sensorAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
-            inferredAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
-            usingRotationVector = true
-        )
+        val combined =
+            combineCompassAccuracy(
+                sensorAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                inferredAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                usingRotationVector = true,
+            )
         assertEquals(SensorManager.SENSOR_STATUS_UNRELIABLE, combined)
     }
 
     @Test
     fun headingWithNorthReferenceAppliesDeclinationInTrueMode() {
-        val heading = headingWithNorthReference(
-            azimuthDeg = 350f,
-            declinationDeg = 12f,
-            northReferenceMode = NorthReferenceMode.TRUE
-        )
+        val heading =
+            headingWithNorthReference(
+                azimuthDeg = 350f,
+                declinationDeg = 12f,
+                northReferenceMode = NorthReferenceMode.TRUE,
+            )
         assertEquals(2f, heading, 0.0001f)
     }
 
     @Test
     fun headingWithNorthReferenceSkipsDeclinationInMagneticMode() {
-        val heading = headingWithNorthReference(
-            azimuthDeg = 350f,
-            declinationDeg = 12f,
-            northReferenceMode = NorthReferenceMode.MAGNETIC
-        )
+        val heading =
+            headingWithNorthReference(
+                azimuthDeg = 350f,
+                declinationDeg = 12f,
+                northReferenceMode = NorthReferenceMode.MAGNETIC,
+            )
         assertEquals(350f, heading, 0.0001f)
     }
 
     @Test
     fun remapHeadingForNorthReferenceSwitchAddsDeclinationWhenSwitchingToTrue() {
-        val heading = remapHeadingForNorthReferenceSwitch(
-            currentHeadingDeg = 350f,
-            fromMode = NorthReferenceMode.MAGNETIC,
-            toMode = NorthReferenceMode.TRUE,
-            declinationDeg = 12f
-        )
+        val heading =
+            remapHeadingForNorthReferenceSwitch(
+                currentHeadingDeg = 350f,
+                fromMode = NorthReferenceMode.MAGNETIC,
+                toMode = NorthReferenceMode.TRUE,
+                declinationDeg = 12f,
+            )
         assertEquals(2f, heading, 0.0001f)
     }
 
     @Test
     fun remapHeadingForNorthReferenceSwitchSubtractsDeclinationWhenSwitchingToMagnetic() {
-        val heading = remapHeadingForNorthReferenceSwitch(
-            currentHeadingDeg = 2f,
-            fromMode = NorthReferenceMode.TRUE,
-            toMode = NorthReferenceMode.MAGNETIC,
-            declinationDeg = 12f
-        )
+        val heading =
+            remapHeadingForNorthReferenceSwitch(
+                currentHeadingDeg = 2f,
+                fromMode = NorthReferenceMode.TRUE,
+                toMode = NorthReferenceMode.MAGNETIC,
+                declinationDeg = 12f,
+            )
         assertEquals(350f, heading, 0.0001f)
     }
 
     @Test
     fun deadbandConvergenceAlphaNudgesOnlyWhenStableAndInsideDeadband() {
-        val enabled = deadbandConvergenceAlpha(
-            diffDeg = 0.5f,
-            minDeltaDeg = 0.9f,
-            isFastTurn = false,
-            isModerateTurn = false,
-            isNoisy = false
-        )
-        val disabledByTurn = deadbandConvergenceAlpha(
-            diffDeg = 0.5f,
-            minDeltaDeg = 0.9f,
-            isFastTurn = true,
-            isModerateTurn = false,
-            isNoisy = false
-        )
+        val enabled =
+            deadbandConvergenceAlpha(
+                diffDeg = 0.5f,
+                minDeltaDeg = 0.9f,
+                isFastTurn = false,
+                isModerateTurn = false,
+                isNoisy = false,
+            )
+        val disabledByTurn =
+            deadbandConvergenceAlpha(
+                diffDeg = 0.5f,
+                minDeltaDeg = 0.9f,
+                isFastTurn = true,
+                isModerateTurn = false,
+                isNoisy = false,
+            )
         assertEquals(0.08f, enabled, 0.0001f)
         assertEquals(0f, disabledByTurn, 0.0001f)
     }
@@ -223,61 +240,65 @@ class CompassManagerMathTest {
     fun headingAccuracyFromUncertaintyMapsExpectedBands() {
         assertEquals(
             SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
-            headingAccuracyFromUncertainty(6f)
+            headingAccuracyFromUncertainty(6f),
         )
         assertEquals(
             SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-            headingAccuracyFromUncertainty(12f)
+            headingAccuracyFromUncertainty(12f),
         )
         assertEquals(
             SensorManager.SENSOR_STATUS_ACCURACY_LOW,
-            headingAccuracyFromUncertainty(22f)
+            headingAccuracyFromUncertainty(22f),
         )
         assertEquals(
             SensorManager.SENSOR_STATUS_UNRELIABLE,
-            headingAccuracyFromUncertainty(45f)
+            headingAccuracyFromUncertainty(45f),
         )
     }
 
     @Test
     fun resolveLargeJumpActionAcceptsImmediatelyDuringRelock() {
-        val action = resolveLargeJumpAction(
-            jumpDeg = 140f,
-            inRelock = true,
-            hasPendingLargeJump = false,
-            pendingDeltaDeg = Float.NaN
-        )
+        val action =
+            resolveLargeJumpAction(
+                jumpDeg = 140f,
+                inRelock = true,
+                hasPendingLargeJump = false,
+                pendingDeltaDeg = Float.NaN,
+            )
         assertEquals(LargeJumpAction.ACCEPT_IMMEDIATE, action)
     }
 
     @Test
     fun resolveLargeJumpActionRequiresCoherentConfirmationOutsideRelock() {
-        val confirmed = resolveLargeJumpAction(
-            jumpDeg = 140f,
-            inRelock = false,
-            hasPendingLargeJump = true,
-            pendingDeltaDeg = 20f
-        )
-        val rejected = resolveLargeJumpAction(
-            jumpDeg = 140f,
-            inRelock = false,
-            hasPendingLargeJump = true,
-            pendingDeltaDeg = 60f
-        )
+        val confirmed =
+            resolveLargeJumpAction(
+                jumpDeg = 140f,
+                inRelock = false,
+                hasPendingLargeJump = true,
+                pendingDeltaDeg = 20f,
+            )
+        val rejected =
+            resolveLargeJumpAction(
+                jumpDeg = 140f,
+                inRelock = false,
+                hasPendingLargeJump = true,
+                pendingDeltaDeg = 60f,
+            )
         assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, confirmed)
         assertEquals(LargeJumpAction.REJECT_PENDING, rejected)
     }
 
     @Test
     fun resolveStartupTransientActionFirstSampleAwaitsConfirmation() {
-        val decision = resolveStartupTransientAction(
-            rawDeg = 48f,
-            candidateHeadingDeg = null,
-            remainingSamplesToIgnore = 2,
-            withinStartupWindow = true,
-            usingRotationVector = true,
-            hasInit = false
-        )
+        val decision =
+            resolveStartupTransientAction(
+                rawDeg = 48f,
+                candidateHeadingDeg = null,
+                remainingSamplesToIgnore = 2,
+                withinStartupWindow = true,
+                usingRotationVector = true,
+                hasInit = false,
+            )
         require(decision != null)
         assertEquals(StartupTransientAction.IGNORE_AWAIT_CONFIRMATION, decision.action)
         assertEquals(48f, decision.nextCandidateHeadingDeg!!, 0.0001f)
@@ -287,14 +308,15 @@ class CompassManagerMathTest {
 
     @Test
     fun resolveStartupTransientActionAcceptsConfirmedSample() {
-        val decision = resolveStartupTransientAction(
-            rawDeg = 60f,
-            candidateHeadingDeg = 48f,
-            remainingSamplesToIgnore = 1,
-            withinStartupWindow = true,
-            usingRotationVector = true,
-            hasInit = false
-        )
+        val decision =
+            resolveStartupTransientAction(
+                rawDeg = 60f,
+                candidateHeadingDeg = 48f,
+                remainingSamplesToIgnore = 1,
+                withinStartupWindow = true,
+                usingRotationVector = true,
+                hasInit = false,
+            )
         require(decision != null)
         assertEquals(StartupTransientAction.ACCEPT_CONFIRMED, decision.action)
         assertNull(decision.nextCandidateHeadingDeg)
@@ -304,14 +326,15 @@ class CompassManagerMathTest {
 
     @Test
     fun resolveStartupTransientActionReplacesCandidateWhenStillUnconfirmed() {
-        val decision = resolveStartupTransientAction(
-            rawDeg = 200f,
-            candidateHeadingDeg = 48f,
-            remainingSamplesToIgnore = 2,
-            withinStartupWindow = true,
-            usingRotationVector = true,
-            hasInit = false
-        )
+        val decision =
+            resolveStartupTransientAction(
+                rawDeg = 200f,
+                candidateHeadingDeg = 48f,
+                remainingSamplesToIgnore = 2,
+                withinStartupWindow = true,
+                usingRotationVector = true,
+                hasInit = false,
+            )
         require(decision != null)
         assertEquals(StartupTransientAction.IGNORE_REPLACE_CANDIDATE, decision.action)
         assertEquals(200f, decision.nextCandidateHeadingDeg!!, 0.0001f)
@@ -321,14 +344,15 @@ class CompassManagerMathTest {
 
     @Test
     fun resolveStartupTransientActionStopsFilteringAfterBudgetExpires() {
-        val decision = resolveStartupTransientAction(
-            rawDeg = 200f,
-            candidateHeadingDeg = 48f,
-            remainingSamplesToIgnore = 1,
-            withinStartupWindow = true,
-            usingRotationVector = true,
-            hasInit = false
-        )
+        val decision =
+            resolveStartupTransientAction(
+                rawDeg = 200f,
+                candidateHeadingDeg = 48f,
+                remainingSamplesToIgnore = 1,
+                withinStartupWindow = true,
+                usingRotationVector = true,
+                hasInit = false,
+            )
         require(decision != null)
         assertEquals(StartupTransientAction.ACCEPT_FORCED, decision.action)
         assertNull(decision.nextCandidateHeadingDeg)
@@ -338,36 +362,40 @@ class CompassManagerMathTest {
 
     @Test
     fun shouldMaskStartupHeadingPublishOnlyWhenLargeJumpDuringWarmup() {
-        val masked = shouldMaskStartupHeadingPublish(
-            candidateHeadingDeg = 42f,
-            displayedHeadingDeg = 20f,
-            remainingPublishesToMask = 2,
-            withinMaskWindow = true
-        )
-        val notMaskedSmallDelta = shouldMaskStartupHeadingPublish(
-            candidateHeadingDeg = 24f,
-            displayedHeadingDeg = 20f,
-            remainingPublishesToMask = 2,
-            withinMaskWindow = true
-        )
+        val masked =
+            shouldMaskStartupHeadingPublish(
+                candidateHeadingDeg = 42f,
+                displayedHeadingDeg = 20f,
+                remainingPublishesToMask = 2,
+                withinMaskWindow = true,
+            )
+        val notMaskedSmallDelta =
+            shouldMaskStartupHeadingPublish(
+                candidateHeadingDeg = 24f,
+                displayedHeadingDeg = 20f,
+                remainingPublishesToMask = 2,
+                withinMaskWindow = true,
+            )
         assertEquals(true, masked)
         assertEquals(false, notMaskedSmallDelta)
     }
 
     @Test
     fun shouldMaskStartupHeadingPublishStopsOutsideWindowOrBudget() {
-        val noBudget = shouldMaskStartupHeadingPublish(
-            candidateHeadingDeg = 42f,
-            displayedHeadingDeg = 20f,
-            remainingPublishesToMask = 0,
-            withinMaskWindow = true
-        )
-        val outOfWindow = shouldMaskStartupHeadingPublish(
-            candidateHeadingDeg = 42f,
-            displayedHeadingDeg = 20f,
-            remainingPublishesToMask = 2,
-            withinMaskWindow = false
-        )
+        val noBudget =
+            shouldMaskStartupHeadingPublish(
+                candidateHeadingDeg = 42f,
+                displayedHeadingDeg = 20f,
+                remainingPublishesToMask = 0,
+                withinMaskWindow = true,
+            )
+        val outOfWindow =
+            shouldMaskStartupHeadingPublish(
+                candidateHeadingDeg = 42f,
+                displayedHeadingDeg = 20f,
+                remainingPublishesToMask = 2,
+                withinMaskWindow = false,
+            )
         assertEquals(false, noBudget)
         assertEquals(false, outOfWindow)
     }
@@ -379,27 +407,27 @@ class CompassManagerMathTest {
             resolveHeadingSmoothingMinDelta(
                 isFastTurn = false,
                 isModerateTurn = false,
-                isNoisy = false
+                isNoisy = false,
             ),
-            0.0001f
+            0.0001f,
         )
         assertEquals(
             0.6f,
             resolveHeadingSmoothingMinDelta(
                 isFastTurn = false,
                 isModerateTurn = true,
-                isNoisy = false
+                isNoisy = false,
             ),
-            0.0001f
+            0.0001f,
         )
         assertEquals(
             0.35f,
             resolveHeadingSmoothingMinDelta(
                 isFastTurn = true,
                 isModerateTurn = false,
-                isNoisy = false
+                isNoisy = false,
             ),
-            0.0001f
+            0.0001f,
         )
     }
 
@@ -411,9 +439,9 @@ class CompassManagerMathTest {
                 diffDeg = 10f,
                 isFastTurn = false,
                 isModerateTurn = false,
-                isNoisy = false
+                isNoisy = false,
             ),
-            0.0001f
+            0.0001f,
         )
         assertEquals(
             0.28f,
@@ -421,9 +449,9 @@ class CompassManagerMathTest {
                 diffDeg = 10f,
                 isFastTurn = false,
                 isModerateTurn = true,
-                isNoisy = false
+                isNoisy = false,
             ),
-            0.0001f
+            0.0001f,
         )
         assertEquals(
             0.54f,
@@ -431,73 +459,80 @@ class CompassManagerMathTest {
                 diffDeg = 10f,
                 isFastTurn = true,
                 isModerateTurn = false,
-                isNoisy = false
+                isNoisy = false,
             ),
-            0.0001f
+            0.0001f,
         )
     }
 
     @Test
     fun stepMagneticInterferenceStartupGraceResetsBaseline() {
-        val state = MagneticInterferenceState(
-            strengthUt = 62f,
-            emaUt = 61f,
-            holdUntilElapsedMs = 50_000L,
-            detected = true
-        )
-        val duringGrace = stepMagneticInterferenceState(
-            state = state,
-            strengthUt = 68f,
-            nowElapsedMs = 10_000L,
-            startupGraceUntilElapsedMs = 11_000L
-        )
+        val state =
+            MagneticInterferenceState(
+                strengthUt = 62f,
+                emaUt = 61f,
+                holdUntilElapsedMs = 50_000L,
+                detected = true,
+            )
+        val duringGrace =
+            stepMagneticInterferenceState(
+                state = state,
+                strengthUt = 68f,
+                nowElapsedMs = 10_000L,
+                startupGraceUntilElapsedMs = 11_000L,
+            )
         assertEquals(false, duringGrace.state.strengthUt.isFinite())
         assertEquals(false, duringGrace.state.emaUt.isFinite())
         assertEquals(0L, duringGrace.state.holdUntilElapsedMs)
         assertEquals(false, duringGrace.state.detected)
 
         // First sample after grace must not trigger a synthetic spike against grace-era values.
-        val firstAfterGrace = stepMagneticInterferenceState(
-            state = duringGrace.state,
-            strengthUt = 34f,
-            nowElapsedMs = 11_100L,
-            startupGraceUntilElapsedMs = 11_000L
-        )
+        val firstAfterGrace =
+            stepMagneticInterferenceState(
+                state = duringGrace.state,
+                strengthUt = 34f,
+                nowElapsedMs = 11_100L,
+                startupGraceUntilElapsedMs = 11_000L,
+            )
         assertEquals(false, firstAfterGrace.state.detected)
         assertEquals(0f, firstAfterGrace.deltaUt, 0.0001f)
     }
 
     @Test
     fun stepMagneticInterferenceMaintainsHoldAndClearsAfterExpiry() {
-        val initial = MagneticInterferenceState(
-            strengthUt = 40f,
-            emaUt = 40f,
-            holdUntilElapsedMs = 0L,
-            detected = false
-        )
-        val spike = stepMagneticInterferenceState(
-            state = initial,
-            strengthUt = 70f,
-            nowElapsedMs = 1_000L,
-            startupGraceUntilElapsedMs = 0L
-        )
+        val initial =
+            MagneticInterferenceState(
+                strengthUt = 40f,
+                emaUt = 40f,
+                holdUntilElapsedMs = 0L,
+                detected = false,
+            )
+        val spike =
+            stepMagneticInterferenceState(
+                state = initial,
+                strengthUt = 70f,
+                nowElapsedMs = 1_000L,
+                startupGraceUntilElapsedMs = 0L,
+            )
         assertEquals(true, spike.state.detected)
         assertEquals("spike", spike.reason)
 
-        val held = stepMagneticInterferenceState(
-            state = spike.state,
-            strengthUt = 71f,
-            nowElapsedMs = 2_000L,
-            startupGraceUntilElapsedMs = 0L
-        )
+        val held =
+            stepMagneticInterferenceState(
+                state = spike.state,
+                strengthUt = 71f,
+                nowElapsedMs = 2_000L,
+                startupGraceUntilElapsedMs = 0L,
+            )
         assertEquals(true, held.state.detected)
 
-        val afterHold = stepMagneticInterferenceState(
-            state = held.state,
-            strengthUt = 71f,
-            nowElapsedMs = 4_200L,
-            startupGraceUntilElapsedMs = 0L
-        )
+        val afterHold =
+            stepMagneticInterferenceState(
+                state = held.state,
+                strengthUt = 71f,
+                nowElapsedMs = 4_200L,
+                startupGraceUntilElapsedMs = 0L,
+            )
         assertEquals(false, afterHold.state.detected)
         assertEquals("hold_expired", afterHold.reason)
     }

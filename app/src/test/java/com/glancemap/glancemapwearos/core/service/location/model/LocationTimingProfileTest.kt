@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class LocationTimingProfileTest {
-
     @Test
     fun oneSecondIntervalTightensPredictionAndFreshnessWindows() {
         val profile = resolveLocationTimingProfile(1_000L)

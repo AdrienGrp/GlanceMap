@@ -22,14 +22,14 @@ internal data class PerformanceLogcatSummary(
     val gcMaxDurationMs: Long = 0L,
     val gcTotalDurationMs: Long = 0L,
     val gcMaxFreedKb: Long = 0L,
-    val resourceCloseWarningCount: Int = 0
+    val resourceCloseWarningCount: Int = 0,
 )
 
 internal data class LogcatSnapshot(
     val pid: Int,
     val lines: List<String>,
     val totalReadLines: Int,
-    val captureError: String?
+    val captureError: String?,
 ) {
     val truncated: Boolean
         get() = totalReadLines > lines.size
@@ -54,7 +54,8 @@ internal fun summarizePerformanceFromLogcat(lines: List<String>): PerformanceLog
         if (line.contains("skipframe too frequentlly", ignoreCase = true)) {
             skippedFrameWarningCount += 1
         }
-        skippedFramesRegex.find(line)
+        skippedFramesRegex
+            .find(line)
             ?.groupValues
             ?.getOrNull(1)
             ?.toIntOrNull()
@@ -62,7 +63,8 @@ internal fun summarizePerformanceFromLogcat(lines: List<String>): PerformanceLog
                 skippedFrameEventCount += 1
                 skippedFramesMax = maxOf(skippedFramesMax, skipped)
             }
-        daveyDurationRegex.find(line)
+        daveyDurationRegex
+            .find(line)
             ?.groupValues
             ?.getOrNull(1)
             ?.toLongOrNull()
@@ -76,7 +78,7 @@ internal fun summarizePerformanceFromLogcat(lines: List<String>): PerformanceLog
             gcDurationRegex.find(line)?.let { match ->
                 parseDurationMs(
                     rawValue = match.groupValues[1],
-                    unit = match.groupValues[2]
+                    unit = match.groupValues[2],
                 )?.let { durationMs ->
                     gcTotalDurationMs += durationMs
                     gcMaxDurationMs = maxOf(gcMaxDurationMs, durationMs)
@@ -85,7 +87,7 @@ internal fun summarizePerformanceFromLogcat(lines: List<String>): PerformanceLog
             gcFreedRegex.find(line)?.let { match ->
                 parseSizeKb(
                     rawValue = match.groupValues[1],
-                    unit = match.groupValues[2]
+                    unit = match.groupValues[2],
                 )?.let { freedKb ->
                     gcMaxFreedKb = maxOf(gcMaxFreedKb, freedKb)
                 }
@@ -107,21 +109,28 @@ internal fun summarizePerformanceFromLogcat(lines: List<String>): PerformanceLog
         gcMaxDurationMs = gcMaxDurationMs,
         gcTotalDurationMs = gcTotalDurationMs,
         gcMaxFreedKb = gcMaxFreedKb,
-        resourceCloseWarningCount = resourceCloseWarningCount
+        resourceCloseWarningCount = resourceCloseWarningCount,
     )
 }
 
-private fun parseDurationMs(rawValue: String, unit: String): Long? {
+private fun parseDurationMs(
+    rawValue: String,
+    unit: String,
+): Long? {
     val value = rawValue.toDoubleOrNull() ?: return null
-    val millis = when (unit.lowercase(Locale.US)) {
-        "ms" -> value
-        "s" -> value * 1000.0
-        else -> return null
-    }
+    val millis =
+        when (unit.lowercase(Locale.US)) {
+            "ms" -> value
+            "s" -> value * 1000.0
+            else -> return null
+        }
     return millis.roundToLong()
 }
 
-private fun parseSizeKb(rawValue: String, unit: String): Long? {
+private fun parseSizeKb(
+    rawValue: String,
+    unit: String,
+): Long? {
     val value = rawValue.toLongOrNull() ?: return null
     return when (unit.uppercase(Locale.US)) {
         "KB" -> value
@@ -133,22 +142,24 @@ private fun parseSizeKb(rawValue: String, unit: String): Long? {
 
 internal fun captureAppLogcat(capturedAt: Instant): LogcatSnapshot {
     val pid = android.os.Process.myPid()
-    val primary = runLogcatCapture(
-        command = listOf("logcat", "-d", "-v", "threadtime", "--pid=$pid"),
-        pidFilter = null,
-        pid = pid,
-        capturedAt = capturedAt
-    )
+    val primary =
+        runLogcatCapture(
+            command = listOf("logcat", "-d", "-v", "threadtime", "--pid=$pid"),
+            pidFilter = null,
+            pid = pid,
+            capturedAt = capturedAt,
+        )
     if (primary.lines.isNotEmpty() || primary.captureError == null) {
         return primary
     }
 
-    val fallback = runLogcatCapture(
-        command = listOf("logcat", "-d", "-v", "threadtime"),
-        pidFilter = pid,
-        pid = pid,
-        capturedAt = capturedAt
-    )
+    val fallback =
+        runLogcatCapture(
+            command = listOf("logcat", "-d", "-v", "threadtime"),
+            pidFilter = pid,
+            pid = pid,
+            capturedAt = capturedAt,
+        )
     if (fallback.lines.isNotEmpty() || fallback.captureError == null) {
         return fallback
     }
@@ -161,12 +172,13 @@ private fun runLogcatCapture(
     command: List<String>,
     pidFilter: Int?,
     pid: Int,
-    capturedAt: Instant
+    capturedAt: Instant,
 ): LogcatSnapshot {
     return runCatching {
-        val process = ProcessBuilder(command)
-            .redirectErrorStream(true)
-            .start()
+        val process =
+            ProcessBuilder(command)
+                .redirectErrorStream(true)
+                .start()
 
         val ringBuffer = ArrayDeque<String>(MAX_DIAGNOSTICS_LOGCAT_LINES)
         var totalReadLines = 0
@@ -185,8 +197,8 @@ private fun runLogcatCapture(
                     normalizeThreadtimeLogcatLine(
                         line = line,
                         capturedAt = capturedAt,
-                        zoneId = ZoneId.systemDefault()
-                    )
+                        zoneId = ZoneId.systemDefault(),
+                    ),
                 )
             }
         }
@@ -197,19 +209,22 @@ private fun runLogcatCapture(
             pid = pid,
             lines = ringBuffer.toList(),
             totalReadLines = totalReadLines,
-            captureError = error
+            captureError = error,
         )
     }.getOrElse { throwable ->
         LogcatSnapshot(
             pid = pid,
             lines = emptyList(),
             totalReadLines = 0,
-            captureError = throwable.javaClass.simpleName
+            captureError = throwable.javaClass.simpleName,
         )
     }
 }
 
-private fun matchesThreadtimePid(line: String, expectedPid: Int): Boolean {
+private fun matchesThreadtimePid(
+    line: String,
+    expectedPid: Int,
+): Boolean {
     val tokens = line.trim().split(Regex("\\s+"), limit = 4)
     if (tokens.size < 3) return false
     return tokens[2] == expectedPid.toString()

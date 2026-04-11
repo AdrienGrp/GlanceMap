@@ -13,16 +13,17 @@ class RotatableMarker(
     latLong: LatLong,
     bitmap: org.mapsforge.core.graphics.Bitmap,
     horizontalOffset: Int,
-    verticalOffset: Int
+    verticalOffset: Int,
 ) : Marker(latLong, bitmap, horizontalOffset, verticalOffset) {
-
     var heading: Float = 0f
         set(value) {
             field = ((value % 360f) + 360f) % 360f
         }
 
     @Volatile private var cachedZoom: Byte = (-1).toByte()
+
     @Volatile private var cachedTileSize: Int = -1
+
     @Volatile private var cachedMapSize: Long = 0L
 
     override fun draw(
@@ -30,7 +31,7 @@ class RotatableMarker(
         zoomLevel: Byte,
         canvas: Canvas,
         topLeft: Point,
-        mapViewRotation: Rotation
+        mapViewRotation: Rotation,
     ) {
         if (!isVisible) return
 
@@ -61,7 +62,10 @@ class RotatableMarker(
         canvas.restore()
     }
 
-    private fun getCachedMapSize(zoomLevel: Byte, tileSize: Int): Long {
+    private fun getCachedMapSize(
+        zoomLevel: Byte,
+        tileSize: Int,
+    ): Long {
         if (cachedZoom != zoomLevel || cachedTileSize != tileSize) {
             cachedZoom = zoomLevel
             cachedTileSize = tileSize

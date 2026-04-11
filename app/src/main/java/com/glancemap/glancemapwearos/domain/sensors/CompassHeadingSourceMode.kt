@@ -4,5 +4,5 @@ enum class CompassHeadingSourceMode {
     AUTO,
     TYPE_HEADING,
     ROTATION_VECTOR,
-    MAGNETOMETER
+    MAGNETOMETER,
 }
