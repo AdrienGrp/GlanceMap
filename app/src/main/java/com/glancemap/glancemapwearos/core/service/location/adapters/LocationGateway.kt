@@ -6,7 +6,7 @@ import com.glancemap.glancemapwearos.core.service.location.policy.LocationSource
 internal data class CurrentLocationRequestParams(
     val priority: Int,
     val maxUpdateAgeMs: Long,
-    val durationMs: Long
+    val durationMs: Long,
 )
 
 internal data class LocationUpdateRequestParams(
@@ -14,7 +14,7 @@ internal data class LocationUpdateRequestParams(
     val intervalMs: Long,
     val minDistanceMeters: Float,
     val waitForAccurateLocation: Boolean,
-    val maxUpdateDelayMs: Long
+    val maxUpdateDelayMs: Long,
 )
 
 internal data class LocationUpdateEvent(
@@ -22,7 +22,7 @@ internal data class LocationUpdateEvent(
     val candidates: List<Location>,
     val lastCandidate: Location? = null,
     val rawCandidateCount: Int = candidates.size,
-    val duplicateCandidatesDropped: Int = 0
+    val duplicateCandidatesDropped: Int = 0,
 )
 
 internal interface LocationUpdateSink {
@@ -38,7 +38,7 @@ internal interface LocationGateway {
 
     suspend fun requestLocationUpdates(
         request: LocationUpdateRequestParams,
-        sink: LocationUpdateSink
+        sink: LocationUpdateSink,
     )
 
     suspend fun removeLocationUpdates()

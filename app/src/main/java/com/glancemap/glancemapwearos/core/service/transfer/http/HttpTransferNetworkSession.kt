@@ -13,7 +13,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.coroutineContext
 
 internal class HttpTransferNetworkSession(
-    private val connectivityManager: ConnectivityManager
+    private val connectivityManager: ConnectivityManager,
 ) {
     private var callback: ConnectivityManager.NetworkCallback? = null
 
@@ -45,7 +45,10 @@ internal class HttpTransferNetworkSession(
         return caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
     }
 
-    suspend fun waitForWifiReconnect(timeoutMs: Long, recheckMs: Long): Network? {
+    suspend fun waitForWifiReconnect(
+        timeoutMs: Long,
+        recheckMs: Long,
+    ): Network? {
         val deadline = SystemClock.elapsedRealtime() + timeoutMs
         while (SystemClock.elapsedRealtime() < deadline) {
             coroutineContext.ensureActive()

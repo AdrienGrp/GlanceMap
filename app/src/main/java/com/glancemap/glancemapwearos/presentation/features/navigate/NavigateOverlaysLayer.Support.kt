@@ -84,11 +84,11 @@ import kotlin.math.sin
 internal fun BoxScope.PanningDistanceGuide(
     navMode: NavMode,
     liveDistanceEnabled: Boolean,
-    liveDistanceLineStart: Offset?
+    liveDistanceLineStart: Offset?,
 ) {
     if (navMode == NavMode.PANNING && liveDistanceEnabled && liveDistanceLineStart != null) {
         Canvas(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         ) {
             val end = Offset(size.width * 0.5f, size.height * 0.5f)
             drawLine(
@@ -96,7 +96,7 @@ internal fun BoxScope.PanningDistanceGuide(
                 start = liveDistanceLineStart,
                 end = end,
                 strokeWidth = 2f,
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(9f, 6f), 0f)
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(9f, 6f), 0f),
             )
         }
     }
@@ -112,50 +112,56 @@ internal fun BoxScope.SlopeOverlayStatusIndicator(
     screenSize: WearScreenSize,
     sideButtonEdgePadding: Dp,
     sideButtonSize: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val slopeIndicatorButtonSize = when (screenSize) {
-        WearScreenSize.LARGE -> 28.dp
-        WearScreenSize.MEDIUM -> 26.dp
-        WearScreenSize.SMALL -> 24.dp
-    }
-    val slopeIndicatorIconSize = when (screenSize) {
-        WearScreenSize.LARGE -> 16.dp
-        WearScreenSize.MEDIUM -> 15.dp
-        WearScreenSize.SMALL -> 14.dp
-    }
-    val slopeIndicatorToolGap = when (screenSize) {
-        WearScreenSize.LARGE -> 5.dp
-        WearScreenSize.MEDIUM -> 4.dp
-        WearScreenSize.SMALL -> 3.dp
-    }
-    val slopeIndicatorModifier = modifier
-        .align(Alignment.CenterEnd)
-        .padding(end = sideButtonEdgePadding + sideButtonSize + slopeIndicatorToolGap)
+    val slopeIndicatorButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 28.dp
+            WearScreenSize.MEDIUM -> 26.dp
+            WearScreenSize.SMALL -> 24.dp
+        }
+    val slopeIndicatorIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 16.dp
+            WearScreenSize.MEDIUM -> 15.dp
+            WearScreenSize.SMALL -> 14.dp
+        }
+    val slopeIndicatorToolGap =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 5.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
+    val slopeIndicatorModifier =
+        modifier
+            .align(Alignment.CenterEnd)
+            .padding(end = sideButtonEdgePadding + sideButtonSize + slopeIndicatorToolGap)
 
     AnimatedVisibility(
         visible = visible && enabled && processing,
         enter = fadeIn(tween(120)),
         exit = fadeOut(tween(180)),
-        modifier = slopeIndicatorModifier
+        modifier = slopeIndicatorModifier,
     ) {
         val progress = (progressPercent ?: 0).coerceIn(0, 100)
         val sweepDeg by animateFloatAsState(
             targetValue = 360f * (progress / 100f),
             animationSpec = tween(durationMillis = 220),
-            label = "slope_render_progress_sweep"
+            label = "slope_render_progress_sweep",
         )
 
         Box(
-            modifier = Modifier
-                .size(slopeIndicatorButtonSize)
-                .background(Color.Black.copy(alpha = 0.7f), CircleShape),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .size(slopeIndicatorButtonSize)
+                    .background(Color.Black.copy(alpha = 0.7f), CircleShape),
+            contentAlignment = Alignment.Center,
         ) {
             Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(1.dp)
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(1.dp),
             ) {
                 val ringStroke = (size.minDimension * 0.12f).coerceAtLeast(1.5f)
                 drawArc(
@@ -163,21 +169,21 @@ internal fun BoxScope.SlopeOverlayStatusIndicator(
                     startAngle = -90f,
                     sweepAngle = 360f,
                     useCenter = false,
-                    style = Stroke(width = ringStroke)
+                    style = Stroke(width = ringStroke),
                 )
                 drawArc(
                     color = Color(0xFFFFB300),
                     startAngle = -90f,
                     sweepAngle = sweepDeg,
                     useCenter = false,
-                    style = Stroke(width = ringStroke, cap = StrokeCap.Round)
+                    style = Stroke(width = ringStroke, cap = StrokeCap.Round),
                 )
             }
             Icon(
                 imageVector = Icons.Default.Landscape,
                 contentDescription = "Slope rendering in progress",
                 modifier = Modifier.size(slopeIndicatorIconSize),
-                tint = Color(0xFFFFB300)
+                tint = Color(0xFFFFB300),
             )
         }
     }
@@ -193,51 +199,54 @@ internal fun BoxScope.PanningLiveMetricsOverlay(
     zoomLabelTopPadding: Dp,
     liveElevationIconSize: Dp,
     navButtonBottomPadding: Dp,
-    navButtonSize: Dp
+    navButtonSize: Dp,
 ) {
     if (navMode == NavMode.PANNING && liveElevationEnabled) {
         Row(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = zoomLabelTopPadding + 28.dp)
-                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = zoomLabelTopPadding + 28.dp)
+                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_live_elevation_altitude),
                 contentDescription = "live_elevation",
                 modifier = Modifier.size(10.dp),
-                tint = Color(0xFF34D399)
+                tint = Color(0xFF34D399),
             )
             Text(
                 text = " ${liveElevationLabel ?: "--"}",
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 10.sp,
-                lineHeight = 10.sp
+                lineHeight = 10.sp,
             )
         }
     }
 
     if (navMode == NavMode.PANNING && (liveElevationEnabled || liveDistanceEnabled)) {
         Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(liveElevationIconSize),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .size(liveElevationIconSize),
+            contentAlignment = Alignment.Center,
         ) {
             Box(
-                modifier = Modifier
-                    .size(14.dp)
-                    .background(Color.Black.copy(alpha = 0.34f), CircleShape),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(14.dp)
+                        .background(Color.Black.copy(alpha = 0.34f), CircleShape),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Adjust,
                     contentDescription = "live_elevation_center",
                     modifier = Modifier.size(9.dp),
-                    tint = Color(0xFF8B5CF6)
+                    tint = Color(0xFF8B5CF6),
                 )
             }
         }
@@ -245,28 +254,30 @@ internal fun BoxScope.PanningLiveMetricsOverlay(
 
     if (navMode == NavMode.PANNING && liveDistanceEnabled && !liveDistanceLabel.isNullOrBlank()) {
         Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = navButtonBottomPadding + navButtonSize + 6.dp)
-                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = navButtonBottomPadding + navButtonSize + 6.dp)
+                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_live_distance_step_out),
                 contentDescription = "live_distance",
-                modifier = Modifier
-                    .size(10.dp)
-                    .rotate(90f),
-                tint = Color.White.copy(alpha = 0.92f)
+                modifier =
+                    Modifier
+                        .size(10.dp)
+                        .rotate(90f),
+                tint = Color.White.copy(alpha = 0.92f),
             )
             Text(
                 text = liveDistanceLabel,
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 10.sp,
-                lineHeight = 10.sp
+                lineHeight = 10.sp,
             )
         }
     }
@@ -285,94 +296,110 @@ internal fun BoxScope.PoiTapMessageOverlay(
     sideButtonEdgePadding: Dp,
     sideButtonSize: Dp,
     navButtonBottomPadding: Dp,
-    navButtonSize: Dp
+    navButtonSize: Dp,
 ) {
     AnimatedVisibility(
         visible = poiTapMessage != null,
         enter = fadeIn(tween(140)),
         exit = fadeOut(tween(200)),
-        modifier = Modifier
-            .align(Alignment.TopCenter)
-            .padding(
-                start = sideButtonEdgePadding + sideButtonSize + 8.dp,
-                end = sideButtonEdgePadding + sideButtonSize + 8.dp,
-                top = when (screenSize) {
-                    WearScreenSize.LARGE -> 36.dp
-                    WearScreenSize.MEDIUM -> 32.dp
-                    WearScreenSize.SMALL -> 28.dp
-                },
-                bottom = navButtonBottomPadding + navButtonSize + 12.dp
-            )
+        modifier =
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(
+                    start = sideButtonEdgePadding + sideButtonSize + 8.dp,
+                    end = sideButtonEdgePadding + sideButtonSize + 8.dp,
+                    top =
+                        when (screenSize) {
+                            WearScreenSize.LARGE -> 36.dp
+                            WearScreenSize.MEDIUM -> 32.dp
+                            WearScreenSize.SMALL -> 28.dp
+                        },
+                    bottom = navButtonBottomPadding + navButtonSize + 12.dp,
+                ),
     ) {
-        val popupMaxWidth = when (screenSize) {
-            WearScreenSize.LARGE -> 176.dp
-            WearScreenSize.MEDIUM -> 162.dp
-            WearScreenSize.SMALL -> 148.dp
-        }
-        val popupExpandedMaxHeight = when (screenSize) {
-            WearScreenSize.LARGE -> 120.dp
-            WearScreenSize.MEDIUM -> 108.dp
-            WearScreenSize.SMALL -> 96.dp
-        }
-        val popupActionSpacing = when (screenSize) {
-            WearScreenSize.LARGE -> 5.dp
-            WearScreenSize.MEDIUM -> 4.dp
-            WearScreenSize.SMALL -> 3.dp
-        }
-        val popupSecondaryActionHorizontalPadding = when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 7.dp
-            WearScreenSize.SMALL -> 6.dp
-        }
-        val popupSecondaryActionVerticalPadding = when (screenSize) {
-            WearScreenSize.LARGE -> 3.dp
-            WearScreenSize.MEDIUM -> 3.dp
-            WearScreenSize.SMALL -> 2.dp
-        }
-        val popupSecondaryActionFontSize = when (screenSize) {
-            WearScreenSize.LARGE -> 9.sp
-            WearScreenSize.MEDIUM -> 9.sp
-            WearScreenSize.SMALL -> 8.sp
-        }
-        val popupSecondaryActionLineHeight = when (screenSize) {
-            WearScreenSize.LARGE -> 10.sp
-            WearScreenSize.MEDIUM -> 10.sp
-            WearScreenSize.SMALL -> 9.sp
-        }
-        val popupPrimaryActionHorizontalPadding = when (screenSize) {
-            WearScreenSize.LARGE -> 9.dp
-            WearScreenSize.MEDIUM -> 8.dp
-            WearScreenSize.SMALL -> 7.dp
-        }
-        val popupPrimaryActionVerticalPadding = when (screenSize) {
-            WearScreenSize.LARGE -> 4.dp
-            WearScreenSize.MEDIUM -> 4.dp
-            WearScreenSize.SMALL -> 3.dp
-        }
-        val popupPrimaryActionFontSize = when (screenSize) {
-            WearScreenSize.LARGE -> 10.sp
-            WearScreenSize.MEDIUM -> 10.sp
-            WearScreenSize.SMALL -> 9.sp
-        }
-        val popupPrimaryActionLineHeight = when (screenSize) {
-            WearScreenSize.LARGE -> 11.sp
-            WearScreenSize.MEDIUM -> 11.sp
-            WearScreenSize.SMALL -> 10.sp
-        }
-        val popupCloseButtonSize = when (screenSize) {
-            WearScreenSize.LARGE -> 26.dp
-            WearScreenSize.MEDIUM -> 24.dp
-            WearScreenSize.SMALL -> 22.dp
-        }
-        val popupCloseIconSize = when (screenSize) {
-            WearScreenSize.LARGE -> 13.dp
-            WearScreenSize.MEDIUM -> 12.dp
-            WearScreenSize.SMALL -> 11.dp
-        }
-        val useExpandedScroll = remember(poiTapMessage) {
-            val message = poiTapMessage.orEmpty()
-            message.length > 170 || message.count { it == '\n' } > 5
-        }
+        val popupMaxWidth =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 176.dp
+                WearScreenSize.MEDIUM -> 162.dp
+                WearScreenSize.SMALL -> 148.dp
+            }
+        val popupExpandedMaxHeight =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 120.dp
+                WearScreenSize.MEDIUM -> 108.dp
+                WearScreenSize.SMALL -> 96.dp
+            }
+        val popupActionSpacing =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 5.dp
+                WearScreenSize.MEDIUM -> 4.dp
+                WearScreenSize.SMALL -> 3.dp
+            }
+        val popupSecondaryActionHorizontalPadding =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 8.dp
+                WearScreenSize.MEDIUM -> 7.dp
+                WearScreenSize.SMALL -> 6.dp
+            }
+        val popupSecondaryActionVerticalPadding =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 3.dp
+                WearScreenSize.MEDIUM -> 3.dp
+                WearScreenSize.SMALL -> 2.dp
+            }
+        val popupSecondaryActionFontSize =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 9.sp
+                WearScreenSize.MEDIUM -> 9.sp
+                WearScreenSize.SMALL -> 8.sp
+            }
+        val popupSecondaryActionLineHeight =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 10.sp
+                WearScreenSize.MEDIUM -> 10.sp
+                WearScreenSize.SMALL -> 9.sp
+            }
+        val popupPrimaryActionHorizontalPadding =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 9.dp
+                WearScreenSize.MEDIUM -> 8.dp
+                WearScreenSize.SMALL -> 7.dp
+            }
+        val popupPrimaryActionVerticalPadding =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 4.dp
+                WearScreenSize.MEDIUM -> 4.dp
+                WearScreenSize.SMALL -> 3.dp
+            }
+        val popupPrimaryActionFontSize =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 10.sp
+                WearScreenSize.MEDIUM -> 10.sp
+                WearScreenSize.SMALL -> 9.sp
+            }
+        val popupPrimaryActionLineHeight =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 11.sp
+                WearScreenSize.MEDIUM -> 11.sp
+                WearScreenSize.SMALL -> 10.sp
+            }
+        val popupCloseButtonSize =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 26.dp
+                WearScreenSize.MEDIUM -> 24.dp
+                WearScreenSize.SMALL -> 22.dp
+            }
+        val popupCloseIconSize =
+            when (screenSize) {
+                WearScreenSize.LARGE -> 13.dp
+                WearScreenSize.MEDIUM -> 12.dp
+                WearScreenSize.SMALL -> 11.dp
+            }
+        val useExpandedScroll =
+            remember(poiTapMessage) {
+                val message = poiTapMessage.orEmpty()
+                message.length > 170 || message.count { it == '\n' } > 5
+            }
         val density = LocalDensity.current
         val popupScrollState = rememberScrollState()
         var popupViewportHeightPx by remember { mutableIntStateOf(0) }
@@ -383,62 +410,68 @@ internal fun BoxScope.PoiTapMessageOverlay(
             if (!poiTapExpanded) {
                 Text(
                     text = poiTapMessage.orEmpty(),
-                    modifier = Modifier
-                        .widthIn(max = popupMaxWidth)
-                        .background(Color.Black.copy(alpha = 0.84f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    modifier =
+                        Modifier
+                            .widthIn(max = popupMaxWidth)
+                            .background(Color.Black.copy(alpha = 0.84f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
                     color = Color.White,
                     fontWeight = FontWeight.Medium,
                     fontSize = 10.sp,
                     lineHeight = 11.sp,
                     textAlign = TextAlign.Center,
-                    maxLines = 3
+                    maxLines = 3,
                 )
             } else if (useExpandedScroll) {
                 Box(
-                    modifier = Modifier
-                        .widthIn(max = popupMaxWidth)
-                        .background(Color.Black.copy(alpha = 0.84f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier =
+                        Modifier
+                            .widthIn(max = popupMaxWidth)
+                            .background(Color.Black.copy(alpha = 0.84f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                 ) {
                     Text(
                         text = poiTapMessage.orEmpty(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = popupExpandedMaxHeight)
-                            .onSizeChanged { popupViewportHeightPx = it.height }
-                            .verticalScroll(popupScrollState)
-                            .padding(end = 6.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = popupExpandedMaxHeight)
+                                .onSizeChanged { popupViewportHeightPx = it.height }
+                                .verticalScroll(popupScrollState)
+                                .padding(end = 6.dp),
                         color = Color.White,
                         fontWeight = FontWeight.Medium,
                         fontSize = 10.sp,
                         lineHeight = 11.sp,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                     if (popupScrollState.maxValue > 0 && popupViewportHeightPx > 0) {
                         Canvas(
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .width(2.dp)
-                                .height(with(density) { popupViewportHeightPx.toDp() })
-                                .padding(vertical = 2.dp)
+                            modifier =
+                                Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .width(2.dp)
+                                    .height(with(density) { popupViewportHeightPx.toDp() })
+                                    .padding(vertical = 2.dp),
                         ) {
                             val maxScroll = popupScrollState.maxValue.toFloat().coerceAtLeast(1f)
                             val viewport = popupViewportHeightPx.toFloat().coerceAtLeast(1f)
                             val content = viewport + popupScrollState.maxValue.toFloat()
-                            val thumbHeight = (size.height * (viewport / content))
-                                .coerceAtLeast(size.height * 0.18f)
-                                .coerceAtMost(size.height)
-                            val thumbTop = (size.height - thumbHeight) *
-                                (popupScrollState.value.toFloat() / maxScroll)
+                            val thumbHeight =
+                                (size.height * (viewport / content))
+                                    .coerceAtLeast(size.height * 0.18f)
+                                    .coerceAtMost(size.height)
+                            val thumbTop =
+                                (size.height - thumbHeight) *
+                                    (popupScrollState.value.toFloat() / maxScroll)
                             drawRoundRect(
                                 color = Color.White.copy(alpha = 0.22f),
-                                size = Size(size.width, size.height)
+                                size = Size(size.width, size.height),
                             )
                             drawRoundRect(
                                 color = Color.White.copy(alpha = 0.85f),
                                 topLeft = Offset(0f, thumbTop),
-                                size = Size(size.width, thumbHeight)
+                                size = Size(size.width, thumbHeight),
                             )
                         }
                     }
@@ -446,80 +479,85 @@ internal fun BoxScope.PoiTapMessageOverlay(
             } else {
                 Text(
                     text = poiTapMessage.orEmpty(),
-                    modifier = Modifier
-                        .widthIn(max = popupMaxWidth)
-                        .background(Color.Black.copy(alpha = 0.84f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .widthIn(max = popupMaxWidth)
+                            .background(Color.Black.copy(alpha = 0.84f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                     color = Color.White,
                     fontWeight = FontWeight.Medium,
                     fontSize = 10.sp,
                     lineHeight = 11.sp,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
             Row(
-                modifier = Modifier
-                    .padding(top = 4.dp)
-                    .widthIn(max = popupMaxWidth),
+                modifier =
+                    Modifier
+                        .padding(top = 4.dp)
+                        .widthIn(max = popupMaxWidth),
                 horizontalArrangement = Arrangement.spacedBy(popupActionSpacing),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (poiTapCanExpand) {
                     Text(
                         text = if (poiTapExpanded) "Less" else "More",
-                        modifier = Modifier
-                            .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(10.dp))
-                            .clickable(onClick = onPoiTapExpandToggle)
-                            .padding(
-                                horizontal = popupSecondaryActionHorizontalPadding,
-                                vertical = popupSecondaryActionVerticalPadding
-                            ),
+                        modifier =
+                            Modifier
+                                .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(10.dp))
+                                .clickable(onClick = onPoiTapExpandToggle)
+                                .padding(
+                                    horizontal = popupSecondaryActionHorizontalPadding,
+                                    vertical = popupSecondaryActionVerticalPadding,
+                                ),
                         color = Color(0xFFD3E3FF),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = popupSecondaryActionFontSize,
                         lineHeight = popupSecondaryActionLineHeight,
-                        maxLines = 1
+                        maxLines = 1,
                     )
                 }
                 if (poiTapCanCreateGpx) {
                     Row(
-                        modifier = Modifier
-                            .background(Color(0xFF8B5CF6).copy(alpha = 0.88f), RoundedCornerShape(12.dp))
-                            .clickable(onClick = onPoiTapCreateGpx)
-                            .padding(
-                                horizontal = popupPrimaryActionHorizontalPadding,
-                                vertical = popupPrimaryActionVerticalPadding
-                            ),
+                        modifier =
+                            Modifier
+                                .background(Color(0xFF8B5CF6).copy(alpha = 0.88f), RoundedCornerShape(12.dp))
+                                .clickable(onClick = onPoiTapCreateGpx)
+                                .padding(
+                                    horizontal = popupPrimaryActionHorizontalPadding,
+                                    vertical = popupPrimaryActionVerticalPadding,
+                                ),
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Route,
                             contentDescription = null,
                             modifier = Modifier.size(12.dp),
-                            tint = Color.White
+                            tint = Color.White,
                         )
                         Text(
                             text = "To here",
                             color = Color.White,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = popupPrimaryActionFontSize,
-                            lineHeight = popupPrimaryActionLineHeight
+                            lineHeight = popupPrimaryActionLineHeight,
                         )
                     }
                 }
                 IconButton(
                     onClick = onPoiTapDismiss,
                     modifier = Modifier.size(popupCloseButtonSize),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.75f),
-                        contentColor = Color.White
-                    )
+                    colors =
+                        IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.75f),
+                            contentColor = Color.White,
+                        ),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close POI details",
-                        modifier = Modifier.size(popupCloseIconSize)
+                        modifier = Modifier.size(popupCloseIconSize),
                     )
                 }
             }
@@ -537,18 +575,20 @@ internal fun BoxScope.GpsIndicatorsOverlay(
     gpsIndicatorIconPadding: Dp,
     gpsIndicatorIconSize: Dp,
     navButtonBottomPadding: Dp,
-    navButtonSize: Dp
+    navButtonSize: Dp,
 ) {
     AnimatedVisibility(
-        visible = showGpsIndicator &&
-            !isOfflineMode &&
-            (gpsIndicatorState == GpsFixIndicatorState.SEARCHING || watchGpsDegradedWarning) &&
-            gpsIndicatorState != GpsFixIndicatorState.UNAVAILABLE,
+        visible =
+            showGpsIndicator &&
+                !isOfflineMode &&
+                (gpsIndicatorState == GpsFixIndicatorState.SEARCHING || watchGpsDegradedWarning) &&
+                gpsIndicatorState != GpsFixIndicatorState.UNAVAILABLE,
         enter = fadeIn(tween(120)),
         exit = fadeOut(tween(180)),
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .padding(bottom = gpsIndicatorBottomPadding)
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = gpsIndicatorBottomPadding),
     ) {
         var blinkOn by remember { mutableStateOf(true) }
         LaunchedEffect(Unit) {
@@ -557,68 +597,76 @@ internal fun BoxScope.GpsIndicatorsOverlay(
                 blinkOn = !blinkOn
             }
         }
-        val indicatorTint = if (blinkOn) {
-            Color(0xFF4FC3F7)
-        } else {
-            Color(0xFF4FC3F7).copy(alpha = 0.16f)
-        }
-        val indicatorBorder = if (blinkOn) {
-            Color(0xFF81D4FA)
-        } else {
-            Color(0xFF81D4FA).copy(alpha = 0.22f)
-        }
+        val indicatorTint =
+            if (blinkOn) {
+                Color(0xFF4FC3F7)
+            } else {
+                Color(0xFF4FC3F7).copy(alpha = 0.16f)
+            }
+        val indicatorBorder =
+            if (blinkOn) {
+                Color(0xFF81D4FA)
+            } else {
+                Color(0xFF81D4FA).copy(alpha = 0.22f)
+            }
         val indicatorBackground = Color.Black.copy(alpha = if (blinkOn) 0.82f else 0.58f)
-        val glowColor = if (blinkOn) {
-            Color(0xFF29B6F6).copy(alpha = 0.34f)
-        } else {
-            Color.Transparent
-        }
+        val glowColor =
+            if (blinkOn) {
+                Color(0xFF29B6F6).copy(alpha = 0.34f)
+            } else {
+                Color.Transparent
+            }
 
         Box(
-            modifier = Modifier
-                .background(glowColor, CircleShape)
-                .padding(3.dp),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .background(glowColor, CircleShape)
+                    .padding(3.dp),
+            contentAlignment = Alignment.Center,
         ) {
             Box(
-                modifier = Modifier
-                    .background(indicatorBackground, CircleShape)
-                    .border(1.5.dp, indicatorBorder, CircleShape)
-                    .padding(gpsIndicatorIconPadding),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .background(indicatorBackground, CircleShape)
+                        .border(1.5.dp, indicatorBorder, CircleShape)
+                        .padding(gpsIndicatorIconPadding),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.MyLocation,
                     contentDescription = "Location not current",
                     modifier = Modifier.size(gpsIndicatorIconSize),
-                    tint = indicatorTint
+                    tint = indicatorTint,
                 )
             }
         }
     }
 
     AnimatedVisibility(
-        visible = showGpsIndicator &&
-            !isOfflineMode &&
-            gpsIndicatorState == GpsFixIndicatorState.UNAVAILABLE,
+        visible =
+            showGpsIndicator &&
+                !isOfflineMode &&
+                gpsIndicatorState == GpsFixIndicatorState.UNAVAILABLE,
         enter = fadeIn(tween(120)),
         exit = fadeOut(tween(180)),
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .padding(bottom = gpsIndicatorBottomPadding)
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = gpsIndicatorBottomPadding),
     ) {
         Box(
-            modifier = Modifier
-                .background(Color.Black.copy(alpha = 0.72f), CircleShape)
-                .border(1.dp, Color(0xFFFF8A80), CircleShape)
-                .padding(gpsIndicatorIconPadding),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .background(Color.Black.copy(alpha = 0.72f), CircleShape)
+                    .border(1.dp, Color(0xFFFF8A80), CircleShape)
+                    .padding(gpsIndicatorIconPadding),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Default.LocationDisabled,
                 contentDescription = "Location unavailable",
                 modifier = Modifier.size(gpsIndicatorIconSize),
-                tint = Color(0xFFE53935)
+                tint = Color(0xFFE53935),
             )
         }
     }
@@ -627,21 +675,23 @@ internal fun BoxScope.GpsIndicatorsOverlay(
         visible = watchGpsDegradedWarning && !isOfflineMode,
         enter = fadeIn(tween(140)),
         exit = fadeOut(tween(180)),
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .padding(bottom = navButtonBottomPadding + navButtonSize + 10.dp)
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = navButtonBottomPadding + navButtonSize + 10.dp),
     ) {
         Text(
             text = "Watch GPS low accuracy",
-            modifier = Modifier
-                .background(Color(0xFF5A120E).copy(alpha = 0.86f), RoundedCornerShape(8.dp))
-                .border(1.dp, Color(0xFFFFA726).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 3.dp),
+            modifier =
+                Modifier
+                    .background(Color(0xFF5A120E).copy(alpha = 0.86f), RoundedCornerShape(8.dp))
+                    .border(1.dp, Color(0xFFFFA726).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
             color = Color.White,
             fontWeight = FontWeight.SemiBold,
             fontSize = 10.sp,
             lineHeight = 11.sp,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -659,58 +709,61 @@ internal fun BoxScope.NavModeButtonOverlay(
     onRecenter: () -> Unit,
     onRecenterRequested: () -> Unit,
     onToggleOrientation: () -> Unit,
-    onNavModeButtonLongPress: () -> Unit
+    onNavModeButtonLongPress: () -> Unit,
 ) {
-    val navIcon = when {
-        isOfflineMode -> Icons.Default.LocationDisabled
-        navMode == NavMode.PANNING -> Icons.Default.MyLocation
-        navMode == NavMode.COMPASS_FOLLOW -> Icons.Default.Explore
-        else -> Icons.Default.Navigation
-    }
-    val navTint = when {
-        isOfflineMode -> Color(0xFFE53935)
-        navMode != NavMode.PANNING -> MaterialTheme.colorScheme.primary
-        else -> Color.White
-    }
+    val navIcon =
+        when {
+            isOfflineMode -> Icons.Default.LocationDisabled
+            navMode == NavMode.PANNING -> Icons.Default.MyLocation
+            navMode == NavMode.COMPASS_FOLLOW -> Icons.Default.Explore
+            else -> Icons.Default.Navigation
+        }
+    val navTint =
+        when {
+            isOfflineMode -> Color(0xFFE53935)
+            navMode != NavMode.PANNING -> MaterialTheme.colorScheme.primary
+            else -> Color.White
+        }
 
     Box(
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .padding(bottom = navButtonBottomPadding)
-            .size(navButtonSize)
-            .background(Color.Black.copy(alpha = 0.7f), CircleShape)
-            .pointerInput(navMode, lastKnownLocation, isOfflineMode) {
-                detectTapGestures(
-                    onTap = {
-                        if (isOfflineMode) return@detectTapGestures
-                        triggerHaptic()
-                        if (navMode == NavMode.PANNING) {
-                            lastKnownLocation?.let { mapView.setCenter(it) }
-                            onRecenter()
-                            onRecenterRequested()
-                        } else {
-                            onToggleOrientation()
-                        }
-                    },
-                    onLongPress = {
-                        if (isOfflineMode) return@detectTapGestures
-                        onNavModeButtonLongPress()
-                    }
-                )
-            },
-        contentAlignment = Alignment.Center
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = navButtonBottomPadding)
+                .size(navButtonSize)
+                .background(Color.Black.copy(alpha = 0.7f), CircleShape)
+                .pointerInput(navMode, lastKnownLocation, isOfflineMode) {
+                    detectTapGestures(
+                        onTap = {
+                            if (isOfflineMode) return@detectTapGestures
+                            triggerHaptic()
+                            if (navMode == NavMode.PANNING) {
+                                lastKnownLocation?.let { mapView.setCenter(it) }
+                                onRecenter()
+                                onRecenterRequested()
+                            } else {
+                                onToggleOrientation()
+                            }
+                        },
+                        onLongPress = {
+                            if (isOfflineMode) return@detectTapGestures
+                            onNavModeButtonLongPress()
+                        },
+                    )
+                },
+        contentAlignment = Alignment.Center,
     ) {
         if (navMode == NavMode.NORTH_UP_FOLLOW) {
             NorthUpLockedModeIcon(
                 iconSize = navButtonIconSize,
-                tint = navTint
+                tint = navTint,
             )
         } else {
             Icon(
                 imageVector = navIcon,
                 contentDescription = "Nav mode",
                 modifier = Modifier.size(navButtonIconSize),
-                tint = navTint
+                tint = navTint,
             )
         }
     }
@@ -719,14 +772,14 @@ internal fun BoxScope.NavModeButtonOverlay(
 @Composable
 internal fun NorthUpLockedModeIcon(
     iconSize: Dp,
-    tint: Color
+    tint: Color,
 ) {
     Box(
         modifier = Modifier.size(iconSize),
-        contentAlignment = Alignment.TopCenter
+        contentAlignment = Alignment.TopCenter,
     ) {
         Canvas(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         ) {
             val w = size.width
             val h = size.height
@@ -743,7 +796,7 @@ internal fun NorthUpLockedModeIcon(
                 useCenter = false,
                 topLeft = Offset(cx - ringRadius, cy - ringRadius),
                 size = Size(ringRadius * 2f, ringRadius * 2f),
-                style = Stroke(width = stroke * 0.72f, cap = StrokeCap.Round)
+                style = Stroke(width = stroke * 0.72f, cap = StrokeCap.Round),
             )
 
             val tip = Offset(cx, h * 0.23f)
@@ -751,27 +804,29 @@ internal fun NorthUpLockedModeIcon(
             val pivot = Offset(cx, h * 0.58f)
             val leftBase = Offset(w * 0.28f, h * 0.73f)
 
-            val arrowPath = Path().apply {
-                moveTo(tip.x, tip.y)
-                lineTo(rightBase.x, rightBase.y)
-                lineTo(pivot.x, pivot.y)
-                lineTo(leftBase.x, leftBase.y)
-                close()
-            }
+            val arrowPath =
+                Path().apply {
+                    moveTo(tip.x, tip.y)
+                    lineTo(rightBase.x, rightBase.y)
+                    lineTo(pivot.x, pivot.y)
+                    lineTo(leftBase.x, leftBase.y)
+                    close()
+                }
             drawPath(
                 path = arrowPath,
-                color = ringColor
+                color = ringColor,
             )
 
-            val innerPath = Path().apply {
-                moveTo(cx, h * 0.33f)
-                lineTo(w * 0.40f, h * 0.62f)
-                lineTo(cx, h * 0.57f)
-                close()
-            }
+            val innerPath =
+                Path().apply {
+                    moveTo(cx, h * 0.33f)
+                    lineTo(w * 0.40f, h * 0.62f)
+                    lineTo(cx, h * 0.57f)
+                    close()
+                }
             drawPath(
                 path = innerPath,
-                color = Color.Black.copy(alpha = 0.88f)
+                color = Color.Black.copy(alpha = 0.88f),
             )
         }
         Text(
@@ -782,9 +837,10 @@ internal fun NorthUpLockedModeIcon(
             lineHeight = 8.sp,
             textAlign = TextAlign.Center,
             maxLines = 1,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = (-1).dp)
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = (-1).dp),
         )
     }
 }
@@ -792,56 +848,63 @@ internal fun NorthUpLockedModeIcon(
 @Composable
 internal fun StandardScaleBar(
     width: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .width(width)
-            .height(10.dp)
+        modifier =
+            modifier
+                .width(width)
+                .height(10.dp),
     ) {
         val borderColor = Color.White.copy(alpha = 0.75f)
         val barColor = Color.Black.copy(alpha = 0.95f)
         Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .height(4.dp)
-                .background(borderColor, RoundedCornerShape(1.dp))
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .background(borderColor, RoundedCornerShape(1.dp)),
         )
         Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(barColor, RoundedCornerShape(1.dp))
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(barColor, RoundedCornerShape(1.dp)),
         )
         Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .width(3.dp)
-                .height(10.dp)
-                .background(borderColor, RoundedCornerShape(1.dp))
+            modifier =
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .width(3.dp)
+                    .height(10.dp)
+                    .background(borderColor, RoundedCornerShape(1.dp)),
         )
         Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .width(2.dp)
-                .height(10.dp)
-                .background(barColor, RoundedCornerShape(1.dp))
+            modifier =
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .width(2.dp)
+                    .height(10.dp)
+                    .background(barColor, RoundedCornerShape(1.dp)),
         )
         Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(3.dp)
-                .height(10.dp)
-                .background(borderColor, RoundedCornerShape(1.dp))
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(3.dp)
+                    .height(10.dp)
+                    .background(borderColor, RoundedCornerShape(1.dp)),
         )
         Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(2.dp)
-                .height(10.dp)
-                .background(barColor, RoundedCornerShape(1.dp))
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(2.dp)
+                    .height(10.dp)
+                    .background(barColor, RoundedCornerShape(1.dp)),
         )
     }
 }
@@ -853,45 +916,48 @@ internal fun BoxScope.NorthIndicatorOverlay(
     mapRotationDeg: Float,
     compassHeadingDeg: Float,
     indicatorButtonSize: Dp,
-    indicatorIconSize: Dp
+    indicatorIconSize: Dp,
 ) {
     val mode = northIndicatorMode.trim().uppercase(Locale.US)
     val isPanning = navMode == NavMode.PANNING
 
-    val showNorthIndicator = when (mode) {
-        "ALWAYS" -> true
-        "COMPASS_ONLY" -> navMode == NavMode.COMPASS_FOLLOW || isPanning
-        "NORTH_UP_ONLY" -> navMode == NavMode.NORTH_UP_FOLLOW || isPanning
-        "NEVER" -> false
-        else -> false
-    }
+    val showNorthIndicator =
+        when (mode) {
+            "ALWAYS" -> true
+            "COMPASS_ONLY" -> navMode == NavMode.COMPASS_FOLLOW || isPanning
+            "NORTH_UP_ONLY" -> navMode == NavMode.NORTH_UP_FOLLOW || isPanning
+            "NEVER" -> false
+            else -> false
+        }
     if (!showNorthIndicator) return
 
-    val effectiveMapRotationDeg = if (navMode == NavMode.NORTH_UP_FOLLOW) {
-        -compassHeadingDeg
-    } else {
-        mapRotationDeg
-    }
+    val effectiveMapRotationDeg =
+        if (navMode == NavMode.NORTH_UP_FOLLOW) {
+            -compassHeadingDeg
+        } else {
+            mapRotationDeg
+        }
     val northAnchor = mapRotationToNorthAnchor(effectiveMapRotationDeg)
     CurvedLayout(
         modifier = Modifier.fillMaxSize(),
         anchor = northAnchor,
-        anchorType = AnchorType.Center
+        anchorType = AnchorType.Center,
     ) {
         curvedComposable {
             IconButton(
                 onClick = { },
                 modifier = Modifier.size(indicatorButtonSize),
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = Color.Red
-                )
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = Color.Red,
+                    ),
             ) {
                 Icon(
                     imageVector = Icons.Default.Navigation,
                     contentDescription = "North",
                     modifier = Modifier.size(indicatorIconSize),
-                    tint = Color.Red
+                    tint = Color.Red,
                 )
             }
         }
@@ -906,21 +972,23 @@ internal fun mapRotationToNorthAnchor(mapRotationDeg: Float): Float {
 internal fun projectLatLongToScreenOffset(
     mapView: MapView,
     latLong: LatLong,
-    mapRotationDeg: Float
+    mapRotationDeg: Float,
 ): Offset? {
     if (mapView.width <= 0 || mapView.height <= 0) return null
 
-    val mapPoint = runCatching {
-        mapView.mapViewProjection.toPixels(latLong)
-    }.getOrNull() ?: return null
+    val mapPoint =
+        runCatching {
+            mapView.mapViewProjection.toPixels(latLong)
+        }.getOrNull() ?: return null
 
-    val (screenX, screenY) = rotateMapSpaceToScreen(
-        x = mapPoint.x,
-        y = mapPoint.y,
-        mapWidth = mapView.width.toDouble(),
-        mapHeight = mapView.height.toDouble(),
-        mapRotationDeg = mapRotationDeg.toDouble()
-    )
+    val (screenX, screenY) =
+        rotateMapSpaceToScreen(
+            x = mapPoint.x,
+            y = mapPoint.y,
+            mapWidth = mapView.width.toDouble(),
+            mapHeight = mapView.height.toDouble(),
+            mapRotationDeg = mapRotationDeg.toDouble(),
+        )
     return Offset(screenX.toFloat(), screenY.toFloat())
 }
 
@@ -929,7 +997,7 @@ internal fun rotateMapSpaceToScreen(
     y: Double,
     mapWidth: Double,
     mapHeight: Double,
-    mapRotationDeg: Double
+    mapRotationDeg: Double,
 ): Pair<Double, Double> {
     if (mapWidth <= 0.0 || mapHeight <= 0.0) return x to y
     if (kotlin.math.abs(mapRotationDeg) < 0.001) return x to y

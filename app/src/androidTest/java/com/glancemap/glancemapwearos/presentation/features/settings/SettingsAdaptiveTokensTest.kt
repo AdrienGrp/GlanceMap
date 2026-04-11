@@ -10,7 +10,7 @@ import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
 import com.glancemap.glancemapwearos.test.SmallRoundWatch
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
-import com.glancemap.glancemapwearos.test.WithWearDeviceConfig
+import com.glancemap.glancemapwearos.test.withWearDeviceConfig
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -18,7 +18,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SettingsAdaptiveTokensTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -29,9 +28,9 @@ class SettingsAdaptiveTokensTest {
                 horizontalPadding = 12.dp,
                 topPadding = 16.dp,
                 bottomPadding = 48.dp,
-                itemSpacing = 6.dp
+                itemSpacing = 6.dp,
             ),
-            captureTokens(SmallRoundWatch)
+            captureTokens(SmallRoundWatch),
         )
     }
 
@@ -42,9 +41,9 @@ class SettingsAdaptiveTokensTest {
                 horizontalPadding = 14.dp,
                 topPadding = 20.dp,
                 bottomPadding = 56.dp,
-                itemSpacing = 7.dp
+                itemSpacing = 7.dp,
             ),
-            captureTokens(MediumSquareWatch)
+            captureTokens(MediumSquareWatch),
         )
     }
 
@@ -55,9 +54,9 @@ class SettingsAdaptiveTokensTest {
                 horizontalPadding = 16.dp,
                 topPadding = 24.dp,
                 bottomPadding = 64.dp,
-                itemSpacing = 8.dp
+                itemSpacing = 8.dp,
             ),
-            captureTokens(LargeRoundWatch)
+            captureTokens(LargeRoundWatch),
         )
     }
 
@@ -68,7 +67,7 @@ class SettingsAdaptiveTokensTest {
                 horizontalPadding = 10.dp,
                 topPadding = 11.dp,
                 bottomPadding = 12.dp,
-                itemSpacing = 5.dp
+                itemSpacing = 5.dp,
             ),
             captureTokens(SmallRoundWatch) {
                 rememberSettingsListTokens(
@@ -83,9 +82,9 @@ class SettingsAdaptiveTokensTest {
                     expandedBottom = 32.dp,
                     compactItemSpacing = 5.dp,
                     standardItemSpacing = 6.dp,
-                    expandedItemSpacing = 7.dp
+                    expandedItemSpacing = 7.dp,
                 )
-            }
+            },
         )
     }
 
@@ -96,7 +95,7 @@ class SettingsAdaptiveTokensTest {
                 horizontalPadding = 20.dp,
                 topPadding = 21.dp,
                 bottomPadding = 22.dp,
-                itemSpacing = 6.dp
+                itemSpacing = 6.dp,
             ),
             captureTokens(MediumSquareWatch) {
                 rememberSettingsListTokens(
@@ -111,9 +110,9 @@ class SettingsAdaptiveTokensTest {
                     expandedBottom = 32.dp,
                     compactItemSpacing = 5.dp,
                     standardItemSpacing = 6.dp,
-                    expandedItemSpacing = 7.dp
+                    expandedItemSpacing = 7.dp,
                 )
-            }
+            },
         )
     }
 
@@ -124,7 +123,7 @@ class SettingsAdaptiveTokensTest {
                 horizontalPadding = 30.dp,
                 topPadding = 31.dp,
                 bottomPadding = 32.dp,
-                itemSpacing = 7.dp
+                itemSpacing = 7.dp,
             ),
             captureTokens(LargeRoundWatch) {
                 rememberSettingsListTokens(
@@ -139,19 +138,19 @@ class SettingsAdaptiveTokensTest {
                     expandedBottom = 32.dp,
                     compactItemSpacing = 5.dp,
                     standardItemSpacing = 6.dp,
-                    expandedItemSpacing = 7.dp
+                    expandedItemSpacing = 7.dp,
                 )
-            }
+            },
         )
     }
 
     private fun captureTokens(
         config: WearDeviceTestConfig,
-        tokenFactory: @Composable () -> SettingsListTokens = { rememberSettingsListTokens() }
+        tokenFactory: @Composable () -> SettingsListTokens = { rememberSettingsListTokens() },
     ): SettingsListTokens {
         var captured: SettingsListTokens? = null
         composeRule.setContent {
-            WithWearDeviceConfig(config = config) {
+            withWearDeviceConfig(config = config) {
                 GlanceMapTheme {
                     val tokens = tokenFactory()
                     SideEffect { captured = tokens }

@@ -7,7 +7,7 @@ import kotlin.math.cos
 import kotlin.math.max
 
 internal class LocationOutputFilter(
-    private val filter: AdaptivePositionFilter = AdaptivePositionFilter()
+    private val filter: AdaptivePositionFilter = AdaptivePositionFilter(),
 ) {
     private var originLatitudeDeg: Double = Double.NaN
     private var originLongitudeDeg: Double = Double.NaN
@@ -20,28 +20,35 @@ internal class LocationOutputFilter(
         cosOriginLatitude = Double.NaN
     }
 
-    fun filter(location: Location, nowElapsedMs: Long): Location {
+    fun filter(
+        location: Location,
+        nowElapsedMs: Long,
+    ): Location {
         ensureOrigin(location)
-        val measurementElapsedMs = resolveMeasurementElapsedMs(
-            location = location,
-            nowElapsedMs = nowElapsedMs
-        )
-        val estimate = filter.update(
-            measurement = PositionMeasurement(
-                xMeters = longitudeToMeters(location.longitude),
-                yMeters = latitudeToMeters(location.latitude),
-                accuracyMeters = location.accuracy,
-                elapsedMs = measurementElapsedMs,
-                speedMps = location.speed.takeIf { location.hasSpeed() }
+        val measurementElapsedMs =
+            resolveMeasurementElapsedMs(
+                location = location,
+                nowElapsedMs = nowElapsedMs,
             )
-        )
-        val outputSpeedMps = resolveOutputSpeedMps(
-            hasRawSpeed = location.hasSpeed(),
-            rawSpeedMps = location.speed.takeIf { location.hasSpeed() },
-            accuracyM = location.accuracy,
-            estimatedSpeedMps = estimate.speedMps,
-            positionStdDevMeters = estimate.positionStdDevMeters
-        )
+        val estimate =
+            filter.update(
+                measurement =
+                    PositionMeasurement(
+                        xMeters = longitudeToMeters(location.longitude),
+                        yMeters = latitudeToMeters(location.latitude),
+                        accuracyMeters = location.accuracy,
+                        elapsedMs = measurementElapsedMs,
+                        speedMps = location.speed.takeIf { location.hasSpeed() },
+                    ),
+            )
+        val outputSpeedMps =
+            resolveOutputSpeedMps(
+                hasRawSpeed = location.hasSpeed(),
+                rawSpeedMps = location.speed.takeIf { location.hasSpeed() },
+                accuracyM = location.accuracy,
+                estimatedSpeedMps = estimate.speedMps,
+                positionStdDevMeters = estimate.positionStdDevMeters,
+            )
         return Location(location).apply {
             latitude = metersToLatitude(estimate.yMeters)
             longitude = normalizeLongitude(metersToLongitude(estimate.xMeters))
@@ -62,37 +69,36 @@ internal class LocationOutputFilter(
         if (originLatitudeDeg.isFinite() && originLongitudeDeg.isFinite()) return
         originLatitudeDeg = location.latitude
         originLongitudeDeg = location.longitude
-        cosOriginLatitude = max(
-            abs(cos(Math.toRadians(originLatitudeDeg))),
-            MIN_COSINE_LATITUDE
-        )
+        cosOriginLatitude =
+            max(
+                abs(cos(Math.toRadians(originLatitudeDeg))),
+                MIN_COSINE_LATITUDE,
+            )
     }
 
-    private fun resolveMeasurementElapsedMs(location: Location, nowElapsedMs: Long): Long {
+    private fun resolveMeasurementElapsedMs(
+        location: Location,
+        nowElapsedMs: Long,
+    ): Long {
         val ageMs = LocationFixPolicy.locationAgeMs(location, nowElapsedMs)
         if (ageMs == Long.MAX_VALUE) return nowElapsedMs
         return (nowElapsedMs - ageMs).coerceAtLeast(0L)
     }
 
-    private fun latitudeToMeters(latitudeDeg: Double): Double {
-        return Math.toRadians(latitudeDeg - originLatitudeDeg) * EARTH_RADIUS_METERS
-    }
+    private fun latitudeToMeters(latitudeDeg: Double): Double = Math.toRadians(latitudeDeg - originLatitudeDeg) * EARTH_RADIUS_METERS
 
-    private fun longitudeToMeters(longitudeDeg: Double): Double {
-        return Math.toRadians(longitudeDeg - originLongitudeDeg) *
+    private fun longitudeToMeters(longitudeDeg: Double): Double =
+        Math.toRadians(longitudeDeg - originLongitudeDeg) *
             EARTH_RADIUS_METERS *
             cosOriginLatitude
-    }
 
-    private fun metersToLatitude(yMeters: Double): Double {
-        return originLatitudeDeg + Math.toDegrees(yMeters / EARTH_RADIUS_METERS)
-    }
+    private fun metersToLatitude(yMeters: Double): Double = originLatitudeDeg + Math.toDegrees(yMeters / EARTH_RADIUS_METERS)
 
-    private fun metersToLongitude(xMeters: Double): Double {
-        return originLongitudeDeg + Math.toDegrees(
-            xMeters / (EARTH_RADIUS_METERS * cosOriginLatitude)
-        )
-    }
+    private fun metersToLongitude(xMeters: Double): Double =
+        originLongitudeDeg +
+            Math.toDegrees(
+                xMeters / (EARTH_RADIUS_METERS * cosOriginLatitude),
+            )
 
     private fun normalizeLongitude(longitudeDeg: Double): Double {
         var normalized = longitudeDeg
@@ -107,13 +113,15 @@ internal fun resolveOutputSpeedMps(
     rawSpeedMps: Float?,
     accuracyM: Float,
     estimatedSpeedMps: Float,
-    positionStdDevMeters: Float
+    positionStdDevMeters: Float,
 ): Float? {
-    val trustedRawSpeed = rawSpeedMps
-        ?.takeIf { hasRawSpeed && it.isFinite() }
-        ?.coerceAtLeast(0f)
-    val trustedEstimatedSpeed = estimatedSpeedMps
-        .takeIf { it.isFinite() && it >= MIN_ESTIMATED_SPEED_MPS }
+    val trustedRawSpeed =
+        rawSpeedMps
+            ?.takeIf { hasRawSpeed && it.isFinite() }
+            ?.coerceAtLeast(0f)
+    val trustedEstimatedSpeed =
+        estimatedSpeedMps
+            .takeIf { it.isFinite() && it >= MIN_ESTIMATED_SPEED_MPS }
     if (trustedRawSpeed != null) {
         val shouldPreferEstimatedSpeed =
             trustedEstimatedSpeed != null &&

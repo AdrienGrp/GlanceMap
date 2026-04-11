@@ -1,4 +1,5 @@
 package com.glancemap.glancemapwearos.core.service.transfer.contract
+
 data class ReceiverMetadata(
     val transferId: String,
     val fileName: String,
@@ -9,5 +10,5 @@ data class ReceiverMetadata(
     val authToken: String? = null,
     // Wi-Fi fields
     val ip: String = "",
-    val port: Int = -1
+    val port: Int = -1,
 )

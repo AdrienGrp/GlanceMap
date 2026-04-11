@@ -13,7 +13,7 @@ import kotlin.math.sqrt
 
 internal class ReliefTileRenderer(
     private val terrainRepository: ReliefDemRepository,
-    private val isBuildEnabled: () -> Boolean
+    private val isBuildEnabled: () -> Boolean,
 ) {
     companion object {
         private const val SAMPLE_STEP_PX_LOW_COARSE = 16
@@ -30,7 +30,10 @@ internal class ReliefTileRenderer(
         private const val FILL_LIGHT_VECTOR_Z = 0.94
     }
 
-    fun buildOverlayTile(key: OverlayTileKey, quality: OverlayBuildQuality): OverlayTileEntry {
+    fun buildOverlayTile(
+        key: OverlayTileKey,
+        quality: OverlayBuildQuality,
+    ): OverlayTileEntry {
         if (!isBuildEnabled()) {
             return emptyEntry(quality)
         }
@@ -58,20 +61,23 @@ internal class ReliefTileRenderer(
 
                 val centerX = tileWorldLeft + x + blockW * 0.5
                 val centerY = tileWorldTop + y + blockH * 0.5
-                val centerLon = MercatorProjection.pixelXToLongitude(
-                    wrapPixelX(centerX, mapSizeD),
-                    mapSize
-                )
-                val centerLat = MercatorProjection.pixelYToLatitude(
-                    centerY.coerceIn(0.0, mapSizeD),
-                    mapSize
-                )
+                val centerLon =
+                    MercatorProjection.pixelXToLongitude(
+                        wrapPixelX(centerX, mapSizeD),
+                        mapSize,
+                    )
+                val centerLat =
+                    MercatorProjection.pixelYToLatitude(
+                        centerY.coerceIn(0.0, mapSizeD),
+                        mapSize,
+                    )
 
-                val color = computeReliefColor(
-                    lat = centerLat,
-                    lon = centerLon,
-                    quality = quality
-                )
+                val color =
+                    computeReliefColor(
+                        lat = centerLat,
+                        lon = centerLon,
+                        quality = quality,
+                    )
                 if (color != 0) {
                     hasAnyColoredPixel = true
                 }
@@ -83,7 +89,7 @@ internal class ReliefTileRenderer(
                     yStart = y,
                     width = blockW,
                     height = blockH,
-                    color = color
+                    color = color,
                 )
 
                 x += sampleStep
@@ -103,46 +109,51 @@ internal class ReliefTileRenderer(
             0,
             0,
             tileSize,
-            tileSize
+            tileSize,
         )
 
         return OverlayTileEntry(
             bitmap = bitmap,
             builtElapsedMs = SystemClock.elapsedRealtime(),
             status = OverlayTileStatus.READY,
-            drawMode = if (quality == OverlayBuildQuality.FINE) {
-                OverlayTileDrawMode.FADE_FROM_FALLBACK
-            } else {
-                OverlayTileDrawMode.STEADY
-            },
-            quality = quality
+            drawMode =
+                if (quality == OverlayBuildQuality.FINE) {
+                    OverlayTileDrawMode.FADE_FROM_FALLBACK
+                } else {
+                    OverlayTileDrawMode.STEADY
+                },
+            quality = quality,
         )
     }
 
-    private fun emptyEntry(quality: OverlayBuildQuality): OverlayTileEntry {
-        return OverlayTileEntry(
+    private fun emptyEntry(quality: OverlayBuildQuality): OverlayTileEntry =
+        OverlayTileEntry(
             bitmap = null,
             builtElapsedMs = SystemClock.elapsedRealtime(),
             status = OverlayTileStatus.NO_DATA,
             drawMode = OverlayTileDrawMode.STEADY,
-            quality = quality
+            quality = quality,
         )
-    }
 
-    private fun sampleStepPxForZoom(zoomLevel: Byte, quality: OverlayBuildQuality): Int {
+    private fun sampleStepPxForZoom(
+        zoomLevel: Byte,
+        quality: OverlayBuildQuality,
+    ): Int {
         val zoom = zoomLevel.toInt()
         return when (quality) {
-            OverlayBuildQuality.COARSE -> when {
-                zoom >= 16 -> SAMPLE_STEP_PX_HIGH_COARSE
-                zoom >= 14 -> SAMPLE_STEP_PX_MID_COARSE
-                else -> SAMPLE_STEP_PX_LOW_COARSE
-            }
+            OverlayBuildQuality.COARSE ->
+                when {
+                    zoom >= 16 -> SAMPLE_STEP_PX_HIGH_COARSE
+                    zoom >= 14 -> SAMPLE_STEP_PX_MID_COARSE
+                    else -> SAMPLE_STEP_PX_LOW_COARSE
+                }
 
-            OverlayBuildQuality.FINE -> when {
-                zoom >= 16 -> SAMPLE_STEP_PX_HIGH
-                zoom >= 14 -> SAMPLE_STEP_PX_MID
-                else -> SAMPLE_STEP_PX_LOW
-            }
+            OverlayBuildQuality.FINE ->
+                when {
+                    zoom >= 16 -> SAMPLE_STEP_PX_HIGH
+                    zoom >= 14 -> SAMPLE_STEP_PX_MID
+                    else -> SAMPLE_STEP_PX_LOW
+                }
         }
     }
 
@@ -153,7 +164,7 @@ internal class ReliefTileRenderer(
         yStart: Int,
         width: Int,
         height: Int,
-        color: Int
+        color: Int,
     ) {
         if (width <= 0 || height <= 0) return
         for (yy in yStart until (yStart + height)) {
@@ -165,7 +176,10 @@ internal class ReliefTileRenderer(
         }
     }
 
-    private fun wrapPixelX(pixelX: Double, mapSize: Double): Double {
+    private fun wrapPixelX(
+        pixelX: Double,
+        mapSize: Double,
+    ): Double {
         if (mapSize <= 0.0 || !pixelX.isFinite()) return 0.0
         val wrapped = pixelX % mapSize
         return if (wrapped < 0.0) wrapped + mapSize else wrapped
@@ -174,7 +188,7 @@ internal class ReliefTileRenderer(
     private fun computeReliefColor(
         lat: Double,
         lon: Double,
-        quality: OverlayBuildQuality
+        quality: OverlayBuildQuality,
     ): Int {
         val slopeDegrees = computeReliefSample(lat, lon, quality)?.slopeDegrees ?: return 0
         val bandAlphaScale = if (quality == OverlayBuildQuality.COARSE) 0.9 else 1.0
@@ -189,7 +203,12 @@ internal class ReliefTileRenderer(
         }
     }
 
-    private fun argb(alpha: Double, red: Int, green: Int, blue: Int): Int {
+    private fun argb(
+        alpha: Double,
+        red: Int,
+        green: Int,
+        blue: Int,
+    ): Int {
         val a = round(alpha).toInt().coerceIn(0, 255)
         return (a shl 24) or (red shl 16) or (green shl 8) or blue
     }
@@ -197,7 +216,7 @@ internal class ReliefTileRenderer(
     private fun computeReliefSample(
         lat: Double,
         lon: Double,
-        quality: OverlayBuildQuality
+        quality: OverlayBuildQuality,
     ): ReliefSample? {
         val baseTile = terrainRepository.loadDemTileFor(lat, lon) ?: return null
         val epsDeg = 1.0 / baseTile.axisLen.coerceAtLeast(1200).toDouble()
@@ -251,69 +270,76 @@ internal class ReliefTileRenderer(
             (eNorth + eSouth + eEast + eWest + eNorthEast + eNorthWest + eSouthEast + eSouthWest) / 8.0
         val ridgeMeters = (eCenter - neighborMean8).coerceAtLeast(0.0)
         val gullyMeters = (neighborMean8 - eCenter).coerceAtLeast(0.0)
-        val ruggednessMeters = sqrt(
-            (
-                squareDiff(eNorth, eCenter) +
-                    squareDiff(eSouth, eCenter) +
-                    squareDiff(eEast, eCenter) +
-                    squareDiff(eWest, eCenter) +
-                    squareDiff(eNorthEast, eCenter) +
-                    squareDiff(eNorthWest, eCenter) +
-                    squareDiff(eSouthEast, eCenter) +
-                    squareDiff(eSouthWest, eCenter)
-                ) / 8.0
-        )
+        val ruggednessMeters =
+            sqrt(
+                (
+                    squareDiff(eNorth, eCenter) +
+                        squareDiff(eSouth, eCenter) +
+                        squareDiff(eEast, eCenter) +
+                        squareDiff(eWest, eCenter) +
+                        squareDiff(eNorthEast, eCenter) +
+                        squareDiff(eNorthWest, eCenter) +
+                        squareDiff(eSouthEast, eCenter) +
+                        squareDiff(eSouthWest, eCenter)
+                ) / 8.0,
+            )
 
         return ReliefSample(
             slopeDegrees = reliefDegrees,
-            primaryIllumination = illuminationForGradient(
-                dzDx = dzDx,
-                dzDy = dzDy,
-                lightX = LIGHT_VECTOR_X,
-                lightY = LIGHT_VECTOR_Y,
-                lightZ = LIGHT_VECTOR_Z
-            ),
-            fillIllumination = illuminationForGradient(
-                dzDx = dzDx,
-                dzDy = dzDy,
-                lightX = FILL_LIGHT_VECTOR_X,
-                lightY = FILL_LIGHT_VECTOR_Y,
-                lightZ = FILL_LIGHT_VECTOR_Z
-            ),
+            primaryIllumination =
+                illuminationForGradient(
+                    dzDx = dzDx,
+                    dzDy = dzDy,
+                    lightX = LIGHT_VECTOR_X,
+                    lightY = LIGHT_VECTOR_Y,
+                    lightZ = LIGHT_VECTOR_Z,
+                ),
+            fillIllumination =
+                illuminationForGradient(
+                    dzDx = dzDx,
+                    dzDy = dzDy,
+                    lightX = FILL_LIGHT_VECTOR_X,
+                    lightY = FILL_LIGHT_VECTOR_Y,
+                    lightZ = FILL_LIGHT_VECTOR_Z,
+                ),
             ridgeMeters = ridgeMeters,
             gullyMeters = gullyMeters,
-            ruggednessMeters = ruggednessMeters
+            ruggednessMeters = ruggednessMeters,
         )
     }
 
     private fun basicReliefSample(
         reliefDegrees: Double,
         dzDx: Double,
-        dzDy: Double
-    ): ReliefSample {
-        return ReliefSample(
+        dzDy: Double,
+    ): ReliefSample =
+        ReliefSample(
             slopeDegrees = reliefDegrees,
-            primaryIllumination = illuminationForGradient(
-                dzDx = dzDx,
-                dzDy = dzDy,
-                lightX = LIGHT_VECTOR_X,
-                lightY = LIGHT_VECTOR_Y,
-                lightZ = LIGHT_VECTOR_Z
-            ),
-            fillIllumination = illuminationForGradient(
-                dzDx = dzDx,
-                dzDy = dzDy,
-                lightX = FILL_LIGHT_VECTOR_X,
-                lightY = FILL_LIGHT_VECTOR_Y,
-                lightZ = FILL_LIGHT_VECTOR_Z
-            ),
+            primaryIllumination =
+                illuminationForGradient(
+                    dzDx = dzDx,
+                    dzDy = dzDy,
+                    lightX = LIGHT_VECTOR_X,
+                    lightY = LIGHT_VECTOR_Y,
+                    lightZ = LIGHT_VECTOR_Z,
+                ),
+            fillIllumination =
+                illuminationForGradient(
+                    dzDx = dzDx,
+                    dzDy = dzDy,
+                    lightX = FILL_LIGHT_VECTOR_X,
+                    lightY = FILL_LIGHT_VECTOR_Y,
+                    lightZ = FILL_LIGHT_VECTOR_Z,
+                ),
             ridgeMeters = 0.0,
             gullyMeters = 0.0,
-            ruggednessMeters = 0.0
+            ruggednessMeters = 0.0,
         )
-    }
 
-    private fun squareDiff(value: Double, center: Double): Double {
+    private fun squareDiff(
+        value: Double,
+        center: Double,
+    ): Double {
         val delta = value - center
         return delta * delta
     }
@@ -323,7 +349,7 @@ internal class ReliefTileRenderer(
         dzDy: Double,
         lightX: Double,
         lightY: Double,
-        lightZ: Double
+        lightZ: Double,
     ): Double {
         val normalX = -dzDx
         val normalY = -dzDy
@@ -333,6 +359,6 @@ internal class ReliefTileRenderer(
             (normalX * lightX) +
                 (normalY * lightY) +
                 (normalZ * lightZ)
-            ) / normalLength
+        ) / normalLength
     }
 }

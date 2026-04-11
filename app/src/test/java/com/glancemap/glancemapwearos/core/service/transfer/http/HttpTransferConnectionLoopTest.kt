@@ -5,7 +5,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HttpTransferConnectionLoopTest {
-
     @Test
     fun `fresh http transfer computes checksum inline`() {
         assertTrue(shouldComputeInlineChecksumForHttp(resumeOffset = 0L))

@@ -18,16 +18,16 @@ internal fun buildMapRendererThemeOrNull(
     context: Context,
     themeFile: File?,
     mapsforgeThemeName: String?,
-    bundledThemeId: String
-): XmlRenderTheme? {
-    return try {
+    bundledThemeId: String,
+): XmlRenderTheme? =
+    try {
         if (!mapsforgeThemeName.isNullOrBlank()) {
             val enumName = mapsforgeThemeName.uppercase(Locale.ROOT)
             runCatching { MapsforgeThemes.valueOf(enumName) }.getOrNull()
                 ?: run {
                     Log.w(
                         MAP_RENDERER_THEME_TAG,
-                        "Unknown Mapsforge theme: $mapsforgeThemeName. Falling back to Elevate."
+                        "Unknown Mapsforge theme: $mapsforgeThemeName. Falling back to Elevate.",
                     )
                     null
                 }
@@ -35,21 +35,23 @@ internal fun buildMapRendererThemeOrNull(
             if (themeFile != null && themeFile.exists()) {
                 ExternalRenderTheme(themeFile, mapRendererStyleMenuCategoryCallback())
             } else {
-                val bundledThemeXmlPath = BundledRenderThemeAssetLocator.resolveThemeXmlPath(
-                    context.assets,
-                    bundledThemeId
-                )
-                val bundledThemeAssetDir = bundledThemeXmlPath
-                    .substringBeforeLast('/', "")
-                    .takeIf { it.isNotBlank() }
-                    ?.let { "$it/" }
-                    .orEmpty()
+                val bundledThemeXmlPath =
+                    BundledRenderThemeAssetLocator.resolveThemeXmlPath(
+                        context.assets,
+                        bundledThemeId,
+                    )
+                val bundledThemeAssetDir =
+                    bundledThemeXmlPath
+                        .substringBeforeLast('/', "")
+                        .takeIf { it.isNotBlank() }
+                        ?.let { "$it/" }
+                        .orEmpty()
                 val bundledThemeXmlName = bundledThemeXmlPath.substringAfterLast('/')
                 AssetsRenderTheme(
                     context.assets,
                     bundledThemeAssetDir,
                     bundledThemeXmlName,
-                    mapRendererStyleMenuCategoryCallback()
+                    mapRendererStyleMenuCategoryCallback(),
                 )
             }
         }
@@ -57,13 +59,12 @@ internal fun buildMapRendererThemeOrNull(
         Log.e(MAP_RENDERER_THEME_TAG, "Error loading theme", e)
         null
     }
-}
 
 internal fun computeMapRendererThemeSignature(
     file: File?,
     mapsforgeThemeName: String?,
     bundledThemeId: String,
-    hillShadingEnabled: Boolean
+    hillShadingEnabled: Boolean,
 ): String {
     if (!mapsforgeThemeName.isNullOrBlank()) {
         return "MAPSFORGE:${mapsforgeThemeName.uppercase(Locale.ROOT)}|HILLS:$hillShadingEnabled"
@@ -79,9 +80,10 @@ internal fun computeMapRendererThemeSignature(
 
 private fun mapRendererStyleMenuCategoryCallback(): XmlRenderThemeMenuCallback {
     return XmlRenderThemeMenuCallback { menu ->
-        val styleLayer = menu.getLayer(menu.defaultValue)
-            ?: menu.layers.values.firstOrNull { it.isVisible }
-            ?: return@XmlRenderThemeMenuCallback emptySet()
+        val styleLayer =
+            menu.getLayer(menu.defaultValue)
+                ?: menu.layers.values.firstOrNull { it.isVisible }
+                ?: return@XmlRenderThemeMenuCallback emptySet()
 
         val categories = linkedSetOf<String>()
         categories.addAll(styleLayer.categories)
@@ -92,7 +94,7 @@ private fun mapRendererStyleMenuCategoryCallback(): XmlRenderThemeMenuCallback {
 
 private fun addEnabledMapRendererOverlayCategories(
     layer: XmlRenderThemeStyleLayer,
-    categories: MutableSet<String>
+    categories: MutableSet<String>,
 ) {
     layer.overlays
         .asSequence()

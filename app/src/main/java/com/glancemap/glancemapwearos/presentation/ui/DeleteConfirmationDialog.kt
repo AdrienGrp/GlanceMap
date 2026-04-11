@@ -7,13 +7,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -35,7 +35,7 @@ fun DeleteConfirmationDialog(
     confirmText: String = "Delete",
     dismissText: String = "Cancel",
     messageTopPadding: Dp = 0.dp,
-    messageBottomPadding: Dp = 0.dp
+    messageBottomPadding: Dp = 0.dp,
 ) {
     if (!visible) return
 
@@ -56,34 +56,35 @@ fun DeleteConfirmationDialog(
                 text = title,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
             )
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = adaptive.dialogHorizontalPadding),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = adaptive.dialogHorizontalPadding),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = messageTopPadding, bottom = messageBottomPadding)
-                        .heightIn(max = adaptive.dialogBodyMaxHeight)
-                        .onPreRotaryScrollEvent { event ->
-                            val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
-                            abs(consumed) > 0.5f
-                        }
-                        .focusRequester(focusRequester)
-                        .focusable()
-                        .verticalScroll(scrollState),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = messageTopPadding, bottom = messageBottomPadding)
+                            .heightIn(max = adaptive.dialogBodyMaxHeight)
+                            .onPreRotaryScrollEvent { event ->
+                                val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
+                                abs(consumed) > 0.5f
+                            }.focusRequester(focusRequester)
+                            .focusable()
+                            .verticalScroll(scrollState),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         text = message,
                         textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
@@ -91,10 +92,11 @@ fun DeleteConfirmationDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                )
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
             ) {
                 Text(confirmText)
             }
@@ -102,13 +104,14 @@ fun DeleteConfirmationDialog(
         dismissButton = {
             Button(
                 onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                )
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    ),
             ) {
                 Text(dismissText)
             }
-        }
+        },
     )
 }

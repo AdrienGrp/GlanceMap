@@ -10,18 +10,18 @@ data class PoiSqlitePoint(
     val lat: Double,
     val lon: Double,
     val categoryName: String,
-    val tags: Map<String, String>
+    val tags: Map<String, String>,
 )
 
 data class PoiSqliteWriteOptions(
     val comment: String,
     val writer: String,
-    val extraMetadata: Map<String, String> = emptyMap()
+    val extraMetadata: Map<String, String> = emptyMap(),
 )
 
 data class PoiSqliteWriteSummary(
     val pointCount: Int,
-    val categoryCount: Int
+    val categoryCount: Int,
 )
 
 internal object PoiSqliteCodec {
@@ -31,14 +31,15 @@ internal object PoiSqliteCodec {
     fun write(
         file: File,
         points: List<PoiSqlitePoint>,
-        options: PoiSqliteWriteOptions
+        options: PoiSqliteWriteOptions,
     ): Int {
-        val sanitizedPoints = points.mapNotNull { point ->
-            val sanitizedTags = sanitizeTags(point.tags)
-            if (sanitizedTags.isEmpty()) return@mapNotNull null
-            val categoryName = point.categoryName.trim().ifBlank { "Other" }
-            point.copy(categoryName = categoryName, tags = sanitizedTags)
-        }
+        val sanitizedPoints =
+            points.mapNotNull { point ->
+                val sanitizedTags = sanitizeTags(point.tags)
+                if (sanitizedTags.isEmpty()) return@mapNotNull null
+                val categoryName = point.categoryName.trim().ifBlank { "Other" }
+                point.copy(categoryName = categoryName, tags = sanitizedTags)
+            }
         if (sanitizedPoints.isEmpty()) {
             throw IllegalStateException("No POI points to write.")
         }
@@ -48,8 +49,9 @@ internal object PoiSqliteCodec {
             byCategoryKey.putIfAbsent(point.categoryName.lowercase(Locale.ROOT), point.categoryName)
         }
 
-        val sortedCategories = byCategoryKey.entries
-            .sortedBy { it.value.lowercase(Locale.ROOT) }
+        val sortedCategories =
+            byCategoryKey.entries
+                .sortedBy { it.value.lowercase(Locale.ROOT) }
         val categoryIds = mutableMapOf<String, Int>()
         var nextCategoryId = 100
         sortedCategories.forEach { entry ->
@@ -74,9 +76,10 @@ internal object PoiSqliteCodec {
             db.execSQL("CREATE INDEX poi_index_idx_lat ON poi_index (lat);")
             db.execSQL("CREATE INDEX poi_index_idx_lon ON poi_index (lon);")
 
-            val insertCategory = db.compileStatement(
-                "INSERT INTO poi_categories (id, name, parent) VALUES (?, ?, ?)"
-            )
+            val insertCategory =
+                db.compileStatement(
+                    "INSERT INTO poi_categories (id, name, parent) VALUES (?, ?, ?)",
+                )
             insertCategory.bindLong(1, ROOT_CATEGORY_ID.toLong())
             insertCategory.bindString(2, ROOT_CATEGORY_NAME)
             insertCategory.bindNull(3)
@@ -92,15 +95,18 @@ internal object PoiSqliteCodec {
                 insertCategory.clearBindings()
             }
 
-            val insertIndex = db.compileStatement(
-                "INSERT INTO poi_index (id, lat, lon) VALUES (?, ?, ?)"
-            )
-            val insertData = db.compileStatement(
-                "INSERT INTO poi_data (id, data) VALUES (?, ?)"
-            )
-            val insertMap = db.compileStatement(
-                "INSERT INTO poi_category_map (id, category) VALUES (?, ?)"
-            )
+            val insertIndex =
+                db.compileStatement(
+                    "INSERT INTO poi_index (id, lat, lon) VALUES (?, ?, ?)",
+                )
+            val insertData =
+                db.compileStatement(
+                    "INSERT INTO poi_data (id, data) VALUES (?, ?)",
+                )
+            val insertMap =
+                db.compileStatement(
+                    "INSERT INTO poi_category_map (id, category) VALUES (?, ?)",
+                )
 
             assigned.forEach { point ->
                 insertIndex.bindLong(1, point.id)
@@ -120,18 +126,20 @@ internal object PoiSqliteCodec {
                 insertMap.clearBindings()
             }
 
-            val insertMetadata = db.compileStatement(
-                "INSERT INTO metadata (name, value) VALUES (?, ?)"
-            )
-            val metadata = linkedMapOf(
-                "bounds" to "${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon}",
-                "comment" to options.comment,
-                "date" to System.currentTimeMillis().toString(),
-                "language" to "",
-                "version" to "3",
-                "ways" to "true",
-                "writer" to options.writer
-            )
+            val insertMetadata =
+                db.compileStatement(
+                    "INSERT INTO metadata (name, value) VALUES (?, ?)",
+                )
+            val metadata =
+                linkedMapOf(
+                    "bounds" to "${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon}",
+                    "comment" to options.comment,
+                    "date" to System.currentTimeMillis().toString(),
+                    "language" to "",
+                    "version" to "3",
+                    "ways" to "true",
+                    "writer" to options.writer,
+                )
             metadata.putAll(options.extraMetadata)
             metadata.forEach { (key, value) ->
                 insertMetadata.bindString(1, key)
@@ -151,20 +159,20 @@ internal object PoiSqliteCodec {
 
     fun openStreamingWriter(
         file: File,
-        options: PoiSqliteWriteOptions
-    ): PoiSqliteStreamingWriter {
-        return PoiSqliteStreamingWriter(
+        options: PoiSqliteWriteOptions,
+    ): PoiSqliteStreamingWriter =
+        PoiSqliteStreamingWriter(
             file = file,
             options = options,
             rootCategoryId = ROOT_CATEGORY_ID,
-            rootCategoryName = ROOT_CATEGORY_NAME
+            rootCategoryName = ROOT_CATEGORY_NAME,
         )
-    }
 
     fun read(file: File): List<PoiSqlitePoint> {
         if (!file.exists() || !file.isFile) return emptyList()
 
-        val sql = """
+        val sql =
+            """
             SELECT
                 pi.id,
                 pi.lat,
@@ -181,7 +189,7 @@ internal object PoiSqliteCodec {
             FROM poi_index pi
             JOIN poi_data pd ON pd.id = pi.id
             ORDER BY pi.id
-        """.trimIndent()
+            """.trimIndent()
 
         val points = mutableListOf<PoiSqlitePoint>()
         val db = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
@@ -194,23 +202,26 @@ internal object PoiSqliteCodec {
                 val categoryIdx = cursor.getColumnIndex("category_name")
                 while (cursor.moveToNext()) {
                     if (idIdx < 0 || latIdx < 0 || lonIdx < 0) continue
-                    val tags = if (dataIdx >= 0 && !cursor.isNull(dataIdx)) {
-                        parseTagMap(cursor.getString(dataIdx).orEmpty())
-                    } else {
-                        emptyMap()
-                    }
-                    val categoryName = if (categoryIdx >= 0 && !cursor.isNull(categoryIdx)) {
-                        cursor.getString(categoryIdx).orEmpty().ifBlank { "Other" }
-                    } else {
-                        "Other"
-                    }
-                    points += PoiSqlitePoint(
-                        sourceId = cursor.getLong(idIdx),
-                        lat = cursor.getDouble(latIdx),
-                        lon = cursor.getDouble(lonIdx),
-                        categoryName = categoryName,
-                        tags = tags
-                    )
+                    val tags =
+                        if (dataIdx >= 0 && !cursor.isNull(dataIdx)) {
+                            parseTagMap(cursor.getString(dataIdx).orEmpty())
+                        } else {
+                            emptyMap()
+                        }
+                    val categoryName =
+                        if (categoryIdx >= 0 && !cursor.isNull(categoryIdx)) {
+                            cursor.getString(categoryIdx).orEmpty().ifBlank { "Other" }
+                        } else {
+                            "Other"
+                        }
+                    points +=
+                        PoiSqlitePoint(
+                            sourceId = cursor.getLong(idIdx),
+                            lat = cursor.getDouble(latIdx),
+                            lon = cursor.getDouble(lonIdx),
+                            categoryName = categoryName,
+                            tags = tags,
+                        )
                 }
             }
         } finally {
@@ -222,14 +233,15 @@ internal object PoiSqliteCodec {
 
     private fun assignStableIds(
         points: List<PoiSqlitePoint>,
-        categoryIds: Map<String, Int>
+        categoryIds: Map<String, Int>,
     ): List<AssignedPoiPoint> {
         val used = hashSetOf<Long>()
         var nextId = 1L
         return points.map { point ->
             val categoryKey = point.categoryName.lowercase(Locale.ROOT)
-            val categoryId = categoryIds[categoryKey]
-                ?: throw IllegalStateException("Missing POI category mapping.")
+            val categoryId =
+                categoryIds[categoryKey]
+                    ?: throw IllegalStateException("Missing POI category mapping.")
 
             var resolvedId = point.sourceId ?: nextId
             if (resolvedId <= 0L) resolvedId = nextId
@@ -243,7 +255,7 @@ internal object PoiSqliteCodec {
                 lat = point.lat,
                 lon = point.lon,
                 categoryId = categoryId,
-                tags = point.tags
+                tags = point.tags,
             )
         }
     }
@@ -257,7 +269,7 @@ internal object PoiSqliteCodec {
             minLat = minLat,
             minLon = minLon,
             maxLat = maxLat,
-            maxLon = maxLon
+            maxLon = maxLon,
         )
     }
 
@@ -274,28 +286,28 @@ internal object PoiSqliteCodec {
         return out
     }
 
-    internal fun buildTagData(tags: Map<String, String>): String {
-        return tags.entries.joinToString("\r") { (key, value) ->
+    internal fun buildTagData(tags: Map<String, String>): String =
+        tags.entries.joinToString("\r") { (key, value) ->
             "${sanitizeTagKey(key)}=${sanitizeTagValue(value)}"
         }
-    }
 
-    private fun sanitizeTagKey(key: String): String {
-        return key.trim()
+    private fun sanitizeTagKey(key: String): String =
+        key
+            .trim()
             .replace(Regex("[^A-Za-z0-9:_-]"), "_")
             .ifBlank { "tag" }
-    }
 
-    private fun sanitizeTagValue(value: String): String {
-        return value.replace('\n', ' ')
+    private fun sanitizeTagValue(value: String): String =
+        value
+            .replace('\n', ' ')
             .replace('\r', ' ')
             .replace('\u0000', ' ')
             .trim()
-    }
 
     private fun parseTagMap(data: String): Map<String, String> {
         if (data.isBlank()) return emptyMap()
-        return data.split('\r', '\n')
+        return data
+            .split('\r', '\n')
             .asSequence()
             .map { it.trim() }
             .filter { it.isNotBlank() && '=' in it }
@@ -308,8 +320,7 @@ internal object PoiSqliteCodec {
                     val value = token.substring(idx + 1).trim()
                     if (key.isBlank() || value.isBlank()) null else key to value
                 }
-            }
-            .toMap()
+            }.toMap()
     }
 
     private data class AssignedPoiPoint(
@@ -317,14 +328,14 @@ internal object PoiSqliteCodec {
         val lat: Double,
         val lon: Double,
         val categoryId: Int,
-        val tags: Map<String, String>
+        val tags: Map<String, String>,
     )
 
     private data class Bounds(
         val minLat: Double,
         val minLon: Double,
         val maxLat: Double,
-        val maxLon: Double
+        val maxLon: Double,
     )
 }
 
@@ -332,37 +343,37 @@ internal class PoiSqliteStreamingWriter(
     file: File,
     private val options: PoiSqliteWriteOptions,
     private val rootCategoryId: Int,
-    private val rootCategoryName: String
+    private val rootCategoryName: String,
 ) : AutoCloseable {
     private val db: SQLiteDatabase
     private val insertCategory by lazy {
         db.compileStatement(
-            "INSERT INTO poi_categories (id, name, parent) VALUES (?, ?, ?)"
+            "INSERT INTO poi_categories (id, name, parent) VALUES (?, ?, ?)",
         )
     }
     private val insertIndex by lazy {
         db.compileStatement(
-            "INSERT INTO poi_index (id, lat, lon) VALUES (?, ?, ?)"
+            "INSERT INTO poi_index (id, lat, lon) VALUES (?, ?, ?)",
         )
     }
     private val insertData by lazy {
         db.compileStatement(
-            "INSERT INTO poi_data (id, data) VALUES (?, ?)"
+            "INSERT INTO poi_data (id, data) VALUES (?, ?)",
         )
     }
     private val insertMap by lazy {
         db.compileStatement(
-            "INSERT INTO poi_category_map (id, category) VALUES (?, ?)"
+            "INSERT INTO poi_category_map (id, category) VALUES (?, ?)",
         )
     }
     private val insertMetadata by lazy {
         db.compileStatement(
-            "INSERT INTO metadata (name, value) VALUES (?, ?)"
+            "INSERT INTO metadata (name, value) VALUES (?, ?)",
         )
     }
     private val insertDedup by lazy {
         db.compileStatement(
-            "INSERT OR IGNORE INTO poi_dedup (dedup_key) VALUES (?)"
+            "INSERT OR IGNORE INTO poi_dedup (dedup_key) VALUES (?)",
         )
     }
 
@@ -415,10 +426,11 @@ internal class PoiSqliteStreamingWriter(
         val sanitizedTags = PoiSqliteCodec.sanitizeTags(point.tags)
         if (sanitizedTags.isEmpty()) return false
         val categoryName = point.categoryName.trim().ifBlank { "Other" }
-        val sanitizedPoint = point.copy(
-            categoryName = categoryName,
-            tags = sanitizedTags
-        )
+        val sanitizedPoint =
+            point.copy(
+                categoryName = categoryName,
+                tags = sanitizedTags,
+            )
 
         insertDedup.bindString(1, buildPoiDedupKey(sanitizedPoint))
         val dedupInserted = insertDedup.executeInsert()
@@ -455,15 +467,16 @@ internal class PoiSqliteStreamingWriter(
             throw IllegalStateException("No POI points to write.")
         }
 
-        val metadata = linkedMapOf(
-            "bounds" to "$minLat,$minLon,$maxLat,$maxLon",
-            "comment" to options.comment,
-            "date" to System.currentTimeMillis().toString(),
-            "language" to "",
-            "version" to "3",
-            "ways" to "true",
-            "writer" to options.writer
-        )
+        val metadata =
+            linkedMapOf(
+                "bounds" to "$minLat,$minLon,$maxLat,$maxLon",
+                "comment" to options.comment,
+                "date" to System.currentTimeMillis().toString(),
+                "language" to "",
+                "version" to "3",
+                "ways" to "true",
+                "writer" to options.writer,
+            )
         metadata.putAll(options.extraMetadata)
         metadata.forEach { (key, value) ->
             insertMetadata.bindString(1, key)
@@ -476,7 +489,7 @@ internal class PoiSqliteStreamingWriter(
         finished = true
         return PoiSqliteWriteSummary(
             pointCount = pointCount,
-            categoryCount = categoryIds.size
+            categoryCount = categoryIds.size,
         )
     }
 
@@ -525,10 +538,18 @@ internal class PoiSqliteStreamingWriter(
 internal fun buildPoiDedupKey(point: PoiSqlitePoint): String {
     val lat = String.format(Locale.US, "%.5f", point.lat)
     val lon = String.format(Locale.US, "%.5f", point.lon)
-    val name = point.tags["name"]?.trim()?.lowercase(Locale.ROOT).orEmpty()
-    val primaryType = listOf("tourism", "amenity", "natural", "highway", "shop")
-        .firstNotNullOfOrNull { key ->
-            point.tags[key]?.trim()?.lowercase(Locale.ROOT)?.let { "$key=$it" }
-        }.orEmpty()
+    val name =
+        point.tags["name"]
+            ?.trim()
+            ?.lowercase(Locale.ROOT)
+            .orEmpty()
+    val primaryType =
+        listOf("tourism", "amenity", "natural", "highway", "shop")
+            .firstNotNullOfOrNull { key ->
+                point.tags[key]
+                    ?.trim()
+                    ?.lowercase(Locale.ROOT)
+                    ?.let { "$key=$it" }
+            }.orEmpty()
     return "$lat,$lon|$name|$primaryType"
 }

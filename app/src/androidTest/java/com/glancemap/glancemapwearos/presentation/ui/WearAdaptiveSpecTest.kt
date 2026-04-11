@@ -9,7 +9,7 @@ import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
 import com.glancemap.glancemapwearos.test.SmallRoundWatch
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
-import com.glancemap.glancemapwearos.test.WithWearDeviceConfig
+import com.glancemap.glancemapwearos.test.withWearDeviceConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -18,7 +18,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class WearAdaptiveSpecTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -41,7 +40,7 @@ class WearAdaptiveSpecTest {
     fun rememberWearScreenSize_scalesDownWhenTextGetsLarge() {
         assertEquals(
             WearScreenSize.SMALL,
-            captureScreenSize(LargeRoundWatch.copy(fontScale = 1.2f))
+            captureScreenSize(LargeRoundWatch.copy(fontScale = 1.2f)),
         )
     }
 
@@ -131,10 +130,10 @@ class WearAdaptiveSpecTest {
 
     private fun setAdaptiveContent(
         config: WearDeviceTestConfig,
-        content: @Composable () -> Unit
+        content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
-            WithWearDeviceConfig(config = config, content = content)
+            withWearDeviceConfig(config = config, content = content)
         }
         composeRule.waitForIdle()
     }

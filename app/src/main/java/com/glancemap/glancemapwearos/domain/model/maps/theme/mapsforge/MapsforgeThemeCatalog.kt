@@ -5,7 +5,7 @@ import org.mapsforge.map.rendertheme.internal.MapsforgeThemes
 data class MapsforgeThemeOption(
     val id: String,
     val themeName: String,
-    val label: String
+    val label: String,
 )
 
 object MapsforgeThemeCatalog {
@@ -22,38 +22,39 @@ object MapsforgeThemeCatalog {
     val DEFAULT_MAPSFORGE_STYLE_ID = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.DEFAULT.name}"
     val DEFAULT_MAPSFORGE_THEME_ID = DEFAULT_MAPSFORGE_STYLE_ID
 
-    val options: List<MapsforgeThemeOption> = listOf(
-        MapsforgeThemeOption(
-            id = DEFAULT_MAPSFORGE_STYLE_ID,
-            themeName = MapsforgeThemes.DEFAULT.name,
-            label = "Classic"
-        ),
-        MapsforgeThemeOption(
-            id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.OSMARENDER.name}",
-            themeName = MapsforgeThemes.OSMARENDER.name,
-            label = "OSMARender"
-        ),
-        MapsforgeThemeOption(
-            id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.MOTORIDER.name}",
-            themeName = MapsforgeThemes.MOTORIDER.name,
-            label = "Motorider"
-        ),
-        MapsforgeThemeOption(
-            id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.BIKER.name}",
-            themeName = MapsforgeThemes.BIKER.name,
-            label = "Biker"
-        ),
-        MapsforgeThemeOption(
-            id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.DARK.name}",
-            themeName = MapsforgeThemes.DARK.name,
-            label = "Dark"
-        ),
-        MapsforgeThemeOption(
-            id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.INDIGO.name}",
-            themeName = MapsforgeThemes.INDIGO.name,
-            label = "Indigo"
+    val options: List<MapsforgeThemeOption> =
+        listOf(
+            MapsforgeThemeOption(
+                id = DEFAULT_MAPSFORGE_STYLE_ID,
+                themeName = MapsforgeThemes.DEFAULT.name,
+                label = "Classic",
+            ),
+            MapsforgeThemeOption(
+                id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.OSMARENDER.name}",
+                themeName = MapsforgeThemes.OSMARENDER.name,
+                label = "OSMARender",
+            ),
+            MapsforgeThemeOption(
+                id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.MOTORIDER.name}",
+                themeName = MapsforgeThemes.MOTORIDER.name,
+                label = "Motorider",
+            ),
+            MapsforgeThemeOption(
+                id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.BIKER.name}",
+                themeName = MapsforgeThemes.BIKER.name,
+                label = "Biker",
+            ),
+            MapsforgeThemeOption(
+                id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.DARK.name}",
+                themeName = MapsforgeThemes.DARK.name,
+                label = "Dark",
+            ),
+            MapsforgeThemeOption(
+                id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.INDIGO.name}",
+                themeName = MapsforgeThemes.INDIGO.name,
+                label = "Indigo",
+            ),
         )
-    )
 
     private val byId: Map<String, MapsforgeThemeOption> = options.associateBy { it.id }
     private val validThemeNames = MapsforgeThemes.values().map { it.name }.toSet()
@@ -68,17 +69,15 @@ object MapsforgeThemeCatalog {
 
     fun isMapsforgeStyleId(themeId: String?): Boolean = optionById(themeId) != null
 
-    fun isElevateFamilyTheme(themeId: String?): Boolean {
-        return themeId == ELEVATE_THEME_ID ||
+    fun isElevateFamilyTheme(themeId: String?): Boolean =
+        themeId == ELEVATE_THEME_ID ||
             themeId == ELEVATE_WINTER_THEME_ID ||
             themeId == ELEVATE_WINTER_WHITE_THEME_ID
-    }
 
-    fun isBundledAssetTheme(themeId: String?): Boolean {
-        return isElevateFamilyTheme(themeId) ||
+    fun isBundledAssetTheme(themeId: String?): Boolean =
+        isElevateFamilyTheme(themeId) ||
             themeId == OPENHIKING_THEME_ID ||
             themeId == FRENCH_KISS_THEME_ID ||
             themeId == TIRAMISU_THEME_ID ||
             themeId == HIKE_RIDE_SIGHT_THEME_ID
-    }
 }

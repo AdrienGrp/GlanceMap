@@ -12,9 +12,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
-import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.domain.sensors.COMPASS_TELEMETRY_TAG
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
@@ -27,7 +27,7 @@ internal fun NavigateCompassEffects(
     compassViewModel: CompassViewModel,
     compassProviderType: CompassProviderType,
     screenState: LocationScreenState,
-    isOfflineMode: Boolean
+    isOfflineMode: Boolean,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
@@ -35,18 +35,22 @@ internal fun NavigateCompassEffects(
     val latestIsOfflineMode = rememberUpdatedState(isOfflineMode)
     var pendingStopJob by remember { mutableStateOf<Job?>(null) }
 
-    fun stopCompass(immediate: Boolean, reason: String) {
+    fun stopCompass(
+        immediate: Boolean,
+        reason: String,
+    ) {
         if (immediate) {
             pendingStopJob?.cancel()
             pendingStopJob = null
-            val delayMs = resolveNavigateCompassImmediateStopDelayMs(
-                compassProviderType = compassProviderType,
-                screenState = latestScreenState.value,
-                isOfflineMode = latestIsOfflineMode.value
-            )
+            val delayMs =
+                resolveNavigateCompassImmediateStopDelayMs(
+                    compassProviderType = compassProviderType,
+                    screenState = latestScreenState.value,
+                    isOfflineMode = latestIsOfflineMode.value,
+                )
             logNavigateCompassEffect(
                 "ui_stop immediate=true reason=$reason screenState=${latestScreenState.value.name} " +
-                    "delayMs=$delayMs provider=${compassProviderType.name}"
+                    "delayMs=$delayMs provider=${compassProviderType.name}",
             )
             compassViewModel.stop(reason = reason, delayMs = delayMs)
             return
@@ -54,13 +58,14 @@ internal fun NavigateCompassEffects(
         if (pendingStopJob?.isActive == true) return
         logNavigateCompassEffect(
             "ui_stop immediate=false debounceMs=$NAVIGATE_COMPASS_STOP_DEBOUNCE_MS " +
-                "reason=$reason screenState=${latestScreenState.value.name}"
+                "reason=$reason screenState=${latestScreenState.value.name}",
         )
-        pendingStopJob = scope.launch {
-            delay(NAVIGATE_COMPASS_STOP_DEBOUNCE_MS)
-            pendingStopJob = null
-            compassViewModel.stop(reason = "${reason}_debounced")
-        }
+        pendingStopJob =
+            scope.launch {
+                delay(NAVIGATE_COMPASS_STOP_DEBOUNCE_MS)
+                pendingStopJob = null
+                compassViewModel.stop(reason = "${reason}_debounced")
+            }
     }
 
     fun startCompassForNavigate() {
@@ -73,67 +78,75 @@ internal fun NavigateCompassEffects(
 
     DisposableEffect(lifecycleOwner) {
         val lifecycle = lifecycleOwner.lifecycle
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_RESUME -> {
-                    if (
-                        shouldRunNavigateCompass(
-                            isResumed = true,
-                            screenState = latestScreenState.value,
-                            isOfflineMode = latestIsOfflineMode.value
-                        )
-                    ) {
-                        startCompassForNavigate()
-                    } else {
-                        stopCompass(
-                            immediate = shouldStopNavigateCompassImmediately(
-                                screenState = latestScreenState.value,
-                                isOfflineMode = latestIsOfflineMode.value
-                            ),
-                            reason = resolveNavigateCompassStopReason(
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_RESUME -> {
+                        if (
+                            shouldRunNavigateCompass(
                                 isResumed = true,
                                 screenState = latestScreenState.value,
-                                isOfflineMode = latestIsOfflineMode.value
+                                isOfflineMode = latestIsOfflineMode.value,
                             )
-                        )
+                        ) {
+                            startCompassForNavigate()
+                        } else {
+                            stopCompass(
+                                immediate =
+                                    shouldStopNavigateCompassImmediately(
+                                        screenState = latestScreenState.value,
+                                        isOfflineMode = latestIsOfflineMode.value,
+                                    ),
+                                reason =
+                                    resolveNavigateCompassStopReason(
+                                        isResumed = true,
+                                        screenState = latestScreenState.value,
+                                        isOfflineMode = latestIsOfflineMode.value,
+                                    ),
+                            )
+                        }
                     }
-                }
 
-                Lifecycle.Event.ON_PAUSE -> stopCompass(
-                    immediate = shouldStopNavigateCompassImmediately(
-                        screenState = latestScreenState.value,
-                        isOfflineMode = latestIsOfflineMode.value
-                    ),
-                    reason = resolveNavigateCompassStopReason(
-                        isResumed = false,
-                        screenState = latestScreenState.value,
-                        isOfflineMode = latestIsOfflineMode.value
-                    )
-                )
-                else -> Unit
+                    Lifecycle.Event.ON_PAUSE ->
+                        stopCompass(
+                            immediate =
+                                shouldStopNavigateCompassImmediately(
+                                    screenState = latestScreenState.value,
+                                    isOfflineMode = latestIsOfflineMode.value,
+                                ),
+                            reason =
+                                resolveNavigateCompassStopReason(
+                                    isResumed = false,
+                                    screenState = latestScreenState.value,
+                                    isOfflineMode = latestIsOfflineMode.value,
+                                ),
+                        )
+                    else -> Unit
+                }
             }
-        }
         lifecycle.addObserver(observer)
         // Sync immediately with current lifecycle state.
         if (
             shouldRunNavigateCompass(
                 isResumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED),
                 screenState = latestScreenState.value,
-                isOfflineMode = latestIsOfflineMode.value
+                isOfflineMode = latestIsOfflineMode.value,
             )
         ) {
             startCompassForNavigate()
         } else {
             stopCompass(
-                immediate = shouldStopNavigateCompassImmediately(
-                    screenState = latestScreenState.value,
-                    isOfflineMode = latestIsOfflineMode.value
-                ),
-                reason = resolveNavigateCompassStopReason(
-                    isResumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED),
-                    screenState = latestScreenState.value,
-                    isOfflineMode = latestIsOfflineMode.value
-                )
+                immediate =
+                    shouldStopNavigateCompassImmediately(
+                        screenState = latestScreenState.value,
+                        isOfflineMode = latestIsOfflineMode.value,
+                    ),
+                reason =
+                    resolveNavigateCompassStopReason(
+                        isResumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED),
+                        screenState = latestScreenState.value,
+                        isOfflineMode = latestIsOfflineMode.value,
+                    ),
             )
         }
 
@@ -150,22 +163,24 @@ internal fun NavigateCompassEffects(
             shouldRunNavigateCompass(
                 isResumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED),
                 screenState = screenState,
-                isOfflineMode = isOfflineMode
+                isOfflineMode = isOfflineMode,
             )
         ) {
             startCompassForNavigate()
         } else {
             val isResumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
             stopCompass(
-                immediate = shouldStopNavigateCompassImmediately(
-                    screenState = screenState,
-                    isOfflineMode = isOfflineMode
-                ),
-                reason = resolveNavigateCompassStopReason(
-                    isResumed = isResumed,
-                    screenState = screenState,
-                    isOfflineMode = isOfflineMode
-                )
+                immediate =
+                    shouldStopNavigateCompassImmediately(
+                        screenState = screenState,
+                        isOfflineMode = isOfflineMode,
+                    ),
+                reason =
+                    resolveNavigateCompassStopReason(
+                        isResumed = isResumed,
+                        screenState = screenState,
+                        isOfflineMode = isOfflineMode,
+                    ),
             )
         }
     }
@@ -174,44 +189,41 @@ internal fun NavigateCompassEffects(
 internal fun shouldRunNavigateCompass(
     isResumed: Boolean,
     screenState: LocationScreenState,
-    isOfflineMode: Boolean
-): Boolean {
-    return isResumed &&
+    isOfflineMode: Boolean,
+): Boolean =
+    isResumed &&
         screenState == LocationScreenState.INTERACTIVE &&
         !isOfflineMode
-}
 
 internal fun shouldStopNavigateCompassImmediately(
     screenState: LocationScreenState,
-    isOfflineMode: Boolean
-): Boolean {
-    return screenState.isNonInteractive || isOfflineMode
-}
+    isOfflineMode: Boolean,
+): Boolean = screenState.isNonInteractive || isOfflineMode
 
 internal fun resolveNavigateCompassStopReason(
     isResumed: Boolean,
     screenState: LocationScreenState,
-    isOfflineMode: Boolean
-): String {
-    return when {
+    isOfflineMode: Boolean,
+): String =
+    when {
         isOfflineMode -> "offline_mode"
         screenState == LocationScreenState.SCREEN_OFF -> "screen_off"
         screenState == LocationScreenState.AMBIENT -> "ambient"
         !isResumed -> "lifecycle_pause"
         else -> "resume_guard"
     }
-}
 
 internal fun resolveNavigateCompassImmediateStopDelayMs(
     compassProviderType: CompassProviderType,
     screenState: LocationScreenState,
-    isOfflineMode: Boolean
+    isOfflineMode: Boolean,
 ): Long {
     if (isOfflineMode) return 0L
     if (compassProviderType != CompassProviderType.GOOGLE_FUSED) return 0L
     return when (screenState) {
         LocationScreenState.SCREEN_OFF,
-        LocationScreenState.AMBIENT -> GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS
+        LocationScreenState.AMBIENT,
+        -> GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS
         LocationScreenState.INTERACTIVE -> 0L
     }
 }

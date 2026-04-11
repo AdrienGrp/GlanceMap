@@ -7,33 +7,95 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 internal data class ScaleIndicatorUi(
-    val label: String
+    val label: String,
 )
 
-private val metricScaleStepsMeters = doubleArrayOf(
-    5.0, 10.0, 20.0, 25.0, 50.0, 100.0, 200.0, 250.0, 500.0,
-    1000.0, 2000.0, 2500.0, 5000.0, 10000.0, 20000.0, 25000.0, 50000.0,
-    100000.0, 200000.0, 250000.0, 500000.0, 1000000.0, 2000000.0, 2500000.0, 5000000.0
-)
+private val metricScaleStepsMeters =
+    doubleArrayOf(
+        5.0,
+        10.0,
+        20.0,
+        25.0,
+        50.0,
+        100.0,
+        200.0,
+        250.0,
+        500.0,
+        1000.0,
+        2000.0,
+        2500.0,
+        5000.0,
+        10000.0,
+        20000.0,
+        25000.0,
+        50000.0,
+        100000.0,
+        200000.0,
+        250000.0,
+        500000.0,
+        1000000.0,
+        2000000.0,
+        2500000.0,
+        5000000.0,
+    )
 
-private val imperialScaleStepsFeet = doubleArrayOf(
-    20.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 500.0, 800.0, 1000.0, 2000.0, 3000.0, 5000.0, 8000.0
-)
+private val imperialScaleStepsFeet =
+    doubleArrayOf(
+        20.0,
+        50.0,
+        100.0,
+        150.0,
+        200.0,
+        250.0,
+        300.0,
+        500.0,
+        800.0,
+        1000.0,
+        2000.0,
+        3000.0,
+        5000.0,
+        8000.0,
+    )
 
-private val imperialScaleStepsMiles = doubleArrayOf(
-    0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 25.0, 30.0, 40.0, 50.0, 80.0, 100.0, 200.0, 250.0, 500.0, 1000.0, 2000.0, 2500.0, 5000.0
-)
+private val imperialScaleStepsMiles =
+    doubleArrayOf(
+        0.1,
+        0.2,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0,
+        25.0,
+        30.0,
+        40.0,
+        50.0,
+        80.0,
+        100.0,
+        200.0,
+        250.0,
+        500.0,
+        1000.0,
+        2000.0,
+        2500.0,
+        5000.0,
+    )
 
 internal fun calculateScaleIndicator(
     mapView: MapView,
-    isMetric: Boolean
+    isMetric: Boolean,
 ): ScaleIndicatorUi? {
     val widthPx = mapView.width
     if (widthPx <= 0) return null
 
-    val zoomLevel = mapView.model.mapViewPosition.zoomLevel.toInt()
+    val zoomLevel =
+        mapView.model.mapViewPosition.zoomLevel
+            .toInt()
     if (zoomLevel < 0) return null
-    val centerLat = mapView.model.mapViewPosition.center.latitude.coerceIn(-85.0, 85.0)
+    val centerLat =
+        mapView.model.mapViewPosition.center.latitude
+            .coerceIn(-85.0, 85.0)
     val metersPerPixelAtEquator = 156543.03392804097 / 2.0.pow(zoomLevel.toDouble())
     val metersPerPixel = metersPerPixelAtEquator * cos(Math.toRadians(centerLat))
     val visibleMeters = metersPerPixel * widthPx.toDouble()
@@ -44,13 +106,13 @@ internal fun calculateScaleIndicator(
     if (!scaleMeters.isFinite() || scaleMeters <= 0.0) return null
 
     return ScaleIndicatorUi(
-        label = formatScaleDistance(meters = scaleMeters, isMetric = isMetric)
+        label = formatScaleDistance(meters = scaleMeters, isMetric = isMetric),
     )
 }
 
 private fun chooseScaleDistanceMeters(
     targetMeters: Double,
-    isMetric: Boolean
+    isMetric: Boolean,
 ): Double {
     if (!targetMeters.isFinite() || targetMeters <= 0.0) return 0.0
 
@@ -69,7 +131,10 @@ private fun chooseScaleDistanceMeters(
     }
 }
 
-private fun pickLargestNotExceeding(steps: DoubleArray, target: Double): Double {
+private fun pickLargestNotExceeding(
+    steps: DoubleArray,
+    target: Double,
+): Double {
     var candidate = steps.firstOrNull() ?: target
     for (step in steps) {
         if (step <= target) candidate = step else break
@@ -79,7 +144,7 @@ private fun pickLargestNotExceeding(steps: DoubleArray, target: Double): Double 
 
 private fun formatScaleDistance(
     meters: Double,
-    isMetric: Boolean
+    isMetric: Boolean,
 ): String {
     if (isMetric) {
         return if (meters >= 1000.0) {

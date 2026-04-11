@@ -13,7 +13,7 @@ internal data class PreparedUriSelection(
     val uris: List<Uri>,
     val convertedGeoJsonCount: Int,
     val extractedPoiFromGpxCount: Int,
-    val extractedPoiFromMixedGpxCount: Int
+    val extractedPoiFromMixedGpxCount: Int,
 )
 
 internal suspend fun prepareSelectedUrisForTransfer(
@@ -22,14 +22,14 @@ internal suspend fun prepareSelectedUrisForTransfer(
     refugesImporter: RefugesGeoJsonPoiImporter,
     gpxWaypointPoiImporter: GpxWaypointPoiImporter,
     maxGeoJsonImportBytes: Long,
-    maxGpxWaypointImportBytes: Long
+    maxGpxWaypointImportBytes: Long,
 ): PreparedUriSelection {
     if (uris.isEmpty()) {
         return PreparedUriSelection(
             uris = emptyList(),
             convertedGeoJsonCount = 0,
             extractedPoiFromGpxCount = 0,
-            extractedPoiFromMixedGpxCount = 0
+            extractedPoiFromMixedGpxCount = 0,
         )
     }
 
@@ -43,33 +43,35 @@ internal suspend fun prepareSelectedUrisForTransfer(
             val geoJsonSize = queryUriSize(context, uri)
             if (geoJsonSize != null && geoJsonSize > maxGeoJsonImportBytes) {
                 throw IllegalArgumentException(
-                    "GeoJSON is too large (${geoJsonSize / (1024 * 1024)}MB). Please use a smaller file."
+                    "GeoJSON is too large (${geoJsonSize / (1024 * 1024)}MB). Please use a smaller file.",
                 )
             }
             val geoJsonText = readGeoJsonTextWithLimit(context, uri, maxGeoJsonImportBytes)
             val poiFileName = suggestPoiFileName(context, uri)
-            val result = refugesImporter.importFromGeoJsonText(
-                geoJsonText = geoJsonText,
-                fileNameInput = poiFileName
-            )
+            val result =
+                refugesImporter.importFromGeoJsonText(
+                    geoJsonText = geoJsonText,
+                    fileNameInput = poiFileName,
+                )
             prepared += result.poiUri
             convertedGeoJsonCount += 1
         } else if (isGpxUri(context, uri)) {
-            val gpxOutcome = runCatching {
-                val gpxSize = queryUriSize(context, uri)
-                if (gpxSize != null && gpxSize > maxGpxWaypointImportBytes) {
-                    return@runCatching null
+            val gpxOutcome =
+                runCatching {
+                    val gpxSize = queryUriSize(context, uri)
+                    if (gpxSize != null && gpxSize > maxGpxWaypointImportBytes) {
+                        return@runCatching null
+                    }
+                    val gpxText = readGpxTextWithLimit(context, uri, maxGpxWaypointImportBytes)
+                    gpxWaypointPoiImporter.importWaypointsFromGpxText(
+                        gpxText = gpxText,
+                        fileNameInput = suggestPoiFileNameForGpxWaypoints(context, uri),
+                        categoryNameInput = suggestPoiCategoryNameForGpx(context, uri),
+                    )
+                }.getOrElse {
+                    Log.w("FileTransferVM", "Failed GPX waypoint extraction for $uri", it)
+                    null
                 }
-                val gpxText = readGpxTextWithLimit(context, uri, maxGpxWaypointImportBytes)
-                gpxWaypointPoiImporter.importWaypointsFromGpxText(
-                    gpxText = gpxText,
-                    fileNameInput = suggestPoiFileNameForGpxWaypoints(context, uri),
-                    categoryNameInput = suggestPoiCategoryNameForGpx(context, uri)
-                )
-            }.getOrElse {
-                Log.w("FileTransferVM", "Failed GPX waypoint extraction for $uri", it)
-                null
-            }
             val poiResult = gpxOutcome?.poiResult
             if (poiResult == null) {
                 prepared += uri
@@ -90,59 +92,77 @@ internal suspend fun prepareSelectedUrisForTransfer(
         uris = prepared.distinctBy { it.toString() },
         convertedGeoJsonCount = convertedGeoJsonCount,
         extractedPoiFromGpxCount = extractedPoiFromGpxCount,
-        extractedPoiFromMixedGpxCount = extractedPoiFromMixedGpxCount
+        extractedPoiFromMixedGpxCount = extractedPoiFromMixedGpxCount,
     )
 }
 
 internal fun buildOsmEnrichTempFileName(basePoiFileName: String): String {
-    val base = basePoiFileName
-        .removeSuffix(".poi")
-        .ifBlank { "refuges-info" }
-        .replace(Regex("[^A-Za-z0-9._-]"), "_")
-        .trim('_')
-        .ifBlank { "refuges-info" }
+    val base =
+        basePoiFileName
+            .removeSuffix(".poi")
+            .ifBlank { "refuges-info" }
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .trim('_')
+            .ifBlank { "refuges-info" }
     return "${base}__osm_enrich.poi"
 }
 
-internal fun suggestPoiFileName(context: Context, uri: Uri): String {
+internal fun suggestPoiFileName(
+    context: Context,
+    uri: Uri,
+): String {
     val raw = resolveUriDisplayName(context, uri)
 
-    val safeBase = raw
-        .ifBlank { "refuges-local" }
-        .replace("\\", "_")
-        .replace("/", "_")
-        .replace(Regex("\\.[A-Za-z0-9]{1,8}$"), "")
-        .replace(Regex("[^A-Za-z0-9._-]"), "_")
-        .trim('_')
-        .ifBlank { "refuges-local" }
+    val safeBase =
+        raw
+            .ifBlank { "refuges-local" }
+            .replace("\\", "_")
+            .replace("/", "_")
+            .replace(Regex("\\.[A-Za-z0-9]{1,8}$"), "")
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .trim('_')
+            .ifBlank { "refuges-local" }
 
     return "$safeBase.poi"
 }
 
-internal fun isGeoJsonUri(context: Context, uri: Uri): Boolean {
+internal fun isGeoJsonUri(
+    context: Context,
+    uri: Uri,
+): Boolean {
     val name = resolveUriDisplayName(context, uri)
     return name.lowercase().endsWith(".geojson")
 }
 
-internal fun isGpxUri(context: Context, uri: Uri): Boolean {
+internal fun isGpxUri(
+    context: Context,
+    uri: Uri,
+): Boolean {
     val name = resolveUriDisplayName(context, uri)
     return name.lowercase().endsWith(".gpx")
 }
 
-internal fun suggestPoiFileNameForGpxWaypoints(context: Context, uri: Uri): String {
-    val base = resolveUriDisplayName(context, uri)
-        .trim()
-        .replace("\\", "_")
-        .replace("/", "_")
-        .replace(Regex("\\.gpx$", RegexOption.IGNORE_CASE), "")
-        .replace(Regex("[^A-Za-z0-9._-]"), "_")
-        .trim('_')
-        .ifBlank { "gpx-waypoints" }
+internal fun suggestPoiFileNameForGpxWaypoints(
+    context: Context,
+    uri: Uri,
+): String {
+    val base =
+        resolveUriDisplayName(context, uri)
+            .trim()
+            .replace("\\", "_")
+            .replace("/", "_")
+            .replace(Regex("\\.gpx$", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .trim('_')
+            .ifBlank { "gpx-waypoints" }
     return "${base}__waypoints.poi"
 }
 
-internal fun suggestPoiCategoryNameForGpx(context: Context, uri: Uri): String {
-    return resolveUriDisplayName(context, uri)
+internal fun suggestPoiCategoryNameForGpx(
+    context: Context,
+    uri: Uri,
+): String =
+    resolveUriDisplayName(context, uri)
         .trim()
         .replace(Regex("\\.gpx$", RegexOption.IGNORE_CASE), "")
         .replace('_', ' ')
@@ -150,24 +170,33 @@ internal fun suggestPoiCategoryNameForGpx(context: Context, uri: Uri): String {
         .replace(Regex("\\s+"), " ")
         .trim()
         .ifBlank { "Waypoints" }
-}
 
-internal fun resolveUriDisplayName(context: Context, uri: Uri): String {
-    val displayName = runCatching {
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use null
-            val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (idx < 0) null else cursor.getString(idx)
-        }
-    }.getOrNull()
+internal fun resolveUriDisplayName(
+    context: Context,
+    uri: Uri,
+): String {
+    val displayName =
+        runCatching {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+                val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (idx < 0) null else cursor.getString(idx)
+            }
+        }.getOrNull()
 
     return displayName
         ?.trim()
         ?.takeIf { it.isNotBlank() }
-        ?: uri.lastPathSegment?.substringAfterLast('/')?.trim().orEmpty()
+        ?: uri.lastPathSegment
+            ?.substringAfterLast('/')
+            ?.trim()
+            .orEmpty()
 }
 
-internal fun queryUriSize(context: Context, uri: Uri): Long? {
+internal fun queryUriSize(
+    context: Context,
+    uri: Uri,
+): Long? {
     return runCatching {
         context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             if (!cursor.moveToFirst()) return@use null
@@ -177,33 +206,40 @@ internal fun queryUriSize(context: Context, uri: Uri): Long? {
     }.getOrNull()
 }
 
-internal fun readGeoJsonTextWithLimit(context: Context, uri: Uri, maxBytes: Long): String {
-    return readTextWithLimit(
+internal fun readGeoJsonTextWithLimit(
+    context: Context,
+    uri: Uri,
+    maxBytes: Long,
+): String =
+    readTextWithLimit(
         context = context,
         uri = uri,
         maxBytes = maxBytes,
-        kindLabel = "GeoJSON"
+        kindLabel = "GeoJSON",
     )
-}
 
-internal fun readGpxTextWithLimit(context: Context, uri: Uri, maxBytes: Long): String {
-    return readTextWithLimit(
+internal fun readGpxTextWithLimit(
+    context: Context,
+    uri: Uri,
+    maxBytes: Long,
+): String =
+    readTextWithLimit(
         context = context,
         uri = uri,
         maxBytes = maxBytes,
-        kindLabel = "GPX"
+        kindLabel = "GPX",
     )
-}
 
 internal fun readTextWithLimit(
     context: Context,
     uri: Uri,
     maxBytes: Long,
-    kindLabel: String
+    kindLabel: String,
 ): String {
     val safeMax = maxBytes.coerceAtLeast(1L)
-    val input = context.contentResolver.openInputStream(uri)
-        ?: throw IllegalStateException("Cannot read selected $kindLabel file.")
+    val input =
+        context.contentResolver.openInputStream(uri)
+            ?: throw IllegalStateException("Cannot read selected $kindLabel file.")
     input.use { stream ->
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(64 * 1024)
@@ -214,7 +250,7 @@ internal fun readTextWithLimit(
             total += read.toLong()
             if (total > safeMax) {
                 throw IllegalArgumentException(
-                    "$kindLabel is too large (${total / (1024 * 1024)}MB). Please use a smaller file."
+                    "$kindLabel is too large (${total / (1024 * 1024)}MB). Please use a smaller file.",
                 )
             }
             output.write(buffer, 0, read)

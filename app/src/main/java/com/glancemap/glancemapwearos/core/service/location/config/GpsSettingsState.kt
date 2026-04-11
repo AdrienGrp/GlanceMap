@@ -5,5 +5,5 @@ internal data class GpsSettingsState(
     val intervalMs: Long,
     val ambientIntervalMs: Long,
     val ambientGps: Boolean,
-    val debugTelemetry: Boolean
+    val debugTelemetry: Boolean,
 )

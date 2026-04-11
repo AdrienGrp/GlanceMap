@@ -1,8 +1,8 @@
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,34 +33,37 @@ internal fun BoxScope.RouteMultiPointPointsOverlay(
     mapView: MapView,
     mapRotationDeg: Float,
     viewportRevision: Int,
-    gpxTrackColor: Int
+    gpxTrackColor: Int,
 ) {
     if (!session.isMultiPointCreate) return
 
     val trackColor = Color(gpxTrackColor)
 
-    val projectedPoints = session.chainPoints.mapNotNull { point ->
-        projectRouteToolPointToScreenOffset(
-            mapView = mapView,
-            latLong = point,
-            mapRotationDeg = mapRotationDeg,
-            viewportRevision = viewportRevision
-        )
-    }
-    if (projectedPoints.isNotEmpty()) {
-        val candidateOffset = if (session.usesCrosshair) {
-            Offset(
-                x = mapView.width / 2f,
-                y = mapView.height / 2f
+    val projectedPoints =
+        session.chainPoints.mapNotNull { point ->
+            projectRouteToolPointToScreenOffset(
+                mapView = mapView,
+                latLong = point,
+                mapRotationDeg = mapRotationDeg,
+                viewportRevision = viewportRevision,
             )
-        } else {
-            null
         }
+    if (projectedPoints.isNotEmpty()) {
+        val candidateOffset =
+            if (session.usesCrosshair) {
+                Offset(
+                    x = mapView.width / 2f,
+                    y = mapView.height / 2f,
+                )
+            } else {
+                null
+            }
 
         Canvas(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .fillMaxSize()
+            modifier =
+                Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxSize(),
         ) {
             projectedPoints.zipWithNext().forEach { (start, end) ->
                 drawLine(
@@ -68,7 +71,7 @@ internal fun BoxScope.RouteMultiPointPointsOverlay(
                     start = start,
                     end = end,
                     strokeWidth = 5f,
-                    cap = StrokeCap.Round
+                    cap = StrokeCap.Round,
                 )
             }
             if (candidateOffset != null) {
@@ -77,7 +80,7 @@ internal fun BoxScope.RouteMultiPointPointsOverlay(
                     start = projectedPoints.last(),
                     end = candidateOffset,
                     strokeWidth = 4f,
-                    cap = StrokeCap.Round
+                    cap = StrokeCap.Round,
                 )
             }
         }
@@ -88,42 +91,45 @@ internal fun BoxScope.RouteMultiPointPointsOverlay(
         val badgeSize = if (isLast) 20.dp else 18.dp
         val haloSize = badgeSize + 8.dp
         val halfSizePx = if (isLast) 10f else 9f
-        val fill = if (isLast) {
-            trackColor.copy(alpha = 0.94f)
-        } else {
-            Color(0xFFF7C948).copy(alpha = 0.92f)
-        }
+        val fill =
+            if (isLast) {
+                trackColor.copy(alpha = 0.94f)
+            } else {
+                Color(0xFFF7C948).copy(alpha = 0.92f)
+            }
         val labelColor = if (isLast && fill.luminance() < 0.5f) Color.White else Color.Black
 
         Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset {
-                    IntOffset(
-                        x = (screenOffset.x - halfSizePx).toInt(),
-                        y = (screenOffset.y - halfSizePx).toInt()
-                    )
-                }
-                .size(haloSize),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .align(Alignment.TopStart)
+                    .offset {
+                        IntOffset(
+                            x = (screenOffset.x - halfSizePx).toInt(),
+                            y = (screenOffset.y - halfSizePx).toInt(),
+                        )
+                    }.size(haloSize),
+            contentAlignment = Alignment.Center,
         ) {
             Box(
-                modifier = Modifier
-                    .size(haloSize)
-                    .background(Color.Black.copy(alpha = 0.24f), CircleShape)
+                modifier =
+                    Modifier
+                        .size(haloSize)
+                        .background(Color.Black.copy(alpha = 0.24f), CircleShape),
             )
             Box(
-                modifier = Modifier
-                    .size(badgeSize)
-                    .background(fill, CircleShape)
-                    .border(2.dp, Color.Black.copy(alpha = 0.82f), CircleShape),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(badgeSize)
+                        .background(fill, CircleShape)
+                        .border(2.dp, Color.Black.copy(alpha = 0.82f), CircleShape),
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = if (index == 0) "1" else (index + 1).toString(),
                     style = MaterialTheme.typography.labelSmall,
                     color = labelColor,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         }
@@ -134,22 +140,24 @@ private fun projectRouteToolPointToScreenOffset(
     mapView: MapView,
     latLong: LatLong,
     mapRotationDeg: Float,
-    viewportRevision: Int
+    viewportRevision: Int,
 ): Offset? {
     viewportRevision.hashCode()
     if (mapView.width <= 0 || mapView.height <= 0) return null
 
-    val mapPoint = runCatching {
-        mapView.mapViewProjection.toPixels(latLong)
-    }.getOrNull() ?: return null
+    val mapPoint =
+        runCatching {
+            mapView.mapViewProjection.toPixels(latLong)
+        }.getOrNull() ?: return null
 
-    val (screenX, screenY) = rotateRouteToolMapSpaceToScreen(
-        x = mapPoint.x,
-        y = mapPoint.y,
-        mapWidth = mapView.width.toDouble(),
-        mapHeight = mapView.height.toDouble(),
-        mapRotationDeg = mapRotationDeg.toDouble()
-    )
+    val (screenX, screenY) =
+        rotateRouteToolMapSpaceToScreen(
+            x = mapPoint.x,
+            y = mapPoint.y,
+            mapWidth = mapView.width.toDouble(),
+            mapHeight = mapView.height.toDouble(),
+            mapRotationDeg = mapRotationDeg.toDouble(),
+        )
     return Offset(screenX.toFloat(), screenY.toFloat())
 }
 
@@ -158,7 +166,7 @@ private fun rotateRouteToolMapSpaceToScreen(
     y: Double,
     mapWidth: Double,
     mapHeight: Double,
-    mapRotationDeg: Double
+    mapRotationDeg: Double,
 ): Pair<Double, Double> {
     if (mapWidth <= 0.0 || mapHeight <= 0.0) return x to y
     if (abs(mapRotationDeg) < 0.001) return x to y

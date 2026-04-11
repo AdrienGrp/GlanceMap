@@ -14,12 +14,8 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.round
-import kotlin.math.sqrt
 
 /**
  * DEM-driven relief overlay rendered above map tiles.
@@ -33,9 +29,8 @@ internal class ReliefOverlayLayer(
     private val demRootDir: File,
     private val diskCacheRootDir: File? = null,
     cacheNamespace: String = "default",
-    private val onProcessingStateChanged: () -> Unit = {}
+    private val onProcessingStateChanged: () -> Unit = {},
 ) : Layer() {
-
     companion object {
         private const val TAG = "ReliefOverlayLayer"
 
@@ -66,54 +61,58 @@ internal class ReliefOverlayLayer(
     }
 
     private val demRepository = ReliefDemRepository(demRootDir = demRootDir, tag = TAG)
-    private val diskCache = ReliefOverlayDiskCache(
-        diskCacheRootDir = diskCacheRootDir,
-        cacheNamespace = cacheNamespace,
-        tag = TAG
-    )
+    private val diskCache =
+        ReliefOverlayDiskCache(
+            diskCacheRootDir = diskCacheRootDir,
+            cacheNamespace = cacheNamespace,
+            tag = TAG,
+        )
+
     @Volatile
     private var lastNotifiedProcessingState: Boolean? = null
+
     @Volatile
     private var lastNotifiedProgressPercent: Int? = null
 
-    private val elevationSampleCache = object :
-        LinkedHashMap<ElevationSampleKey, ElevationSampleCacheEntry>(64, 0.75f, true) {
-        override fun removeEldestEntry(
-            eldest: MutableMap.MutableEntry<ElevationSampleKey, ElevationSampleCacheEntry>?
-        ): Boolean {
-            return size > MAX_LIVE_ELEVATION_SAMPLE_CACHE_ENTRIES
+    private val elevationSampleCache =
+        object :
+            LinkedHashMap<ElevationSampleKey, ElevationSampleCacheEntry>(64, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<ElevationSampleKey, ElevationSampleCacheEntry>?,
+            ): Boolean = size > MAX_LIVE_ELEVATION_SAMPLE_CACHE_ENTRIES
         }
-    }
 
-    private val overlayTileCache = object : LinkedHashMap<OverlayTileKey, OverlayTileEntry>(
-        24,
-        0.75f,
-        true
-    ) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<OverlayTileKey, OverlayTileEntry>?): Boolean {
-            val shouldRemove = size > MAX_OVERLAY_TILE_CACHE_ENTRIES
-            if (shouldRemove) {
-                eldest?.value?.bitmap?.decrementRefCount()
+    private val overlayTileCache =
+        object : LinkedHashMap<OverlayTileKey, OverlayTileEntry>(
+            24,
+            0.75f,
+            true,
+        ) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<OverlayTileKey, OverlayTileEntry>?): Boolean {
+                val shouldRemove = size > MAX_OVERLAY_TILE_CACHE_ENTRIES
+                if (shouldRemove) {
+                    eldest?.value?.bitmap?.decrementRefCount()
+                }
+                return shouldRemove
             }
-            return shouldRemove
         }
-    }
 
     private val pendingOverlayJobs = linkedSetOf<OverlayBuildRequest>()
 
-    private val overlayWorker = ThreadPoolExecutor(
-        1,
-        1,
-        0L,
-        TimeUnit.MILLISECONDS,
-        LinkedBlockingQueue(),
-        { runnable ->
-            Thread(runnable, "relief-overlay-worker").apply {
-                isDaemon = true
-                priority = Thread.NORM_PRIORITY - 1
-            }
-        }
-    )
+    private val overlayWorker =
+        ThreadPoolExecutor(
+            1,
+            1,
+            0L,
+            TimeUnit.MILLISECONDS,
+            LinkedBlockingQueue(),
+            { runnable ->
+                Thread(runnable, "relief-overlay-worker").apply {
+                    isDaemon = true
+                    priority = Thread.NORM_PRIORITY - 1
+                }
+            },
+        )
     private var lastViewportAnchorKey: OverlayTileKey? = null
     private var lastInteractionElapsedMs: Long = SystemClock.elapsedRealtime()
     private var hasInteractionAnchor: Boolean = false
@@ -133,10 +132,11 @@ internal class ReliefOverlayLayer(
     @Volatile
     private var overlayWorkEnabled: Boolean = false
 
-    private val tileRenderer = ReliefTileRenderer(
-        terrainRepository = demRepository,
-        isBuildEnabled = { !isDestroyed && overlayWorkEnabled }
-    )
+    private val tileRenderer =
+        ReliefTileRenderer(
+            terrainRepository = demRepository,
+            isBuildEnabled = { !isDestroyed && overlayWorkEnabled },
+        )
 
     @Volatile
     private var lastRenderTotalTiles: Int = 0
@@ -149,7 +149,7 @@ internal class ReliefOverlayLayer(
         zoomLevel: Byte,
         canvas: Canvas,
         topLeftPoint: Point,
-        rotation: Rotation
+        rotation: Rotation,
     ) {
         if (!isVisible) {
             suspendOverlayWork()
@@ -177,83 +177,88 @@ internal class ReliefOverlayLayer(
         val drawStartElapsedMs = nowElapsedMs
 
         try {
-            val tileSize = displayModel?.tileSize ?: run {
-                suspendOverlayWork()
-                return
-            }
-            val runtimePolicy = resolveRuntimePolicy(
-                nowElapsedMs = nowElapsedMs,
-                zoomLevel = zoomLevel,
-                topLeftPoint = topLeftPoint,
-                tileSize = tileSize
-            )
+            val tileSize =
+                displayModel?.tileSize ?: run {
+                    suspendOverlayWork()
+                    return
+                }
+            val runtimePolicy =
+                resolveRuntimePolicy(
+                    nowElapsedMs = nowElapsedMs,
+                    zoomLevel = zoomLevel,
+                    topLeftPoint = topLeftPoint,
+                    tileSize = tileSize,
+                )
             applyRuntimePolicyTransition(runtimePolicy)
             val mapSize = MercatorProjection.getMapSize(zoomLevel, tileSize)
-            val visibleTiles = computeVisibleTiles(
-                boundingBox = boundingBox,
-                zoomLevel = zoomLevel,
-                mapSize = mapSize,
-                tileSize = tileSize,
-                topLeftPoint = topLeftPoint,
-                marginTiles = 0
-            )
+            val visibleTiles =
+                computeVisibleTiles(
+                    boundingBox = boundingBox,
+                    zoomLevel = zoomLevel,
+                    mapSize = mapSize,
+                    tileSize = tileSize,
+                    topLeftPoint = topLeftPoint,
+                    marginTiles = 0,
+                )
             if (visibleTiles.isEmpty()) {
                 suspendOverlayWork()
                 return
             }
 
-            val viewportTiles = visibleTiles.filter { tile ->
-                tileIntersectsViewport(
-                    tile = tile,
-                    viewportWidth = canvas.width,
-                    viewportHeight = canvas.height
-                )
-            }
+            val viewportTiles =
+                visibleTiles.filter { tile ->
+                    tileIntersectsViewport(
+                        tile = tile,
+                        viewportWidth = canvas.width,
+                        viewportHeight = canvas.height,
+                    )
+                }
             val candidateTiles = if (viewportTiles.isNotEmpty()) viewportTiles else visibleTiles
-            val renderTiles = prioritizeVisibleTiles(
-                tiles = candidateTiles,
-                viewportWidth = canvas.width,
-                viewportHeight = canvas.height,
-                maxTiles = runtimePolicy.maxRenderTiles
-            )
+            val renderTiles =
+                prioritizeVisibleTiles(
+                    tiles = candidateTiles,
+                    viewportWidth = canvas.width,
+                    viewportHeight = canvas.height,
+                    maxTiles = runtimePolicy.maxRenderTiles,
+                )
             if (renderTiles.isEmpty()) {
                 resetRenderProgress()
                 return
             }
             val renderKeys = renderTiles.asSequence().map { it.key }.toSet()
-            val prefetchTiles = computeVisibleTiles(
-                boundingBox = boundingBox,
-                zoomLevel = zoomLevel,
-                mapSize = mapSize,
-                tileSize = tileSize,
-                topLeftPoint = topLeftPoint,
-                marginTiles = PREFETCH_RING_MARGIN_TILES
-            )
-                .asSequence()
-                .filter { tile ->
-                    tile.key !in renderKeys &&
-                        !tileIntersectsViewport(
-                            tile = tile,
+            val prefetchTiles =
+                computeVisibleTiles(
+                    boundingBox = boundingBox,
+                    zoomLevel = zoomLevel,
+                    mapSize = mapSize,
+                    tileSize = tileSize,
+                    topLeftPoint = topLeftPoint,
+                    marginTiles = PREFETCH_RING_MARGIN_TILES,
+                ).asSequence()
+                    .filter { tile ->
+                        tile.key !in renderKeys &&
+                            !tileIntersectsViewport(
+                                tile = tile,
+                                viewportWidth = canvas.width,
+                                viewportHeight = canvas.height,
+                            )
+                    }.toList()
+                    .let { ringTiles ->
+                        prioritizeVisibleTiles(
+                            tiles = ringTiles,
                             viewportWidth = canvas.width,
-                            viewportHeight = canvas.height
+                            viewportHeight = canvas.height,
+                            maxTiles = runtimePolicy.maxPrefetchTiles,
                         )
-                }
-                .toList()
-                .let { ringTiles ->
-                    prioritizeVisibleTiles(
-                        tiles = ringTiles,
-                        viewportWidth = canvas.width,
-                        viewportHeight = canvas.height,
-                        maxTiles = runtimePolicy.maxPrefetchTiles
-                    )
-                }
+                    }
             maybeResetPendingWorkForViewport(renderTiles)
             lastRenderTotalTiles = renderTiles.size
             var completedTiles = 0
-            val finePriorityState = computeFinePriorityState(
-                renderTiles = renderTiles,
-                policy = runtimePolicy
-            )
+            val finePriorityState =
+                computeFinePriorityState(
+                    renderTiles = renderTiles,
+                    policy = runtimePolicy,
+                )
 
             val filterBefore = canvas.isFilterBitmap()
             if (filterBefore) {
@@ -261,17 +266,18 @@ internal class ReliefOverlayLayer(
             }
             try {
                 renderTiles.forEachIndexed { index, tile ->
-                    val desiredQuality = desiredVisibleQualityForTile(
-                        tileIndex = index,
-                        policy = runtimePolicy,
-                        finePriorityState = finePriorityState
-                    )
+                    val desiredQuality =
+                        desiredVisibleQualityForTile(
+                            tileIndex = index,
+                            policy = runtimePolicy,
+                            finePriorityState = finePriorityState,
+                        )
                     val entry = synchronized(overlayTileCache) { overlayTileCache[tile.key] }
                     if (entry == null) {
                         scheduleOverlayTileBuild(
                             key = tile.key,
                             quality = desiredQuality,
-                            maxPendingJobs = runtimePolicy.maxPendingJobs
+                            maxPendingJobs = runtimePolicy.maxPendingJobs,
                         )
                         drawFallbackFromAncestor(tile, canvas)
                         return@forEachIndexed
@@ -282,7 +288,7 @@ internal class ReliefOverlayLayer(
                             scheduleOverlayTileBuild(
                                 key = tile.key,
                                 quality = desiredQuality,
-                                maxPendingJobs = runtimePolicy.maxPendingJobs
+                                maxPendingJobs = runtimePolicy.maxPendingJobs,
                             )
                         }
                         drawFallbackFromAncestor(tile, canvas)
@@ -302,30 +308,33 @@ internal class ReliefOverlayLayer(
                         scheduleOverlayTileBuild(
                             key = tile.key,
                             quality = desiredQuality,
-                            maxPendingJobs = runtimePolicy.maxPendingJobs
+                            maxPendingJobs = runtimePolicy.maxPendingJobs,
                         )
                     }
 
-                    val bitmap = entry.bitmap ?: run {
-                        scheduleOverlayTileBuild(
-                            key = tile.key,
-                            quality = desiredQuality,
-                            maxPendingJobs = runtimePolicy.maxPendingJobs
-                        )
-                        drawFallbackFromAncestor(tile, canvas)
-                        return@forEachIndexed
-                    }
+                    val bitmap =
+                        entry.bitmap ?: run {
+                            scheduleOverlayTileBuild(
+                                key = tile.key,
+                                quality = desiredQuality,
+                                maxPendingJobs = runtimePolicy.maxPendingJobs,
+                            )
+                            drawFallbackFromAncestor(tile, canvas)
+                            return@forEachIndexed
+                        }
 
-                    val transitionAlpha = readyTileAlpha(
-                        entry = entry,
-                        nowElapsedMs = nowElapsedMs,
-                        fadeInMs = READY_TILE_FADE_IN_MS
-                    )
-                    val fallbackDrawn = if (transitionAlpha < 1f) {
-                        drawFallbackFromAncestor(tile, canvas)
-                    } else {
-                        false
-                    }
+                    val transitionAlpha =
+                        readyTileAlpha(
+                            entry = entry,
+                            nowElapsedMs = nowElapsedMs,
+                            fadeInMs = READY_TILE_FADE_IN_MS,
+                        )
+                    val fallbackDrawn =
+                        if (transitionAlpha < 1f) {
+                            drawFallbackFromAncestor(tile, canvas)
+                        } else {
+                            false
+                        }
                     val drawAlpha = if (fallbackDrawn) transitionAlpha else 1f
                     completedTiles += 1
                     if (drawAlpha >= 0.999f) {
@@ -338,7 +347,7 @@ internal class ReliefOverlayLayer(
                             tile.left,
                             tile.top,
                             tile.right,
-                            tile.bottom
+                            tile.bottom,
                         )
                     } else {
                         canvas.drawBitmap(
@@ -351,7 +360,7 @@ internal class ReliefOverlayLayer(
                             tile.top,
                             tile.right,
                             tile.bottom,
-                            drawAlpha
+                            drawAlpha,
                         )
                     }
                     if (entry.drawMode == OverlayTileDrawMode.FADE_FROM_FALLBACK && (drawAlpha >= 0.999f || !fallbackDrawn)) {
@@ -371,7 +380,7 @@ internal class ReliefOverlayLayer(
                     key = tile.key,
                     nowElapsedMs = nowElapsedMs,
                     desiredQuality = runtimePolicy.prefetchQuality,
-                    maxPendingJobs = runtimePolicy.maxPendingJobs
+                    maxPendingJobs = runtimePolicy.maxPendingJobs,
                 )
             }
         } catch (error: Throwable) {
@@ -380,7 +389,7 @@ internal class ReliefOverlayLayer(
             Log.e(
                 TAG,
                 "Disabling relief overlay for ${DRAW_FAILURE_COOLDOWN_MS}ms after draw failure.",
-                error
+                error,
             )
             clearOverlayTileCache()
         } finally {
@@ -432,15 +441,19 @@ internal class ReliefOverlayLayer(
         return ((done * 100f) / total.toFloat()).toInt().coerceIn(0, 100)
     }
 
-    fun sampleElevationMeters(lat: Double, lon: Double): Double? {
+    fun sampleElevationMeters(
+        lat: Double,
+        lon: Double,
+    ): Double? {
         if (isDestroyed) return null
         if (!demRootDir.exists() || !demRootDir.isDirectory) return null
         val nowElapsedMs = SystemClock.elapsedRealtime()
-        val key = quantizedElevationSampleKey(
-            lat = lat,
-            lon = lon,
-            quantizationFactor = LIVE_ELEVATION_SAMPLE_QUANTIZATION_FACTOR
-        )
+        val key =
+            quantizedElevationSampleKey(
+                lat = lat,
+                lon = lon,
+                quantizationFactor = LIVE_ELEVATION_SAMPLE_QUANTIZATION_FACTOR,
+            )
         synchronized(elevationSampleCache) {
             val cached = elevationSampleCache[key]
             if (cached != null && (nowElapsedMs - cached.sampledAtElapsedMs) <= LIVE_ELEVATION_SAMPLE_CACHE_TTL_MS) {
@@ -448,14 +461,16 @@ internal class ReliefOverlayLayer(
             }
         }
 
-        val sampled = runCatching {
-            demRepository.elevationAt(lat, lon)
-        }.getOrNull()
+        val sampled =
+            runCatching {
+                demRepository.elevationAt(lat, lon)
+            }.getOrNull()
         synchronized(elevationSampleCache) {
-            elevationSampleCache[key] = ElevationSampleCacheEntry(
-                valueMeters = sampled,
-                sampledAtElapsedMs = nowElapsedMs
-            )
+            elevationSampleCache[key] =
+                ElevationSampleCacheEntry(
+                    valueMeters = sampled,
+                    sampledAtElapsedMs = nowElapsedMs,
+                )
         }
         return sampled
     }
@@ -464,7 +479,7 @@ internal class ReliefOverlayLayer(
         nowElapsedMs: Long,
         zoomLevel: Byte,
         topLeftPoint: Point,
-        tileSize: Int
+        tileSize: Int,
     ): RuntimePolicy {
         if (nowElapsedMs < overloadUntilElapsedMs) {
             return RuntimePolicy(
@@ -473,7 +488,7 @@ internal class ReliefOverlayLayer(
                 prefetchQuality = OverlayBuildQuality.COARSE,
                 maxRenderTiles = min(MAX_VISIBLE_OVERLAY_TILES, 12),
                 maxPrefetchTiles = min(MAX_PREFETCH_OVERLAY_TILES, 1),
-                maxPendingJobs = min(MAX_PENDING_OVERLAY_JOBS, 16)
+                maxPendingJobs = min(MAX_PENDING_OVERLAY_JOBS, 16),
             )
         }
         val interacted = detectCameraInteraction(zoomLevel = zoomLevel, topLeftPoint = topLeftPoint, tileSize = tileSize)
@@ -485,7 +500,7 @@ internal class ReliefOverlayLayer(
                 prefetchQuality = OverlayBuildQuality.COARSE,
                 maxRenderTiles = min(MAX_VISIBLE_OVERLAY_TILES, 14),
                 maxPrefetchTiles = min(MAX_PREFETCH_OVERLAY_TILES, 2),
-                maxPendingJobs = min(MAX_PENDING_OVERLAY_JOBS, 24)
+                maxPendingJobs = min(MAX_PENDING_OVERLAY_JOBS, 24),
             )
         }
         val idleElapsed = nowElapsedMs - lastInteractionElapsedMs
@@ -496,7 +511,7 @@ internal class ReliefOverlayLayer(
                 prefetchQuality = OverlayBuildQuality.FINE,
                 maxRenderTiles = MAX_VISIBLE_OVERLAY_TILES,
                 maxPrefetchTiles = MAX_PREFETCH_OVERLAY_TILES,
-                maxPendingJobs = MAX_PENDING_OVERLAY_JOBS
+                maxPendingJobs = MAX_PENDING_OVERLAY_JOBS,
             )
         } else {
             RuntimePolicy(
@@ -505,12 +520,16 @@ internal class ReliefOverlayLayer(
                 prefetchQuality = OverlayBuildQuality.COARSE,
                 maxRenderTiles = min(MAX_VISIBLE_OVERLAY_TILES, 18),
                 maxPrefetchTiles = min(MAX_PREFETCH_OVERLAY_TILES, 4),
-                maxPendingJobs = min(MAX_PENDING_OVERLAY_JOBS, 40)
+                maxPendingJobs = min(MAX_PENDING_OVERLAY_JOBS, 40),
             )
         }
     }
 
-    private fun detectCameraInteraction(zoomLevel: Byte, topLeftPoint: Point, tileSize: Int): Boolean {
+    private fun detectCameraInteraction(
+        zoomLevel: Byte,
+        topLeftPoint: Point,
+        tileSize: Int,
+    ): Boolean {
         if (!hasInteractionAnchor) {
             hasInteractionAnchor = true
             lastInteractionZoom = zoomLevel
@@ -550,35 +569,33 @@ internal class ReliefOverlayLayer(
 
     private fun computeFinePriorityState(
         renderTiles: List<VisibleTile>,
-        policy: RuntimePolicy
-    ): FinePriorityState {
-        return buildReliefFinePriorityState(
+        policy: RuntimePolicy,
+    ): FinePriorityState =
+        buildReliefFinePriorityState(
             renderTiles = renderTiles,
             policy = policy,
             idleFinePriorityTiles = IDLE_FINE_PRIORITY_TILES,
             entryForKey = { key ->
                 synchronized(overlayTileCache) { overlayTileCache[key] }
-            }
+            },
         )
-    }
 
     private fun desiredVisibleQualityForTile(
         tileIndex: Int,
         policy: RuntimePolicy,
-        finePriorityState: FinePriorityState
-    ): OverlayBuildQuality {
-        return resolveReliefVisibleQualityForTile(
+        finePriorityState: FinePriorityState,
+    ): OverlayBuildQuality =
+        resolveReliefVisibleQualityForTile(
             tileIndex = tileIndex,
             policy = policy,
-            finePriorityState = finePriorityState
+            finePriorityState = finePriorityState,
         )
-    }
 
     private fun maybeSchedulePrefetchTile(
         key: OverlayTileKey,
         nowElapsedMs: Long,
         desiredQuality: OverlayBuildQuality,
-        maxPendingJobs: Int
+        maxPendingJobs: Int,
     ) {
         val entry = synchronized(overlayTileCache) { overlayTileCache[key] }
         if (entry == null) {
@@ -611,9 +628,10 @@ internal class ReliefOverlayLayer(
         // Keep pending jobs across zoom changes so previously scheduled work is not discarded.
         if (anchor.zoom != previous.zoom) return
 
-        val tileCountPerAxis = (
-            MercatorProjection.getMapSize(anchor.zoom, anchor.tileSize) /
-                anchor.tileSize.toLong()
+        val tileCountPerAxis =
+            (
+                MercatorProjection.getMapSize(anchor.zoom, anchor.tileSize) /
+                    anchor.tileSize.toLong()
             ).coerceAtLeast(1L)
 
         val directDx = abs(anchor.tileX - previous.tileX)
@@ -649,7 +667,10 @@ internal class ReliefOverlayLayer(
         }
     }
 
-    private fun drawFallbackFromAncestor(tile: VisibleTile, canvas: Canvas): Boolean {
+    private fun drawFallbackFromAncestor(
+        tile: VisibleTile,
+        canvas: Canvas,
+    ): Boolean {
         val fallback = findFallbackTileSource(tile.key) ?: return false
         canvas.drawBitmap(
             fallback.bitmap,
@@ -660,7 +681,7 @@ internal class ReliefOverlayLayer(
             tile.left,
             tile.top,
             tile.right,
-            tile.bottom
+            tile.bottom,
         )
         return true
     }
@@ -680,12 +701,13 @@ internal class ReliefOverlayLayer(
             val parentZoom = (zoomInt - level).toByte()
             val parentTileX = key.tileX / scaleLong
             val parentTileY = key.tileY / scaleLong
-            val parentKey = OverlayTileKey(
-                zoom = parentZoom,
-                tileX = parentTileX,
-                tileY = parentTileY,
-                tileSize = tileSize
-            )
+            val parentKey =
+                OverlayTileKey(
+                    zoom = parentZoom,
+                    tileX = parentTileX,
+                    tileY = parentTileY,
+                    tileSize = tileSize,
+                )
             val parentEntry = synchronized(overlayTileCache) { overlayTileCache[parentKey] }
             if (parentEntry?.status != OverlayTileStatus.READY) continue
             val parentBitmap = parentEntry.bitmap ?: continue
@@ -705,7 +727,7 @@ internal class ReliefOverlayLayer(
                 srcLeft = srcLeft,
                 srcTop = srcTop,
                 srcRight = srcRight,
-                srcBottom = srcBottom
+                srcBottom = srcBottom,
             )
         }
         return null
@@ -714,7 +736,7 @@ internal class ReliefOverlayLayer(
     private fun scheduleOverlayTileBuild(
         key: OverlayTileKey,
         quality: OverlayBuildQuality,
-        maxPendingJobs: Int
+        maxPendingJobs: Int,
     ) {
         if (isDestroyed || !overlayWorkEnabled) return
         val request = OverlayBuildRequest(key = key, quality = quality)
@@ -723,9 +745,10 @@ internal class ReliefOverlayLayer(
         synchronized(pendingOverlayJobs) {
             if (pendingOverlayJobs.contains(request)) return
             if (quality == OverlayBuildQuality.COARSE) {
-                val hasFinePending = pendingOverlayJobs.any { pending ->
-                    pending.key == key && pending.quality == OverlayBuildQuality.FINE
-                }
+                val hasFinePending =
+                    pendingOverlayJobs.any { pending ->
+                        pending.key == key && pending.quality == OverlayBuildQuality.FINE
+                    }
                 if (hasFinePending) return
             }
             if (pendingOverlayJobs.size >= pendingCap) return
@@ -737,26 +760,27 @@ internal class ReliefOverlayLayer(
             try {
                 if (isDestroyed || !overlayWorkEnabled) return@execute
 
-                val entry = runCatching {
-                    diskCache.loadOverlayTileEntryFromDisk(key)
-                        ?: tileRenderer.buildOverlayTile(key, quality).also { built ->
-                        diskCache.persistOverlayTileEntryToDisk(key = key, entry = built)
+                val entry =
+                    runCatching {
+                        diskCache.loadOverlayTileEntryFromDisk(key)
+                            ?: tileRenderer.buildOverlayTile(key, quality).also { built ->
+                                diskCache.persistOverlayTileEntryToDisk(key = key, entry = built)
+                            }
+                    }.onFailure { error ->
+                        Log.w(
+                            TAG,
+                            "Failed building overlay tile z=${key.zoom} x=${key.tileX} y=${key.tileY} q=$quality",
+                            error,
+                        )
+                    }.getOrElse {
+                        OverlayTileEntry(
+                            bitmap = null,
+                            builtElapsedMs = SystemClock.elapsedRealtime(),
+                            status = OverlayTileStatus.FAILED,
+                            drawMode = OverlayTileDrawMode.STEADY,
+                            quality = quality,
+                        )
                     }
-                }.onFailure { error ->
-                    Log.w(
-                        TAG,
-                        "Failed building overlay tile z=${key.zoom} x=${key.tileX} y=${key.tileY} q=$quality",
-                        error
-                    )
-                }.getOrElse {
-                    OverlayTileEntry(
-                        bitmap = null,
-                        builtElapsedMs = SystemClock.elapsedRealtime(),
-                        status = OverlayTileStatus.FAILED,
-                        drawMode = OverlayTileDrawMode.STEADY,
-                        quality = quality
-                    )
-                }
 
                 if (isDestroyed) {
                     entry.bitmap?.decrementRefCount()

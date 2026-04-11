@@ -4,14 +4,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Bundle
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -25,20 +23,19 @@ import androidx.navigation.compose.rememberNavController
 import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.wear.compose.material3.TimeText
 import androidx.wear.compose.material3.TimeTextDefaults
-import com.google.android.horologist.compose.layout.AppScaffold
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxScreen
 import com.glancemap.glancemapwearos.presentation.features.home.MainScreen
 import com.glancemap.glancemapwearos.presentation.features.maps.MapsScreen
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateScreen
 import com.glancemap.glancemapwearos.presentation.features.navigate.navigateTimePattern
-import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.CompassSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.DebuggingSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpsSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpxSettingsScreen
-import com.glancemap.glancemapwearos.presentation.features.settings.DebuggingSettingsScreen
-import com.glancemap.glancemapwearos.presentation.features.settings.CompassSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.LicensesScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapDisplaySettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapSettingsScreen
@@ -47,32 +44,36 @@ import com.glancemap.glancemapwearos.presentation.features.settings.PoiSettingsS
 import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefaultsConfirmScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
-import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
+import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
+import com.google.android.horologist.compose.layout.AppScaffold
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
 class MainActivity : ComponentActivity() {
-
     private var _isAmbient by mutableStateOf(false)
     private var _ambientTickMs by mutableStateOf(0L)
     private var _isDeviceInteractive by mutableStateOf(true)
-    private val screenStateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+    private val screenStateReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+            }
         }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AndroidGraphicFactory.createInstance(this.application)
         _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
 
-        val screenStateFilter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_ON)
-            addAction(Intent.ACTION_SCREEN_OFF)
-        }
+        val screenStateFilter =
+            IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_SCREEN_OFF)
+            }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(screenStateReceiver, screenStateFilter, Context.RECEIVER_NOT_EXPORTED)
         } else {
@@ -80,28 +81,29 @@ class MainActivity : ComponentActivity() {
             registerReceiver(screenStateReceiver, screenStateFilter)
         }
 
-        val ambientObserver = AmbientLifecycleObserver(
-            this,
-            object : AmbientLifecycleObserver.AmbientLifecycleCallback {
-                override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
-                    _isAmbient = true
-                    _ambientTickMs = System.currentTimeMillis()
-                    _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: false
-                    logScreenTelemetry(event = "ambient_enter")
-                }
+        val ambientObserver =
+            AmbientLifecycleObserver(
+                this,
+                object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+                    override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+                        _isAmbient = true
+                        _ambientTickMs = System.currentTimeMillis()
+                        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: false
+                        logScreenTelemetry(event = "ambient_enter")
+                    }
 
-                override fun onExitAmbient() {
-                    _isAmbient = false
-                    _ambientTickMs = System.currentTimeMillis()
-                    _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
-                    logScreenTelemetry(event = "ambient_exit")
-                }
+                    override fun onExitAmbient() {
+                        _isAmbient = false
+                        _ambientTickMs = System.currentTimeMillis()
+                        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+                        logScreenTelemetry(event = "ambient_exit")
+                    }
 
-                override fun onUpdateAmbient() {
-                    _ambientTickMs = System.currentTimeMillis()
-                }
-            }
-        )
+                    override fun onUpdateAmbient() {
+                        _ambientTickMs = System.currentTimeMillis()
+                    }
+                },
+            )
         lifecycle.addObserver(ambientObserver)
 
         setContent {
@@ -117,11 +119,12 @@ class MainActivity : ComponentActivity() {
 
             GlanceMapTheme {
                 val wearScreenSize = rememberWearScreenSize()
-                val timeChipCornerRadius = when (wearScreenSize) {
-                    WearScreenSize.SMALL -> 16.dp
-                    WearScreenSize.MEDIUM -> 18.dp
-                    WearScreenSize.LARGE -> 20.dp
-                }
+                val timeChipCornerRadius =
+                    when (wearScreenSize) {
+                        WearScreenSize.SMALL -> 16.dp
+                        WearScreenSize.MEDIUM -> 18.dp
+                        WearScreenSize.LARGE -> 20.dp
+                    }
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val route = backStackEntry?.destination?.route
@@ -145,24 +148,27 @@ class MainActivity : ComponentActivity() {
                         if (showTimeInNavigate && isNavigateScreen && !isAmbient) {
                             val context = LocalContext.current
                             TimeText(
-                                modifier = Modifier.background(
-                                    color = Color.Black.copy(alpha = 0.3f),
-                                    shape = RoundedCornerShape(
-                                        bottomStart = timeChipCornerRadius,
-                                        bottomEnd = timeChipCornerRadius
-                                    )
-                                ),
-                                timeSource = TimeTextDefaults.rememberTimeSource(
-                                    navigateTimePattern(context, navigateTimeFormat)
-                                )
+                                modifier =
+                                    Modifier.background(
+                                        color = Color.Black.copy(alpha = 0.3f),
+                                        shape =
+                                            RoundedCornerShape(
+                                                bottomStart = timeChipCornerRadius,
+                                                bottomEnd = timeChipCornerRadius,
+                                            ),
+                                    ),
+                                timeSource =
+                                    TimeTextDefaults.rememberTimeSource(
+                                        navigateTimePattern(context, navigateTimeFormat),
+                                    ),
                             )
                         }
-                    }
+                    },
                 ) {
                     NavHost(
                         navController = navController,
                         startDestination = WatchRoutes.NAVIGATE,
-                        modifier = Modifier.background(Color.Black)
+                        modifier = Modifier.background(Color.Black),
                     ) {
                         composable(WatchRoutes.NAVIGATE) {
                             // ✅ NO swipe container here -> swipe-to-dismiss cannot happen
@@ -181,7 +187,7 @@ class MainActivity : ComponentActivity() {
                                         launchSingleTop = true
                                         restoreState = true
                                     }
-                                }
+                                },
                             )
                         }
 
@@ -189,11 +195,11 @@ class MainActivity : ComponentActivity() {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
-                                rightEdgeGestureWidthOverride = 8.dp
+                                rightEdgeGestureWidthOverride = 8.dp,
                             ) {
                                 MainScreen(
                                     navController = navController,
-                                    settingsViewModel = appContainer.settingsViewModel
+                                    settingsViewModel = appContainer.settingsViewModel,
                                 )
                             }
                         }
@@ -201,7 +207,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.GPX) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 GpxScreen(navController, appContainer.gpxViewModel, isMetric)
                             }
@@ -210,12 +216,12 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.POI) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 PoiScreen(
                                     navController = navController,
                                     poiViewModel = appContainer.poiViewModel,
-                                    mapViewModel = appContainer.mapViewModel
+                                    mapViewModel = appContainer.mapViewModel,
                                 )
                             }
                         }
@@ -223,12 +229,12 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.MAPS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 MapsScreen(
                                     navController = navController,
                                     mapViewModel = appContainer.mapViewModel,
-                                    themeViewModel = appContainer.themeViewModel
+                                    themeViewModel = appContainer.themeViewModel,
                                 )
                             }
                         }
@@ -236,13 +242,13 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 SettingsScreen(
                                     navController,
                                     appContainer.settingsViewModel,
                                     appContainer.mapViewModel,
-                                    appContainer.gpxViewModel
+                                    appContainer.gpxViewModel,
                                 )
                             }
                         }
@@ -250,7 +256,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.COMPASS_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 CompassSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
@@ -261,7 +267,7 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -269,7 +275,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.RESET_DEFAULTS_CONFIRM) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 ResetDefaultsConfirmScreen(
                                     onCancel = { navController.popBackStack() },
@@ -281,7 +287,7 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -289,7 +295,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.GPS_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 GpsSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
@@ -299,7 +305,7 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -307,7 +313,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.DEBUG_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 DebuggingSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
@@ -318,7 +324,7 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -326,7 +332,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.GPX_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 GpxSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
@@ -336,7 +342,7 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -344,7 +350,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.POI_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 PoiSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
@@ -354,7 +360,7 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -362,7 +368,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.MAP_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 MapSettingsScreen(
                                     navController = navController,
@@ -374,7 +380,7 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -382,10 +388,10 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.MAP_ZOOM_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 MapZoomSettingsScreen(
-                                    viewModel = appContainer.settingsViewModel
+                                    viewModel = appContainer.settingsViewModel,
                                 )
                             }
                         }
@@ -393,10 +399,10 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.MAP_DISPLAY_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 MapDisplaySettingsScreen(
-                                    viewModel = appContainer.settingsViewModel
+                                    viewModel = appContainer.settingsViewModel,
                                 )
                             }
                         }
@@ -404,7 +410,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.THEME_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 ThemeSettingsScreen(
                                     themeViewModel = appContainer.themeViewModel,
@@ -414,7 +420,7 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -422,7 +428,7 @@ class MainActivity : ComponentActivity() {
                         composable(WatchRoutes.LICENSES) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
-                                onSwipeLeftNavigate = navigateViaSwipeLeft
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 LicensesScreen(
                                     onOpenGeneralSettings = {
@@ -431,7 +437,7 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -463,11 +469,12 @@ class MainActivity : ComponentActivity() {
 
     private fun logScreenTelemetry(event: String) {
         val interactive = getSystemService(PowerManager::class.java)?.isInteractive
-        val message = buildString {
-            append("event=").append(event)
-            append(" ambient=").append(_isAmbient)
-            append(" interactive=").append(interactive?.toString() ?: "na")
-        }
+        val message =
+            buildString {
+                append("event=").append(event)
+                append(" ambient=").append(_isAmbient)
+                append(" interactive=").append(interactive?.toString() ?: "na")
+            }
         DebugTelemetry.log("ScreenTelemetry", message)
     }
 }

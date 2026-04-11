@@ -6,7 +6,7 @@ import kotlin.math.max
 
 internal data class FixAcceptancePolicy(
     val maxAgeMs: Long,
-    val maxAccuracyM: Float
+    val maxAccuracyM: Float,
 )
 
 internal object LocationFixPolicy {
@@ -18,29 +18,30 @@ internal object LocationFixPolicy {
         fineMaxAgeMs: Long,
         coarseMaxAgeMs: Long,
         fineMaxAccuracyM: Float,
-        coarseMaxAccuracyM: Float
+        coarseMaxAccuracyM: Float,
     ): FixAcceptancePolicy {
         val intervalMs = expectedIntervalMs.coerceAtLeast(1_000L)
         val maxAgeUpperBound = if (hasFinePermission) fineMaxAgeMs else coarseMaxAgeMs
         val maxAgeMs = (intervalMs * 2L).coerceIn(minMaxAgeMs, maxAgeUpperBound)
-        val maxAccuracyM = if (hasFinePermission) {
-            fineMaxAccuracyM
-        } else if (hasCoarsePermission) {
-            coarseMaxAccuracyM
-        } else {
-            fineMaxAccuracyM
-        }
+        val maxAccuracyM =
+            if (hasFinePermission) {
+                fineMaxAccuracyM
+            } else if (hasCoarsePermission) {
+                coarseMaxAccuracyM
+            } else {
+                fineMaxAccuracyM
+            }
 
         return FixAcceptancePolicy(
             maxAgeMs = maxAgeMs,
-            maxAccuracyM = maxAccuracyM
+            maxAccuracyM = maxAccuracyM,
         )
     }
 
     fun strictFreshFixMaxAgeMs(
         gpsIntervalMs: Long,
         minFreshAgeMs: Long = 0L,
-        intervalMultiplier: Long = 0L
+        intervalMultiplier: Long = 0L,
     ): Long {
         val derivedMaxAgeMs = resolveLocationTimingProfile(gpsIntervalMs).strictFreshFixMaxAgeMs
         if (minFreshAgeMs <= 0L && intervalMultiplier <= 0L) {
@@ -55,14 +56,17 @@ internal object LocationFixPolicy {
     fun adaptAcceptanceForSourceMode(
         policy: FixAcceptancePolicy,
         sourceMode: LocationSourceMode,
-        watchGpsMaxAccuracyM: Float
+        watchGpsMaxAccuracyM: Float,
     ): FixAcceptancePolicy {
         if (sourceMode != LocationSourceMode.WATCH_GPS) return policy
         val relaxedMaxAccuracyM = max(policy.maxAccuracyM, watchGpsMaxAccuracyM)
         return policy.copy(maxAccuracyM = relaxedMaxAccuracyM)
     }
 
-    fun locationAgeMs(location: Location, nowElapsedMs: Long): Long {
+    fun locationAgeMs(
+        location: Location,
+        nowElapsedMs: Long,
+    ): Long {
         if (location.elapsedRealtimeNanos > 0L) {
             val fixElapsedMs = location.elapsedRealtimeNanos / 1_000_000L
             if (fixElapsedMs > nowElapsedMs + MAX_FUTURE_TIMESTAMP_SKEW_MS) {
@@ -80,19 +84,20 @@ internal object LocationFixPolicy {
         return Long.MAX_VALUE
     }
 
-    fun hasValidCoordinates(location: Location): Boolean {
-        return hasValidCoordinates(
+    fun hasValidCoordinates(location: Location): Boolean =
+        hasValidCoordinates(
             latitude = location.latitude,
-            longitude = location.longitude
+            longitude = location.longitude,
         )
-    }
 
-    fun hasValidCoordinates(latitude: Double, longitude: Double): Boolean {
-        return latitude.isFinite() &&
+    fun hasValidCoordinates(
+        latitude: Double,
+        longitude: Double,
+    ): Boolean =
+        latitude.isFinite() &&
             longitude.isFinite() &&
             latitude in MIN_LATITUDE_DEGREES..MAX_LATITUDE_DEGREES &&
             longitude in MIN_LONGITUDE_DEGREES..MAX_LONGITUDE_DEGREES
-    }
 }
 
 private const val MAX_FUTURE_TIMESTAMP_SKEW_MS = 2_000L

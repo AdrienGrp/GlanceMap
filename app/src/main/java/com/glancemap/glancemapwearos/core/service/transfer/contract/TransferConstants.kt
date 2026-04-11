@@ -24,7 +24,7 @@ internal object TransferConstants {
 
     const val SMALL_FILE_MAX_BYTES = 80 * 1024
 
-    const val WAKELOCK_MAX_MS = 30 * 60 * 1000L  // 30 min (was 2 h; WiFi worst-case 50 MB ≈ 17 min)
+    const val WAKELOCK_MAX_MS = 30 * 60 * 1000L // 30 min (was 2 h; WiFi worst-case 50 MB ≈ 17 min)
     const val PREWARM_WAKELOCK_MS = 25_000L
     const val SMALL_WAKELOCK_MS = 60_000L
 }

@@ -1,9 +1,9 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate.motion
 
 import android.hardware.SensorManager
-import com.glancemap.glancemapwearos.presentation.features.navigate.moveLatLong
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.config.STRICT_FRESH_FIX_MIN_AGE_MS
+import com.glancemap.glancemapwearos.presentation.features.navigate.moveLatLong
 import org.mapsforge.core.model.LatLong
 import kotlin.math.abs
 import kotlin.math.asin
@@ -16,7 +16,7 @@ class LocationFusionEngine(
     private val predictionHorizonMs: Long = 8_000L,
     private val correctionStaleGapMs: Long = STRICT_FRESH_FIX_MIN_AGE_MS,
     private val minBlendDurationMs: Long = 250L,
-    private val maxBlendDurationMs: Long = 850L
+    private val maxBlendDurationMs: Long = 850L,
 ) {
     private var lastAcceptedFix: AcceptedFix? = null
     private var correctionBlend: FusionCorrectionBlend? = null
@@ -65,7 +65,7 @@ class LocationFusionEngine(
         speedMps: Float,
         accuracyM: Float,
         bearingDeg: Float?,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ) {
         val sanitizedSpeed = sanitizeSpeed(speedMps)
         val sanitizedAccuracy = sanitizeAccuracy(accuracyM)
@@ -73,13 +73,14 @@ class LocationFusionEngine(
         updateMotionState(sanitizedSpeed, nowElapsedMs)
         correctionBlend = null
         displayedLatLong = latLong
-        lastAcceptedFix = AcceptedFix(
-            latLong = latLong,
-            elapsedMs = fixElapsedMs.coerceAtLeast(0L),
-            speedMps = sanitizedSpeed,
-            bearingDeg = bearingDeg ?: lastHeadingDeg,
-            accuracyM = sanitizedAccuracy
-        )
+        lastAcceptedFix =
+            AcceptedFix(
+                latLong = latLong,
+                elapsedMs = fixElapsedMs.coerceAtLeast(0L),
+                speedMps = sanitizedSpeed,
+                bearingDeg = bearingDeg ?: lastHeadingDeg,
+                accuracyM = sanitizedAccuracy,
+            )
         predictionRequiresFreshFix = true
         pendingFixConfirmation = null
     }
@@ -90,29 +91,33 @@ class LocationFusionEngine(
         pendingFixConfirmation = null
     }
 
-    fun suggestedPredictionTickMs(): Long {
-        return when (motionState) {
+    fun suggestedPredictionTickMs(): Long =
+        when (motionState) {
             MotionState.STATIONARY -> STATIONARY_PREDICTION_TICK_MS
-            MotionState.MOVING -> when {
-                smoothedSpeedMps >= FAST_MOVING_SPEED_MPS -> FAST_MOVING_PREDICTION_TICK_MS
-                smoothedSpeedMps >= NORMAL_MOVING_SPEED_MPS -> NORMAL_MOVING_PREDICTION_TICK_MS
-                else -> SLOW_MOVING_PREDICTION_TICK_MS
-            }
+            MotionState.MOVING ->
+                when {
+                    smoothedSpeedMps >= FAST_MOVING_SPEED_MPS -> FAST_MOVING_PREDICTION_TICK_MS
+                    smoothedSpeedMps >= NORMAL_MOVING_SPEED_MPS -> NORMAL_MOVING_PREDICTION_TICK_MS
+                    else -> SLOW_MOVING_PREDICTION_TICK_MS
+                }
         }
-    }
 
-    fun onHeading(headingDeg: Float, nowElapsedMs: Long) {
+    fun onHeading(
+        headingDeg: Float,
+        nowElapsedMs: Long,
+    ) {
         val normalizedHeading = normalize360(headingDeg)
         if (hasHeading && lastHeadingAtMs > 0L) {
             val dtSec = ((nowElapsedMs - lastHeadingAtMs).coerceAtLeast(1L)) / 1000f
             val delta = abs(shortestAngleDelta(normalizedHeading, lastHeadingDeg))
             val instantaneousRate = delta / dtSec
-            headingRateEmaDegPerSec = if (headingRateEmaDegPerSec <= 0f) {
-                instantaneousRate
-            } else {
-                HEADING_RATE_EMA_ALPHA * instantaneousRate +
+            headingRateEmaDegPerSec =
+                if (headingRateEmaDegPerSec <= 0f) {
+                    instantaneousRate
+                } else {
+                    HEADING_RATE_EMA_ALPHA * instantaneousRate +
                         (1f - HEADING_RATE_EMA_ALPHA) * headingRateEmaDegPerSec
-            }
+                }
         }
         hasHeading = true
         lastHeadingDeg = normalizedHeading
@@ -132,7 +137,7 @@ class LocationFusionEngine(
         speedMps: Float,
         accuracyM: Float,
         bearingDeg: Float?,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ): LatLong {
         val previousFix = lastAcceptedFix
         val candidateAccuracyM = sanitizeAccuracy(accuracyM)
@@ -140,10 +145,11 @@ class LocationFusionEngine(
         var pendingConfirmed = false
         pendingFixConfirmation?.let { pending ->
             val matchDistance = distanceMeters(pending.latLong, latLong)
-            val matchThreshold = pendingConfirmationThresholdMeters(
-                pendingAccuracyM = pending.accuracyM,
-                candidateAccuracyM = candidateAccuracyM
-            )
+            val matchThreshold =
+                pendingConfirmationThresholdMeters(
+                    pendingAccuracyM = pending.accuracyM,
+                    candidateAccuracyM = candidateAccuracyM,
+                )
             if (matchDistance <= matchThreshold) {
                 pendingConfirmed = true
                 pendingFixConfirmation = null
@@ -151,7 +157,7 @@ class LocationFusionEngine(
                     DebugTelemetry.log(
                         FUSION_TELEMETRY_TAG,
                         "confirmAccepted matchM=${matchDistance.format(1)} " +
-                                "thresholdM=${matchThreshold.format(1)} ageMs=${(nowElapsedMs - pending.firstSeenElapsedMs)}"
+                            "thresholdM=${matchThreshold.format(1)} ageMs=${(nowElapsedMs - pending.firstSeenElapsedMs)}",
                     )
                     maybeLogSummary(nowElapsedMs)
                 }
@@ -160,7 +166,7 @@ class LocationFusionEngine(
                 if (DebugTelemetry.isEnabled()) {
                     DebugTelemetry.log(
                         FUSION_TELEMETRY_TAG,
-                        "confirmTimeout ageMs=${(nowElapsedMs - pending.firstSeenElapsedMs)}"
+                        "confirmTimeout ageMs=${(nowElapsedMs - pending.firstSeenElapsedMs)}",
                     )
                     maybeLogSummary(nowElapsedMs)
                 }
@@ -174,39 +180,41 @@ class LocationFusionEngine(
                     DebugTelemetry.log(
                         FUSION_TELEMETRY_TAG,
                         "dropOutlier jumpM=${outlierDrop.jumpMeters.format(1)} " +
-                                "impliedSpeed=${outlierDrop.impliedSpeedMps.format(1)} " +
-                                "acc=${outlierDrop.accuracyM.format(1)} dt=${outlierDrop.dtSec.format(2)}"
+                            "impliedSpeed=${outlierDrop.impliedSpeedMps.format(1)} " +
+                            "acc=${outlierDrop.accuracyM.format(1)} dt=${outlierDrop.dtSec.format(2)}",
                     )
                     FusionReplayTelemetry.recordOutlierDropped(
                         nowElapsedMs = nowElapsedMs,
                         jumpMeters = outlierDrop.jumpMeters,
                         impliedSpeedMps = outlierDrop.impliedSpeedMps,
                         accuracyM = outlierDrop.accuracyM,
-                        dtSec = outlierDrop.dtSec
+                        dtSec = outlierDrop.dtSec,
                     )
                     maybeLogSummary(nowElapsedMs)
                 }
                 return predict(nowElapsedMs) ?: displayedLatLong ?: latLong
             }
 
-            val confirmRequired = confirmRequiredDecision(
-                previous = previousFix,
-                candidateLatLong = latLong,
-                candidateAccuracyM = candidateAccuracyM,
-                nowElapsedMs = nowElapsedMs
-            )
-            if (confirmRequired != null) {
-                pendingFixConfirmation = PendingFixConfirmation(
-                    latLong = latLong,
-                    accuracyM = candidateAccuracyM,
-                    firstSeenElapsedMs = nowElapsedMs
+            val confirmRequired =
+                confirmRequiredDecision(
+                    previous = previousFix,
+                    candidateLatLong = latLong,
+                    candidateAccuracyM = candidateAccuracyM,
+                    nowElapsedMs = nowElapsedMs,
                 )
+            if (confirmRequired != null) {
+                pendingFixConfirmation =
+                    PendingFixConfirmation(
+                        latLong = latLong,
+                        accuracyM = candidateAccuracyM,
+                        firstSeenElapsedMs = nowElapsedMs,
+                    )
                 if (DebugTelemetry.isEnabled()) {
                     DebugTelemetry.log(
                         FUSION_TELEMETRY_TAG,
                         "awaitConfirm jumpM=${confirmRequired.jumpMeters.format(1)} " +
-                                "impliedSpeed=${confirmRequired.impliedSpeedMps.format(1)} " +
-                                "acc=${confirmRequired.accuracyM.format(1)} dt=${confirmRequired.dtSec.format(2)}"
+                            "impliedSpeed=${confirmRequired.impliedSpeedMps.format(1)} " +
+                            "acc=${confirmRequired.accuracyM.format(1)} dt=${confirmRequired.dtSec.format(2)}",
                     )
                     maybeLogSummary(nowElapsedMs)
                 }
@@ -216,54 +224,60 @@ class LocationFusionEngine(
         pendingFixConfirmation = null
 
         val sanitizedSpeed = sanitizeSpeed(speedMps)
-        smoothedSpeedMps = if (smoothedSpeedMps <= 0f) {
-            sanitizedSpeed
-        } else {
-            SPEED_EMA_ALPHA * sanitizedSpeed + (1f - SPEED_EMA_ALPHA) * smoothedSpeedMps
-        }
+        smoothedSpeedMps =
+            if (smoothedSpeedMps <= 0f) {
+                sanitizedSpeed
+            } else {
+                SPEED_EMA_ALPHA * sanitizedSpeed + (1f - SPEED_EMA_ALPHA) * smoothedSpeedMps
+            }
 
         updateMotionState(smoothedSpeedMps, nowElapsedMs)
 
-        val chosenBearing = chooseFixBearing(
-            speedMps = sanitizedSpeed,
-            bearingDeg = bearingDeg,
-            fallbackBearingDeg = previousFix?.bearingDeg ?: lastHeadingDeg,
-            nowElapsedMs = nowElapsedMs
-        )
+        val chosenBearing =
+            chooseFixBearing(
+                speedMps = sanitizedSpeed,
+                bearingDeg = bearingDeg,
+                fallbackBearingDeg = previousFix?.bearingDeg ?: lastHeadingDeg,
+                nowElapsedMs = nowElapsedMs,
+            )
 
-        val accepted = AcceptedFix(
-            latLong = latLong,
-            elapsedMs = nowElapsedMs,
-            speedMps = smoothedSpeedMps,
-            bearingDeg = chosenBearing,
-            accuracyM = candidateAccuracyM
-        )
+        val accepted =
+            AcceptedFix(
+                latLong = latLong,
+                elapsedMs = nowElapsedMs,
+                speedMps = smoothedSpeedMps,
+                bearingDeg = chosenBearing,
+                accuracyM = candidateAccuracyM,
+            )
         val currentDisplayed = predictInternal(nowElapsedMs)
         predictionRequiresFreshFix = false
         lastAcceptedFix = accepted
 
-        val jumpMeters = if (currentDisplayed != null) {
-            distanceMeters(currentDisplayed, latLong)
-        } else {
-            0f
-        }
+        val jumpMeters =
+            if (currentDisplayed != null) {
+                distanceMeters(currentDisplayed, latLong)
+            } else {
+                0f
+            }
         val staleGapMs = previousFix?.let { (nowElapsedMs - it.elapsedMs).coerceAtLeast(0L) } ?: 0L
         if (staleGapMs > 0L) {
-            observedFixGapEmaMs = if (observedFixGapEmaMs <= 0L) {
-                staleGapMs
-            } else {
-                (
-                    observedFixGapEmaMs * (1f - FIX_GAP_EMA_ALPHA) +
-                        staleGapMs * FIX_GAP_EMA_ALPHA
+            observedFixGapEmaMs =
+                if (observedFixGapEmaMs <= 0L) {
+                    staleGapMs
+                } else {
+                    (
+                        observedFixGapEmaMs * (1f - FIX_GAP_EMA_ALPHA) +
+                            staleGapMs * FIX_GAP_EMA_ALPHA
                     ).toLong()
-            }
+                }
         }
-        val correctionStrategy = resolveCorrectionStrategy(
-            currentDisplayed = currentDisplayed,
-            jumpMeters = jumpMeters,
-            accuracyM = accepted.accuracyM,
-            staleGapMs = staleGapMs
-        )
+        val correctionStrategy =
+            resolveCorrectionStrategy(
+                currentDisplayed = currentDisplayed,
+                jumpMeters = jumpMeters,
+                accuracyM = accepted.accuracyM,
+                staleGapMs = staleGapMs,
+            )
 
         when (correctionStrategy) {
             CorrectionStrategy.SNAP -> {
@@ -273,7 +287,7 @@ class LocationFusionEngine(
                     DebugTelemetry.log(
                         FUSION_TELEMETRY_TAG,
                         "snapCorrection jumpM=${jumpMeters.format(1)} " +
-                                "acc=${accepted.accuracyM.format(1)} staleGapMs=$staleGapMs"
+                            "acc=${accepted.accuracyM.format(1)} staleGapMs=$staleGapMs",
                     )
                     FusionReplayTelemetry.recordFixAccepted(
                         nowElapsedMs = nowElapsedMs,
@@ -283,7 +297,7 @@ class LocationFusionEngine(
                         bearingDeg = accepted.bearingDeg,
                         motionState = motionState.name,
                         jumpMeters = jumpMeters,
-                        blendDurationMs = null
+                        blendDurationMs = null,
                     )
                     maybeLogSummary(nowElapsedMs)
                 }
@@ -291,30 +305,33 @@ class LocationFusionEngine(
             }
 
             CorrectionStrategy.SHORT_BLEND,
-            CorrectionStrategy.NORMAL_BLEND -> {
+            CorrectionStrategy.NORMAL_BLEND,
+            -> {
                 val blendFrom = currentDisplayed ?: latLong
-                val blendDuration = if (correctionStrategy == CorrectionStrategy.SHORT_BLEND) {
-                    SHORT_CORRECTION_BLEND_MS
-                } else {
-                    computeBlendDurationMs(
-                        currentDisplayed = blendFrom,
-                        targetFix = accepted,
-                        nowElapsedMs = nowElapsedMs
+                val blendDuration =
+                    if (correctionStrategy == CorrectionStrategy.SHORT_BLEND) {
+                        SHORT_CORRECTION_BLEND_MS
+                    } else {
+                        computeBlendDurationMs(
+                            currentDisplayed = blendFrom,
+                            targetFix = accepted,
+                            nowElapsedMs = nowElapsedMs,
+                        )
+                    }
+                correctionBlend =
+                    FusionCorrectionBlend(
+                        from = blendFrom,
+                        to = latLong,
+                        startElapsedMs = nowElapsedMs,
+                        durationMs = blendDuration,
                     )
-                }
-                correctionBlend = FusionCorrectionBlend(
-                    from = blendFrom,
-                    to = latLong,
-                    startElapsedMs = nowElapsedMs,
-                    durationMs = blendDuration
-                )
                 displayedLatLong = blendFrom
                 if (DebugTelemetry.isEnabled()) {
                     if (correctionStrategy == CorrectionStrategy.SHORT_BLEND) {
                         DebugTelemetry.log(
                             FUSION_TELEMETRY_TAG,
                             "shortBlendCorrection jumpM=${jumpMeters.format(1)} " +
-                                    "acc=${accepted.accuracyM.format(1)} staleGapMs=$staleGapMs"
+                                "acc=${accepted.accuracyM.format(1)} staleGapMs=$staleGapMs",
                         )
                     }
                     FusionReplayTelemetry.recordFixAccepted(
@@ -325,7 +342,7 @@ class LocationFusionEngine(
                         bearingDeg = accepted.bearingDeg,
                         motionState = motionState.name,
                         jumpMeters = jumpMeters,
-                        blendDurationMs = blendDuration
+                        blendDurationMs = blendDuration,
                     )
                     maybeLogSummary(nowElapsedMs)
                 }
@@ -344,7 +361,7 @@ class LocationFusionEngine(
                         bearingDeg = accepted.bearingDeg,
                         motionState = motionState.name,
                         jumpMeters = jumpMeters,
-                        blendDurationMs = null
+                        blendDurationMs = null,
                     )
                     maybeLogSummary(nowElapsedMs)
                 }
@@ -387,24 +404,26 @@ class LocationFusionEngine(
 
         val adaptivePredictionHorizonMs = effectivePredictionHorizonMs(staleThresholdMs)
         val rawPredictionMs = (elapsedMs - EARLY_PREDICTION_DELAY_MS).coerceAtLeast(0L)
-        val predictionProfile = resolvePredictionProfile(
-            fix = fix,
-            predictionAgeMs = rawPredictionMs,
-            adaptivePredictionHorizonMs = adaptivePredictionHorizonMs,
-            nowElapsedMs = nowElapsedMs
-        )
+        val predictionProfile =
+            resolvePredictionProfile(
+                fix = fix,
+                predictionAgeMs = rawPredictionMs,
+                adaptivePredictionHorizonMs = adaptivePredictionHorizonMs,
+                nowElapsedMs = nowElapsedMs,
+            )
         if (predictionProfile.horizonScale < MIN_PREDICTION_HORIZON_SCALE ||
             predictionProfile.speedScale < MIN_PREDICTION_SPEED_SCALE
         ) {
             return fix.latLong
         }
 
-        val predictionMs = rawPredictionMs
-            .coerceAtMost(
-                (adaptivePredictionHorizonMs * predictionProfile.horizonScale)
-                    .toLong()
-                    .coerceAtLeast(0L)
-            )
+        val predictionMs =
+            rawPredictionMs
+                .coerceAtMost(
+                    (adaptivePredictionHorizonMs * predictionProfile.horizonScale)
+                        .toLong()
+                        .coerceAtLeast(0L),
+                )
         val predictionSpeedMps = (fix.speedMps * predictionProfile.speedScale).coerceAtLeast(0f)
         if (predictionSpeedMps < MIN_PREDICTION_SPEED_MPS) {
             return fix.latLong
@@ -419,11 +438,14 @@ class LocationFusionEngine(
         return moveLatLong(
             start = fix.latLong,
             bearing = predictionBearing,
-            distanceMeters = distanceMeters
+            distanceMeters = distanceMeters,
         )
     }
 
-    private fun choosePredictionBearing(fix: AcceptedFix, nowElapsedMs: Long): Float {
+    private fun choosePredictionBearing(
+        fix: AcceptedFix,
+        nowElapsedMs: Long,
+    ): Float {
         val headingConfidence = headingSignalConfidence(nowElapsedMs)
         if (headingConfidence >= MIN_HEADING_BLEND_CONFIDENCE &&
             motionState == MotionState.MOVING &&
@@ -432,7 +454,7 @@ class LocationFusionEngine(
             return blendAngles(
                 a = fix.bearingDeg,
                 b = lastHeadingDeg,
-                alpha = HEADING_BEARING_BLEND_ALPHA * headingConfidence
+                alpha = HEADING_BEARING_BLEND_ALPHA * headingConfidence,
             )
         }
         return fix.bearingDeg
@@ -442,7 +464,7 @@ class LocationFusionEngine(
         speedMps: Float,
         bearingDeg: Float?,
         fallbackBearingDeg: Float,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ): Float {
         if (bearingDeg != null && speedMps >= GPS_BEARING_SPEED_MIN_MPS) {
             return normalize360(bearingDeg)
@@ -453,9 +475,7 @@ class LocationFusionEngine(
         return normalize360(fallbackBearingDeg)
     }
 
-    private fun isHeadingReliable(nowElapsedMs: Long): Boolean {
-        return headingSignalConfidence(nowElapsedMs) >= MIN_HEADING_RELIABLE_CONFIDENCE
-    }
+    private fun isHeadingReliable(nowElapsedMs: Long): Boolean = headingSignalConfidence(nowElapsedMs) >= MIN_HEADING_RELIABLE_CONFIDENCE
 
     private fun headingSignalConfidence(nowElapsedMs: Long): Float {
         if (!hasHeading || lastHeadingAtMs == 0L) return 0f
@@ -464,24 +484,27 @@ class LocationFusionEngine(
         if (magneticInterferenceActive) return 0f
         if (headingRateEmaDegPerSec > MAX_RELIABLE_HEADING_RATE_DEG_PER_SEC) return 0f
 
-        val accuracyConfidence = when (headingAccuracyStatus) {
-            SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> 1f
-            SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> 0.82f
-            SensorManager.SENSOR_STATUS_ACCURACY_LOW -> 0.52f
-            else -> 0f
-        }
+        val accuracyConfidence =
+            when (headingAccuracyStatus) {
+                SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> 1f
+                SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> 0.82f
+                SensorManager.SENSOR_STATUS_ACCURACY_LOW -> 0.52f
+                else -> 0f
+            }
         if (accuracyConfidence <= 0f) return 0f
 
-        val ageConfidence = when {
-            ageMs <= HEADING_AGE_CONFIDENT_MS -> 1f
-            ageMs <= HEADING_AGE_DEGRADED_MS -> 0.8f
-            else -> 0.6f
-        }
-        val turnConfidence = when {
-            headingRateEmaDegPerSec <= HEADING_RATE_CONFIDENT_DEG_PER_SEC -> 1f
-            headingRateEmaDegPerSec <= HEADING_RATE_DEGRADED_DEG_PER_SEC -> 0.8f
-            else -> 0.55f
-        }
+        val ageConfidence =
+            when {
+                ageMs <= HEADING_AGE_CONFIDENT_MS -> 1f
+                ageMs <= HEADING_AGE_DEGRADED_MS -> 0.8f
+                else -> 0.6f
+            }
+        val turnConfidence =
+            when {
+                headingRateEmaDegPerSec <= HEADING_RATE_CONFIDENT_DEG_PER_SEC -> 1f
+                headingRateEmaDegPerSec <= HEADING_RATE_DEGRADED_DEG_PER_SEC -> 0.8f
+                else -> 0.55f
+            }
         return minOf(accuracyConfidence, ageConfidence, turnConfidence)
     }
 
@@ -489,50 +512,58 @@ class LocationFusionEngine(
         fix: AcceptedFix,
         predictionAgeMs: Long,
         adaptivePredictionHorizonMs: Long,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ): PredictionProfile {
-        val speedScale = when {
-            fix.speedMps < VERY_SLOW_PREDICTION_SPEED_MPS -> 0f
-            fix.speedMps < SLOW_PREDICTION_SPEED_MPS -> 0.50f
-            fix.speedMps < NORMAL_PREDICTION_SPEED_MPS -> 0.74f
-            fix.speedMps < FAST_MOVING_SPEED_MPS -> 0.88f
-            else -> 1f
-        }
-        val accuracyScale = when {
-            fix.accuracyM <= PREDICTION_GOOD_ACCURACY_M -> 1f
-            fix.accuracyM <= PREDICTION_OK_ACCURACY_M -> 0.85f
-            fix.accuracyM <= PREDICTION_SOFT_LIMIT_ACCURACY_M -> 0.62f
-            fix.accuracyM <= PREDICTION_HARD_LIMIT_ACCURACY_M -> 0.35f
-            else -> 0f
-        }
-        val horizonUsageRatio = if (adaptivePredictionHorizonMs > 0L) {
-            predictionAgeMs.toFloat() / adaptivePredictionHorizonMs.toFloat()
-        } else {
-            1f
-        }
-        val freshnessScale = when {
-            horizonUsageRatio <= PREDICTION_FRESH_USAGE_RATIO -> 1f
-            horizonUsageRatio <= PREDICTION_AGING_USAGE_RATIO -> 0.82f
-            horizonUsageRatio <= PREDICTION_STALE_USAGE_RATIO -> 0.58f
-            else -> 0.34f
-        }
-        val headingConfidence = headingSignalConfidence(nowElapsedMs)
-        val directionScale = if (fix.speedMps >= GPS_BEARING_SPEED_MIN_MPS) {
-            1f
-        } else {
+        val speedScale =
             when {
-                headingConfidence >= 0.8f -> 1f
-                headingConfidence >= MIN_HEADING_BLEND_CONFIDENCE -> 0.72f
-                else -> 0.4f
+                fix.speedMps < VERY_SLOW_PREDICTION_SPEED_MPS -> 0f
+                fix.speedMps < SLOW_PREDICTION_SPEED_MPS -> 0.50f
+                fix.speedMps < NORMAL_PREDICTION_SPEED_MPS -> 0.74f
+                fix.speedMps < FAST_MOVING_SPEED_MPS -> 0.88f
+                else -> 1f
             }
-        }
+        val accuracyScale =
+            when {
+                fix.accuracyM <= PREDICTION_GOOD_ACCURACY_M -> 1f
+                fix.accuracyM <= PREDICTION_OK_ACCURACY_M -> 0.85f
+                fix.accuracyM <= PREDICTION_SOFT_LIMIT_ACCURACY_M -> 0.62f
+                fix.accuracyM <= PREDICTION_HARD_LIMIT_ACCURACY_M -> 0.35f
+                else -> 0f
+            }
+        val horizonUsageRatio =
+            if (adaptivePredictionHorizonMs > 0L) {
+                predictionAgeMs.toFloat() / adaptivePredictionHorizonMs.toFloat()
+            } else {
+                1f
+            }
+        val freshnessScale =
+            when {
+                horizonUsageRatio <= PREDICTION_FRESH_USAGE_RATIO -> 1f
+                horizonUsageRatio <= PREDICTION_AGING_USAGE_RATIO -> 0.82f
+                horizonUsageRatio <= PREDICTION_STALE_USAGE_RATIO -> 0.58f
+                else -> 0.34f
+            }
+        val headingConfidence = headingSignalConfidence(nowElapsedMs)
+        val directionScale =
+            if (fix.speedMps >= GPS_BEARING_SPEED_MIN_MPS) {
+                1f
+            } else {
+                when {
+                    headingConfidence >= 0.8f -> 1f
+                    headingConfidence >= MIN_HEADING_BLEND_CONFIDENCE -> 0.72f
+                    else -> 0.4f
+                }
+            }
         return PredictionProfile(
             horizonScale = minOf(accuracyScale, freshnessScale),
-            speedScale = speedScale * directionScale
+            speedScale = speedScale * directionScale,
         )
     }
 
-    private fun updateMotionState(speedMps: Float, nowElapsedMs: Long) {
+    private fun updateMotionState(
+        speedMps: Float,
+        nowElapsedMs: Long,
+    ) {
         val previousState = motionState
         when (motionState) {
             MotionState.MOVING -> {
@@ -562,13 +593,13 @@ class LocationFusionEngine(
         if (motionState != previousState && DebugTelemetry.isEnabled()) {
             DebugTelemetry.log(
                 FUSION_TELEMETRY_TAG,
-                "motion ${previousState.name} -> ${motionState.name} speed=${speedMps.format(2)}"
+                "motion ${previousState.name} -> ${motionState.name} speed=${speedMps.format(2)}",
             )
             FusionReplayTelemetry.recordMotionTransition(
                 nowElapsedMs = nowElapsedMs,
                 fromState = previousState.name,
                 toState = motionState.name,
-                speedMps = speedMps
+                speedMps = speedMps,
             )
         }
     }
@@ -577,7 +608,7 @@ class LocationFusionEngine(
         previous: AcceptedFix?,
         candidateLatLong: LatLong,
         candidateAccuracyM: Float,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ): OutlierDropDecision? {
         val prev = previous ?: return null
         val dtSec = ((nowElapsedMs - prev.elapsedMs).coerceAtLeast(0L)) / 1000f
@@ -597,7 +628,7 @@ class LocationFusionEngine(
             jumpMeters = jumpDistanceM,
             impliedSpeedMps = impliedSpeed,
             dtSec = dtSec,
-            accuracyM = candidateAcc
+            accuracyM = candidateAcc,
         )
     }
 
@@ -605,7 +636,7 @@ class LocationFusionEngine(
         previous: AcceptedFix?,
         candidateLatLong: LatLong,
         candidateAccuracyM: Float,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ): ConfirmRequiredDecision? {
         val prev = previous ?: return null
         val dtSec = ((nowElapsedMs - prev.elapsedMs).coerceAtLeast(0L)) / 1000f
@@ -625,57 +656,60 @@ class LocationFusionEngine(
             jumpMeters = jumpDistanceM,
             impliedSpeedMps = impliedSpeed,
             dtSec = dtSec,
-            accuracyM = candidateAcc
+            accuracyM = candidateAcc,
         )
     }
 
     private fun pendingConfirmationThresholdMeters(
         pendingAccuracyM: Float,
-        candidateAccuracyM: Float
+        candidateAccuracyM: Float,
     ): Float {
         val threshold = pendingAccuracyM + candidateAccuracyM + OUTLIER_CONFIRM_MATCH_MARGIN_M
         return threshold.coerceIn(OUTLIER_CONFIRM_MIN_MATCH_M, OUTLIER_CONFIRM_MAX_MATCH_M)
     }
 
-    private fun effectiveStaleThresholdMs(): Long {
-        return if (motionState == MotionState.STATIONARY) {
-            (staleGpsThresholdMs * STATIONARY_STALE_THRESHOLD_FACTOR).toLong()
+    private fun effectiveStaleThresholdMs(): Long =
+        if (motionState == MotionState.STATIONARY) {
+            (staleGpsThresholdMs * STATIONARY_STALE_THRESHOLD_FACTOR)
+                .toLong()
                 .coerceIn(staleGpsThresholdMs, MAX_STATIONARY_STALE_THRESHOLD_MS)
         } else {
-            (staleGpsThresholdMs * MOVING_STALE_THRESHOLD_FACTOR).toLong()
+            (staleGpsThresholdMs * MOVING_STALE_THRESHOLD_FACTOR)
+                .toLong()
                 .coerceAtLeast(MIN_MOVING_STALE_THRESHOLD_MS)
         }
-    }
 
     private fun effectivePredictionHorizonMs(staleThresholdMs: Long): Long {
-        val gapDrivenHorizonMs = if (observedFixGapEmaMs > 0L) {
-            observedFixGapEmaMs + PREDICTION_GAP_HEADROOM_MS
-        } else {
-            0L
-        }
+        val gapDrivenHorizonMs =
+            if (observedFixGapEmaMs > 0L) {
+                observedFixGapEmaMs + PREDICTION_GAP_HEADROOM_MS
+            } else {
+                0L
+            }
         val staleDrivenHorizonMs = staleThresholdMs * PREDICTION_HORIZON_STALE_MULTIPLIER
         return minOf(
             predictionHorizonMs,
             maxOf(
                 MIN_EFFECTIVE_PREDICTION_HORIZON_MS,
                 gapDrivenHorizonMs,
-                staleDrivenHorizonMs
-            )
+                staleDrivenHorizonMs,
+            ),
         ).coerceAtMost(MAX_ADAPTIVE_PREDICTION_HORIZON_MS)
     }
 
     private fun computeBlendDurationMs(
         currentDisplayed: LatLong,
         targetFix: AcceptedFix,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ): Long {
         val jumpDistanceM = distanceMeters(currentDisplayed, targetFix.latLong)
-        var durationMs = when {
-            targetFix.accuracyM <= 8f -> 260L
-            targetFix.accuracyM <= 15f -> 380L
-            targetFix.accuracyM <= 25f -> 520L
-            else -> 700L
-        }
+        var durationMs =
+            when {
+                targetFix.accuracyM <= 8f -> 260L
+                targetFix.accuracyM <= 15f -> 380L
+                targetFix.accuracyM <= 25f -> 520L
+                else -> 700L
+            }
         if (jumpDistanceM > 60f) durationMs += 140L
         if (motionState == MotionState.STATIONARY) durationMs += 90L
         if (!isHeadingReliable(nowElapsedMs)) durationMs += 80L
@@ -686,13 +720,14 @@ class LocationFusionEngine(
         currentDisplayed: LatLong?,
         jumpMeters: Float,
         accuracyM: Float,
-        staleGapMs: Long
+        staleGapMs: Long,
     ): CorrectionStrategy {
         if (currentDisplayed == null) return CorrectionStrategy.NONE
         if (jumpMeters <= MIN_BLEND_DISTANCE_METERS) return CorrectionStrategy.NONE
         if (jumpMeters < CORRECTION_MEDIUM_MIN_DISTANCE_METERS) return CorrectionStrategy.NONE
 
-        val isLargeConfidentCorrection = jumpMeters >= CORRECTION_LARGE_MIN_DISTANCE_METERS &&
+        val isLargeConfidentCorrection =
+            jumpMeters >= CORRECTION_LARGE_MIN_DISTANCE_METERS &&
                 accuracyM <= CORRECTION_CONFIDENT_ACCURACY_M
         if (isLargeConfidentCorrection) {
             return if (staleGapMs >= correctionStaleGapMs) {
@@ -721,25 +756,31 @@ class LocationFusionEngine(
         return accuracyM.coerceAtLeast(0f)
     }
 
-    private fun maybeRecordPredictionSample(nowElapsedMs: Long, predicted: LatLong) {
+    private fun maybeRecordPredictionSample(
+        nowElapsedMs: Long,
+        predicted: LatLong,
+    ) {
         if (!DebugTelemetry.isEnabled()) return
         if (lastReplayPredictionAtMs != 0L &&
             nowElapsedMs - lastReplayPredictionAtMs < REPLAY_PREDICT_SAMPLE_MS
-        ) return
+        ) {
+            return
+        }
 
         val fix = lastAcceptedFix
-        val staleMs = if (fix != null) {
-            (nowElapsedMs - fix.elapsedMs).coerceAtLeast(0L)
-        } else {
-            0L
-        }
+        val staleMs =
+            if (fix != null) {
+                (nowElapsedMs - fix.elapsedMs).coerceAtLeast(0L)
+            } else {
+                0L
+            }
         FusionReplayTelemetry.recordPrediction(
             nowElapsedMs = nowElapsedMs,
             latLong = predicted,
             speedMps = fix?.speedMps ?: 0f,
             bearingDeg = fix?.bearingDeg ?: lastHeadingDeg,
             motionState = motionState.name,
-            staleMs = staleMs
+            staleMs = staleMs,
         )
         lastReplayPredictionAtMs = nowElapsedMs
     }
@@ -756,11 +797,11 @@ class LocationFusionEngine(
         DebugTelemetry.log(
             FUSION_TELEMETRY_TAG,
             "summary fix=${summary.acceptedFixes} drop=${summary.outlierDrops} " +
-                    "pred=${summary.predictions} blend=${summary.blendStarts} " +
-                    "avgBlendMs=${summary.avgBlendDurationMs} " +
-                    "toStationary=${summary.toStationary} toMoving=${summary.toMoving} " +
-                    "maxJumpM=${summary.maxJumpMeters.format(1)} " +
-                    "maxImpliedSpeed=${summary.maxImpliedSpeedMps.format(1)}"
+                "pred=${summary.predictions} blend=${summary.blendStarts} " +
+                "avgBlendMs=${summary.avgBlendDurationMs} " +
+                "toStationary=${summary.toStationary} toMoving=${summary.toMoving} " +
+                "maxJumpM=${summary.maxJumpMeters.format(1)} " +
+                "maxImpliedSpeed=${summary.maxImpliedSpeedMps.format(1)}",
         )
     }
 }
@@ -772,46 +813,46 @@ private data class AcceptedFix(
     val elapsedMs: Long,
     val speedMps: Float,
     val bearingDeg: Float,
-    val accuracyM: Float
+    val accuracyM: Float,
 )
 
 private data class FusionCorrectionBlend(
     val from: LatLong,
     val to: LatLong,
     val startElapsedMs: Long,
-    val durationMs: Long
+    val durationMs: Long,
 )
 
 private data class OutlierDropDecision(
     val jumpMeters: Float,
     val impliedSpeedMps: Float,
     val dtSec: Float,
-    val accuracyM: Float
+    val accuracyM: Float,
 )
 
 private data class ConfirmRequiredDecision(
     val jumpMeters: Float,
     val impliedSpeedMps: Float,
     val dtSec: Float,
-    val accuracyM: Float
+    val accuracyM: Float,
 )
 
 private data class PendingFixConfirmation(
     val latLong: LatLong,
     val accuracyM: Float,
-    val firstSeenElapsedMs: Long
+    val firstSeenElapsedMs: Long,
 )
 
 private data class PredictionProfile(
     val horizonScale: Float,
-    val speedScale: Float
+    val speedScale: Float,
 )
 
 private enum class CorrectionStrategy {
     NONE,
     NORMAL_BLEND,
     SHORT_BLEND,
-    SNAP
+    SNAP,
 }
 
 private const val EARTH_RADIUS_METERS = 6_371_000.0
@@ -890,7 +931,10 @@ private const val SLOW_MOVING_PREDICTION_TICK_MS = 300L
 private const val STATIONARY_PREDICTION_TICK_MS = 700L
 private const val MAX_ACCEPTED_GPS_SPEED_MPS = 8f
 
-private fun distanceMeters(a: LatLong, b: LatLong): Float {
+private fun distanceMeters(
+    a: LatLong,
+    b: LatLong,
+): Float {
     val lat1 = Math.toRadians(a.latitude)
     val lon1 = Math.toRadians(a.longitude)
     val lat2 = Math.toRadians(b.latitude)
@@ -900,17 +944,22 @@ private fun distanceMeters(a: LatLong, b: LatLong): Float {
 
     val sinHalfLat = sin(dLat / 2.0)
     val sinHalfLon = sin(dLon / 2.0)
-    val h = sinHalfLat * sinHalfLat +
+    val h =
+        sinHalfLat * sinHalfLat +
             cos(lat1) * cos(lat2) * sinHalfLon * sinHalfLon
     val c = 2.0 * asin(sqrt(h.coerceIn(0.0, 1.0)))
     return (EARTH_RADIUS_METERS * c).toFloat()
 }
 
-private fun lerpLatLong(from: LatLong, to: LatLong, t: Float): LatLong {
+private fun lerpLatLong(
+    from: LatLong,
+    to: LatLong,
+    t: Float,
+): LatLong {
     val blend = t.coerceIn(0f, 1f).toDouble()
     return LatLong(
         from.latitude + (to.latitude - from.latitude) * blend,
-        from.longitude + (to.longitude - from.longitude) * blend
+        from.longitude + (to.longitude - from.longitude) * blend,
     )
 }
 
@@ -920,14 +969,21 @@ private fun normalize360(value: Float): Float {
     return result
 }
 
-private fun shortestAngleDelta(target: Float, current: Float): Float {
+private fun shortestAngleDelta(
+    target: Float,
+    current: Float,
+): Float {
     var delta = normalize360(target) - normalize360(current)
     while (delta > 180f) delta -= 360f
     while (delta < -180f) delta += 360f
     return delta
 }
 
-private fun blendAngles(a: Float, b: Float, alpha: Float): Float {
+private fun blendAngles(
+    a: Float,
+    b: Float,
+    alpha: Float,
+): Float {
     val delta = shortestAngleDelta(b, a)
     return normalize360(a + alpha.coerceIn(0f, 1f) * delta)
 }

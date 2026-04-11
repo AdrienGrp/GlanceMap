@@ -23,9 +23,8 @@ import java.util.concurrent.ConcurrentHashMap
  *   JSON: { "id": "<requestId>", "exists": true/false }
  */
 class FileExistenceChecker(
-    private val sendMessage: suspend (nodeId: String, path: String, payload: ByteArray) -> Unit
+    private val sendMessage: suspend (nodeId: String, path: String, payload: ByteArray) -> Unit,
 ) {
-
     private val pendingChecks = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
     private val pendingBatchChecks = ConcurrentHashMap<String, CompletableDeferred<List<Boolean>>>()
     private val pendingPings = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
@@ -35,14 +34,14 @@ class FileExistenceChecker(
     fun markNodeRecovering(
         nodeId: String,
         durationMs: Long = RECOVERING_NODE_DEFAULT_MS,
-        reason: String = "unspecified"
+        reason: String = "unspecified",
     ) {
         if (nodeId.isBlank()) return
         val untilMs = System.currentTimeMillis() + durationMs.coerceAtLeast(1L)
         recoveringNodesUntilMs.merge(nodeId, untilMs) { old, new -> maxOf(old, new) }
         PhoneTransferDiagnostics.warn(
             "Exists",
-            "Mark node recovering node=$nodeId durationMs=$durationMs reason=$reason"
+            "Mark node recovering node=$nodeId durationMs=$durationMs reason=$reason",
         )
     }
 
@@ -50,7 +49,7 @@ class FileExistenceChecker(
         nodeId: String,
         timeoutMs: Long,
         reason: String,
-        prewarm: Boolean = true
+        prewarm: Boolean = true,
     ): Boolean {
         if (nodeId.isBlank()) return false
         val deadlineMs = System.currentTimeMillis() + timeoutMs.coerceAtLeast(0L)
@@ -58,7 +57,7 @@ class FileExistenceChecker(
 
         PhoneTransferDiagnostics.warn(
             "Exists",
-            "Wait for watch responsiveness node=$nodeId timeoutMs=$timeoutMs reason=$reason"
+            "Wait for watch responsiveness node=$nodeId timeoutMs=$timeoutMs reason=$reason",
         )
 
         while (System.currentTimeMillis() <= deadlineMs) {
@@ -71,7 +70,7 @@ class FileExistenceChecker(
                 recoveringNodesUntilMs.remove(nodeId)
                 PhoneTransferDiagnostics.log(
                     "Exists",
-                    "Watch responsive again node=$nodeId reason=$reason"
+                    "Watch responsive again node=$nodeId reason=$reason",
                 )
                 return true
             }
@@ -83,12 +82,15 @@ class FileExistenceChecker(
 
         PhoneTransferDiagnostics.warn(
             "Exists",
-            "Watch still not responsive node=$nodeId timeoutMs=$timeoutMs reason=$reason"
+            "Watch still not responsive node=$nodeId timeoutMs=$timeoutMs reason=$reason",
         )
         return false
     }
 
-    suspend fun check(nodeId: String, fileName: String): Boolean? {
+    suspend fun check(
+        nodeId: String,
+        fileName: String,
+    ): Boolean? {
         waitForRecoveryIfNeeded(nodeId, "single_check:$fileName")
         ensureWatchResponsive(nodeId)
         val firstAttempt = runSingleCheck(nodeId, fileName, CHECK_TIMEOUT_MS)
@@ -100,7 +102,10 @@ class FileExistenceChecker(
         return runSingleCheck(nodeId, fileName, RETRY_CHECK_TIMEOUT_MS)
     }
 
-    suspend fun checkBatch(nodeId: String, fileNames: List<String>): List<Boolean>? {
+    suspend fun checkBatch(
+        nodeId: String,
+        fileNames: List<String>,
+    ): List<Boolean>? {
         if (fileNames.isEmpty()) return emptyList()
         if (fileNames.size == 1) {
             return listOf(check(nodeId, fileNames.first()) ?: return null)
@@ -125,16 +130,19 @@ class FileExistenceChecker(
     private suspend fun runSingleCheck(
         nodeId: String,
         fileName: String,
-        timeoutMs: Long
+        timeoutMs: Long,
     ): Boolean? {
         val requestId = UUID.randomUUID().toString()
         val deferred = CompletableDeferred<Boolean>()
         pendingChecks[requestId] = deferred
 
-        val payload = JSONObject().apply {
-            put("id", requestId)
-            put("name", Uri.encode(fileName))
-        }.toString().toByteArray(Charsets.UTF_8)
+        val payload =
+            JSONObject()
+                .apply {
+                    put("id", requestId)
+                    put("name", Uri.encode(fileName))
+                }.toString()
+                .toByteArray(Charsets.UTF_8)
 
         return try {
             Log.d(TAG, "Checking exists on watch: '$fileName' (id=$requestId)")
@@ -159,26 +167,30 @@ class FileExistenceChecker(
     private suspend fun runBatchCheck(
         nodeId: String,
         fileNames: List<String>,
-        timeoutMs: Long
+        timeoutMs: Long,
     ): List<Boolean>? {
         val requestId = UUID.randomUUID().toString()
         val deferred = CompletableDeferred<List<Boolean>>()
         pendingBatchChecks[requestId] = deferred
 
-        val items = JSONArray().apply {
-            fileNames.forEachIndexed { index, fileName ->
-                put(
-                    JSONObject().apply {
-                        put("index", index)
-                        put("name", Uri.encode(fileName))
-                    }
-                )
+        val items =
+            JSONArray().apply {
+                fileNames.forEachIndexed { index, fileName ->
+                    put(
+                        JSONObject().apply {
+                            put("index", index)
+                            put("name", Uri.encode(fileName))
+                        },
+                    )
+                }
             }
-        }
-        val payload = JSONObject().apply {
-            put("id", requestId)
-            put("items", items)
-        }.toString().toByteArray(Charsets.UTF_8)
+        val payload =
+            JSONObject()
+                .apply {
+                    put("id", requestId)
+                    put("items", items)
+                }.toString()
+                .toByteArray(Charsets.UTF_8)
 
         return try {
             Log.d(TAG, "Checking ${fileNames.size} file(s) on watch in batch (id=$requestId)")
@@ -195,11 +207,11 @@ class FileExistenceChecker(
                 result.size != fileNames.size -> {
                     Log.w(
                         TAG,
-                        "Batch exists check returned ${result.size}/${fileNames.size} items for id=$requestId; falling back"
+                        "Batch exists check returned ${result.size}/${fileNames.size} items for id=$requestId; falling back",
                     )
                     PhoneTransferDiagnostics.warn(
                         "Exists",
-                        "Batch check incomplete requestId=$requestId returned=${result.size}/${fileNames.size}"
+                        "Batch check incomplete requestId=$requestId returned=${result.size}/${fileNames.size}",
                     )
                     null
                 }
@@ -250,7 +262,7 @@ class FileExistenceChecker(
                 Log.w(TAG, "Incomplete batch exists result for id=$requestId")
                 PhoneTransferDiagnostics.warn(
                     "Exists",
-                    "Incomplete batch result requestId=$requestId expected=$size actual=${indexed.size}"
+                    "Incomplete batch result requestId=$requestId expected=$size actual=${indexed.size}",
                 )
                 pendingBatchChecks.remove(requestId)?.complete(emptyList())
                 return@runCatching
@@ -285,7 +297,10 @@ class FileExistenceChecker(
         }
     }
 
-    private suspend fun fallbackToSingleChecks(nodeId: String, fileNames: List<String>): List<Boolean>? {
+    private suspend fun fallbackToSingleChecks(
+        nodeId: String,
+        fileNames: List<String>,
+    ): List<Boolean>? {
         ensureWatchResponsive(nodeId, force = true)
         val results = ArrayList<Boolean>(fileNames.size)
         for (fileName in fileNames) {
@@ -301,7 +316,10 @@ class FileExistenceChecker(
         ensureWatchResponsive(nodeId, force = true)
     }
 
-    private suspend fun waitForRecoveryIfNeeded(nodeId: String, reason: String) {
+    private suspend fun waitForRecoveryIfNeeded(
+        nodeId: String,
+        reason: String,
+    ) {
         val recoveryUntilMs = recoveringNodesUntilMs[nodeId] ?: 0L
         if (recoveryUntilMs <= System.currentTimeMillis()) {
             recoveringNodesUntilMs.remove(nodeId)
@@ -310,13 +328,13 @@ class FileExistenceChecker(
 
         PhoneTransferDiagnostics.warn(
             "Exists",
-            "Node in recovery window node=$nodeId reason=$reason"
+            "Node in recovery window node=$nodeId reason=$reason",
         )
         awaitResponsive(
             nodeId = nodeId,
             timeoutMs = RECOVERY_WAIT_BEFORE_EXISTS_MS,
             reason = reason,
-            prewarm = true
+            prewarm = true,
         )
     }
 
@@ -329,7 +347,10 @@ class FileExistenceChecker(
         }
     }
 
-    private suspend fun ensureWatchResponsive(nodeId: String, force: Boolean = false): Boolean {
+    private suspend fun ensureWatchResponsive(
+        nodeId: String,
+        force: Boolean = false,
+    ): Boolean {
         val nowMs = System.currentTimeMillis()
         if (!force && (responsiveNodesUntilMs[nodeId] ?: 0L) > nowMs) {
             return true
@@ -338,10 +359,11 @@ class FileExistenceChecker(
         val requestId = UUID.randomUUID().toString()
         val deferred = CompletableDeferred<Boolean>()
         pendingPings[requestId] = deferred
-        val payload = JSONObject()
-            .put("id", requestId)
-            .toString()
-            .toByteArray(Charsets.UTF_8)
+        val payload =
+            JSONObject()
+                .put("id", requestId)
+                .toString()
+                .toByteArray(Charsets.UTF_8)
 
         return try {
             sendMessage(nodeId, DataLayerPaths.PATH_PING, payload)

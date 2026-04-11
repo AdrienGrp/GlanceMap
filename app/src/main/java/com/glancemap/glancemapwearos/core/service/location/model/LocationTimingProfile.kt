@@ -16,32 +16,37 @@ internal data class LocationTimingProfile(
     val fusionPredictionHorizonMs: Long,
     val selfHealFixGapMs: Long,
     val autoFusedNoFixFailoverGapMs: Long,
-    val autoFusedSevereFailoverGapMs: Long
+    val autoFusedSevereFailoverGapMs: Long,
 )
 
 internal fun resolveLocationTimingProfile(gpsIntervalMs: Long): LocationTimingProfile {
     val intervalMs = gpsIntervalMs.coerceAtLeast(MIN_INTERVAL_MS)
-    val markerPredictionFreshnessMaxAgeMs = (
-        intervalMs + maxOf(MARKER_PREDICTION_MIN_GRACE_MS, intervalMs / 2L)
+    val markerPredictionFreshnessMaxAgeMs =
+        (
+            intervalMs + maxOf(MARKER_PREDICTION_MIN_GRACE_MS, intervalMs / 2L)
         ).coerceIn(
-        MARKER_PREDICTION_MIN_FRESHNESS_MAX_AGE_MS,
-        MARKER_PREDICTION_MAX_FRESHNESS_MAX_AGE_MS
-    )
-    val strictFreshFixMaxAgeMs = maxOf(
-        STRICT_FRESH_FIX_MIN_AGE_MS,
-        intervalMs * STRICT_FRESH_FIX_INTERVAL_MULTIPLIER
-    )
-    val wakeAnchorMaxAgeMs = (intervalMs * WAKE_ANCHOR_INTERVAL_MULTIPLIER)
-        .coerceIn(WAKE_ANCHOR_MIN_AGE_MS, WAKE_ANCHOR_MAX_AGE_MS)
+            MARKER_PREDICTION_MIN_FRESHNESS_MAX_AGE_MS,
+            MARKER_PREDICTION_MAX_FRESHNESS_MAX_AGE_MS,
+        )
+    val strictFreshFixMaxAgeMs =
+        maxOf(
+            STRICT_FRESH_FIX_MIN_AGE_MS,
+            intervalMs * STRICT_FRESH_FIX_INTERVAL_MULTIPLIER,
+        )
+    val wakeAnchorMaxAgeMs =
+        (intervalMs * WAKE_ANCHOR_INTERVAL_MULTIPLIER)
+            .coerceIn(WAKE_ANCHOR_MIN_AGE_MS, WAKE_ANCHOR_MAX_AGE_MS)
     val selfHealFixGapMs = maxOf(SELF_HEAL_MIN_GAP_MS, intervalMs * SELF_HEAL_INTERVAL_MULTIPLIER)
-    val autoFusedNoFixFailoverGapMs = maxOf(
-        AUTO_FUSED_NO_FIX_FAILOVER_MIN_GAP_MS,
-        intervalMs * AUTO_FUSED_NO_FIX_FAILOVER_INTERVAL_MULTIPLIER
-    )
-    val autoFusedSevereFailoverGapMs = maxOf(
-        AUTO_FUSED_SEVERE_FAILOVER_MIN_GAP_MS,
-        intervalMs * AUTO_FUSED_SEVERE_FAILOVER_INTERVAL_MULTIPLIER
-    )
+    val autoFusedNoFixFailoverGapMs =
+        maxOf(
+            AUTO_FUSED_NO_FIX_FAILOVER_MIN_GAP_MS,
+            intervalMs * AUTO_FUSED_NO_FIX_FAILOVER_INTERVAL_MULTIPLIER,
+        )
+    val autoFusedSevereFailoverGapMs =
+        maxOf(
+            AUTO_FUSED_SEVERE_FAILOVER_MIN_GAP_MS,
+            intervalMs * AUTO_FUSED_SEVERE_FAILOVER_INTERVAL_MULTIPLIER,
+        )
 
     return LocationTimingProfile(
         intervalMs = intervalMs,
@@ -59,7 +64,7 @@ internal fun resolveLocationTimingProfile(gpsIntervalMs: Long): LocationTimingPr
         fusionPredictionHorizonMs = markerPredictionFreshnessMaxAgeMs,
         selfHealFixGapMs = selfHealFixGapMs,
         autoFusedNoFixFailoverGapMs = autoFusedNoFixFailoverGapMs,
-        autoFusedSevereFailoverGapMs = autoFusedSevereFailoverGapMs
+        autoFusedSevereFailoverGapMs = autoFusedSevereFailoverGapMs,
     )
 }
 

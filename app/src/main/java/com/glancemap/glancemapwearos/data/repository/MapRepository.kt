@@ -12,10 +12,15 @@ interface MapRepository {
         onProgress: (bytesCopied: Long) -> Unit,
         expectedSize: Long? = null,
         resumeOffset: Long = 0L,
-        computeSha256: Boolean = true
+        computeSha256: Boolean = true,
     ): String?
 
     suspend fun deleteMapFile(path: String): Boolean
+
     suspend fun fileExists(fileName: String): Boolean
-    suspend fun renameMapFile(path: String, newName: String): File
+
+    suspend fun renameMapFile(
+        path: String,
+        newName: String,
+    ): File
 }

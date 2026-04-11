@@ -1,10 +1,8 @@
 package com.glancemap.glancemapcompanionapp.transfer.service.internal
 
 import android.net.Uri
-import com.glancemap.glancemapcompanionapp.transfer.FileExistenceChecker
 import com.glancemap.glancemapcompanionapp.transfer.TransferStrategyFactory
 import com.glancemap.glancemapcompanionapp.transfer.TransferStrategyKind
-import com.glancemap.glancemapcompanionapp.transfer.strategy.ChannelClientStrategy
 import com.glancemap.glancemapcompanionapp.transfer.strategy.HttpTransferServer
 import com.glancemap.glancemapcompanionapp.transfer.strategy.TransferResult
 import com.glancemap.glancemapcompanionapp.transfer.strategy.TransferStrategy
@@ -12,18 +10,18 @@ import com.glancemap.glancemapcompanionapp.transfer.strategy.TransferStrategy
 internal data class FileItem(
     val uri: Uri,
     val displayName: String,
-    val size: Long
+    val size: Long,
 )
 
 internal data class PlannedTransfer(
     val item: FileItem,
-    val strategyKind: TransferStrategyKind
+    val strategyKind: TransferStrategyKind,
 )
 
 internal fun shouldFallbackToChannel(
     strategy: TransferStrategy,
     fileSize: Long,
-    result: TransferResult
+    result: TransferResult,
 ): Boolean {
     if (result.success) return false
     if (strategy !is HttpTransferServer) return false
@@ -47,10 +45,9 @@ internal fun shouldPreferChannelForRemainingBatch(result: TransferResult): Boole
         isExplicitPhoneHttpUnreachableFailure(result.message)
 }
 
-internal fun shouldAllowLargeChannelRescueFallback(result: TransferResult): Boolean {
-    return isLikelyDifferentSubnetHttpFailure(result.message) ||
+internal fun shouldAllowLargeChannelRescueFallback(result: TransferResult): Boolean =
+    isLikelyDifferentSubnetHttpFailure(result.message) ||
         isExplicitPhoneHttpUnreachableFailure(result.message)
-}
 
 internal fun isExplicitPhoneHttpUnreachableFailure(message: String): Boolean {
     val msg = message.lowercase()
@@ -73,49 +70,56 @@ internal fun isLikelyDifferentSubnetHttpFailure(message: String): Boolean {
     return areClearlyDifferentPrivateSubnets(phoneIp, watchIp)
 }
 
-internal fun areClearlyDifferentPrivateSubnets(lhs: String, rhs: String): Boolean {
+internal fun areClearlyDifferentPrivateSubnets(
+    lhs: String,
+    rhs: String,
+): Boolean {
     val left = parsePrivateIpv4(lhs) ?: return false
     val right = parsePrivateIpv4(rhs) ?: return false
     return left[0] != right[0] || left[1] != right[1] || left[2] != right[2]
 }
 
-internal fun extractTransferredBytesFromRetryMessage(message: String): Long? {
-    return HTTP_RETRY_SENT_BYTES_REGEX.find(message)
+internal fun extractTransferredBytesFromRetryMessage(message: String): Long? =
+    HTTP_RETRY_SENT_BYTES_REGEX
+        .find(message)
         ?.groupValues
         ?.getOrNull(1)
         ?.toLongOrNull()
-}
 
 internal fun hasMeaningfulFreshHttpRetryProgress(
     previousSentBytes: Long?,
     currentSentBytes: Long?,
-    totalSize: Long
+    totalSize: Long,
 ): Boolean {
     val previous = previousSentBytes ?: return false
     val current = currentSentBytes ?: return false
     if (current <= previous) return false
 
-    val thresholdBytes = when {
-        totalSize >= 512L * 1024L * 1024L -> 32L * 1024L * 1024L
-        totalSize >= 128L * 1024L * 1024L -> 16L * 1024L * 1024L
-        else -> 4L * 1024L * 1024L
-    }
+    val thresholdBytes =
+        when {
+            totalSize >= 512L * 1024L * 1024L -> 32L * 1024L * 1024L
+            totalSize >= 128L * 1024L * 1024L -> 16L * 1024L * 1024L
+            else -> 4L * 1024L * 1024L
+        }
     return (current - previous) >= thresholdBytes
 }
 
 private fun parsePrivateIpv4(ip: String): IntArray? {
-    val octets = ip.split('.')
-        .mapNotNull { it.toIntOrNull() }
+    val octets =
+        ip
+            .split('.')
+            .mapNotNull { it.toIntOrNull() }
     if (octets.size != 4 || octets.any { it !in 0..255 }) return null
 
     val first = octets[0]
     val second = octets[1]
-    val isPrivate = when {
-        first == 10 -> true
-        first == 192 && second == 168 -> true
-        first == 172 && second in 16..31 -> true
-        else -> false
-    }
+    val isPrivate =
+        when {
+            first == 10 -> true
+            first == 192 && second == 168 -> true
+            first == 172 && second in 16..31 -> true
+            else -> false
+        }
     if (!isPrivate) return null
     return intArrayOf(octets[0], octets[1], octets[2], octets[3])
 }
@@ -124,16 +128,15 @@ private val PHONE_HTTP_URL_IPV4_REGEX = Regex("""http://((?:\d{1,3}\.){3}\d{1,3}
 private val WATCH_SOURCE_IPV4_REGEX = Regex("""from /((?:\d{1,3}\.){3}\d{1,3})""")
 private val HTTP_RETRY_SENT_BYTES_REGEX = Regex("""\bsent=(\d+)""")
 
-internal fun normalizeRetryFileExists(result: TransferResult): TransferResult {
-    return if (!result.success && result.message.startsWith("FILE_EXISTS:", ignoreCase = true)) {
+internal fun normalizeRetryFileExists(result: TransferResult): TransferResult =
+    if (!result.success && result.message.startsWith("FILE_EXISTS:", ignoreCase = true)) {
         TransferResult(
             success = true,
-            message = "Transfer complete (already present on watch)"
+            message = "Transfer complete (already present on watch)",
         )
     } else {
         result
     }
-}
 
 internal fun buildHttpRetryText(result: TransferResult): String {
     val normalized = result.message.lowercase()
@@ -152,24 +155,24 @@ internal fun buildHttpRetryText(result: TransferResult): String {
     }
 }
 
-internal fun isManualHttpPauseResult(result: TransferResult): Boolean {
-    return !result.success &&
+internal fun isManualHttpPauseResult(result: TransferResult): Boolean =
+    !result.success &&
         result.message.startsWith(HttpTransferServer.RESULT_HTTP_PAUSED_PREFIX, ignoreCase = true)
-}
 
 internal fun buildManualPauseProgressText(
     filePrefix: String,
-    existingText: String
+    existingText: String,
 ): String {
-    val httpLine = existingText
-        .lineSequence()
-        .map { it.trim() }
-        .lastOrNull { it.startsWith("HTTP:", ignoreCase = true) }
+    val httpLine =
+        existingText
+            .lineSequence()
+            .map { it.trim() }
+            .lastOrNull { it.startsWith("HTTP:", ignoreCase = true) }
 
     return listOfNotNull(
         filePrefix.takeIf { it.isNotBlank() },
         "Paused. Ready to resume from partial.",
-        httpLine
+        httpLine,
     ).joinToString("\n")
 }
 
@@ -190,12 +193,9 @@ internal fun toUserFacingTransferError(result: TransferResult): String {
     }
 }
 
-internal fun isSupportedTransferFileName(fileName: String): Boolean {
-    return fileName.endsWith(".gpx", ignoreCase = true) || isMapLikeTransferFile(fileName)
-}
+internal fun isSupportedTransferFileName(fileName: String): Boolean = fileName.endsWith(".gpx", ignoreCase = true) || isMapLikeTransferFile(fileName)
 
-internal fun isMapLikeTransferFile(fileName: String): Boolean {
-    return fileName.endsWith(".map", ignoreCase = true) ||
+internal fun isMapLikeTransferFile(fileName: String): Boolean =
+    fileName.endsWith(".map", ignoreCase = true) ||
         fileName.endsWith(".poi", ignoreCase = true) ||
         fileName.endsWith(".rd5", ignoreCase = true)
-}

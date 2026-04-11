@@ -18,199 +18,204 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class LocationRequestCoordinatorTest {
-
     @Test
-    fun appliesBurstRequestAfterBurstTriggeredRefreshSupersedesInteractiveApply() = runBlocking {
-        val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
-        telemetry.setDebugEnabled(false)
-        val engine = LocationEngine(telemetry)
-        val gateway = CapturingLocationGateway()
-        val scope = CoroutineScope(coroutineContext + SupervisorJob())
-        var coordinator: LocationRequestCoordinator? = null
-        var burstTriggered = false
-        coordinator = LocationRequestCoordinator(
-            serviceScope = scope,
-            engine = engine,
-            telemetry = telemetry,
-            readAndStoreLocationPermissions = {
-                LocationPermissionSnapshot(
-                    hasFinePermission = true,
-                    hasCoarsePermission = true
+    fun appliesBurstRequestAfterBurstTriggeredRefreshSupersedesInteractiveApply() =
+        runBlocking {
+            val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+            telemetry.setDebugEnabled(false)
+            val engine = LocationEngine(telemetry)
+            val gateway = CapturingLocationGateway()
+            val scope = CoroutineScope(coroutineContext + SupervisorJob())
+            var coordinator: LocationRequestCoordinator? = null
+            var burstTriggered = false
+            coordinator =
+                LocationRequestCoordinator(
+                    serviceScope = scope,
+                    engine = engine,
+                    telemetry = telemetry,
+                    readAndStoreLocationPermissions = {
+                        LocationPermissionSnapshot(
+                            hasFinePermission = true,
+                            hasCoarsePermission = true,
+                        )
+                    },
+                    updateSelfHealMonitor = {},
+                    updateGnssDiagnostics = {},
+                    foregroundRefresh = {},
+                    cancelImmediateLocationWork = {},
+                    currentState = {
+                        RequestUpdateState(
+                            bound = false,
+                            tracking = true,
+                            keepOpen = true,
+                            watchOnlyEffective = false,
+                            screenState = LocationScreenState.INTERACTIVE,
+                            backgroundGps = false,
+                            userIntervalMs = 3_000L,
+                            ambientIntervalMs = 60_000L,
+                        )
+                    },
+                    effectiveUpdateIntervalMs = { 3_000L },
+                    strictSourceWarmupMs = 0L,
+                    setSourceModeWarmup = { _, _ -> },
+                    clearSourceModeWarmup = {},
+                    locationGatewayFor = { gateway },
+                    locationUpdateSink = { NoopLocationUpdateSink },
+                    removeAllLocationUpdates = {
+                        if (!burstTriggered) {
+                            burstTriggered = true
+                            engine.requestImmediateBurst(
+                                nowElapsedMs = 1_000L,
+                                source = "test_burst_before_apply",
+                            )
+                            coordinator?.requestLocationUpdateIfNeeded()
+                        }
+                    },
+                    onNoPermissions = {},
+                    onNoRequestSpec = { _, _ -> },
+                    onRequestApplied = { _, _ -> },
+                    onRequestFailed = {},
+                    maybeTriggerInteractiveSelfHealNow = { _, _, _ -> },
+                    recordEnergySample = { _, _ -> },
+                    elapsedRealtime = { 1_000L },
                 )
-            },
-            updateSelfHealMonitor = {},
-            updateGnssDiagnostics = {},
-            foregroundRefresh = {},
-            cancelImmediateLocationWork = {},
-            currentState = {
-                RequestUpdateState(
-                    bound = false,
-                    tracking = true,
-                    keepOpen = true,
-                    watchOnlyEffective = false,
-                    screenState = LocationScreenState.INTERACTIVE,
-                    backgroundGps = false,
-                    userIntervalMs = 3_000L,
-                    ambientIntervalMs = 60_000L
-                )
-            },
-            effectiveUpdateIntervalMs = { 3_000L },
-            strictSourceWarmupMs = 0L,
-            setSourceModeWarmup = { _, _ -> },
-            clearSourceModeWarmup = {},
-            locationGatewayFor = { gateway },
-            locationUpdateSink = { NoopLocationUpdateSink },
-            removeAllLocationUpdates = {
-                if (!burstTriggered) {
-                    burstTriggered = true
-                    engine.requestImmediateBurst(
-                        nowElapsedMs = 1_000L,
-                        source = "test_burst_before_apply"
-                    )
-                    coordinator?.requestLocationUpdateIfNeeded()
+
+            coordinator.requestLocationUpdateIfNeeded()
+
+            withTimeout(1_000L) {
+                while (gateway.lastRequest == null) {
+                    yield()
                 }
-            },
-            onNoPermissions = {},
-            onNoRequestSpec = { _, _ -> },
-            onRequestApplied = { _, _ -> },
-            onRequestFailed = {},
-            maybeTriggerInteractiveSelfHealNow = { _, _, _ -> },
-            recordEnergySample = { _, _ -> },
-            elapsedRealtime = { 1_000L }
-        )
-
-        coordinator.requestLocationUpdateIfNeeded()
-
-        withTimeout(1_000L) {
-            while (gateway.lastRequest == null) {
-                yield()
             }
-        }
 
-        assertEquals(1_000L, gateway.lastRequest?.intervalMs)
-    }
+            assertEquals(1_000L, gateway.lastRequest?.intervalMs)
+        }
 
     @Test
-    fun screenOffUsesPassiveRequestWhenBackgroundGpsIsEnabled() = runBlocking {
-        val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
-        telemetry.setDebugEnabled(false)
-        val engine = LocationEngine(telemetry)
-        val gateway = CapturingLocationGateway()
-        val scope = CoroutineScope(coroutineContext + SupervisorJob())
-        val coordinator = LocationRequestCoordinator(
-            serviceScope = scope,
-            engine = engine,
-            telemetry = telemetry,
-            readAndStoreLocationPermissions = {
-                LocationPermissionSnapshot(
-                    hasFinePermission = true,
-                    hasCoarsePermission = true
+    fun screenOffUsesPassiveRequestWhenBackgroundGpsIsEnabled() =
+        runBlocking {
+            val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+            telemetry.setDebugEnabled(false)
+            val engine = LocationEngine(telemetry)
+            val gateway = CapturingLocationGateway()
+            val scope = CoroutineScope(coroutineContext + SupervisorJob())
+            val coordinator =
+                LocationRequestCoordinator(
+                    serviceScope = scope,
+                    engine = engine,
+                    telemetry = telemetry,
+                    readAndStoreLocationPermissions = {
+                        LocationPermissionSnapshot(
+                            hasFinePermission = true,
+                            hasCoarsePermission = true,
+                        )
+                    },
+                    updateSelfHealMonitor = {},
+                    updateGnssDiagnostics = {},
+                    foregroundRefresh = {},
+                    cancelImmediateLocationWork = {},
+                    currentState = {
+                        RequestUpdateState(
+                            bound = false,
+                            tracking = true,
+                            keepOpen = true,
+                            watchOnlyEffective = false,
+                            screenState = LocationScreenState.SCREEN_OFF,
+                            backgroundGps = true,
+                            userIntervalMs = 3_000L,
+                            ambientIntervalMs = 60_000L,
+                        )
+                    },
+                    effectiveUpdateIntervalMs = { 3_000L },
+                    strictSourceWarmupMs = 0L,
+                    setSourceModeWarmup = { _, _ -> },
+                    clearSourceModeWarmup = {},
+                    locationGatewayFor = { gateway },
+                    locationUpdateSink = { NoopLocationUpdateSink },
+                    removeAllLocationUpdates = {},
+                    onNoPermissions = {},
+                    onNoRequestSpec = { _, _ -> },
+                    onRequestApplied = { _, _ -> },
+                    onRequestFailed = {},
+                    maybeTriggerInteractiveSelfHealNow = { _, _, _ -> },
+                    recordEnergySample = { _, _ -> },
+                    elapsedRealtime = { 1_000L },
                 )
-            },
-            updateSelfHealMonitor = {},
-            updateGnssDiagnostics = {},
-            foregroundRefresh = {},
-            cancelImmediateLocationWork = {},
-            currentState = {
-                RequestUpdateState(
-                    bound = false,
-                    tracking = true,
-                    keepOpen = true,
-                    watchOnlyEffective = false,
-                    screenState = LocationScreenState.SCREEN_OFF,
-                    backgroundGps = true,
-                    userIntervalMs = 3_000L,
-                    ambientIntervalMs = 60_000L
-                )
-            },
-            effectiveUpdateIntervalMs = { 3_000L },
-            strictSourceWarmupMs = 0L,
-            setSourceModeWarmup = { _, _ -> },
-            clearSourceModeWarmup = {},
-            locationGatewayFor = { gateway },
-            locationUpdateSink = { NoopLocationUpdateSink },
-            removeAllLocationUpdates = {},
-            onNoPermissions = {},
-            onNoRequestSpec = { _, _ -> },
-            onRequestApplied = { _, _ -> },
-            onRequestFailed = {},
-            maybeTriggerInteractiveSelfHealNow = { _, _, _ -> },
-            recordEnergySample = { _, _ -> },
-            elapsedRealtime = { 1_000L }
-        )
 
-        coordinator.requestLocationUpdateIfNeeded()
+            coordinator.requestLocationUpdateIfNeeded()
 
-        withTimeout(1_000L) {
-            while (gateway.lastRequest == null) {
-                yield()
+            withTimeout(1_000L) {
+                while (gateway.lastRequest == null) {
+                    yield()
+                }
             }
-        }
 
-        assertEquals(60_000L, gateway.lastRequest?.intervalMs)
-    }
+            assertEquals(60_000L, gateway.lastRequest?.intervalMs)
+        }
 
     @Test
-    fun retriesRequestApplicationAfterTransientGatewayFailure() = runBlocking {
-        val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
-        telemetry.setDebugEnabled(false)
-        val engine = LocationEngine(telemetry)
-        val gateway = FailingOnceLocationGateway()
-        val scope = CoroutineScope(coroutineContext + SupervisorJob())
-        val coordinator = LocationRequestCoordinator(
-            serviceScope = scope,
-            engine = engine,
-            telemetry = telemetry,
-            readAndStoreLocationPermissions = {
-                LocationPermissionSnapshot(
-                    hasFinePermission = true,
-                    hasCoarsePermission = true
+    fun retriesRequestApplicationAfterTransientGatewayFailure() =
+        runBlocking {
+            val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+            telemetry.setDebugEnabled(false)
+            val engine = LocationEngine(telemetry)
+            val gateway = FailingOnceLocationGateway()
+            val scope = CoroutineScope(coroutineContext + SupervisorJob())
+            val coordinator =
+                LocationRequestCoordinator(
+                    serviceScope = scope,
+                    engine = engine,
+                    telemetry = telemetry,
+                    readAndStoreLocationPermissions = {
+                        LocationPermissionSnapshot(
+                            hasFinePermission = true,
+                            hasCoarsePermission = true,
+                        )
+                    },
+                    updateSelfHealMonitor = {},
+                    updateGnssDiagnostics = {},
+                    foregroundRefresh = {},
+                    cancelImmediateLocationWork = {},
+                    currentState = {
+                        RequestUpdateState(
+                            bound = false,
+                            tracking = true,
+                            keepOpen = true,
+                            watchOnlyEffective = false,
+                            screenState = LocationScreenState.INTERACTIVE,
+                            backgroundGps = false,
+                            userIntervalMs = 3_000L,
+                            ambientIntervalMs = 60_000L,
+                        )
+                    },
+                    effectiveUpdateIntervalMs = { 3_000L },
+                    strictSourceWarmupMs = 0L,
+                    setSourceModeWarmup = { _, _ -> },
+                    clearSourceModeWarmup = {},
+                    locationGatewayFor = { gateway },
+                    locationUpdateSink = { NoopLocationUpdateSink },
+                    removeAllLocationUpdates = {},
+                    onNoPermissions = {},
+                    onNoRequestSpec = { _, _ -> },
+                    onRequestApplied = { _, _ -> },
+                    onRequestFailed = {},
+                    maybeTriggerInteractiveSelfHealNow = { _, _, _ -> },
+                    recordEnergySample = { _, _ -> },
+                    requestFailureRetryDelayMs = { 1L },
+                    elapsedRealtime = { 1_000L },
                 )
-            },
-            updateSelfHealMonitor = {},
-            updateGnssDiagnostics = {},
-            foregroundRefresh = {},
-            cancelImmediateLocationWork = {},
-            currentState = {
-                RequestUpdateState(
-                    bound = false,
-                    tracking = true,
-                    keepOpen = true,
-                    watchOnlyEffective = false,
-                    screenState = LocationScreenState.INTERACTIVE,
-                    backgroundGps = false,
-                    userIntervalMs = 3_000L,
-                    ambientIntervalMs = 60_000L
-                )
-            },
-            effectiveUpdateIntervalMs = { 3_000L },
-            strictSourceWarmupMs = 0L,
-            setSourceModeWarmup = { _, _ -> },
-            clearSourceModeWarmup = {},
-            locationGatewayFor = { gateway },
-            locationUpdateSink = { NoopLocationUpdateSink },
-            removeAllLocationUpdates = {},
-            onNoPermissions = {},
-            onNoRequestSpec = { _, _ -> },
-            onRequestApplied = { _, _ -> },
-            onRequestFailed = {},
-            maybeTriggerInteractiveSelfHealNow = { _, _, _ -> },
-            recordEnergySample = { _, _ -> },
-            requestFailureRetryDelayMs = { 1L },
-            elapsedRealtime = { 1_000L }
-        )
 
-        coordinator.requestLocationUpdateIfNeeded()
+            coordinator.requestLocationUpdateIfNeeded()
 
-        withTimeout(1_000L) {
-            while (gateway.requestCount < 2 || gateway.lastRequest == null) {
-                yield()
+            withTimeout(1_000L) {
+                while (gateway.requestCount < 2 || gateway.lastRequest == null) {
+                    yield()
+                }
             }
-        }
 
-        assertEquals(2, gateway.requestCount)
-        assertEquals(3_000L, gateway.lastRequest?.intervalMs)
-    }
+            assertEquals(2, gateway.requestCount)
+            assertEquals(3_000L, gateway.lastRequest?.intervalMs)
+        }
 }
 
 private object NoopLocationUpdateSink : LocationUpdateSink {
@@ -226,7 +231,7 @@ private class CapturingLocationGateway : LocationGateway {
 
     override suspend fun requestLocationUpdates(
         request: LocationUpdateRequestParams,
-        sink: LocationUpdateSink
+        sink: LocationUpdateSink,
     ) {
         lastRequest = request
     }
@@ -246,7 +251,7 @@ private class FailingOnceLocationGateway : LocationGateway {
 
     override suspend fun requestLocationUpdates(
         request: LocationUpdateRequestParams,
-        sink: LocationUpdateSink
+        sink: LocationUpdateSink,
     ) {
         requestCount += 1
         if (requestCount == 1) {

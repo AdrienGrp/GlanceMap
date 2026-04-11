@@ -33,7 +33,7 @@ internal fun SettingsToggleChip(
     label: String,
     secondaryLabel: String? = null,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     ToggleChip(
         modifier = modifier,
@@ -42,7 +42,7 @@ internal fun SettingsToggleChip(
         onCheckedChanged = onCheckedChanged,
         label = label,
         secondaryLabel = secondaryLabel,
-        toggleControl = ToggleChipToggleControl.Switch
+        toggleControl = ToggleChipToggleControl.Switch,
     )
 }
 
@@ -53,7 +53,7 @@ internal fun SettingsPickerChip(
     onClick: () -> Unit,
     secondaryLabel: String? = null,
     iconImageVector: ImageVector? = Icons.Filled.UnfoldMore,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     if (iconImageVector != null) {
         Chip(
@@ -64,28 +64,30 @@ internal fun SettingsPickerChip(
                 Icon(
                     imageVector = iconImageVector,
                     contentDescription = null,
-                    modifier = Modifier.size(ChipDefaults.IconSize)
+                    modifier = Modifier.size(ChipDefaults.IconSize),
                 )
             },
-            colors = ChipDefaults.secondaryChipColors(
-                backgroundColor = PickerChipBackground,
-                contentColor = PickerChipContent,
-                secondaryContentColor = PickerChipSecondary,
-                iconColor = PickerChipIcon
-            ),
-            onClick = onClick
+            colors =
+                ChipDefaults.secondaryChipColors(
+                    backgroundColor = PickerChipBackground,
+                    contentColor = PickerChipContent,
+                    secondaryContentColor = PickerChipSecondary,
+                    iconColor = PickerChipIcon,
+                ),
+            onClick = onClick,
         )
     } else {
         Chip(
             modifier = modifier,
             label = label,
             secondaryLabel = secondaryLabel,
-            colors = ChipDefaults.secondaryChipColors(
-                backgroundColor = PickerChipBackground,
-                contentColor = PickerChipContent,
-                secondaryContentColor = PickerChipSecondary
-            ),
-            onClick = onClick
+            colors =
+                ChipDefaults.secondaryChipColors(
+                    backgroundColor = PickerChipBackground,
+                    contentColor = PickerChipContent,
+                    secondaryContentColor = PickerChipSecondary,
+                ),
+            onClick = onClick,
         )
     }
 }
@@ -97,7 +99,7 @@ internal fun SettingsSectionChip(
     onClick: () -> Unit,
     iconImageVector: ImageVector = Icons.Filled.Folder,
     secondaryLabel: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Chip(
         modifier = modifier,
@@ -107,15 +109,16 @@ internal fun SettingsSectionChip(
             Icon(
                 imageVector = iconImageVector,
                 contentDescription = null,
-                modifier = Modifier.size(ChipDefaults.IconSize)
+                modifier = Modifier.size(ChipDefaults.IconSize),
             )
         },
-        colors = ChipDefaults.secondaryChipColors(
-            backgroundColor = SectionChipBackground,
-            contentColor = SectionChipContent,
-            secondaryContentColor = SectionChipSecondary,
-            iconColor = SectionChipIcon
-        ),
-        onClick = onClick
+        colors =
+            ChipDefaults.secondaryChipColors(
+                backgroundColor = SectionChipBackground,
+                contentColor = SectionChipContent,
+                secondaryContentColor = SectionChipSecondary,
+                iconColor = SectionChipIcon,
+            ),
+        onClick = onClick,
     )
 }

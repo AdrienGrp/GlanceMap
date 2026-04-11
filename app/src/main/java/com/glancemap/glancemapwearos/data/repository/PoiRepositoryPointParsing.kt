@@ -13,7 +13,10 @@ internal fun parseDisplayName(tags: Map<String, String>): String? {
     return name.takeIf { it.isNotBlank() }
 }
 
-internal fun poiSearchMatchRank(name: String, queryLower: String): Int {
+internal fun poiSearchMatchRank(
+    name: String,
+    queryLower: String,
+): Int {
     val normalized = name.trim().lowercase(Locale.ROOT)
     return when {
         normalized == queryLower -> 0
@@ -27,7 +30,7 @@ internal fun poiSearchMatchRank(name: String, queryLower: String): Int {
 internal fun classifyPoiType(
     tags: Map<String, String>,
     categoryName: String,
-    rawData: String
+    rawData: String,
 ): PoiType {
     if (tags.isEmpty() && rawData.isBlank()) return PoiType.GENERIC
     val amenity = tags["amenity"]?.lowercase(Locale.ROOT)
@@ -101,20 +104,22 @@ internal fun classifyPoiType(
 
 internal fun buildPoiPointDetails(
     tags: Map<String, String>,
-    categoryName: String
+    categoryName: String,
 ): PoiPointDetails? {
     if (tags.isEmpty() && categoryName.isBlank()) return null
 
     val typeLabel = tags["refuges_info:type"]?.trim().orEmpty().takeIf { it.isNotBlank() }
     val elevationMeters = parseIntegerTag(tags["ele"])
-    val sleepingPlaces = parseIntegerTag(
-        tags["refuges_info:places"] ?: tags["capacity"]
-    )
+    val sleepingPlaces =
+        parseIntegerTag(
+            tags["refuges_info:places"] ?: tags["capacity"],
+        )
     val state = tags["refuges_info:state"]?.trim().orEmpty().takeIf { it.isNotBlank() }
-    val shortDescription = tags["refuges_info:description"]
-        ?.trim()
-        .orEmpty()
-        .takeIf { it.isNotBlank() }
+    val shortDescription =
+        tags["refuges_info:description"]
+            ?.trim()
+            .orEmpty()
+            .takeIf { it.isNotBlank() }
     val website = tags["website"]?.trim().orEmpty().takeIf { it.isNotBlank() }
     val source = tags["source"]?.trim().orEmpty().takeIf { it.isNotBlank() }
 
@@ -137,31 +142,33 @@ internal fun buildPoiPointDetails(
         state = state,
         shortDescription = shortDescription,
         website = website,
-        source = source
+        source = source,
     )
 }
 
 internal fun classifyPoiTypeFromRefugesTags(
     tags: Map<String, String>,
-    categoryName: String
+    categoryName: String,
 ): PoiType {
-    val refugesHaystack = listOf(
-        tags["refuges_info:type"],
-        tags["refuges_info:sym"],
-        tags["refuges_info:icon"],
-        categoryName
-    ).joinToString(" ")
+    val refugesHaystack =
+        listOf(
+            tags["refuges_info:type"],
+            tags["refuges_info:sym"],
+            tags["refuges_info:icon"],
+            categoryName,
+        ).joinToString(" ")
 
     return classifyPoiTypeFromCategory(refugesHaystack)
 }
 
 internal fun classifyPoiTypeFromCategory(categoryName: String): PoiType {
-    val normalized = categoryName
-        .replace('\u00A0', ' ')
-        .replace('’', '\'')
-        .substringBefore(" / ")
-        .lowercase(Locale.ROOT)
-        .trim()
+    val normalized =
+        categoryName
+            .replace('\u00A0', ' ')
+            .replace('’', '\'')
+            .substringBefore(" / ")
+            .lowercase(Locale.ROOT)
+            .trim()
     if (normalized.isBlank()) return PoiType.GENERIC
     return when {
         "peak" in normalized || "summit" in normalized || "mountain" in normalized -> PoiType.PEAK
@@ -172,7 +179,7 @@ internal fun classifyPoiTypeFromCategory(categoryName: String): PoiType {
             "point d'eau" in normalized ||
             "eau" in normalized ||
             "source" in normalized
-            -> PoiType.WATER
+        -> PoiType.WATER
         "hut" in normalized ||
             "shelter" in normalized ||
             "alpine" in normalized ||
@@ -188,39 +195,71 @@ internal fun classifyPoiTypeFromCategory(categoryName: String): PoiType {
             "chalet" in normalized ||
             "batiment en montagne" in normalized ||
             "bâtiment en montagne" in normalized
-            -> PoiType.HUT
+        -> PoiType.HUT
         "camp" in normalized -> PoiType.CAMP
         "restaurant" in normalized || "cafe" in normalized || "food" in normalized || "bar" in normalized || "pub" in normalized || "grill" in normalized || "bbq" in normalized -> PoiType.FOOD
         "toilet" in normalized || "wc" in normalized -> PoiType.TOILET
         "bus" in normalized || "transport" in normalized || "station" in normalized || "railway" in normalized -> PoiType.TRANSPORT
         "bicycle" in normalized || "cycle" in normalized -> PoiType.BIKE
         "parking" in normalized -> PoiType.PARKING
-        "shop" in normalized || "supermarket" in normalized || "convenience" in normalized ||
-            "bakery" in normalized || "pharmacy" in normalized || "doctor" in normalized ||
-            "bank" in normalized || "fuel" in normalized || "post office" in normalized ||
-            "post box" in normalized || "school" in normalized || "defibrillator" in normalized ||
-            "car repair" in normalized || "clothes" in normalized || "sporting goods" in normalized
-            -> PoiType.SHOP
-        "view" in normalized || "viewpoint" in normalized || "panorama" in normalized ||
-            "church" in normalized || "mosque" in normalized || "temple" in normalized ||
-            "attraction" in normalized || "memorial" in normalized || "museum" in normalized ||
-            "castle" in normalized || "ruin" in normalized || "artwork" in normalized ||
-            "cave" in normalized || "grotte" in normalized || "tower" in normalized ||
+        "shop" in normalized ||
+            "supermarket" in normalized ||
+            "convenience" in normalized ||
+            "bakery" in normalized ||
+            "pharmacy" in normalized ||
+            "doctor" in normalized ||
+            "bank" in normalized ||
+            "fuel" in normalized ||
+            "post office" in normalized ||
+            "post box" in normalized ||
+            "school" in normalized ||
+            "defibrillator" in normalized ||
+            "car repair" in normalized ||
+            "clothes" in normalized ||
+            "sporting goods" in normalized
+        -> PoiType.SHOP
+        "view" in normalized ||
+            "viewpoint" in normalized ||
+            "panorama" in normalized ||
+            "church" in normalized ||
+            "mosque" in normalized ||
+            "temple" in normalized ||
+            "attraction" in normalized ||
+            "memorial" in normalized ||
+            "museum" in normalized ||
+            "castle" in normalized ||
+            "ruin" in normalized ||
+            "artwork" in normalized ||
+            "cave" in normalized ||
+            "grotte" in normalized ||
+            "tower" in normalized ||
             ("park" in normalized && "parking" !in normalized) ||
-            "hamlet" in normalized || "village" in normalized || "suburb" in normalized ||
-            "playground" in normalized || "pitch" in normalized || "sport" in normalized ||
-            "tennis" in normalized || "soccer" in normalized || "swimming" in normalized ||
-            "climbing" in normalized || "townhall" in normalized || "infooffice" in normalized ||
-            "community" in normalized || "bunker" in normalized ||
-            "passage" in normalized || "delicat" in normalized || "delicate" in normalized
-            -> PoiType.VIEWPOINT
+            "hamlet" in normalized ||
+            "village" in normalized ||
+            "suburb" in normalized ||
+            "playground" in normalized ||
+            "pitch" in normalized ||
+            "sport" in normalized ||
+            "tennis" in normalized ||
+            "soccer" in normalized ||
+            "swimming" in normalized ||
+            "climbing" in normalized ||
+            "townhall" in normalized ||
+            "infooffice" in normalized ||
+            "community" in normalized ||
+            "bunker" in normalized ||
+            "passage" in normalized ||
+            "delicat" in normalized ||
+            "delicate" in normalized
+        -> PoiType.VIEWPOINT
         else -> PoiType.GENERIC
     }
 }
 
 internal fun parseTagMap(data: String): Map<String, String> {
     if (data.isBlank()) return emptyMap()
-    return data.split('\r', '\n')
+    return data
+        .split('\r', '\n')
         .asSequence()
         .map { it.trim() }
         .filter { it.isNotBlank() && '=' in it }
@@ -233,8 +272,7 @@ internal fun parseTagMap(data: String): Map<String, String> {
                 val value = token.substring(idx + 1).trim()
                 if (key.isBlank() || value.isBlank()) null else key to value
             }
-        }
-        .toMap()
+        }.toMap()
 }
 
 internal fun parseIntegerTag(raw: String?): Int? {

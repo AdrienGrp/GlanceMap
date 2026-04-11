@@ -18,7 +18,7 @@ data class PhoneDebugCaptureState(
     val endedAtMs: Long? = null,
     val bufferedLines: Int = 0,
     val droppedLines: Int = 0,
-    val totalLoggedLines: Long = 0L
+    val totalLoggedLines: Long = 0L,
 )
 
 object PhoneDebugCapture {
@@ -29,7 +29,8 @@ object PhoneDebugCapture {
     private val lines = ArrayDeque<String>()
     private val stateFlow = MutableStateFlow(PhoneDebugCaptureState())
     private val tsFormatter: DateTimeFormatter =
-        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+        DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
             .withZone(ZoneId.systemDefault())
 
     val state = stateFlow.asStateFlow()
@@ -39,33 +40,39 @@ object PhoneDebugCapture {
             val nextSessionId = stateFlow.value.sessionId + 1L
             lines.clear()
             enabled.set(true)
-            stateFlow.value = PhoneDebugCaptureState(
-                active = true,
-                sessionId = nextSessionId,
-                startedAtMs = System.currentTimeMillis(),
-                endedAtMs = null,
-                bufferedLines = 0,
-                droppedLines = 0,
-                totalLoggedLines = 0L
-            )
+            stateFlow.value =
+                PhoneDebugCaptureState(
+                    active = true,
+                    sessionId = nextSessionId,
+                    startedAtMs = System.currentTimeMillis(),
+                    endedAtMs = null,
+                    bufferedLines = 0,
+                    droppedLines = 0,
+                    totalLoggedLines = 0L,
+                )
         }
     }
 
-    fun stop(): PhoneDebugCaptureState = synchronized(lock) {
-        enabled.set(false)
-        val current = stateFlow.value.copy(
-            active = false,
-            endedAtMs = System.currentTimeMillis()
-        )
-        stateFlow.value = current
-        current
-    }
+    fun stop(): PhoneDebugCaptureState =
+        synchronized(lock) {
+            enabled.set(false)
+            val current =
+                stateFlow.value.copy(
+                    active = false,
+                    endedAtMs = System.currentTimeMillis(),
+                )
+            stateFlow.value = current
+            current
+        }
 
     fun isActive(): Boolean = enabled.get()
 
     fun snapshot(): List<String> = synchronized(lock) { lines.toList() }
 
-    fun log(tag: String, message: String) {
+    fun log(
+        tag: String,
+        message: String,
+    ) {
         if (!enabled.get()) return
 
         synchronized(lock) {
@@ -80,11 +87,12 @@ object PhoneDebugCapture {
                 dropped += 1
             }
 
-            stateFlow.value = current.copy(
-                bufferedLines = lines.size,
-                droppedLines = dropped,
-                totalLoggedLines = current.totalLoggedLines + 1L
-            )
+            stateFlow.value =
+                current.copy(
+                    bufferedLines = lines.size,
+                    droppedLines = dropped,
+                    totalLoggedLines = current.totalLoggedLines + 1L,
+                )
         }
     }
 
@@ -92,8 +100,10 @@ object PhoneDebugCapture {
         val state = state.value
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         val generatedAt = Instant.now()
-        val timestampFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
-            .withZone(ZoneId.systemDefault())
+        val timestampFormatter =
+            DateTimeFormatter
+                .ofPattern("yyyy-MM-dd HH:mm:ss z")
+                .withZone(ZoneId.systemDefault())
 
         return buildString {
             appendLine("GlanceMap Companion Diagnostics")

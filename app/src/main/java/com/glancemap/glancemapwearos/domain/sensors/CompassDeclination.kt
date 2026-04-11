@@ -16,7 +16,7 @@ internal class CompassDeclinationController(
     private val appContext: Context,
     private val locationManager: LocationManager,
     private val onStatusChanged: () -> Unit,
-    private val logDiagnostics: (String) -> Unit
+    private val logDiagnostics: (String) -> Unit,
 ) {
     private val _declination = MutableStateFlow<Float?>(null)
     val declination = _declination.asStateFlow()
@@ -39,30 +39,31 @@ internal class CompassDeclinationController(
     fun primeFromApproximateLocation(
         latitude: Double,
         longitude: Double,
-        altitudeM: Float = 0f
+        altitudeM: Float = 0f,
     ) {
         if (!latitude.isFinite() || !longitude.isFinite()) return
         if (declinationDeg != null) return
         val nowWallMs = System.currentTimeMillis()
         val nowElapsedMs = SystemClock.elapsedRealtime()
-        val field = GeomagneticField(
-            latitude.toFloat(),
-            longitude.toFloat(),
-            altitudeM,
-            nowWallMs
-        )
+        val field =
+            GeomagneticField(
+                latitude.toFloat(),
+                longitude.toFloat(),
+                altitudeM,
+                nowWallMs,
+            )
         applyDeclination(
             declinationDeg = field.declination,
             latitude = latitude,
             longitude = longitude,
             nowElapsedMs = nowElapsedMs,
             sourceTimestampMs = nowWallMs,
-            markNeedsLiveRefresh = true
+            markNeedsLiveRefresh = true,
         )
         logDiagnostics(
             "declination primed from approximate location " +
                 "deg=${field.declination.format(2)} " +
-                "lat=${latitude.format(5)} lon=${longitude.format(5)}"
+                "lat=${latitude.format(5)} lon=${longitude.format(5)}",
         )
     }
 
@@ -71,15 +72,16 @@ internal class CompassDeclinationController(
         val forceRefreshAfterSeed = seededDeclinationNeedsLiveRefresh
         if (!forceRefreshAfterSeed && lastDeclinationAtElapsedMs != 0L) {
             val dtMs = nowElapsedMs - lastDeclinationAtElapsedMs
-            val distanceM = distanceMeters(
-                lat1 = lastDeclinationLat,
-                lon1 = lastDeclinationLon,
-                lat2 = location.latitude,
-                lon2 = location.longitude
-            )
+            val distanceM =
+                distanceMeters(
+                    lat1 = lastDeclinationLat,
+                    lon1 = lastDeclinationLon,
+                    lat2 = location.latitude,
+                    lon2 = location.longitude,
+                )
             if (
                 dtMs < DECLINATION_REFRESH_MIN_INTERVAL_MS &&
-                    distanceM < DECLINATION_REFRESH_MIN_DISTANCE_M
+                distanceM < DECLINATION_REFRESH_MIN_DISTANCE_M
             ) {
                 return
             }
@@ -88,24 +90,25 @@ internal class CompassDeclinationController(
         val timestampMs = if (location.time > 0L) location.time else System.currentTimeMillis()
         val altitudeM = if (location.hasAltitude()) location.altitude.toFloat() else 0f
 
-        val field = GeomagneticField(
-            location.latitude.toFloat(),
-            location.longitude.toFloat(),
-            altitudeM,
-            timestampMs
-        )
+        val field =
+            GeomagneticField(
+                location.latitude.toFloat(),
+                location.longitude.toFloat(),
+                altitudeM,
+                timestampMs,
+            )
         applyDeclination(
             declinationDeg = field.declination,
             latitude = location.latitude,
             longitude = location.longitude,
             nowElapsedMs = nowElapsedMs,
             sourceTimestampMs = timestampMs,
-            markNeedsLiveRefresh = false
+            markNeedsLiveRefresh = false,
         )
         logDiagnostics(
             "declination updated deg=${field.declination.format(2)} " +
                 "lat=${location.latitude.format(5)} lon=${location.longitude.format(5)} " +
-                "forced=$forceRefreshAfterSeed"
+                "forced=$forceRefreshAfterSeed",
         )
     }
 
@@ -121,45 +124,46 @@ internal class CompassDeclinationController(
         if (lastDeclinationAtElapsedMs != 0L) return
 
         val nowWallMs = System.currentTimeMillis()
-        val candidate = runCatching {
-            locationManager.getProviders(true)
-                .asSequence()
-                .mapNotNull { provider ->
-                    readLastKnownLocationSafely(provider)
-                }
-                .filter { location ->
-                    val ageMs = nowWallMs - location.time
-                    val accuracyM = location.accuracy
-                    ageMs in 0..MAX_DECLINATION_SEED_LOCATION_AGE_MS &&
-                        location.hasAccuracy() &&
-                        accuracyM.isFinite() &&
-                        accuracyM in 0f..MAX_DECLINATION_SEED_LOCATION_ACCURACY_M
-                }
-                .maxByOrNull { it.time }
-        }.getOrNull()
+        val candidate =
+            runCatching {
+                locationManager
+                    .getProviders(true)
+                    .asSequence()
+                    .mapNotNull { provider ->
+                        readLastKnownLocationSafely(provider)
+                    }.filter { location ->
+                        val ageMs = nowWallMs - location.time
+                        val accuracyM = location.accuracy
+                        ageMs in 0..MAX_DECLINATION_SEED_LOCATION_AGE_MS &&
+                            location.hasAccuracy() &&
+                            accuracyM.isFinite() &&
+                            accuracyM in 0f..MAX_DECLINATION_SEED_LOCATION_ACCURACY_M
+                    }.maxByOrNull { it.time }
+            }.getOrNull()
 
         if (candidate != null) {
             val timestampMs = if (candidate.time > 0L) candidate.time else nowWallMs
             val altitudeM = if (candidate.hasAltitude()) candidate.altitude.toFloat() else 0f
-            val field = GeomagneticField(
-                candidate.latitude.toFloat(),
-                candidate.longitude.toFloat(),
-                altitudeM,
-                timestampMs
-            )
+            val field =
+                GeomagneticField(
+                    candidate.latitude.toFloat(),
+                    candidate.longitude.toFloat(),
+                    altitudeM,
+                    timestampMs,
+                )
             applyDeclination(
                 declinationDeg = field.declination,
                 latitude = candidate.latitude,
                 longitude = candidate.longitude,
                 nowElapsedMs = SystemClock.elapsedRealtime(),
                 sourceTimestampMs = timestampMs,
-                markNeedsLiveRefresh = true
+                markNeedsLiveRefresh = true,
             )
             logDiagnostics(
                 "declination seeded from last known location " +
                     "deg=${field.declination.format(2)} " +
                     "ageMs=${(nowWallMs - candidate.time)} " +
-                    "accM=${candidate.accuracy.format(1)}"
+                    "accM=${candidate.accuracy.format(1)}",
             )
         } else {
             logDiagnostics("declination seed unavailable")
@@ -169,10 +173,11 @@ internal class CompassDeclinationController(
     fun maybeInitializeFromCache() {
         if (!ENABLE_DECLINATION_CACHE) return
         if (lastDeclinationAtElapsedMs != 0L) return
-        val cachedDeclination = declinationCachePrefs.getFloat(
-            PREF_KEY_DECLINATION_DEG,
-            Float.NaN
-        )
+        val cachedDeclination =
+            declinationCachePrefs.getFloat(
+                PREF_KEY_DECLINATION_DEG,
+                Float.NaN,
+            )
         if (!cachedDeclination.isFinite()) return
         if (!declinationCachePrefs.contains(PREF_KEY_LAT_BITS) ||
             !declinationCachePrefs.contains(PREF_KEY_LON_BITS)
@@ -195,12 +200,12 @@ internal class CompassDeclinationController(
             longitude = longitude,
             nowElapsedMs = SystemClock.elapsedRealtime(),
             sourceTimestampMs = sourceTimestampMs,
-            markNeedsLiveRefresh = true
+            markNeedsLiveRefresh = true,
         )
         logDiagnostics(
             "declination restored from cache " +
                 "deg=${cachedDeclination.format(2)} " +
-                "ageMs=${(nowWallMs - sourceTimestampMs)}"
+                "ageMs=${(nowWallMs - sourceTimestampMs)}",
         )
     }
 
@@ -220,7 +225,7 @@ internal class CompassDeclinationController(
 
     fun headingSensorHeadingWithNorthReference(
         northReferenceMode: NorthReferenceMode,
-        headingDeg: Float
+        headingDeg: Float,
     ): Float {
         val normalized = normalize360Deg(headingDeg)
         return when (northReferenceMode) {
@@ -234,7 +239,7 @@ internal class CompassDeclinationController(
                     if (!loggedDeclinationUnavailable) {
                         loggedDeclinationUnavailable = true
                         logDiagnostics(
-                            "declination unavailable; heading sensor fallback keeps true-north basis"
+                            "declination unavailable; heading sensor fallback keeps true-north basis",
                         )
                     }
                     normalized
@@ -249,7 +254,7 @@ internal class CompassDeclinationController(
         longitude: Double,
         nowElapsedMs: Long,
         sourceTimestampMs: Long,
-        markNeedsLiveRefresh: Boolean
+        markNeedsLiveRefresh: Boolean,
     ) {
         this.declinationDeg = declinationDeg
         _declination.value = declinationDeg
@@ -263,7 +268,7 @@ internal class CompassDeclinationController(
             declinationDeg = declinationDeg,
             latitude = latitude,
             longitude = longitude,
-            sourceTimestampMs = sourceTimestampMs
+            sourceTimestampMs = sourceTimestampMs,
         )
     }
 
@@ -271,10 +276,11 @@ internal class CompassDeclinationController(
         declinationDeg: Float,
         latitude: Double,
         longitude: Double,
-        sourceTimestampMs: Long
+        sourceTimestampMs: Long,
     ) {
         if (!ENABLE_DECLINATION_CACHE) return
-        declinationCachePrefs.edit()
+        declinationCachePrefs
+            .edit()
             .putFloat(PREF_KEY_DECLINATION_DEG, declinationDeg)
             .putLong(PREF_KEY_LAT_BITS, latitude.toBits())
             .putLong(PREF_KEY_LON_BITS, longitude.toBits())
@@ -282,23 +288,24 @@ internal class CompassDeclinationController(
             .apply()
     }
 
-    private fun readLastKnownLocationSafely(provider: String): Location? {
-        return try {
+    private fun readLastKnownLocationSafely(provider: String): Location? =
+        try {
             locationManager.getLastKnownLocation(provider)
         } catch (_: SecurityException) {
             null
         }
-    }
 
     private fun hasAnyLocationPermission(): Boolean {
-        val finePermissionGranted = ContextCompat.checkSelfPermission(
-            appContext,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        val coarsePermissionGranted = ContextCompat.checkSelfPermission(
-            appContext,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        val finePermissionGranted =
+            ContextCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+        val coarsePermissionGranted =
+            ContextCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
         return finePermissionGranted || coarsePermissionGranted
     }
 }

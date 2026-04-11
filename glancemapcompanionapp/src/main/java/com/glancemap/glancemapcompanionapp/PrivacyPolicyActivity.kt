@@ -39,32 +39,32 @@ import com.glancemap.glancemapcompanionapp.ui.theme.GlanceMapTheme
 import com.glancemap.shared.transfer.TransferDataLayerContract
 
 class PrivacyPolicyActivity : ComponentActivity() {
-
     companion object {
         fun creditsAndLegalIntent(context: Context): Intent = Intent(context, PrivacyPolicyActivity::class.java)
 
-        fun privacyPolicyIntent(context: Context): Intent = documentIntent(
-            context = context,
-            document = COMPANION_CREDITS_AND_LEGAL_DOCUMENTS.first()
-        )
+        fun privacyPolicyIntent(context: Context): Intent =
+            documentIntent(
+                context = context,
+                document = COMPANION_CREDITS_AND_LEGAL_DOCUMENTS.first(),
+            )
 
-        fun creditsIntent(context: Context): Intent = documentIntent(
-            context = context,
-            document = COMPANION_CREDITS_AND_LEGAL_DOCUMENTS.first { it.assetPath == CREDITS_AND_THANKS_ASSET_PATH }
-        )
+        fun creditsIntent(context: Context): Intent =
+            documentIntent(
+                context = context,
+                document = COMPANION_CREDITS_AND_LEGAL_DOCUMENTS.first { it.assetPath == CREDITS_AND_THANKS_ASSET_PATH },
+            )
 
         private fun documentIntent(
             context: Context,
-            document: LegalDocument
-        ): Intent {
-            return Intent(context, PrivacyPolicyActivity::class.java).apply {
+            document: LegalDocument,
+        ): Intent =
+            Intent(context, PrivacyPolicyActivity::class.java).apply {
                 putExtra(EXTRA_DOCUMENT_BUTTON_LABEL, document.buttonLabel)
                 putExtra(EXTRA_DOCUMENT_TITLE, document.documentTitle)
                 putExtra(EXTRA_DOCUMENT_SECONDARY_LABEL, document.secondaryLabel)
                 putExtra(EXTRA_DOCUMENT_ASSET_PATH, document.assetPath)
                 putExtra(EXTRA_SHOW_PRIVACY_CONTACT, document.showPrivacyContact)
             }
-        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,12 +79,12 @@ class PrivacyPolicyActivity : ComponentActivity() {
                         onBack = ::finish,
                         onOpenDocument = { selected ->
                             startActivity(documentIntent(this, selected))
-                        }
+                        },
                     )
                 } else {
                     LegalDocumentScreen(
                         document = document,
-                        onBack = ::finish
+                        onBack = ::finish,
                     )
                 }
             }
@@ -95,54 +95,56 @@ class PrivacyPolicyActivity : ComponentActivity() {
 @Composable
 private fun CreditsAndLegalScreen(
     onBack: () -> Unit,
-    onOpenDocument: (LegalDocument) -> Unit
+    onOpenDocument: (LegalDocument) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = "Back",
                 )
             }
             Text(
                 text = "Credits & Legal",
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
             )
         }
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 text = "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
             )
             COMPANION_CREDITS_AND_LEGAL_DOCUMENTS.forEach { document ->
                 OutlinedButton(
                     onClick = { onOpenDocument(document) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = document.buttonLabel,
-                            style = MaterialTheme.typography.titleSmall
+                            style = MaterialTheme.typography.titleSmall,
                         )
                         Text(
                             text = document.secondaryLabel,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
@@ -154,61 +156,64 @@ private fun CreditsAndLegalScreen(
 @Composable
 private fun LegalDocumentScreen(
     document: LegalDocument,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val documentText = remember(document.assetPath) {
-        loadAssetDocumentText(
-            context = context,
-            assetPath = document.assetPath
-        )
-    }
+    val documentText =
+        remember(document.assetPath) {
+            loadAssetDocumentText(
+                context = context,
+                assetPath = document.assetPath,
+            )
+        }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = "Back",
                 )
             }
             Text(
                 text = document.documentTitle,
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
             )
         }
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 text = document.secondaryLabel,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
             )
             SelectionContainer {
                 Text(
                     text = documentText,
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (document.showPrivacyContact) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Button(
                     onClick = { openPrivacyContactEmail(context) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Email privacy contact")
                 }
@@ -219,22 +224,25 @@ private fun LegalDocumentScreen(
 
 private fun loadAssetDocumentText(
     context: Context,
-    assetPath: String
-): String {
-    return runCatching {
-        context.assets.open(assetPath).bufferedReader().use { it.readText() }
+    assetPath: String,
+): String =
+    runCatching {
+        context.assets
+            .open(assetPath)
+            .bufferedReader()
+            .use { it.readText() }
     }.getOrElse {
         "Unable to load this document."
     }
-}
 
 private fun openPrivacyContactEmail(context: Context) {
-    val intent = Intent(
-        Intent.ACTION_SENDTO,
-        Uri.parse("mailto:${TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL}")
-    ).apply {
-        putExtra(Intent.EXTRA_SUBJECT, "GlanceMap privacy question")
-    }
+    val intent =
+        Intent(
+            Intent.ACTION_SENDTO,
+            Uri.parse("mailto:${TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL}"),
+        ).apply {
+            putExtra(Intent.EXTRA_SUBJECT, "GlanceMap privacy question")
+        }
 
     runCatching {
         context.startActivity(intent)
@@ -248,7 +256,7 @@ private data class LegalDocument(
     val documentTitle: String,
     val secondaryLabel: String,
     val assetPath: String,
-    val showPrivacyContact: Boolean
+    val showPrivacyContact: Boolean,
 )
 
 private fun Intent.toLegalDocumentOrNull(): LegalDocument? {
@@ -256,15 +264,16 @@ private fun Intent.toLegalDocumentOrNull(): LegalDocument? {
     if (assetPath.isBlank()) return null
     val buttonLabel = getStringExtra(EXTRA_DOCUMENT_BUTTON_LABEL).orEmpty().ifBlank { "Privacy Policy" }
     val documentTitle = getStringExtra(EXTRA_DOCUMENT_TITLE).orEmpty().ifBlank { buttonLabel }
-    val secondaryLabel = getStringExtra(EXTRA_DOCUMENT_SECONDARY_LABEL)
-        .orEmpty()
-        .ifBlank { "Data access, sharing and retention" }
+    val secondaryLabel =
+        getStringExtra(EXTRA_DOCUMENT_SECONDARY_LABEL)
+            .orEmpty()
+            .ifBlank { "Data access, sharing and retention" }
     return LegalDocument(
         buttonLabel = buttonLabel,
         documentTitle = documentTitle,
         secondaryLabel = secondaryLabel,
         assetPath = assetPath,
-        showPrivacyContact = getBooleanExtra(EXTRA_SHOW_PRIVACY_CONTACT, false)
+        showPrivacyContact = getBooleanExtra(EXTRA_SHOW_PRIVACY_CONTACT, false),
     )
 }
 
@@ -287,96 +296,97 @@ private const val HIKE_RIDE_SIGHT_THEME_ASSET_PATH = "HIKE_RIDE_SIGHT_THEME.md"
 private const val DATA_AND_ASSET_ATTRIBUTION_ASSET_PATH = "DATA_AND_ASSET_ATTRIBUTION.md"
 private const val SERVICE_TERMS_AND_API_USAGE_ASSET_PATH = "SERVICE_TERMS_AND_API_USAGE.md"
 
-private val COMPANION_CREDITS_AND_LEGAL_DOCUMENTS = listOf(
-    LegalDocument(
-        buttonLabel = "Privacy Policy",
-        documentTitle = "Privacy Policy",
-        secondaryLabel = "Data access, sharing and retention",
-        assetPath = PRIVACY_POLICY_ASSET_PATH,
-        showPrivacyContact = true
-    ),
-    LegalDocument(
-        buttonLabel = "Safety & Limits",
-        documentTitle = "Safety & Limitations",
-        secondaryLabel = "Map/theme errors and personal responsibility",
-        assetPath = SAFETY_AND_LIMITATIONS_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "Credits & Thanks",
-        documentTitle = "Credits & Thanks",
-        secondaryLabel = "Main contributors and projects",
-        assetPath = CREDITS_AND_THANKS_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "AI Acknowledgment",
-        documentTitle = "AI & Creator Acknowledgment",
-        secondaryLabel = "Human creators and transparency",
-        assetPath = AI_ACKNOWLEDGEMENT_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "Companion Sources",
-        documentTitle = "Companion External Sources",
-        secondaryLabel = "Map, GPX and refuge websites",
-        assetPath = COMPANION_EXTERNAL_SOURCES_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "Compliance Status",
-        documentTitle = "Compliance Status",
-        secondaryLabel = "Release checklist and pending items",
-        assetPath = COMPLIANCE_STATUS_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "Open Source Notices",
-        documentTitle = "Open Source Notices",
-        secondaryLabel = "Libraries and OSS licenses",
-        assetPath = THIRD_PARTY_NOTICES_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "OpenHiking Theme",
-        documentTitle = "OpenHiking Theme",
-        secondaryLabel = "Bundled hiking theme details",
-        assetPath = OPENHIKING_THEME_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "French Kiss Theme",
-        documentTitle = "French Kiss Theme",
-        secondaryLabel = "Bundled IGN-style theme details",
-        assetPath = FRENCH_KISS_THEME_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "Tiramisu Theme",
-        documentTitle = "Tiramisu Theme",
-        secondaryLabel = "Bundled cycle/hike theme details",
-        assetPath = TIRAMISU_THEME_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "Hike, Ride & Sight",
-        documentTitle = "Hike, Ride & Sight Theme",
-        secondaryLabel = "Bundled overlay-rich theme details",
-        assetPath = HIKE_RIDE_SIGHT_THEME_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "Data & Asset Attribution",
-        documentTitle = "Data & Asset Attribution",
-        secondaryLabel = "OSM, Elevate, OpenHiking, French Kiss, Tiramisu, HRS, DEM, icons",
-        assetPath = DATA_AND_ASSET_ATTRIBUTION_ASSET_PATH,
-        showPrivacyContact = false
-    ),
-    LegalDocument(
-        buttonLabel = "Service Terms & API Usage",
-        documentTitle = "Service Terms & API Usage",
-        secondaryLabel = "Provider terms and usage limits",
-        assetPath = SERVICE_TERMS_AND_API_USAGE_ASSET_PATH,
-        showPrivacyContact = false
+private val COMPANION_CREDITS_AND_LEGAL_DOCUMENTS =
+    listOf(
+        LegalDocument(
+            buttonLabel = "Privacy Policy",
+            documentTitle = "Privacy Policy",
+            secondaryLabel = "Data access, sharing and retention",
+            assetPath = PRIVACY_POLICY_ASSET_PATH,
+            showPrivacyContact = true,
+        ),
+        LegalDocument(
+            buttonLabel = "Safety & Limits",
+            documentTitle = "Safety & Limitations",
+            secondaryLabel = "Map/theme errors and personal responsibility",
+            assetPath = SAFETY_AND_LIMITATIONS_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "Credits & Thanks",
+            documentTitle = "Credits & Thanks",
+            secondaryLabel = "Main contributors and projects",
+            assetPath = CREDITS_AND_THANKS_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "AI Acknowledgment",
+            documentTitle = "AI & Creator Acknowledgment",
+            secondaryLabel = "Human creators and transparency",
+            assetPath = AI_ACKNOWLEDGEMENT_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "Companion Sources",
+            documentTitle = "Companion External Sources",
+            secondaryLabel = "Map, GPX and refuge websites",
+            assetPath = COMPANION_EXTERNAL_SOURCES_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "Compliance Status",
+            documentTitle = "Compliance Status",
+            secondaryLabel = "Release checklist and pending items",
+            assetPath = COMPLIANCE_STATUS_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "Open Source Notices",
+            documentTitle = "Open Source Notices",
+            secondaryLabel = "Libraries and OSS licenses",
+            assetPath = THIRD_PARTY_NOTICES_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "OpenHiking Theme",
+            documentTitle = "OpenHiking Theme",
+            secondaryLabel = "Bundled hiking theme details",
+            assetPath = OPENHIKING_THEME_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "French Kiss Theme",
+            documentTitle = "French Kiss Theme",
+            secondaryLabel = "Bundled IGN-style theme details",
+            assetPath = FRENCH_KISS_THEME_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "Tiramisu Theme",
+            documentTitle = "Tiramisu Theme",
+            secondaryLabel = "Bundled cycle/hike theme details",
+            assetPath = TIRAMISU_THEME_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "Hike, Ride & Sight",
+            documentTitle = "Hike, Ride & Sight Theme",
+            secondaryLabel = "Bundled overlay-rich theme details",
+            assetPath = HIKE_RIDE_SIGHT_THEME_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "Data & Asset Attribution",
+            documentTitle = "Data & Asset Attribution",
+            secondaryLabel = "OSM, Elevate, OpenHiking, French Kiss, Tiramisu, HRS, DEM, icons",
+            assetPath = DATA_AND_ASSET_ATTRIBUTION_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
+            buttonLabel = "Service Terms & API Usage",
+            documentTitle = "Service Terms & API Usage",
+            secondaryLabel = "Provider terms and usage limits",
+            assetPath = SERVICE_TERMS_AND_API_USAGE_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
     )
-)

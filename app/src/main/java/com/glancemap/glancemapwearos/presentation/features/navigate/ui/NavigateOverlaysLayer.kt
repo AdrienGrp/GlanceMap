@@ -4,17 +4,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,7 +18,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,25 +25,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.wear.compose.foundation.ArcPaddingValues
 import androidx.wear.compose.foundation.AnchorType
-import androidx.wear.compose.foundation.CurvedModifier
+import androidx.wear.compose.foundation.ArcPaddingValues
 import androidx.wear.compose.foundation.CurvedLayout
+import androidx.wear.compose.foundation.CurvedModifier
 import androidx.wear.compose.foundation.curvedComposable
 import androidx.wear.compose.foundation.padding
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
-import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolInlineProgressBanner
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteShortcutTray
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolInlineProgressBanner
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import kotlinx.coroutines.delay
 import org.mapsforge.core.model.LatLong
@@ -122,25 +112,28 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onRecenterRequested: () -> Unit,
     onToggleOrientation: () -> Unit,
     isOfflineMode: Boolean,
-    onNavModeButtonLongPress: () -> Unit
+    onNavModeButtonLongPress: () -> Unit,
 ) {
     var liveDistanceLineStart by remember(mapView, lastKnownLocation) { mutableStateOf<Offset?>(null) }
-    val slopeIndicatorButtonSize = when (screenSize) {
-        WearScreenSize.LARGE -> 28.dp
-        WearScreenSize.MEDIUM -> 26.dp
-        WearScreenSize.SMALL -> 24.dp
-    }
-    val slopeIndicatorToolGap = when (screenSize) {
-        WearScreenSize.LARGE -> 5.dp
-        WearScreenSize.MEDIUM -> 4.dp
-        WearScreenSize.SMALL -> 3.dp
-    }
+    val slopeIndicatorButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 28.dp
+            WearScreenSize.MEDIUM -> 26.dp
+            WearScreenSize.SMALL -> 24.dp
+        }
+    val slopeIndicatorToolGap =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 5.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
     val showSlopeIndicatorAccessory = slopeOverlayToggleEnabled && slopeOverlayEnabled && slopeOverlayProcessing
-    val routeShortcutAccessoryWidth = if (showSlopeIndicatorAccessory) {
-        slopeIndicatorButtonSize + slopeIndicatorToolGap
-    } else {
-        0.dp
-    }
+    val routeShortcutAccessoryWidth =
+        if (showSlopeIndicatorAccessory) {
+            slopeIndicatorButtonSize + slopeIndicatorToolGap
+        } else {
+            0.dp
+        }
 
     LaunchedEffect(shortcutTrayExpanded, routeToolModeActive) {
         if (!shortcutTrayExpanded || routeToolModeActive) return@LaunchedEffect
@@ -156,11 +149,12 @@ internal fun BoxScope.NavigateOverlaysLayer(
             return@LaunchedEffect
         }
         while (true) {
-            liveDistanceLineStart = projectLatLongToScreenOffset(
-                mapView = mapView,
-                latLong = lastKnownLocation,
-                mapRotationDeg = mapRotationDeg
-            )
+            liveDistanceLineStart =
+                projectLatLongToScreenOffset(
+                    mapView = mapView,
+                    latLong = lastKnownLocation,
+                    mapRotationDeg = mapRotationDeg,
+                )
             delay(80L)
         }
     }
@@ -168,14 +162,14 @@ internal fun BoxScope.NavigateOverlaysLayer(
     PanningDistanceGuide(
         navMode = navMode,
         liveDistanceEnabled = liveDistanceEnabled,
-        liveDistanceLineStart = liveDistanceLineStart
+        liveDistanceLineStart = liveDistanceLineStart,
     )
 
     RouteToolInlineProgressBanner(
         visible = mapAppearanceApplyInProgress,
         message = "Updating map",
         startInset = sideButtonEdgePadding + sideButtonSize + 8.dp,
-        endInset = sideButtonEdgePadding + sideButtonSize + routeShortcutAccessoryWidth + 8.dp
+        endInset = sideButtonEdgePadding + sideButtonSize + routeShortcutAccessoryWidth + 8.dp,
     )
 
     SlopeOverlayStatusIndicator(
@@ -186,7 +180,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         currentZoomLevel = currentZoomLevel,
         screenSize = screenSize,
         sideButtonEdgePadding = sideButtonEdgePadding,
-        sideButtonSize = sideButtonSize
+        sideButtonSize = sideButtonSize,
     )
 
     PanningLiveMetricsOverlay(
@@ -198,7 +192,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         zoomLabelTopPadding = zoomLabelTopPadding,
         liveElevationIconSize = liveElevationIconSize,
         navButtonBottomPadding = navButtonBottomPadding,
-        navButtonSize = navButtonSize
+        navButtonSize = navButtonSize,
     )
 
     NorthIndicatorOverlay(
@@ -207,23 +201,26 @@ internal fun BoxScope.NavigateOverlaysLayer(
         mapRotationDeg = mapRotationDeg,
         compassHeadingDeg = compassHeadingDeg,
         indicatorButtonSize = northIndicatorButtonSize,
-        indicatorIconSize = northIndicatorIconSize
+        indicatorIconSize = northIndicatorIconSize,
     )
 
     if (showZoomPlusButton) {
         CurvedLayout(
             modifier = Modifier.fillMaxSize(),
             anchor = 320f,
-            anchorType = AnchorType.Center
+            anchorType = AnchorType.Center,
         ) {
             curvedComposable(
-                modifier = CurvedModifier.padding(
-                    ArcPaddingValues(outer = sideButtonEdgePadding)
-                )
+                modifier =
+                    CurvedModifier.padding(
+                        ArcPaddingValues(outer = sideButtonEdgePadding),
+                    ),
             ) {
                 IconButton(
                     onClick = {
-                        val currentZoom = mapView.model.mapViewPosition.zoomLevel.toInt()
+                        val currentZoom =
+                            mapView.model.mapViewPosition.zoomLevel
+                                .toInt()
                         val newZoom = (currentZoom + 1).coerceAtMost(zoomMax)
                         if (newZoom != currentZoom) {
                             mapView.model.mapViewPosition.setZoomLevel(newZoom.toByte(), false)
@@ -231,10 +228,11 @@ internal fun BoxScope.NavigateOverlaysLayer(
                         }
                     },
                     modifier = Modifier.size(zoomButtonSize),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.7f),
-                        contentColor = Color.White
-                    )
+                    colors =
+                        IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
+                        ),
                 ) {
                     Icon(Icons.Default.Add, "Zoom In", Modifier.size(zoomIconSize))
                 }
@@ -246,16 +244,19 @@ internal fun BoxScope.NavigateOverlaysLayer(
         CurvedLayout(
             modifier = Modifier.fillMaxSize(),
             anchor = 338f,
-            anchorType = AnchorType.Center
+            anchorType = AnchorType.Center,
         ) {
             curvedComposable(
-                modifier = CurvedModifier.padding(
-                    ArcPaddingValues(outer = sideButtonEdgePadding)
-                )
+                modifier =
+                    CurvedModifier.padding(
+                        ArcPaddingValues(outer = sideButtonEdgePadding),
+                    ),
             ) {
                 IconButton(
                     onClick = {
-                        val currentZoom = mapView.model.mapViewPosition.zoomLevel.toInt()
+                        val currentZoom =
+                            mapView.model.mapViewPosition.zoomLevel
+                                .toInt()
                         val newZoom = (currentZoom - 1).coerceAtLeast(zoomMin)
                         if (newZoom != currentZoom) {
                             mapView.model.mapViewPosition.setZoomLevel(newZoom.toByte(), false)
@@ -263,10 +264,11 @@ internal fun BoxScope.NavigateOverlaysLayer(
                         }
                     },
                     modifier = Modifier.size(zoomButtonSize),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.7f),
-                        contentColor = Color.White
-                    )
+                    colors =
+                        IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
+                        ),
                 ) {
                     Icon(Icons.Default.Remove, "Zoom Out", Modifier.size(zoomIconSize))
                 }
@@ -279,24 +281,26 @@ internal fun BoxScope.NavigateOverlaysLayer(
             visible = showScaleBar,
             enter = fadeIn(tween(180)),
             exit = fadeOut(tween(220)),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = zoomLabelTopPadding)
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = zoomLabelTopPadding),
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = indicator.label,
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(5.dp))
-                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                    modifier =
+                        Modifier
+                            .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(5.dp))
+                            .padding(horizontal = 5.dp, vertical = 1.dp),
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 10.sp,
-                    lineHeight = 10.sp
+                    lineHeight = 10.sp,
                 )
                 StandardScaleBar(
                     width = zoomScaleBarWidth,
-                    modifier = Modifier.padding(top = 2.dp)
+                    modifier = Modifier.padding(top = 2.dp),
                 )
             }
         }
@@ -314,19 +318,21 @@ internal fun BoxScope.NavigateOverlaysLayer(
         sideButtonEdgePadding = sideButtonEdgePadding,
         sideButtonSize = sideButtonSize,
         navButtonBottomPadding = navButtonBottomPadding,
-        navButtonSize = navButtonSize
+        navButtonSize = navButtonSize,
     )
 
     IconButton(
         onClick = onMenuClick,
-        modifier = Modifier
-            .align(Alignment.CenterStart)
-            .padding(start = sideButtonEdgePadding)
-            .size(sideButtonSize),
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = Color.Black.copy(alpha = 0.7f),
-            contentColor = Color.White
-        )
+        modifier =
+            Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = sideButtonEdgePadding)
+                .size(sideButtonSize),
+        colors =
+            IconButtonDefaults.iconButtonColors(
+                containerColor = Color.Black.copy(alpha = 0.7f),
+                contentColor = Color.White,
+            ),
     ) {
         Icon(Icons.Default.Menu, "Menu", Modifier.size(sideButtonIconSize))
     }
@@ -343,7 +349,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
             onToggleExpanded = onShortcutTrayToggle,
             onKeepAppOpenClick = onKeepAppOpenToggle,
             onGpxToolsClick = onGpxToolsClick,
-            onCreatePoiClick = onCreatePoiClick
+            onCreatePoiClick = onCreatePoiClick,
         )
     }
 
@@ -356,7 +362,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         gpsIndicatorIconPadding = gpsIndicatorIconPadding,
         gpsIndicatorIconSize = gpsIndicatorIconSize,
         navButtonBottomPadding = navButtonBottomPadding,
-        navButtonSize = navButtonSize
+        navButtonSize = navButtonSize,
     )
 
     NavModeButtonOverlay(
@@ -371,6 +377,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onRecenter = onRecenter,
         onRecenterRequested = onRecenterRequested,
         onToggleOrientation = onToggleOrientation,
-        onNavModeButtonLongPress = onNavModeButtonLongPress
+        onNavModeButtonLongPress = onNavModeButtonLongPress,
     )
 }

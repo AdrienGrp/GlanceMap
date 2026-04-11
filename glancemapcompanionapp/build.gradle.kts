@@ -13,36 +13,47 @@ if (hasGoogleServicesConfig) {
     apply(plugin = "com.google.firebase.crashlytics")
 }
 
-val releaseStoreFile = providers.gradleProperty("android.injected.signing.store.file")
-    .orElse(providers.gradleProperty("RELEASE_STORE_FILE"))
-    .orElse(providers.environmentVariable("RELEASE_STORE_FILE"))
-val releaseStorePassword = providers.gradleProperty("android.injected.signing.store.password")
-    .orElse(providers.gradleProperty("RELEASE_STORE_PASSWORD"))
-    .orElse(providers.environmentVariable("RELEASE_STORE_PASSWORD"))
-val releaseKeyAlias = providers.gradleProperty("android.injected.signing.key.alias")
-    .orElse(providers.gradleProperty("RELEASE_KEY_ALIAS"))
-    .orElse(providers.environmentVariable("RELEASE_KEY_ALIAS"))
-val releaseKeyPassword = providers.gradleProperty("android.injected.signing.key.password")
-    .orElse(providers.gradleProperty("RELEASE_KEY_PASSWORD"))
-    .orElse(providers.environmentVariable("RELEASE_KEY_PASSWORD"))
-val hasReleaseSigning = releaseStoreFile.isPresent &&
-    releaseStorePassword.isPresent &&
-    releaseKeyAlias.isPresent &&
-    releaseKeyPassword.isPresent
+val releaseStoreFile =
+    providers
+        .gradleProperty("android.injected.signing.store.file")
+        .orElse(providers.gradleProperty("RELEASE_STORE_FILE"))
+        .orElse(providers.environmentVariable("RELEASE_STORE_FILE"))
+val releaseStorePassword =
+    providers
+        .gradleProperty("android.injected.signing.store.password")
+        .orElse(providers.gradleProperty("RELEASE_STORE_PASSWORD"))
+        .orElse(providers.environmentVariable("RELEASE_STORE_PASSWORD"))
+val releaseKeyAlias =
+    providers
+        .gradleProperty("android.injected.signing.key.alias")
+        .orElse(providers.gradleProperty("RELEASE_KEY_ALIAS"))
+        .orElse(providers.environmentVariable("RELEASE_KEY_ALIAS"))
+val releaseKeyPassword =
+    providers
+        .gradleProperty("android.injected.signing.key.password")
+        .orElse(providers.gradleProperty("RELEASE_KEY_PASSWORD"))
+        .orElse(providers.environmentVariable("RELEASE_KEY_PASSWORD"))
+val hasReleaseSigning =
+    releaseStoreFile.isPresent &&
+        releaseStorePassword.isPresent &&
+        releaseKeyAlias.isPresent &&
+        releaseKeyPassword.isPresent
 val projectTaskPrefix = "${project.path.lowercase()}:"
-val releaseArtifactTaskRequested = gradle.startParameter.taskNames.any { taskName ->
-    val normalized = taskName.lowercase()
-    val targetsThisProject = normalized.startsWith(projectTaskPrefix) || !normalized.contains(":")
-    targetsThisProject &&
-        normalized.contains("release") &&
-        (normalized.contains("bundle") || normalized.contains("assemble") || normalized.contains("publish"))
-}
+val releaseArtifactTaskRequested =
+    gradle.startParameter.taskNames.any { taskName ->
+        val normalized = taskName.lowercase()
+        val targetsThisProject =
+            normalized.startsWith(projectTaskPrefix) || !normalized.contains(":")
+        targetsThisProject &&
+            normalized.contains("release") &&
+            listOf("bundle", "assemble", "publish").any(normalized::contains)
+    }
 
 if (releaseArtifactTaskRequested && !hasReleaseSigning) {
     throw GradleException(
         "Missing release signing properties. Define RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, " +
             "RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD in local/private Gradle properties or " +
-            "environment variables, or use Android Studio's Generate Signed Bundle/APK flow."
+            "environment variables, or use Android Studio's Generate Signed Bundle/APK flow.",
     )
 }
 

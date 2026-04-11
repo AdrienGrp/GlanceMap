@@ -6,15 +6,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OsmOverpassPoiImporterSupportTest {
-
     @Test
     fun `keeps small bbox in a single overpass request`() {
-        val bbox = BBox(
-            minLon = 6.0,
-            minLat = 45.0,
-            maxLon = 6.8,
-            maxLat = 45.7
-        )
+        val bbox =
+            BBox(
+                minLon = 6.0,
+                minLat = 45.0,
+                maxLon = 6.8,
+                maxLat = 45.7,
+            )
 
         val tiles = splitBboxForOverpass(bbox)
 
@@ -24,12 +24,13 @@ class OsmOverpassPoiImporterSupportTest {
 
     @Test
     fun `splits large bbox into smaller overpass tiles`() {
-        val bbox = BBox(
-            minLon = 8.9,
-            minLat = 47.1,
-            maxLon = 13.9,
-            maxLat = 50.5
-        )
+        val bbox =
+            BBox(
+                minLon = 8.9,
+                minLat = 47.1,
+                maxLon = 13.9,
+                maxLat = 50.5,
+            )
 
         val tiles = splitBboxForOverpass(bbox)
 
@@ -42,13 +43,14 @@ class OsmOverpassPoiImporterSupportTest {
 
     @Test
     fun `summarizes html overpass errors without dumping markup`() {
-        val html = """
+        val html =
+            """
             <!DOCTYPE html>
             <html lang="en">
             <head><title>504 Gateway Time-out</title></head>
             <body>proxy timeout</body>
             </html>
-        """.trimIndent()
+            """.trimIndent()
 
         val message = summarizeOsmOverpassFailure(504, html)
 
@@ -58,12 +60,13 @@ class OsmOverpassPoiImporterSupportTest {
 
     @Test
     fun `parses overpass status with available slots`() {
-        val body = """
+        val body =
+            """
             Connected as: 12345
             Current time: 2026-04-09T09:31:00Z
             Rate limit: 2
             2 slots available now.
-        """.trimIndent()
+            """.trimIndent()
 
         val summary = parseOverpassStatusSummary(body)
 
@@ -75,12 +78,13 @@ class OsmOverpassPoiImporterSupportTest {
 
     @Test
     fun `parses overpass status with future slot wait`() {
-        val body = """
+        val body =
+            """
             Connected as: 12345
             Current time: 2026-04-09T09:31:00Z
             Rate limit: 2
             Slot available after: 2026-04-09T09:31:12Z, in 12 seconds.
-        """.trimIndent()
+            """.trimIndent()
 
         val summary = parseOverpassStatusSummary(body)
 
@@ -92,12 +96,13 @@ class OsmOverpassPoiImporterSupportTest {
 
     @Test
     fun `splits overflow tile into smaller requests`() {
-        val bbox = BBox(
-            minLon = 8.765,
-            minLat = 47.157,
-            maxLon = 11.4215,
-            maxLat = 48.916
-        )
+        val bbox =
+            BBox(
+                minLon = 8.765,
+                minLat = 47.157,
+                maxLon = 11.4215,
+                maxLat = 48.916,
+            )
 
         val tiles = splitBboxForOverpassOverflow(bbox)
 
@@ -110,10 +115,11 @@ class OsmOverpassPoiImporterSupportTest {
 
     @Test
     fun `detects too large overpass response message through nested cause`() {
-        val error = IllegalStateException(
-            "outer",
-            IllegalStateException(OSM_OVERPASS_TOO_LARGE_MESSAGE)
-        )
+        val error =
+            IllegalStateException(
+                "outer",
+                IllegalStateException(OSM_OVERPASS_TOO_LARGE_MESSAGE),
+            )
 
         assertTrue(isOverpassResponseTooLarge(error))
         assertFalse(isOverpassResponseTooLarge(IllegalStateException("something else")))
@@ -125,15 +131,16 @@ class OsmOverpassPoiImporterSupportTest {
 
         assertEquals(
             linkedSetOf("huts", "water", "peaks"),
-            defaultIds
+            defaultIds,
         )
     }
 
     @Test
     fun `osm category presets only expose essentials and all`() {
-        val presets = buildOsmPoiCategoryPresets(
-            linkedSetOf("huts", "water", "peaks", "camping", "viewpoints", "food")
-        )
+        val presets =
+            buildOsmPoiCategoryPresets(
+                linkedSetOf("huts", "water", "peaks", "camping", "viewpoints", "food"),
+            )
 
         assertEquals(2, presets.size)
         assertEquals("Essentials", presets[0].label)
@@ -141,15 +148,16 @@ class OsmOverpassPoiImporterSupportTest {
         assertEquals("All", presets[1].label)
         assertEquals(
             linkedSetOf("huts", "water", "peaks", "camping", "viewpoints", "food"),
-            presets[1].categoryIds
+            presets[1].categoryIds,
         )
     }
 
     @Test
     fun `normalizes osm categories and drops invalid ids`() {
-        val normalized = normalizeOsmPoiCategoryIds(
-            linkedSetOf("food", "invalid", "parking", "food")
-        )
+        val normalized =
+            normalizeOsmPoiCategoryIds(
+                linkedSetOf("food", "invalid", "parking", "food"),
+            )
 
         assertEquals(linkedSetOf("food", "parking"), normalized)
     }

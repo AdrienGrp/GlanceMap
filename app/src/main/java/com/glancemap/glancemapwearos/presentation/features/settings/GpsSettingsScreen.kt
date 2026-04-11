@@ -49,16 +49,17 @@ import kotlin.math.roundToInt
 @Composable
 fun GpsSettingsScreen(
     viewModel: SettingsViewModel,
-    onOpenGeneralSettings: () -> Unit
+    onOpenGeneralSettings: () -> Unit,
 ) {
-    val listTokens = rememberSettingsListTokens(
-        compactTop = 12.dp,
-        standardTop = 14.dp,
-        expandedTop = 16.dp,
-        compactBottom = 12.dp,
-        standardBottom = 14.dp,
-        expandedBottom = 16.dp
-    )
+    val listTokens =
+        rememberSettingsListTokens(
+            compactTop = 12.dp,
+            standardTop = 14.dp,
+            expandedTop = 16.dp,
+            compactBottom = 12.dp,
+            standardBottom = 14.dp,
+            expandedBottom = 16.dp,
+        )
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -73,30 +74,32 @@ fun GpsSettingsScreen(
 
     // Refresh permission state when coming back from settings, etc.
     DisposableEffect(lifecycleOwner) {
-        val obs = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                hasLocationPermission = hasForegroundLocationPermission(context)
-                hasFineLocationPermission = hasFineForegroundLocationPermission(context)
+        val obs =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    hasLocationPermission = hasForegroundLocationPermission(context)
+                    hasFineLocationPermission = hasFineForegroundLocationPermission(context)
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(obs)
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
 
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(),
-        onResult = { permissions ->
-            val fineGranted = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false)
-            val coarseGranted = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
-            hasLocationPermission = fineGranted || coarseGranted
-            hasFineLocationPermission = fineGranted
+    val locationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions(),
+            onResult = { permissions ->
+                val fineGranted = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false)
+                val coarseGranted = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
+                hasLocationPermission = fineGranted || coarseGranted
+                hasFineLocationPermission = fineGranted
 
-            // If user was trying to enable ambient GPS, complete the action.
-            if (hasLocationPermission) {
-                viewModel.setGpsInAmbientMode(true)
-            }
-        }
-    )
+                // If user was trying to enable ambient GPS, complete the action.
+                if (hasLocationPermission) {
+                    viewModel.setGpsInAmbientMode(true)
+                }
+            },
+        )
 
     val listState = rememberScalingLazyListState()
 
@@ -104,14 +107,15 @@ fun GpsSettingsScreen(
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(
-                start = listTokens.horizontalPadding,
-                end = listTokens.horizontalPadding,
-                top = listTokens.topPadding,
-                bottom = listTokens.bottomPadding
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = listTokens.horizontalPadding,
+                    end = listTokens.horizontalPadding,
+                    top = listTokens.topPadding,
+                    bottom = listTokens.bottomPadding,
+                ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {
                 GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
@@ -122,13 +126,14 @@ fun GpsSettingsScreen(
                     checked = isWatchGpsOnly,
                     onCheckedChanged = { viewModel.setWatchGpsOnly(it) },
                     label = "GPS Source",
-                    secondaryLabel = when {
-                        isWatchGpsOnly && !hasFineLocationPermission ->
-                            "Watch Only (enable Precise)"
-                        isWatchGpsOnly -> "Watch Only (more ⚡)"
-                        else -> "Auto (Watch + Phone)"
-                    },
-                    toggleControl = ToggleChipToggleControl.Switch
+                    secondaryLabel =
+                        when {
+                            isWatchGpsOnly && !hasFineLocationPermission ->
+                                "Watch Only (enable Precise)"
+                            isWatchGpsOnly -> "Watch Only (more ⚡)"
+                            else -> "Auto (Watch + Phone)"
+                        },
+                    toggleControl = ToggleChipToggleControl.Switch,
                 )
             }
 
@@ -138,7 +143,7 @@ fun GpsSettingsScreen(
                     intervalMs = gpsIntervalMs,
                     minSeconds = 1,
                     maxSeconds = 120,
-                    onValueChangeMs = { viewModel.setGpsInterval(it) }
+                    onValueChangeMs = { viewModel.setGpsInterval(it) },
                 )
             }
 
@@ -154,8 +159,8 @@ fun GpsSettingsScreen(
                                 locationPermissionLauncher.launch(
                                     arrayOf(
                                         Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION
-                                    )
+                                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                                    ),
                                 )
                             }
                         } else {
@@ -163,12 +168,13 @@ fun GpsSettingsScreen(
                         }
                     },
                     label = "GPS AOD/Screen Off",
-                    secondaryLabel = when {
-                        gpsInAmbientMode && hasLocationPermission -> "On (more ⚡)"
-                        gpsInAmbientMode && !hasLocationPermission -> "Needs location permission"
-                        else -> "Off (saves battery)"
-                    },
-                    toggleControl = ToggleChipToggleControl.Switch
+                    secondaryLabel =
+                        when {
+                            gpsInAmbientMode && hasLocationPermission -> "On (more ⚡)"
+                            gpsInAmbientMode && !hasLocationPermission -> "Needs location permission"
+                            else -> "Off (saves battery)"
+                        },
+                    toggleControl = ToggleChipToggleControl.Switch,
                 )
             }
 
@@ -180,7 +186,7 @@ fun GpsSettingsScreen(
                         minSeconds = 1,
                         maxSeconds = 120,
                         presetSeconds = listOf(15, 30, 60, 90),
-                        onValueChangeMs = { viewModel.setAmbientGpsInterval(it) }
+                        onValueChangeMs = { viewModel.setAmbientGpsInterval(it) },
                     )
                 }
             }
@@ -189,17 +195,18 @@ fun GpsSettingsScreen(
 }
 
 private fun hasForegroundLocationPermission(context: Context): Boolean {
-    val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+    val fine =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
-    val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+    val coarse =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
     return fine || coarse
 }
 
-private fun hasFineForegroundLocationPermission(context: Context): Boolean {
-    return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+private fun hasFineForegroundLocationPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED
-}
 
 @OptIn(FlowPreview::class)
 @Composable
@@ -209,15 +216,16 @@ private fun GpsIntervalSlider(
     minSeconds: Int,
     maxSeconds: Int,
     presetSeconds: List<Int> = emptyList(),
-    onValueChangeMs: (Long) -> Unit
+    onValueChangeMs: (Long) -> Unit,
 ) {
     val safeMinSeconds = minSeconds.coerceAtLeast(1)
     val safeMaxSeconds = maxOf(safeMinSeconds, maxSeconds)
-    val safePresetSeconds = remember(presetSeconds, safeMinSeconds, safeMaxSeconds) {
-        presetSeconds
-            .map { it.coerceIn(safeMinSeconds, safeMaxSeconds) }
-            .distinct()
-    }
+    val safePresetSeconds =
+        remember(presetSeconds, safeMinSeconds, safeMaxSeconds) {
+            presetSeconds
+                .map { it.coerceIn(safeMinSeconds, safeMaxSeconds) }
+                .distinct()
+        }
     val currentSeconds = (intervalMs / 1000L).toInt().coerceIn(safeMinSeconds, safeMaxSeconds)
     var sliderValue by remember(currentSeconds) { mutableStateOf(currentSeconds.toFloat()) }
     var lastPersistedSeconds by remember(currentSeconds) { mutableStateOf(currentSeconds) }
@@ -244,7 +252,7 @@ private fun GpsIntervalSlider(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
             text = "$label: ${sliderValue.toInt()}s",
@@ -252,7 +260,7 @@ private fun GpsIntervalSlider(
             modifier = Modifier.fillMaxWidth(),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
 
         Slider(
@@ -262,7 +270,7 @@ private fun GpsIntervalSlider(
             steps = (safeMaxSeconds - safeMinSeconds - 1).coerceAtLeast(0),
             increaseIcon = { Icon(Icons.Filled.Add, contentDescription = "Increase") },
             decreaseIcon = { Icon(Icons.Filled.Remove, contentDescription = "Decrease") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         if (safePresetSeconds.isNotEmpty()) {
@@ -270,7 +278,7 @@ private fun GpsIntervalSlider(
             IntervalPresetButtons(
                 presetSeconds = safePresetSeconds,
                 selectedSeconds = sliderValue.toInt(),
-                onPresetSelected = { sliderValue = it.toFloat() }
+                onPresetSelected = { sliderValue = it.toFloat() },
             )
         }
     }
@@ -280,35 +288,38 @@ private fun GpsIntervalSlider(
 private fun IntervalPresetButtons(
     presetSeconds: List<Int>,
     selectedSeconds: Int,
-    onPresetSelected: (Int) -> Unit
+    onPresetSelected: (Int) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         presetSeconds.forEach { presetSecondsValue ->
             val selected = presetSecondsValue == selectedSeconds
             Button(
                 modifier = Modifier.weight(1f),
                 onClick = { onPresetSelected(presetSecondsValue) },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    },
-                    contentColor = if (selected) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                    }
-                )
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor =
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            },
+                        contentColor =
+                            if (selected) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            },
+                    ),
             ) {
                 Text(
                     text = "${presetSecondsValue}s",
                     maxLines = 1,
-                    overflow = TextOverflow.Clip
+                    overflow = TextOverflow.Clip,
                 )
             }
         }

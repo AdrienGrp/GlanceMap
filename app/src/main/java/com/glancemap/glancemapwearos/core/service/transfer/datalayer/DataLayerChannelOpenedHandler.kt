@@ -3,15 +3,15 @@ package com.glancemap.glancemapwearos.core.service.transfer.datalayer
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
-import com.google.android.gms.wearable.ChannelClient
-import com.google.android.gms.wearable.Wearable
 import com.glancemap.glancemapwearos.core.service.DataLayerListenerService
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.TransferDiagnostics
+import com.glancemap.glancemapwearos.core.service.transfer.contract.ReceiverMetadata
 import com.glancemap.glancemapwearos.core.service.transfer.contract.TransferConstants
 import com.glancemap.glancemapwearos.core.service.transfer.notifications.NotificationHelper
-import com.glancemap.glancemapwearos.core.service.transfer.contract.ReceiverMetadata
 import com.glancemap.glancemapwearos.core.service.transfer.storage.WatchFileOps
+import com.google.android.gms.wearable.ChannelClient
+import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
@@ -23,37 +23,39 @@ internal class DataLayerChannelOpenedHandler(
     private val transferMutex: Mutex,
     private val channelReceiver: ChannelClientStrategy,
     private val sendAck: suspend (sourceNodeId: String, transferId: String, status: String, detail: String) -> Unit,
-    private val popChannelChecksum: (transferId: String) -> String? = { null }
+    private val popChannelChecksum: (transferId: String) -> String? = { null },
 ) {
     suspend fun handleChannelOpened(channel: ChannelClient.Channel) {
         if (!channel.path.startsWith(TransferConstants.CHANNEL_PREFIX)) return
 
-        val parsed = parseChannelPath(channel.path) ?: run {
-            Log.w(TAG, "Invalid channel path: ${channel.path}")
-            TransferDiagnostics.warn("Channel", "Invalid channel path=${channel.path}")
-            return
-        }
+        val parsed =
+            parseChannelPath(channel.path) ?: run {
+                Log.w(TAG, "Invalid channel path: ${channel.path}")
+                TransferDiagnostics.warn("Channel", "Invalid channel path=${channel.path}")
+                return
+            }
 
         val transferId = parsed.first
         val fileName = fileOps.sanitizeFileName(parsed.second)
         val notificationId = transferId.hashCode()
 
         val expectedChecksum = popChannelChecksum(transferId)
-        val metadata = ReceiverMetadata(
-            transferId = transferId,
-            fileName = fileName,
-            totalSize = -1L,
-            sourceNodeId = channel.nodeId,
-            notificationId = notificationId,
-            checksumSha256 = expectedChecksum
-        )
+        val metadata =
+            ReceiverMetadata(
+                transferId = transferId,
+                fileName = fileName,
+                totalSize = -1L,
+                sourceNodeId = channel.nodeId,
+                notificationId = notificationId,
+                checksumSha256 = expectedChecksum,
+            )
         EnergyDiagnostics.recordEvent(
             reason = "channel_transfer_start",
-            detail = "file=$fileName transferId=$transferId"
+            detail = "file=$fileName transferId=$transferId",
         )
         TransferDiagnostics.log(
             "Channel",
-            "Open id=$transferId file=$fileName node=${channel.nodeId}"
+            "Open id=$transferId file=$fileName node=${channel.nodeId}",
         )
 
         transferMutex.withLock {
@@ -85,7 +87,7 @@ internal class DataLayerChannelOpenedHandler(
                             metadata.notificationId,
                             metadata.fileName,
                             "Receiving… ${bytesCopied / (1024 * 1024)} MB",
-                            -1 // Indeterminate progress for channel transfers
+                            -1, // Indeterminate progress for channel transfers
                         )
                     }
                 }
@@ -98,14 +100,14 @@ internal class DataLayerChannelOpenedHandler(
                     if (actualSha != null && actualSha != expectedSha) {
                         TransferDiagnostics.warn(
                             "Channel",
-                            "Checksum mismatch id=${metadata.transferId} file=${metadata.fileName}"
+                            "Checksum mismatch id=${metadata.transferId} file=${metadata.fileName}",
                         )
                         fileOps.deleteLocalFile(metadata.fileName)
                         throw IllegalStateException("CHECKSUM_MISMATCH")
                     }
                     TransferDiagnostics.log(
                         "Channel",
-                        "Checksum verified id=${metadata.transferId} file=${metadata.fileName}"
+                        "Checksum verified id=${metadata.transferId} file=${metadata.fileName}",
                     )
                 }
 
@@ -116,26 +118,25 @@ internal class DataLayerChannelOpenedHandler(
                 val speedMBps = if (durationMs > 0) sizeMB / (durationMs / 1000.0) else 0.0
                 TransferDiagnostics.log(
                     "Channel",
-                    "Summary id=${metadata.transferId} file=${metadata.fileName} size=$lastBytesCopied durationMs=$durationMs speedMBps=${String.format("%.2f", speedMBps)}"
+                    "Summary id=${metadata.transferId} file=${metadata.fileName} size=$lastBytesCopied durationMs=$durationMs speedMBps=${String.format("%.2f", speedMBps)}",
                 )
                 EnergyDiagnostics.recordEvent(
                     reason = "channel_transfer_done",
-                    detail = "file=${metadata.fileName} transferId=${metadata.transferId}"
+                    detail = "file=${metadata.fileName} transferId=${metadata.transferId}",
                 )
-
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Channel transfer failed", e)
                 TransferDiagnostics.error(
                     "Channel",
                     "Failed id=${metadata.transferId} file=${metadata.fileName}",
-                    e
+                    e,
                 )
                 notificationHelper.stopForeground(metadata.notificationId)
                 notificationHelper.showError(metadata.notificationId, metadata.fileName, "Failed: ${e.message}")
                 sendAck(metadata.sourceNodeId, metadata.transferId, "ERROR", e.message ?: "Unknown error")
                 EnergyDiagnostics.recordEvent(
                     reason = "channel_transfer_error",
-                    detail = "file=${metadata.fileName} transferId=${metadata.transferId} msg=${e.message ?: "unknown"}"
+                    detail = "file=${metadata.fileName} transferId=${metadata.transferId} msg=${e.message ?: "unknown"}",
                 )
             } finally {
                 service.onTransferFinished()

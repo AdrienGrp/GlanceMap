@@ -5,9 +5,9 @@ import androidx.wear.compose.material3.MaterialTheme
 
 @Composable
 fun GlanceMapTheme(
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     MaterialTheme(
-        content = content
+        content = content,
     )
 }

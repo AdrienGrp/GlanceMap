@@ -6,23 +6,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocationScreenStateTest {
-
     @Test
     fun resolvesAmbientWhenAmbientLifecycleIsActive() {
-        val screenState = resolveLocationScreenState(
-            isAmbient = true,
-            isDeviceInteractive = false
-        )
+        val screenState =
+            resolveLocationScreenState(
+                isAmbient = true,
+                isDeviceInteractive = false,
+            )
 
         assertEquals(LocationScreenState.AMBIENT, screenState)
     }
 
     @Test
     fun resolvesScreenOffWhenDeviceIsNotInteractiveOutsideAmbient() {
-        val screenState = resolveLocationScreenState(
-            isAmbient = false,
-            isDeviceInteractive = false
-        )
+        val screenState =
+            resolveLocationScreenState(
+                isAmbient = false,
+                isDeviceInteractive = false,
+            )
 
         assertEquals(LocationScreenState.SCREEN_OFF, screenState)
     }

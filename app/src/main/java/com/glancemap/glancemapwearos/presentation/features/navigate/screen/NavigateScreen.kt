@@ -16,7 +16,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -38,18 +37,18 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
-import com.glancemap.glancemapwearos.presentation.features.offline.OfflineStartCenteringEffect
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
+import com.glancemap.glancemapwearos.presentation.features.offline.OfflineStartCenteringEffect
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolLoopRetryOption
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
@@ -76,13 +75,15 @@ fun NavigateScreen(
     ambientTickMs: Long,
     onMenuClick: () -> Unit,
     compassViewModel: CompassViewModel = viewModel(),
-    navigateViewModel: NavigateViewModel = viewModel(
-        factory = NavigateViewModelFactory(
-            application = LocalContext.current.applicationContext as android.app.Application,
-            locationViewModel = locationViewModel,
-            compassViewModel = compassViewModel
-        )
-    )
+    navigateViewModel: NavigateViewModel =
+        viewModel(
+            factory =
+                NavigateViewModelFactory(
+                    application = LocalContext.current.applicationContext as android.app.Application,
+                    locationViewModel = locationViewModel,
+                    compassViewModel = compassViewModel,
+                ),
+        ),
 ) {
     val context = LocalContext.current
     val adaptive = rememberWearAdaptiveSpec()
@@ -95,13 +96,14 @@ fun NavigateScreen(
     }
 
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_RESUME -> isScreenResumed = true
-                Lifecycle.Event.ON_PAUSE -> isScreenResumed = false
-                else -> Unit
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_RESUME -> isScreenResumed = true
+                    Lifecycle.Event.ON_PAUSE -> isScreenResumed = false
+                    else -> Unit
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -120,30 +122,32 @@ fun NavigateScreen(
     var hasAppliedInitialKeepAppOpenSync by rememberSaveable { mutableStateOf(false) }
 
     // ---- PERMISSIONS ----
-    val notificationPermissionState = rememberNotificationPermissionState(context) { granted ->
-        if (granted && pendingKeepAppOpen) {
-            settingsViewModel.setKeepAppOpen(true)
-            pendingKeepAppOpen = false
-        } else if (!granted) {
-            pendingKeepAppOpen = false
-        }
-    }
-
-    val locationPermissionState = rememberLocationPermissionState(context) { granted ->
-        if (granted && pendingKeepAppOpen) {
-            if (
-                notificationPermissionState.isPermissionRequired &&
-                !notificationPermissionState.hasNotificationPermission
-            ) {
-                notificationPermissionState.launchPermissionRequest()
-            } else {
+    val notificationPermissionState =
+        rememberNotificationPermissionState(context) { granted ->
+            if (granted && pendingKeepAppOpen) {
                 settingsViewModel.setKeepAppOpen(true)
                 pendingKeepAppOpen = false
+            } else if (!granted) {
+                pendingKeepAppOpen = false
             }
-        } else if (!granted) {
-            pendingKeepAppOpen = false
         }
-    }
+
+    val locationPermissionState =
+        rememberLocationPermissionState(context) { granted ->
+            if (granted && pendingKeepAppOpen) {
+                if (
+                    notificationPermissionState.isPermissionRequired &&
+                    !notificationPermissionState.hasNotificationPermission
+                ) {
+                    notificationPermissionState.launchPermissionRequest()
+                } else {
+                    settingsViewModel.setKeepAppOpen(true)
+                    pendingKeepAppOpen = false
+                }
+            } else if (!granted) {
+                pendingKeepAppOpen = false
+            }
+        }
 
     // ---- SETTINGS ----
     val zoomDefault by settingsViewModel.mapZoomDefault.collectAsState()
@@ -151,13 +155,13 @@ fun NavigateScreen(
     val zoomMax by settingsViewModel.mapZoomMax.collectAsState()
     val northIndicatorMode by settingsViewModel.northIndicatorMode.collectAsState()
     val northReferenceMode by settingsViewModel.northReferenceMode.collectAsState(
-        initial = SettingsRepository.NORTH_REFERENCE_TRUE
+        initial = SettingsRepository.NORTH_REFERENCE_TRUE,
     )
     val compassProviderMode by settingsViewModel.compassProviderMode.collectAsState(
-        initial = SettingsRepository.COMPASS_PROVIDER_GOOGLE_FUSED
+        initial = SettingsRepository.COMPASS_PROVIDER_GOOGLE_FUSED,
     )
     val headingSourceMode by settingsViewModel.compassHeadingSourceMode.collectAsState(
-        initial = SettingsRepository.COMPASS_HEADING_SOURCE_AUTO
+        initial = SettingsRepository.COMPASS_HEADING_SOURCE_AUTO,
     )
     val gpxTrackColor by settingsViewModel.gpxTrackColor.collectAsState()
     val gpxTrackWidth by settingsViewModel.gpxTrackWidth.collectAsState()
@@ -167,7 +171,7 @@ fun NavigateScreen(
     val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
     val keepGpsInAmbient by settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
     val effectiveGpsIntervalMs by locationViewModel.effectiveGpsIntervalMs.collectAsState(
-        initial = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+        initial = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
     )
     val crownZoomEnabled by settingsViewModel.crownZoomEnabled.collectAsState(initial = true)
     val crownZoomInverted by settingsViewModel.crownZoomInverted.collectAsState(initial = true)
@@ -182,11 +186,11 @@ fun NavigateScreen(
     val isMetric by settingsViewModel.isMetric.collectAsState()
     val poiIconSizePx by settingsViewModel.poiIconSizePx.collectAsState()
     val poiPopupTimeoutSeconds by settingsViewModel.poiPopupTimeoutSeconds.collectAsState(
-        initial = SettingsRepository.POI_POPUP_TIMEOUT_DEFAULT_SECONDS
+        initial = SettingsRepository.POI_POPUP_TIMEOUT_DEFAULT_SECONDS,
     )
     val poiPopupManualCloseOnly by settingsViewModel.poiPopupManualCloseOnly.collectAsState(initial = false)
     val compassConeAccuracyColorsEnabled by settingsViewModel.compassConeAccuracyColorsEnabled.collectAsState(
-        initial = true
+        initial = true,
     )
 
     // ---- VMS ----
@@ -230,12 +234,13 @@ fun NavigateScreen(
     var createdPoiRenameInProgress by remember { mutableStateOf(false) }
     var createdPoiRenameError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val screenState = remember(isAmbient, isDeviceInteractive) {
-        resolveLocationScreenState(
-            isAmbient = isAmbient,
-            isDeviceInteractive = isDeviceInteractive
-        )
-    }
+    val screenState =
+        remember(isAmbient, isDeviceInteractive) {
+            resolveLocationScreenState(
+                isAmbient = isAmbient,
+                isDeviceInteractive = isDeviceInteractive,
+            )
+        }
 
     // ---- Should track location? ----
     val backgroundGpsModeActive = keepGpsInAmbient && screenState.isNonInteractive
@@ -245,37 +250,42 @@ fun NavigateScreen(
             (isScreenResumed || backgroundGpsModeActive)
     val effectiveNavMode = if (offlineMode) NavMode.PANNING else navMode
     val effectiveCompassProviderMode = compassProviderMode
-    val selectedCompassProviderType = when (effectiveCompassProviderMode) {
-        SettingsRepository.COMPASS_PROVIDER_SENSOR_MANAGER ->
-            CompassProviderType.SENSOR_MANAGER
-        else -> CompassProviderType.GOOGLE_FUSED
-    }
-    val effectiveHeadingSourceMode = if (
-        effectiveCompassProviderMode == SettingsRepository.COMPASS_PROVIDER_SENSOR_MANAGER
-    ) {
-        headingSourceMode
-    } else {
-        SettingsRepository.COMPASS_HEADING_SOURCE_AUTO
-    }
+    val selectedCompassProviderType =
+        when (effectiveCompassProviderMode) {
+            SettingsRepository.COMPASS_PROVIDER_SENSOR_MANAGER ->
+                CompassProviderType.SENSOR_MANAGER
+            else -> CompassProviderType.GOOGLE_FUSED
+        }
+    val effectiveHeadingSourceMode =
+        if (
+            effectiveCompassProviderMode == SettingsRepository.COMPASS_PROVIDER_SENSOR_MANAGER
+        ) {
+            headingSourceMode
+        } else {
+            SettingsRepository.COMPASS_HEADING_SOURCE_AUTO
+        }
 
     // ---- Heading + Accuracy ----
     val compassRenderState by compassViewModel.renderState.collectAsState()
     val compassAccuracy = compassRenderState.accuracy
     val magneticInterference = compassRenderState.magneticInterference
-    val liveCompassQualityReading = compassQualityReadingFromRenderState(
-        renderState = compassRenderState,
-        nowElapsedMs = SystemClock.elapsedRealtime()
-    )
-    val navigationMarkerStyle = remember(navigationMarkerStyleSetting) {
-        navigationMarkerStyleFromSetting(navigationMarkerStyleSetting)
-    }
+    val liveCompassQualityReading =
+        compassQualityReadingFromRenderState(
+            renderState = compassRenderState,
+            nowElapsedMs = SystemClock.elapsedRealtime(),
+        )
+    val navigationMarkerStyle =
+        remember(navigationMarkerStyleSetting) {
+            navigationMarkerStyleFromSetting(navigationMarkerStyleSetting)
+        }
     var displayedCompassQualityName by rememberSaveable {
         mutableStateOf(CompassMarkerQuality.MEDIUM.name)
     }
-    val displayedCompassQuality = remember(displayedCompassQualityName) {
-        runCatching { CompassMarkerQuality.valueOf(displayedCompassQualityName) }
-            .getOrDefault(CompassMarkerQuality.MEDIUM)
-    }
+    val displayedCompassQuality =
+        remember(displayedCompassQualityName) {
+            runCatching { CompassMarkerQuality.valueOf(displayedCompassQualityName) }
+                .getOrDefault(CompassMarkerQuality.MEDIUM)
+        }
     var compassQualityWarmupUntilMs by rememberSaveable { mutableLongStateOf(0L) }
     LaunchedEffect(isScreenResumed, screenState, offlineMode) {
         if (isScreenResumed && screenState.isInteractive && !offlineMode) {
@@ -299,87 +309,98 @@ fun NavigateScreen(
         liveCompassQualityReading.hasQualitySample,
         liveCompassQualityReading.isStale,
         lastCalibrationConfirmedAtMs,
-        compassQualityWarmupUntilMs
+        compassQualityWarmupUntilMs,
     ) {
         val nowElapsedMs = SystemClock.elapsedRealtime()
         val rawQuality = liveCompassQualityReading.quality ?: CompassMarkerQuality.UNRELIABLE
-        val effectiveRawQuality = applyCompassStartupWarmupGuard(
-            rawQuality = rawQuality,
-            displayedQuality = displayedCompassQuality,
-            nowElapsedMs = nowElapsedMs,
-            warmupUntilElapsedMs = compassQualityWarmupUntilMs
-        )
-        val targetQuality = displayTargetCompassQuality(
-            rawQuality = effectiveRawQuality,
-            nowElapsedMs = nowElapsedMs,
-            lastCalibrationConfirmedAtElapsedMs = lastCalibrationConfirmedAtMs
-        )
+        val effectiveRawQuality =
+            applyCompassStartupWarmupGuard(
+                rawQuality = rawQuality,
+                displayedQuality = displayedCompassQuality,
+                nowElapsedMs = nowElapsedMs,
+                warmupUntilElapsedMs = compassQualityWarmupUntilMs,
+            )
+        val targetQuality =
+            displayTargetCompassQuality(
+                rawQuality = effectiveRawQuality,
+                nowElapsedMs = nowElapsedMs,
+                lastCalibrationConfirmedAtElapsedMs = lastCalibrationConfirmedAtMs,
+            )
         if (targetQuality == displayedCompassQuality) return@LaunchedEffect
-        val holdMs = compassQualityTransitionHoldMs(
-            from = displayedCompassQuality,
-            to = targetQuality
-        )
+        val holdMs =
+            compassQualityTransitionHoldMs(
+                from = displayedCompassQuality,
+                to = targetQuality,
+            )
         if (holdMs > 0L) {
             delay(holdMs)
         }
         val refreshedNowElapsedMs = SystemClock.elapsedRealtime()
-        val refreshedReading = compassQualityReadingFromRenderState(
-            renderState = compassRenderState,
-            nowElapsedMs = refreshedNowElapsedMs
-        )
+        val refreshedReading =
+            compassQualityReadingFromRenderState(
+                renderState = compassRenderState,
+                nowElapsedMs = refreshedNowElapsedMs,
+            )
         val refreshedRawQuality = refreshedReading.quality ?: CompassMarkerQuality.UNRELIABLE
-        val refreshedEffectiveRawQuality = applyCompassStartupWarmupGuard(
-            rawQuality = refreshedRawQuality,
-            displayedQuality = displayedCompassQuality,
-            nowElapsedMs = refreshedNowElapsedMs,
-            warmupUntilElapsedMs = compassQualityWarmupUntilMs
-        )
-        val refreshedTargetQuality = displayTargetCompassQuality(
-            rawQuality = refreshedEffectiveRawQuality,
-            nowElapsedMs = refreshedNowElapsedMs,
-            lastCalibrationConfirmedAtElapsedMs = lastCalibrationConfirmedAtMs
-        )
+        val refreshedEffectiveRawQuality =
+            applyCompassStartupWarmupGuard(
+                rawQuality = refreshedRawQuality,
+                displayedQuality = displayedCompassQuality,
+                nowElapsedMs = refreshedNowElapsedMs,
+                warmupUntilElapsedMs = compassQualityWarmupUntilMs,
+            )
+        val refreshedTargetQuality =
+            displayTargetCompassQuality(
+                rawQuality = refreshedEffectiveRawQuality,
+                nowElapsedMs = refreshedNowElapsedMs,
+                lastCalibrationConfirmedAtElapsedMs = lastCalibrationConfirmedAtMs,
+            )
         if (refreshedTargetQuality == targetQuality) {
             displayedCompassQualityName = targetQuality.name
         }
     }
-    val navigationMarkerSizePx = when (navigationMarkerStyle) {
-        NavigationMarkerStyle.DOT -> 50
-        NavigationMarkerStyle.TRIANGLE -> 50
-    }
+    val navigationMarkerSizePx =
+        when (navigationMarkerStyle) {
+            NavigationMarkerStyle.DOT -> 50
+            NavigationMarkerStyle.TRIANGLE -> 50
+        }
     val showCompassConeOverlay = navigationMarkerStyle == NavigationMarkerStyle.DOT
     val effectiveCompassConeAccuracyColorsEnabled =
         compassConeAccuracyColorsEnabled &&
             selectedCompassProviderType == CompassProviderType.SENSOR_MANAGER
-    val compassConeQuality = if (effectiveCompassConeAccuracyColorsEnabled) {
-        displayedCompassQuality
-    } else {
-        CompassMarkerQuality.GOOD
-    }
-    val compassConeHeadingErrorDeg = if (
-        effectiveCompassConeAccuracyColorsEnabled &&
+    val compassConeQuality =
+        if (effectiveCompassConeAccuracyColorsEnabled) {
+            displayedCompassQuality
+        } else {
+            CompassMarkerQuality.GOOD
+        }
+    val compassConeHeadingErrorDeg =
+        if (
+            effectiveCompassConeAccuracyColorsEnabled &&
             liveCompassQualityReading.hasQualitySample &&
             !liveCompassQualityReading.isStale
-    ) {
-        liveCompassQualityReading.headingErrorDeg
-    } else {
-        null
-    }
-    val compassConeBaseSizePx = with(density) {
-        when (screenSize) {
-            WearScreenSize.LARGE -> 64.dp.roundToPx()
-            WearScreenSize.MEDIUM -> 58.dp.roundToPx()
-            WearScreenSize.SMALL -> 52.dp.roundToPx()
+        ) {
+            liveCompassQualityReading.headingErrorDeg
+        } else {
+            null
         }
-    }
+    val compassConeBaseSizePx =
+        with(density) {
+            when (screenSize) {
+                WearScreenSize.LARGE -> 64.dp.roundToPx()
+                WearScreenSize.MEDIUM -> 58.dp.roundToPx()
+                WearScreenSize.SMALL -> 52.dp.roundToPx()
+            }
+        }
 
     LaunchedEffect(northReferenceMode, isScreenResumed) {
         if (!isScreenResumed) return@LaunchedEffect
-        val mode = if (northReferenceMode == SettingsRepository.NORTH_REFERENCE_MAGNETIC) {
-            NorthReferenceMode.MAGNETIC
-        } else {
-            NorthReferenceMode.TRUE
-        }
+        val mode =
+            if (northReferenceMode == SettingsRepository.NORTH_REFERENCE_MAGNETIC) {
+                NorthReferenceMode.MAGNETIC
+            } else {
+                NorthReferenceMode.TRUE
+            }
         compassViewModel.setNorthReferenceMode(mode)
     }
     LaunchedEffect(effectiveCompassProviderMode) {
@@ -387,27 +408,29 @@ fun NavigateScreen(
     }
     LaunchedEffect(effectiveHeadingSourceMode, isScreenResumed) {
         if (!isScreenResumed) return@LaunchedEffect
-        val mode = when (effectiveHeadingSourceMode) {
-            SettingsRepository.COMPASS_HEADING_SOURCE_TYPE_HEADING ->
-                CompassHeadingSourceMode.TYPE_HEADING
-            SettingsRepository.COMPASS_HEADING_SOURCE_ROTATION_VECTOR ->
-                CompassHeadingSourceMode.ROTATION_VECTOR
-            SettingsRepository.COMPASS_HEADING_SOURCE_MAGNETOMETER ->
-                CompassHeadingSourceMode.MAGNETOMETER
-            else -> CompassHeadingSourceMode.AUTO
-        }
+        val mode =
+            when (effectiveHeadingSourceMode) {
+                SettingsRepository.COMPASS_HEADING_SOURCE_TYPE_HEADING ->
+                    CompassHeadingSourceMode.TYPE_HEADING
+                SettingsRepository.COMPASS_HEADING_SOURCE_ROTATION_VECTOR ->
+                    CompassHeadingSourceMode.ROTATION_VECTOR
+                SettingsRepository.COMPASS_HEADING_SOURCE_MAGNETOMETER ->
+                    CompassHeadingSourceMode.MAGNETOMETER
+                else -> CompassHeadingSourceMode.AUTO
+            }
         compassViewModel.setHeadingSourceMode(mode)
     }
 
     // ---- MAP OBJECTS ----
-    val mapHolder: MapHolder = remember(zoomDefault, zoomMin, zoomMax) {
-        mapViewModel.getOrCreateMapHolder(
-            context = context,
-            zoomDefault = zoomDefault,
-            zoomMin = zoomMin,
-            zoomMax = zoomMax
-        )
-    }
+    val mapHolder: MapHolder =
+        remember(zoomDefault, zoomMin, zoomMax) {
+            mapViewModel.getOrCreateMapHolder(
+                context = context,
+                zoomDefault = zoomDefault,
+                zoomMin = zoomMin,
+                zoomMax = zoomMax,
+            )
+        }
 
     LaunchedEffect(mapHolder) {
         mapViewModel.setMapRenderer(mapHolder.renderer)
@@ -418,23 +441,25 @@ fun NavigateScreen(
         val center = mapHolder.mapView.model.mapViewPosition.center
         compassViewModel.primeDeclinationFromApproximateLocation(
             latitude = center.latitude,
-            longitude = center.longitude
+            longitude = center.longitude,
         )
     }
 
-    val navigationMarkerBitmap = remember(navigationMarkerStyle, navigationMarkerSizePx) {
-        val bitmap = createNavigationMarkerBitmap(
-            style = navigationMarkerStyle,
-            sizePx = navigationMarkerSizePx
-        )
-        AndroidBitmap(bitmap)
-    }
+    val navigationMarkerBitmap =
+        remember(navigationMarkerStyle, navigationMarkerSizePx) {
+            val bitmap =
+                createNavigationMarkerBitmap(
+                    style = navigationMarkerStyle,
+                    sizePx = navigationMarkerSizePx,
+                )
+            AndroidBitmap(bitmap)
+        }
 
     NavigateCompassEffects(
         compassViewModel = compassViewModel,
         compassProviderType = selectedCompassProviderType,
         screenState = screenState,
-        isOfflineMode = offlineMode
+        isOfflineMode = offlineMode,
     )
 
     // ---- Drive foreground pinning from keepAppOpen ----
@@ -461,7 +486,7 @@ fun NavigateScreen(
     LaunchedEffect(screenState, shouldTrackLocation) {
         locationViewModel.syncRuntimeState(
             screenState = screenState,
-            trackingEnabled = shouldTrackLocation
+            trackingEnabled = shouldTrackLocation,
         )
     }
     // isScreenResumed already reflects lifecycle resume, so one state-driven wake reacquire
@@ -474,7 +499,7 @@ fun NavigateScreen(
             locationPermissionState.hasLocationPermission
         ) {
             locationViewModel.requestImmediateLocation(
-                source = NAVIGATE_WAKE_REACQUIRE_AMBIENT_EXIT_SOURCE
+                source = NAVIGATE_WAKE_REACQUIRE_AMBIENT_EXIT_SOURCE,
             )
         }
     }
@@ -483,7 +508,7 @@ fun NavigateScreen(
             // Leaving Navigate resets runtime state to the safe baseline in one pass.
             locationViewModel.syncRuntimeState(
                 screenState = LocationScreenState.INTERACTIVE,
-                trackingEnabled = false
+                trackingEnabled = false,
             )
         }
     }
@@ -500,22 +525,23 @@ fun NavigateScreen(
         onShowCalibrationDialog = { navigateViewModel.showCalibrationDialog() },
         onHideCalibrationDialog = { navigateViewModel.hideCalibrationDialog() },
         onApplyRecalibration = { compassViewModel.recalibrate() },
-        onRecalibrationSucceeded = { lastCalibrationConfirmedAtMs = SystemClock.elapsedRealtime() }
+        onRecalibrationSucceeded = { lastCalibrationConfirmedAtMs = SystemClock.elapsedRealtime() },
     )
 
-    val screenActions = rememberNavigateScreenActions(
-        context = context,
-        settingsViewModel = settingsViewModel,
-        locationPermissionState = locationPermissionState,
-        notificationPermissionState = notificationPermissionState,
-        keepAppOpen = keepAppOpen,
-        keepAppOpenTipShown = keepAppOpenTipShown,
-        offlineMode = offlineMode,
-        setPendingKeepAppOpen = { pendingKeepAppOpen = it },
-        setShowKeepAppOpenInfoDialog = { showKeepAppOpenInfoDialog = it },
-        setShortcutTrayExpanded = { shortcutTrayExpanded = it },
-        isShortcutTrayExpanded = shortcutTrayExpanded
-    )
+    val screenActions =
+        rememberNavigateScreenActions(
+            context = context,
+            settingsViewModel = settingsViewModel,
+            locationPermissionState = locationPermissionState,
+            notificationPermissionState = notificationPermissionState,
+            keepAppOpen = keepAppOpen,
+            keepAppOpenTipShown = keepAppOpenTipShown,
+            offlineMode = offlineMode,
+            setPendingKeepAppOpen = { pendingKeepAppOpen = it },
+            setShowKeepAppOpenInfoDialog = { showKeepAppOpenInfoDialog = it },
+            setShortcutTrayExpanded = { shortcutTrayExpanded = it },
+            isShortcutTrayExpanded = shortcutTrayExpanded,
+        )
 
     // ---- Auto-recenter timer ----
     LaunchedEffect(effectiveNavMode, autoRecenterEnabled, autoRecenterDelay, offlineMode) {
@@ -528,7 +554,7 @@ fun NavigateScreen(
     if (isAmbient) {
         AmbientScreen(
             ambientTick = ambientTickMs,
-            timeFormat = navigateTimeFormat
+            timeFormat = navigateTimeFormat,
         )
         return
     }
@@ -542,50 +568,54 @@ fun NavigateScreen(
         val target = navigateTarget ?: return@LaunchedEffect
         navigateViewModel.onUserPanStarted()
         mapView.setCenter(LatLong(target.lat, target.lon))
-        val focusZoom = poiFocusZoomLevel(
-            mapView = mapView,
-            latitude = target.lat,
-            minZoom = zoomMin,
-            maxZoom = zoomMax
-        )
+        val focusZoom =
+            poiFocusZoomLevel(
+                mapView = mapView,
+                latitude = target.lat,
+                minZoom = zoomMin,
+                maxZoom = zoomMax,
+            )
         mapView.model.mapViewPosition.setZoomLevel(focusZoom.toByte(), false)
         navigateViewModel.onZoomChanged(focusZoom)
         pendingPoiFocusTarget = target
         poiViewModel.consumeNavigateTarget()
     }
 
-    val locationUiState = rememberNavigateLocationUiState(
-        mapView = mapView,
-        locationViewModel = locationViewModel,
-        compassViewModel = compassViewModel,
-        navigateViewModel = navigateViewModel,
-        navMode = effectiveNavMode,
-        shouldTrackLocation = shouldTrackLocation,
-        shouldFollowPosition = shouldFollowPosition,
-        screenState = screenState,
-        compassQuality = displayedCompassQuality,
-        expectedGpsIntervalMs = effectiveGpsIntervalMs,
-        navigationMarkerBitmap = navigationMarkerBitmap,
-        suppressLocationMarker = offlineMode
-    )
+    val locationUiState =
+        rememberNavigateLocationUiState(
+            mapView = mapView,
+            locationViewModel = locationViewModel,
+            compassViewModel = compassViewModel,
+            navigateViewModel = navigateViewModel,
+            navMode = effectiveNavMode,
+            shouldTrackLocation = shouldTrackLocation,
+            shouldFollowPosition = shouldFollowPosition,
+            screenState = screenState,
+            compassQuality = displayedCompassQuality,
+            expectedGpsIntervalMs = effectiveGpsIntervalMs,
+            navigationMarkerBitmap = navigationMarkerBitmap,
+            suppressLocationMarker = offlineMode,
+        )
 
     val locationMarker = locationUiState.locationMarker
     val gpsIndicatorState = locationUiState.gpsIndicatorState
-    val effectiveGpsIndicatorState = if (offlineMode) {
-        GpsFixIndicatorState.UNAVAILABLE
-    } else {
-        gpsIndicatorState
-    }
+    val effectiveGpsIndicatorState =
+        if (offlineMode) {
+            GpsFixIndicatorState.UNAVAILABLE
+        } else {
+            gpsIndicatorState
+        }
     val gpsSignalSnapshot by locationViewModel.gpsSignalSnapshot.collectAsState()
     val gpsFixFreshForAccuracyCircle =
         gpsSignalSnapshot.isLocationAvailable &&
             gpsSignalSnapshot.lastFixElapsedRealtimeMs > 0L &&
             gpsSignalSnapshot.lastFixAgeMs in 0..gpsSignalSnapshot.lastFixFreshMaxAgeMs
-    val showGpsIndicator = if (offlineMode) {
-        true
-    } else {
-        gpsIndicatorPinned || locationUiState.showGpsIndicatorUnpinned
-    }
+    val showGpsIndicator =
+        if (offlineMode) {
+            true
+        } else {
+            gpsIndicatorPinned || locationUiState.showGpsIndicatorUnpinned
+        }
     val watchGpsDegradedWarning = locationUiState.watchGpsDegradedWarning
     val mapAppearanceApplyInProgress by mapViewModel.mapAppearanceApplyInProgress.collectAsState()
     val slopeOverlayToggleEnabled by mapViewModel.reliefOverlayToggleEnabled.collectAsState()
@@ -594,8 +624,8 @@ fun NavigateScreen(
             MapRenderer.ReliefOverlayState(
                 enabled = false,
                 processing = false,
-                progressPercent = null
-            )
+                progressPercent = null,
+            ),
         )
     }
 
@@ -616,14 +646,16 @@ fun NavigateScreen(
     MapOverlays(
         mapHolder = mapHolder,
         activeGpxDetails = activeGpxDetails,
-        routeToolPreviewPoints = routeToolPreview?.previewPoints
-            ?: routeToolCreatePreview?.previewPoints
-            ?: emptyList(),
+        routeToolPreviewPoints =
+            routeToolPreview?.previewPoints
+                ?: routeToolCreatePreview?.previewPoints
+                ?: emptyList(),
         routeToolCreatePreviewActive = routeToolCreatePreview != null,
-        routeToolDraftPoints = routeToolSession
-            ?.takeIf { it.isMultiPointCreate }
-            ?.chainPoints
-            ?: emptyList(),
+        routeToolDraftPoints =
+            routeToolSession
+                ?.takeIf { it.isMultiPointCreate }
+                ?.chainPoints
+                ?: emptyList(),
         poiViewModel = poiViewModel,
         activePoiOverlaySources = activePoiOverlaySources,
         poiMarkerSizePx = poiIconSizePx,
@@ -651,7 +683,7 @@ fun NavigateScreen(
         isMetric = isMetric,
         onRenderedHeadingChanged = { renderedCompassHeadingDeg = it },
         onRenderedMapRotationChanged = { renderedMapRotationDeg = it },
-        onPoiMarkersSnapshotChanged = { markers -> visiblePoiMarkers = markers }
+        onPoiMarkersSnapshotChanged = { markers -> visiblePoiMarkers = markers },
     )
 
     BackHandler(enabled = true) {
@@ -693,11 +725,12 @@ fun NavigateScreen(
         }
     }
 
-    val reshapePreviewInspectDraft = completedRouteToolDraft?.takeIf { draft ->
-        draft.options.toolKind == RouteToolKind.MODIFY &&
-            draft.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE &&
-            routeToolPreview != null
-    }
+    val reshapePreviewInspectDraft =
+        completedRouteToolDraft?.takeIf { draft ->
+            draft.options.toolKind == RouteToolKind.MODIFY &&
+                draft.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE &&
+                routeToolPreview != null
+        }
     val reshapePreviewInspectMode = reshapePreviewInspectDraft != null
 
     OfflineStartCenteringEffect(
@@ -706,60 +739,62 @@ fun NavigateScreen(
         mapViewModel = mapViewModel,
         selectedMapPath = selectedMapPath,
         activeGpxDetails = activeGpxDetails,
-        skipInitialCentering = navigateTarget != null || pendingPoiFocusTarget != null
+        skipInitialCentering = navigateTarget != null || pendingPoiFocusTarget != null,
     )
 
-    val recenterTarget: LatLong? = if (offlineMode) {
-        null
-    } else {
-        locationMarker?.latLong ?: uiState.lastKnownLocation
-    }
+    val recenterTarget: LatLong? =
+        if (offlineMode) {
+            null
+        } else {
+            locationMarker?.latLong ?: uiState.lastKnownLocation
+        }
 
-    val routeToolActions = rememberNavigateRouteToolActions(
-        context = context,
-        scope = scope,
-        mapView = mapView,
-        gpxViewModel = gpxViewModel,
-        poiViewModel = poiViewModel,
-        locationViewModel = locationViewModel,
-        recenterTarget = recenterTarget,
-        gpsSignalSnapshot = gpsSignalSnapshot,
-        offlineMode = offlineMode,
-        activeGpxDetailsCount = activeGpxDetails.size,
-        selectedMapPath = selectedMapPath,
-        triggerHaptic = screenActions.triggerHaptic,
-        routeToolOptions = routeToolOptions,
-        setRouteToolOptions = { routeToolOptions = it },
-        routeToolSession = routeToolSession,
-        setRouteToolSession = { routeToolSession = it },
-        completedRouteToolDraft = completedRouteToolDraft,
-        setCompletedRouteToolDraft = { completedRouteToolDraft = it },
-        routeToolExecutionInProgress = routeToolExecutionInProgress,
-        setRouteToolExecutionInProgress = { routeToolExecutionInProgress = it },
-        setRouteToolExecutionStatus = { routeToolExecutionStatus = it },
-        setRouteToolExecutionMessage = { routeToolExecutionMessage = it },
-        setRouteToolLoopRetryOptions = { routeToolLoopRetryOptions = it },
-        setRouteToolResult = { routeToolResult = it },
-        setRouteToolRenameInProgress = { routeToolRenameInProgress = it },
-        setRouteToolRenameError = { routeToolRenameError = it },
-        routeToolPreview = routeToolPreview,
-        setRouteToolPreview = { routeToolPreview = it },
-        routeToolCreatePreview = routeToolCreatePreview,
-        setRouteToolCreatePreview = { routeToolCreatePreview = it },
-        routeToolCreatePreviewInProgress = routeToolCreatePreviewInProgress,
-        setRouteToolCreatePreviewInProgress = { routeToolCreatePreviewInProgress = it },
-        routeToolCreatePreviewMessage = routeToolCreatePreviewMessage,
-        setRouteToolCreatePreviewMessage = { routeToolCreatePreviewMessage = it },
-        setRouteToolPreflightMessage = { routeToolPreflightMessage = it },
-        setShortcutTrayExpanded = { shortcutTrayExpanded = it },
-        setShowRouteToolsPanel = { showRouteToolsPanel = it },
-        setPoiCreationSelectionActive = { poiCreationSelectionActive = it },
-        createdPoiCreateInProgress = createdPoiCreateInProgress,
-        setCreatedPoiCreateInProgress = { createdPoiCreateInProgress = it },
-        setCreatedPoiPendingRename = { createdPoiPendingRename = it },
-        setCreatedPoiRenameError = { createdPoiRenameError = it },
-        setShowCreatedPoiRenameDialog = { showCreatedPoiRenameDialog = it }
-    )
+    val routeToolActions =
+        rememberNavigateRouteToolActions(
+            context = context,
+            scope = scope,
+            mapView = mapView,
+            gpxViewModel = gpxViewModel,
+            poiViewModel = poiViewModel,
+            locationViewModel = locationViewModel,
+            recenterTarget = recenterTarget,
+            gpsSignalSnapshot = gpsSignalSnapshot,
+            offlineMode = offlineMode,
+            activeGpxDetailsCount = activeGpxDetails.size,
+            selectedMapPath = selectedMapPath,
+            triggerHaptic = screenActions.triggerHaptic,
+            routeToolOptions = routeToolOptions,
+            setRouteToolOptions = { routeToolOptions = it },
+            routeToolSession = routeToolSession,
+            setRouteToolSession = { routeToolSession = it },
+            completedRouteToolDraft = completedRouteToolDraft,
+            setCompletedRouteToolDraft = { completedRouteToolDraft = it },
+            routeToolExecutionInProgress = routeToolExecutionInProgress,
+            setRouteToolExecutionInProgress = { routeToolExecutionInProgress = it },
+            setRouteToolExecutionStatus = { routeToolExecutionStatus = it },
+            setRouteToolExecutionMessage = { routeToolExecutionMessage = it },
+            setRouteToolLoopRetryOptions = { routeToolLoopRetryOptions = it },
+            setRouteToolResult = { routeToolResult = it },
+            setRouteToolRenameInProgress = { routeToolRenameInProgress = it },
+            setRouteToolRenameError = { routeToolRenameError = it },
+            routeToolPreview = routeToolPreview,
+            setRouteToolPreview = { routeToolPreview = it },
+            routeToolCreatePreview = routeToolCreatePreview,
+            setRouteToolCreatePreview = { routeToolCreatePreview = it },
+            routeToolCreatePreviewInProgress = routeToolCreatePreviewInProgress,
+            setRouteToolCreatePreviewInProgress = { routeToolCreatePreviewInProgress = it },
+            routeToolCreatePreviewMessage = routeToolCreatePreviewMessage,
+            setRouteToolCreatePreviewMessage = { routeToolCreatePreviewMessage = it },
+            setRouteToolPreflightMessage = { routeToolPreflightMessage = it },
+            setShortcutTrayExpanded = { shortcutTrayExpanded = it },
+            setShowRouteToolsPanel = { showRouteToolsPanel = it },
+            setPoiCreationSelectionActive = { poiCreationSelectionActive = it },
+            createdPoiCreateInProgress = createdPoiCreateInProgress,
+            setCreatedPoiCreateInProgress = { createdPoiCreateInProgress = it },
+            setCreatedPoiPendingRename = { createdPoiPendingRename = it },
+            setCreatedPoiRenameError = { createdPoiRenameError = it },
+            setShowCreatedPoiRenameDialog = { showCreatedPoiRenameDialog = it },
+        )
 
     NavigateKeepAppOpenDialog(
         visible = showKeepAppOpenInfoDialog,
@@ -771,7 +806,7 @@ fun NavigateScreen(
         onDismiss = {
             showKeepAppOpenInfoDialog = false
             pendingKeepAppOpen = false
-        }
+        },
     )
 
     NavigateCreatedPoiRenameDialog(
@@ -807,7 +842,7 @@ fun NavigateScreen(
                         ?: "Failed to rename the POI."
                 }
             }
-        }
+        },
     )
 
     NavigateRouteToolDialogs(
@@ -841,25 +876,27 @@ fun NavigateScreen(
                 routeToolPreview = null
             }
         },
-        onConfirmCreateDraft = completedRouteToolDraft
-            ?.takeIf { it.options.toolKind == RouteToolKind.CREATE }
-            ?.let { draft ->
-                {
-                    routeToolLoopRetryOptions = emptyList()
-                    if (draft.options.createMode == RouteCreateMode.LOOP_AROUND_HERE) {
-                        routeToolActions.startRouteToolSelection(draft)
-                    } else {
-                        routeToolActions.executeCreateDraft(draft, false)
+        onConfirmCreateDraft =
+            completedRouteToolDraft
+                ?.takeIf { it.options.toolKind == RouteToolKind.CREATE }
+                ?.let { draft ->
+                    {
+                        routeToolLoopRetryOptions = emptyList()
+                        if (draft.options.createMode == RouteCreateMode.LOOP_AROUND_HERE) {
+                            routeToolActions.startRouteToolSelection(draft)
+                        } else {
+                            routeToolActions.executeCreateDraft(draft, false)
+                        }
                     }
-                }
-            },
-        onConfirmModifyDraft = completedRouteToolDraft
-            ?.takeIf { it.options.toolKind == RouteToolKind.MODIFY }
-            ?.let { draft ->
-                {
-                    routeToolActions.executeModifyDraft(draft, false)
-                }
-            },
+                },
+        onConfirmModifyDraft =
+            completedRouteToolDraft
+                ?.takeIf { it.options.toolKind == RouteToolKind.MODIFY }
+                ?.let { draft ->
+                    {
+                        routeToolActions.executeModifyDraft(draft, false)
+                    }
+                },
         onSelectLoopRetryOption = { retryOption ->
             val draft = completedRouteToolDraft ?: return@NavigateRouteToolDialogs
             routeToolExecutionMessage = null
@@ -868,13 +905,14 @@ fun NavigateScreen(
             routeToolActions.startRouteToolSelection(
                 draft.copy(
                     options = retryOption.options,
-                    loopVariationIndex = 0
-                )
+                    loopVariationIndex = 0,
+                ),
             )
         },
-        routeToolProgressVisible = routeToolExecutionInProgress &&
-            completedRouteToolDraft == null &&
-            routeToolExecutionStatus != null,
+        routeToolProgressVisible =
+            routeToolExecutionInProgress &&
+                completedRouteToolDraft == null &&
+                routeToolExecutionStatus != null,
         routeToolProgressMessage = routeToolExecutionStatus ?: "Working...",
         routeToolResult = routeToolResult,
         isMetric = isMetric,
@@ -903,18 +941,19 @@ fun NavigateScreen(
             routeToolRenameError = null
             gpxViewModel.renameRouteToolResult(
                 filePath = currentResult.filePath,
-                newName = newName
+                newName = newName,
             ) { result ->
                 routeToolRenameInProgress = false
-                result.onSuccess { updatedResult ->
-                    routeToolRenameError = null
-                    routeToolResult = updatedResult
-                }.onFailure { error ->
-                    routeToolRenameError = error.localizedMessage?.takeIf { it.isNotBlank() }
-                        ?: "Failed to rename the GPX."
-                }
+                result
+                    .onSuccess { updatedResult ->
+                        routeToolRenameError = null
+                        routeToolResult = updatedResult
+                    }.onFailure { error ->
+                        routeToolRenameError = error.localizedMessage?.takeIf { it.isNotBlank() }
+                            ?: "Failed to rename the GPX."
+                    }
             }
-        }
+        },
     )
 
     NavigateContent(
@@ -943,7 +982,7 @@ fun NavigateScreen(
                     selectedMapPath = selectedMapPath,
                     activeGpxDetails = activeGpxDetails,
                     center = center,
-                    zoomLevel = zoomLevel
+                    zoomLevel = zoomLevel,
                 )
             }
         },
@@ -1033,7 +1072,7 @@ fun NavigateScreen(
         onPoiFocusTargetConsumed = { pendingPoiFocusTarget = null },
         onPoiTapCreateGpx = routeToolActions.createRouteToPoi,
         poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
-        poiPopupManualCloseOnly = poiPopupManualCloseOnly
+        poiPopupManualCloseOnly = poiPopupManualCloseOnly,
     )
 
     LaunchedEffect(isScreenResumed) {
@@ -1049,7 +1088,9 @@ fun NavigateScreen(
                     selectedMapPath = selectedMapPath,
                     activeGpxDetails = activeGpxDetails,
                     center = mapView.model.mapViewPosition.center,
-                    zoomLevel = mapView.model.mapViewPosition.zoomLevel.toInt()
+                    zoomLevel =
+                        mapView.model.mapViewPosition.zoomLevel
+                            .toInt(),
                 )
             }
         }

@@ -22,16 +22,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import kotlin.math.abs
 
 private const val PICKER_DRAG_DISMISS_PX = 55f
@@ -44,7 +44,7 @@ internal fun <T> OptionPickerDialog(
     selectedValue: T,
     options: List<Pair<T, String>>,
     onDismiss: () -> Unit,
-    onSelect: (T) -> Unit
+    onSelect: (T) -> Unit,
 ) {
     if (!visible) return
 
@@ -57,61 +57,63 @@ internal fun <T> OptionPickerDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Color.Black.copy(alpha = 0.82f),
-                    RoundedCornerShape(adaptive.dialogCornerRadius)
-                )
-                .padding(
-                    horizontal = adaptive.dialogHorizontalPadding,
-                    vertical = adaptive.dialogVerticalPadding
-                ),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color.Black.copy(alpha = 0.82f),
+                        RoundedCornerShape(adaptive.dialogCornerRadius),
+                    ).padding(
+                        horizontal = adaptive.dialogHorizontalPadding,
+                        vertical = adaptive.dialogVerticalPadding,
+                    ),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        var totalDrag = 0f
-                        detectVerticalDragGestures(
-                            onDragEnd = { totalDrag = 0f },
-                            onDragCancel = { totalDrag = 0f }
-                        ) { _, dragAmount ->
-                            totalDrag += dragAmount
-                            if (totalDrag > PICKER_DRAG_DISMISS_PX) {
-                                onDismiss()
-                                totalDrag = 0f
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            var totalDrag = 0f
+                            detectVerticalDragGestures(
+                                onDragEnd = { totalDrag = 0f },
+                                onDragCancel = { totalDrag = 0f },
+                            ) { _, dragAmount ->
+                                totalDrag += dragAmount
+                                if (totalDrag > PICKER_DRAG_DISMISS_PX) {
+                                    onDismiss()
+                                    totalDrag = 0f
+                                }
                             }
-                        }
-                    }
+                        },
             ) {
                 Box(
-                    modifier = Modifier
-                        .width(26.dp)
-                        .height(3.dp)
-                        .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50))
-                        .align(androidx.compose.ui.Alignment.Center)
+                    modifier =
+                        Modifier
+                            .width(26.dp)
+                            .height(3.dp)
+                            .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50))
+                            .align(androidx.compose.ui.Alignment.Center),
                 )
             }
             Text(
                 text = title,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 64.dp, max = adaptive.helpDialogMaxHeight)
-                    .onPreRotaryScrollEvent { event ->
-                        val consumed = listState.dispatchRawDelta(event.verticalScrollPixels)
-                        abs(consumed) > 0.5f
-                    }
-                    .focusRequester(focusRequester)
-                    .focusable(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 64.dp, max = adaptive.helpDialogMaxHeight)
+                        .onPreRotaryScrollEvent { event ->
+                            val consumed = listState.dispatchRawDelta(event.verticalScrollPixels)
+                            abs(consumed) > 0.5f
+                        }.focusRequester(focusRequester)
+                        .focusable(),
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
-                userScrollEnabled = true
+                userScrollEnabled = true,
             ) {
                 items(options) { (value, label) ->
                     ToggleChip(
@@ -127,7 +129,7 @@ internal fun <T> OptionPickerDialog(
                             onDismiss()
                         },
                         label = label,
-                        toggleControl = ToggleChipToggleControl.Radio
+                        toggleControl = ToggleChipToggleControl.Radio,
                     )
                 }
             }

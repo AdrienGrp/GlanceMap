@@ -8,7 +8,7 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 class NavigateViewModelFactory(
     private val application: Application,
     private val locationViewModel: LocationViewModel,
-    private val compassViewModel: CompassViewModel
+    private val compassViewModel: CompassViewModel,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(NavigateViewModel::class.java)) {

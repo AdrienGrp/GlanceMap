@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NavigateCalibrationEffectsSupportTest {
-
     @Test
     fun calibrationPromptsSupportedForSensorManagerOnly() {
         assertTrue(supportsCompassCalibrationPrompts(CompassProviderType.SENSOR_MANAGER))

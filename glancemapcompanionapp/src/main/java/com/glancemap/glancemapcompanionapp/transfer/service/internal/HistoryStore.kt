@@ -1,16 +1,16 @@
 package com.glancemap.glancemapcompanionapp.transfer.service.internal
 
 import android.content.Context
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.glancemap.glancemapcompanionapp.FileTransferHistoryItem
 import com.glancemap.glancemapcompanionapp.FileTransferUiState
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
 internal class HistoryStore(
     context: Context,
-    private val uiState: MutableStateFlow<FileTransferUiState>
+    private val uiState: MutableStateFlow<FileTransferUiState>,
 ) {
     private val gson = Gson()
     private val prefs = context.getSharedPreferences("transfer_history", Context.MODE_PRIVATE)

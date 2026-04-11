@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.sensors.CompassHeadingSourceMode
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
@@ -21,8 +23,6 @@ import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSourceStatus
 import com.glancemap.glancemapwearos.domain.sensors.NorthReferenceMode
 import com.glancemap.glancemapwearos.domain.sensors.NorthReferenceStatus
-import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.Text
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -32,14 +32,14 @@ internal data class CompatibilityTestUiState(
     val stepIndex: Int = 0,
     val totalSteps: Int = 0,
     val result: CompatibilityTestResult? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
 )
 
 internal data class CompatibilityTestResult(
     val recommendedMode: CompassHeadingSourceMode,
     val bestCandidate: CompatibilityCandidateScore,
     val candidates: List<CompatibilityCandidateScore>,
-    val availability: HeadingSourceStatus
+    val availability: HeadingSourceStatus,
 )
 
 internal data class CompatibilityCandidateScore(
@@ -51,7 +51,7 @@ internal data class CompatibilityCandidateScore(
     val sourceMatchRatio: Float,
     val magneticInterferenceRatio: Float,
     val available: Boolean,
-    val unavailableReason: String? = null
+    val unavailableReason: String? = null,
 ) {
     fun signalSummary(): String {
         if (!available) {
@@ -82,7 +82,7 @@ internal data class CompatibilitySampleSummary(
     val averageNoiseDeg: Float,
     val headingSpanDeg: Float,
     val sourceMatchRatio: Float,
-    val magneticInterferenceRatio: Float
+    val magneticInterferenceRatio: Float,
 )
 
 internal suspend fun evaluateCompatibilityCandidate(
@@ -93,7 +93,7 @@ internal suspend fun evaluateCompatibilityCandidate(
     readAccuracy: () -> Int,
     readSource: () -> HeadingSource,
     readMagneticInterference: () -> Boolean,
-    onPhaseStart: (Int, String) -> Unit
+    onPhaseStart: (Int, String) -> Unit,
 ): CompatibilityCandidateScore {
     compassViewModel.setHeadingSourceMode(mode, forceRefresh = true)
     delay(COMPATIBILITY_SWITCH_SETTLE_MS)
@@ -108,38 +108,41 @@ internal suspend fun evaluateCompatibilityCandidate(
             sourceMatchRatio = 0f,
             magneticInterferenceRatio = 0f,
             available = false,
-            unavailableReason = sourceModeUnavailableReason(mode, availability)
+            unavailableReason = sourceModeUnavailableReason(mode, availability),
         )
     }
 
     onPhaseStart(1, "Keep watch still: ${headingSourceModeLabel(mode)}")
-    val stillSummary = collectCompatibilitySampleSummary(
-        sampleCount = COMPATIBILITY_STILL_SAMPLE_COUNT,
-        readHeading = readHeading,
-        readAccuracy = readAccuracy,
-        readSource = readSource,
-        readMagneticInterference = readMagneticInterference,
-        expectedMode = mode
-    )
+    val stillSummary =
+        collectCompatibilitySampleSummary(
+            sampleCount = COMPATIBILITY_STILL_SAMPLE_COUNT,
+            readHeading = readHeading,
+            readAccuracy = readAccuracy,
+            readSource = readSource,
+            readMagneticInterference = readMagneticInterference,
+            expectedMode = mode,
+        )
 
     onPhaseStart(2, "Turn slowly left/right: ${headingSourceModeLabel(mode)}")
     delay(COMPATIBILITY_TURN_PREPARE_MS)
-    val turnSummary = collectCompatibilitySampleSummary(
-        sampleCount = COMPATIBILITY_TURN_SAMPLE_COUNT,
-        readHeading = readHeading,
-        readAccuracy = readAccuracy,
-        readSource = readSource,
-        readMagneticInterference = readMagneticInterference,
-        expectedMode = mode
-    )
+    val turnSummary =
+        collectCompatibilitySampleSummary(
+            sampleCount = COMPATIBILITY_TURN_SAMPLE_COUNT,
+            readHeading = readHeading,
+            readAccuracy = readAccuracy,
+            readSource = readSource,
+            readMagneticInterference = readMagneticInterference,
+            expectedMode = mode,
+        )
 
-    val score = compatibilityScore(
-        averageAccuracyRank = stillSummary.averageAccuracyRank,
-        sourceMatchRatio = stillSummary.sourceMatchRatio,
-        averageNoiseDeg = stillSummary.averageNoiseDeg,
-        magneticInterferenceRatio = stillSummary.magneticInterferenceRatio,
-        turnSpanDeg = turnSummary.headingSpanDeg
-    )
+    val score =
+        compatibilityScore(
+            averageAccuracyRank = stillSummary.averageAccuracyRank,
+            sourceMatchRatio = stillSummary.sourceMatchRatio,
+            averageNoiseDeg = stillSummary.averageNoiseDeg,
+            magneticInterferenceRatio = stillSummary.magneticInterferenceRatio,
+            turnSpanDeg = turnSummary.headingSpanDeg,
+        )
     return CompatibilityCandidateScore(
         mode = mode,
         score = score,
@@ -148,7 +151,7 @@ internal suspend fun evaluateCompatibilityCandidate(
         turnSpanDeg = turnSummary.headingSpanDeg,
         sourceMatchRatio = stillSummary.sourceMatchRatio,
         magneticInterferenceRatio = stillSummary.magneticInterferenceRatio,
-        available = true
+        available = true,
     )
 }
 
@@ -157,15 +160,16 @@ internal fun compatibilityScore(
     sourceMatchRatio: Float,
     averageNoiseDeg: Float,
     magneticInterferenceRatio: Float,
-    turnSpanDeg: Float
+    turnSpanDeg: Float,
 ): Float {
-    val noisePenalty = when {
-        averageNoiseDeg >= 20f -> 3.5f
-        averageNoiseDeg >= 12f -> 2.5f
-        averageNoiseDeg >= 7f -> 1.5f
-        averageNoiseDeg >= 4f -> 0.6f
-        else -> 0f
-    }
+    val noisePenalty =
+        when {
+            averageNoiseDeg >= 20f -> 3.5f
+            averageNoiseDeg >= 12f -> 2.5f
+            averageNoiseDeg >= 7f -> 1.5f
+            averageNoiseDeg >= 4f -> 0.6f
+            else -> 0f
+        }
     return (averageAccuracyRank * 2.0f) +
         (sourceMatchRatio * 4.0f) -
         noisePenalty -
@@ -179,7 +183,7 @@ internal suspend fun collectCompatibilitySampleSummary(
     readAccuracy: () -> Int,
     readSource: () -> HeadingSource,
     readMagneticInterference: () -> Boolean,
-    expectedMode: CompassHeadingSourceMode
+    expectedMode: CompassHeadingSourceMode,
 ): CompatibilitySampleSummary {
     var measuredSamples = 0
     var accuracyRankTotal = 0f
@@ -208,7 +212,7 @@ internal suspend fun collectCompatibilitySampleSummary(
         averageNoiseDeg = averageAngularNoiseDeg(headingSamples),
         headingSpanDeg = headingSpanDeg(headingSamples),
         sourceMatchRatio = if (measuredSamples > 0) sourceMatchCount.toFloat() / measuredSamples else 0f,
-        magneticInterferenceRatio = if (measuredSamples > 0) interferenceCount.toFloat() / measuredSamples else 0f
+        magneticInterferenceRatio = if (measuredSamples > 0) interferenceCount.toFloat() / measuredSamples else 0f,
     )
 }
 
@@ -236,25 +240,26 @@ internal fun headingSpanDeg(samples: List<Float>): Float {
     return maxOffset - minOffset
 }
 
-internal fun turnResponseBonus(turnSpanDeg: Float): Float {
-    return when {
+internal fun turnResponseBonus(turnSpanDeg: Float): Float =
+    when {
         turnSpanDeg >= 45f -> 1.2f
         turnSpanDeg >= 28f -> 0.7f
         turnSpanDeg >= 14f -> 0.2f
         else -> 0f
     }
-}
 
-internal fun turnResponseLabel(turnSpanDeg: Float): String {
-    return when {
+internal fun turnResponseLabel(turnSpanDeg: Float): String =
+    when {
         turnSpanDeg >= 45f -> "good"
         turnSpanDeg >= 28f -> "ok"
         turnSpanDeg >= 14f -> "limited"
         else -> "not enough movement"
     }
-}
 
-internal fun shortestAngularDiffDeg(from: Float, to: Float): Float {
+internal fun shortestAngularDiffDeg(
+    from: Float,
+    to: Float,
+): Float {
     var diff = (to - from + 540f) % 360f - 180f
     if (abs(diff + 180f) < 1e-3f) {
         diff = if ((to - from) >= 0f) 180f else -180f
@@ -264,27 +269,25 @@ internal fun shortestAngularDiffDeg(from: Float, to: Float): Float {
 
 internal fun sourceMatchesMode(
     source: HeadingSource,
-    mode: CompassHeadingSourceMode
-): Boolean {
-    return when (mode) {
+    mode: CompassHeadingSourceMode,
+): Boolean =
+    when (mode) {
         CompassHeadingSourceMode.AUTO -> source != HeadingSource.NONE
         CompassHeadingSourceMode.TYPE_HEADING -> source == HeadingSource.HEADING_SENSOR
         CompassHeadingSourceMode.ROTATION_VECTOR -> source == HeadingSource.ROTATION_VECTOR
         CompassHeadingSourceMode.MAGNETOMETER -> source == HeadingSource.MAG_ACCEL_FALLBACK
     }
-}
 
-internal fun accuracyRank(accuracy: Int): Float {
-    return when (accuracy) {
+internal fun accuracyRank(accuracy: Int): Float =
+    when (accuracy) {
         SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> 3f
         SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> 2f
         SensorManager.SENSOR_STATUS_ACCURACY_LOW -> 1f
         else -> 0f
     }
-}
 
-internal fun accuracyLabelFromAverageRank(rank: Float): String {
-    return when {
+internal fun accuracyLabelFromAverageRank(rank: Float): String =
+    when {
         rank >= 2.7f -> "High"
         rank >= 2.2f -> "Medium-high"
         rank >= 1.7f -> "Medium"
@@ -292,11 +295,10 @@ internal fun accuracyLabelFromAverageRank(rank: Float): String {
         rank > 0f -> "Low"
         else -> "Unreliable"
     }
-}
 
 internal fun recommendedModeFromCandidate(
     best: CompatibilityCandidateScore,
-    availability: HeadingSourceStatus
+    availability: HeadingSourceStatus,
 ): CompassHeadingSourceMode {
     if (autoResolvesToMode(best.mode, availability)) {
         return CompassHeadingSourceMode.AUTO
@@ -304,12 +306,11 @@ internal fun recommendedModeFromCandidate(
     return best.mode
 }
 
-internal fun CompatibilityTestResult.recommendedCompassModeLabel(): String {
-    return when (recommendedMode) {
+internal fun CompatibilityTestResult.recommendedCompassModeLabel(): String =
+    when (recommendedMode) {
         CompassHeadingSourceMode.AUTO -> "Automatic (recommended)"
         else -> "Advanced..."
     }
-}
 
 internal fun CompatibilityTestResult.recommendedHeadingSourceLine(): String {
     if (!bestCandidate.available) return ""
@@ -320,17 +321,16 @@ internal fun CompatibilityTestResult.recommendedHeadingSourceLine(): String {
     }
 }
 
-internal fun CompatibilityTestResult.candidateSummaryLines(): String {
-    return candidates.joinToString("\n") { candidate ->
+internal fun CompatibilityTestResult.candidateSummaryLines(): String =
+    candidates.joinToString("\n") { candidate ->
         candidate.userSummary(isBest = candidate.mode == bestCandidate.mode && candidate.available)
     }
-}
 
 internal fun autoResolvesToMode(
     mode: CompassHeadingSourceMode,
-    availability: HeadingSourceStatus
-): Boolean {
-    return when (mode) {
+    availability: HeadingSourceStatus,
+): Boolean =
+    when (mode) {
         CompassHeadingSourceMode.TYPE_HEADING -> availability.headingSensorAvailable
         CompassHeadingSourceMode.ROTATION_VECTOR ->
             !availability.headingSensorAvailable && availability.rotationVectorAvailable
@@ -340,59 +340,63 @@ internal fun autoResolvesToMode(
                 availability.magAccelFallbackAvailable
         CompassHeadingSourceMode.AUTO -> true
     }
-}
 
 internal fun sourceModeAvailable(
     mode: CompassHeadingSourceMode,
-    availability: HeadingSourceStatus
-): Boolean {
-    return when (mode) {
+    availability: HeadingSourceStatus,
+): Boolean =
+    when (mode) {
         CompassHeadingSourceMode.AUTO -> true
         CompassHeadingSourceMode.TYPE_HEADING -> availability.headingSensorAvailable
         CompassHeadingSourceMode.ROTATION_VECTOR -> availability.rotationVectorAvailable
         CompassHeadingSourceMode.MAGNETOMETER -> availability.magAccelFallbackAvailable
     }
-}
 
 internal fun sourceModeUnavailableReason(
     mode: CompassHeadingSourceMode,
-    availability: HeadingSourceStatus
-): String {
-    return when (mode) {
+    availability: HeadingSourceStatus,
+): String =
+    when (mode) {
         CompassHeadingSourceMode.TYPE_HEADING -> {
-            if (availability.headingSensorAvailable) "Unavailable"
-            else "Not exposed by this watch"
+            if (availability.headingSensorAvailable) {
+                "Unavailable"
+            } else {
+                "Not exposed by this watch"
+            }
         }
         CompassHeadingSourceMode.ROTATION_VECTOR -> {
-            if (availability.rotationVectorAvailable) "Unavailable"
-            else "Not exposed by this watch"
+            if (availability.rotationVectorAvailable) {
+                "Unavailable"
+            } else {
+                "Not exposed by this watch"
+            }
         }
         CompassHeadingSourceMode.MAGNETOMETER -> {
-            if (availability.magAccelFallbackAvailable) "Unavailable"
-            else "Magnetometer fallback unavailable"
+            if (availability.magAccelFallbackAvailable) {
+                "Unavailable"
+            } else {
+                "Magnetometer fallback unavailable"
+            }
         }
         CompassHeadingSourceMode.AUTO -> "Unavailable"
     }
-}
 
-internal fun northReferenceModeFromSetting(mode: String): NorthReferenceMode {
-    return when (mode) {
+internal fun northReferenceModeFromSetting(mode: String): NorthReferenceMode =
+    when (mode) {
         SettingsRepository.NORTH_REFERENCE_MAGNETIC -> NorthReferenceMode.MAGNETIC
         else -> NorthReferenceMode.TRUE
     }
-}
 
-internal fun headingSourceModeFromSetting(mode: String): CompassHeadingSourceMode {
-    return when (mode) {
+internal fun headingSourceModeFromSetting(mode: String): CompassHeadingSourceMode =
+    when (mode) {
         SettingsRepository.COMPASS_HEADING_SOURCE_TYPE_HEADING -> CompassHeadingSourceMode.TYPE_HEADING
         SettingsRepository.COMPASS_HEADING_SOURCE_ROTATION_VECTOR -> CompassHeadingSourceMode.ROTATION_VECTOR
         SettingsRepository.COMPASS_HEADING_SOURCE_MAGNETOMETER -> CompassHeadingSourceMode.MAGNETOMETER
         else -> CompassHeadingSourceMode.AUTO
     }
-}
 
-internal fun headingSourceSettingFromMode(mode: CompassHeadingSourceMode): String {
-    return when (mode) {
+internal fun headingSourceSettingFromMode(mode: CompassHeadingSourceMode): String =
+    when (mode) {
         CompassHeadingSourceMode.TYPE_HEADING ->
             SettingsRepository.COMPASS_HEADING_SOURCE_TYPE_HEADING
         CompassHeadingSourceMode.ROTATION_VECTOR ->
@@ -402,32 +406,28 @@ internal fun headingSourceSettingFromMode(mode: CompassHeadingSourceMode): Strin
         CompassHeadingSourceMode.AUTO ->
             SettingsRepository.COMPASS_HEADING_SOURCE_AUTO
     }
-}
 
-internal fun compassSettingsModeLabel(mode: String): String {
-    return when (mode) {
+internal fun compassSettingsModeLabel(mode: String): String =
+    when (mode) {
         SettingsRepository.COMPASS_SETTINGS_MODE_ADVANCED -> "Advanced..."
         else -> "Automatic (recommended)"
     }
-}
 
-internal fun compassProviderTypeFromSetting(mode: String): CompassProviderType {
-    return when (mode) {
+internal fun compassProviderTypeFromSetting(mode: String): CompassProviderType =
+    when (mode) {
         SettingsRepository.COMPASS_PROVIDER_SENSOR_MANAGER -> CompassProviderType.SENSOR_MANAGER
         else -> CompassProviderType.GOOGLE_FUSED
     }
-}
 
-internal fun compassProviderModeLabel(mode: String): String {
-    return when (compassProviderTypeFromSetting(mode)) {
+internal fun compassProviderModeLabel(mode: String): String =
+    when (compassProviderTypeFromSetting(mode)) {
         CompassProviderType.SENSOR_MANAGER -> "Custom sensors"
         CompassProviderType.GOOGLE_FUSED -> "Google Fused (default)"
     }
-}
 
 internal fun compassProviderStatusLabel(
     requestedMode: String,
-    activeProviderType: CompassProviderType
+    activeProviderType: CompassProviderType,
 ): String {
     val requestedType = compassProviderTypeFromSetting(requestedMode)
     if (requestedType == activeProviderType) {
@@ -444,16 +444,15 @@ internal fun compassProviderStatusLabel(
     }
 }
 
-internal fun northReferenceModeLabel(mode: String): String {
-    return when (mode) {
+internal fun northReferenceModeLabel(mode: String): String =
+    when (mode) {
         SettingsRepository.NORTH_REFERENCE_MAGNETIC -> "Magnetic north"
         else -> "True north"
     }
-}
 
 internal fun northReferenceStatusSecondaryLabel(
     requestedMode: String,
-    status: NorthReferenceStatus
+    status: NorthReferenceStatus,
 ): String {
     val requestedLabel = northReferenceModeLabel(requestedMode)
     return when {
@@ -465,24 +464,22 @@ internal fun northReferenceStatusSecondaryLabel(
     }
 }
 
-internal fun headingSourceModeLabel(mode: String): String {
-    return headingSourceModeLabel(headingSourceModeFromSetting(mode))
-}
+internal fun headingSourceModeLabel(mode: String): String = headingSourceModeLabel(headingSourceModeFromSetting(mode))
 
-internal fun headingSourceModeLabel(mode: CompassHeadingSourceMode): String {
-    return when (mode) {
+internal fun headingSourceModeLabel(mode: CompassHeadingSourceMode): String =
+    when (mode) {
         CompassHeadingSourceMode.TYPE_HEADING -> "TYPE_HEADING"
         CompassHeadingSourceMode.ROTATION_VECTOR -> "Rotation vector"
         CompassHeadingSourceMode.MAGNETOMETER -> "Magnetometer"
         CompassHeadingSourceMode.AUTO -> "Auto (recommended)"
     }
-}
 
-internal val COMPATIBILITY_CANDIDATES = listOf(
-    CompassHeadingSourceMode.TYPE_HEADING,
-    CompassHeadingSourceMode.ROTATION_VECTOR,
-    CompassHeadingSourceMode.MAGNETOMETER
-)
+internal val COMPATIBILITY_CANDIDATES =
+    listOf(
+        CompassHeadingSourceMode.TYPE_HEADING,
+        CompassHeadingSourceMode.ROTATION_VECTOR,
+        CompassHeadingSourceMode.MAGNETOMETER,
+    )
 
 private val SensorStatusChipBackground = Color(0xFF33465F)
 private val SensorStatusChipContent = Color(0xFFF4F7FB)
@@ -491,7 +488,7 @@ private val SensorStatusChipSecondary = Color(0xFFD0DEEE)
 @Composable
 internal fun SensorStatusPanel(
     status: HeadingSourceStatus,
-    northReferenceStatus: NorthReferenceStatus
+    northReferenceStatus: NorthReferenceStatus,
 ) {
     val requested = sensorModeLabel(status.requestedMode)
     val active = sensorActiveLabel(status.activeSource)
@@ -502,91 +499,90 @@ internal fun SensorStatusPanel(
         "Magnetometer: ${status.magAccelFallbackAvailable.yesNoLabel()}"
     val northStatus =
         "North: ${northReferenceStatus.requestedMode.userLabel()} -> ${northReferenceStatus.effectiveMode.userLabel()}"
-    val declinationStatus = when {
-        northReferenceStatus.declinationAvailable -> "Declination: ready"
-        northReferenceStatus.waitingForDeclination -> "Declination: waiting"
-        else -> "Declination: not needed"
-    }
+    val declinationStatus =
+        when {
+            northReferenceStatus.declinationAvailable -> "Declination: ready"
+            northReferenceStatus.waitingForDeclination -> "Declination: waiting"
+            else -> "Declination: not needed"
+        }
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 98.dp)
-            .background(SensorStatusChipBackground, RoundedCornerShape(24.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 98.dp)
+                .background(SensorStatusChipBackground, RoundedCornerShape(24.dp))
+                .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = "Sensor status",
                 style = MaterialTheme.typography.titleMedium,
-                color = SensorStatusChipContent
+                color = SensorStatusChipContent,
             )
             Text(
                 text = "Requested: $requested",
                 style = MaterialTheme.typography.bodySmall,
-                color = SensorStatusChipSecondary
+                color = SensorStatusChipSecondary,
             )
             Text(
                 text = "Active: $active",
                 style = MaterialTheme.typography.bodySmall,
-                color = SensorStatusChipSecondary
+                color = SensorStatusChipSecondary,
             )
             Text(
                 text = headingAvailability,
                 style = MaterialTheme.typography.bodySmall,
-                color = SensorStatusChipSecondary
+                color = SensorStatusChipSecondary,
             )
             Text(
                 text = rotationVectorAvailability,
                 style = MaterialTheme.typography.bodySmall,
-                color = SensorStatusChipSecondary
+                color = SensorStatusChipSecondary,
             )
             Text(
                 text = magnetometerAvailability,
                 style = MaterialTheme.typography.bodySmall,
-                color = SensorStatusChipSecondary
+                color = SensorStatusChipSecondary,
             )
             Text(
                 text = northStatus,
                 style = MaterialTheme.typography.bodySmall,
-                color = SensorStatusChipSecondary
+                color = SensorStatusChipSecondary,
             )
             Text(
                 text = declinationStatus,
                 style = MaterialTheme.typography.bodySmall,
-                color = SensorStatusChipSecondary
+                color = SensorStatusChipSecondary,
             )
         }
     }
 }
 
-private fun sensorModeLabel(mode: CompassHeadingSourceMode): String {
-    return when (mode) {
+private fun sensorModeLabel(mode: CompassHeadingSourceMode): String =
+    when (mode) {
         CompassHeadingSourceMode.AUTO -> "Auto"
         CompassHeadingSourceMode.TYPE_HEADING -> "Type heading"
         CompassHeadingSourceMode.ROTATION_VECTOR -> "Rotation vector"
         CompassHeadingSourceMode.MAGNETOMETER -> "Magnetometer"
     }
-}
 
-private fun sensorActiveLabel(source: HeadingSource): String {
-    return when (source) {
+private fun sensorActiveLabel(source: HeadingSource): String =
+    when (source) {
         HeadingSource.NONE -> "Unavailable"
         HeadingSource.FUSED_ORIENTATION -> "Google fused"
         HeadingSource.HEADING_SENSOR -> "Type heading"
         HeadingSource.ROTATION_VECTOR -> "Rotation vector"
         HeadingSource.MAG_ACCEL_FALLBACK -> "Mag fallback"
     }
-}
 
-private fun NorthReferenceMode.userLabel(): String {
-    return when (this) {
+private fun NorthReferenceMode.userLabel(): String =
+    when (this) {
         NorthReferenceMode.TRUE -> "True"
         NorthReferenceMode.MAGNETIC -> "Magnetic"
     }
-}
 
 private fun Boolean.yesNoLabel(): String = if (this) "Yes" else "No"
 

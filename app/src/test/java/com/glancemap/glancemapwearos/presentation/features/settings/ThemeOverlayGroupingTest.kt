@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ThemeOverlayGroupingTest {
-
     @Test
     fun groupsTiramisuPoiAndTransportOverlaysAsPoi() {
         assertEquals("poi", ThemeOverlayGrouping.groupIdForOverlay("tms_food"))

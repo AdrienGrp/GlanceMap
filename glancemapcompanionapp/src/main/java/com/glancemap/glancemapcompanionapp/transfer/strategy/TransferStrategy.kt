@@ -16,7 +16,7 @@ interface TransferStrategy {
         metadata: TransferMetadata,
         ackDeferred: CompletableDeferred<TransferResult>,
         awaitIfPaused: suspend () -> Unit,
-        onProgress: (Float, String) -> Unit
+        onProgress: (Float, String) -> Unit,
     ): TransferResult
 }
 
@@ -26,10 +26,10 @@ data class TransferMetadata(
     val displayFileName: String,
     val totalSize: Long,
     val isMapFile: Boolean,
-    val checksumSha256: String? = null
+    val checksumSha256: String? = null,
 )
 
 data class TransferResult(
     val success: Boolean,
-    val message: String
+    val message: String,
 )

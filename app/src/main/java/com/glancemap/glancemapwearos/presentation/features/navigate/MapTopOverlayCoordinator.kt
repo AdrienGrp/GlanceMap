@@ -9,7 +9,7 @@ internal class MapTopOverlayCoordinator(
     private val accuracyCircleLayer: GpsAccuracyCircleLayer,
     private val coneLayer: CompassConeLayer,
     private val markerAHolder: Array<Marker?>,
-    private val markerBHolder: Array<Marker?>
+    private val markerBHolder: Array<Marker?>,
 ) {
     private var locationMarker: RotatableMarker? = null
 
@@ -17,14 +17,13 @@ internal class MapTopOverlayCoordinator(
         locationMarker = marker
     }
 
-    fun sync(): Boolean {
-        return ensureTopOverlayOrder(
+    fun sync(): Boolean =
+        ensureTopOverlayOrder(
             layers = layers,
             accuracyCircleLayer = accuracyCircleLayer,
             coneLayer = coneLayer,
             locationMarker = locationMarker,
             markerA = markerAHolder[0],
-            markerB = markerBHolder[0]
+            markerB = markerBHolder[0],
         )
-    }
 }

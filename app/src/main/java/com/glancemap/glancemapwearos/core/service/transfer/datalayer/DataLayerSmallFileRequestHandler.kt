@@ -3,13 +3,13 @@ package com.glancemap.glancemapwearos.core.service.transfer.datalayer
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
-import com.google.android.gms.wearable.MessageEvent
 import com.glancemap.glancemapwearos.core.service.DataLayerListenerService
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.TransferDiagnostics
 import com.glancemap.glancemapwearos.core.service.transfer.contract.TransferConstants
 import com.glancemap.glancemapwearos.core.service.transfer.notifications.NotificationHelper
 import com.glancemap.glancemapwearos.core.service.transfer.storage.WatchFileOps
+import com.google.android.gms.wearable.MessageEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -21,7 +21,7 @@ internal class DataLayerSmallFileRequestHandler(
     private val notificationHelper: NotificationHelper,
     private val fileOps: WatchFileOps,
     private val transferMutex: Mutex,
-    private val sendAck: suspend (sourceNodeId: String, transferId: String, status: String, detail: String) -> Unit
+    private val sendAck: suspend (sourceNodeId: String, transferId: String, status: String, detail: String) -> Unit,
 ) {
     private val appScope get() = service.appScope()
 
@@ -54,24 +54,24 @@ internal class DataLayerSmallFileRequestHandler(
         val notificationId = transferId.hashCode()
         EnergyDiagnostics.recordEvent(
             reason = "small_transfer_start",
-            detail = "file=$fileName transferId=$transferId bytes=${bytes.size}"
+            detail = "file=$fileName transferId=$transferId bytes=${bytes.size}",
         )
         TransferDiagnostics.log(
             "Small",
-            "Start id=$transferId file=$fileName bytes=${bytes.size}"
+            "Start id=$transferId file=$fileName bytes=${bytes.size}",
         )
 
         if (bytes.size > TransferConstants.SMALL_FILE_MAX_BYTES) {
             TransferDiagnostics.warn(
                 "Small",
-                "Too large for small-file path id=$transferId file=$fileName bytes=${bytes.size}"
+                "Too large for small-file path id=$transferId file=$fileName bytes=${bytes.size}",
             )
             appScope.launch(Dispatchers.IO) {
                 sendAck(
                     sourceNodeId,
                     transferId,
                     "ERROR",
-                    "Small file too large (${bytes.size} bytes). Use Channel."
+                    "Small file too large (${bytes.size} bytes). Use Channel.",
                 )
             }
             return
@@ -80,7 +80,7 @@ internal class DataLayerSmallFileRequestHandler(
         if (!fileOps.isSupportedTransferFileName(fileName)) {
             TransferDiagnostics.warn(
                 "Small",
-                "Unsupported file type id=$transferId file=$fileName"
+                "Unsupported file type id=$transferId file=$fileName",
             )
             appScope.launch(Dispatchers.IO) {
                 sendAck(sourceNodeId, transferId, "ERROR", "Unsupported file type")
@@ -113,7 +113,7 @@ internal class DataLayerSmallFileRequestHandler(
                             inputStream = input,
                             expectedSize = bytes.size.toLong(),
                             resumeOffset = 0L,
-                            onProgress = { /* no progress */ }
+                            onProgress = { /* no progress */ },
                         )
                     }
                     val durationMs = SystemClock.elapsedRealtime() - startMs
@@ -125,14 +125,14 @@ internal class DataLayerSmallFileRequestHandler(
                         if (actualSha != null && actualSha != expectedSha) {
                             TransferDiagnostics.warn(
                                 "Small",
-                                "Checksum mismatch id=$transferId file=$fileName"
+                                "Checksum mismatch id=$transferId file=$fileName",
                             )
                             fileOps.deleteLocalFile(fileName)
                             throw IllegalStateException("CHECKSUM_MISMATCH")
                         }
                         TransferDiagnostics.log(
                             "Small",
-                            "Checksum verified id=$transferId file=$fileName"
+                            "Checksum verified id=$transferId file=$fileName",
                         )
                     }
 
@@ -144,26 +144,25 @@ internal class DataLayerSmallFileRequestHandler(
                     val speedMBps = if (durationMs > 0) sizeMB / (durationMs / 1000.0) else 0.0
                     TransferDiagnostics.log(
                         "Small",
-                        "Summary id=$transferId file=$fileName size=${bytes.size} durationMs=$durationMs speedMBps=${String.format("%.2f", speedMBps)}"
+                        "Summary id=$transferId file=$fileName size=${bytes.size} durationMs=$durationMs speedMBps=${String.format("%.2f", speedMBps)}",
                     )
                     EnergyDiagnostics.recordEvent(
                         reason = "small_transfer_done",
-                        detail = "file=$fileName transferId=$transferId bytes=${bytes.size}"
+                        detail = "file=$fileName transferId=$transferId bytes=${bytes.size}",
                     )
-
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ Small file save failed", e)
                     TransferDiagnostics.error(
                         "Small",
                         "Failed id=$transferId file=$fileName",
-                        e
+                        e,
                     )
                     notificationHelper.stopForeground(notificationId)
                     notificationHelper.showError(notificationId, fileName, "Failed: ${e.message}")
                     sendAck(sourceNodeId, transferId, "ERROR", e.message ?: "Unknown error")
                     EnergyDiagnostics.recordEvent(
                         reason = "small_transfer_error",
-                        detail = "file=$fileName transferId=$transferId msg=${e.message ?: "unknown"}"
+                        detail = "file=$fileName transferId=$transferId msg=${e.message ?: "unknown"}",
                     )
                 } finally {
                     service.onTransferFinished()

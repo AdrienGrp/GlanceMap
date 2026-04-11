@@ -58,7 +58,7 @@ internal fun FilePickerDownloadSection(
     onShowRefugesDialog: () -> Unit,
     onShowRoutingDialog: () -> Unit,
     onRefreshLastRefuges: () -> Unit,
-    onRefreshLastRouting: () -> Unit
+    onRefreshLastRouting: () -> Unit,
 ) {
     val isCompactScreen = adaptive.isCompactScreen
     val downloadButtonHeight = adaptive.downloadButtonHeight
@@ -73,26 +73,27 @@ internal fun FilePickerDownloadSection(
 
     SectionCard(
         title = "1. Download",
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = downloadSectionMinHeight)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = downloadSectionMinHeight),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (!hasNotificationPermission && Build.VERSION.SDK_INT >= 33) {
                 Text(
                     "Notification permission needed for background transfers.",
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelSmall
+                    style = MaterialTheme.typography.labelSmall,
                 )
             }
             if (!hasBluetoothConnectPermission && Build.VERSION.SDK_INT >= 31) {
                 Text(
                     "Bluetooth permission needed to detect and pair with watch.",
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelSmall
+                    style = MaterialTheme.typography.labelSmall,
                 )
             }
             if ((!hasNotificationPermission && Build.VERSION.SDK_INT >= 33) ||
@@ -101,7 +102,7 @@ internal fun FilePickerDownloadSection(
                 OutlinedButton(
                     onClick = onRequestMissingPermissions,
                     enabled = !uiLocked,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Grant missing permissions")
                 }
@@ -109,13 +110,14 @@ internal fun FilePickerDownloadSection(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(
-                    if (isCompactScreen) 6.dp else 8.dp
-                ),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        if (isCompactScreen) 6.dp else 8.dp,
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     DownloadActionButton(
                         label = "Maps",
@@ -126,17 +128,18 @@ internal fun FilePickerDownloadSection(
                         modifier = Modifier.fillMaxWidth(),
                         icon = {
                             Icon(Icons.Filled.Map, contentDescription = "Map sources")
-                        }
+                        },
                     )
                     DropdownMenu(
                         expanded = showMapSourcesMenu,
-                        onDismissRequest = { onShowMapSourcesMenuChange(false) }
+                        onDismissRequest = { onShowMapSourcesMenuChange(false) },
                     ) {
-                        val orderedCategories = listOf(
-                            "Topographic maps",
-                            "Non-topographic maps",
-                            "Other"
-                        )
+                        val orderedCategories =
+                            listOf(
+                                "Topographic maps",
+                                "Non-topographic maps",
+                                "Other",
+                            )
 
                         orderedCategories.forEachIndexed { index, category ->
                             val sources = mapDownloadSources.filter { it.category == category }
@@ -148,11 +151,11 @@ internal fun FilePickerDownloadSection(
                                 text = {
                                     Text(
                                         category,
-                                        style = MaterialTheme.typography.labelMedium
+                                        style = MaterialTheme.typography.labelMedium,
                                     )
                                 },
                                 onClick = {},
-                                enabled = false
+                                enabled = false,
                             )
                             sources.forEach { source ->
                                 DropdownMenuItem(
@@ -163,14 +166,14 @@ internal fun FilePickerDownloadSection(
                                                 source.url,
                                                 style = MaterialTheme.typography.labelSmall,
                                                 maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                                overflow = TextOverflow.Ellipsis,
                                             )
                                         }
                                     },
                                     onClick = {
                                         onShowMapSourcesMenuChange(false)
                                         openUrl(source.url)
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -186,11 +189,11 @@ internal fun FilePickerDownloadSection(
                     modifier = Modifier.weight(1f),
                     icon = {
                         Icon(Icons.Filled.Timeline, contentDescription = "Download GPX")
-                    }
+                    },
                 )
 
                 Box(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     DownloadActionButton(
                         label = "POI",
@@ -201,11 +204,11 @@ internal fun FilePickerDownloadSection(
                         modifier = Modifier.fillMaxWidth(),
                         icon = {
                             Icon(Icons.Filled.Place, contentDescription = "Download POI")
-                        }
+                        },
                     )
                     DropdownMenu(
                         expanded = showRefugesMenu,
-                        onDismissRequest = { onShowRefugesMenuChange(false) }
+                        onDismissRequest = { onShowRefugesMenuChange(false) },
                     ) {
                         DropdownMenuItem(
                             text = { Text("Import POI (Refuges / OSM)") },
@@ -213,7 +216,7 @@ internal fun FilePickerDownloadSection(
                                 onShowRefugesMenuChange(false)
                                 onShowRefugesDialog()
                             },
-                            enabled = !uiLocked
+                            enabled = !uiLocked,
                         )
                         if (canRefreshLastRefuges) {
                             DropdownMenuItem(
@@ -222,14 +225,14 @@ internal fun FilePickerDownloadSection(
                                     onShowRefugesMenuChange(false)
                                     onRefreshLastRefuges()
                                 },
-                                enabled = !uiLocked
+                                enabled = !uiLocked,
                             )
                         }
                     }
                 }
 
                 Box(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     DownloadActionButton(
                         label = "Routing",
@@ -241,13 +244,13 @@ internal fun FilePickerDownloadSection(
                         icon = {
                             Icon(
                                 Icons.Filled.Timeline,
-                                contentDescription = "Download routing data"
+                                contentDescription = "Download routing data",
                             )
-                        }
+                        },
                     )
                     DropdownMenu(
                         expanded = showRoutingMenu,
-                        onDismissRequest = { onShowRoutingMenuChange(false) }
+                        onDismissRequest = { onShowRoutingMenuChange(false) },
                     ) {
                         DropdownMenuItem(
                             text = { Text("Download routing data") },
@@ -255,7 +258,7 @@ internal fun FilePickerDownloadSection(
                                 onShowRoutingMenuChange(false)
                                 onShowRoutingDialog()
                             },
-                            enabled = !uiLocked
+                            enabled = !uiLocked,
                         )
                         if (canRefreshLastRouting) {
                             DropdownMenuItem(
@@ -264,7 +267,7 @@ internal fun FilePickerDownloadSection(
                                     onShowRoutingMenuChange(false)
                                     onRefreshLastRouting()
                                 },
-                                enabled = !uiLocked
+                                enabled = !uiLocked,
                             )
                         }
                     }
@@ -274,7 +277,7 @@ internal fun FilePickerDownloadSection(
             OutlinedButton(
                 onClick = onShowManagePhoneFiles,
                 enabled = !uiLocked,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Manage downloaded files")
             }
@@ -295,29 +298,31 @@ internal fun FilePickerTransferSection(
     onSend: () -> Unit,
     onResume: () -> Unit,
     onPause: () -> Unit,
-    onCancelRequested: () -> Unit
+    onCancelRequested: () -> Unit,
 ) {
     SectionCard(
         title = "4. Transfer",
-        modifier = if (adaptive.usePageScrollForSmallScreen) {
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 190.dp)
-        } else {
-            Modifier.fillMaxWidth()
-        }
+        modifier =
+            if (adaptive.usePageScrollForSmallScreen) {
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 190.dp)
+            } else {
+                Modifier.fillMaxWidth()
+            },
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(
                 onClick = onSend,
-                enabled = uiState.selectedFileUris.isNotEmpty() &&
-                    uiState.selectedWatch != null &&
-                    !uiLocked &&
-                    isAllowedSelection,
-                modifier = Modifier.fillMaxWidth()
+                enabled =
+                    uiState.selectedFileUris.isNotEmpty() &&
+                        uiState.selectedWatch != null &&
+                        !uiLocked &&
+                        isAllowedSelection,
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
                     when {
@@ -325,51 +330,53 @@ internal fun FilePickerTransferSection(
                         cancellingTransfer -> "Stopping..."
                         waitingForReconnect -> "Waiting..."
                         else -> "Sending..."
-                    }
+                    },
                 )
             }
 
             if (transferSessionActive) {
                 LinearProgressIndicator(
                     progress = { uiState.progress },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
 
-                val rawProgressText = when {
-                    uiState.isPaused -> {
-                        val pauseReason = uiState.pauseReason.trim()
-                        val detail = uiState.progressText.trim()
-                        when {
-                            pauseReason.isNotBlank() &&
-                                detail.isNotBlank() &&
-                                !detail.equals(pauseReason, ignoreCase = true) ->
-                                "Paused • $pauseReason\n$detail"
+                val rawProgressText =
+                    when {
+                        uiState.isPaused -> {
+                            val pauseReason = uiState.pauseReason.trim()
+                            val detail = uiState.progressText.trim()
+                            when {
+                                pauseReason.isNotBlank() &&
+                                    detail.isNotBlank() &&
+                                    !detail.equals(pauseReason, ignoreCase = true) ->
+                                    "Paused • $pauseReason\n$detail"
 
-                            pauseReason.isNotBlank() ->
-                                "Paused • $pauseReason"
+                                pauseReason.isNotBlank() ->
+                                    "Paused • $pauseReason"
 
-                            detail.isNotBlank() ->
-                                "Paused\n$detail"
+                                detail.isNotBlank() ->
+                                    "Paused\n$detail"
 
-                            else ->
-                                "Paused"
+                                else ->
+                                    "Paused"
+                            }
                         }
-                    }
 
-                    else -> uiState.progressText
-                }
-                val progressText = TransferTextFormatter.formatCardText(
-                    rawProgressText = rawProgressText,
-                    statusMessage = uiState.statusMessage,
-                    isPaused = uiState.isPaused,
-                    canResume = uiState.canResume,
-                    showTechnicalDetails = debugCaptureState.active
-                )
+                        else -> uiState.progressText
+                    }
+                val progressText =
+                    TransferTextFormatter.formatCardText(
+                        rawProgressText = rawProgressText,
+                        statusMessage = uiState.statusMessage,
+                        isPaused = uiState.isPaused,
+                        canResume = uiState.canResume,
+                        showTechnicalDetails = debugCaptureState.active,
+                    )
                 Text(
                     progressText,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -377,12 +384,12 @@ internal fun FilePickerTransferSection(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (uiState.isPaused && uiState.canResume) {
                         Button(
                             onClick = onResume,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         ) {
                             Text("Resume")
                         }
@@ -390,7 +397,7 @@ internal fun FilePickerTransferSection(
                         OutlinedButton(
                             onClick = {},
                             enabled = false,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         ) {
                             Text("Waiting...")
                         }
@@ -398,7 +405,7 @@ internal fun FilePickerTransferSection(
                         OutlinedButton(
                             onClick = {},
                             enabled = false,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         ) {
                             Text("Waiting...")
                         }
@@ -406,14 +413,14 @@ internal fun FilePickerTransferSection(
                         OutlinedButton(
                             onClick = {},
                             enabled = false,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         ) {
                             Text("Stopping...")
                         }
                     } else if (uiState.isTransferring) {
                         OutlinedButton(
                             onClick = onPause,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         ) {
                             Text("Pause")
                         }
@@ -424,7 +431,7 @@ internal fun FilePickerTransferSection(
                     Button(
                         onClick = onCancelRequested,
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     ) {
                         Text("Cancel")
                     }
@@ -439,70 +446,76 @@ internal fun FilePickerHistorySection(
     adaptive: CompanionAdaptiveSpec,
     uiState: FileTransferUiState,
     historyListState: LazyListState,
-    onClearHistory: () -> Unit
+    onClearHistory: () -> Unit,
 ) {
-    val historyListHeight = if (adaptive.windowClass == CompanionWindowClass.EXPANDED) {
-        280.dp
-    } else {
-        220.dp
-    }
+    val historyListHeight =
+        if (adaptive.windowClass == CompanionWindowClass.EXPANDED) {
+            280.dp
+        } else {
+            220.dp
+        }
 
     SectionCard(
         title = "5. History",
-        modifier = if (adaptive.usePageScrollForSmallScreen) {
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 240.dp)
-        } else {
-            Modifier.fillMaxWidth()
-        },
+        modifier =
+            if (adaptive.usePageScrollForSmallScreen) {
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 240.dp)
+            } else {
+                Modifier.fillMaxWidth()
+            },
         containerPadding = PaddingValues(start = 10.dp, top = 0.dp, end = 10.dp, bottom = 10.dp),
         titleContentSpacing = 2.dp,
         headerAction = {
             TextButton(
                 onClick = onClearHistory,
-                enabled = uiState.history.isNotEmpty()
+                enabled = uiState.history.isNotEmpty(),
             ) {
                 Text("Clear")
             }
-        }
+        },
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Card(
-                modifier = if (adaptive.usePageScrollForSmallScreen) {
-                    Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                } else {
-                    Modifier
-                        .fillMaxWidth()
-                        .height(historyListHeight)
-                },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
-                )
+                modifier =
+                    if (adaptive.usePageScrollForSmallScreen) {
+                        Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                    } else {
+                        Modifier
+                            .fillMaxWidth()
+                            .height(historyListHeight)
+                    },
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+                    ),
             ) {
                 if (uiState.history.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text("No transfer history yet.", style = MaterialTheme.typography.bodySmall)
                     }
                 } else {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
                     ) {
                         LazyColumn(
                             state = historyListState,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(end = 10.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(end = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             items(uiState.history, key = { it.id }) { item ->
                                 HistoryRow(item)
@@ -510,9 +523,10 @@ internal fun FilePickerHistorySection(
                         }
                         HistoryScrollbar(
                             listState = historyListState,
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .fillMaxHeight()
+                            modifier =
+                                Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .fillMaxHeight(),
                         )
                     }
                 }

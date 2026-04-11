@@ -25,8 +25,9 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
-class LocationViewModel(application: Application) : AndroidViewModel(application) {
-
+class LocationViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val _currentLocation = MutableStateFlow<android.location.Location?>(null)
     val currentLocation = _currentLocation.asStateFlow()
     private val _gpsSignalSnapshot = MutableStateFlow(GpsSignalSnapshot())
@@ -52,71 +53,81 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
     private var lastBindAttemptAtMs: Long = 0L
     private var reconnectAttempt: Int = 0
 
-    private val connection = object : ServiceConnection {
-        override fun onServiceConnected(className: ComponentName, service: IBinder) {
-            val binder = service as LocationService.LocalBinder
-            locationService = binder.getService()
-            isBound = true
-            isBindingInProgress = false
-            lastBindAttemptAtMs = 0L
-            reconnectAttempt = 0
-            reconnectJob?.cancel()
-            reconnectJob = null
-            logConnection("service connected")
+    private val connection =
+        object : ServiceConnection {
+            override fun onServiceConnected(
+                className: ComponentName,
+                service: IBinder,
+            ) {
+                val binder = service as LocationService.LocalBinder
+                locationService = binder.getService()
+                isBound = true
+                isBindingInProgress = false
+                lastBindAttemptAtMs = 0L
+                reconnectAttempt = 0
+                reconnectJob?.cancel()
+                reconnectJob = null
+                logConnection("service connected")
 
-            locationJob?.cancel()
-            locationJob = locationService?.currentLocation
-                ?.onEach { _currentLocation.value = it }
-                ?.launchIn(viewModelScope)
-            gpsSignalJob?.cancel()
-            gpsSignalJob = locationService?.gpsSignalSnapshot
-                ?.onEach { _gpsSignalSnapshot.value = it }
-                ?.launchIn(viewModelScope)
-            intervalJob?.cancel()
-            intervalJob = locationService?.effectiveUpdateIntervalMs
-                ?.onEach { _effectiveGpsIntervalMs.value = it }
-                ?.launchIn(viewModelScope)
+                locationJob?.cancel()
+                locationJob =
+                    locationService
+                        ?.currentLocation
+                        ?.onEach { _currentLocation.value = it }
+                        ?.launchIn(viewModelScope)
+                gpsSignalJob?.cancel()
+                gpsSignalJob =
+                    locationService
+                        ?.gpsSignalSnapshot
+                        ?.onEach { _gpsSignalSnapshot.value = it }
+                        ?.launchIn(viewModelScope)
+                intervalJob?.cancel()
+                intervalJob =
+                    locationService
+                        ?.effectiveUpdateIntervalMs
+                        ?.onEach { _effectiveGpsIntervalMs.value = it }
+                        ?.launchIn(viewModelScope)
 
-            locationService?.setKeepAppOpenState(desiredKeepAppOpen)
-            locationService?.setRuntimeState(
-                screenState = desiredScreenState,
-                trackingEnabled = isTrackingEnabled
-            )
-            pendingImmediateLocationRequestSource?.let { pendingSource ->
-                if (isTrackingEnabled) {
-                    locationService?.requestImmediateLocation(source = "${pendingSource}_after_bind")
+                locationService?.setKeepAppOpenState(desiredKeepAppOpen)
+                locationService?.setRuntimeState(
+                    screenState = desiredScreenState,
+                    trackingEnabled = isTrackingEnabled,
+                )
+                pendingImmediateLocationRequestSource?.let { pendingSource ->
+                    if (isTrackingEnabled) {
+                        locationService?.requestImmediateLocation(source = "${pendingSource}_after_bind")
+                    }
+                    pendingImmediateLocationRequestSource = null
                 }
-                pendingImmediateLocationRequestSource = null
+
+                if (isTrackingEnabled) {
+                    ensureConnectionWatchdog()
+                }
             }
 
-            if (isTrackingEnabled) {
-                ensureConnectionWatchdog()
+            override fun onServiceDisconnected(name: ComponentName) {
+                locationJob?.cancel()
+                locationJob = null
+                gpsSignalJob?.cancel()
+                gpsSignalJob = null
+                intervalJob?.cancel()
+                intervalJob = null
+
+                isBound = false
+                isBindingInProgress = false
+                lastBindAttemptAtMs = 0L
+                locationService = null
+                logConnection("service disconnected")
+                // Keep last location to avoid flicker; UI can optionally show "disconnected" state
+                if (shouldMaintainConnection()) {
+                    scheduleReconnect(reason = "disconnected")
+                }
             }
         }
-
-        override fun onServiceDisconnected(name: ComponentName) {
-            locationJob?.cancel()
-            locationJob = null
-            gpsSignalJob?.cancel()
-            gpsSignalJob = null
-            intervalJob?.cancel()
-            intervalJob = null
-
-            isBound = false
-            isBindingInProgress = false
-            lastBindAttemptAtMs = 0L
-            locationService = null
-            logConnection("service disconnected")
-            // Keep last location to avoid flicker; UI can optionally show "disconnected" state
-            if (shouldMaintainConnection()) {
-                scheduleReconnect(reason = "disconnected")
-            }
-        }
-    }
 
     fun syncRuntimeState(
         screenState: LocationScreenState,
-        trackingEnabled: Boolean
+        trackingEnabled: Boolean,
     ) {
         val screenStateChanged = desiredScreenState != screenState
         val trackingChanged = isTrackingEnabled != trackingEnabled
@@ -127,7 +138,7 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
         if (!trackingChanged) {
             locationService?.setRuntimeState(
                 screenState = screenState,
-                trackingEnabled = trackingEnabled
+                trackingEnabled = trackingEnabled,
             )
             return
         }
@@ -139,14 +150,14 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
             bindService()
             locationService?.setRuntimeState(
                 screenState = screenState,
-                trackingEnabled = true
+                trackingEnabled = true,
             )
             dispatchPendingImmediateLocationRequestIfTrackingEnabled(suffix = "after_tracking_enable")
             ensureConnectionWatchdog()
         } else {
             locationService?.setRuntimeState(
                 screenState = screenState,
-                trackingEnabled = false
+                trackingEnabled = false,
             )
             pendingImmediateLocationRequestSource = null
             if (desiredKeepAppOpen && locationService == null) {
@@ -161,7 +172,7 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
     fun setTrackingEnabled(enabled: Boolean) {
         syncRuntimeState(
             screenState = desiredScreenState,
-            trackingEnabled = enabled
+            trackingEnabled = enabled,
         )
     }
 
@@ -191,7 +202,7 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
     fun setScreenState(state: LocationScreenState) {
         syncRuntimeState(
             screenState = state,
-            trackingEnabled = isTrackingEnabled
+            trackingEnabled = isTrackingEnabled,
         )
     }
 
@@ -250,19 +261,22 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
     private fun shouldSkipUiImmediateRequest(nowElapsedMs: Long): Boolean {
         val snapshot = _gpsSignalSnapshot.value
         val timingProfile = resolveLocationTimingProfile(_effectiveGpsIntervalMs.value)
-        val fixAgeMs = if (snapshot.lastFixElapsedRealtimeMs > 0L) {
-            (nowElapsedMs - snapshot.lastFixElapsedRealtimeMs).coerceAtLeast(0L)
-        } else {
-            snapshot.lastFixAgeMs
-        }
+        val fixAgeMs =
+            if (snapshot.lastFixElapsedRealtimeMs > 0L) {
+                (nowElapsedMs - snapshot.lastFixElapsedRealtimeMs).coerceAtLeast(0L)
+            } else {
+                snapshot.lastFixAgeMs
+            }
         if (fixAgeMs <= 0L || fixAgeMs == Long.MAX_VALUE) return false
-        val serviceFreshnessMaxAgeMs = snapshot.lastFixFreshMaxAgeMs
-            .takeIf { it > 0L }
-            ?: timingProfile.strictFreshFixMaxAgeMs
-        val freshnessMaxAgeMs = minOf(
-            serviceFreshnessMaxAgeMs,
-            timingProfile.uiImmediateSkipMaxAgeMs
-        )
+        val serviceFreshnessMaxAgeMs =
+            snapshot.lastFixFreshMaxAgeMs
+                .takeIf { it > 0L }
+                ?: timingProfile.strictFreshFixMaxAgeMs
+        val freshnessMaxAgeMs =
+            minOf(
+                serviceFreshnessMaxAgeMs,
+                timingProfile.uiImmediateSkipMaxAgeMs,
+            )
         if (fixAgeMs > freshnessMaxAgeMs) return false
         return fixAgeMs <= timingProfile.uiImmediateSkipMaxAgeMs
     }
@@ -270,9 +284,10 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
     private fun bindService() {
         if (isBound || isBindingInProgress) return
         Intent(getApplication(), LocationService::class.java).also { intent ->
-            val bound = runCatching {
-                getApplication<Application>().bindService(intent, connection, Context.BIND_AUTO_CREATE)
-            }.getOrDefault(false)
+            val bound =
+                runCatching {
+                    getApplication<Application>().bindService(intent, connection, Context.BIND_AUTO_CREATE)
+                }.getOrDefault(false)
             if (bound) {
                 isBindingInProgress = true
                 lastBindAttemptAtMs = SystemClock.elapsedRealtime()
@@ -307,7 +322,10 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
         locationService = null
     }
 
-    private fun startService(keepAppOpen: Boolean, trackingEnabled: Boolean) {
+    private fun startService(
+        keepAppOpen: Boolean,
+        trackingEnabled: Boolean,
+    ) {
         val app = getApplication<Application>()
         Intent(app, LocationService::class.java).also { intent ->
             intent.putExtra(LocationService.EXTRA_KEEP_APP_OPEN, keepAppOpen)
@@ -346,29 +364,31 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
     private fun ensureConnectionWatchdog() {
         if (!shouldMaintainConnection()) return
         if (connectionWatchdogJob?.isActive == true) return
-        connectionWatchdogJob = viewModelScope.launch {
-            while (isTrackingEnabled) {
-                delay(CONNECTION_WATCHDOG_INTERVAL_MS)
-                if (!isTrackingEnabled) break
-                if (isBound) continue
-                if (isBindingInProgress) {
-                    val bindAgeMs = if (lastBindAttemptAtMs > 0L) {
-                        (SystemClock.elapsedRealtime() - lastBindAttemptAtMs).coerceAtLeast(0L)
+        connectionWatchdogJob =
+            viewModelScope.launch {
+                while (isTrackingEnabled) {
+                    delay(CONNECTION_WATCHDOG_INTERVAL_MS)
+                    if (!isTrackingEnabled) break
+                    if (isBound) continue
+                    if (isBindingInProgress) {
+                        val bindAgeMs =
+                            if (lastBindAttemptAtMs > 0L) {
+                                (SystemClock.elapsedRealtime() - lastBindAttemptAtMs).coerceAtLeast(0L)
+                            } else {
+                                0L
+                            }
+                        if (bindAgeMs < BIND_ATTEMPT_TIMEOUT_MS) {
+                            continue
+                        }
+                        isBindingInProgress = false
+                        lastBindAttemptAtMs = 0L
+                        logConnection("bind timeout, scheduling reconnect")
                     } else {
-                        0L
+                        logConnection("watchdog detected unbound state, scheduling reconnect")
                     }
-                    if (bindAgeMs < BIND_ATTEMPT_TIMEOUT_MS) {
-                        continue
-                    }
-                    isBindingInProgress = false
-                    lastBindAttemptAtMs = 0L
-                    logConnection("bind timeout, scheduling reconnect")
-                } else {
-                    logConnection("watchdog detected unbound state, scheduling reconnect")
+                    scheduleReconnect(reason = "watchdog")
                 }
-                scheduleReconnect(reason = "watchdog")
             }
-        }
     }
 
     private fun scheduleReconnect(reason: String) {
@@ -379,21 +399,22 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
         reconnectAttempt += 1
         val attempt = reconnectAttempt
         val delayMs = reconnectDelayMs(attempt)
-        reconnectJob = viewModelScope.launch {
-            if (delayMs > 0L) {
-                delay(delayMs)
-            }
-            if (!shouldMaintainConnection() || isBound) {
+        reconnectJob =
+            viewModelScope.launch {
+                if (delayMs > 0L) {
+                    delay(delayMs)
+                }
+                if (!shouldMaintainConnection() || isBound) {
+                    reconnectJob = null
+                    return@launch
+                }
+                logConnection(
+                    "reconnect attempt=$attempt reason=$reason keepOpen=$desiredKeepAppOpen",
+                )
+                startService(keepAppOpen = desiredKeepAppOpen, trackingEnabled = isTrackingEnabled)
+                bindService()
                 reconnectJob = null
-                return@launch
             }
-            logConnection(
-                "reconnect attempt=$attempt reason=$reason keepOpen=$desiredKeepAppOpen"
-            )
-            startService(keepAppOpen = desiredKeepAppOpen, trackingEnabled = isTrackingEnabled)
-            bindService()
-            reconnectJob = null
-        }
     }
 
     private fun stopConnectionRecovery() {
@@ -404,26 +425,26 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
         reconnectAttempt = 0
     }
 
-    private fun reconnectDelayMs(attempt: Int): Long = when (attempt) {
-        1 -> 0L
-        2 -> 2_000L
-        3 -> 5_000L
-        4 -> 10_000L
-        else -> 15_000L
-    }
+    private fun reconnectDelayMs(attempt: Int): Long =
+        when (attempt) {
+            1 -> 0L
+            2 -> 2_000L
+            3 -> 5_000L
+            4 -> 10_000L
+            else -> 15_000L
+        }
 
     private fun logConnection(message: String) {
         DebugTelemetry.log(CONNECTION_TELEMETRY_TAG, message)
     }
-
 }
 
-internal fun shouldForceUiImmediateLocationRequest(source: String): Boolean {
-    return source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX) ||
+internal fun shouldForceUiImmediateLocationRequest(source: String): Boolean =
+    source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX) ||
         source == UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
-}
 
 private const val UI_IMMEDIATE_REQUEST_DEBOUNCE_MS = 1_500L
+
 // Keep wake startup responsive while still avoiding repeated duplicate bursts.
 private const val UI_STARTUP_IMMEDIATE_REQUEST_COOLDOWN_MS = 6_000L
 private const val UI_STARTUP_REQUEST_SOURCE_PREFIX = "ui_startup_fresh_fix"

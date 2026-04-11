@@ -21,7 +21,7 @@ fun DismissableScreen(
     onSwipeLeftNavigate: () -> Unit,
     rightEdgeGestureWidthOverride: Dp? = null,
     edgeGestureTestTag: String? = null,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     val adaptive = rememberWearAdaptiveSpec()
     val leftSwipeThresholdPx = with(LocalDensity.current) { adaptive.edgeSwipeThreshold.toPx() }
@@ -33,37 +33,39 @@ fun DismissableScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 content()
 
-                val edgeGestureModifier = if (edgeGestureTestTag != null) {
-                    Modifier.testTag(edgeGestureTestTag)
-                } else {
-                    Modifier
-                }
+                val edgeGestureModifier =
+                    if (edgeGestureTestTag != null) {
+                        Modifier.testTag(edgeGestureTestTag)
+                    } else {
+                        Modifier
+                    }
 
                 Box(
-                    modifier = edgeGestureModifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight(gestureHeightFraction)
-                        .width(rightEdgeGestureWidth)
-                        .pointerInput(onSwipeLeftNavigate, leftSwipeThresholdPx) {
-                            var totalDx = 0f
-                            detectHorizontalDragGestures(
-                                onDragStart = {
-                                    totalDx = 0f
-                                },
-                                onHorizontalDrag = { _, dragAmount ->
-                                    totalDx += dragAmount
-                                },
-                                onDragCancel = {
-                                    totalDx = 0f
-                                },
-                                onDragEnd = {
-                                    if (totalDx <= -leftSwipeThresholdPx) {
-                                        onSwipeLeftNavigate()
-                                    }
-                                    totalDx = 0f
-                                }
-                            )
-                        }
+                    modifier =
+                        edgeGestureModifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight(gestureHeightFraction)
+                            .width(rightEdgeGestureWidth)
+                            .pointerInput(onSwipeLeftNavigate, leftSwipeThresholdPx) {
+                                var totalDx = 0f
+                                detectHorizontalDragGestures(
+                                    onDragStart = {
+                                        totalDx = 0f
+                                    },
+                                    onHorizontalDrag = { _, dragAmount ->
+                                        totalDx += dragAmount
+                                    },
+                                    onDragCancel = {
+                                        totalDx = 0f
+                                    },
+                                    onDragEnd = {
+                                        if (totalDx <= -leftSwipeThresholdPx) {
+                                            onSwipeLeftNavigate()
+                                        }
+                                        totalDx = 0f
+                                    },
+                                )
+                            },
                 )
             }
         }

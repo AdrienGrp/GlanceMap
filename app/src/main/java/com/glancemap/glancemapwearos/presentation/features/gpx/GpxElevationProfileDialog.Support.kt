@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,7 +20,6 @@ import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -52,19 +50,19 @@ private enum class ProfileSegmentType {
     UPHILL,
     CLIMB,
     DOWNHILL,
-    DESCENT
+    DESCENT,
 }
 
 internal data class ElevationProgressUi(
     val doneDistance: Double,
     val doneAscent: Double,
     val doneDescent: Double,
-    val doneDurationSec: Double?
+    val doneDurationSec: Double?,
 )
 
 internal data class ElevationViewport(
     val startDistance: Double,
-    val endDistance: Double
+    val endDistance: Double,
 ) {
     val span: Double
         get() = (endDistance - startDistance).coerceAtLeast(0.0)
@@ -74,13 +72,14 @@ internal data class ElevationViewport(
 internal fun SwipeHandleHint() {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center
+        horizontalArrangement = Arrangement.Center,
     ) {
         Box(
-            modifier = Modifier
-                .width(26.dp)
-                .height(3.dp)
-                .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50))
+            modifier =
+                Modifier
+                    .width(26.dp)
+                    .height(3.dp)
+                    .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
         )
     }
 }
@@ -89,16 +88,17 @@ internal fun SwipeHandleHint() {
 internal fun CurrentElevationLabel(
     value: String,
     textSize: TextUnit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Text(
         text = value,
         style = MaterialTheme.typography.labelSmall.copy(fontSize = textSize),
         color = Color.White.copy(alpha = 0.92f),
         maxLines = 1,
-        modifier = modifier
-            .background(Color.Black.copy(alpha = 0.40f), RoundedCornerShape(6.dp))
-            .padding(horizontal = 4.dp, vertical = 1.dp)
+        modifier =
+            modifier
+                .background(Color.Black.copy(alpha = 0.40f), RoundedCornerShape(6.dp))
+                .padding(horizontal = 4.dp, vertical = 1.dp),
     )
 }
 
@@ -106,16 +106,17 @@ internal fun CurrentElevationLabel(
 internal fun MovingAxisChip(
     text: String,
     textSize: TextUnit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall.copy(fontSize = textSize),
         color = Color.White.copy(alpha = 0.94f),
         maxLines = 1,
-        modifier = modifier
-            .background(Color.Black.copy(alpha = 0.54f), RoundedCornerShape(7.dp))
-            .padding(horizontal = 5.dp, vertical = 1.dp)
+        modifier =
+            modifier
+                .background(Color.Black.copy(alpha = 0.54f), RoundedCornerShape(7.dp))
+                .padding(horizontal = 5.dp, vertical = 1.dp),
     )
 }
 
@@ -124,12 +125,12 @@ internal fun ElevationDeltaSummaryRow(
     ascentText: String,
     descentText: String,
     iconSize: Dp,
-    textSize: TextUnit
+    textSize: TextUnit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         ElevationDeltaRow(
             icon = Icons.Filled.ArrowDropUp,
@@ -137,7 +138,7 @@ internal fun ElevationDeltaSummaryRow(
             iconTint = Color(0xFFFFC857),
             iconSize = (iconSize - 2.dp).coerceAtLeast(10.dp),
             textSize = textSize,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
         ElevationDeltaRow(
             icon = Icons.Filled.ArrowDropDown,
@@ -145,7 +146,7 @@ internal fun ElevationDeltaSummaryRow(
             iconTint = Color(0xFF73C2FB),
             iconSize = (iconSize - 2.dp).coerceAtLeast(10.dp),
             textSize = textSize,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -157,18 +158,18 @@ private fun ElevationDeltaRow(
     iconTint: Color,
     iconSize: Dp,
     textSize: TextUnit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(iconSize)
+            modifier = Modifier.size(iconSize),
         )
         Text(
             text = valueText,
@@ -176,7 +177,7 @@ private fun ElevationDeltaRow(
             color = Color.White.copy(alpha = 0.92f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -187,34 +188,36 @@ internal fun ElevationLeftScale(
     maxElevationMeters: Double,
     isMetric: Boolean,
     textSize: TextUnit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val top = remember(minElevationMeters, maxElevationMeters, isMetric) {
-        formatElevationScaleTick(maxElevationMeters, isMetric)
-    }
-    val bottom = remember(minElevationMeters, maxElevationMeters, isMetric) {
-        formatElevationScaleTick(minElevationMeters, isMetric)
-    }
+    val top =
+        remember(minElevationMeters, maxElevationMeters, isMetric) {
+            formatElevationScaleTick(maxElevationMeters, isMetric)
+        }
+    val bottom =
+        remember(minElevationMeters, maxElevationMeters, isMetric) {
+            formatElevationScaleTick(minElevationMeters, isMetric)
+        }
     val labelColor = Color.White.copy(alpha = 0.74f)
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.SpaceBetween,
-        horizontalAlignment = Alignment.End
+        horizontalAlignment = Alignment.End,
     ) {
         Text(
             text = top,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = textSize),
             color = labelColor,
             maxLines = 1,
-            textAlign = TextAlign.End
+            textAlign = TextAlign.End,
         )
         Text(
             text = bottom,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = textSize),
             color = labelColor,
             maxLines = 1,
-            textAlign = TextAlign.End
+            textAlign = TextAlign.End,
         )
     }
 }
@@ -227,61 +230,63 @@ internal fun ElevationProfileChart(
     viewport: ElevationViewport,
     plotTopInset: Dp,
     plotBottomInset: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val backgroundColor = Color.White.copy(alpha = 0.16f)
     val gridColor = Color.White.copy(alpha = 0.14f)
     val baselineColor = Color.White.copy(alpha = 0.24f)
     val axisColor = Color.White.copy(alpha = 0.30f)
-    val drawingRange = remember(samples, viewport) {
-        drawingSampleIndexRange(samples = samples, viewport = viewport)
-    }
-    val selectionRange = remember(samples, viewport) {
-        selectionSampleIndexRange(samples = samples, viewport = viewport)
-    }
+    val drawingRange =
+        remember(samples, viewport) {
+            drawingSampleIndexRange(samples = samples, viewport = viewport)
+        }
+    val selectionRange =
+        remember(samples, viewport) {
+            selectionSampleIndexRange(samples = samples, viewport = viewport)
+        }
 
     Canvas(
-        modifier = modifier
-            .background(backgroundColor, RoundedCornerShape(10.dp))
-            .pointerInput(samples, viewport, selectionRange) {
-                detectTapGestures { offset ->
-                    onSelectIndex(
-                        indexFromX(
-                            x = offset.x,
-                            width = size.width.toFloat(),
-                            samples = samples,
-                            viewport = viewport,
-                            selectionRange = selectionRange
-                        )
-                    )
-                }
-            }
-            .pointerInput(samples, viewport, selectionRange) {
-                detectDragGestures(
-                    onDragStart = { offset ->
+        modifier =
+            modifier
+                .background(backgroundColor, RoundedCornerShape(10.dp))
+                .pointerInput(samples, viewport, selectionRange) {
+                    detectTapGestures { offset ->
                         onSelectIndex(
                             indexFromX(
                                 x = offset.x,
                                 width = size.width.toFloat(),
                                 samples = samples,
                                 viewport = viewport,
-                                selectionRange = selectionRange
-                            )
+                                selectionRange = selectionRange,
+                            ),
                         )
                     }
-                ) { change, _ ->
-                    change.consume()
-                    onSelectIndex(
-                        indexFromX(
-                            x = change.position.x,
-                            width = size.width.toFloat(),
-                            samples = samples,
-                            viewport = viewport,
-                            selectionRange = selectionRange
+                }.pointerInput(samples, viewport, selectionRange) {
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            onSelectIndex(
+                                indexFromX(
+                                    x = offset.x,
+                                    width = size.width.toFloat(),
+                                    samples = samples,
+                                    viewport = viewport,
+                                    selectionRange = selectionRange,
+                                ),
+                            )
+                        },
+                    ) { change, _ ->
+                        change.consume()
+                        onSelectIndex(
+                            indexFromX(
+                                x = change.position.x,
+                                width = size.width.toFloat(),
+                                samples = samples,
+                                viewport = viewport,
+                                selectionRange = selectionRange,
+                            ),
                         )
-                    )
-                }
-            }
+                    }
+                },
     ) {
         if (samples.size < 2) return@Canvas
 
@@ -298,22 +303,24 @@ internal fun ElevationProfileChart(
         val plotBottomY = (size.height - bottomInsetPx).coerceAtLeast(plotTopY + 1f)
         val plotHeight = (plotBottomY - plotTopY).coerceAtLeast(1f)
 
-        val points = (drawingRange.first..drawingRange.last).map { index ->
-            val sample = samples[index]
-            val x = (((sample.distance - minDistance) / distanceRange).toFloat()) * size.width
-            val y = plotBottomY - (((sample.elevation - minElevation) / elevationRange).toFloat() * plotHeight)
-            Offset(x, y)
-        }
-
-        val fillPath = Path().apply {
-            moveTo(points.first().x, plotBottomY)
-            lineTo(points.first().x, points.first().y)
-            for (i in 1..points.lastIndex) {
-                lineTo(points[i].x, points[i].y)
+        val points =
+            (drawingRange.first..drawingRange.last).map { index ->
+                val sample = samples[index]
+                val x = (((sample.distance - minDistance) / distanceRange).toFloat()) * size.width
+                val y = plotBottomY - (((sample.elevation - minElevation) / elevationRange).toFloat() * plotHeight)
+                Offset(x, y)
             }
-            lineTo(points.last().x, plotBottomY)
-            close()
-        }
+
+        val fillPath =
+            Path().apply {
+                moveTo(points.first().x, plotBottomY)
+                lineTo(points.first().x, points.first().y)
+                for (i in 1..points.lastIndex) {
+                    lineTo(points[i].x, points[i].y)
+                }
+                lineTo(points.last().x, plotBottomY)
+                close()
+            }
 
         listOf(0.25f, 0.5f, 0.75f).forEach { fraction ->
             val y = plotTopY + (plotHeight * fraction)
@@ -321,7 +328,7 @@ internal fun ElevationProfileChart(
                 color = gridColor,
                 start = Offset(0f, y),
                 end = Offset(size.width, y),
-                strokeWidth = 1.dp.toPx()
+                strokeWidth = 1.dp.toPx(),
             )
         }
 
@@ -330,14 +337,14 @@ internal fun ElevationProfileChart(
             color = axisColor,
             start = Offset(yAxisX, plotTopY),
             end = Offset(yAxisX, plotBottomY),
-            strokeWidth = 1.dp.toPx()
+            strokeWidth = 1.dp.toPx(),
         )
 
         drawLine(
             color = baselineColor,
             start = Offset(0f, plotBottomY),
             end = Offset(size.width, plotBottomY),
-            strokeWidth = 1.dp.toPx()
+            strokeWidth = 1.dp.toPx(),
         )
         drawPath(path = fillPath, color = Color.White.copy(alpha = 0.05f))
 
@@ -350,7 +357,7 @@ internal fun ElevationProfileChart(
                 start = points[i - 1],
                 end = points[i],
                 strokeWidth = 2.5.dp.toPx(),
-                cap = StrokeCap.Round
+                cap = StrokeCap.Round,
             )
         }
 
@@ -361,36 +368,39 @@ internal fun ElevationProfileChart(
             color = Color.White.copy(alpha = 0.56f),
             start = Offset(cursorPoint.x, plotTopY),
             end = Offset(cursorPoint.x, plotBottomY),
-            strokeWidth = 1.dp.toPx()
+            strokeWidth = 1.dp.toPx(),
         )
         drawLine(
             color = axisTickColor,
             start = Offset(yAxisX, cursorPoint.y),
             end = Offset((yAxisX + 7.dp.toPx()).coerceAtMost(size.width), cursorPoint.y),
             strokeWidth = 1.8.dp.toPx(),
-            cap = StrokeCap.Round
+            cap = StrokeCap.Round,
         )
         drawLine(
             color = axisTickColor,
             start = Offset(cursorPoint.x, plotBottomY),
             end = Offset(cursorPoint.x, (plotBottomY - 7.dp.toPx()).coerceAtLeast(plotTopY)),
             strokeWidth = 1.8.dp.toPx(),
-            cap = StrokeCap.Round
+            cap = StrokeCap.Round,
         )
         drawCircle(
             color = Color.Black.copy(alpha = 0.7f),
             radius = 3.4.dp.toPx(),
-            center = cursorPoint
+            center = cursorPoint,
         )
         drawCircle(
             color = Color.White,
             radius = 2.2.dp.toPx(),
-            center = cursorPoint
+            center = cursorPoint,
         )
     }
 }
 
-private fun classifySegment(from: ElevationSample, to: ElevationSample): ProfileSegmentType {
+private fun classifySegment(
+    from: ElevationSample,
+    to: ElevationSample,
+): ProfileSegmentType {
     val distanceDelta = (to.distance - from.distance).coerceAtLeast(0.0)
     if (distanceDelta <= 0.0) return ProfileSegmentType.FLAT
 
@@ -404,22 +414,21 @@ private fun classifySegment(from: ElevationSample, to: ElevationSample): Profile
     }
 }
 
-private fun segmentColor(type: ProfileSegmentType): Color {
-    return when (type) {
+private fun segmentColor(type: ProfileSegmentType): Color =
+    when (type) {
         ProfileSegmentType.FLAT -> Color(0xFFD9E3EA)
         ProfileSegmentType.UPHILL -> Color(0xFFFFC857)
         ProfileSegmentType.CLIMB -> Color(0xFFFF8A3C)
         ProfileSegmentType.DOWNHILL -> Color(0xFF73C2FB)
         ProfileSegmentType.DESCENT -> Color(0xFF3B82F6)
     }
-}
 
 internal fun selectedElevationBiasY(
     samples: List<ElevationSample>,
     selectedIndex: Int,
     chartHeightPx: Float,
     plotTopInsetPx: Float,
-    plotBottomInsetPx: Float
+    plotBottomInsetPx: Float,
 ): Float {
     if (samples.isEmpty() || chartHeightPx <= 0f) return 0f
 
@@ -433,17 +442,18 @@ internal fun selectedElevationBiasY(
     val plotHeight = (plotBottomY - plotTopY).coerceAtLeast(1f)
 
     val normalized = ((selected - minElevation) / range).toFloat().coerceIn(0f, 1f)
-    val y = (plotBottomY - (normalized * plotHeight)).coerceIn(
-        minimumValue = plotTopY + 6f,
-        maximumValue = plotBottomY - 6f
-    )
+    val y =
+        (plotBottomY - (normalized * plotHeight)).coerceIn(
+            minimumValue = plotTopY + 6f,
+            maximumValue = plotBottomY - 6f,
+        )
 
     return ((y / chartHeightPx) * 2f - 1f).coerceIn(-1f, 1f)
 }
 
 internal fun computeElevationProgress(
     profile: GpxElevationProfileUiState,
-    selectedIndex: Int
+    selectedIndex: Int,
 ): ElevationProgressUi? {
     if (profile.samples.isEmpty()) return null
 
@@ -455,13 +465,13 @@ internal fun computeElevationProgress(
         doneDistance = doneDistance,
         doneAscent = sample.cumulativeAscent.coerceAtLeast(0.0),
         doneDescent = sample.cumulativeDescent.coerceAtLeast(0.0),
-        doneDurationSec = doneDurationSec
+        doneDurationSec = doneDurationSec,
     )
 }
 
 internal fun computeMinimumVisibleDistance(
     samples: List<ElevationSample>,
-    totalDistance: Double
+    totalDistance: Double,
 ): Double {
     if (samples.size < 2 || totalDistance <= 0.0) return totalDistance.coerceAtLeast(0.0)
 
@@ -476,30 +486,33 @@ internal fun zoomViewportAroundDistance(
     anchorDistance: Double,
     totalDistance: Double,
     minimumSpan: Double,
-    zoomIn: Boolean
+    zoomIn: Boolean,
 ): ElevationViewport {
     if (totalDistance <= 0.0) return current
 
-    val clampedCurrent = clampViewport(
-        viewport = current,
-        totalDistance = totalDistance,
-        minimumSpan = minimumSpan
-    )
+    val clampedCurrent =
+        clampViewport(
+            viewport = current,
+            totalDistance = totalDistance,
+            minimumSpan = minimumSpan,
+        )
     val currentSpan = clampedCurrent.span.takeIf { it > 0.0 } ?: return clampedCurrent
-    val targetSpan = if (zoomIn) {
-        (currentSpan * ProfileZoomStepFactor).coerceAtLeast(minimumSpan)
-    } else {
-        (currentSpan / ProfileZoomStepFactor).coerceAtMost(totalDistance)
-    }
+    val targetSpan =
+        if (zoomIn) {
+            (currentSpan * ProfileZoomStepFactor).coerceAtLeast(minimumSpan)
+        } else {
+            (currentSpan / ProfileZoomStepFactor).coerceAtMost(totalDistance)
+        }
     if (kotlin.math.abs(targetSpan - currentSpan) < 0.5) {
         return clampedCurrent
     }
 
-    val anchorRatio = if (currentSpan > 0.0) {
-        ((anchorDistance - clampedCurrent.startDistance) / currentSpan).coerceIn(0.0, 1.0)
-    } else {
-        0.5
-    }
+    val anchorRatio =
+        if (currentSpan > 0.0) {
+            ((anchorDistance - clampedCurrent.startDistance) / currentSpan).coerceIn(0.0, 1.0)
+        } else {
+            0.5
+        }
     var start = anchorDistance - (targetSpan * anchorRatio)
     var end = start + targetSpan
     if (start < 0.0) {
@@ -515,31 +528,32 @@ internal fun zoomViewportAroundDistance(
     return clampViewport(
         viewport = ElevationViewport(startDistance = start, endDistance = end),
         totalDistance = totalDistance,
-        minimumSpan = minimumSpan
+        minimumSpan = minimumSpan,
     )
 }
 
 internal fun clampViewport(
     viewport: ElevationViewport,
     totalDistance: Double,
-    minimumSpan: Double
+    minimumSpan: Double,
 ): ElevationViewport {
     if (totalDistance <= 0.0) return ElevationViewport(0.0, 0.0)
 
-    val targetSpan = viewport.span
-        .coerceAtLeast(minimumSpan.coerceAtMost(totalDistance))
-        .coerceAtMost(totalDistance)
+    val targetSpan =
+        viewport.span
+            .coerceAtLeast(minimumSpan.coerceAtMost(totalDistance))
+            .coerceAtMost(totalDistance)
     val maxStart = (totalDistance - targetSpan).coerceAtLeast(0.0)
     val start = viewport.startDistance.coerceIn(0.0, maxStart)
     return ElevationViewport(
         startDistance = start,
-        endDistance = (start + targetSpan).coerceIn(0.0, totalDistance)
+        endDistance = (start + targetSpan).coerceIn(0.0, totalDistance),
     )
 }
 
 private fun selectionSampleIndexRange(
     samples: List<ElevationSample>,
-    viewport: ElevationViewport
+    viewport: ElevationViewport,
 ): IntRange {
     if (samples.isEmpty()) return 0..0
     if (samples.size == 1) return 0..0
@@ -557,7 +571,7 @@ private fun selectionSampleIndexRange(
 
 private fun drawingSampleIndexRange(
     samples: List<ElevationSample>,
-    viewport: ElevationViewport
+    viewport: ElevationViewport,
 ): IntRange {
     if (samples.isEmpty()) return 0..0
     if (samples.size == 1) return 0..0
@@ -574,7 +588,7 @@ private fun indexFromX(
     width: Float,
     samples: List<ElevationSample>,
     viewport: ElevationViewport,
-    selectionRange: IntRange
+    selectionRange: IntRange,
 ): Int {
     if (samples.isEmpty() || width <= 0f) return 0
     if (selectionRange.first >= selectionRange.last) {
@@ -587,13 +601,13 @@ private fun indexFromX(
         samples = samples,
         targetDistance = targetDistance,
         startIndex = selectionRange.first,
-        endIndex = selectionRange.last
+        endIndex = selectionRange.last,
     )
 }
 
 private fun findFirstSampleIndexAtOrAfter(
     samples: List<ElevationSample>,
-    distance: Double
+    distance: Double,
 ): Int {
     val index = samples.binarySearchBy(distance) { it.distance }
     return if (index >= 0) index else (-index - 1).coerceIn(0, samples.lastIndex)
@@ -601,7 +615,7 @@ private fun findFirstSampleIndexAtOrAfter(
 
 private fun findLastSampleIndexAtOrBefore(
     samples: List<ElevationSample>,
-    distance: Double
+    distance: Double,
 ): Int {
     val index = samples.binarySearchBy(distance) { it.distance }
     return if (index >= 0) index else (-index - 2).coerceIn(0, samples.lastIndex)
@@ -609,21 +623,20 @@ private fun findLastSampleIndexAtOrBefore(
 
 private fun findNearestSampleIndex(
     samples: List<ElevationSample>,
-    targetDistance: Double
-): Int {
-    return findNearestSampleIndexInRange(
+    targetDistance: Double,
+): Int =
+    findNearestSampleIndexInRange(
         samples = samples,
         targetDistance = targetDistance,
         startIndex = 0,
-        endIndex = samples.lastIndex
+        endIndex = samples.lastIndex,
     )
-}
 
 private fun findNearestSampleIndexInRange(
     samples: List<ElevationSample>,
     targetDistance: Double,
     startIndex: Int,
-    endIndex: Int
+    endIndex: Int,
 ): Int {
     if (samples.isEmpty()) return 0
     val safeStart = startIndex.coerceIn(0, samples.lastIndex)
@@ -642,12 +655,16 @@ private fun findNearestSampleIndexInRange(
     return if (rightDistanceDelta < leftDistanceDelta) rightIndex else leftIndex
 }
 
-internal fun formatDistanceScaleText(meters: Double, isMetric: Boolean): String {
-    val value = if (isMetric) {
-        meters / 1000.0
-    } else {
-        meters * 0.000621371
-    }
+internal fun formatDistanceScaleText(
+    meters: Double,
+    isMetric: Boolean,
+): String {
+    val value =
+        if (isMetric) {
+            meters / 1000.0
+        } else {
+            meters * 0.000621371
+        }
     val unit = if (isMetric) "km" else "mi"
 
     if (value < 0.05) {
@@ -656,25 +673,33 @@ internal fun formatDistanceScaleText(meters: Double, isMetric: Boolean): String 
     return String.format(Locale.getDefault(), "%.1f %s", value, unit)
 }
 
-internal fun formatElevationText(meters: Double, isMetric: Boolean): String {
+internal fun formatElevationText(
+    meters: Double,
+    isMetric: Boolean,
+): String {
     val (value, unit) = UnitFormatter.formatElevation(meters, isMetric)
     return "$value $unit"
 }
 
-internal fun formatElevationCompactText(meters: Double, isMetric: Boolean): String {
+internal fun formatElevationCompactText(
+    meters: Double,
+    isMetric: Boolean,
+): String {
     val (value, unit) = UnitFormatter.formatElevation(meters, isMetric)
     return "$value$unit"
 }
 
-internal fun formatElevationScaleTick(meters: Double, isMetric: Boolean): String {
-    val value = if (isMetric) {
-        meters
-    } else {
-        meters * 3.28084
-    }
+internal fun formatElevationScaleTick(
+    meters: Double,
+    isMetric: Boolean,
+): String {
+    val value =
+        if (isMetric) {
+            meters
+        } else {
+            meters * 3.28084
+        }
     return String.format(Locale.getDefault(), "%,d", value.roundToInt())
 }
 
-internal fun formatDurationText(seconds: Double?): String {
-    return DurationFormatter.formatDurationShort(seconds)
-}
+internal fun formatDurationText(seconds: Double?): String = DurationFormatter.formatDurationShort(seconds)

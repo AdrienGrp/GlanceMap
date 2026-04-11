@@ -15,12 +15,15 @@ import com.glancemap.glancemapwearos.core.routing.routingSegmentsDir
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.data.repository.MapRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
-import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeSelection
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepository
+import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeSelection
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
 import com.glancemap.glancemapwearos.presentation.SyncManager
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.bundled.BundledAssetThemeComposer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,9 +33,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
@@ -49,20 +49,20 @@ data class MapFileState(
     val routingCoverageKnown: Boolean = false,
     val routingRequiredSegments: Int = 0,
     val routingAvailableSegments: Int = 0,
-    val routingReady: Boolean = false
+    val routingReady: Boolean = false,
 )
 
 data class RoutingPackFileState(
     val name: String,
     val path: String,
     val sizeBytes: Long,
-    val modifiedAtMillis: Long
+    val modifiedAtMillis: Long,
 )
 
 private data class OfflineViewportSnapshot(
     val contextKey: String,
     val center: org.mapsforge.core.model.LatLong,
-    val zoomLevel: Int
+    val zoomLevel: Int,
 )
 
 class MapViewModel(
@@ -70,7 +70,7 @@ class MapViewModel(
     private val settingsRepository: SettingsRepository,
     private val mapRepository: MapRepository,
     private val syncManager: SyncManager,
-    private val themeRepository: ThemeRepository
+    private val themeRepository: ThemeRepository,
 ) : ViewModel() {
     companion object {
         private const val MAP_APPEARANCE_APPLY_INDICATOR_MIN_MS = 900L
@@ -91,8 +91,9 @@ class MapViewModel(
     private val _mapAppearanceApplyInProgress = MutableStateFlow(false)
     val mapAppearanceApplyInProgress: StateFlow<Boolean> = _mapAppearanceApplyInProgress.asStateFlow()
 
-    val selectedMapPath: StateFlow<String?> = settingsRepository.selectedMapPath
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val selectedMapPath: StateFlow<String?> =
+        settingsRepository.selectedMapPath
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private var mapRenderer: MapRenderer? = null
     private val themeComposer = BundledAssetThemeComposer(context)
@@ -133,8 +134,7 @@ class MapViewModel(
             .onEach { newPath ->
                 handleSelectedMapPathChanged(newPath)
                 requestMapLayerUpdate(newPath)
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
 
         settingsRepository.isMetric
             .distinctUntilChanged()
@@ -145,18 +145,17 @@ class MapViewModel(
                 } else {
                     rendererConfigApplyPending = true
                 }
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
 
         syncManager.mapSyncRequest
             .onEach {
                 loadMapFiles()
                 loadRoutingPackFiles()
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
 
         viewModelScope.launch {
-            themeRepository.getThemeSelection()
+            themeRepository
+                .getThemeSelection()
                 .distinctUntilChanged()
                 .collectLatest { selection ->
                     val showIndicator = hasConsumedInitialThemeSelection
@@ -166,7 +165,7 @@ class MapViewModel(
                     }
                     handleThemeSelection(
                         selection = selection,
-                        showIndicator = showIndicator
+                        showIndicator = showIndicator,
                     )
                 }
         }
@@ -176,7 +175,7 @@ class MapViewModel(
         context: Context,
         zoomDefault: Int,
         zoomMin: Int,
-        zoomMax: Int
+        zoomMax: Int,
     ): MapHolder {
         mapHolder?.let { existing ->
             if (lastZoomMin != zoomMin) {
@@ -195,18 +194,19 @@ class MapViewModel(
         val appContext = context.applicationContext
         AndroidGraphicFactory.createInstance(appContext)
 
-        val mv = MapView(appContext).apply {
-            isClickable = true
-            isFocusable = true
-            isFocusableInTouchMode = true
+        val mv =
+            MapView(appContext).apply {
+                isClickable = true
+                isFocusable = true
+                isFocusableInTouchMode = true
 
-            setZoomLevelMin(zoomMin.toByte())
-            setZoomLevelMax(zoomMax.toByte())
-            model.mapViewPosition.setZoomLevel(zoomDefault.toByte(), false)
+                setZoomLevelMin(zoomMin.toByte())
+                setZoomLevelMax(zoomMax.toByte())
+                model.mapViewPosition.setZoomLevel(zoomDefault.toByte(), false)
 
-            setBuiltInZoomControls(false)
-            mapScaleBar.isVisible = false
-        }
+                setBuiltInZoomControls(false)
+                mapScaleBar.isVisible = false
+            }
 
         val renderer = MapRenderer(appContext, mv)
         val holder = MapHolder(mv, renderer)
@@ -237,7 +237,7 @@ class MapViewModel(
 
     fun shouldApplyOfflineStartCenter(
         selectedMapPath: String?,
-        activeGpxDetails: List<GpxTrackDetails>
+        activeGpxDetails: List<GpxTrackDetails>,
     ): Boolean {
         val contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
         if (offlineStartCenterContextKey != contextKey) {
@@ -252,7 +252,7 @@ class MapViewModel(
 
     fun markOfflineStartCenterHandled(
         selectedMapPath: String?,
-        activeGpxDetails: List<GpxTrackDetails>
+        activeGpxDetails: List<GpxTrackDetails>,
     ) {
         offlineStartCenterContextKey =
             buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
@@ -267,7 +267,7 @@ class MapViewModel(
 
     fun shouldForceOfflineStartCenter(
         selectedMapPath: String?,
-        activeGpxDetails: List<GpxTrackDetails>
+        activeGpxDetails: List<GpxTrackDetails>,
     ): Boolean {
         val contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
         if (forcedOfflineStartCenterContextKey == contextKey) return true
@@ -282,7 +282,7 @@ class MapViewModel(
 
     fun consumeForcedOfflineStartCenter(
         selectedMapPath: String?,
-        activeGpxDetails: List<GpxTrackDetails>
+        activeGpxDetails: List<GpxTrackDetails>,
     ) {
         val contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
         if (forcedOfflineStartCenterContextKey == contextKey) {
@@ -294,21 +294,22 @@ class MapViewModel(
         selectedMapPath: String?,
         activeGpxDetails: List<GpxTrackDetails>,
         center: org.mapsforge.core.model.LatLong?,
-        zoomLevel: Int
+        zoomLevel: Int,
     ) {
         if (center == null) return
         if (!center.latitude.isFinite() || !center.longitude.isFinite()) return
 
-        offlineViewportSnapshot = OfflineViewportSnapshot(
-            contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails),
-            center = center,
-            zoomLevel = zoomLevel
-        )
+        offlineViewportSnapshot =
+            OfflineViewportSnapshot(
+                contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails),
+                center = center,
+                zoomLevel = zoomLevel,
+            )
     }
 
     fun restoreOfflineViewport(
         selectedMapPath: String?,
-        activeGpxDetails: List<GpxTrackDetails>
+        activeGpxDetails: List<GpxTrackDetails>,
     ): Pair<org.mapsforge.core.model.LatLong, Int>? {
         val snapshot = offlineViewportSnapshot ?: return null
         val contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
@@ -316,10 +317,13 @@ class MapViewModel(
         return snapshot.center to snapshot.zoomLevel
     }
 
-    fun getCurrentMapCenter(): org.mapsforge.core.model.LatLong? {
-        return mapHolder?.mapView?.model?.mapViewPosition?.center
+    fun getCurrentMapCenter(): org.mapsforge.core.model.LatLong? =
+        mapHolder
+            ?.mapView
+            ?.model
+            ?.mapViewPosition
+            ?.center
             ?: offlineViewportSnapshot?.center
-    }
 
     fun setMapRenderer(renderer: MapRenderer?) {
         mapRenderer = renderer
@@ -346,24 +350,25 @@ class MapViewModel(
     fun loadMapFiles() {
         viewModelScope.launch {
             val files = mapRepository.listMapFiles()
-            val states = withContext(Dispatchers.IO) {
-                files.map { file ->
-                    val coverage = Dem3CoverageUtils.coverageForMap(context, file)
-                    val routingCoverage = RoutingCoverageUtils.coverageForMap(context, file)
-                    MapFileState(
-                        name = file.name,
-                        path = file.absolutePath,
-                        demCoverageKnown = coverage.isCoverageKnown,
-                        demRequiredTiles = coverage.requiredTiles,
-                        demAvailableTiles = coverage.availableTiles,
-                        demReady = coverage.isReady,
-                        routingCoverageKnown = routingCoverage.isCoverageKnown,
-                        routingRequiredSegments = routingCoverage.requiredSegments,
-                        routingAvailableSegments = routingCoverage.availableSegments,
-                        routingReady = routingCoverage.isReady
-                    )
+            val states =
+                withContext(Dispatchers.IO) {
+                    files.map { file ->
+                        val coverage = Dem3CoverageUtils.coverageForMap(context, file)
+                        val routingCoverage = RoutingCoverageUtils.coverageForMap(context, file)
+                        MapFileState(
+                            name = file.name,
+                            path = file.absolutePath,
+                            demCoverageKnown = coverage.isCoverageKnown,
+                            demRequiredTiles = coverage.requiredTiles,
+                            demAvailableTiles = coverage.availableTiles,
+                            demReady = coverage.isReady,
+                            routingCoverageKnown = routingCoverage.isCoverageKnown,
+                            routingRequiredSegments = routingCoverage.requiredSegments,
+                            routingAvailableSegments = routingCoverage.availableSegments,
+                            routingReady = routingCoverage.isReady,
+                        )
+                    }
                 }
-            }
             _mapFiles.value = states
 
             val currentPath = selectedMapPath.value
@@ -378,23 +383,23 @@ class MapViewModel(
 
     fun loadRoutingPackFiles() {
         viewModelScope.launch {
-            val states = withContext(Dispatchers.IO) {
-                routingSegmentsDir(context)
-                    .listFiles()
-                    ?.asSequence()
-                    ?.filter { it.isFile && isRoutingSegmentFileName(it.name) }
-                    ?.sortedBy { it.name.lowercase() }
-                    ?.map { file ->
-                        RoutingPackFileState(
-                            name = file.name,
-                            path = file.absolutePath,
-                            sizeBytes = file.length(),
-                            modifiedAtMillis = file.lastModified()
-                        )
-                    }
-                    ?.toList()
-                    .orEmpty()
-            }
+            val states =
+                withContext(Dispatchers.IO) {
+                    routingSegmentsDir(context)
+                        .listFiles()
+                        ?.asSequence()
+                        ?.filter { it.isFile && isRoutingSegmentFileName(it.name) }
+                        ?.sortedBy { it.name.lowercase() }
+                        ?.map { file ->
+                            RoutingPackFileState(
+                                name = file.name,
+                                path = file.absolutePath,
+                                sizeBytes = file.length(),
+                                modifiedAtMillis = file.lastModified(),
+                            )
+                        }?.toList()
+                        .orEmpty()
+                }
             _routingPackFiles.value = states
         }
     }
@@ -402,11 +407,14 @@ class MapViewModel(
     fun deleteMapFile(path: String) {
         viewModelScope.launch {
             val mapToDelete = File(path)
-            val demTilesToDelete = withContext(Dispatchers.IO) {
-                val remaining = mapRepository.listMapFiles()
-                    .filterNot { it.absolutePath == path }
-                Dem3CoverageUtils.tilesToDeleteForMap(mapToDelete, remaining)
-            }
+            val demTilesToDelete =
+                withContext(Dispatchers.IO) {
+                    val remaining =
+                        mapRepository
+                            .listMapFiles()
+                            .filterNot { it.absolutePath == path }
+                    Dem3CoverageUtils.tilesToDeleteForMap(mapToDelete, remaining)
+                }
 
             if (mapRepository.deleteMapFile(path)) {
                 withContext(Dispatchers.IO) {
@@ -464,14 +472,15 @@ class MapViewModel(
     fun renameMapFile(
         filePath: String,
         newName: String,
-        onComplete: (Result<Unit>) -> Unit
+        onComplete: (Result<Unit>) -> Unit,
     ) {
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    mapRepository.renameMapFile(path = filePath, newName = newName)
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        mapRepository.renameMapFile(path = filePath, newName = newName)
+                    }
                 }
-            }
 
             result.onSuccess { renamedFile ->
                 val wasSelected = selectedMapPath.value == filePath
@@ -499,9 +508,10 @@ class MapViewModel(
     }
 
     suspend fun clearDerivedCaches(): AppDerivedCacheCleanupResult {
-        val result = withContext(Dispatchers.IO) {
-            AppDerivedCacheCleaner.clear(context)
-        }
+        val result =
+            withContext(Dispatchers.IO) {
+                AppDerivedCacheCleaner.clear(context)
+            }
         Dem3CoverageUtils.clearCaches()
         RoutingCoverageUtils.clearCaches()
         requestExternalCacheClear()
@@ -512,14 +522,14 @@ class MapViewModel(
 
     private suspend fun applyThemeSelection(
         selection: ThemeSelection,
-        awaitVisibleContent: Boolean
+        awaitVisibleContent: Boolean,
     ) {
         val timingMarker = MapHotPathDiagnostics.begin("mapViewModel.applyThemeSelection")
         var timingStatus = "ok"
         var themeApplyResult = MapRenderer.ThemeApplyResult()
         Log.d(
             "Theme",
-            "Selection theme=${selection.themeId} mapsforge=${selection.mapsforgeThemeName} style=${selection.styleId} overlays=${selection.enabledOverlayLayerIds} hillShading=${selection.hillShadingEnabled} reliefOverlay=${selection.reliefOverlayEnabled}"
+            "Selection theme=${selection.themeId} mapsforge=${selection.mapsforgeThemeName} style=${selection.styleId} overlays=${selection.enabledOverlayLayerIds} hillShading=${selection.hillShadingEnabled} reliefOverlay=${selection.reliefOverlayEnabled}",
         )
         try {
             latestHillShadingEnabled = selection.hillShadingEnabled
@@ -538,23 +548,25 @@ class MapViewModel(
                     return
                 }
                 latestBundledThemeId = bundledThemeId
-                latestThemeFile = withContext(Dispatchers.IO) {
-                    themeComposer.createDynamicThemeFileOrNull(
-                        themeId = latestBundledThemeId,
-                        styleId = selection.styleId,
-                        enabledOverlayLayerIds = selection.enabledOverlayLayerIds,
-                        hillShadingEnabled = selection.hillShadingEnabled
-                    )
-                }
+                latestThemeFile =
+                    withContext(Dispatchers.IO) {
+                        themeComposer.createDynamicThemeFileOrNull(
+                            themeId = latestBundledThemeId,
+                            styleId = selection.styleId,
+                            enabledOverlayLayerIds = selection.enabledOverlayLayerIds,
+                            hillShadingEnabled = selection.hillShadingEnabled,
+                        )
+                    }
                 latestMapsforgeThemeName = null
-                timingStatus = if (latestThemeFile == null) {
-                    "bundled_default_theme"
-                } else {
-                    "bundled_dynamic_theme"
-                }
+                timingStatus =
+                    if (latestThemeFile == null) {
+                        "bundled_default_theme"
+                    } else {
+                        "bundled_dynamic_theme"
+                    }
                 Log.d(
                     "Theme",
-                    "Theme file=${latestThemeFile?.absolutePath} len=${latestThemeFile?.length()} lm=${latestThemeFile?.lastModified()}"
+                    "Theme file=${latestThemeFile?.absolutePath} len=${latestThemeFile?.length()} lm=${latestThemeFile?.lastModified()}",
                 )
             }
 
@@ -566,7 +578,7 @@ class MapViewModel(
             ) {
                 renderer.awaitTileCacheUpdateAfter(
                     baselineVersion = themeApplyResult.tileUpdateBaselineVersion,
-                    timeoutMs = MAP_APPEARANCE_VISIBLE_TILE_TIMEOUT_MS
+                    timeoutMs = MAP_APPEARANCE_VISIBLE_TILE_TIMEOUT_MS,
                 )
                 delay(MAP_APPEARANCE_VISIBLE_TILE_SETTLE_MS)
             }
@@ -574,21 +586,22 @@ class MapViewModel(
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = buildString {
-                    append("theme=").append(selection.themeId)
-                    append(" mapsforge=").append(selection.mapsforgeThemeName != null)
-                    append(" overlays=").append(selection.enabledOverlayLayerIds.size)
-                    append(" hill=").append(selection.hillShadingEnabled)
-                    append(" relief=").append(selection.reliefOverlayEnabled)
-                    append(" visibleWait=").append(themeApplyResult.requiresVisibleTileWait)
-                }
+                detail =
+                    buildString {
+                        append("theme=").append(selection.themeId)
+                        append(" mapsforge=").append(selection.mapsforgeThemeName != null)
+                        append(" overlays=").append(selection.enabledOverlayLayerIds.size)
+                        append(" hill=").append(selection.hillShadingEnabled)
+                        append(" relief=").append(selection.reliefOverlayEnabled)
+                        append(" visibleWait=").append(themeApplyResult.requiresVisibleTileWait)
+                    },
             )
         }
     }
 
     private fun handleThemeSelection(
         selection: ThemeSelection,
-        showIndicator: Boolean
+        showIndicator: Boolean,
     ) {
         if (themeRenderingDeferred) {
             pendingThemeSelection = selection
@@ -599,56 +612,60 @@ class MapViewModel(
         pendingThemeSelectionShowsIndicator = false
         submitThemeSelection(
             selection = selection,
-            showIndicator = showIndicator
+            showIndicator = showIndicator,
         )
     }
 
     private fun scheduleInitialBundledThemePrewarm(selection: ThemeSelection) {
-        val bundledThemeId = selection.themeId
-            .takeIf { MapsforgeThemeCatalog.isBundledAssetTheme(it) }
-            ?: return
+        val bundledThemeId =
+            selection.themeId
+                .takeIf { MapsforgeThemeCatalog.isBundledAssetTheme(it) }
+                ?: return
         if (lastPrewarmedBundledThemeId == bundledThemeId) return
 
         lastPrewarmedBundledThemeId = bundledThemeId
         themePrewarmJob?.cancel()
-        themePrewarmJob = viewModelScope.launch(Dispatchers.IO) {
-            delay(INITIAL_THEME_PREWARM_DELAY_MS)
-            runCatching { themeComposer.prewarmThemeAssets(bundledThemeId) }
-                .onFailure { error ->
-                    Log.w("Theme", "Failed to prewarm bundled theme assets for $bundledThemeId", error)
-                }
-        }
+        themePrewarmJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                delay(INITIAL_THEME_PREWARM_DELAY_MS)
+                runCatching { themeComposer.prewarmThemeAssets(bundledThemeId) }
+                    .onFailure { error ->
+                        Log.w("Theme", "Failed to prewarm bundled theme assets for $bundledThemeId", error)
+                    }
+            }
     }
 
     private fun submitThemeSelection(
         selection: ThemeSelection,
-        showIndicator: Boolean
+        showIndicator: Boolean,
     ) {
         themeApplyJob?.cancel()
-        themeApplyJob = viewModelScope.launch {
-            val startedAtMs = if (showIndicator) {
-                _mapAppearanceApplyInProgress.value = true
-                SystemClock.elapsedRealtime()
-            } else {
-                0L
-            }
-            try {
-                applyThemeSelection(
-                    selection = selection,
-                    awaitVisibleContent = showIndicator
-                )
-            } finally {
-                if (showIndicator) {
-                    val elapsedMs = SystemClock.elapsedRealtime() - startedAtMs
-                    val remainingMs =
-                        (MAP_APPEARANCE_APPLY_INDICATOR_MIN_MS - elapsedMs).coerceAtLeast(0L)
-                    if (remainingMs > 0L) {
-                        runCatching { delay(remainingMs) }
+        themeApplyJob =
+            viewModelScope.launch {
+                val startedAtMs =
+                    if (showIndicator) {
+                        _mapAppearanceApplyInProgress.value = true
+                        SystemClock.elapsedRealtime()
+                    } else {
+                        0L
                     }
-                    _mapAppearanceApplyInProgress.value = false
+                try {
+                    applyThemeSelection(
+                        selection = selection,
+                        awaitVisibleContent = showIndicator,
+                    )
+                } finally {
+                    if (showIndicator) {
+                        val elapsedMs = SystemClock.elapsedRealtime() - startedAtMs
+                        val remainingMs =
+                            (MAP_APPEARANCE_APPLY_INDICATOR_MIN_MS - elapsedMs).coerceAtLeast(0L)
+                        if (remainingMs > 0L) {
+                            runCatching { delay(remainingMs) }
+                        }
+                        _mapAppearanceApplyInProgress.value = false
+                    }
                 }
             }
-        }
     }
 
     private fun submitPendingThemeSelectionIfReady() {
@@ -660,7 +677,7 @@ class MapViewModel(
         pendingThemeSelectionShowsIndicator = false
         submitThemeSelection(
             selection = selection,
-            showIndicator = showIndicator
+            showIndicator = showIndicator,
         )
     }
 
@@ -682,56 +699,59 @@ class MapViewModel(
 
         val generation = rendererWorkGeneration
         rendererWorkJob?.cancel()
-        rendererWorkJob = viewModelScope.launch {
-            // Let the first frame settle before doing renderer work that can block.
-            delay(MAP_RENDERER_APPLY_DELAY_MS)
-            if (generation != rendererWorkGeneration) return@launch
-            if (!isMapViewRenderReady()) return@launch
-            if (mapRenderer !== renderer) return@launch
-            val showInitialMapLoadIndicator =
-                initialMapLoadIndicatorPending &&
-                    !pendingExternalCacheClear &&
-                    !pendingMapLayerPath.isNullOrBlank()
-            val indicatorStartedAtMs = if (showInitialMapLoadIndicator) {
-                initialMapLoadIndicatorPending = false
-                _mapAppearanceApplyInProgress.value = true
-                SystemClock.elapsedRealtime()
-            } else {
-                0L
-            }
-
-            try {
-                if (pendingExternalCacheClear) {
-                    pendingExternalCacheClear = false
-                    renderer.onExternalCachesCleared()
-                    renderer.updateMapLayer(selectedMapPath.value)
-                } else {
-                    val tileBaselineVersion = if (showInitialMapLoadIndicator) {
-                        renderer.currentTileCacheUpdateVersion()
+        rendererWorkJob =
+            viewModelScope.launch {
+                // Let the first frame settle before doing renderer work that can block.
+                delay(MAP_RENDERER_APPLY_DELAY_MS)
+                if (generation != rendererWorkGeneration) return@launch
+                if (!isMapViewRenderReady()) return@launch
+                if (mapRenderer !== renderer) return@launch
+                val showInitialMapLoadIndicator =
+                    initialMapLoadIndicatorPending &&
+                        !pendingExternalCacheClear &&
+                        !pendingMapLayerPath.isNullOrBlank()
+                val indicatorStartedAtMs =
+                    if (showInitialMapLoadIndicator) {
+                        initialMapLoadIndicatorPending = false
+                        _mapAppearanceApplyInProgress.value = true
+                        SystemClock.elapsedRealtime()
                     } else {
                         0L
                     }
-                    renderer.updateMapLayer(pendingMapLayerPath)
+
+                try {
+                    if (pendingExternalCacheClear) {
+                        pendingExternalCacheClear = false
+                        renderer.onExternalCachesCleared()
+                        renderer.updateMapLayer(selectedMapPath.value)
+                    } else {
+                        val tileBaselineVersion =
+                            if (showInitialMapLoadIndicator) {
+                                renderer.currentTileCacheUpdateVersion()
+                            } else {
+                                0L
+                            }
+                        renderer.updateMapLayer(pendingMapLayerPath)
+                        if (showInitialMapLoadIndicator) {
+                            renderer.awaitTileCacheUpdateAfter(
+                                baselineVersion = tileBaselineVersion,
+                                timeoutMs = MAP_APPEARANCE_VISIBLE_TILE_TIMEOUT_MS,
+                            )
+                            delay(MAP_APPEARANCE_VISIBLE_TILE_SETTLE_MS)
+                        }
+                    }
+                } finally {
                     if (showInitialMapLoadIndicator) {
-                        renderer.awaitTileCacheUpdateAfter(
-                            baselineVersion = tileBaselineVersion,
-                            timeoutMs = MAP_APPEARANCE_VISIBLE_TILE_TIMEOUT_MS
-                        )
-                        delay(MAP_APPEARANCE_VISIBLE_TILE_SETTLE_MS)
+                        val elapsedMs = SystemClock.elapsedRealtime() - indicatorStartedAtMs
+                        val remainingMs =
+                            (MAP_APPEARANCE_APPLY_INDICATOR_MIN_MS - elapsedMs).coerceAtLeast(0L)
+                        if (remainingMs > 0L) {
+                            runCatching { delay(remainingMs) }
+                        }
+                        _mapAppearanceApplyInProgress.value = false
                     }
-                }
-            } finally {
-                if (showInitialMapLoadIndicator) {
-                    val elapsedMs = SystemClock.elapsedRealtime() - indicatorStartedAtMs
-                    val remainingMs =
-                        (MAP_APPEARANCE_APPLY_INDICATOR_MIN_MS - elapsedMs).coerceAtLeast(0L)
-                    if (remainingMs > 0L) {
-                        runCatching { delay(remainingMs) }
-                    }
-                    _mapAppearanceApplyInProgress.value = false
                 }
             }
-        }
     }
 
     private fun applyRendererConfigIfReady(): MapRenderer.ThemeApplyResult {
@@ -752,7 +772,7 @@ class MapViewModel(
             mapsforgeThemeName = latestMapsforgeThemeName,
             bundledThemeId = latestBundledThemeId,
             hillShadingEnabled = latestHillShadingEnabled,
-            reliefOverlayEnabled = latestReliefOverlayEnabled
+            reliefOverlayEnabled = latestReliefOverlayEnabled,
         )
     }
 
@@ -780,17 +800,18 @@ class MapViewModel(
 
     private fun buildOfflineStartCenterContextKey(
         selectedMapPath: String?,
-        activeGpxDetails: List<GpxTrackDetails>
+        activeGpxDetails: List<GpxTrackDetails>,
     ): String {
         val normalizedMapPath = selectedMapPath?.trim().orEmpty()
         if (normalizedMapPath.isNotEmpty()) {
             return "map=$normalizedMapPath"
         }
-        val gpxIds = activeGpxDetails
-            .asSequence()
-            .map { it.id }
-            .sorted()
-            .joinToString(separator = "|")
+        val gpxIds =
+            activeGpxDetails
+                .asSequence()
+                .map { it.id }
+                .sorted()
+                .joinToString(separator = "|")
         return "gpx=$gpxIds"
     }
 }

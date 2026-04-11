@@ -12,7 +12,7 @@ internal const val DEM_NO_INTERNET_MESSAGE =
 
 internal fun classifyDemFailureAsNetworkUnavailable(
     throwable: Throwable,
-    internetAvailableNow: Boolean
+    internetAvailableNow: Boolean,
 ): Boolean {
     if (hasDirectDemOfflineCause(throwable)) return true
     if (hasDemTimeoutCause(throwable)) return !internetAvailableNow
@@ -37,7 +37,7 @@ internal fun classifyDemFailureAsNetworkUnavailable(
 
 internal fun buildDemFailureMessage(
     throwable: Throwable,
-    networkUnavailable: Boolean
+    networkUnavailable: Boolean,
 ): String {
     if (networkUnavailable) return DEM_NO_INTERNET_MESSAGE
     if (hasDemTimeoutCause(throwable)) {
@@ -69,7 +69,8 @@ private fun hasDirectDemOfflineCause(throwable: Throwable): Boolean {
         when (current) {
             is UnknownHostException,
             is ConnectException,
-            is NoRouteToHostException -> return true
+            is NoRouteToHostException,
+            -> return true
         }
         current = current.cause
     }

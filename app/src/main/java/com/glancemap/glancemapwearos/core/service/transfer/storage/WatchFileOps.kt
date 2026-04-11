@@ -22,11 +22,11 @@ import java.util.Locale
 internal data class WatchMapWithBounds(
     val fileName: String,
     val absolutePath: String,
-    val bbox: String
+    val bbox: String,
 )
 
 internal class WatchFileOps(
-    private val app: GlanceMapWearApp
+    private val app: GlanceMapWearApp,
 ) {
     companion object {
         private const val DEM_DIR_NAME = "dem3"
@@ -37,16 +37,15 @@ internal class WatchFileOps(
 
     private val container get() = app.container
 
-    fun isSupportedTransferFileName(fileName: String): Boolean {
-        return fileName.endsWith(".gpx", ignoreCase = true) ||
+    fun isSupportedTransferFileName(fileName: String): Boolean =
+        fileName.endsWith(".gpx", ignoreCase = true) ||
             fileName.endsWith(".map", ignoreCase = true) ||
             fileName.endsWith(".poi", ignoreCase = true) ||
             isRoutingSegmentFileName(fileName) ||
             isDemFileName(fileName)
-    }
 
-    suspend fun fileExistsOnWatch(fileName: String): Boolean {
-        return when {
+    suspend fun fileExistsOnWatch(fileName: String): Boolean =
+        when {
             fileName.endsWith(".gpx", ignoreCase = true) -> container.gpxRepository.fileExists(fileName)
             fileName.endsWith(".map", ignoreCase = true) -> container.mapRepository.fileExists(fileName)
             fileName.endsWith(".poi", ignoreCase = true) -> container.poiRepository.fileExists(fileName)
@@ -54,7 +53,6 @@ internal class WatchFileOps(
             isDemFileName(fileName) -> demTargetFileForName(fileName).exists()
             else -> false
         }
-    }
 
     suspend fun deleteLocalFile(fileName: String) {
         runCatching {
@@ -89,24 +87,25 @@ internal class WatchFileOps(
     }
 
     suspend fun listMapFilesWithBounds(): List<WatchMapWithBounds> {
-        return container.mapRepository.listMapFiles()
+        return container.mapRepository
+            .listMapFiles()
             .mapNotNull { file ->
-                val bbox = runCatching {
-                    val mapFile = MapFile(file)
-                    try {
-                        mapFile.boundingBox()
-                    } finally {
-                        runCatching { mapFile.close() }
-                    }
-                }.getOrNull() ?: return@mapNotNull null
+                val bbox =
+                    runCatching {
+                        val mapFile = MapFile(file)
+                        try {
+                            mapFile.boundingBox()
+                        } finally {
+                            runCatching { mapFile.close() }
+                        }
+                    }.getOrNull() ?: return@mapNotNull null
 
                 WatchMapWithBounds(
                     fileName = file.name,
                     absolutePath = file.absolutePath,
-                    bbox = "${bbox.minLongitude},${bbox.minLatitude},${bbox.maxLongitude},${bbox.maxLatitude}"
+                    bbox = "${bbox.minLongitude},${bbox.minLatitude},${bbox.maxLongitude},${bbox.maxLatitude}",
                 )
-            }
-            .sortedBy { it.fileName.lowercase(Locale.ROOT) }
+            }.sortedBy { it.fileName.lowercase(Locale.ROOT) }
     }
 
     /**
@@ -119,93 +118,100 @@ internal class WatchFileOps(
         resumeOffset: Long = 0L,
         keepPartialOnFailure: Boolean = false,
         computeSha256: Boolean = true,
-        onProgress: (Long) -> Unit
+        onProgress: (Long) -> Unit,
     ): String? {
         try {
             return when {
                 fileName.endsWith(".gpx", ignoreCase = true) -> {
-                    val sha256 = container.gpxRepository.saveGpxFileAtomic(
-                        fileName = fileName,
-                        inputStream = inputStream,
-                        onProgress = onProgress,
-                        expectedSize = expectedSize,
-                        resumeOffset = resumeOffset
-                    )
+                    val sha256 =
+                        container.gpxRepository.saveGpxFileAtomic(
+                            fileName = fileName,
+                            inputStream = inputStream,
+                            onProgress = onProgress,
+                            expectedSize = expectedSize,
+                            resumeOffset = resumeOffset,
+                        )
                     container.syncManager.requestGpxSync()
                     sha256
                 }
 
                 fileName.endsWith(".map", ignoreCase = true) -> {
-                    val sha256 = container.mapRepository.saveMapFileAtomic(
-                        fileName = fileName,
-                        inputStream = inputStream,
-                        onProgress = onProgress,
-                        expectedSize = expectedSize,
-                        resumeOffset = resumeOffset,
-                        computeSha256 = computeSha256
-                    )
+                    val sha256 =
+                        container.mapRepository.saveMapFileAtomic(
+                            fileName = fileName,
+                            inputStream = inputStream,
+                            onProgress = onProgress,
+                            expectedSize = expectedSize,
+                            resumeOffset = resumeOffset,
+                            computeSha256 = computeSha256,
+                        )
                     container.syncManager.requestMapSync()
                     sha256
                 }
 
                 fileName.endsWith(".poi", ignoreCase = true) -> {
-                    val sha256 = container.poiRepository.savePoiFileAtomic(
-                        fileName = fileName,
-                        inputStream = inputStream,
-                        onProgress = onProgress,
-                        expectedSize = expectedSize,
-                        resumeOffset = resumeOffset
-                    )
+                    val sha256 =
+                        container.poiRepository.savePoiFileAtomic(
+                            fileName = fileName,
+                            inputStream = inputStream,
+                            onProgress = onProgress,
+                            expectedSize = expectedSize,
+                            resumeOffset = resumeOffset,
+                        )
                     container.syncManager.requestPoiSync()
                     sha256
                 }
 
                 isRoutingSegmentFileName(fileName) -> {
                     val target = routingSegmentTargetFile(app.applicationContext, fileName)
-                    val options = AtomicStreamWriter.Options(
-                        bufferSize = 2 * 1024 * 1024,
-                        progressStepBytes = 8L * 1024 * 1024,
-                        fsync = true,
-                        failIfExists = false,
-                        expectedSize = expectedSize?.takeIf { it > 0L },
-                        requireExactSize = expectedSize != null && expectedSize > 0L,
-                        resumeOffset = resumeOffset.coerceAtLeast(0L),
-                        keepPartialOnCancel = true,
-                        keepPartialOnFailure = true,
-                        computeSha256 = computeSha256
-                    )
-                    val result = AtomicStreamWriter.writeAtomic(
-                        dir = target.parentFile ?: routingSegmentsDir(app.applicationContext),
-                        fileName = target.name,
-                        inputStream = inputStream,
-                        onProgress = onProgress,
-                        options = options
-                    )
+                    val options =
+                        AtomicStreamWriter.Options(
+                            bufferSize = 2 * 1024 * 1024,
+                            progressStepBytes = 8L * 1024 * 1024,
+                            fsync = true,
+                            failIfExists = false,
+                            expectedSize = expectedSize?.takeIf { it > 0L },
+                            requireExactSize = expectedSize != null && expectedSize > 0L,
+                            resumeOffset = resumeOffset.coerceAtLeast(0L),
+                            keepPartialOnCancel = true,
+                            keepPartialOnFailure = true,
+                            computeSha256 = computeSha256,
+                        )
+                    val result =
+                        AtomicStreamWriter.writeAtomic(
+                            dir = target.parentFile ?: routingSegmentsDir(app.applicationContext),
+                            fileName = target.name,
+                            inputStream = inputStream,
+                            onProgress = onProgress,
+                            options = options,
+                        )
                     container.syncManager.requestMapSync()
                     result.sha256
                 }
 
                 isDemFileName(fileName) -> {
                     val target = demTargetFileForName(fileName)
-                    val options = AtomicStreamWriter.Options(
-                        bufferSize = 2 * 1024 * 1024,
-                        progressStepBytes = 8L * 1024 * 1024,
-                        fsync = true,
-                        failIfExists = false,
-                        expectedSize = expectedSize?.takeIf { it > 0L },
-                        requireExactSize = expectedSize != null && expectedSize > 0L,
-                        resumeOffset = resumeOffset.coerceAtLeast(0L),
-                        keepPartialOnCancel = true,
-                        keepPartialOnFailure = true,
-                        computeSha256 = computeSha256
-                    )
-                    val result = AtomicStreamWriter.writeAtomic(
-                        dir = target.parentFile ?: demRootDir(),
-                        fileName = target.name,
-                        inputStream = inputStream,
-                        onProgress = onProgress,
-                        options = options
-                    )
+                    val options =
+                        AtomicStreamWriter.Options(
+                            bufferSize = 2 * 1024 * 1024,
+                            progressStepBytes = 8L * 1024 * 1024,
+                            fsync = true,
+                            failIfExists = false,
+                            expectedSize = expectedSize?.takeIf { it > 0L },
+                            requireExactSize = expectedSize != null && expectedSize > 0L,
+                            resumeOffset = resumeOffset.coerceAtLeast(0L),
+                            keepPartialOnCancel = true,
+                            keepPartialOnFailure = true,
+                            computeSha256 = computeSha256,
+                        )
+                    val result =
+                        AtomicStreamWriter.writeAtomic(
+                            dir = target.parentFile ?: demRootDir(),
+                            fileName = target.name,
+                            inputStream = inputStream,
+                            onProgress = onProgress,
+                            options = options,
+                        )
                     // Triggers map layer refresh path; renderer will pick DEM changes from dem3 folder.
                     DemSignatureStore.markDirty(app.applicationContext)
                     container.syncManager.requestMapSync()
@@ -244,7 +250,10 @@ internal class WatchFileOps(
         return !part.exists() || part.delete()
     }
 
-    fun truncatePartial(fileName: String, expectedSize: Long): Boolean {
+    fun truncatePartial(
+        fileName: String,
+        expectedSize: Long,
+    ): Boolean {
         if (expectedSize < 0L) return false
         val safeName = sanitizeFileName(fileName)
         val part = partFileForName(safeName) ?: return false
@@ -270,13 +279,14 @@ internal class WatchFileOps(
         val target = targetFileForName(safeName) ?: return false
         if (!part.exists()) return false
 
-        val promoted = runCatching {
-            target.parentFile?.mkdirs()
-            if (target.exists() && !target.delete()) return@runCatching false
-            if (part.renameTo(target)) return@runCatching true
-            part.copyTo(target, overwrite = true)
-            part.delete()
-        }.getOrDefault(false)
+        val promoted =
+            runCatching {
+                target.parentFile?.mkdirs()
+                if (target.exists() && !target.delete()) return@runCatching false
+                if (part.renameTo(target)) return@runCatching true
+                part.copyTo(target, overwrite = true)
+                part.delete()
+            }.getOrDefault(false)
 
         if (!promoted) return false
 
@@ -327,7 +337,7 @@ internal class WatchFileOps(
 
     fun computeFinalFileSha256(
         fileName: String,
-        onProgress: ((bytesRead: Long, totalBytes: Long) -> Unit)? = null
+        onProgress: ((bytesRead: Long, totalBytes: Long) -> Unit)? = null,
     ): String? {
         val safeName = sanitizeFileName(fileName)
         val file = targetFileForName(safeName) ?: return null
@@ -335,24 +345,27 @@ internal class WatchFileOps(
         return computeSha256(file, onProgress)
     }
 
-    fun sanitizeFileName(name: String): String {
-        return name.replace("\\", "_")
+    fun sanitizeFileName(name: String): String =
+        name
+            .replace("\\", "_")
             .replace("/", "_")
             .trim()
             .ifBlank { "file.bin" }
-    }
 
     private suspend fun cleanupDemForMapPath(mapPath: String) {
         runCatching {
             val mapFile = File(mapPath)
             if (!mapFile.exists() || !mapFile.isFile) return
 
-            val remainingMaps = container.mapRepository.listMapFiles()
-                .filterNot { it.absolutePath == mapPath }
-            val tilesToDelete = Dem3CoverageUtils.tilesToDeleteForMap(
-                deletedMapFile = mapFile,
-                remainingMapFiles = remainingMaps
-            )
+            val remainingMaps =
+                container.mapRepository
+                    .listMapFiles()
+                    .filterNot { it.absolutePath == mapPath }
+            val tilesToDelete =
+                Dem3CoverageUtils.tilesToDeleteForMap(
+                    deletedMapFile = mapFile,
+                    remainingMapFiles = remainingMaps,
+                )
             Dem3CoverageUtils.deleteTiles(app.applicationContext, tilesToDelete)
         }.onFailure { error ->
             Log.w("WatchFileOps", "Failed DEM cleanup for deleted map: $mapPath", error)
@@ -364,8 +377,8 @@ internal class WatchFileOps(
         return lower.endsWith(".hgt") || lower.endsWith(".hgt.zip")
     }
 
-    private fun targetFileForName(fileName: String): File? {
-        return when {
+    private fun targetFileForName(fileName: String): File? =
+        when {
             fileName.endsWith(".gpx", ignoreCase = true) -> File(app.getDir("gpx", Context.MODE_PRIVATE), fileName)
             fileName.endsWith(".map", ignoreCase = true) -> File(app.getDir("maps", Context.MODE_PRIVATE), fileName)
             fileName.endsWith(".poi", ignoreCase = true) -> File(app.getDir("poi", Context.MODE_PRIVATE), fileName)
@@ -373,10 +386,9 @@ internal class WatchFileOps(
             isDemFileName(fileName) -> demTargetFileForName(fileName)
             else -> null
         }
-    }
 
-    private fun partFileForName(fileName: String): File? {
-        return when {
+    private fun partFileForName(fileName: String): File? =
+        when {
             fileName.endsWith(".gpx", ignoreCase = true) -> {
                 val dir = app.getDir("gpx", Context.MODE_PRIVATE)
                 File(dir, ".$fileName.part")
@@ -393,11 +405,10 @@ internal class WatchFileOps(
             isDemFileName(fileName) -> demPartFileForName(fileName)
             else -> null
         }
-    }
 
     private fun computeSha256(
         file: File,
-        onProgress: ((bytesRead: Long, totalBytes: Long) -> Unit)? = null
+        onProgress: ((bytesRead: Long, totalBytes: Long) -> Unit)? = null,
     ): String? {
         val digest = MessageDigest.getInstance("SHA-256")
         val totalBytes = file.length().coerceAtLeast(0L)
@@ -424,7 +435,7 @@ internal class WatchFileOps(
                         (
                             bytesRead >= totalBytes ||
                                 (bytesRead - lastReportedBytes) >= CHECKSUM_PROGRESS_STEP_BYTES
-                            )
+                        )
                     ) {
                         lastReportedBytes = bytesRead
                         onProgress(bytesRead, totalBytes)
@@ -444,10 +455,9 @@ internal class WatchFileOps(
         return digest.digest().joinToString("") { b -> "%02x".format(b) }
     }
 
-    private fun demRootDir(): File {
-        return app.getExternalFilesDir(DEM_DIR_NAME)
+    private fun demRootDir(): File =
+        app.getExternalFilesDir(DEM_DIR_NAME)
             ?: File(app.getDir("maps", Context.MODE_PRIVATE), DEM_DIR_NAME)
-    }
 
     private fun demTargetFileForName(fileName: String): File {
         val safeName = sanitizeFileName(fileName)
@@ -464,11 +474,12 @@ internal class WatchFileOps(
 
     private fun demTileIdFromFileName(fileName: String): String? {
         val upper = fileName.uppercase()
-        val base = when {
-            upper.endsWith(".HGT.ZIP") -> upper.removeSuffix(".HGT.ZIP")
-            upper.endsWith(".HGT") -> upper.removeSuffix(".HGT")
-            else -> return null
-        }
+        val base =
+            when {
+                upper.endsWith(".HGT.ZIP") -> upper.removeSuffix(".HGT.ZIP")
+                upper.endsWith(".HGT") -> upper.removeSuffix(".HGT")
+                else -> return null
+            }
         return if (DEM_TILE_ID_REGEX.matches(base)) base else null
     }
 }

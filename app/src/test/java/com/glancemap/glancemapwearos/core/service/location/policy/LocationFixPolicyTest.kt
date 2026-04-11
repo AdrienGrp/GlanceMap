@@ -5,7 +5,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocationFixPolicyTest {
-
     @Test
     fun acceptsFiniteCoordinatesInsideEarthBounds() {
         assertTrue(LocationFixPolicy.hasValidCoordinates(latitude = 48.8566, longitude = 2.3522))
@@ -20,8 +19,8 @@ class LocationFixPolicyTest {
         assertFalse(
             LocationFixPolicy.hasValidCoordinates(
                 latitude = Double.POSITIVE_INFINITY,
-                longitude = 2.3522
-            )
+                longitude = 2.3522,
+            ),
         )
     }
 

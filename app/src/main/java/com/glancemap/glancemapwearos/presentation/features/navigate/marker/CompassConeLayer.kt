@@ -1,7 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import android.graphics.Bitmap
-import android.graphics.Canvas as AndroidCanvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
@@ -15,6 +14,7 @@ import org.mapsforge.map.android.graphics.AndroidBitmap
 import org.mapsforge.map.layer.Layer
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import android.graphics.Canvas as AndroidCanvas
 
 /**
  * Compass quality cone rendered as a real Mapsforge layer so it can sit below the location marker.
@@ -30,7 +30,9 @@ internal class CompassConeLayer : Layer() {
     var baseMarkerSizePx: Int = 0
 
     @Volatile private var cachedZoom: Byte = (-1).toByte()
+
     @Volatile private var cachedTileSize: Int = -1
+
     @Volatile private var cachedMapSize: Long = 0L
 
     private var cachedConeSizePx: Int = -1
@@ -42,16 +44,17 @@ internal class CompassConeLayer : Layer() {
         zoomLevel: Byte,
         canvas: Canvas,
         topLeft: Point,
-        mapViewRotation: Rotation
+        mapViewRotation: Rotation,
     ) {
         if (!isVisible) return
         val ll = anchorMarker?.latLong ?: return
         if (!boundingBox.contains(ll)) return
 
-        val bitmap = coneBitmapForAppearance(
-            targetQuality = quality,
-            targetHeadingErrorDeg = headingErrorDeg
-        ) ?: return
+        val bitmap =
+            coneBitmapForAppearance(
+                targetQuality = quality,
+                targetHeadingErrorDeg = headingErrorDeg,
+            ) ?: return
         val tileSize = displayModel.tileSize
         val mapSize = getCachedMapSize(zoomLevel, tileSize)
 
@@ -81,19 +84,20 @@ internal class CompassConeLayer : Layer() {
 
     private fun coneBitmapForAppearance(
         targetQuality: CompassMarkerQuality,
-        targetHeadingErrorDeg: Float?
+        targetHeadingErrorDeg: Float?,
     ): org.mapsforge.core.graphics.Bitmap? {
         val coneSizePx = computeConeBitmapSizePx()
         if (coneSizePx <= 0) return null
-        val targetKey = ConeBitmapKey(
-            quality = targetQuality,
-            headingErrorBucket = quantizeHeadingErrorBucket(targetHeadingErrorDeg)
-        )
+        val targetKey =
+            ConeBitmapKey(
+                quality = targetQuality,
+                headingErrorBucket = quantizeHeadingErrorBucket(targetHeadingErrorDeg),
+            )
         if (cachedConeSizePx != coneSizePx || cachedConeBitmapKey != targetKey || cachedConeBitmap == null) {
             rebuildConeBitmap(
                 sizePx = coneSizePx,
                 key = targetKey,
-                headingErrorDeg = targetHeadingErrorDeg
+                headingErrorDeg = targetHeadingErrorDeg,
             )
         }
         return cachedConeBitmap
@@ -102,14 +106,15 @@ internal class CompassConeLayer : Layer() {
     private fun rebuildConeBitmap(
         sizePx: Int,
         key: ConeBitmapKey,
-        headingErrorDeg: Float?
+        headingErrorDeg: Float?,
     ) {
         clearConeBitmaps()
-        val androidBitmap = buildConeBitmap(
-            sizePx = sizePx,
-            quality = key.quality,
-            headingErrorDeg = headingErrorDeg
-        )
+        val androidBitmap =
+            buildConeBitmap(
+                sizePx = sizePx,
+                quality = key.quality,
+                headingErrorDeg = headingErrorDeg,
+            )
         cachedConeBitmap = AndroidBitmap(androidBitmap)
         cachedConeBitmapKey = key
         cachedConeSizePx = sizePx
@@ -131,7 +136,10 @@ internal class CompassConeLayer : Layer() {
         return fallback.coerceIn(72, 180)
     }
 
-    private fun getCachedMapSize(zoomLevel: Byte, tileSize: Int): Long {
+    private fun getCachedMapSize(
+        zoomLevel: Byte,
+        tileSize: Int,
+    ): Long {
         if (cachedZoom != zoomLevel || cachedTileSize != tileSize) {
             cachedZoom = zoomLevel
             cachedTileSize = tileSize
@@ -144,7 +152,7 @@ internal class CompassConeLayer : Layer() {
 private fun buildConeBitmap(
     sizePx: Int,
     quality: CompassMarkerQuality,
-    headingErrorDeg: Float?
+    headingErrorDeg: Float?,
 ): Bitmap {
     val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
@@ -166,44 +174,51 @@ private fun buildConeBitmap(
     val leftShoulderX = center - shoulderHalfWidth
     val rightShoulderX = center + shoulderHalfWidth
 
-    val conePath = Path().apply {
-        moveTo(center, coneStartY)
-        lineTo(leftShoulderX, shoulderY)
-        lineTo(leftBaseX, wideY)
-        lineTo(rightBaseX, wideY)
-        lineTo(rightShoulderX, shoulderY)
-        close()
-    }
+    val conePath =
+        Path().apply {
+            moveTo(center, coneStartY)
+            lineTo(leftShoulderX, shoulderY)
+            lineTo(leftBaseX, wideY)
+            lineTo(rightBaseX, wideY)
+            lineTo(rightShoulderX, shoulderY)
+            close()
+        }
 
-    val gradientPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-        shader = LinearGradient(
-            center,
-            coneStartY,
-            center,
-            wideY,
-            intArrayOf(
-                withAlpha(coneColor, 0f),
-                withAlpha(coneColor, 0.74f),
-                withAlpha(coneColor, 0.50f),
-                withAlpha(coneColor, 0.18f)
-            ),
-            floatArrayOf(0f, 0.14f, 0.62f, 1f),
-            Shader.TileMode.CLAMP
-        )
-    }
-    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        color = withAlpha(coneColor, 0.34f)
-        strokeWidth = sizePx * 0.010f
-    }
+    val gradientPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            shader =
+                LinearGradient(
+                    center,
+                    coneStartY,
+                    center,
+                    wideY,
+                    intArrayOf(
+                        withAlpha(coneColor, 0f),
+                        withAlpha(coneColor, 0.74f),
+                        withAlpha(coneColor, 0.50f),
+                        withAlpha(coneColor, 0.18f),
+                    ),
+                    floatArrayOf(0f, 0.14f, 0.62f, 1f),
+                    Shader.TileMode.CLAMP,
+                )
+        }
+    val strokePaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            color = withAlpha(coneColor, 0.34f)
+            strokeWidth = sizePx * 0.010f
+        }
 
     canvas.drawPath(conePath, gradientPaint)
     canvas.drawPath(conePath, strokePaint)
     return bitmap
 }
 
-private fun withAlpha(argb: Int, alpha: Float): Int {
+private fun withAlpha(
+    argb: Int,
+    alpha: Float,
+): Int {
     val a = (alpha.coerceIn(0f, 1f) * 255f).roundToInt()
     return (argb and 0x00FFFFFF) or (a shl 24)
 }
@@ -212,7 +227,7 @@ private fun normalize360(deg: Float): Float = (deg % 360f + 360f) % 360f
 
 private data class ConeBitmapKey(
     val quality: CompassMarkerQuality,
-    val headingErrorBucket: Int?
+    val headingErrorBucket: Int?,
 )
 
 private fun quantizeHeadingErrorBucket(headingErrorDeg: Float?): Int? {

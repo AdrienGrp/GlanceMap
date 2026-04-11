@@ -5,19 +5,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TransferUtilsLocalIpCandidateTest {
-
     @Test
     fun `prefers wlan candidate over hotspot candidate`() {
-        val hotspot = TransferUtils.buildLocalIpCandidate(
-            ifName = "ap0",
-            ip = "192.168.43.1",
-            source = "interfaces"
-        )
-        val wifi = TransferUtils.buildLocalIpCandidate(
-            ifName = "wlan0",
-            ip = "192.168.0.189",
-            source = "interfaces"
-        )
+        val hotspot =
+            TransferUtils.buildLocalIpCandidate(
+                ifName = "ap0",
+                ip = "192.168.43.1",
+                source = "interfaces",
+            )
+        val wifi =
+            TransferUtils.buildLocalIpCandidate(
+                ifName = "wlan0",
+                ip = "192.168.0.189",
+                source = "interfaces",
+            )
 
         val best = TransferUtils.selectBestLocalIpCandidate(listOfNotNull(hotspot, wifi))
 
@@ -26,11 +27,12 @@ class TransferUtilsLocalIpCandidateTest {
 
     @Test
     fun `keeps hotspot candidate when it is the only option`() {
-        val hotspot = TransferUtils.buildLocalIpCandidate(
-            ifName = "softap0",
-            ip = "192.168.43.1",
-            source = "interfaces"
-        )
+        val hotspot =
+            TransferUtils.buildLocalIpCandidate(
+                ifName = "softap0",
+                ip = "192.168.43.1",
+                source = "interfaces",
+            )
 
         val best = TransferUtils.selectBestLocalIpCandidate(listOfNotNull(hotspot))
 

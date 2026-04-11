@@ -18,7 +18,7 @@ import com.google.android.horologist.compose.material.Chip
 @Composable
 fun ResetDefaultsConfirmScreen(
     onCancel: () -> Unit,
-    onConfirmReset: () -> Unit
+    onConfirmReset: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
     val listState = rememberScalingLazyListState()
@@ -27,38 +27,39 @@ fun ResetDefaultsConfirmScreen(
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(
-                start = listTokens.horizontalPadding,
-                end = listTokens.horizontalPadding,
-                top = listTokens.topPadding,
-                bottom = listTokens.bottomPadding
-            ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing)
+            contentPadding =
+                PaddingValues(
+                    start = listTokens.horizontalPadding,
+                    end = listTokens.horizontalPadding,
+                    top = listTokens.topPadding,
+                    bottom = listTokens.bottomPadding,
+                ),
+            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
         ) {
             item {
                 Text(
                     text = "Reset to defaults",
                     style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
             item {
                 Text(
                     text = "This resets settings and theme preferences.",
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
             item {
                 Chip(
                     label = "Reset now",
                     secondaryLabel = "Cannot be undone",
-                    onClick = onConfirmReset
+                    onClick = onConfirmReset,
                 )
             }
             item {
                 Chip(
                     label = "Cancel",
-                    onClick = onCancel
+                    onClick = onCancel,
                 )
             }
         }

@@ -10,7 +10,7 @@ import kotlin.math.floor
 data class RoutingCoverageSummary(
     val requiredSegments: Int,
     val availableSegments: Int,
-    val isCoverageKnown: Boolean
+    val isCoverageKnown: Boolean,
 ) {
     val isReady: Boolean
         get() = isCoverageKnown && requiredSegments == availableSegments
@@ -27,51 +27,61 @@ object RoutingCoverageUtils {
 
     private data class CoverageCacheKey(
         val mapSignature: String,
-        val routingSignature: String
+        val routingSignature: String,
     )
 
-    private val requiredSegmentNamesCache = LinkedHashMap<String, Set<String>>(
-        MAX_REQUIRED_SEGMENT_CACHE_ENTRIES,
-        0.75f,
-        true
-    )
-    private val coverageCache = LinkedHashMap<CoverageCacheKey, RoutingCoverageSummary>(
-        MAX_COVERAGE_CACHE_ENTRIES,
-        0.75f,
-        true
-    )
+    private val requiredSegmentNamesCache =
+        LinkedHashMap<String, Set<String>>(
+            MAX_REQUIRED_SEGMENT_CACHE_ENTRIES,
+            0.75f,
+            true,
+        )
+    private val coverageCache =
+        LinkedHashMap<CoverageCacheKey, RoutingCoverageSummary>(
+            MAX_COVERAGE_CACHE_ENTRIES,
+            0.75f,
+            true,
+        )
 
-    fun coverageForMap(context: Context, mapFile: File): RoutingCoverageSummary {
-        val mapSignature = mapSignatureOf(mapFile)
-            ?: return RoutingCoverageSummary(0, 0, isCoverageKnown = false)
-        val requiredSegmentNames = requiredSegmentNamesForMap(mapFile, mapSignature)
-            ?: return RoutingCoverageSummary(0, 0, isCoverageKnown = false)
+    fun coverageForMap(
+        context: Context,
+        mapFile: File,
+    ): RoutingCoverageSummary {
+        val mapSignature =
+            mapSignatureOf(mapFile)
+                ?: return RoutingCoverageSummary(0, 0, isCoverageKnown = false)
+        val requiredSegmentNames =
+            requiredSegmentNamesForMap(mapFile, mapSignature)
+                ?: return RoutingCoverageSummary(0, 0, isCoverageKnown = false)
         if (requiredSegmentNames.isEmpty()) {
             return RoutingCoverageSummary(0, 0, isCoverageKnown = true)
         }
 
         val segmentDir = routingSegmentsDir(context)
         val routingSignature = routingSignatureOf(segmentDir)
-        val cacheKey = CoverageCacheKey(
-            mapSignature = mapSignature,
-            routingSignature = routingSignature
-        )
+        val cacheKey =
+            CoverageCacheKey(
+                mapSignature = mapSignature,
+                routingSignature = routingSignature,
+            )
 
         synchronized(coverageCache) {
             coverageCache[cacheKey]?.let { return it }
         }
 
-        val installedSegments = segmentDir.listFiles()
-            ?.asSequence()
-            ?.filter { it.isFile && isRoutingSegmentFileName(it.name) }
-            ?.map { it.name }
-            ?.toSet()
-            ?: emptySet()
+        val installedSegments =
+            segmentDir
+                .listFiles()
+                ?.asSequence()
+                ?.filter { it.isFile && isRoutingSegmentFileName(it.name) }
+                ?.map { it.name }
+                ?.toSet()
+                ?: emptySet()
 
         return RoutingCoverageSummary(
             requiredSegments = requiredSegmentNames.size,
             availableSegments = requiredSegmentNames.count { it in installedSegments },
-            isCoverageKnown = true
+            isCoverageKnown = true,
         ).also { summary ->
             synchronized(coverageCache) {
                 coverageCache[cacheKey] = summary
@@ -91,29 +101,31 @@ object RoutingCoverageUtils {
 
     private fun requiredSegmentNamesForMap(
         mapFile: File,
-        mapSignature: String
+        mapSignature: String,
     ): Set<String>? {
         synchronized(requiredSegmentNamesCache) {
             requiredSegmentNamesCache[mapSignature]?.let { return it }
         }
 
-        val computed = runCatching {
-            val map = MapFile(mapFile)
-            val bbox = try {
-                map.boundingBox()
-            } finally {
-                runCatching { map.close() }
-            }
+        val computed =
+            runCatching {
+                val map = MapFile(mapFile)
+                val bbox =
+                    try {
+                        map.boundingBox()
+                    } finally {
+                        runCatching { map.close() }
+                    }
 
-            segmentNamesFromBbox(
-                minLat = bbox.minLatitude,
-                minLon = bbox.minLongitude,
-                maxLat = bbox.maxLatitude,
-                maxLon = bbox.maxLongitude
-            )
-        }.onFailure { error ->
-            Log.w(TAG, "Failed reading map bounds for ${mapFile.absolutePath}", error)
-        }.getOrNull() ?: return null
+                segmentNamesFromBbox(
+                    minLat = bbox.minLatitude,
+                    minLon = bbox.minLongitude,
+                    maxLat = bbox.maxLatitude,
+                    maxLon = bbox.maxLongitude,
+                )
+            }.onFailure { error ->
+                Log.w(TAG, "Failed reading map bounds for ${mapFile.absolutePath}", error)
+            }.getOrNull() ?: return null
 
         synchronized(requiredSegmentNamesCache) {
             requiredSegmentNamesCache[mapSignature] = computed
@@ -126,7 +138,7 @@ object RoutingCoverageUtils {
         minLat: Double,
         minLon: Double,
         maxLat: Double,
-        maxLon: Double
+        maxLon: Double,
     ): Set<String> {
         val adjustedMaxLat = if (maxLat <= minLat) minLat + 1e-9 else maxLat
         val adjustedMaxLon = if (maxLon <= minLon) minLon + 1e-9 else maxLon
@@ -149,19 +161,19 @@ object RoutingCoverageUtils {
         return result
     }
 
-    private fun routingTileOrigin(coordinate: Double): Int {
-        return floor(coordinate / ROUTING_TILE_DEGREES.toDouble()).toInt() * ROUTING_TILE_DEGREES
-    }
+    private fun routingTileOrigin(coordinate: Double): Int = floor(coordinate / ROUTING_TILE_DEGREES.toDouble()).toInt() * ROUTING_TILE_DEGREES
 
-    private fun routingTileFileName(swLat: Int, swLon: Int): String {
-        return "${formatRoutingTileCoord(swLon, positivePrefix = 'E', negativePrefix = 'W')}" +
+    private fun routingTileFileName(
+        swLat: Int,
+        swLon: Int,
+    ): String =
+        "${formatRoutingTileCoord(swLon, positivePrefix = 'E', negativePrefix = 'W')}" +
             "_${formatRoutingTileCoord(swLat, positivePrefix = 'N', negativePrefix = 'S')}.rd5"
-    }
 
     private fun formatRoutingTileCoord(
         value: Int,
         positivePrefix: Char,
-        negativePrefix: Char
+        negativePrefix: Char,
     ): String {
         val prefix = if (value < 0) negativePrefix else positivePrefix
         return "$prefix${kotlin.math.abs(value)}"
@@ -169,13 +181,15 @@ object RoutingCoverageUtils {
 
     private fun routingSignatureOf(segmentDir: File): String {
         if (!segmentDir.exists() || !segmentDir.isDirectory) return "ROUTING:NONE"
-        val parts = segmentDir.listFiles()
-            ?.asSequence()
-            ?.filter { it.isFile && isRoutingSegmentFileName(it.name) }
-            ?.sortedBy { it.name }
-            ?.map { "${it.name}|${it.length()}|${it.lastModified()}" }
-            ?.toList()
-            ?: emptyList()
+        val parts =
+            segmentDir
+                .listFiles()
+                ?.asSequence()
+                ?.filter { it.isFile && isRoutingSegmentFileName(it.name) }
+                ?.sortedBy { it.name }
+                ?.map { "${it.name}|${it.length()}|${it.lastModified()}" }
+                ?.toList()
+                ?: emptyList()
         if (parts.isEmpty()) return "ROUTING:NONE"
         return "ROUTING:${parts.joinToString(";")}"
     }

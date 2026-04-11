@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class TransferRunnerSupportTest {
-
     @Test
     fun `verification percent clamps to valid range`() {
         assertEquals(-1, computeVerificationPercent(bytesRead = 10L, totalBytes = 0L))

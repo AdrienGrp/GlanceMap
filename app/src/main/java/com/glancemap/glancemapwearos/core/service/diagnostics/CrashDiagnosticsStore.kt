@@ -37,7 +37,11 @@ internal object CrashDiagnosticsStore {
         runCatching { crashFile(context).delete() }
     }
 
-    private fun write(context: Context, thread: Thread, throwable: Throwable) {
+    private fun write(
+        context: Context,
+        thread: Thread,
+        throwable: Throwable,
+    ) {
         val file = crashFile(context)
         file.parentFile?.let { parent ->
             if (!parent.exists()) {
@@ -45,38 +49,39 @@ internal object CrashDiagnosticsStore {
             }
         }
         val packageInfo = runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
-        val stack = StringWriter().also { writer ->
-            PrintWriter(writer).use { printWriter ->
-                throwable.printStackTrace(printWriter)
-            }
-        }.toString()
+        val stack =
+            StringWriter()
+                .also { writer ->
+                    PrintWriter(writer).use { printWriter ->
+                        throwable.printStackTrace(printWriter)
+                    }
+                }.toString()
 
-        val payload = buildString {
-            appendLine("Last Fatal Crash")
-            appendLine("Generated: ${timestampFormatter.format(Instant.now())}")
-            appendLine()
-            appendLine("Thread: ${thread.name}")
-            appendLine("Exception: ${throwable::class.java.name}")
-            appendLine("Message: ${throwable.message ?: "n/a"}")
-            appendLine()
-            appendLine("App")
-            appendLine("Package: ${context.packageName}")
-            appendLine("VersionName: ${packageInfo?.versionName ?: "unknown"}")
-            appendLine("VersionCode: ${packageInfo?.longVersionCode ?: -1L}")
-            appendLine()
-            appendLine("Device")
-            appendLine("Manufacturer: ${Build.MANUFACTURER}")
-            appendLine("Model: ${Build.MODEL}")
-            appendLine("SDK: ${Build.VERSION.SDK_INT}")
-            appendLine()
-            appendLine("Stacktrace")
-            append(stack)
-        }
+        val payload =
+            buildString {
+                appendLine("Last Fatal Crash")
+                appendLine("Generated: ${timestampFormatter.format(Instant.now())}")
+                appendLine()
+                appendLine("Thread: ${thread.name}")
+                appendLine("Exception: ${throwable::class.java.name}")
+                appendLine("Message: ${throwable.message ?: "n/a"}")
+                appendLine()
+                appendLine("App")
+                appendLine("Package: ${context.packageName}")
+                appendLine("VersionName: ${packageInfo?.versionName ?: "unknown"}")
+                appendLine("VersionCode: ${packageInfo?.longVersionCode ?: -1L}")
+                appendLine()
+                appendLine("Device")
+                appendLine("Manufacturer: ${Build.MANUFACTURER}")
+                appendLine("Model: ${Build.MODEL}")
+                appendLine("SDK: ${Build.VERSION.SDK_INT}")
+                appendLine()
+                appendLine("Stacktrace")
+                append(stack)
+            }
 
         file.writeText(payload)
     }
 
-    private fun crashFile(context: Context): File {
-        return File(File(context.filesDir, DIR_NAME), FILE_NAME)
-    }
+    private fun crashFile(context: Context): File = File(File(context.filesDir, DIR_NAME), FILE_NAME)
 }

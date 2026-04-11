@@ -17,7 +17,8 @@ object DemSignatureStore {
     private const val SIGNATURE_MAX_AGE_MS = 5L * 60L * 1000L
 
     fun markDirty(context: Context) {
-        prefs(context).edit()
+        prefs(context)
+            .edit()
             .putBoolean(KEY_DIRTY, true)
             .apply()
     }
@@ -25,7 +26,7 @@ object DemSignatureStore {
     fun resolveSignature(
         context: Context,
         demRootDir: File,
-        maxDepth: Int
+        maxDepth: Int,
     ): String? {
         val now = System.currentTimeMillis()
         val sharedPrefs = prefs(context)
@@ -39,7 +40,8 @@ object DemSignatureStore {
         }
 
         val scannedSignature = scanDemSignature(demRootDir = demRootDir, maxDepth = maxDepth)
-        sharedPrefs.edit()
+        sharedPrefs
+            .edit()
             .putString(KEY_SIGNATURE, scannedSignature ?: EMPTY_SIGNATURE_SENTINEL)
             .putBoolean(KEY_DIRTY, false)
             .putLong(KEY_LAST_SCAN_MS, now)
@@ -47,13 +49,17 @@ object DemSignatureStore {
         return scannedSignature
     }
 
-    private fun scanDemSignature(demRootDir: File, maxDepth: Int): String? {
+    private fun scanDemSignature(
+        demRootDir: File,
+        maxDepth: Int,
+    ): String? {
         if (!demRootDir.exists() || !demRootDir.isDirectory) return null
 
         var count = 0
         var totalBytes = 0L
         var latestModified = 0L
-        demRootDir.walkTopDown()
+        demRootDir
+            .walkTopDown()
             .maxDepth(maxDepth)
             .forEach { file ->
                 if (!file.isFile) return@forEach
@@ -70,8 +76,9 @@ object DemSignatureStore {
         return "count=$count|bytes=$totalBytes|lm=$latestModified"
     }
 
-    private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(
-        PREFS_NAME,
-        Context.MODE_PRIVATE
-    )
+    private fun prefs(context: Context) =
+        context.applicationContext.getSharedPreferences(
+            PREFS_NAME,
+            Context.MODE_PRIVATE,
+        )
 }

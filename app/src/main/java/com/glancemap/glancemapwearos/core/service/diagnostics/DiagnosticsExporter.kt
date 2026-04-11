@@ -1,15 +1,7 @@
 package com.glancemap.glancemapwearos.core.service.diagnostics
 
-import android.Manifest
-import android.app.ActivityManager
-import android.app.ApplicationExitInfo
 import android.content.Context
-import android.content.pm.PackageManager
-import android.hardware.Sensor
-import android.hardware.SensorManager
 import android.os.Build
-import android.os.Debug
-import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.core.service.location.config.ENABLE_STRICT_FIX_FILTERING
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.FusionReplayTelemetry
@@ -21,13 +13,12 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.util.ArrayDeque
 import java.util.Locale
-import kotlin.math.roundToLong
 
-private val threadtimeLineRegex = Regex(
-    "^(\\d{2})-(\\d{2}) (\\d{2}:\\d{2}:\\d{2}\\.\\d{3})(\\s+.*)$"
-)
+private val threadtimeLineRegex =
+    Regex(
+        "^(\\d{2})-(\\d{2}) (\\d{2}:\\d{2}:\\d{2}\\.\\d{3})(\\s+.*)$",
+    )
 private val threadtimeTimeFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
 private val normalizedLogcatTimestampFormatter: DateTimeFormatter =
@@ -42,7 +33,7 @@ data class DiagnosticsSettingsSnapshot(
     val watchGpsOnly: Boolean,
     val keepAppOpen: Boolean,
     val gpsInAmbientMode: Boolean,
-    val gpsDebugTelemetry: Boolean
+    val gpsDebugTelemetry: Boolean,
 )
 
 object DiagnosticsExporter {
@@ -112,7 +103,7 @@ object DiagnosticsExporter {
         val fixProviderFusedCount: Int = 0,
         val screenOnFixGapSampleCount: Int = 0,
         val screenOnFixGapAvgMs: Long? = null,
-        val screenOnFixGapMaxMs: Long = 0L
+        val screenOnFixGapMaxMs: Long = 0L,
     )
 
     internal data class GnssInsights(
@@ -134,7 +125,7 @@ object DiagnosticsExporter {
         val l5ObservedStatusCount: Int = 0,
         val dualBandObservedStatusCount: Int = 0,
         val l1SatelliteMax: Int = 0,
-        val l5SatelliteMax: Int = 0
+        val l5SatelliteMax: Int = 0,
     )
 
     internal data class AcceptedFixSummary(
@@ -151,20 +142,20 @@ object DiagnosticsExporter {
         val reportedAccuracyAllSame: Boolean = false,
         val ageMedianMs: Long? = null,
         val ageP90Ms: Long? = null,
-        val ageMaxMs: Long? = null
+        val ageMaxMs: Long? = null,
     )
 
     internal data class AcceptedFixSummaries(
         val overall: AcceptedFixSummary = AcceptedFixSummary(),
         val autoFused: AcceptedFixSummary = AcceptedFixSummary(),
-        val watchGps: AcceptedFixSummary = AcceptedFixSummary()
+        val watchGps: AcceptedFixSummary = AcceptedFixSummary(),
     )
 
     internal data class ObservedFixQualitySummary(
         val quality: String = "unknown",
         val confidence: String = "low",
         val reportedAccuracyReliability: String = "unknown",
-        val reason: String = "no accepted fixes"
+        val reason: String = "no accepted fixes",
     )
 
     private val filenameFormatter: DateTimeFormatter =
@@ -177,7 +168,7 @@ object DiagnosticsExporter {
     fun export(
         context: Context,
         settings: DiagnosticsSettingsSnapshot,
-        reuseLatestIfAvailable: Boolean = false
+        reuseLatestIfAvailable: Boolean = false,
     ): File {
         val now = Instant.now()
         val dir = diagnosticsDir(context)
@@ -187,45 +178,51 @@ object DiagnosticsExporter {
 
         val allTelemetryLines = DebugTelemetry.snapshot()
         val captureSession = DebugTelemetry.captureSessionSnapshot()
-        val file = File(
-            dir,
-            buildString {
-                append("glancemap_diagnostics_")
-                append(filenameFormatter.format(now))
-                append('_')
-                append(buildDeviceSlug())
-                captureSession.sessionId.takeIf { it > 0L }?.let {
-                    append("_s")
-                    append(it)
-                }
-                append(".txt")
-            }
-        )
+        val file =
+            File(
+                dir,
+                buildString {
+                    append("glancemap_diagnostics_")
+                    append(filenameFormatter.format(now))
+                    append('_')
+                    append(buildDeviceSlug())
+                    captureSession.sessionId.takeIf { it > 0L }?.let {
+                        append("_s")
+                        append(it)
+                    }
+                    append(".txt")
+                },
+            )
         val captureWindowEndEpochMs = resolveCaptureWindowEndEpochMs(captureSession, now.toEpochMilli())
-        val telemetryWindow = toTelemetryWindow(
-            lines = allTelemetryLines,
-            startEpochMs = captureSession.startedAtMs,
-            endEpochMs = captureWindowEndEpochMs
-        )
+        val telemetryWindow =
+            toTelemetryWindow(
+                lines = allTelemetryLines,
+                startEpochMs = captureSession.startedAtMs,
+                endEpochMs = captureWindowEndEpochMs,
+            )
         val telemetryLines = telemetryWindow.lines
-        val telemetryInsights = deriveTelemetryInsights(
-            lines = telemetryLines,
-            captureWindowEndEpochMs = captureWindowEndEpochMs
-        )
+        val telemetryInsights =
+            deriveTelemetryInsights(
+                lines = telemetryLines,
+                captureWindowEndEpochMs = captureWindowEndEpochMs,
+            )
         val acceptedFixSummaries = deriveAcceptedFixSummaries(telemetryLines)
-        val captureDurationMs = captureDurationMs(
-            startedAtMs = captureSession.startedAtMs,
-            endedAtMs = captureSession.endedAtMs,
-            active = captureSession.active
-        )
-        val bufferedSpanMs = bufferedSpanMs(
-            firstBufferedAtMs = telemetryWindow.firstAtMs,
-            lastBufferedAtMs = telemetryWindow.lastAtMs
-        )
-        val sessionVsBufferedMismatch = captureDurationMs != null &&
-            bufferedSpanMs != null &&
-            !captureSession.active &&
-            kotlin.math.abs(captureDurationMs - bufferedSpanMs) > SESSION_DURATION_MISMATCH_THRESHOLD_MS
+        val captureDurationMs =
+            captureDurationMs(
+                startedAtMs = captureSession.startedAtMs,
+                endedAtMs = captureSession.endedAtMs,
+                active = captureSession.active,
+            )
+        val bufferedSpanMs =
+            bufferedSpanMs(
+                firstBufferedAtMs = telemetryWindow.firstAtMs,
+                lastBufferedAtMs = telemetryWindow.lastAtMs,
+            )
+        val sessionVsBufferedMismatch =
+            captureDurationMs != null &&
+                bufferedSpanMs != null &&
+                !captureSession.active &&
+                kotlin.math.abs(captureDurationMs - bufferedSpanMs) > SESSION_DURATION_MISMATCH_THRESHOLD_MS
         val energyLines = EnergyDiagnostics.snapshotLines()
         val energyDroppedLines = EnergyDiagnostics.droppedLineCount()
         val fusionReplaySummary = FusionReplayTelemetry.summary()
@@ -301,9 +298,9 @@ object DiagnosticsExporter {
                 "activeTileCacheLastUsedAgeMs=${
                     formatAgeMs(
                         nowMs = now.toEpochMilli(),
-                        pastMs = cacheSnapshot.activeTileCacheLastUsedMs
+                        pastMs = cacheSnapshot.activeTileCacheLastUsedMs,
                     )
-                }"
+                }",
             )
             writer.appendLine("tileCacheBucketCount=${cacheSnapshot.tileCacheBucketCount}")
             writer.appendLine("tileCacheTotalSizeMb=${formatBytesToMb(cacheSnapshot.tileCacheTotalSizeBytes)}")
@@ -313,9 +310,9 @@ object DiagnosticsExporter {
                 "cacheLastCleanupAgeMs=${
                     formatAgeMs(
                         nowMs = now.toEpochMilli(),
-                        pastMs = cacheSnapshot.lastCleanupMs
+                        pastMs = cacheSnapshot.lastCleanupMs,
                     )
-                }"
+                }",
             )
             writer.appendLine("reliefOverlayNamespaceCount=${cacheSnapshot.reliefOverlayNamespaceCount}")
             writer.appendLine("reliefOverlayCacheSizeMb=${formatBytesToMb(cacheSnapshot.reliefOverlayCacheSizeBytes)}")
@@ -362,9 +359,9 @@ object DiagnosticsExporter {
                     formatCaptureDurationMs(
                         startedAtMs = captureSession.startedAtMs,
                         endedAtMs = captureSession.endedAtMs,
-                        active = captureSession.active
+                        active = captureSession.active,
                     )
-                }"
+                }",
             )
             writer.appendLine("telemetryTotalLoggedLines=${captureSession.totalLoggedLines}")
             writer.appendLine("telemetryBufferedLines=${telemetryLines.size}")
@@ -402,7 +399,7 @@ object DiagnosticsExporter {
                         mapHotPathTruncated ||
                         gnssTruncated ||
                         fieldMarkerTruncated
-                }"
+                }",
             )
             writer.appendLine()
             writer.appendLine("Telemetry Integrity")
@@ -411,15 +408,15 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "burstStartsWithoutEnd=${
                     (telemetryInsights.burstStartCount - telemetryInsights.burstEndCount).coerceAtLeast(0)
-                }"
+                }",
             )
             writer.appendLine("availabilityTrueCount=${telemetryInsights.availabilityTrueCount}")
             writer.appendLine("availabilityFalseCount=${telemetryInsights.availabilityFalseCount}")
             writer.appendLine(
-                "availabilityEventCount=${telemetryInsights.availabilityTrueCount + telemetryInsights.availabilityFalseCount}"
+                "availabilityEventCount=${telemetryInsights.availabilityTrueCount + telemetryInsights.availabilityFalseCount}",
             )
             writer.appendLine(
-                "availabilityInferredFromFixCount=${telemetryInsights.availabilityInferredFromFixCount}"
+                "availabilityInferredFromFixCount=${telemetryInsights.availabilityInferredFromFixCount}",
             )
             writer.appendLine("screenResumeCount=${telemetryInsights.screenResumeCount}")
             writer.appendLine("screenPauseCount=${telemetryInsights.screenPauseCount}")
@@ -428,7 +425,7 @@ object DiagnosticsExporter {
             writer.appendLine("trackingEnabledTrueCount=${telemetryInsights.trackingEnabledTrueCount}")
             writer.appendLine("trackingEnabledFalseCount=${telemetryInsights.trackingEnabledFalseCount}")
             writer.appendLine(
-                "trackingDisabledByScreenPauseCount=${telemetryInsights.trackingDisabledByScreenPauseCount}"
+                "trackingDisabledByScreenPauseCount=${telemetryInsights.trackingDisabledByScreenPauseCount}",
             )
             writer.appendLine("requestUpdatesAppliedCount=${telemetryInsights.requestAppliedCount}")
             writer.appendLine("requestModeBurstCount=${telemetryInsights.requestModeBurstCount}")
@@ -439,13 +436,13 @@ object DiagnosticsExporter {
             writer.appendLine("requestBackendWatchGpsCount=${telemetryInsights.requestBackendWatchGpsCount}")
             writer.appendLine("requestBackendSwitchCount=${telemetryInsights.requestBackendSwitchCount}")
             writer.appendLine(
-                "requestBackendAutoFusedDurationMs=${telemetryInsights.requestBackendAutoFusedDurationMs}"
+                "requestBackendAutoFusedDurationMs=${telemetryInsights.requestBackendAutoFusedDurationMs}",
             )
             writer.appendLine(
-                "requestBackendWatchGpsDurationMs=${telemetryInsights.requestBackendWatchGpsDurationMs}"
+                "requestBackendWatchGpsDurationMs=${telemetryInsights.requestBackendWatchGpsDurationMs}",
             )
             writer.appendLine(
-                "requestBackendDurationCoverageMs=${telemetryInsights.requestBackendDurationCoverageMs}"
+                "requestBackendDurationCoverageMs=${telemetryInsights.requestBackendDurationCoverageMs}",
             )
             writer.appendLine("requestModeBurstDurationMs=${telemetryInsights.requestModeBurstDurationMs}")
             writer.appendLine("requestModeStationaryBoundDurationMs=${telemetryInsights.requestModeStationaryBoundDurationMs}")
@@ -456,63 +453,64 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "foregroundPinnedLastObserved=${
                     formatBooleanToken(telemetryInsights.lastObservedKeepOpen)
-                }"
+                }",
             )
             writer.appendLine("boundLastObserved=${formatBooleanToken(telemetryInsights.lastObservedBound)}")
             writer.appendLine(
                 "trackingEnabledLastObserved=${
                     formatBooleanToken(telemetryInsights.lastObservedTrackingEnabled)
-                }"
+                }",
             )
-            val gpsTrackingExpectedLastObserved = telemetryInsights.lastObservedTrackingEnabled
-                ?: telemetryInsights.lastObservedBound?.let { bound ->
-                    bound || settings.gpsInAmbientMode
-                }
+            val gpsTrackingExpectedLastObserved =
+                telemetryInsights.lastObservedTrackingEnabled
+                    ?: telemetryInsights.lastObservedBound?.let { bound ->
+                        bound || settings.gpsInAmbientMode
+                    }
             writer.appendLine(
                 "gpsTrackingExpectedByPolicyLastObserved=${
                     formatBooleanToken(gpsTrackingExpectedLastObserved)
-                }"
+                }",
             )
             writer.appendLine(
-                "startupBogusSampleIgnoredCount=${telemetryInsights.startupBogusSampleIgnoredCount}"
+                "startupBogusSampleIgnoredCount=${telemetryInsights.startupBogusSampleIgnoredCount}",
             )
             writer.appendLine("staleFixDropCount=${telemetryInsights.staleFixDropCount}")
             writer.appendLine("sourceMismatchDropCount=${telemetryInsights.sourceMismatchDropCount}")
             writer.appendLine(
-                "failoverAutoToWatchAccuracyCount=${telemetryInsights.failoverAutoToWatchAccuracyCount}"
+                "failoverAutoToWatchAccuracyCount=${telemetryInsights.failoverAutoToWatchAccuracyCount}",
             )
             writer.appendLine(
-                "failoverAutoToWatchNoFixCount=${telemetryInsights.failoverAutoToWatchNoFixCount}"
+                "failoverAutoToWatchNoFixCount=${telemetryInsights.failoverAutoToWatchNoFixCount}",
             )
             writer.appendLine("failoverWatchToAutoCount=${telemetryInsights.failoverWatchToAutoCount}")
             writer.appendLine(
-                "failoverClearedTrackingDisabledCount=${telemetryInsights.failoverClearedTrackingDisabledCount}"
+                "failoverClearedTrackingDisabledCount=${telemetryInsights.failoverClearedTrackingDisabledCount}",
             )
             writer.appendLine(
-                "failoverClearedOtherCount=${telemetryInsights.failoverClearedOtherCount}"
+                "failoverClearedOtherCount=${telemetryInsights.failoverClearedOtherCount}",
             )
             writer.appendLine("gpsFreshTrueCount=${telemetryInsights.gpsFreshTrueCount}")
             writer.appendLine("gpsFreshFalseCount=${telemetryInsights.gpsFreshFalseCount}")
             writer.appendLine(
-                "watchGpsDegradedEnteredCount=${telemetryInsights.watchGpsDegradedEnteredCount}"
+                "watchGpsDegradedEnteredCount=${telemetryInsights.watchGpsDegradedEnteredCount}",
             )
             writer.appendLine(
-                "watchGpsDegradedClearedCount=${telemetryInsights.watchGpsDegradedClearedCount}"
+                "watchGpsDegradedClearedCount=${telemetryInsights.watchGpsDegradedClearedCount}",
             )
             writer.appendLine(
-                "watchGpsDegradedSampleCount=${telemetryInsights.watchGpsDegradedSampleCount}"
+                "watchGpsDegradedSampleCount=${telemetryInsights.watchGpsDegradedSampleCount}",
             )
             writer.appendLine(
                 "watchGpsDegradedLastObserved=${
                     formatBooleanToken(telemetryInsights.watchGpsDegradedLastObserved)
-                }"
+                }",
             )
             writer.appendLine("batchEventCount=${telemetryInsights.batchEventCount}")
             writer.appendLine("batchOriginAutoFusedCount=${telemetryInsights.batchOriginAutoFusedCount}")
             writer.appendLine("batchOriginWatchGpsCount=${telemetryInsights.batchOriginWatchGpsCount}")
             writer.appendLine("batchFallbackCount=${telemetryInsights.batchFallbackCount}")
             writer.appendLine(
-                "batchDuplicateCandidatesDroppedTotal=${telemetryInsights.batchDuplicateCandidatesDroppedTotal}"
+                "batchDuplicateCandidatesDroppedTotal=${telemetryInsights.batchDuplicateCandidatesDroppedTotal}",
             )
             writer.appendLine("batchRawCandidatesTotal=${telemetryInsights.batchRawCandidatesTotal}")
             writer.appendLine("batchNormalizedCandidatesTotal=${telemetryInsights.batchNormalizedCandidatesTotal}")
@@ -522,10 +520,10 @@ object DiagnosticsExporter {
             writer.appendLine("callbackAcceptedFixCount=${telemetryInsights.callbackAcceptedFixCount}")
             writer.appendLine("immediateAcceptedFixCount=${telemetryInsights.immediateAcceptedFixCount}")
             writer.appendLine(
-                "acceptedFixOriginAutoFusedCount=${telemetryInsights.acceptedFixOriginAutoFusedCount}"
+                "acceptedFixOriginAutoFusedCount=${telemetryInsights.acceptedFixOriginAutoFusedCount}",
             )
             writer.appendLine(
-                "acceptedFixOriginWatchGpsCount=${telemetryInsights.acceptedFixOriginWatchGpsCount}"
+                "acceptedFixOriginWatchGpsCount=${telemetryInsights.acceptedFixOriginWatchGpsCount}",
             )
             writer.appendLine("fixProviderGpsCount=${telemetryInsights.fixProviderGpsCount}")
             writer.appendLine("fixProviderFusedCount=${telemetryInsights.fixProviderFusedCount}")
@@ -533,7 +531,7 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "screenOnFixGapAvgMs=${
                     telemetryInsights.screenOnFixGapAvgMs?.toString() ?: "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "screenOnFixGapMaxMs=${
@@ -542,31 +540,31 @@ object DiagnosticsExporter {
                     } else {
                         "na"
                     }
-                }"
+                }",
             )
             writer.appendLine(
                 "batchAvgRawCandidates=${
                     formatAverage(
                         total = telemetryInsights.batchRawCandidatesTotal,
-                        count = telemetryInsights.batchEventCount
+                        count = telemetryInsights.batchEventCount,
                     )
-                }"
+                }",
             )
             writer.appendLine(
                 "batchAvgAcceptedCandidates=${
                     formatAverage(
                         total = telemetryInsights.batchAcceptedCandidatesTotal,
-                        count = telemetryInsights.batchEventCount
+                        count = telemetryInsights.batchEventCount,
                     )
-                }"
+                }",
             )
             writer.appendLine(
                 "batchAcceptanceRatePct=${
                     formatRatePercent(
                         numerator = telemetryInsights.batchAcceptedCandidatesTotal,
-                        denominator = telemetryInsights.batchNormalizedCandidatesTotal
+                        denominator = telemetryInsights.batchNormalizedCandidatesTotal,
                     )
-                }"
+                }",
             )
             writer.appendLine("sessionDurationMs=${captureDurationMs?.toString() ?: "na"}")
             writer.appendLine("bufferedSpanMs=${bufferedSpanMs?.toString() ?: "na"}")
@@ -577,31 +575,34 @@ object DiagnosticsExporter {
                 writer = writer,
                 prefix = "overall",
                 summary = acceptedFixSummaries.overall,
-                quality = inferObservedFixQuality(
-                    summary = acceptedFixSummaries.overall,
-                    origin = null,
-                    gnssInsights = gnssInsights
-                )
+                quality =
+                    inferObservedFixQuality(
+                        summary = acceptedFixSummaries.overall,
+                        origin = null,
+                        gnssInsights = gnssInsights,
+                    ),
             )
             writeAcceptedFixQualitySection(
                 writer = writer,
                 prefix = "autoFused",
                 summary = acceptedFixSummaries.autoFused,
-                quality = inferObservedFixQuality(
-                    summary = acceptedFixSummaries.autoFused,
-                    origin = "auto_fused",
-                    gnssInsights = gnssInsights
-                )
+                quality =
+                    inferObservedFixQuality(
+                        summary = acceptedFixSummaries.autoFused,
+                        origin = "auto_fused",
+                        gnssInsights = gnssInsights,
+                    ),
             )
             writeAcceptedFixQualitySection(
                 writer = writer,
                 prefix = "watchGps",
                 summary = acceptedFixSummaries.watchGps,
-                quality = inferObservedFixQuality(
-                    summary = acceptedFixSummaries.watchGps,
-                    origin = "watch_gps",
-                    gnssInsights = gnssInsights
-                )
+                quality =
+                    inferObservedFixQuality(
+                        summary = acceptedFixSummaries.watchGps,
+                        origin = "watch_gps",
+                        gnssInsights = gnssInsights,
+                    ),
             )
             writer.appendLine()
             writer.appendLine("Telemetry")
@@ -626,47 +627,47 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "firstFixTtffAvgMs=${
                     if (gnssInsights.firstFixCount > 0) gnssInsights.firstFixTtffAvgMs.toString() else "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "firstFixTtffMinMs=${
                     if (gnssInsights.firstFixCount > 0) gnssInsights.firstFixTtffMinMs.toString() else "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "firstFixTtffMaxMs=${
                     if (gnssInsights.firstFixCount > 0) gnssInsights.firstFixTtffMaxMs.toString() else "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "satellitesAvg=${
                     if (gnssInsights.statusSampleCount > 0) "%.2f".format(gnssInsights.satellitesAvg) else "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "satellitesMax=${
                     if (gnssInsights.statusSampleCount > 0) gnssInsights.satellitesMax.toString() else "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "usedInFixAvg=${
                     if (gnssInsights.statusSampleCount > 0) "%.2f".format(gnssInsights.usedInFixAvg) else "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "usedInFixMax=${
                     if (gnssInsights.statusSampleCount > 0) gnssInsights.usedInFixMax.toString() else "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "cn0AvgDbHz=${
                     gnssInsights.cn0AvgDbHz?.let { "%.2f".format(it) } ?: "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "cn0MaxDbHz=${
                     gnssInsights.cn0MaxDbHz?.let { "%.1f".format(it) } ?: "na"
-                }"
+                }",
             )
             writer.appendLine("carrierFrequencyStatusCount=${gnssInsights.carrierFrequencyStatusCount}")
             writer.appendLine("l1ObservedStatusCount=${gnssInsights.l1ObservedStatusCount}")
@@ -675,12 +676,12 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "l1SatelliteMax=${
                     if (gnssInsights.statusSampleCount > 0) gnssInsights.l1SatelliteMax.toString() else "na"
-                }"
+                }",
             )
             writer.appendLine(
                 "l5SatelliteMax=${
                     if (gnssInsights.statusSampleCount > 0) gnssInsights.l5SatelliteMax.toString() else "na"
-                }"
+                }",
             )
             writer.appendLine()
             writer.appendLine("GNSS Events")
@@ -725,7 +726,7 @@ object DiagnosticsExporter {
                     } else {
                         "na"
                     }
-                }"
+                }",
             )
             writer.appendLine("daveyCount=${performanceSummary.daveyCount}")
             writer.appendLine(
@@ -735,7 +736,7 @@ object DiagnosticsExporter {
                     } else {
                         "na"
                     }
-                }"
+                }",
             )
             writer.appendLine(
                 "daveyAvgDurationMs=${
@@ -744,7 +745,7 @@ object DiagnosticsExporter {
                     } else {
                         "na"
                     }
-                }"
+                }",
             )
             writer.appendLine("gcEventCount=${performanceSummary.gcEventCount}")
             writer.appendLine(
@@ -754,7 +755,7 @@ object DiagnosticsExporter {
                     } else {
                         "na"
                     }
-                }"
+                }",
             )
             writer.appendLine(
                 "gcAvgDurationMs=${
@@ -763,7 +764,7 @@ object DiagnosticsExporter {
                     } else {
                         "na"
                     }
-                }"
+                }",
             )
             writer.appendLine(
                 "gcMaxFreedKb=${
@@ -772,7 +773,7 @@ object DiagnosticsExporter {
                     } else {
                         "na"
                     }
-                }"
+                }",
             )
             writer.appendLine("resourceCloseWarningCount=${performanceSummary.resourceCloseWarningCount}")
             writer.appendLine()
@@ -791,14 +792,14 @@ object DiagnosticsExporter {
                     } else {
                         "na"
                     }
-                }"
+                }",
             )
             if (mapHotPathSummary.stageSummaries.isEmpty()) {
                 writer.appendLine("No map hot path timings captured.")
             } else {
                 mapHotPathSummary.stageSummaries.forEachIndexed { index, stage ->
                     writer.appendLine(
-                        "stage[$index]=name=${stage.stage} count=${stage.count} avgMs=${stage.avgDurationMs} maxMs=${stage.maxDurationMs} slowCount=${stage.slowCount} errorCount=${stage.errorCount}"
+                        "stage[$index]=name=${stage.stage} count=${stage.count} avgMs=${stage.avgDurationMs} maxMs=${stage.maxDurationMs} slowCount=${stage.slowCount} errorCount=${stage.errorCount}",
                     )
                 }
             }
@@ -819,7 +820,7 @@ object DiagnosticsExporter {
             } else {
                 historicalExitReasons.entries.forEachIndexed { index, entry ->
                     writer.appendLine(
-                        "exit[$index]=timestamp=${formatCaptureTime(entry.timestampMs)} reason=${entry.reason} subReason=${entry.subReason} importance=${entry.importance} status=${entry.status} pssKb=${entry.pssKb} rssKb=${entry.rssKb} description=${entry.description ?: "na"}"
+                        "exit[$index]=timestamp=${formatCaptureTime(entry.timestampMs)} reason=${entry.reason} subReason=${entry.subReason} importance=${entry.importance} status=${entry.status} pssKb=${entry.pssKb} rssKb=${entry.rssKb} description=${entry.description ?: "na"}",
                     )
                 }
             }
@@ -849,19 +850,20 @@ object DiagnosticsExporter {
 
     fun latestExportFile(context: Context): File? {
         val dir = existingDiagnosticsDir(context) ?: return null
-        return dir.listFiles()
+        return dir
+            .listFiles()
             ?.asSequence()
             ?.filter { file ->
                 file.isFile &&
                     file.name.startsWith("glancemap_diagnostics_") &&
                     file.name.endsWith(".txt")
-            }
-            ?.maxByOrNull { it.lastModified() }
+            }?.maxByOrNull { it.lastModified() }
     }
 
     fun exportedFileCount(context: Context): Int {
         val dir = existingDiagnosticsDir(context) ?: return 0
-        return dir.listFiles()
+        return dir
+            .listFiles()
             ?.count { file ->
                 file.isFile &&
                     file.name.startsWith("glancemap_diagnostics_") &&
@@ -887,11 +889,12 @@ object DiagnosticsExporter {
 
     private fun buildDeviceSlug(): String {
         val raw = "${Build.MANUFACTURER}_${Build.MODEL}"
-        val normalized = raw
-            .lowercase(Locale.US)
-            .replace(Regex("[^a-z0-9]+"), "_")
-            .trim('_')
-            .ifBlank { "wear_watch" }
+        val normalized =
+            raw
+                .lowercase(Locale.US)
+                .replace(Regex("[^a-z0-9]+"), "_")
+                .trim('_')
+                .ifBlank { "wear_watch" }
         return normalized.take(40)
     }
 
@@ -900,45 +903,43 @@ object DiagnosticsExporter {
         return if (dir.exists() && dir.isDirectory) dir else null
     }
 
-    internal fun deriveAcceptedFixSummaries(lines: List<String>): AcceptedFixSummaries {
-        return deriveAcceptedFixSummariesFromLines(lines)
-    }
+    internal fun deriveAcceptedFixSummaries(lines: List<String>): AcceptedFixSummaries = deriveAcceptedFixSummariesFromLines(lines)
 
     internal fun inferObservedFixQuality(
         summary: AcceptedFixSummary,
         origin: String?,
-        gnssInsights: GnssInsights
-    ): ObservedFixQualitySummary {
-        return inferObservedFixQualityFromSummary(
+        gnssInsights: GnssInsights,
+    ): ObservedFixQualitySummary =
+        inferObservedFixQualityFromSummary(
             summary = summary,
             origin = origin,
-            gnssInsights = gnssInsights
+            gnssInsights = gnssInsights,
         )
-    }
-
 }
 
 internal fun normalizeThreadtimeLogcatLine(
     line: String,
     capturedAt: Instant,
-    zoneId: ZoneId
+    zoneId: ZoneId,
 ): String {
     val match = threadtimeLineRegex.matchEntire(line) ?: return line
     val month = match.groupValues[1].toIntOrNull() ?: return line
     val day = match.groupValues[2].toIntOrNull() ?: return line
-    val time = runCatching {
-        LocalTime.parse(match.groupValues[3], threadtimeTimeFormatter)
-    }.getOrNull() ?: return line
+    val time =
+        runCatching {
+            LocalTime.parse(match.groupValues[3], threadtimeTimeFormatter)
+        }.getOrNull() ?: return line
     val suffix = match.groupValues[4]
     val capturedYear = capturedAt.atZone(zoneId).year
-    val inferredDateTime = inferThreadtimeDateTime(
-        month = month,
-        day = day,
-        time = time,
-        capturedAt = capturedAt,
-        zoneId = zoneId,
-        baseYear = capturedYear
-    ) ?: return line
+    val inferredDateTime =
+        inferThreadtimeDateTime(
+            month = month,
+            day = day,
+            time = time,
+            capturedAt = capturedAt,
+            zoneId = zoneId,
+            baseYear = capturedYear,
+        ) ?: return line
     return "${normalizedLogcatTimestampFormatter.format(inferredDateTime)}$suffix"
 }
 
@@ -948,18 +949,19 @@ internal fun inferThreadtimeDateTime(
     time: LocalTime,
     capturedAt: Instant,
     zoneId: ZoneId,
-    baseYear: Int
+    baseYear: Int,
 ): LocalDateTime? {
-    val candidates = sequenceOf(baseYear - 1, baseYear, baseYear + 1)
-        .mapNotNull { year ->
-            runCatching {
-                ZonedDateTime.of(year, month, day, time.hour, time.minute, time.second, time.nano, zoneId)
-            }.getOrNull()
-        }
-        .toList()
+    val candidates =
+        sequenceOf(baseYear - 1, baseYear, baseYear + 1)
+            .mapNotNull { year ->
+                runCatching {
+                    ZonedDateTime.of(year, month, day, time.hour, time.minute, time.second, time.nano, zoneId)
+                }.getOrNull()
+            }.toList()
     if (candidates.isEmpty()) return null
-    val best = candidates.minByOrNull { candidate ->
-        kotlin.math.abs(Duration.between(candidate.toInstant(), capturedAt).toMillis())
-    } ?: return null
+    val best =
+        candidates.minByOrNull { candidate ->
+            kotlin.math.abs(Duration.between(candidate.toInstant(), capturedAt).toMillis())
+        } ?: return null
     return best.toLocalDateTime()
 }

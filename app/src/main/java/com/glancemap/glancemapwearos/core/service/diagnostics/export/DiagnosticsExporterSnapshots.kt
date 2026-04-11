@@ -20,14 +20,15 @@ private val diagnosticsExporterTimestampFormatter: DateTimeFormatter =
 
 internal data class LocationPermissionSnapshot(
     val hasFinePermission: Boolean,
-    val hasCoarsePermission: Boolean
+    val hasCoarsePermission: Boolean,
 ) {
     val mode: String
-        get() = when {
-            hasFinePermission -> "precise"
-            hasCoarsePermission -> "approximate_only"
-            else -> "none"
-        }
+        get() =
+            when {
+                hasFinePermission -> "precise"
+                hasCoarsePermission -> "approximate_only"
+                else -> "none"
+            }
 }
 
 internal data class SensorInventorySnapshot(
@@ -40,7 +41,7 @@ internal data class SensorInventorySnapshot(
     val rotationVectorSensor: Sensor?,
     val magnetometerSensor: Sensor?,
     val accelerometerSensor: Sensor?,
-    val allSensors: List<Sensor>
+    val allSensors: List<Sensor>,
 )
 
 internal data class MemorySnapshot(
@@ -62,13 +63,13 @@ internal data class MemorySnapshot(
     val thresholdBytes: Long?,
     val lowMemory: Boolean?,
     val memoryClassMb: Int?,
-    val largeMemoryClassMb: Int?
+    val largeMemoryClassMb: Int?,
 )
 
 internal data class HistoricalExitReasonsSnapshot(
     val apiSupported: Boolean,
     val entries: List<HistoricalExitReason>,
-    val captureError: String? = null
+    val captureError: String? = null,
 )
 
 internal data class HistoricalExitReason(
@@ -79,7 +80,7 @@ internal data class HistoricalExitReason(
     val status: Int,
     val pssKb: Long,
     val rssKb: Long,
-    val description: String?
+    val description: String?,
 )
 
 internal fun captureSensorInventory(context: Context): SensorInventorySnapshot {
@@ -89,9 +90,10 @@ internal fun captureSensorInventory(context: Context): SensorInventorySnapshot {
     val rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
     val magnetometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
     val accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    val allSensors = runCatching { sensorManager.getSensorList(Sensor.TYPE_ALL) }
-        .getOrDefault(emptyList())
-        .sortedWith(compareBy<Sensor> { it.type }.thenBy { it.name ?: "" })
+    val allSensors =
+        runCatching { sensorManager.getSensorList(Sensor.TYPE_ALL) }
+            .getOrDefault(emptyList())
+            .sortedWith(compareBy<Sensor> { it.type }.thenBy { it.name ?: "" })
     return SensorInventorySnapshot(
         headingPublicApiSupported = headingPublicApiSupported,
         headingAvailable = headingSensor != null,
@@ -102,7 +104,7 @@ internal fun captureSensorInventory(context: Context): SensorInventorySnapshot {
         rotationVectorSensor = rotationVectorSensor,
         magnetometerSensor = magnetometerSensor,
         accelerometerSensor = accelerometerSensor,
-        allSensors = allSensors
+        allSensors = allSensors,
     )
 }
 
@@ -112,41 +114,47 @@ internal fun resolveHeadingSensor(sensorManager: SensorManager): Sensor? {
         sensorManager.getDefaultSensor(Sensor.TYPE_HEADING, true)
     }.getOrNull()?.let { return it }
 
-    val headingStringType = runCatching { Sensor.STRING_TYPE_HEADING }
-        .getOrDefault("android.sensor.heading")
-    val allSensors = runCatching { sensorManager.getSensorList(Sensor.TYPE_ALL) }
-        .getOrDefault(emptyList())
+    val headingStringType =
+        runCatching { Sensor.STRING_TYPE_HEADING }
+            .getOrDefault("android.sensor.heading")
+    val allSensors =
+        runCatching { sensorManager.getSensorList(Sensor.TYPE_ALL) }
+            .getOrDefault(emptyList())
     return allSensors.firstOrNull { sensor ->
         sensor.type == Sensor.TYPE_HEADING || sensor.stringType == headingStringType
     }
 }
 
 internal fun captureLocationPermissionSnapshot(context: Context): LocationPermissionSnapshot {
-    val hasFinePermission = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
-    val hasCoarsePermission = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_COARSE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
+    val hasFinePermission =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+    val hasCoarsePermission =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
     return LocationPermissionSnapshot(
         hasFinePermission = hasFinePermission,
-        hasCoarsePermission = hasCoarsePermission
+        hasCoarsePermission = hasCoarsePermission,
     )
 }
 
 internal fun captureMemorySnapshot(context: Context): MemorySnapshot {
     val runtime = Runtime.getRuntime()
     val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-    val processMemoryInfo = runCatching {
-        activityManager?.getProcessMemoryInfo(intArrayOf(android.os.Process.myPid()))?.firstOrNull()
-    }.getOrNull()
-    val systemMemoryInfo = runCatching {
-        ActivityManager.MemoryInfo().also { info ->
-            activityManager?.getMemoryInfo(info)
-        }
-    }.getOrNull()
+    val processMemoryInfo =
+        runCatching {
+            activityManager?.getProcessMemoryInfo(intArrayOf(android.os.Process.myPid()))?.firstOrNull()
+        }.getOrNull()
+    val systemMemoryInfo =
+        runCatching {
+            ActivityManager.MemoryInfo().also { info ->
+                activityManager?.getMemoryInfo(info)
+            }
+        }.getOrNull()
 
     val runtimeTotalHeapBytes = runtime.totalMemory()
     val runtimeFreeHeapBytes = runtime.freeMemory()
@@ -169,7 +177,7 @@ internal fun captureMemorySnapshot(context: Context): MemorySnapshot {
         thresholdBytes = systemMemoryInfo?.threshold,
         lowMemory = systemMemoryInfo?.lowMemory,
         memoryClassMb = activityManager?.memoryClass,
-        largeMemoryClassMb = activityManager?.largeMemoryClass
+        largeMemoryClassMb = activityManager?.largeMemoryClass,
     )
 }
 
@@ -177,49 +185,53 @@ internal fun captureHistoricalProcessExitReasons(context: Context): HistoricalEx
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
         return HistoricalExitReasonsSnapshot(
             apiSupported = false,
-            entries = emptyList()
+            entries = emptyList(),
         )
     }
-    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-        ?: return HistoricalExitReasonsSnapshot(
-            apiSupported = true,
-            entries = emptyList(),
-            captureError = "activity_manager_unavailable"
-        )
+    val activityManager =
+        context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            ?: return HistoricalExitReasonsSnapshot(
+                apiSupported = true,
+                entries = emptyList(),
+                captureError = "activity_manager_unavailable",
+            )
 
     return runCatching {
-        val entries = activityManager.getHistoricalProcessExitReasons(context.packageName, 0, 6)
-            .orEmpty()
-            .map { info ->
-                HistoricalExitReason(
-                    timestampMs = info.timestamp,
-                    reason = formatExitReason(info.reason),
-                    subReason = -1,
-                    importance = info.importance,
-                    status = info.status,
-                    pssKb = info.pss,
-                    rssKb = info.rss,
-                    description = info.description
-                        ?.replace(Regex("\\s+"), " ")
-                        ?.trim()
-                        ?.takeIf { it.isNotEmpty() }
-                )
-            }
+        val entries =
+            activityManager
+                .getHistoricalProcessExitReasons(context.packageName, 0, 6)
+                .orEmpty()
+                .map { info ->
+                    HistoricalExitReason(
+                        timestampMs = info.timestamp,
+                        reason = formatExitReason(info.reason),
+                        subReason = -1,
+                        importance = info.importance,
+                        status = info.status,
+                        pssKb = info.pss,
+                        rssKb = info.rss,
+                        description =
+                            info.description
+                                ?.replace(Regex("\\s+"), " ")
+                                ?.trim()
+                                ?.takeIf { it.isNotEmpty() },
+                    )
+                }
         HistoricalExitReasonsSnapshot(
             apiSupported = true,
-            entries = entries
+            entries = entries,
         )
     }.getOrElse { error ->
         HistoricalExitReasonsSnapshot(
             apiSupported = true,
             entries = emptyList(),
-            captureError = error.javaClass.simpleName
+            captureError = error.javaClass.simpleName,
         )
     }
 }
 
-internal fun formatExitReason(reason: Int): String {
-    return when (reason) {
+internal fun formatExitReason(reason: Int): String =
+    when (reason) {
         ApplicationExitInfo.REASON_ANR -> "ANR"
         ApplicationExitInfo.REASON_CRASH -> "CRASH"
         ApplicationExitInfo.REASON_CRASH_NATIVE -> "CRASH_NATIVE"
@@ -237,21 +249,17 @@ internal fun formatExitReason(reason: Int): String {
         ApplicationExitInfo.REASON_USER_STOPPED -> "USER_STOPPED"
         else -> "REASON_$reason"
     }
-}
 
-internal fun formatBytesToMb(bytes: Long): String {
-    return "%.1f".format(Locale.US, bytes.toDouble() / (1024.0 * 1024.0))
-}
+internal fun formatBytesToMb(bytes: Long): String = "%.1f".format(Locale.US, bytes.toDouble() / (1024.0 * 1024.0))
 
-internal fun formatNullableBytesToMb(bytes: Long?): String {
-    return bytes?.let { formatBytesToMb(it) } ?: "na"
-}
+internal fun formatNullableBytesToMb(bytes: Long?): String = bytes?.let { formatBytesToMb(it) } ?: "na"
 
-internal fun formatNullableBoolean(value: Boolean?): String {
-    return value?.toString() ?: "na"
-}
+internal fun formatNullableBoolean(value: Boolean?): String = value?.toString() ?: "na"
 
-internal fun formatAgeMs(nowMs: Long, pastMs: Long?): String {
+internal fun formatAgeMs(
+    nowMs: Long,
+    pastMs: Long?,
+): String {
     if (pastMs == null || pastMs <= 0L) return "na"
     return (nowMs - pastMs).coerceAtLeast(0L).toString()
 }
@@ -291,7 +299,7 @@ internal fun formatCaptureTime(epochMs: Long?): String {
 
 internal fun formatCaptureEndTime(
     endedAtMs: Long?,
-    active: Boolean
+    active: Boolean,
 ): String {
     if (endedAtMs != null) {
         return diagnosticsExporterTimestampFormatter.format(Instant.ofEpochMilli(endedAtMs))
@@ -299,28 +307,43 @@ internal fun formatCaptureEndTime(
     return if (active) "capture_active" else "na"
 }
 
-internal fun formatCaptureDurationMs(startedAtMs: Long?, endedAtMs: Long?, active: Boolean): String {
-    val durationMs = captureDurationMs(
-        startedAtMs = startedAtMs,
-        endedAtMs = endedAtMs,
-        active = active
-    )
+internal fun formatCaptureDurationMs(
+    startedAtMs: Long?,
+    endedAtMs: Long?,
+    active: Boolean,
+): String {
+    val durationMs =
+        captureDurationMs(
+            startedAtMs = startedAtMs,
+            endedAtMs = endedAtMs,
+            active = active,
+        )
     return durationMs?.toString() ?: "na"
 }
 
-internal fun captureDurationMs(startedAtMs: Long?, endedAtMs: Long?, active: Boolean): Long? {
+internal fun captureDurationMs(
+    startedAtMs: Long?,
+    endedAtMs: Long?,
+    active: Boolean,
+): Long? {
     if (startedAtMs == null) return null
     val endMs = endedAtMs ?: if (active) System.currentTimeMillis() else null
     if (endMs == null) return null
     return (endMs - startedAtMs).coerceAtLeast(0L)
 }
 
-internal fun formatBufferedSpanMs(firstBufferedAtMs: Long?, lastBufferedAtMs: Long?): String {
+internal fun formatBufferedSpanMs(
+    firstBufferedAtMs: Long?,
+    lastBufferedAtMs: Long?,
+): String {
     val spanMs = bufferedSpanMs(firstBufferedAtMs = firstBufferedAtMs, lastBufferedAtMs = lastBufferedAtMs)
     return spanMs?.toString() ?: "na"
 }
 
-internal fun bufferedSpanMs(firstBufferedAtMs: Long?, lastBufferedAtMs: Long?): Long? {
+internal fun bufferedSpanMs(
+    firstBufferedAtMs: Long?,
+    lastBufferedAtMs: Long?,
+): Long? {
     if (firstBufferedAtMs == null || lastBufferedAtMs == null) return null
     return (lastBufferedAtMs - firstBufferedAtMs).coerceAtLeast(0L)
 }

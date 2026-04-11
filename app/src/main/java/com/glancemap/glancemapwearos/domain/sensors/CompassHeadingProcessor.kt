@@ -25,9 +25,9 @@ internal class CompassHeadingProcessor {
         isUsingRotationVector: () -> Boolean,
         isUsingHeadingSensor: () -> Boolean,
         updateInferredHeadingAccuracy: (Int) -> Unit,
-        logDiagnostics: (String) -> Unit
-    ): Job {
-        return launchCompassSmoothingJob(
+        logDiagnostics: (String) -> Unit,
+    ): Job =
+        launchCompassSmoothingJob(
             scope = scope,
             rawHeadingFlow = rawHeadingFlow,
             settleWindowMs = settleWindowMs,
@@ -47,7 +47,6 @@ internal class CompassHeadingProcessor {
             isUsingRotationVector = isUsingRotationVector,
             isUsingHeadingSensor = isUsingHeadingSensor,
             updateInferredHeadingAccuracy = updateInferredHeadingAccuracy,
-            logDiagnostics = logDiagnostics
+            logDiagnostics = logDiagnostics,
         )
-    }
 }

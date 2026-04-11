@@ -3,13 +3,12 @@ package com.glancemap.glancemapcompanionapp.transfer.service.internal
 import com.glancemap.glancemapcompanionapp.transfer.TransferStrategyFactory
 import com.glancemap.glancemapcompanionapp.transfer.strategy.HttpTransferServer
 import com.glancemap.glancemapcompanionapp.transfer.strategy.TransferResult
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BatchTransferRunnerSupportTest {
-
     @Test
     fun `detects different private subnet http failure`() {
         val message =
@@ -60,33 +59,35 @@ class BatchTransferRunnerSupportTest {
             hasMeaningfulFreshHttpRetryProgress(
                 previousSentBytes = 766185744L,
                 currentSentBytes = 985631096L,
-                totalSize = 1_032_008_362L
-            )
+                totalSize = 1_032_008_362L,
+            ),
         )
         assertFalse(
             hasMeaningfulFreshHttpRetryProgress(
                 previousSentBytes = 766185744L,
                 currentSentBytes = 770000000L,
-                totalSize = 1_032_008_362L
-            )
+                totalSize = 1_032_008_362L,
+            ),
         )
     }
 
     @Test
     fun `allows large channel rescue fallback when phone http server is unreachable`() {
-        val result = TransferResult(
-            success = false,
-            message = "Cannot reach phone HTTP server at http://192.168.0.189:45055/ " +
-                "(failed to connect to /192.168.0.189 (port 45055) from /192.168.0.241 " +
-                "(port 36600) after 1500ms)"
-        )
+        val result =
+            TransferResult(
+                success = false,
+                message =
+                    "Cannot reach phone HTTP server at http://192.168.0.189:45055/ " +
+                        "(failed to connect to /192.168.0.189 (port 45055) from /192.168.0.241 " +
+                        "(port 36600) after 1500ms)",
+            )
 
         assertTrue(
             shouldFallbackToChannel(
                 strategy = HttpTransferServer(),
                 fileSize = TransferStrategyFactory.CHANNEL_FALLBACK_MAX_BYTES + 1L,
-                result = result
-            )
+                result = result,
+            ),
         )
         assertTrue(shouldAllowLargeChannelRescueFallback(result))
         assertTrue(shouldPreferChannelForRemainingBatch(result))
@@ -94,20 +95,22 @@ class BatchTransferRunnerSupportTest {
 
     @Test
     fun `does not poison remaining batch on recoverable http stall`() {
-        val result = TransferResult(
-            success = false,
-            message = "HTTP_STALLED_RETRY: file=Bayern_oam.osm.map idleMs=45789 timeoutMs=45000 sent=624951296"
-        )
+        val result =
+            TransferResult(
+                success = false,
+                message = "HTTP_STALLED_RETRY: file=Bayern_oam.osm.map idleMs=45789 timeoutMs=45000 sent=624951296",
+            )
 
         assertFalse(shouldPreferChannelForRemainingBatch(result))
     }
 
     @Test
     fun `does not poison remaining batch on generic server error`() {
-        val result = TransferResult(
-            success = false,
-            message = "Server Error: CHECKSUM_MISMATCH"
-        )
+        val result =
+            TransferResult(
+                success = false,
+                message = "Server Error: CHECKSUM_MISMATCH",
+            )
 
         assertFalse(shouldPreferChannelForRemainingBatch(result))
     }

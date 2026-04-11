@@ -10,12 +10,11 @@ import java.util.zip.ZipInputStream
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.min
-import kotlin.math.round
 import kotlin.math.sqrt
 
 internal class ReliefDemRepository(
     private val demRootDir: File,
-    private val tag: String
+    private val tag: String,
 ) {
     companion object {
         private const val MIN_DEM_TILE_CACHE_ENTRIES = 12
@@ -23,17 +22,20 @@ internal class ReliefDemRepository(
     }
 
     private val maxDemTileCacheEntries: Int = computeMaxDemTileCacheEntries()
-    private val demTileCache = object : LinkedHashMap<String, DemTileData?>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, DemTileData?>?): Boolean {
-            return size > maxDemTileCacheEntries
+    private val demTileCache =
+        object : LinkedHashMap<String, DemTileData?>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, DemTileData?>?): Boolean = size > maxDemTileCacheEntries
         }
-    }
 
-    fun loadDemTileFor(lat: Double, lon: Double): DemTileData? {
-        return loadDemTile(floor(lat).toInt(), floor(lon).toInt())
-    }
+    fun loadDemTileFor(
+        lat: Double,
+        lon: Double,
+    ): DemTileData? = loadDemTile(floor(lat).toInt(), floor(lon).toInt())
 
-    fun elevationAt(lat: Double, lon: Double): Double? {
+    fun elevationAt(
+        lat: Double,
+        lon: Double,
+    ): Double? {
         val latTile = floor(lat).toInt()
         val lonTile = floor(lon).toInt()
         val tile = loadDemTile(latTile, lonTile) ?: return null
@@ -71,7 +73,10 @@ internal class ReliefDemRepository(
         }
     }
 
-    private fun loadDemTile(latTile: Int, lonTile: Int): DemTileData? {
+    private fun loadDemTile(
+        latTile: Int,
+        lonTile: Int,
+    ): DemTileData? {
         val tileId = tileId(latTile, lonTile)
         synchronized(demTileCache) {
             if (demTileCache.containsKey(tileId)) {
@@ -79,13 +84,14 @@ internal class ReliefDemRepository(
             }
         }
 
-        val loaded = runCatching {
-            val file = resolveDemFile(tileId) ?: return@runCatching null
-            val bytes = readDemBytes(file) ?: return@runCatching null
-            decodeDemBytes(bytes)
-        }.onFailure { error ->
-            Log.w(tag, "Failed to load DEM tile $tileId", error)
-        }.getOrNull()
+        val loaded =
+            runCatching {
+                val file = resolveDemFile(tileId) ?: return@runCatching null
+                val bytes = readDemBytes(file) ?: return@runCatching null
+                decodeDemBytes(bytes)
+            }.onFailure { error ->
+                Log.w(tag, "Failed to load DEM tile $tileId", error)
+            }.getOrNull()
 
         synchronized(demTileCache) {
             demTileCache[tileId] = loaded
@@ -95,22 +101,22 @@ internal class ReliefDemRepository(
 
     private fun resolveDemFile(tileId: String): File? {
         val folder = tileId.substring(0, 3)
-        val preferred = listOf(
-            File(File(demRootDir, folder), "$tileId.hgt.zip"),
-            File(File(demRootDir, folder), "$tileId.hgt"),
-            File(demRootDir, "$tileId.hgt.zip"),
-            File(demRootDir, "$tileId.hgt")
-        )
+        val preferred =
+            listOf(
+                File(File(demRootDir, folder), "$tileId.hgt.zip"),
+                File(File(demRootDir, folder), "$tileId.hgt"),
+                File(demRootDir, "$tileId.hgt.zip"),
+                File(demRootDir, "$tileId.hgt"),
+            )
         return preferred.firstOrNull { it.exists() && it.isFile }
     }
 
-    private fun readDemBytes(file: File): ByteArray? {
-        return if (file.name.endsWith(".zip", ignoreCase = true)) {
+    private fun readDemBytes(file: File): ByteArray? =
+        if (file.name.endsWith(".zip", ignoreCase = true)) {
             readZipEntryBytes(file)
         } else {
             file.readBytes()
         }
-    }
 
     private fun readZipEntryBytes(file: File): ByteArray? {
         ZipInputStream(FileInputStream(file).buffered()).use { zip ->
@@ -150,7 +156,10 @@ internal class ReliefDemRepository(
         return DemTileData(axisLen = axisLen, rowLen = rowLen, samples = samples)
     }
 
-    private fun tileId(latTile: Int, lonTile: Int): String {
+    private fun tileId(
+        latTile: Int,
+        lonTile: Int,
+    ): String {
         val latPrefix = if (latTile >= 0) "N" else "S"
         val lonPrefix = if (lonTile >= 0) "E" else "W"
         return String.format(
@@ -159,19 +168,20 @@ internal class ReliefDemRepository(
             latPrefix,
             abs(latTile),
             lonPrefix,
-            abs(lonTile)
+            abs(lonTile),
         )
     }
 
     private fun computeMaxDemTileCacheEntries(): Int {
         val maxHeapMb = Runtime.getRuntime().maxMemory() / (1024L * 1024L)
-        val adaptive = when {
-            maxHeapMb <= 128L -> 12
-            maxHeapMb <= 192L -> 16
-            maxHeapMb <= 256L -> 20
-            maxHeapMb <= 384L -> 28
-            else -> 36
-        }
+        val adaptive =
+            when {
+                maxHeapMb <= 128L -> 12
+                maxHeapMb <= 192L -> 16
+                maxHeapMb <= 256L -> 20
+                maxHeapMb <= 384L -> 28
+                else -> 36
+            }
         return adaptive.coerceIn(MIN_DEM_TILE_CACHE_ENTRIES, MAX_DEM_TILE_CACHE_ENTRIES)
     }
 }

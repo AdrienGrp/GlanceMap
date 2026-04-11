@@ -10,7 +10,7 @@ internal data class CompassPredictionOverrideEvaluation(
     val sampleCount: Int,
     val spanMs: Long,
     val spreadDeg: Float? = null,
-    val headingErrorDeg: Float? = null
+    val headingErrorDeg: Float? = null,
 )
 
 internal class LowConfidenceCompassPredictionOverrideTracker(
@@ -20,13 +20,13 @@ internal class LowConfidenceCompassPredictionOverrideTracker(
     private val lowBandMinErrorDeg: Float = DEFAULT_LOW_BAND_MIN_ERROR_DEG,
     private val lowBandMaxErrorDeg: Float = DEFAULT_LOW_BAND_MAX_ERROR_DEG,
     private val maxErrorSpreadDeg: Float = DEFAULT_MAX_ERROR_SPREAD_DEG,
-    private val maxSampleAgeMs: Long = DEFAULT_MAX_SAMPLE_AGE_MS
+    private val maxSampleAgeMs: Long = DEFAULT_MAX_SAMPLE_AGE_MS,
 ) {
     // Some fused providers pin uncertainty in the low band (often ~25 deg) even when heading is
     // usable, so we only override the LOW-quality prediction gate after that pattern repeats.
     private data class ErrorSample(
         val elapsedMs: Long,
-        val errorDeg: Float
+        val errorDeg: Float,
     )
 
     private val samples = ArrayDeque<ErrorSample>()
@@ -37,10 +37,11 @@ internal class LowConfidenceCompassPredictionOverrideTracker(
 
     fun update(
         renderState: CompassRenderState,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ): CompassPredictionOverrideEvaluation {
-        val sample = resolveEligibleSample(renderState = renderState, nowElapsedMs = nowElapsedMs)
-            ?: return reset(reason = resolveIneligibleReason(renderState, nowElapsedMs))
+        val sample =
+            resolveEligibleSample(renderState = renderState, nowElapsedMs = nowElapsedMs)
+                ?: return reset(reason = resolveIneligibleReason(renderState, nowElapsedMs))
 
         if (sample.elapsedMs != lastSampleElapsedMs) {
             samples.addLast(sample)
@@ -64,7 +65,7 @@ internal class LowConfidenceCompassPredictionOverrideTracker(
             sampleCount = sampleCount,
             spanMs = spanMs,
             spreadDeg = spreadDeg,
-            headingErrorDeg = sample.errorDeg
+            headingErrorDeg = sample.errorDeg,
         )
     }
 
@@ -78,32 +79,34 @@ internal class LowConfidenceCompassPredictionOverrideTracker(
             sampleCount = 0,
             spanMs = 0L,
             spreadDeg = null,
-            headingErrorDeg = null
+            headingErrorDeg = null,
         )
     }
 
     private fun resolveEligibleSample(
         renderState: CompassRenderState,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ): ErrorSample? {
         if (renderState.providerType != CompassProviderType.GOOGLE_FUSED) return null
         if (renderState.headingSource != HeadingSource.FUSED_ORIENTATION) return null
         if (renderState.headingSampleStale) return null
         if (renderState.magneticInterference) return null
 
-        val sampleElapsedMs = renderState.headingSampleElapsedRealtimeMs
-            ?.takeIf { it > 0L }
-            ?: return null
+        val sampleElapsedMs =
+            renderState.headingSampleElapsedRealtimeMs
+                ?.takeIf { it > 0L }
+                ?: return null
         val sampleAgeMs = (nowElapsedMs - sampleElapsedMs).coerceAtLeast(0L)
         if (sampleAgeMs > maxSampleAgeMs) return null
 
-        val headingErrorDeg = renderState.headingErrorDeg
-            ?.takeIf { it.isFinite() && it in lowBandMinErrorDeg..lowBandMaxErrorDeg }
-            ?: return null
+        val headingErrorDeg =
+            renderState.headingErrorDeg
+                ?.takeIf { it.isFinite() && it in lowBandMinErrorDeg..lowBandMaxErrorDeg }
+                ?: return null
 
         return ErrorSample(
             elapsedMs = sampleElapsedMs,
-            errorDeg = headingErrorDeg
+            errorDeg = headingErrorDeg,
         )
     }
 
@@ -129,22 +132,24 @@ internal class LowConfidenceCompassPredictionOverrideTracker(
 
     private fun resolveIneligibleReason(
         renderState: CompassRenderState,
-        nowElapsedMs: Long
+        nowElapsedMs: Long,
     ): String {
         if (renderState.providerType != CompassProviderType.GOOGLE_FUSED) return "provider_changed"
         if (renderState.headingSource != HeadingSource.FUSED_ORIENTATION) return "source_changed"
         if (renderState.headingSampleStale) return "stale_sample"
         if (renderState.magneticInterference) return "magnetic_interference"
 
-        val sampleElapsedMs = renderState.headingSampleElapsedRealtimeMs
-            ?.takeIf { it > 0L }
-            ?: return "missing_sample"
+        val sampleElapsedMs =
+            renderState.headingSampleElapsedRealtimeMs
+                ?.takeIf { it > 0L }
+                ?: return "missing_sample"
         val sampleAgeMs = (nowElapsedMs - sampleElapsedMs).coerceAtLeast(0L)
         if (sampleAgeMs > maxSampleAgeMs) return "stale_sample"
 
-        val headingErrorDeg = renderState.headingErrorDeg
-            ?.takeIf { it.isFinite() && it >= 0f }
-            ?: return "missing_uncertainty"
+        val headingErrorDeg =
+            renderState.headingErrorDeg
+                ?.takeIf { it.isFinite() && it >= 0f }
+                ?: return "missing_uncertainty"
         return if (headingErrorDeg < lowBandMinErrorDeg || headingErrorDeg > lowBandMaxErrorDeg) {
             "uncertainty_out_of_band"
         } else {

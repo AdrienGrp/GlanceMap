@@ -7,32 +7,32 @@ import com.glancemap.glancemapwearos.core.routing.RoutePlannerRequest
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolPlannedCreation
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteReshapeBounds
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteReshapeDirection
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteSaveBehavior
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolPlannedCreation
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildRenamedGpxFileName
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolEditOutput
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolEndpointChangeOutput
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolExtensionOutput
+import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolReplaceSectionOutput
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolReshapeOutput
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolReshapePreview
-import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolReplaceSectionOutput
 import com.glancemap.glancemapwearos.presentation.features.routetools.encodeTrackAsGpx
+import com.glancemap.glancemapwearos.presentation.features.routetools.reshapeCandidateMatchesUserIntent
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveReplaceSectionEndpoints
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteReshapeCandidateBounds
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteReshapeWaypoint
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteToolTrackMatch
-import com.glancemap.glancemapwearos.presentation.features.routetools.reshapeCandidateMatchesUserIntent
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeToolSnapThresholdMeters
 import com.glancemap.glancemapwearos.presentation.features.routetools.toPlannerPreset
-import com.glancemap.glancemapwearos.presentation.features.routetools.toRoutePlannerRequest
 import com.glancemap.glancemapwearos.presentation.features.routetools.toRoundTripPlannerRequest
+import com.glancemap.glancemapwearos.presentation.features.routetools.toRoutePlannerRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -45,168 +45,182 @@ internal class GpxRouteToolOperations(
     private val routePlanner: RoutePlanner,
     private val activeGpxFiles: () -> List<GpxFileState>,
     private val elevationFilterConfig: () -> GpxElevationFilterConfig,
-    private val etaModelConfig: () -> GpxEtaModelConfig
+    private val etaModelConfig: () -> GpxEtaModelConfig,
 ) {
-
     suspend fun applyModification(
         session: RouteToolSession,
-        onProgress: (String) -> Unit = {}
+        onProgress: (String) -> Unit = {},
     ): RouteToolSaveResult {
         require(session.options.toolKind == RouteToolKind.MODIFY) {
             "Only GPX modify actions are supported here."
         }
 
         val source = requireSingleActiveRouteToolSource()
-        val editOutput = when (session.options.modifyMode) {
-            RouteModifyMode.RESHAPE_ROUTE -> {
-                val reshapePlan = buildReshapePlan(source = source, session = session)
-                buildRouteToolReshapeOutput(
-                    sourcePath = source.file.absolutePath,
-                    sourceFileName = source.file.name,
-                    sourceTitle = source.fileState.title ?: source.parsed.title,
-                    profile = source.profile,
-                    session = session,
-                    firstLegPoints = reshapePlan.firstLegPoints,
-                    secondLegPoints = reshapePlan.secondLegPoints,
-                    bounds = reshapePlan.bounds
-                )
-            }
+        val editOutput =
+            when (session.options.modifyMode) {
+                RouteModifyMode.RESHAPE_ROUTE -> {
+                    val reshapePlan = buildReshapePlan(source = source, session = session)
+                    buildRouteToolReshapeOutput(
+                        sourcePath = source.file.absolutePath,
+                        sourceFileName = source.file.name,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        session = session,
+                        firstLegPoints = reshapePlan.firstLegPoints,
+                        secondLegPoints = reshapePlan.secondLegPoints,
+                        bounds = reshapePlan.bounds,
+                    )
+                }
 
-            RouteModifyMode.REPLACE_SECTION_A_TO_B -> {
-                val sectionStart = requireNotNull(session.pointA) {
-                    "Pick point A first."
+                RouteModifyMode.REPLACE_SECTION_A_TO_B -> {
+                    val sectionStart =
+                        requireNotNull(session.pointA) {
+                            "Pick point A first."
+                        }
+                    val sectionEnd =
+                        requireNotNull(session.pointB) {
+                            "Pick point B first."
+                        }
+                    val (origin, destination) =
+                        resolveReplaceSectionEndpoints(
+                            sourcePath = source.file.absolutePath,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            pointA = sectionStart,
+                            pointB = sectionEnd,
+                        )
+                    val plannerRequest =
+                        RoutePlannerRequest(
+                            origin = origin,
+                            destination = destination,
+                            preset = session.options.routeStyle.toPlannerPreset(),
+                            useElevation = session.options.useElevation,
+                            allowFerries = session.options.allowFerries,
+                        )
+                    val route = routePlanner.createRoute(plannerRequest)
+                    buildRouteToolReplaceSectionOutput(
+                        sourcePath = source.file.absolutePath,
+                        sourceFileName = source.file.name,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        session = session,
+                        routedPoints = route.points,
+                    )
                 }
-                val sectionEnd = requireNotNull(session.pointB) {
-                    "Pick point B first."
-                }
-                val (origin, destination) = resolveReplaceSectionEndpoints(
-                    sourcePath = source.file.absolutePath,
-                    sourceTitle = source.fileState.title ?: source.parsed.title,
-                    profile = source.profile,
-                    pointA = sectionStart,
-                    pointB = sectionEnd
-                )
-                val plannerRequest = RoutePlannerRequest(
-                    origin = origin,
-                    destination = destination,
-                    preset = session.options.routeStyle.toPlannerPreset(),
-                    useElevation = session.options.useElevation,
-                    allowFerries = session.options.allowFerries
-                )
-                val route = routePlanner.createRoute(plannerRequest)
-                buildRouteToolReplaceSectionOutput(
-                    sourcePath = source.file.absolutePath,
-                    sourceFileName = source.file.name,
-                    sourceTitle = source.fileState.title ?: source.parsed.title,
-                    profile = source.profile,
-                    session = session,
-                    routedPoints = route.points
-                )
-            }
 
-            RouteModifyMode.TRIM_START_TO_HERE -> {
-                val startTarget = requireNotNull(session.pointA) {
-                    "Pick the new start first."
+                RouteModifyMode.TRIM_START_TO_HERE -> {
+                    val startTarget =
+                        requireNotNull(session.pointA) {
+                            "Pick the new start first."
+                        }
+                    val match =
+                        resolveRouteToolTrackMatch(
+                            sourcePath = source.file.absolutePath,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            target = startTarget,
+                        )
+                    if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
+                        buildRouteToolEditOutput(
+                            sourcePath = source.file.absolutePath,
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            session = session,
+                        )
+                    } else {
+                        val route =
+                            routePlanner.createRoute(
+                                RoutePlannerRequest(
+                                    origin = startTarget,
+                                    destination = match.latLong,
+                                    preset = session.options.routeStyle.toPlannerPreset(),
+                                    useElevation = session.options.useElevation,
+                                    allowFerries = session.options.allowFerries,
+                                ),
+                            )
+                        buildRouteToolEndpointChangeOutput(
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            session = session,
+                            snappedPosition = match.position,
+                            routedPoints = route.points,
+                        )
+                    }
                 }
-                val match = resolveRouteToolTrackMatch(
-                    sourcePath = source.file.absolutePath,
-                    sourceTitle = source.fileState.title ?: source.parsed.title,
-                    profile = source.profile,
-                    target = startTarget
-                )
-                if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
+
+                RouteModifyMode.TRIM_END_FROM_HERE -> {
+                    val endTarget =
+                        requireNotNull(session.pointB) {
+                            "Pick the new end first."
+                        }
+                    val match =
+                        resolveRouteToolTrackMatch(
+                            sourcePath = source.file.absolutePath,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            target = endTarget,
+                        )
+                    if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
+                        buildRouteToolEditOutput(
+                            sourcePath = source.file.absolutePath,
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            session = session,
+                        )
+                    } else {
+                        val route =
+                            routePlanner.createRoute(
+                                RoutePlannerRequest(
+                                    origin = match.latLong,
+                                    destination = endTarget,
+                                    preset = session.options.routeStyle.toPlannerPreset(),
+                                    useElevation = session.options.useElevation,
+                                    allowFerries = session.options.allowFerries,
+                                ),
+                            )
+                        buildRouteToolEndpointChangeOutput(
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            session = session,
+                            snappedPosition = match.position,
+                            routedPoints = route.points,
+                        )
+                    }
+                }
+
+                else ->
                     buildRouteToolEditOutput(
                         sourcePath = source.file.absolutePath,
                         sourceFileName = source.file.name,
                         sourceTitle = source.fileState.title ?: source.parsed.title,
                         profile = source.profile,
-                        session = session
-                    )
-                } else {
-                    val route = routePlanner.createRoute(
-                        RoutePlannerRequest(
-                            origin = startTarget,
-                            destination = match.latLong,
-                            preset = session.options.routeStyle.toPlannerPreset(),
-                            useElevation = session.options.useElevation,
-                            allowFerries = session.options.allowFerries
-                        )
-                    )
-                    buildRouteToolEndpointChangeOutput(
-                        sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
-                        profile = source.profile,
                         session = session,
-                        snappedPosition = match.position,
-                        routedPoints = route.points
                     )
-                }
             }
 
-            RouteModifyMode.TRIM_END_FROM_HERE -> {
-                val endTarget = requireNotNull(session.pointB) {
-                    "Pick the new end first."
-                }
-                val match = resolveRouteToolTrackMatch(
-                    sourcePath = source.file.absolutePath,
-                    sourceTitle = source.fileState.title ?: source.parsed.title,
-                    profile = source.profile,
-                    target = endTarget
-                )
-                if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
-                    buildRouteToolEditOutput(
-                        sourcePath = source.file.absolutePath,
-                        sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
-                        profile = source.profile,
-                        session = session
-                    )
-                } else {
-                    val route = routePlanner.createRoute(
-                        RoutePlannerRequest(
-                            origin = match.latLong,
-                            destination = endTarget,
-                            preset = session.options.routeStyle.toPlannerPreset(),
-                            useElevation = session.options.useElevation,
-                            allowFerries = session.options.allowFerries
-                        )
-                    )
-                    buildRouteToolEndpointChangeOutput(
-                        sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
-                        profile = source.profile,
-                        session = session,
-                        snappedPosition = match.position,
-                        routedPoints = route.points
-                    )
-                }
-            }
-
-            else -> buildRouteToolEditOutput(
-                sourcePath = source.file.absolutePath,
-                sourceFileName = source.file.name,
-                sourceTitle = source.fileState.title ?: source.parsed.title,
-                profile = source.profile,
-                session = session
+        val bytes =
+            encodeTrackAsGpx(
+                title = editOutput.title,
+                points = editOutput.points,
             )
-        }
-
-        val bytes = encodeTrackAsGpx(
-            title = editOutput.title,
-            points = editOutput.points
-        )
 
         reportProgress(onProgress, "Saving GPX...")
         gpxRepository.saveGpxFileAtomic(
             fileName = editOutput.fileName,
             inputStream = ByteArrayInputStream(bytes),
             onProgress = {},
-            expectedSize = bytes.size.toLong()
+            expectedSize = bytes.size.toLong(),
         )
 
-        val savedFile = gpxRepository.listGpxFiles()
-            .firstOrNull { it.name == editOutput.fileName }
-            ?: error("The edited GPX was not found after saving.")
+        val savedFile =
+            gpxRepository
+                .listGpxFiles()
+                .firstOrNull { it.name == editOutput.fileName }
+                ?: error("The edited GPX was not found after saving.")
 
         val currentActive = gpxRepository.getActiveGpxFiles().first()
         val updatedActive = (currentActive - source.file.absolutePath) + savedFile.absolutePath
@@ -215,7 +229,7 @@ internal class GpxRouteToolOperations(
         reportProgress(onProgress, "Preparing stats...")
         return buildRouteToolSaveResult(
             savedFile = savedFile,
-            replacedCurrent = session.options.saveBehavior == RouteSaveBehavior.REPLACE_CURRENT
+            replacedCurrent = session.options.saveBehavior == RouteSaveBehavior.REPLACE_CURRENT,
         )
     }
 
@@ -236,56 +250,60 @@ internal class GpxRouteToolOperations(
             session = session,
             firstLegPoints = reshapePlan.firstLegPoints,
             secondLegPoints = reshapePlan.secondLegPoints,
-            bounds = reshapePlan.bounds
+            bounds = reshapePlan.bounds,
         )
     }
 
     suspend fun previewCreation(
         session: RouteToolSession,
-        currentLocation: LatLong?
+        currentLocation: LatLong?,
     ): RouteToolCreatePreview {
         require(session.options.toolKind == RouteToolKind.CREATE) {
             "Only GPX create actions are supported here."
         }
         require(
             session.options.createMode == RouteCreateMode.MULTI_POINT_CHAIN ||
-                session.options.createMode == RouteCreateMode.LOOP_AROUND_HERE
+                session.options.createMode == RouteCreateMode.LOOP_AROUND_HERE,
         ) {
             "Preview is only available for multi-point and loop creation."
         }
 
-        val route = when (session.options.createMode) {
-            RouteCreateMode.MULTI_POINT_CHAIN -> {
-                val plannerRequest = session.toRoutePlannerRequest(currentLocation)
-                routePlanner.createRoute(plannerRequest)
-            }
+        val route =
+            when (session.options.createMode) {
+                RouteCreateMode.MULTI_POINT_CHAIN -> {
+                    val plannerRequest = session.toRoutePlannerRequest(currentLocation)
+                    routePlanner.createRoute(plannerRequest)
+                }
 
-            RouteCreateMode.LOOP_AROUND_HERE -> {
-                val plannerRequest = session.toRoundTripPlannerRequest(currentLocation)
-                routePlanner.createLoop(plannerRequest)
+                RouteCreateMode.LOOP_AROUND_HERE -> {
+                    val plannerRequest = session.toRoundTripPlannerRequest(currentLocation)
+                    routePlanner.createLoop(plannerRequest)
+                }
             }
-        }
         val previewPoints = route.points.map { it.latLong }
-        val profile = buildProfile(
-            sig = FileSig(0L, route.points.size.toLong()),
-            pts = route.points.map { routePoint ->
-                TrackPoint(
-                    latLong = routePoint.latLong,
-                    elevation = routePoint.elevation
-                )
-            },
-            elevationFilterConfig = elevationFilterConfig()
-        )
+        val profile =
+            buildProfile(
+                sig = FileSig(0L, route.points.size.toLong()),
+                pts =
+                    route.points.map { routePoint ->
+                        TrackPoint(
+                            latLong = routePoint.latLong,
+                            elevation = routePoint.elevation,
+                        )
+                    },
+                elevationFilterConfig = elevationFilterConfig(),
+            )
         return RouteToolCreatePreview(
             previewPoints = previewPoints,
             distanceMeters = profile.totalDistance,
             elevationGainMeters = profile.totalAscent,
             elevationLossMeters = profile.totalDescent,
             estimatedDurationSec = buildEtaProjection(profile, etaModelConfig())?.totalSeconds,
-            plannedCreation = RouteToolPlannedCreation(
-                fileName = route.fileName,
-                gpxBytes = route.gpxBytes
-            )
+            plannedCreation =
+                RouteToolPlannedCreation(
+                    fileName = route.fileName,
+                    gpxBytes = route.gpxBytes,
+                ),
         )
     }
 
@@ -293,7 +311,7 @@ internal class GpxRouteToolOperations(
         session: RouteToolSession,
         currentLocation: LatLong?,
         preview: RouteToolCreatePreview? = null,
-        onProgress: (String) -> Unit = {}
+        onProgress: (String) -> Unit = {},
     ): RouteToolSaveResult {
         require(session.options.toolKind == RouteToolKind.CREATE) {
             "Only GPX create actions are supported here."
@@ -303,74 +321,84 @@ internal class GpxRouteToolOperations(
         return when (session.options.createMode) {
             RouteCreateMode.ACTIVE_GPX_END_TO_HERE -> {
                 val source = requireSingleActiveRouteToolSource()
-                val plannerRequest = session.toRoutePlannerRequest(
-                    currentLocation = currentLocation,
-                    activeGpxEnd = source.profile.points.lastOrNull()?.latLong
-                )
+                val plannerRequest =
+                    session.toRoutePlannerRequest(
+                        currentLocation = currentLocation,
+                        activeGpxEnd =
+                            source.profile.points
+                                .lastOrNull()
+                                ?.latLong,
+                    )
                 val route = routePlanner.createRoute(plannerRequest)
-                val extensionOutput = buildRouteToolExtensionOutput(
-                    sourceFileName = source.file.name,
-                    sourceTitle = source.fileState.title ?: source.parsed.title,
-                    profile = source.profile,
-                    routedPoints = route.points
-                )
-                val extensionBytes = encodeTrackAsGpx(
-                    title = extensionOutput.title,
-                    points = extensionOutput.points
-                )
+                val extensionOutput =
+                    buildRouteToolExtensionOutput(
+                        sourceFileName = source.file.name,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        routedPoints = route.points,
+                    )
+                val extensionBytes =
+                    encodeTrackAsGpx(
+                        title = extensionOutput.title,
+                        points = extensionOutput.points,
+                    )
 
                 reportProgress(onProgress, "Saving GPX...")
                 gpxRepository.saveGpxFileAtomic(
                     fileName = extensionOutput.fileName,
                     inputStream = ByteArrayInputStream(extensionBytes),
                     onProgress = {},
-                    expectedSize = extensionBytes.size.toLong()
+                    expectedSize = extensionBytes.size.toLong(),
                 )
 
-                val savedFile = gpxRepository.listGpxFiles()
-                    .firstOrNull { it.name == extensionOutput.fileName }
-                    ?: error("The extended GPX was not found after saving.")
+                val savedFile =
+                    gpxRepository
+                        .listGpxFiles()
+                        .firstOrNull { it.name == extensionOutput.fileName }
+                        ?: error("The extended GPX was not found after saving.")
 
                 gpxRepository.setActiveGpxFiles(
-                    (currentActive - source.file.absolutePath) + savedFile.absolutePath
+                    (currentActive - source.file.absolutePath) + savedFile.absolutePath,
                 )
 
                 reportProgress(onProgress, "Preparing stats...")
                 buildRouteToolSaveResult(
                     savedFile = savedFile,
-                    replacedCurrent = false
+                    replacedCurrent = false,
                 )
             }
 
             RouteCreateMode.LOOP_AROUND_HERE -> {
-                val plannedCreation = preview?.plannedCreation ?: run {
-                    val plannerRequest = session.toRoundTripPlannerRequest(currentLocation)
-                    val route = routePlanner.createLoop(plannerRequest)
-                    RouteToolPlannedCreation(
-                        fileName = route.fileName,
-                        gpxBytes = route.gpxBytes
-                    )
-                }
+                val plannedCreation =
+                    preview?.plannedCreation ?: run {
+                        val plannerRequest = session.toRoundTripPlannerRequest(currentLocation)
+                        val route = routePlanner.createLoop(plannerRequest)
+                        RouteToolPlannedCreation(
+                            fileName = route.fileName,
+                            gpxBytes = route.gpxBytes,
+                        )
+                    }
                 saveCreatedRoute(
                     plannedCreation = plannedCreation,
                     currentActive = currentActive,
-                    onProgress = onProgress
+                    onProgress = onProgress,
                 )
             }
 
             else -> {
-                val plannedCreation = preview?.plannedCreation ?: run {
-                    val plannerRequest = session.toRoutePlannerRequest(currentLocation)
-                    val route = routePlanner.createRoute(plannerRequest)
-                    RouteToolPlannedCreation(
-                        fileName = route.fileName,
-                        gpxBytes = route.gpxBytes
-                    )
-                }
+                val plannedCreation =
+                    preview?.plannedCreation ?: run {
+                        val plannerRequest = session.toRoutePlannerRequest(currentLocation)
+                        val route = routePlanner.createRoute(plannerRequest)
+                        RouteToolPlannedCreation(
+                            fileName = route.fileName,
+                            gpxBytes = route.gpxBytes,
+                        )
+                    }
                 saveCreatedRoute(
                     plannedCreation = plannedCreation,
                     currentActive = currentActive,
-                    onProgress = onProgress
+                    onProgress = onProgress,
                 )
             }
         }
@@ -378,29 +406,31 @@ internal class GpxRouteToolOperations(
 
     suspend fun renameSavedRoute(
         filePath: String,
-        newName: String
+        newName: String,
     ): RouteToolSaveResult {
-        val savedFile = renameGpxFileOnDisk(
-            filePath = filePath,
-            newName = newName
-        )
+        val savedFile =
+            renameGpxFileOnDisk(
+                filePath = filePath,
+                newName = newName,
+            )
         return buildRouteToolSaveResult(
             savedFile = savedFile,
             replacedCurrent = false,
-            successMessage = "GPX renamed"
+            successMessage = "GPX renamed",
         )
     }
 
     suspend fun renameGpxFileOnDisk(
         filePath: String,
-        newName: String
+        newName: String,
     ): File {
         val sourceFile = File(filePath)
         require(sourceFile.exists()) { "The GPX could not be found." }
 
-        val normalizedTitle = newName
-            .trim()
-            .replace(Regex("\\s+"), " ")
+        val normalizedTitle =
+            newName
+                .trim()
+                .replace(Regex("\\s+"), " ")
         require(normalizedTitle.isNotBlank()) { "Enter a GPX name first." }
 
         val parsed = parseGpxData(sourceFile)
@@ -412,20 +442,23 @@ internal class GpxRouteToolOperations(
             error("A GPX with that name already exists.")
         }
 
-        val bytes = encodeTrackAsGpx(
-            title = normalizedTitle,
-            points = parsed.points
-        )
+        val bytes =
+            encodeTrackAsGpx(
+                title = normalizedTitle,
+                points = parsed.points,
+            )
         gpxRepository.saveGpxFileAtomic(
             fileName = targetFileName,
             inputStream = ByteArrayInputStream(bytes),
             onProgress = {},
-            expectedSize = bytes.size.toLong()
+            expectedSize = bytes.size.toLong(),
         )
 
-        val savedFile = gpxRepository.listGpxFiles()
-            .firstOrNull { it.name.equals(targetFileName, ignoreCase = true) }
-            ?: error("The renamed GPX was not found after saving.")
+        val savedFile =
+            gpxRepository
+                .listGpxFiles()
+                .firstOrNull { it.name.equals(targetFileName, ignoreCase = true) }
+                ?: error("The renamed GPX was not found after saving.")
 
         val currentActive = gpxRepository.getActiveGpxFiles().first()
         if (filePath in currentActive || savedFile.absolutePath in currentActive) {
@@ -457,66 +490,74 @@ internal class GpxRouteToolOperations(
             fileState = sourceFileState,
             file = sourceFile,
             parsed = parsed,
-            profile = buildProfile(
-                sig = sigOf(sourceFile),
-                pts = parsed.points,
-                elevationFilterConfig = elevationFilterConfig()
-            )
+            profile =
+                buildProfile(
+                    sig = sigOf(sourceFile),
+                    pts = parsed.points,
+                    elevationFilterConfig = elevationFilterConfig(),
+                ),
         )
     }
 
     private suspend fun buildReshapePlan(
         source: ActiveRouteToolSource,
-        session: RouteToolSession
+        session: RouteToolSession,
     ): RouteToolReshapePlan {
-        val selectedPoint = requireNotNull(session.pointA) {
-            "Select the route point first."
-        }
-        val shapingPoint = requireNotNull(session.destination) {
-            "Pick the shaping point first."
-        }
+        val selectedPoint =
+            requireNotNull(session.pointA) {
+                "Select the route point first."
+            }
+        val shapingPoint =
+            requireNotNull(session.destination) {
+                "Pick the shaping point first."
+            }
         val sourceTitle = source.fileState.title ?: source.parsed.title
-        val segmentStart = resolveRouteReshapeWaypoint(
-            sourcePath = source.file.absolutePath,
-            sourceTitle = sourceTitle,
-            profile = source.profile,
-            anchor = selectedPoint,
-            direction = RouteReshapeDirection.START
-        )
-        val firstLeg = routePlanner.createRoute(
-            RoutePlannerRequest(
-                origin = segmentStart,
-                destination = shapingPoint,
-                preset = session.options.routeStyle.toPlannerPreset(),
-                useElevation = session.options.useElevation,
-                allowFerries = session.options.allowFerries
+        val segmentStart =
+            resolveRouteReshapeWaypoint(
+                sourcePath = source.file.absolutePath,
+                sourceTitle = sourceTitle,
+                profile = source.profile,
+                anchor = selectedPoint,
+                direction = RouteReshapeDirection.START,
             )
-        )
+        val firstLeg =
+            routePlanner.createRoute(
+                RoutePlannerRequest(
+                    origin = segmentStart,
+                    destination = shapingPoint,
+                    preset = session.options.routeStyle.toPlannerPreset(),
+                    useElevation = session.options.useElevation,
+                    allowFerries = session.options.allowFerries,
+                ),
+            )
 
-        val candidateBounds = resolveRouteReshapeCandidateBounds(
-            sourcePath = source.file.absolutePath,
-            sourceTitle = sourceTitle,
-            profile = source.profile,
-            anchor = selectedPoint,
-            rejoinHint = shapingPoint
-        )
+        val candidateBounds =
+            resolveRouteReshapeCandidateBounds(
+                sourcePath = source.file.absolutePath,
+                sourceTitle = sourceTitle,
+                profile = source.profile,
+                anchor = selectedPoint,
+                rejoinHint = shapingPoint,
+            )
 
         var fallbackPlan: RouteToolReshapePlan? = null
         for (bounds in candidateBounds) {
-            val secondLeg = routePlanner.createRoute(
-                RoutePlannerRequest(
-                    origin = shapingPoint,
-                    destination = bounds.endPoint.latLong,
-                    preset = session.options.routeStyle.toPlannerPreset(),
-                    useElevation = session.options.useElevation,
-                    allowFerries = session.options.allowFerries
+            val secondLeg =
+                routePlanner.createRoute(
+                    RoutePlannerRequest(
+                        origin = shapingPoint,
+                        destination = bounds.endPoint.latLong,
+                        preset = session.options.routeStyle.toPlannerPreset(),
+                        useElevation = session.options.useElevation,
+                        allowFerries = session.options.allowFerries,
+                    ),
                 )
-            )
-            val plan = RouteToolReshapePlan(
-                bounds = bounds,
-                firstLegPoints = firstLeg.points,
-                secondLegPoints = secondLeg.points
-            )
+            val plan =
+                RouteToolReshapePlan(
+                    bounds = bounds,
+                    firstLegPoints = firstLeg.points,
+                    secondLegPoints = secondLeg.points,
+                )
             if (fallbackPlan == null) {
                 fallbackPlan = plan
             }
@@ -529,7 +570,7 @@ internal class GpxRouteToolOperations(
                     shapingPoint = shapingPoint,
                     bounds = bounds,
                     firstLegPoints = firstLeg.points,
-                    secondLegPoints = secondLeg.points
+                    secondLegPoints = secondLeg.points,
                 )
             ) {
                 return plan
@@ -542,59 +583,63 @@ internal class GpxRouteToolOperations(
     private fun buildRouteToolSaveResult(
         savedFile: File,
         replacedCurrent: Boolean,
-        successMessage: String? = null
+        successMessage: String? = null,
     ): RouteToolSaveResult {
         val parsed = parseGpxData(savedFile)
-        val profile = buildProfile(
-            sig = sigOf(savedFile),
-            pts = parsed.points,
-            elevationFilterConfig = elevationFilterConfig()
-        )
+        val profile =
+            buildProfile(
+                sig = sigOf(savedFile),
+                pts = parsed.points,
+                elevationFilterConfig = elevationFilterConfig(),
+            )
         val etaSeconds = buildEtaProjection(profile, etaModelConfig())?.totalSeconds
         return RouteToolSaveResult(
             fileName = savedFile.name,
             filePath = savedFile.absolutePath,
-            displayTitle = parsed.title?.takeIf { it.isNotBlank() }
-                ?: normalizeUserFacingGpxText(savedFile.nameWithoutExtension)
-                ?: savedFile.nameWithoutExtension,
+            displayTitle =
+                parsed.title?.takeIf { it.isNotBlank() }
+                    ?: normalizeUserFacingGpxText(savedFile.nameWithoutExtension)
+                    ?: savedFile.nameWithoutExtension,
             distanceMeters = profile.totalDistance,
             elevationGainMeters = profile.totalAscent,
             elevationLossMeters = profile.totalDescent,
             estimatedDurationSec = etaSeconds,
             replacedCurrent = replacedCurrent,
-            successMessage = successMessage
+            successMessage = successMessage,
         )
     }
 
     private suspend fun saveCreatedRoute(
         plannedCreation: RouteToolPlannedCreation,
         currentActive: Set<String>,
-        onProgress: (String) -> Unit
+        onProgress: (String) -> Unit,
     ): RouteToolSaveResult {
         reportProgress(onProgress, "Saving GPX...")
         gpxRepository.saveGpxFileAtomic(
             fileName = plannedCreation.fileName,
             inputStream = ByteArrayInputStream(plannedCreation.gpxBytes),
             onProgress = {},
-            expectedSize = plannedCreation.gpxBytes.size.toLong()
+            expectedSize = plannedCreation.gpxBytes.size.toLong(),
         )
 
-        val savedFile = gpxRepository.listGpxFiles()
-            .firstOrNull { it.name == plannedCreation.fileName }
-            ?: error("The generated GPX was not found after saving.")
+        val savedFile =
+            gpxRepository
+                .listGpxFiles()
+                .firstOrNull { it.name == plannedCreation.fileName }
+                ?: error("The generated GPX was not found after saving.")
 
         gpxRepository.setActiveGpxFiles(currentActive + savedFile.absolutePath)
 
         reportProgress(onProgress, "Preparing stats...")
         return buildRouteToolSaveResult(
             savedFile = savedFile,
-            replacedCurrent = false
+            replacedCurrent = false,
         )
     }
 
     private suspend fun reportProgress(
         onProgress: (String) -> Unit,
-        message: String
+        message: String,
     ) {
         withContext(Dispatchers.Main) {
             onProgress(message)
@@ -606,11 +651,11 @@ private data class ActiveRouteToolSource(
     val fileState: GpxFileState,
     val file: File,
     val parsed: ParsedGpxData,
-    val profile: TrackProfile
+    val profile: TrackProfile,
 )
 
 private data class RouteToolReshapePlan(
     val bounds: RouteReshapeBounds,
     val firstLegPoints: List<RouteGeometryPoint>,
-    val secondLegPoints: List<RouteGeometryPoint>
+    val secondLegPoints: List<RouteGeometryPoint>,
 )

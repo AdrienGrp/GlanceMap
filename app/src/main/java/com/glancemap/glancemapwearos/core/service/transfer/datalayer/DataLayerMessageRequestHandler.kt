@@ -2,13 +2,13 @@ package com.glancemap.glancemapwearos.core.service.transfer.datalayer
 
 import android.net.Uri
 import android.util.Log
-import com.google.android.gms.wearable.MessageEvent
 import com.glancemap.glancemapwearos.core.service.DataLayerListenerService
 import com.glancemap.glancemapwearos.core.service.diagnostics.TransferDiagnostics
 import com.glancemap.glancemapwearos.core.service.transfer.contract.TransferConstants
 import com.glancemap.glancemapwearos.core.service.transfer.notifications.NotificationHelper
 import com.glancemap.glancemapwearos.core.service.transfer.runtime.TransferSessionState
 import com.glancemap.glancemapwearos.core.service.transfer.storage.WatchFileOps
+import com.google.android.gms.wearable.MessageEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -23,7 +23,7 @@ internal class DataLayerMessageRequestHandler(
     private val sessionState: TransferSessionState,
     private val sendStatus: suspend (sourceNodeId: String, transferId: String, phase: String, detail: String) -> Unit,
     private val sendAck: suspend (sourceNodeId: String, transferId: String, status: String, detail: String) -> Unit,
-    private val sendMessage: suspend (sourceNodeId: String, path: String, payload: ByteArray) -> Unit
+    private val sendMessage: suspend (sourceNodeId: String, path: String, payload: ByteArray) -> Unit,
 ) {
     private val appScope get() = service.appScope()
 
@@ -33,21 +33,23 @@ internal class DataLayerMessageRequestHandler(
 
     fun popChannelChecksum(transferId: String): String? = pendingChannelChecksums.remove(transferId)
 
-    private val wifiRequestHandler = DataLayerWifiTransferRequestHandler(
-        service = service,
-        fileOps = fileOps,
-        sessionState = sessionState,
-        sendStatus = sendStatus,
-        sendAck = sendAck
-    )
+    private val wifiRequestHandler =
+        DataLayerWifiTransferRequestHandler(
+            service = service,
+            fileOps = fileOps,
+            sessionState = sessionState,
+            sendStatus = sendStatus,
+            sendAck = sendAck,
+        )
 
-    private val smallFileRequestHandler = DataLayerSmallFileRequestHandler(
-        service = service,
-        notificationHelper = notificationHelper,
-        fileOps = fileOps,
-        transferMutex = transferMutex,
-        sendAck = sendAck
-    )
+    private val smallFileRequestHandler =
+        DataLayerSmallFileRequestHandler(
+            service = service,
+            notificationHelper = notificationHelper,
+            fileOps = fileOps,
+            transferMutex = transferMutex,
+            sendAck = sendAck,
+        )
 
     fun handleMessage(messageEvent: MessageEvent) {
         when (messageEvent.path) {
@@ -94,7 +96,7 @@ internal class DataLayerMessageRequestHandler(
                 }
                 service.holdPrewarmWakeLock(
                     reason = "prepare_channel:${messageEvent.sourceNodeId}",
-                    timeoutMs = TransferConstants.PREWARM_WAKELOCK_MS
+                    timeoutMs = TransferConstants.PREWARM_WAKELOCK_MS,
                 )
                 return
             }
@@ -125,20 +127,21 @@ internal class DataLayerMessageRequestHandler(
         }
 
         val fileName = sessionState.fileNameForTransferId(id)
-        val cancelledByFile = if (!fileName.isNullOrBlank()) {
-            sessionState.cancelTransfersForFile(
-                sourceNodeId = messageEvent.sourceNodeId,
-                fileName = fileName,
-                reason = "Cancelled by phone (file fallback)"
-            )
-        } else {
-            0
-        }
+        val cancelledByFile =
+            if (!fileName.isNullOrBlank()) {
+                sessionState.cancelTransfersForFile(
+                    sourceNodeId = messageEvent.sourceNodeId,
+                    fileName = fileName,
+                    reason = "Cancelled by phone (file fallback)",
+                )
+            } else {
+                0
+            }
 
         if (cancelledByFile > 0) {
             TransferDiagnostics.warn(
                 "MsgReq",
-                "Cancel fallback by file id=$id file=$fileName count=$cancelledByFile"
+                "Cancel fallback by file id=$id file=$fileName count=$cancelledByFile",
             )
         } else {
             TransferDiagnostics.log("MsgReq", "Cancel ignored id=$id activeId=${activeId.orEmpty()}")
@@ -162,7 +165,7 @@ internal class DataLayerMessageRequestHandler(
             Log.w(TAG, "Missing fields in exists request: $payload")
             TransferDiagnostics.warn(
                 "MsgReq",
-                "Missing exists fields requestIdBlank=${requestId.isBlank()} nameBlank=${safeNameEncoded.isBlank()}"
+                "Missing exists fields requestIdBlank=${requestId.isBlank()} nameBlank=${safeNameEncoded.isBlank()}",
             )
             return
         }
@@ -174,27 +177,28 @@ internal class DataLayerMessageRequestHandler(
         appScope.launch(Dispatchers.IO) {
             val exists = runCatching { fileOps.fileExistsOnWatch(fileName) }.getOrDefault(false)
 
-            val reply = JSONObject().apply {
-                put("id", requestId)
-                put("name", fileName)
-                put("exists", exists)
-            }
+            val reply =
+                JSONObject().apply {
+                    put("id", requestId)
+                    put("name", fileName)
+                    put("exists", exists)
+                }
 
             runCatching {
                 sendMessage(
                     sourceNodeId,
                     TransferConstants.PATH_CHECK_EXISTS_RESULT,
-                    reply.toString().toByteArray(Charsets.UTF_8)
+                    reply.toString().toByteArray(Charsets.UTF_8),
                 )
                 TransferDiagnostics.log(
                     "MsgReq",
-                    "Exists reply id=$requestId file=$fileName exists=$exists"
+                    "Exists reply id=$requestId file=$fileName exists=$exists",
                 )
             }.onFailure {
                 Log.d(TAG, "Exists reply send failed: ${it.message}")
                 TransferDiagnostics.warn(
                     "MsgReq",
-                    "Exists reply send failed id=$requestId file=$fileName"
+                    "Exists reply send failed id=$requestId file=$fileName",
                 )
             }
         }
@@ -219,16 +223,17 @@ internal class DataLayerMessageRequestHandler(
         TransferDiagnostics.log("MsgReq", "Ping request id=$requestId from node=$sourceNodeId")
 
         appScope.launch(Dispatchers.IO) {
-            val reply = JSONObject()
-                .put("id", requestId)
-                .put("nodeId", sourceNodeId)
-                .put("ok", true)
+            val reply =
+                JSONObject()
+                    .put("id", requestId)
+                    .put("nodeId", sourceNodeId)
+                    .put("ok", true)
 
             runCatching {
                 sendMessage(
                     sourceNodeId,
                     TransferConstants.PATH_PING_RESULT,
-                    reply.toString().toByteArray(Charsets.UTF_8)
+                    reply.toString().toByteArray(Charsets.UTF_8),
                 )
                 TransferDiagnostics.log("MsgReq", "Ping reply id=$requestId to node=$sourceNodeId")
             }.onFailure {
@@ -254,7 +259,7 @@ internal class DataLayerMessageRequestHandler(
             Log.w(TAG, "Missing fields in batch exists request: $payload")
             TransferDiagnostics.warn(
                 "MsgReq",
-                "Missing batch exists fields requestIdBlank=${requestId.isBlank()} itemsMissing=${items == null}"
+                "Missing batch exists fields requestIdBlank=${requestId.isBlank()} itemsMissing=${items == null}",
             )
             return
         }
@@ -275,24 +280,25 @@ internal class DataLayerMessageRequestHandler(
                 results.put(
                     JSONObject()
                         .put("index", index)
-                        .put("exists", exists)
+                        .put("exists", exists),
                 )
             }
 
-            val reply = JSONObject()
-                .put("id", requestId)
-                .put("count", items.length())
-                .put("items", results)
+            val reply =
+                JSONObject()
+                    .put("id", requestId)
+                    .put("count", items.length())
+                    .put("items", results)
 
             runCatching {
                 sendMessage(
                     sourceNodeId,
                     TransferConstants.PATH_CHECK_EXISTS_BATCH_RESULT,
-                    reply.toString().toByteArray(Charsets.UTF_8)
+                    reply.toString().toByteArray(Charsets.UTF_8),
                 )
                 TransferDiagnostics.log(
                     "MsgReq",
-                    "Batch exists reply id=$requestId requested=${items.length()} returned=${results.length()}"
+                    "Batch exists reply id=$requestId requested=${items.length()} returned=${results.length()}",
                 )
             }.onFailure {
                 Log.d(TAG, "Batch exists reply send failed: ${it.message}")
@@ -316,11 +322,12 @@ internal class DataLayerMessageRequestHandler(
         }
 
         appScope.launch(Dispatchers.IO) {
-            val maps = runCatching { fileOps.listMapFilesWithBounds() }
-                .getOrElse {
-                    Log.w(TAG, "Failed to list maps for request id=$requestId", it)
-                    emptyList()
-                }
+            val maps =
+                runCatching { fileOps.listMapFilesWithBounds() }
+                    .getOrElse {
+                        Log.w(TAG, "Failed to list maps for request id=$requestId", it)
+                        emptyList()
+                    }
 
             val jsonMaps = org.json.JSONArray()
             maps.forEach { map ->
@@ -328,19 +335,20 @@ internal class DataLayerMessageRequestHandler(
                     JSONObject()
                         .put("name", map.fileName)
                         .put("path", map.absolutePath)
-                        .put("bbox", map.bbox)
+                        .put("bbox", map.bbox),
                 )
             }
 
-            val reply = JSONObject()
-                .put("id", requestId)
-                .put("maps", jsonMaps)
+            val reply =
+                JSONObject()
+                    .put("id", requestId)
+                    .put("maps", jsonMaps)
 
             runCatching {
                 sendMessage(
                     sourceNodeId,
                     TransferConstants.PATH_LIST_MAPS_RESULT,
-                    reply.toString().toByteArray(Charsets.UTF_8)
+                    reply.toString().toByteArray(Charsets.UTF_8),
                 )
             }.onFailure {
                 Log.d(TAG, "Map-list reply send failed: ${it.message}")
@@ -367,21 +375,23 @@ internal class DataLayerMessageRequestHandler(
         val fileName = fileOps.sanitizeFileName(decoded)
 
         appScope.launch(Dispatchers.IO) {
-            val ok = runCatching {
-                fileOps.deleteByName(fileName)
-                !fileOps.fileExistsOnWatch(fileName)
-            }.getOrDefault(false)
+            val ok =
+                runCatching {
+                    fileOps.deleteByName(fileName)
+                    !fileOps.fileExistsOnWatch(fileName)
+                }.getOrDefault(false)
 
-            val reply = JSONObject()
-                .put("id", requestId)
-                .put("name", fileName)
-                .put("ok", ok)
+            val reply =
+                JSONObject()
+                    .put("id", requestId)
+                    .put("name", fileName)
+                    .put("ok", ok)
 
             runCatching {
                 sendMessage(
                     sourceNodeId,
                     TransferConstants.PATH_DELETE_FILE_RESULT,
-                    reply.toString().toByteArray(Charsets.UTF_8)
+                    reply.toString().toByteArray(Charsets.UTF_8),
                 )
             }.onFailure {
                 Log.d(TAG, "Delete-file reply send failed: ${it.message}")

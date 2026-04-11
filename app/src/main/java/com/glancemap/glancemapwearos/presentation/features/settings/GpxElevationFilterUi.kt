@@ -7,9 +7,7 @@ internal object GpxElevationFilterUi {
     const val NOISE_THRESHOLD_LABEL = "Noise threshold"
     const val TREND_THRESHOLD_LABEL = "Trend threshold"
 
-    fun formatSmoothingDistance(valueMeters: Float): String =
-        String.format(Locale.getDefault(), "%.0f m", valueMeters)
+    fun formatSmoothingDistance(valueMeters: Float): String = String.format(Locale.getDefault(), "%.0f m", valueMeters)
 
-    fun formatThreshold(valueMeters: Float): String =
-        String.format(Locale.getDefault(), "%.1f m", valueMeters)
+    fun formatThreshold(valueMeters: Float): String = String.format(Locale.getDefault(), "%.1f m", valueMeters)
 }

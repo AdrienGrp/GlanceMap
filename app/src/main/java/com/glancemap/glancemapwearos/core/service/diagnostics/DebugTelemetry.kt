@@ -17,7 +17,7 @@ internal object DebugTelemetry {
         val bufferedLines: Int,
         val totalLoggedLines: Long,
         val firstBufferedAtMs: Long?,
-        val lastBufferedAtMs: Long?
+        val lastBufferedAtMs: Long?,
     )
 
     private val enabled = AtomicBoolean(false)
@@ -31,7 +31,8 @@ internal object DebugTelemetry {
     private var sessionStartedAtMs: Long? = null
     private var sessionEndedAtMs: Long? = null
     private val tsFormatter: DateTimeFormatter =
-        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+        DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
             .withZone(ZoneId.systemDefault())
 
     fun setEnabled(value: Boolean) {
@@ -51,7 +52,10 @@ internal object DebugTelemetry {
 
     fun isEnabled(): Boolean = enabled.get()
 
-    fun log(tag: String, message: String) {
+    fun log(
+        tag: String,
+        message: String,
+    ) {
         if (!enabled.get()) return
         val nowMs = System.currentTimeMillis()
         val line = "${tsFormatter.format(Instant.ofEpochMilli(nowMs))} [$tag] $message"
@@ -92,17 +96,18 @@ internal object DebugTelemetry {
 
     fun maxBufferedLines(): Int = MAX_LINES
 
-    fun captureSessionSnapshot(): CaptureSessionSnapshot = synchronized(lock) {
-        CaptureSessionSnapshot(
-            sessionId = sessionId,
-            startedAtMs = sessionStartedAtMs,
-            endedAtMs = sessionEndedAtMs,
-            active = enabled.get(),
-            droppedLines = droppedLines,
-            bufferedLines = lines.size,
-            totalLoggedLines = totalLoggedLines,
-            firstBufferedAtMs = lineTimesMs.firstOrNull(),
-            lastBufferedAtMs = lineTimesMs.lastOrNull()
-        )
-    }
+    fun captureSessionSnapshot(): CaptureSessionSnapshot =
+        synchronized(lock) {
+            CaptureSessionSnapshot(
+                sessionId = sessionId,
+                startedAtMs = sessionStartedAtMs,
+                endedAtMs = sessionEndedAtMs,
+                active = enabled.get(),
+                droppedLines = droppedLines,
+                bufferedLines = lines.size,
+                totalLoggedLines = totalLoggedLines,
+                firstBufferedAtMs = lineTimesMs.firstOrNull(),
+                lastBufferedAtMs = lineTimesMs.lastOrNull(),
+            )
+        }
 }

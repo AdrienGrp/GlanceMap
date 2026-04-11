@@ -22,13 +22,20 @@ import java.util.concurrent.TimeoutException
  *   JSON: { "id": "<requestId>", "maps": [ { "name": "...", "path": "...", "bbox": "..." } ] }
  */
 class WatchInstalledMapsRequester(
-    private val sendMessage: suspend (nodeId: String, path: String, payload: ByteArray) -> Unit
+    private val sendMessage: suspend (nodeId: String, path: String, payload: ByteArray) -> Unit,
 ) {
-
     sealed interface Result {
-        data class Success(val maps: List<WatchInstalledMap>) : Result
-        data class Timeout(val exception: TimeoutException) : Result
-        data class Error(val exception: Exception) : Result
+        data class Success(
+            val maps: List<WatchInstalledMap>,
+        ) : Result
+
+        data class Timeout(
+            val exception: TimeoutException,
+        ) : Result
+
+        data class Error(
+            val exception: Exception,
+        ) : Result
     }
 
     private val pendingRequests = ConcurrentHashMap<String, CompletableDeferred<List<WatchInstalledMap>>>()
@@ -38,10 +45,11 @@ class WatchInstalledMapsRequester(
         val deferred = CompletableDeferred<List<WatchInstalledMap>>()
         pendingRequests[requestId] = deferred
 
-        val payload = JSONObject()
-            .put("id", requestId)
-            .toString()
-            .toByteArray(Charsets.UTF_8)
+        val payload =
+            JSONObject()
+                .put("id", requestId)
+                .toString()
+                .toByteArray(Charsets.UTF_8)
 
         return try {
             runCatching {
@@ -56,7 +64,7 @@ class WatchInstalledMapsRequester(
                 Result.Success(maps)
             } else {
                 Result.Timeout(
-                    TimeoutException("Watch did not answer in time while reading maps.")
+                    TimeoutException("Watch did not answer in time while reading maps."),
                 )
             }
         } catch (e: Exception) {
@@ -77,27 +85,28 @@ class WatchInstalledMapsRequester(
             if (requestId.isBlank()) return
 
             val items = json.optJSONArray("maps")
-            val maps = buildList {
-                if (items != null) {
-                    for (i in 0 until items.length()) {
-                        val row = items.optJSONObject(i) ?: continue
-                        val name = row.optString("name", "").trim()
-                        val path = row.optString("path", "").trim()
-                        val bbox = row.optString("bbox", "").trim()
-                        if (name.isBlank() || bbox.isBlank()) continue
-                        add(
-                            WatchInstalledMap(
-                                fileName = name,
-                                filePath = path.ifBlank { name },
-                                bbox = bbox
+            val maps =
+                buildList {
+                    if (items != null) {
+                        for (i in 0 until items.length()) {
+                            val row = items.optJSONObject(i) ?: continue
+                            val name = row.optString("name", "").trim()
+                            val path = row.optString("path", "").trim()
+                            val bbox = row.optString("bbox", "").trim()
+                            if (name.isBlank() || bbox.isBlank()) continue
+                            add(
+                                WatchInstalledMap(
+                                    fileName = name,
+                                    filePath = path.ifBlank { name },
+                                    bbox = bbox,
+                                ),
                             )
-                        )
+                        }
                     }
+                }.distinctBy { map ->
+                    val key = map.filePath.trim()
+                    if (key.isNotBlank()) key else map.fileName.lowercase()
                 }
-            }.distinctBy { map ->
-                val key = map.filePath.trim()
-                if (key.isNotBlank()) key else map.fileName.lowercase()
-            }
 
             pendingRequests.remove(requestId)?.complete(maps)
         }.onFailure {

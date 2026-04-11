@@ -26,14 +26,13 @@ import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
 import com.glancemap.glancemapwearos.test.SmallRoundWatchLargeText
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
-import com.glancemap.glancemapwearos.test.WithWearDeviceConfig
+import com.glancemap.glancemapwearos.test.withWearDeviceConfig
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SettingsChipAccessibilityTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -56,10 +55,11 @@ class SettingsChipAccessibilityTest {
     fun toggleChip_remainsOperableWithLargeTextOnSmallRoundWatch() {
         launchChipShowcase(
             config = SmallRoundWatchLargeText,
-            initialChip = SettingsChipCase.TOGGLE
+            initialChip = SettingsChipCase.TOGGLE,
         )
 
-        composeRule.onNodeWithTag(TAG_TOGGLE_CHIP)
+        composeRule
+            .onNodeWithTag(TAG_TOGGLE_CHIP)
             .assertIsDisplayed()
             .assertIsOff()
             .performClick()
@@ -67,7 +67,8 @@ class SettingsChipAccessibilityTest {
     }
 
     private fun assertInteractiveNodeMeetsTouchTarget(tag: String) {
-        composeRule.onNodeWithTag(tag)
+        composeRule
+            .onNodeWithTag(tag)
             .assertIsDisplayed()
             .assertHasClickAction()
             .assertWidthIsAtLeast(48.dp)
@@ -94,13 +95,13 @@ class SettingsChipAccessibilityTest {
 
     private fun launchChipShowcase(
         config: WearDeviceTestConfig,
-        initialChip: SettingsChipCase = SettingsChipCase.GENERAL_SHORTCUT
+        initialChip: SettingsChipCase = SettingsChipCase.GENERAL_SHORTCUT,
     ) {
         showcasedChip = initialChip
         composeRule.setContent {
-            WithWearDeviceConfig(config = config) {
+            withWearDeviceConfig(config = config) {
                 GlanceMapTheme {
-                    SettingsChipShowcase()
+                    settingsChipShowcase()
                 }
             }
         }
@@ -108,39 +109,43 @@ class SettingsChipAccessibilityTest {
     }
 
     @Composable
-    private fun SettingsChipShowcase() {
+    private fun settingsChipShowcase() {
         var enabled by remember { mutableStateOf(false) }
 
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             when (showcasedChip) {
-                SettingsChipCase.GENERAL_SHORTCUT -> GeneralSettingsShortcutChip(
-                    onClick = {},
-                    modifier = Modifier.testTag(TAG_GENERAL_SHORTCUT)
-                )
+                SettingsChipCase.GENERAL_SHORTCUT ->
+                    GeneralSettingsShortcutChip(
+                        onClick = {},
+                        modifier = Modifier.testTag(TAG_GENERAL_SHORTCUT),
+                    )
 
-                SettingsChipCase.SECTION -> SettingsSectionChip(
-                    label = "Map settings",
-                    onClick = {},
-                    modifier = Modifier.testTag(TAG_SECTION_CHIP)
-                )
+                SettingsChipCase.SECTION ->
+                    SettingsSectionChip(
+                        label = "Map settings",
+                        onClick = {},
+                        modifier = Modifier.testTag(TAG_SECTION_CHIP),
+                    )
 
-                SettingsChipCase.PICKER -> SettingsPickerChip(
-                    label = "Units",
-                    secondaryLabel = "Metric",
-                    onClick = {},
-                    modifier = Modifier.testTag(TAG_PICKER_CHIP)
-                )
+                SettingsChipCase.PICKER ->
+                    SettingsPickerChip(
+                        label = "Units",
+                        secondaryLabel = "Metric",
+                        onClick = {},
+                        modifier = Modifier.testTag(TAG_PICKER_CHIP),
+                    )
 
-                SettingsChipCase.TOGGLE -> SettingsToggleChip(
-                    checked = enabled,
-                    onCheckedChanged = { enabled = it },
-                    label = "Offline maps",
-                    secondaryLabel = "Keep files on watch",
-                    modifier = Modifier.testTag(TAG_TOGGLE_CHIP)
-                )
+                SettingsChipCase.TOGGLE ->
+                    SettingsToggleChip(
+                        checked = enabled,
+                        onCheckedChanged = { enabled = it },
+                        label = "Offline maps",
+                        secondaryLabel = "Keep files on watch",
+                        modifier = Modifier.testTag(TAG_TOGGLE_CHIP),
+                    )
             }
         }
     }
@@ -159,5 +164,5 @@ private enum class SettingsChipCase {
     GENERAL_SHORTCUT,
     SECTION,
     PICKER,
-    TOGGLE
+    TOGGLE,
 }

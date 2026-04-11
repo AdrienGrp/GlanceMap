@@ -18,7 +18,6 @@ import java.security.MessageDigest
 import kotlin.coroutines.coroutineContext
 
 internal object AtomicStreamWriter {
-
     private const val TAG = "AtomicStreamWriter"
 
     data class Options(
@@ -26,22 +25,19 @@ internal object AtomicStreamWriter {
         val progressStepBytes: Long = 1_048_576L,
         val fsync: Boolean = true,
         val failIfExists: Boolean = false,
-
         val expectedSize: Long? = null,
         val requireExactSize: Boolean = false,
-
         // ✅ Resume support
-        val resumeOffset: Long = 0L,          // append starting at this offset
+        val resumeOffset: Long = 0L, // append starting at this offset
         val keepPartialOnCancel: Boolean = false, // keep .part on pause
         val keepPartialOnFailure: Boolean = false, // keep .part on recoverable IO failure
-
         // Fresh writes stream SHA-256 inline; resumed writes fall back to a final-file hash.
-        val computeSha256: Boolean = false
+        val computeSha256: Boolean = false,
     )
 
     data class WriteResult(
         val bytesCopied: Long,
-        val sha256: String?
+        val sha256: String?,
     )
 
     suspend fun writeAtomic(
@@ -49,7 +45,7 @@ internal object AtomicStreamWriter {
         fileName: String,
         inputStream: InputStream,
         onProgress: (Long) -> Unit,
-        options: Options = Options()
+        options: Options = Options(),
     ): WriteResult {
         if (!dir.exists() && !dir.mkdirs()) {
             throw IOException("Cannot create directory: ${dir.absolutePath}")
@@ -73,10 +69,11 @@ internal object AtomicStreamWriter {
             existingLen = 0L
         }
 
-        val startOffset = when {
-            options.resumeOffset > 0L -> minOf(existingLen, options.resumeOffset)
-            else -> 0L
-        }
+        val startOffset =
+            when {
+                options.resumeOffset > 0L -> minOf(existingLen, options.resumeOffset)
+                else -> 0L
+            }
 
         if (startOffset == 0L && partFile.exists()) {
             runCatching { partFile.delete() }
@@ -84,7 +81,7 @@ internal object AtomicStreamWriter {
         } else if (partFile.exists() && existingLen > startOffset) {
             safeLogWarn(
                 TAG,
-                "Truncating partial $safeName from $existingLen to resumeOffset=$startOffset before append"
+                "Truncating partial $safeName from $existingLen to resumeOffset=$startOffset before append",
             )
             RandomAccessFile(partFile, "rw").use { raf ->
                 raf.setLength(startOffset)
@@ -95,28 +92,30 @@ internal object AtomicStreamWriter {
         var bytesCopied = existingLen
         var lastProgress = bytesCopied
         val isResumingFromPartial = bytesCopied > 0L && partFile.exists()
-        val digest = if (options.computeSha256 && !isResumingFromPartial) {
-            MessageDigest.getInstance("SHA-256")
-        } else {
-            null
-        }
+        val digest =
+            if (options.computeSha256 && !isResumingFromPartial) {
+                MessageDigest.getInstance("SHA-256")
+            } else {
+                null
+            }
 
         try {
             // Append if we have a partial
             val writeStartMs = monotonicNowMs()
             FileOutputStream(partFile, bytesCopied > 0L).use { fos ->
-                bytesCopied = writeWithPipeline(
-                    inputStream = inputStream,
-                    fos = fos,
-                    digest = digest,
-                    bufferSize = options.bufferSize,
-                    initialBytesCopied = bytesCopied,
-                    expected = expected,
-                    requireExactSize = options.requireExactSize,
-                    progressStepBytes = options.progressStepBytes,
-                    onProgress = onProgress,
-                    lastProgress = lastProgress
-                )
+                bytesCopied =
+                    writeWithPipeline(
+                        inputStream = inputStream,
+                        fos = fos,
+                        digest = digest,
+                        bufferSize = options.bufferSize,
+                        initialBytesCopied = bytesCopied,
+                        expected = expected,
+                        requireExactSize = options.requireExactSize,
+                        progressStepBytes = options.progressStepBytes,
+                        onProgress = onProgress,
+                        lastProgress = lastProgress,
+                    )
 
                 fos.flush()
                 if (options.fsync) {
@@ -125,13 +124,16 @@ internal object AtomicStreamWriter {
             }
             val writeDurationMs = monotonicNowMs() - writeStartMs
             val writtenSincePart = bytesCopied - startOffset
-            val writeThroughputMBps = if (writeDurationMs > 0 && writtenSincePart > 0) {
-                (writtenSincePart / 1_048_576.0) / (writeDurationMs / 1000.0)
-            } else 0.0
+            val writeThroughputMBps =
+                if (writeDurationMs > 0 && writtenSincePart > 0) {
+                    (writtenSincePart / 1_048_576.0) / (writeDurationMs / 1000.0)
+                } else {
+                    0.0
+                }
             safeLogDebug(
                 TAG,
                 "Disk write $safeName: written=${writtenSincePart}B durationMs=$writeDurationMs " +
-                    "throughput=${String.format("%.2f", writeThroughputMBps)}MB/s fsync=${options.fsync}"
+                    "throughput=${String.format("%.2f", writeThroughputMBps)}MB/s fsync=${options.fsync}",
             )
 
             onProgress(bytesCopied)
@@ -158,9 +160,8 @@ internal object AtomicStreamWriter {
 
             return WriteResult(
                 bytesCopied = bytesCopied,
-                sha256 = sha256
+                sha256 = sha256,
             )
-
         } catch (e: Exception) {
             // ✅ Keep partial on PAUSE only (CancellationException path)
             if (e is CancellationException && options.keepPartialOnCancel) {
@@ -196,100 +197,112 @@ internal object AtomicStreamWriter {
         requireExactSize: Boolean,
         progressStepBytes: Long,
         onProgress: (Long) -> Unit,
-        lastProgress: Long
-    ): Long = coroutineScope {
-        val buffers = arrayOf(ByteArray(bufferSize), ByteArray(bufferSize))
-        val availableBuffers = Channel<Int>(2)
-        val chunks = Channel<Pair<Int, Int>>(1) // (bufferIndex, bytesRead)
+        lastProgress: Long,
+    ): Long =
+        coroutineScope {
+            val buffers = arrayOf(ByteArray(bufferSize), ByteArray(bufferSize))
+            val availableBuffers = Channel<Int>(2)
+            val chunks = Channel<Pair<Int, Int>>(1) // (bufferIndex, bytesRead)
 
-        availableBuffers.trySend(0)
-        availableBuffers.trySend(1)
+            availableBuffers.trySend(0)
+            availableBuffers.trySend(1)
 
-        var bytesCopied = initialBytesCopied
-        var progress = lastProgress
+            var bytesCopied = initialBytesCopied
+            var progress = lastProgress
 
-        // Producer: reads from input stream on IO dispatcher
-        val reader = launch(Dispatchers.IO) {
+            // Producer: reads from input stream on IO dispatcher
+            val reader =
+                launch(Dispatchers.IO) {
+                    try {
+                        while (true) {
+                            coroutineContext.ensureActive()
+                            val idx = availableBuffers.receive()
+                            val read = inputStream.read(buffers[idx])
+                            if (read < 0) {
+                                availableBuffers.trySend(idx)
+                                break
+                            }
+                            chunks.send(idx to read)
+                        }
+                    } finally {
+                        chunks.close()
+                    }
+                }
+
+            // Consumer: writes to disk on current (IO) dispatcher
             try {
-                while (true) {
+                for ((idx, read) in chunks) {
                     coroutineContext.ensureActive()
-                    val idx = availableBuffers.receive()
-                    val read = inputStream.read(buffers[idx])
-                    if (read < 0) {
-                        availableBuffers.trySend(idx)
-                        break
+
+                    if (requireExactSize) {
+                        val exp = expected ?: -1L
+                        if (exp > 0 && bytesCopied + read > exp) {
+                            reader.cancel()
+                            throw IOException("TOO_MUCH_DATA: expected=$exp got>${bytesCopied + read}")
+                        }
                     }
-                    chunks.send(idx to read)
+
+                    fos.write(buffers[idx], 0, read)
+                    digest?.update(buffers[idx], 0, read)
+                    bytesCopied += read
+                    availableBuffers.send(idx)
+
+                    if (bytesCopied - progress >= progressStepBytes) {
+                        progress = bytesCopied
+                        onProgress(bytesCopied)
+                    }
                 }
+            } catch (e: Exception) {
+                reader.cancel()
+                throw e
             } finally {
-                chunks.close()
+                availableBuffers.close()
             }
+
+            bytesCopied
         }
-
-        // Consumer: writes to disk on current (IO) dispatcher
-        try {
-            for ((idx, read) in chunks) {
-                coroutineContext.ensureActive()
-
-                if (requireExactSize) {
-                    val exp = expected ?: -1L
-                    if (exp > 0 && bytesCopied + read > exp) {
-                        reader.cancel()
-                        throw IOException("TOO_MUCH_DATA: expected=$exp got>${bytesCopied + read}")
-                    }
-                }
-
-                fos.write(buffers[idx], 0, read)
-                digest?.update(buffers[idx], 0, read)
-                bytesCopied += read
-                availableBuffers.send(idx)
-
-                if (bytesCopied - progress >= progressStepBytes) {
-                    progress = bytesCopied
-                    onProgress(bytesCopied)
-                }
-            }
-        } catch (e: Exception) {
-            reader.cancel()
-            throw e
-        } finally {
-            availableBuffers.close()
-        }
-
-        bytesCopied
-    }
 
     private fun monotonicNowMs(): Long = System.nanoTime() / 1_000_000L
 
-    private fun safeLogDebug(tag: String, message: String) {
+    private fun safeLogDebug(
+        tag: String,
+        message: String,
+    ) {
         runCatching { Log.d(tag, message) }
     }
 
-    private fun safeLogWarn(tag: String, message: String) {
+    private fun safeLogWarn(
+        tag: String,
+        message: String,
+    ) {
         runCatching { Log.w(tag, message) }
     }
 
-    private fun moveAtomic(src: File, dst: File): Boolean {
-        return runCatching {
+    private fun moveAtomic(
+        src: File,
+        dst: File,
+    ): Boolean =
+        runCatching {
             Files.move(
                 src.toPath(),
                 dst.toPath(),
                 StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE
+                StandardCopyOption.ATOMIC_MOVE,
             )
             true
         }.getOrElse {
             false
         }
-    }
 
-    private fun copyAndDel(src: File, dst: File): Boolean {
-        return try {
+    private fun copyAndDel(
+        src: File,
+        dst: File,
+    ): Boolean =
+        try {
             src.copyTo(dst, overwrite = true)
             src.delete()
             true
         } catch (_: Exception) {
             false
         }
-    }
 }

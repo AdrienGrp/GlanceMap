@@ -15,18 +15,18 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class SensorManagerOrientationProvider(
-    context: Context
-) : CompassOrientationProvider, SensorEventListener {
-
+    context: Context,
+) : CompassOrientationProvider,
+    SensorEventListener {
     private val appContext = context.applicationContext
     private val locationManager =
         appContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -41,71 +41,77 @@ internal class SensorManagerOrientationProvider(
     private val _heading = MutableStateFlow(0f)
     private val _accuracy = MutableStateFlow(SensorManager.SENSOR_STATUS_UNRELIABLE)
     private val _headingSource = MutableStateFlow(HeadingSource.NONE)
-    private val _headingSourceStatus = MutableStateFlow(
-        HeadingSourceStatus(
-            requestedMode = CompassHeadingSourceMode.AUTO,
-            activeSource = HeadingSource.NONE,
-            headingSensorAvailable = sensorRegistrar.availability.headingSensorAvailable,
-            rotationVectorAvailable = sensorRegistrar.availability.rotationVectorAvailable,
-            magAccelFallbackAvailable = sensorRegistrar.availability.magAccelFallbackAvailable
+    private val _headingSourceStatus =
+        MutableStateFlow(
+            HeadingSourceStatus(
+                requestedMode = CompassHeadingSourceMode.AUTO,
+                activeSource = HeadingSource.NONE,
+                headingSensorAvailable = sensorRegistrar.availability.headingSensorAvailable,
+                rotationVectorAvailable = sensorRegistrar.availability.rotationVectorAvailable,
+                magAccelFallbackAvailable = sensorRegistrar.availability.magAccelFallbackAvailable,
+            ),
         )
-    )
-    private val _northReferenceStatus = MutableStateFlow(
-        NorthReferenceStatus(
-            requestedMode = NorthReferenceMode.TRUE,
-            effectiveMode = NorthReferenceMode.MAGNETIC,
-            declinationAvailable = false,
-            waitingForDeclination = true,
-            pipeline = HeadingPipeline.NONE
+    private val _northReferenceStatus =
+        MutableStateFlow(
+            NorthReferenceStatus(
+                requestedMode = NorthReferenceMode.TRUE,
+                effectiveMode = NorthReferenceMode.MAGNETIC,
+                declinationAvailable = false,
+                waitingForDeclination = true,
+                pipeline = HeadingPipeline.NONE,
+            ),
         )
-    )
 
-    private val declinationController = CompassDeclinationController(
-        appContext = appContext,
-        locationManager = locationManager,
-        onStatusChanged = ::publishNorthReferenceStatus,
-        logDiagnostics = ::logDiagnostics
-    )
+    private val declinationController =
+        CompassDeclinationController(
+            appContext = appContext,
+            locationManager = locationManager,
+            onStatusChanged = ::publishNorthReferenceStatus,
+            logDiagnostics = ::logDiagnostics,
+        )
 
     private val _magneticInterference = MutableStateFlow(false)
 
-    private val baseRenderState = combine(
-        _heading,
-        _accuracy,
-        _headingSource,
-        _headingSourceStatus,
-        _northReferenceStatus
-    ) { heading, accuracy, headingSource, headingSourceStatus, northReferenceStatus ->
-        CompassRenderState(
-            providerType = providerType,
-            headingDeg = heading,
-            accuracy = accuracy,
-            headingErrorDeg = null,
-            conservativeHeadingErrorDeg = null,
-            headingSampleElapsedRealtimeMs = null,
-            headingSampleStale = false,
-            headingSource = headingSource,
-            headingSourceStatus = headingSourceStatus,
-            northReferenceStatus = northReferenceStatus,
-            magneticInterference = false
-        )
-    }
+    private val baseRenderState =
+        combine(
+            _heading,
+            _accuracy,
+            _headingSource,
+            _headingSourceStatus,
+            _northReferenceStatus,
+        ) { heading, accuracy, headingSource, headingSourceStatus, northReferenceStatus ->
+            CompassRenderState(
+                providerType = providerType,
+                headingDeg = heading,
+                accuracy = accuracy,
+                headingErrorDeg = null,
+                conservativeHeadingErrorDeg = null,
+                headingSampleElapsedRealtimeMs = null,
+                headingSampleStale = false,
+                headingSource = headingSource,
+                headingSourceStatus = headingSourceStatus,
+                northReferenceStatus = northReferenceStatus,
+                magneticInterference = false,
+            )
+        }
 
-    override val renderState: StateFlow<CompassRenderState> = combine(
-        baseRenderState,
-        _magneticInterference
-    ) { baseState, magneticInterference ->
-        baseState.copy(magneticInterference = magneticInterference)
-    }.stateIn(
-        scope = scope,
-        started = SharingStarted.WhileSubscribed(0),
-        initialValue = initialCompassRenderState(
-            providerType = providerType,
-            headingSensorAvailable = sensorRegistrar.availability.headingSensorAvailable,
-            rotationVectorAvailable = sensorRegistrar.availability.rotationVectorAvailable,
-            magAccelFallbackAvailable = sensorRegistrar.availability.magAccelFallbackAvailable
+    override val renderState: StateFlow<CompassRenderState> =
+        combine(
+            baseRenderState,
+            _magneticInterference,
+        ) { baseState, magneticInterference ->
+            baseState.copy(magneticInterference = magneticInterference)
+        }.stateIn(
+            scope = scope,
+            started = SharingStarted.WhileSubscribed(0),
+            initialValue =
+                initialCompassRenderState(
+                    providerType = providerType,
+                    headingSensorAvailable = sensorRegistrar.availability.headingSensorAvailable,
+                    rotationVectorAvailable = sensorRegistrar.availability.rotationVectorAvailable,
+                    magAccelFallbackAvailable = sensorRegistrar.availability.magAccelFallbackAvailable,
+                ),
         )
-    )
 
     // Raw heading pushed from sensor callbacks
     private val rawHeadingFlow = MutableStateFlow<Float?>(null)
@@ -125,15 +131,22 @@ internal class SensorManagerOrientationProvider(
     private val resetSmoothingRequested = AtomicBoolean(false)
 
     @Volatile private var usingHeadingSensor = false
+
     @Volatile private var usingRotationVector = false
+
     @Volatile private var usingMagAccelFallback = false
+
     @Volatile private var started = false
     private var startAtMs = 0L
+
     @Volatile private var sensorRateMode = SensorRateMode.HIGH
+
     @Volatile private var cachedDisplayRotation: Int = Surface.ROTATION_0
     private var lastDisplayRotationSampleAtMs: Long = 0L
     private var lastHeadingDebugLogAtMs: Long = 0L
+
     @Volatile private var headingRelockUntilElapsedMs: Long = 0L
+
     @Volatile private var startupStabilizationUntilElapsedMs: Long = 0L
 
     // Prevent “crazy” first readings after start/wake
@@ -145,11 +158,17 @@ internal class SensorManagerOrientationProvider(
     private var magAccuracy: Int = SensorManager.SENSOR_STATUS_UNRELIABLE
     private var rotVecAccuracy: Int = SensorManager.SENSOR_STATUS_UNRELIABLE
     private var rotVecHeadingUncertaintyDeg: Float = Float.NaN
+
     @Volatile private var inferredHeadingAccuracy: Int = SensorManager.SENSOR_STATUS_UNRELIABLE
+
     @Volatile private var activeHeadingSource: HeadingSource = HeadingSource.NONE
+
     @Volatile private var pendingBootstrapRawSamplesToIgnore: Int = 0
+
     @Volatile private var pendingStartupBogusSamplesToIgnore: Int = 0
+
     @Volatile private var pendingStartupHeadingPublishesToMask: Int = 0
+
     @Volatile private var startupHeadingPublishMaskUntilElapsedMs: Long = 0L
     private var magneticFieldStrengthUt: Float = Float.NaN
     private var magneticFieldStrengthEmaUt: Float = Float.NaN
@@ -160,8 +179,11 @@ internal class SensorManagerOrientationProvider(
 
     // Magnetic declination (degrees) used to convert magnetic north -> true north.
     @Volatile private var northReferenceMode: NorthReferenceMode = NorthReferenceMode.TRUE
+
     @Volatile private var headingSourceMode: CompassHeadingSourceMode = CompassHeadingSourceMode.AUTO
+
     @Volatile private var sensorCallbackThread: HandlerThread? = null
+
     @Volatile private var sensorCallbackHandler: Handler? = null
 
     private fun ensureSensorCallbackHandler(): Handler {
@@ -223,7 +245,7 @@ internal class SensorManagerOrientationProvider(
         armHeadingRelockWindow(nowElapsedMs = nowElapsedMs, reason = "start")
         armMagneticInterferenceStartupGraceWindow(
             nowElapsedMs = nowElapsedMs,
-            reason = "start"
+            reason = "start",
         )
 
         registerSensorsForCurrentMode(resetHeadingState = true)
@@ -231,7 +253,7 @@ internal class SensorManagerOrientationProvider(
             "start mode=$sensorRateMode usingHeadingSensor=$usingHeadingSensor " +
                 "usingRotationVector=$usingRotationVector " +
                 "usingMagAccel=$usingMagAccelFallback " +
-                "northReference=$northReferenceMode sourceMode=$headingSourceMode"
+                "northReference=$northReferenceMode sourceMode=$headingSourceMode",
         )
 
         startSmoothing()
@@ -289,7 +311,10 @@ internal class SensorManagerOrientationProvider(
         logDiagnostics("recalibrate requested")
     }
 
-    override fun setNorthReferenceMode(mode: NorthReferenceMode, forceRefresh: Boolean) {
+    override fun setNorthReferenceMode(
+        mode: NorthReferenceMode,
+        forceRefresh: Boolean,
+    ) {
         val previousMode = northReferenceMode
         val modeChanged = previousMode != mode
         if (!modeChanged && !forceRefresh) return
@@ -297,12 +322,13 @@ internal class SensorManagerOrientationProvider(
         val previousPipeline = currentHeadingPipeline()
         if (modeChanged) {
             northReferenceMode = mode
-            val remappedHeading = remapHeadingForNorthReferenceSwitch(
-                currentHeadingDeg = _heading.value,
-                fromMode = previousMode,
-                toMode = mode,
-                declinationDeg = declinationController.currentDeclination
-            )
+            val remappedHeading =
+                remapHeadingForNorthReferenceSwitch(
+                    currentHeadingDeg = _heading.value,
+                    fromMode = previousMode,
+                    toMode = mode,
+                    declinationDeg = declinationController.currentDeclination,
+                )
             if (remappedHeading.isFinite()) {
                 _heading.value = remappedHeading
                 rawHeadingFlow.value = remappedHeading
@@ -332,11 +358,14 @@ internal class SensorManagerOrientationProvider(
                 "usingHeadingSensor=$usingHeadingSensor usingRotationVector=$usingRotationVector " +
                 "usingMagAccel=$usingMagAccelFallback " +
                 "sourceMode=$headingSourceMode decl=${declinationController.currentDeclination.formatOrNA(2)} " +
-                "heading=${_heading.value.format(1)}"
+                "heading=${_heading.value.format(1)}",
         )
     }
 
-    override fun setHeadingSourceMode(mode: CompassHeadingSourceMode, forceRefresh: Boolean) {
+    override fun setHeadingSourceMode(
+        mode: CompassHeadingSourceMode,
+        forceRefresh: Boolean,
+    ) {
         val modeChanged = headingSourceMode != mode
         if (!modeChanged && !forceRefresh) return
         val previousPipeline = currentHeadingPipeline()
@@ -369,19 +398,19 @@ internal class SensorManagerOrientationProvider(
             "heading source mode=$mode changed=$modeChanged forceRefresh=$forceRefresh " +
                 "usingHeadingSensor=$usingHeadingSensor usingRotationVector=$usingRotationVector " +
                 "usingMagAccel=$usingMagAccelFallback " +
-                "northReference=$northReferenceMode"
+                "northReference=$northReferenceMode",
         )
     }
 
     override fun primeDeclinationFromApproximateLocation(
         latitude: Double,
         longitude: Double,
-        altitudeM: Float
+        altitudeM: Float,
     ) {
         declinationController.primeFromApproximateLocation(
             latitude = latitude,
             longitude = longitude,
-            altitudeM = altitudeM
+            altitudeM = altitudeM,
         )
     }
 
@@ -413,10 +442,11 @@ internal class SensorManagerOrientationProvider(
                 headingUncertaintyDeg = event.values[1]
                 publishAccuracyFromCurrentSignals()
             }
-            val normalized = declinationController.headingSensorHeadingWithNorthReference(
-                northReferenceMode = northReferenceMode,
-                headingDeg = headingDeg
-            )
+            val normalized =
+                declinationController.headingSensorHeadingWithNorthReference(
+                    northReferenceMode = northReferenceMode,
+                    headingDeg = headingDeg,
+                )
             rawHeadingFlow.value = normalized
             maybeLogHeadingSample(normalized)
             return
@@ -430,16 +460,17 @@ internal class SensorManagerOrientationProvider(
             remapForDisplayRotation(
                 rotation = cachedDisplayRotation,
                 inR = rotationMatrix,
-                outR = rotationMatrixRemapped
+                outR = rotationMatrixRemapped,
             )
             SensorManager.getOrientation(rotationMatrixRemapped, orientationAngles)
 
             val azimuthDeg = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
-            val normalized = headingWithNorthReference(
-                azimuthDeg = azimuthDeg,
-                declinationDeg = declinationController.resolveCorrection(northReferenceMode),
-                northReferenceMode = northReferenceMode
-            )
+            val normalized =
+                headingWithNorthReference(
+                    azimuthDeg = azimuthDeg,
+                    declinationDeg = declinationController.resolveCorrection(northReferenceMode),
+                    northReferenceMode = northReferenceMode,
+                )
             rawHeadingFlow.value = normalized
             maybeLogHeadingSample(normalized)
             return
@@ -472,21 +503,25 @@ internal class SensorManagerOrientationProvider(
         remapForDisplayRotation(
             rotation = cachedDisplayRotation,
             inR = rotationMatrix,
-            outR = rotationMatrixRemapped
+            outR = rotationMatrixRemapped,
         )
         SensorManager.getOrientation(rotationMatrixRemapped, orientationAngles)
 
         val azimuthDeg = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
-        val normalized = headingWithNorthReference(
-            azimuthDeg = azimuthDeg,
-            declinationDeg = declinationController.resolveCorrection(northReferenceMode),
-            northReferenceMode = northReferenceMode
-        )
+        val normalized =
+            headingWithNorthReference(
+                azimuthDeg = azimuthDeg,
+                declinationDeg = declinationController.resolveCorrection(northReferenceMode),
+                northReferenceMode = northReferenceMode,
+            )
         rawHeadingFlow.value = normalized
         maybeLogHeadingSample(normalized)
     }
 
-    override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+    override fun onAccuracyChanged(
+        sensor: Sensor,
+        accuracy: Int,
+    ) {
         if (!started) return
 
         when (sensor.type) {
@@ -520,62 +555,65 @@ internal class SensorManagerOrientationProvider(
 
     private fun startSmoothing() {
         if (smoothingJob?.isActive == true) return
-        smoothingJob = headingProcessor.launch(
-            scope = scope,
-            rawHeadingFlow = rawHeadingFlow,
-            settleWindowMs = settleWindowMs,
-            getStartAtMs = { startAtMs },
-            getHeadingRelockUntilElapsedMs = { headingRelockUntilElapsedMs },
-            consumeResetSmoothingRequested = { resetSmoothingRequested.getAndSet(false) },
-            getDisplayedHeading = { _heading.value },
-            publishDisplayedHeading = { heading ->
-                _heading.value = heading
-                hasPublishedHeading = true
-            },
-            getPendingBootstrapRawSamplesToIgnore = { pendingBootstrapRawSamplesToIgnore },
-            setPendingBootstrapRawSamplesToIgnore = { pendingBootstrapRawSamplesToIgnore = it },
-            getPendingStartupBogusSamplesToIgnore = { pendingStartupBogusSamplesToIgnore },
-            setPendingStartupBogusSamplesToIgnore = { pendingStartupBogusSamplesToIgnore = it },
-            getPendingStartupHeadingPublishesToMask = { pendingStartupHeadingPublishesToMask },
-            setPendingStartupHeadingPublishesToMask = { pendingStartupHeadingPublishesToMask = it },
-            getStartupStabilizationUntilElapsedMs = { startupStabilizationUntilElapsedMs },
-            getStartupHeadingPublishMaskUntilElapsedMs = { startupHeadingPublishMaskUntilElapsedMs },
-            isUsingRotationVector = { usingRotationVector },
-            isUsingHeadingSensor = { usingHeadingSensor },
-            updateInferredHeadingAccuracy = ::updateInferredHeadingAccuracy,
-            logDiagnostics = ::logDiagnostics
-        )
+        smoothingJob =
+            headingProcessor.launch(
+                scope = scope,
+                rawHeadingFlow = rawHeadingFlow,
+                settleWindowMs = settleWindowMs,
+                getStartAtMs = { startAtMs },
+                getHeadingRelockUntilElapsedMs = { headingRelockUntilElapsedMs },
+                consumeResetSmoothingRequested = { resetSmoothingRequested.getAndSet(false) },
+                getDisplayedHeading = { _heading.value },
+                publishDisplayedHeading = { heading ->
+                    _heading.value = heading
+                    hasPublishedHeading = true
+                },
+                getPendingBootstrapRawSamplesToIgnore = { pendingBootstrapRawSamplesToIgnore },
+                setPendingBootstrapRawSamplesToIgnore = { pendingBootstrapRawSamplesToIgnore = it },
+                getPendingStartupBogusSamplesToIgnore = { pendingStartupBogusSamplesToIgnore },
+                setPendingStartupBogusSamplesToIgnore = { pendingStartupBogusSamplesToIgnore = it },
+                getPendingStartupHeadingPublishesToMask = { pendingStartupHeadingPublishesToMask },
+                setPendingStartupHeadingPublishesToMask = { pendingStartupHeadingPublishesToMask = it },
+                getStartupStabilizationUntilElapsedMs = { startupStabilizationUntilElapsedMs },
+                getStartupHeadingPublishMaskUntilElapsedMs = { startupHeadingPublishMaskUntilElapsedMs },
+                isUsingRotationVector = { usingRotationVector },
+                isUsingHeadingSensor = { usingHeadingSensor },
+                updateInferredHeadingAccuracy = ::updateInferredHeadingAccuracy,
+                logDiagnostics = ::logDiagnostics,
+            )
     }
 
     private fun maybeRefreshDisplayRotation() {
-        val update = computeCompassDisplayRotationUpdate(
-            windowManager = windowManager,
-            nowElapsedMs = SystemClock.elapsedRealtime(),
-            lastSampleAtMs = lastDisplayRotationSampleAtMs
-        ) ?: return
+        val update =
+            computeCompassDisplayRotationUpdate(
+                windowManager = windowManager,
+                nowElapsedMs = SystemClock.elapsedRealtime(),
+                lastSampleAtMs = lastDisplayRotationSampleAtMs,
+            ) ?: return
         cachedDisplayRotation = update.rotation
         lastDisplayRotationSampleAtMs = update.sampledAtMs
     }
 
     private fun maybeLogHeadingSample(rawHeading: Float) {
-        val update = buildCompassHeadingLogUpdate(
-            rawHeading = rawHeading,
-            pendingBootstrapRawSamplesToIgnore = pendingBootstrapRawSamplesToIgnore,
-            lastHeadingDebugLogAtMs = lastHeadingDebugLogAtMs,
-            nowElapsedMs = SystemClock.elapsedRealtime(),
-            smoothedHeading = _heading.value,
-            combinedAccuracy = _accuracy.value,
-            sensorReportedAccuracy = resolveSensorReportedAccuracy(),
-            inferredHeadingAccuracy = inferredHeadingAccuracy,
-            declinationDeg = declinationController.currentDeclination,
-            northReferenceMode = northReferenceMode,
-            sensorRateMode = sensorRateMode,
-            northStatus = _northReferenceStatus.value,
-            activeHeadingSource = activeHeadingSource,
-            headingSourceMode = headingSourceMode,
-            magneticFieldStrengthEmaUt = magneticFieldStrengthEmaUt,
-            magneticInterferenceDetected = magneticInterferenceDetected
-        ) ?: return
+        val update =
+            buildCompassHeadingLogUpdate(
+                rawHeading = rawHeading,
+                pendingBootstrapRawSamplesToIgnore = pendingBootstrapRawSamplesToIgnore,
+                lastHeadingDebugLogAtMs = lastHeadingDebugLogAtMs,
+                nowElapsedMs = SystemClock.elapsedRealtime(),
+                smoothedHeading = _heading.value,
+                combinedAccuracy = _accuracy.value,
+                sensorReportedAccuracy = resolveSensorReportedAccuracy(),
+                inferredHeadingAccuracy = inferredHeadingAccuracy,
+                declinationDeg = declinationController.currentDeclination,
+                northReferenceMode = northReferenceMode,
+                sensorRateMode = sensorRateMode,
+                northStatus = _northReferenceStatus.value,
+                activeHeadingSource = activeHeadingSource,
+                headingSourceMode = headingSourceMode,
+                magneticFieldStrengthEmaUt = magneticFieldStrengthEmaUt,
+                magneticInterferenceDetected = magneticInterferenceDetected,
+            ) ?: return
         lastHeadingDebugLogAtMs = update.sampledAtMs
         logDiagnostics(update.message)
     }
@@ -586,19 +624,20 @@ internal class SensorManagerOrientationProvider(
     }
 
     private fun updateMagneticInterference(values: FloatArray) {
-        val update = computeCompassMagneticInterferenceUpdate(
-            values = values,
-            magneticFieldStrengthUt = magneticFieldStrengthUt,
-            magneticFieldStrengthEmaUt = magneticFieldStrengthEmaUt,
-            magneticInterferenceHoldUntilElapsedMs = magneticInterferenceHoldUntilElapsedMs,
-            magneticInterferenceDetected = magneticInterferenceDetected,
-            nowElapsedMs = SystemClock.elapsedRealtime(),
-            startupGraceUntilElapsedMs = magneticInterferenceStartupGraceUntilElapsedMs,
-            sensorAccuracy = resolveSensorReportedAccuracy(),
-            inferredAccuracy = inferredHeadingAccuracy,
-            usingRotationVector = usingRotationVector,
-            usingHeadingSensor = usingHeadingSensor
-        ) ?: return
+        val update =
+            computeCompassMagneticInterferenceUpdate(
+                values = values,
+                magneticFieldStrengthUt = magneticFieldStrengthUt,
+                magneticFieldStrengthEmaUt = magneticFieldStrengthEmaUt,
+                magneticInterferenceHoldUntilElapsedMs = magneticInterferenceHoldUntilElapsedMs,
+                magneticInterferenceDetected = magneticInterferenceDetected,
+                nowElapsedMs = SystemClock.elapsedRealtime(),
+                startupGraceUntilElapsedMs = magneticInterferenceStartupGraceUntilElapsedMs,
+                sensorAccuracy = resolveSensorReportedAccuracy(),
+                inferredAccuracy = inferredHeadingAccuracy,
+                usingRotationVector = usingRotationVector,
+                usingHeadingSensor = usingHeadingSensor,
+            ) ?: return
         magneticFieldStrengthUt = update.state.strengthUt
         magneticFieldStrengthEmaUt = update.state.emaUt
         magneticInterferenceHoldUntilElapsedMs = update.state.holdUntilElapsedMs
@@ -615,14 +654,15 @@ internal class SensorManagerOrientationProvider(
         val pipeline = currentHeadingPipeline()
         if (started && resetHeadingState) {
             val nowElapsedMs = SystemClock.elapsedRealtime()
-            val prep = prepareCompassRegistrationResetState(
-                nowElapsedMs = nowElapsedMs,
-                pipeline = pipeline,
-                hasPreviousPublishedHeading = hasPublishedHeading,
-                currentHeadingRelockUntilElapsedMs = headingRelockUntilElapsedMs,
-                currentMagneticInterferenceStartupGraceUntilElapsedMs =
-                    magneticInterferenceStartupGraceUntilElapsedMs
-            )
+            val prep =
+                prepareCompassRegistrationResetState(
+                    nowElapsedMs = nowElapsedMs,
+                    pipeline = pipeline,
+                    hasPreviousPublishedHeading = hasPublishedHeading,
+                    currentHeadingRelockUntilElapsedMs = headingRelockUntilElapsedMs,
+                    currentMagneticInterferenceStartupGraceUntilElapsedMs =
+                    magneticInterferenceStartupGraceUntilElapsedMs,
+                )
             headingRelockUntilElapsedMs = prep.headingRelockUntilElapsedMs
             magneticInterferenceStartupGraceUntilElapsedMs =
                 prep.magneticInterferenceStartupGraceUntilElapsedMs
@@ -642,12 +682,12 @@ internal class SensorManagerOrientationProvider(
             magneticFieldStrengthEmaUt = Float.NaN
             logDiagnostics(
                 "heading_relock armed reason=register_$sensorRateMode " +
-                    "windowMs=$HEADING_RELOCK_WINDOW_MS until=$headingRelockUntilElapsedMs"
+                    "windowMs=$HEADING_RELOCK_WINDOW_MS until=$headingRelockUntilElapsedMs",
             )
             logDiagnostics(
                 "magnetic_interference_grace armed reason=register_$sensorRateMode " +
                     "windowMs=$MAG_INTERFERENCE_STARTUP_GRACE_MS " +
-                    "until=$magneticInterferenceStartupGraceUntilElapsedMs"
+                    "until=$magneticInterferenceStartupGraceUntilElapsedMs",
             )
         } else if (started) {
             // Rate-only re-register should not reset heading smoothing state.
@@ -661,38 +701,46 @@ internal class SensorManagerOrientationProvider(
             listener = this,
             callbackHandler = ensureSensorCallbackHandler(),
             pipeline = pipeline,
-            rateMode = sensorRateMode
+            rateMode = sensorRateMode,
         )
         publishHeadingSourceFromCurrentMode()
         logDiagnostics(
             "register sensors mode=$sensorRateMode " +
-                    "heading=${sensorRegistrar.headingSensor != null} useHeading=$usingHeadingSensor " +
-                    "rotVec=${sensorRegistrar.rotationVector != null} useRotVec=$usingRotationVector " +
-                    "mag=${sensorRegistrar.magnetometer != null} accel=${sensorRegistrar.accelerometer != null} " +
-                    "useMagAccel=$usingMagAccelFallback pref=$headingSourceMode " +
-                    "resetHeading=$resetHeadingState bootstrapIgnore=$pendingBootstrapRawSamplesToIgnore " +
-                    "startupBogusIgnore=$pendingStartupBogusSamplesToIgnore " +
-                    "startupPublishMask=$pendingStartupHeadingPublishesToMask"
+                "heading=${sensorRegistrar.headingSensor != null} useHeading=$usingHeadingSensor " +
+                "rotVec=${sensorRegistrar.rotationVector != null} useRotVec=$usingRotationVector " +
+                "mag=${sensorRegistrar.magnetometer != null} accel=${sensorRegistrar.accelerometer != null} " +
+                "useMagAccel=$usingMagAccelFallback pref=$headingSourceMode " +
+                "resetHeading=$resetHeadingState bootstrapIgnore=$pendingBootstrapRawSamplesToIgnore " +
+                "startupBogusIgnore=$pendingStartupBogusSamplesToIgnore " +
+                "startupPublishMask=$pendingStartupHeadingPublishesToMask",
         )
     }
 
-    private fun armHeadingRelockWindow(nowElapsedMs: Long, reason: String) {
-        val update = computeCompassHeadingRelockUpdate(
-            currentHeadingRelockUntilElapsedMs = headingRelockUntilElapsedMs,
-            nowElapsedMs = nowElapsedMs,
-            reason = reason
-        )
+    private fun armHeadingRelockWindow(
+        nowElapsedMs: Long,
+        reason: String,
+    ) {
+        val update =
+            computeCompassHeadingRelockUpdate(
+                currentHeadingRelockUntilElapsedMs = headingRelockUntilElapsedMs,
+                nowElapsedMs = nowElapsedMs,
+                reason = reason,
+            )
         headingRelockUntilElapsedMs = update.headingRelockUntilElapsedMs
         logDiagnostics(update.logMessage)
     }
 
-    private fun armMagneticInterferenceStartupGraceWindow(nowElapsedMs: Long, reason: String) {
-        val reset = computeCompassMagneticGraceReset(
-            currentMagneticInterferenceStartupGraceUntilElapsedMs =
+    private fun armMagneticInterferenceStartupGraceWindow(
+        nowElapsedMs: Long,
+        reason: String,
+    ) {
+        val reset =
+            computeCompassMagneticGraceReset(
+                currentMagneticInterferenceStartupGraceUntilElapsedMs =
                 magneticInterferenceStartupGraceUntilElapsedMs,
-            nowElapsedMs = nowElapsedMs,
-            reason = reason
-        )
+                nowElapsedMs = nowElapsedMs,
+                reason = reason,
+            )
         magneticInterferenceStartupGraceUntilElapsedMs =
             reset.magneticInterferenceStartupGraceUntilElapsedMs
         if (magneticInterferenceDetected) {
@@ -712,27 +760,27 @@ internal class SensorManagerOrientationProvider(
         publishAccuracyFromCurrentSignals()
     }
 
-    private fun resolveSensorReportedAccuracy(): Int {
-        return resolveSensorReportedAccuracy(
+    private fun resolveSensorReportedAccuracy(): Int =
+        resolveSensorReportedAccuracy(
             pipeline = currentHeadingPipeline(),
             headingAccuracy = headingAccuracy,
             headingUncertaintyDeg = headingUncertaintyDeg,
             magAccuracy = magAccuracy,
             rotVecAccuracy = rotVecAccuracy,
-            rotVecHeadingUncertaintyDeg = rotVecHeadingUncertaintyDeg
+            rotVecHeadingUncertaintyDeg = rotVecHeadingUncertaintyDeg,
         )
-    }
 
     private fun updateRotationVectorUncertainty(values: FloatArray) {
-        val update = computeCompassRotationVectorUpdate(
-            previousUncertaintyDeg = rotVecHeadingUncertaintyDeg,
-            values = values,
-            sensorAccuracy = resolveSensorReportedAccuracy(),
-            inferredAccuracy = inferredHeadingAccuracy,
-            usingRotationVector = usingRotationVector,
-            usingHeadingSensor = usingHeadingSensor,
-            hasMagneticInterference = magneticInterferenceDetected
-        )
+        val update =
+            computeCompassRotationVectorUpdate(
+                previousUncertaintyDeg = rotVecHeadingUncertaintyDeg,
+                values = values,
+                sensorAccuracy = resolveSensorReportedAccuracy(),
+                inferredAccuracy = inferredHeadingAccuracy,
+                usingRotationVector = usingRotationVector,
+                usingHeadingSensor = usingHeadingSensor,
+                hasMagneticInterference = magneticInterferenceDetected,
+            )
         if (!update.changed) return
         rotVecHeadingUncertaintyDeg = update.uncertaintyDeg
         if (_accuracy.value != update.combinedAccuracy) {
@@ -742,32 +790,34 @@ internal class SensorManagerOrientationProvider(
     }
 
     private fun publishAccuracyFromCurrentSignals() {
-        val combined = computeCompassCombinedAccuracy(
-            sensorAccuracy = resolveSensorReportedAccuracy(),
-            inferredAccuracy = inferredHeadingAccuracy,
-            usingRotationVector = usingRotationVector,
-            usingHeadingSensor = usingHeadingSensor,
-            hasMagneticInterference = magneticInterferenceDetected
-        )
+        val combined =
+            computeCompassCombinedAccuracy(
+                sensorAccuracy = resolveSensorReportedAccuracy(),
+                inferredAccuracy = inferredHeadingAccuracy,
+                usingRotationVector = usingRotationVector,
+                usingHeadingSensor = usingHeadingSensor,
+                hasMagneticInterference = magneticInterferenceDetected,
+            )
         if (_accuracy.value != combined) {
             _accuracy.value = combined
         }
     }
 
     private fun publishHeadingSourceFromCurrentMode() {
-        val publication = computeCompassHeadingSourcePublication(
-            headingSourceMode = headingSourceMode,
-            headingSensor = sensorRegistrar.headingSensor,
-            rotationVector = sensorRegistrar.rotationVector,
-            accelerometer = sensorRegistrar.accelerometer,
-            magnetometer = sensorRegistrar.magnetometer,
-            usingHeadingSensor = usingHeadingSensor,
-            usingRotationVector = usingRotationVector,
-            usingMagAccelFallback = usingMagAccelFallback,
-            activeHeadingSource = activeHeadingSource,
-            currentHeadingSource = _headingSource.value,
-            currentStatus = _headingSourceStatus.value
-        )
+        val publication =
+            computeCompassHeadingSourcePublication(
+                headingSourceMode = headingSourceMode,
+                headingSensor = sensorRegistrar.headingSensor,
+                rotationVector = sensorRegistrar.rotationVector,
+                accelerometer = sensorRegistrar.accelerometer,
+                magnetometer = sensorRegistrar.magnetometer,
+                usingHeadingSensor = usingHeadingSensor,
+                usingRotationVector = usingRotationVector,
+                usingMagAccelFallback = usingMagAccelFallback,
+                activeHeadingSource = activeHeadingSource,
+                currentHeadingSource = _headingSource.value,
+                currentStatus = _headingSourceStatus.value,
+            )
         if (!publication.changed) return
         activeHeadingSource = publication.activeSource
         _headingSource.value = publication.activeSource
@@ -777,30 +827,30 @@ internal class SensorManagerOrientationProvider(
     }
 
     private fun publishNorthReferenceStatus() {
-        val status = computeCompassNorthReferenceStatus(
-            currentPipeline = currentHeadingPipeline(),
-            resolvedPipeline = resolveHeadingPipeline(),
-            northReferenceMode = northReferenceMode,
-            declinationAvailable = declinationController.hasDeclination
-        )
+        val status =
+            computeCompassNorthReferenceStatus(
+                currentPipeline = currentHeadingPipeline(),
+                resolvedPipeline = resolveHeadingPipeline(),
+                northReferenceMode = northReferenceMode,
+                declinationAvailable = declinationController.hasDeclination,
+            )
         if (_northReferenceStatus.value == status) return
         _northReferenceStatus.value = status
         logDiagnostics(
             "north_reference_status requested=${status.requestedMode.name} " +
                 "effective=${status.effectiveMode.name} declReady=${status.declinationAvailable} " +
-                "waitingDecl=${status.waitingForDeclination} pipeline=${status.pipeline.name}"
+                "waitingDecl=${status.waitingForDeclination} pipeline=${status.pipeline.name}",
         )
     }
 
-    private fun resolveHeadingPipeline(): HeadingPipeline {
-        return resolveCompassManagerHeadingPipeline(
+    private fun resolveHeadingPipeline(): HeadingPipeline =
+        resolveCompassManagerHeadingPipeline(
             headingSourceMode = headingSourceMode,
             headingSensor = sensorRegistrar.headingSensor,
             rotationVector = sensorRegistrar.rotationVector,
             accelerometer = sensorRegistrar.accelerometer,
-            magnetometer = sensorRegistrar.magnetometer
+            magnetometer = sensorRegistrar.magnetometer,
         )
-    }
 
     private fun applyHeadingPipeline(pipeline: HeadingPipeline) {
         val flags = applyHeadingPipelineFlags(pipeline)
@@ -809,12 +859,10 @@ internal class SensorManagerOrientationProvider(
         usingMagAccelFallback = flags.usingMagAccelFallback
     }
 
-    private fun currentHeadingPipeline(): HeadingPipeline {
-        return resolveCurrentHeadingPipeline(
+    private fun currentHeadingPipeline(): HeadingPipeline =
+        resolveCurrentHeadingPipeline(
             usingHeadingSensor = usingHeadingSensor,
             usingRotationVector = usingRotationVector,
-            usingMagAccelFallback = usingMagAccelFallback
+            usingMagAccelFallback = usingMagAccelFallback,
         )
-    }
-
 }

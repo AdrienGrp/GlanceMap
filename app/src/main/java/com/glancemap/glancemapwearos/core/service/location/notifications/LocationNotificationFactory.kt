@@ -14,26 +14,32 @@ import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 
 internal class LocationNotificationFactory(
     private val service: Service,
-    private val channelId: String
+    private val channelId: String,
 ) {
-    fun buildNotification(isForegroundPinned: Boolean, notificationId: Int): Notification {
+    fun buildNotification(
+        isForegroundPinned: Boolean,
+        notificationId: Int,
+    ): Notification {
         ensureNotificationChannel()
 
-        val pendingIntent = PendingIntent.getActivity(
-            service,
-            0,
-            Intent(service, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra("route", WatchRoutes.NAVIGATE)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent =
+            PendingIntent.getActivity(
+                service,
+                0,
+                Intent(service, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    putExtra("route", WatchRoutes.NAVIGATE)
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
-        val builder = NotificationCompat.Builder(service, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentIntent(pendingIntent)
-            .setOnlyAlertOnce(true)
+        val builder =
+            NotificationCompat
+                .Builder(service, channelId)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setContentIntent(pendingIntent)
+                .setOnlyAlertOnce(true)
 
         if (isForegroundPinned) {
             builder
@@ -42,10 +48,12 @@ internal class LocationNotificationFactory(
                 .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
                 .setOngoing(true)
 
-            val ongoingActivity = OngoingActivity.Builder(service.applicationContext, notificationId, builder)
-                .setStaticIcon(R.drawable.ic_launcher_foreground)
-                .setTouchIntent(pendingIntent)
-                .build()
+            val ongoingActivity =
+                OngoingActivity
+                    .Builder(service.applicationContext, notificationId, builder)
+                    .setStaticIcon(R.drawable.ic_launcher_foreground)
+                    .setTouchIntent(pendingIntent)
+                    .build()
 
             ongoingActivity.apply(service.applicationContext)
         } else {
@@ -59,7 +67,10 @@ internal class LocationNotificationFactory(
         return builder.build()
     }
 
-    fun show(notificationId: Int, notification: Notification) {
+    fun show(
+        notificationId: Int,
+        notification: Notification,
+    ) {
         runCatching {
             val manager = service.getSystemService(NotificationManager::class.java)
             manager.notify(notificationId, notification)
@@ -75,11 +86,12 @@ internal class LocationNotificationFactory(
 
     private fun ensureNotificationChannel() {
         val manager = service.getSystemService(NotificationManager::class.java)
-        val channel = NotificationChannel(
-            channelId,
-            "Location Service",
-            NotificationManager.IMPORTANCE_LOW
-        )
+        val channel =
+            NotificationChannel(
+                channelId,
+                "Location Service",
+                NotificationManager.IMPORTANCE_LOW,
+            )
         manager.createNotificationChannel(channel)
     }
 }

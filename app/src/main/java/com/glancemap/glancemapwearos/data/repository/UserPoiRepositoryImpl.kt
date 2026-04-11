@@ -6,9 +6,8 @@ import org.json.JSONObject
 import java.io.File
 
 class UserPoiRepositoryImpl(
-    private val context: Context
+    private val context: Context,
 ) : UserPoiRepository {
-
     private companion object {
         private const val STORE_FILE_NAME = "mycreation.json"
         private const val KEY_FILE_ENABLED = "fileEnabled"
@@ -21,38 +20,44 @@ class UserPoiRepositoryImpl(
         private const val KEY_CREATED_AT = "createdAtEpochMs"
     }
 
-    override suspend fun readSourceState(): UserPoiSourceState {
-        return readStore()
-    }
+    override suspend fun readSourceState(): UserPoiSourceState = readStore()
 
-    override suspend fun createPoi(lat: Double, lon: Double): UserPoiRecord {
+    override suspend fun createPoi(
+        lat: Double,
+        lon: Double,
+    ): UserPoiRecord {
         val current = readStore()
         val nextNumber = (current.points.size + 1).coerceAtLeast(1)
         val now = System.currentTimeMillis()
-        val record = UserPoiRecord(
-            id = now,
-            name = "Point $nextNumber",
-            lat = lat,
-            lon = lon,
-            createdAtEpochMs = now
-        )
+        val record =
+            UserPoiRecord(
+                id = now,
+                name = "Point $nextNumber",
+                lat = lat,
+                lon = lon,
+                createdAtEpochMs = now,
+            )
         writeStore(
             current.copy(
                 fileEnabled = true,
                 categoryEnabled = true,
-                points = current.points + record
-            )
+                points = current.points + record,
+            ),
         )
         return record
     }
 
-    override suspend fun renamePoi(id: Long, newName: String) {
+    override suspend fun renamePoi(
+        id: Long,
+        newName: String,
+    ) {
         val normalized = newName.trim()
         require(normalized.isNotBlank()) { "Name cannot be empty." }
         val current = readStore()
-        val updated = current.points.map { point ->
-            if (point.id == id) point.copy(name = normalized) else point
-        }
+        val updated =
+            current.points.map { point ->
+                if (point.id == id) point.copy(name = normalized) else point
+            }
         require(updated.any { it.id == id }) { "POI not found." }
         writeStore(current.copy(points = updated))
     }
@@ -64,8 +69,8 @@ class UserPoiRepositoryImpl(
             current.copy(
                 points = updated,
                 fileEnabled = current.fileEnabled && updated.isNotEmpty(),
-                categoryEnabled = current.categoryEnabled && updated.isNotEmpty()
-            )
+                categoryEnabled = current.categoryEnabled && updated.isNotEmpty(),
+            ),
         )
     }
 
@@ -74,8 +79,8 @@ class UserPoiRepositoryImpl(
         writeStore(
             current.copy(
                 fileEnabled = enabled,
-                categoryEnabled = enabled
-            )
+                categoryEnabled = enabled,
+            ),
         )
     }
 
@@ -84,8 +89,8 @@ class UserPoiRepositoryImpl(
         writeStore(
             current.copy(
                 fileEnabled = enabled,
-                categoryEnabled = enabled
-            )
+                categoryEnabled = enabled,
+            ),
         )
     }
 
@@ -94,8 +99,8 @@ class UserPoiRepositoryImpl(
             UserPoiSourceState(
                 fileEnabled = false,
                 categoryEnabled = false,
-                points = emptyList()
-            )
+                points = emptyList(),
+            ),
         )
     }
 
@@ -105,25 +110,28 @@ class UserPoiRepositoryImpl(
             return UserPoiSourceState(
                 fileEnabled = false,
                 categoryEnabled = false,
-                points = emptyList()
+                points = emptyList(),
             )
         }
 
-        val json = runCatching { JSONObject(file.readText()) }.getOrNull()
-            ?: return UserPoiSourceState(
-                fileEnabled = false,
-                categoryEnabled = false,
-                points = emptyList()
-            )
+        val json =
+            runCatching { JSONObject(file.readText()) }.getOrNull()
+                ?: return UserPoiSourceState(
+                    fileEnabled = false,
+                    categoryEnabled = false,
+                    points = emptyList(),
+                )
 
-        val points = json.optJSONArray(KEY_POINTS)
-            ?.toUserPoiRecords()
-            .orEmpty()
+        val points =
+            json
+                .optJSONArray(KEY_POINTS)
+                ?.toUserPoiRecords()
+                .orEmpty()
 
         return UserPoiSourceState(
             fileEnabled = json.optBoolean(KEY_FILE_ENABLED, points.isNotEmpty()),
             categoryEnabled = json.optBoolean(KEY_CATEGORY_ENABLED, points.isNotEmpty()),
-            points = points.sortedBy { it.createdAtEpochMs }
+            points = points.sortedBy { it.createdAtEpochMs },
         )
     }
 
@@ -131,23 +139,27 @@ class UserPoiRepositoryImpl(
         val target = storeFile()
         target.parentFile?.mkdirs()
         val tmp = File(target.parentFile, "${target.name}.tmp")
-        val json = JSONObject().apply {
-            put(KEY_FILE_ENABLED, state.fileEnabled)
-            put(KEY_CATEGORY_ENABLED, state.categoryEnabled)
-            put(KEY_POINTS, JSONArray().apply {
-                state.points.forEach { point ->
-                    put(
-                        JSONObject().apply {
-                            put(KEY_ID, point.id)
-                            put(KEY_NAME, point.name)
-                            put(KEY_LAT, point.lat)
-                            put(KEY_LON, point.lon)
-                            put(KEY_CREATED_AT, point.createdAtEpochMs)
+        val json =
+            JSONObject().apply {
+                put(KEY_FILE_ENABLED, state.fileEnabled)
+                put(KEY_CATEGORY_ENABLED, state.categoryEnabled)
+                put(
+                    KEY_POINTS,
+                    JSONArray().apply {
+                        state.points.forEach { point ->
+                            put(
+                                JSONObject().apply {
+                                    put(KEY_ID, point.id)
+                                    put(KEY_NAME, point.name)
+                                    put(KEY_LAT, point.lat)
+                                    put(KEY_LON, point.lon)
+                                    put(KEY_CREATED_AT, point.createdAtEpochMs)
+                                },
+                            )
                         }
-                    )
-                }
-            })
-        }
+                    },
+                )
+            }
         tmp.writeText(json.toString())
         if (!tmp.renameTo(target)) {
             tmp.copyTo(target, overwrite = true)
@@ -155,8 +167,8 @@ class UserPoiRepositoryImpl(
         }
     }
 
-    private fun JSONArray.toUserPoiRecords(): List<UserPoiRecord> {
-        return buildList(length()) {
+    private fun JSONArray.toUserPoiRecords(): List<UserPoiRecord> =
+        buildList(length()) {
             for (index in 0 until length()) {
                 val item = optJSONObject(index) ?: continue
                 val id = item.optLong(KEY_ID, 0L)
@@ -171,14 +183,11 @@ class UserPoiRepositoryImpl(
                         name = name,
                         lat = lat,
                         lon = lon,
-                        createdAtEpochMs = createdAt
-                    )
+                        createdAtEpochMs = createdAt,
+                    ),
                 )
             }
         }
-    }
 
-    private fun storeFile(): File {
-        return File(context.getDir("user_poi", Context.MODE_PRIVATE), STORE_FILE_NAME)
-    }
+    private fun storeFile(): File = File(context.getDir("user_poi", Context.MODE_PRIVATE), STORE_FILE_NAME)
 }

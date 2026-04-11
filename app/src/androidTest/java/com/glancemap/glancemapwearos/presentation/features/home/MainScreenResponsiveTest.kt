@@ -17,14 +17,13 @@ import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
 import com.glancemap.glancemapwearos.test.SmallRoundWatchLargeText
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
-import com.glancemap.glancemapwearos.test.WithWearDeviceConfig
+import com.glancemap.glancemapwearos.test.withWearDeviceConfig
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class MainScreenResponsiveTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -73,9 +72,9 @@ class MainScreenResponsiveTest {
 
     private fun launchMainScreen(config: WearDeviceTestConfig) {
         composeRule.setContent {
-            WithWearDeviceConfig(config = config) {
+            withWearDeviceConfig(config = config) {
                 GlanceMapTheme {
-                    MainScreenTestHost()
+                    mainScreenTestHost()
                 }
             }
         }
@@ -84,11 +83,11 @@ class MainScreenResponsiveTest {
 }
 
 @Composable
-private fun MainScreenTestHost() {
+private fun mainScreenTestHost() {
     val navController = rememberNavController()
     NavHost(
         navController = navController,
-        startDestination = WatchRoutes.MAIN_MENU
+        startDestination = WatchRoutes.MAIN_MENU,
     ) {
         composable(WatchRoutes.MAIN_MENU) {
             MainScreen(navController = navController)
@@ -103,7 +102,7 @@ private fun MainScreenTestHost() {
 
 private fun androidx.navigation.NavGraphBuilder.composableDestination(
     route: String,
-    label: String
+    label: String,
 ) {
     composable(route) {
         Text(text = label)

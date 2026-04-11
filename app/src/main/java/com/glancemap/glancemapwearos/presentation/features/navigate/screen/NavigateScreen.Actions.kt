@@ -17,7 +17,7 @@ internal data class NavigateScreenActions(
     val triggerHaptic: () -> Unit,
     val continueKeepAppOpenEnableFlow: () -> Unit,
     val toggleKeepAppOpen: () -> Unit,
-    val toggleShortcutTray: () -> Unit
+    val toggleShortcutTray: () -> Unit,
 )
 
 @Composable
@@ -32,7 +32,7 @@ internal fun rememberNavigateScreenActions(
     setPendingKeepAppOpen: (Boolean) -> Unit,
     setShowKeepAppOpenInfoDialog: (Boolean) -> Unit,
     setShortcutTrayExpanded: (Boolean) -> Unit,
-    isShortcutTrayExpanded: Boolean
+    isShortcutTrayExpanded: Boolean,
 ): NavigateScreenActions {
     val vibrator = remember { vibratorFrom(context) }
     val scope = rememberCoroutineScope()
@@ -97,6 +97,6 @@ internal fun rememberNavigateScreenActions(
         triggerHaptic = ::triggerHaptic,
         continueKeepAppOpenEnableFlow = ::continueKeepAppOpenEnableFlow,
         toggleKeepAppOpen = ::toggleKeepAppOpen,
-        toggleShortcutTray = ::toggleShortcutTray
+        toggleShortcutTray = ::toggleShortcutTray,
     )
 }

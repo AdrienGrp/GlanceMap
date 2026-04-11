@@ -18,8 +18,9 @@ import java.io.StringWriter
 import java.security.MessageDigest
 import java.util.Locale
 
-class BundledAssetThemeComposer(private val context: Context) {
-
+class BundledAssetThemeComposer(
+    private val context: Context,
+) {
     companion object {
         private const val TAG = "BundledThemeComposer"
         private const val RESOURCE_THEME_MARKER_FILE = ".theme_id"
@@ -27,7 +28,7 @@ class BundledAssetThemeComposer(private val context: Context) {
 
     private data class StyleMenuMetadata(
         val defaultStyleId: String?,
-        val toggleableOverlayLayerIds: Set<String>
+        val toggleableOverlayLayerIds: Set<String>,
     )
 
     private data class ThemeAssetMetadata(
@@ -36,7 +37,7 @@ class BundledAssetThemeComposer(private val context: Context) {
         val originalXml: String,
         val supportsNativeHillShading: Boolean,
         val referencedAssetRoots: Set<String>,
-        val styleMenuMetadata: StyleMenuMetadata
+        val styleMenuMetadata: StyleMenuMetadata,
     )
 
     private val themeFingerprintCache = mutableMapOf<String, String>()
@@ -55,7 +56,7 @@ class BundledAssetThemeComposer(private val context: Context) {
             ensureThemeResourcesInCache(
                 themeId = normalizedThemeId,
                 themeAssetFingerprint = themeAssetFingerprint,
-                metadata = metadata
+                metadata = metadata,
             )
             timingStatus = "ready"
         } catch (e: IllegalArgumentException) {
@@ -68,7 +69,7 @@ class BundledAssetThemeComposer(private val context: Context) {
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = "theme=$normalizedThemeId"
+                detail = "theme=$normalizedThemeId",
             )
         }
     }
@@ -77,36 +78,39 @@ class BundledAssetThemeComposer(private val context: Context) {
         themeId: String,
         styleId: String,
         enabledOverlayLayerIds: List<String>,
-        hillShadingEnabled: Boolean
+        hillShadingEnabled: Boolean,
     ): File? {
         val timingMarker = MapHotPathDiagnostics.begin("themeComposer.createDynamicThemeFileOrNull")
         var timingStatus = "ok"
         val normalizedThemeId = normalizeThemeId(themeId)
         return try {
             val metadata = assetMetadataForTheme(normalizedThemeId)
-            val overlays = enabledOverlayLayerIds
-                .asSequence()
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .distinct()
-                .sorted()
-                .toList()
+            val overlays =
+                enabledOverlayLayerIds
+                    .asSequence()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .distinct()
+                    .sorted()
+                    .toList()
 
-            val selectedStyleId = if (styleId == ThemeRepositoryImpl.DEFAULT_STYLE_ID) {
-                resolveDefaultStyleIdFromAssets(normalizedThemeId)
-            } else {
-                styleId
-            }
+            val selectedStyleId =
+                if (styleId == ThemeRepositoryImpl.DEFAULT_STYLE_ID) {
+                    resolveDefaultStyleIdFromAssets(normalizedThemeId)
+                } else {
+                    styleId
+                }
             if (selectedStyleId.isNullOrBlank()) {
                 timingStatus = "missing_style"
                 return null
             }
 
-            val isDefault = styleId == ThemeRepositoryImpl.DEFAULT_STYLE_ID &&
-                overlays.isEmpty() &&
-                (
-                    hillShadingEnabled ||
-                        !metadata.supportsNativeHillShading
+            val isDefault =
+                styleId == ThemeRepositoryImpl.DEFAULT_STYLE_ID &&
+                    overlays.isEmpty() &&
+                    (
+                        hillShadingEnabled ||
+                            !metadata.supportsNativeHillShading
                     )
             if (isDefault) {
                 timingStatus = "default_theme_passthrough"
@@ -114,19 +118,21 @@ class BundledAssetThemeComposer(private val context: Context) {
             }
 
             val themeAssetFingerprint = fingerprintForTheme(normalizedThemeId)
-            val themeCacheDir = ensureThemeResourcesInCache(
-                themeId = normalizedThemeId,
-                themeAssetFingerprint = themeAssetFingerprint,
-                metadata = metadata
-            )
+            val themeCacheDir =
+                ensureThemeResourcesInCache(
+                    themeId = normalizedThemeId,
+                    themeAssetFingerprint = themeAssetFingerprint,
+                    metadata = metadata,
+                )
 
-            val themeKey = buildThemeKey(
-                themeId = normalizedThemeId,
-                styleId = selectedStyleId,
-                overlaysSorted = overlays,
-                hillShadingEnabled = hillShadingEnabled,
-                themeAssetFingerprint = themeAssetFingerprint
-            )
+            val themeKey =
+                buildThemeKey(
+                    themeId = normalizedThemeId,
+                    styleId = selectedStyleId,
+                    overlaysSorted = overlays,
+                    hillShadingEnabled = hillShadingEnabled,
+                    themeAssetFingerprint = themeAssetFingerprint,
+                )
             val fileName = "dynamic_theme_$themeKey.xml"
             val outFile = File(themeCacheDir, fileName)
 
@@ -135,16 +141,17 @@ class BundledAssetThemeComposer(private val context: Context) {
                 return outFile
             }
 
-            val content = generateXml(
-                metadata = metadata,
-                selectedStyleId = selectedStyleId,
-                enabledOverlayLayerIds = overlays.toSet(),
-                hillShadingEnabled = hillShadingEnabled
-            )
+            val content =
+                generateXml(
+                    metadata = metadata,
+                    selectedStyleId = selectedStyleId,
+                    enabledOverlayLayerIds = overlays.toSet(),
+                    hillShadingEnabled = hillShadingEnabled,
+                )
 
             MapHotPathDiagnostics.measure(
                 stage = "themeComposer.writeDynamicThemeFile",
-                detail = "theme=$normalizedThemeId"
+                detail = "theme=$normalizedThemeId",
             ) {
                 outFile.writeText(content)
             }
@@ -155,12 +162,13 @@ class BundledAssetThemeComposer(private val context: Context) {
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = buildString {
-                    append("theme=").append(normalizedThemeId)
-                    append(" style=").append(styleId)
-                    append(" overlays=").append(enabledOverlayLayerIds.size)
-                    append(" hill=").append(hillShadingEnabled)
-                }
+                detail =
+                    buildString {
+                        append("theme=").append(normalizedThemeId)
+                        append(" style=").append(styleId)
+                        append(" overlays=").append(enabledOverlayLayerIds.size)
+                        append(" hill=").append(hillShadingEnabled)
+                    },
             )
         }
     }
@@ -170,22 +178,23 @@ class BundledAssetThemeComposer(private val context: Context) {
         styleId: String,
         overlaysSorted: List<String>,
         hillShadingEnabled: Boolean,
-        themeAssetFingerprint: String
+        themeAssetFingerprint: String,
     ): String {
-        val raw = buildString {
-            append("theme:")
-            append(themeId)
-            append('|')
-            append(styleId)
-            append('|')
-            append("hill:")
-            append(hillShadingEnabled)
-            append('|')
-            append("asset:")
-            append(themeAssetFingerprint)
-            append('|')
-            overlaysSorted.forEach { append(it).append(',') }
-        }
+        val raw =
+            buildString {
+                append("theme:")
+                append(themeId)
+                append('|')
+                append(styleId)
+                append('|')
+                append("hill:")
+                append(hillShadingEnabled)
+                append('|')
+                append("asset:")
+                append(themeAssetFingerprint)
+                append('|')
+                overlaysSorted.forEach { append(it).append(',') }
+            }
         return sha256Hex(raw).take(16)
     }
 
@@ -197,9 +206,13 @@ class BundledAssetThemeComposer(private val context: Context) {
         return sb.toString()
     }
 
-    private fun cleanupOldDynamicThemes(themeCacheDir: File, keepFileName: String) {
+    private fun cleanupOldDynamicThemes(
+        themeCacheDir: File,
+        keepFileName: String,
+    ) {
         runCatching {
-            themeCacheDir.listFiles()
+            themeCacheDir
+                .listFiles()
                 ?.asSequence()
                 ?.filter { it.isFile && it.name.startsWith("dynamic_theme_") && it.name.endsWith(".xml") }
                 ?.filter { it.name != keepFileName }
@@ -210,7 +223,7 @@ class BundledAssetThemeComposer(private val context: Context) {
     private fun ensureThemeResourcesInCache(
         themeId: String,
         themeAssetFingerprint: String,
-        metadata: ThemeAssetMetadata
+        metadata: ThemeAssetMetadata,
     ): File {
         val timingMarker = MapHotPathDiagnostics.begin("themeComposer.ensureThemeResourcesInCache")
         var timingStatus = "ok"
@@ -220,8 +233,9 @@ class BundledAssetThemeComposer(private val context: Context) {
         return try {
             synchronized(themeResourceCacheLock) {
                 if (outDir.exists() && outDir.isDirectory) {
-                    val markerMatches = runCatching { markerFile.readText().trim() == markerContent }
-                        .getOrDefault(false)
+                    val markerMatches =
+                        runCatching { markerFile.readText().trim() == markerContent }
+                            .getOrDefault(false)
                     if (markerMatches) {
                         timingStatus = "cache_hit"
                         return@synchronized outDir
@@ -236,7 +250,7 @@ class BundledAssetThemeComposer(private val context: Context) {
                 runCatching {
                     copyThemeResourcesToCache(
                         metadata = metadata,
-                        outDir = outDir
+                        outDir = outDir,
                     )
                     markerFile.writeText(markerContent)
                     Log.d(TAG, "Copied bundled theme resources to cache: ${outDir.absolutePath}")
@@ -245,7 +259,7 @@ class BundledAssetThemeComposer(private val context: Context) {
                     Log.w(
                         TAG,
                         "Failed to copy bundled theme resources to cache. Theme may render incorrectly.",
-                        it
+                        it,
                     )
                 }
                 outDir
@@ -254,14 +268,14 @@ class BundledAssetThemeComposer(private val context: Context) {
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = "theme=$themeId"
+                detail = "theme=$themeId",
             )
         }
     }
 
     private fun copyThemeResourcesToCache(
         metadata: ThemeAssetMetadata,
-        outDir: File
+        outDir: File,
     ) {
         val themeRoot = metadata.themeRoot
         if (!themeRoot.isNullOrBlank()) {
@@ -273,7 +287,7 @@ class BundledAssetThemeComposer(private val context: Context) {
                     val childAssetPath = "$themeRoot/$child"
                     copyAssetNodeToFile(
                         assetPath = childAssetPath,
-                        outFile = File(outDir, child)
+                        outFile = File(outDir, child),
                     )
                 }
             return
@@ -284,7 +298,10 @@ class BundledAssetThemeComposer(private val context: Context) {
         }
     }
 
-    private fun copyAssetNodeToFile(assetPath: String, outFile: File) {
+    private fun copyAssetNodeToFile(
+        assetPath: String,
+        outFile: File,
+    ) {
         val children = context.assets.list(assetPath) ?: emptyArray()
         if (children.isEmpty()) {
             outFile.parentFile?.mkdirs()
@@ -306,7 +323,8 @@ class BundledAssetThemeComposer(private val context: Context) {
 
     private fun collectReferencedAssetRoots(originalXml: String): Set<String> {
         val regex = Regex("""file:([^"'\s>]+)""")
-        return regex.findAll(originalXml)
+        return regex
+            .findAll(originalXml)
             .mapNotNull { match ->
                 match.groupValues[1]
                     .trim()
@@ -315,13 +333,10 @@ class BundledAssetThemeComposer(private val context: Context) {
                     .substringBefore('/')
                     .trim()
                     .takeIf { it.isNotEmpty() && it != "." }
-            }
-            .toCollection(linkedSetOf())
+            }.toCollection(linkedSetOf())
     }
 
-    private fun resolveDefaultStyleIdFromAssets(themeId: String): String? {
-        return assetMetadataForTheme(themeId).styleMenuMetadata.defaultStyleId
-    }
+    private fun resolveDefaultStyleIdFromAssets(themeId: String): String? = assetMetadataForTheme(themeId).styleMenuMetadata.defaultStyleId
 
     private fun fingerprintForTheme(themeId: String): String {
         val timingMarker = MapHotPathDiagnostics.begin("themeComposer.fingerprintForTheme")
@@ -331,27 +346,28 @@ class BundledAssetThemeComposer(private val context: Context) {
                 themeFingerprintCache[themeId]?.let { return@synchronized it }
                 timingStatus = "cache_miss"
                 val metadata = assetMetadataForTheme(themeId)
-                val fingerprint = sha256Hex(
-                    buildString {
-                        append("bundle:")
-                        append(appBundleFingerprint)
-                        append('|')
-                        append("theme:")
-                        append(themeId)
-                        append('|')
-                        append(metadata.themePath)
-                        append('|')
-                        append(metadata.themeRoot.orEmpty())
-                        append('|')
-                        metadata.referencedAssetRoots
-                            .asSequence()
-                            .sorted()
-                            .forEach { root ->
-                                append(root)
-                                append(',')
-                            }
-                    }
-                ).take(16)
+                val fingerprint =
+                    sha256Hex(
+                        buildString {
+                            append("bundle:")
+                            append(appBundleFingerprint)
+                            append('|')
+                            append("theme:")
+                            append(themeId)
+                            append('|')
+                            append(metadata.themePath)
+                            append('|')
+                            append(metadata.themeRoot.orEmpty())
+                            append('|')
+                            metadata.referencedAssetRoots
+                                .asSequence()
+                                .sorted()
+                                .forEach { root ->
+                                    append(root)
+                                    append(',')
+                                }
+                        },
+                    ).take(16)
                 themeFingerprintCache[themeId] = fingerprint
                 fingerprint
             }
@@ -359,13 +375,13 @@ class BundledAssetThemeComposer(private val context: Context) {
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = "theme=$themeId"
+                detail = "theme=$themeId",
             )
         }
     }
 
-    private fun resolveAppBundleFingerprint(): String {
-        return runCatching {
+    private fun resolveAppBundleFingerprint(): String =
+        runCatching {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             buildString {
                 append(packageInfo.longVersionCode)
@@ -376,30 +392,31 @@ class BundledAssetThemeComposer(private val context: Context) {
             val apkLastModified = runCatching { File(context.packageCodePath).lastModified() }.getOrDefault(0L)
             "fallback|$apkLastModified"
         }
-    }
 
     private fun generateXml(
         metadata: ThemeAssetMetadata,
         selectedStyleId: String,
         enabledOverlayLayerIds: Set<String>,
-        hillShadingEnabled: Boolean
-    ): String {
-        return MapHotPathDiagnostics.measure(
+        hillShadingEnabled: Boolean,
+    ): String =
+        MapHotPathDiagnostics.measure(
             stage = "themeComposer.generateXml",
-            detail = "style=$selectedStyleId overlays=${enabledOverlayLayerIds.size} hill=$hillShadingEnabled"
+            detail = "style=$selectedStyleId overlays=${enabledOverlayLayerIds.size} hill=$hillShadingEnabled",
         ) {
             val originalXml = metadata.originalXml
             val toggleableOverlayLayerIds = metadata.styleMenuMetadata.toggleableOverlayLayerIds
 
-            val parser = XmlPullParserFactory.newInstance().newPullParser().apply {
-                setInput(StringReader(originalXml))
-            }
+            val parser =
+                XmlPullParserFactory.newInstance().newPullParser().apply {
+                    setInput(StringReader(originalXml))
+                }
 
             val writer = StringWriter()
-            val serializer: XmlSerializer = Xml.newSerializer().apply {
-                setOutput(writer)
-                startDocument("UTF-8", true)
-            }
+            val serializer: XmlSerializer =
+                Xml.newSerializer().apply {
+                    setOutput(writer)
+                    startDocument("UTF-8", true)
+                }
 
             var insideStyleMenu = false
             var styleMenuDepth = -1
@@ -411,7 +428,6 @@ class BundledAssetThemeComposer(private val context: Context) {
 
             while (parser.eventType != XmlPullParser.END_DOCUMENT) {
                 when (parser.eventType) {
-
                     XmlPullParser.START_TAG -> {
                         val tag = parser.name
 
@@ -506,11 +522,12 @@ class BundledAssetThemeComposer(private val context: Context) {
                             tag == "layer" &&
                             parser.depth == selectedStyleLayerDepth
                         ) {
-                            val missing = enabledOverlayLayerIds
-                                .asSequence()
-                                .filter { it in toggleableOverlayLayerIds }
-                                .filter { it !in writtenToggleableOverlays }
-                                .toList()
+                            val missing =
+                                enabledOverlayLayerIds
+                                    .asSequence()
+                                    .filter { it in toggleableOverlayLayerIds }
+                                    .filter { it !in writtenToggleableOverlays }
+                                    .toList()
 
                             for (id in missing) {
                                 serializer.startTag(null, "overlay")
@@ -537,7 +554,6 @@ class BundledAssetThemeComposer(private val context: Context) {
             serializer.endDocument()
             writer.toString()
         }
-    }
 
     private fun assetMetadataForTheme(themeId: String): ThemeAssetMetadata {
         val timingMarker = MapHotPathDiagnostics.begin("themeComposer.assetMetadataForTheme")
@@ -548,20 +564,26 @@ class BundledAssetThemeComposer(private val context: Context) {
                 timingStatus = "cache_miss"
                 val themePath = BundledRenderThemeAssetLocator.resolveThemeXmlPath(context.assets, themeId)
                 val themeRoot = BundledRenderThemeAssetLocator.resolveThemeRootPath(context.assets, themeId)
-                val originalXml = context.assets.open(themePath).bufferedReader().use { it.readText() }
-                val referencedAssetRoots = if (!themeRoot.isNullOrBlank()) {
-                    emptySet()
-                } else {
-                    collectReferencedAssetRoots(originalXml)
-                }
-                val metadata = ThemeAssetMetadata(
-                    themePath = themePath,
-                    themeRoot = themeRoot,
-                    originalXml = originalXml,
-                    supportsNativeHillShading = RenderThemeXmlCapabilities.supportsNativeHillShading(originalXml),
-                    referencedAssetRoots = referencedAssetRoots,
-                    styleMenuMetadata = parseStyleMenuMetadata(originalXml)
-                )
+                val originalXml =
+                    context.assets
+                        .open(themePath)
+                        .bufferedReader()
+                        .use { it.readText() }
+                val referencedAssetRoots =
+                    if (!themeRoot.isNullOrBlank()) {
+                        emptySet()
+                    } else {
+                        collectReferencedAssetRoots(originalXml)
+                    }
+                val metadata =
+                    ThemeAssetMetadata(
+                        themePath = themePath,
+                        themeRoot = themeRoot,
+                        originalXml = originalXml,
+                        supportsNativeHillShading = RenderThemeXmlCapabilities.supportsNativeHillShading(originalXml),
+                        referencedAssetRoots = referencedAssetRoots,
+                        styleMenuMetadata = parseStyleMenuMetadata(originalXml),
+                    )
                 themeAssetMetadataCache[themeId] = metadata
                 metadata
             }
@@ -569,16 +591,17 @@ class BundledAssetThemeComposer(private val context: Context) {
             MapHotPathDiagnostics.end(
                 marker = timingMarker,
                 status = timingStatus,
-                detail = "theme=$themeId"
+                detail = "theme=$themeId",
             )
         }
     }
 
-    private fun parseStyleMenuMetadata(originalXml: String): StyleMenuMetadata {
-        return runCatching {
-            val parser = XmlPullParserFactory.newInstance().newPullParser().apply {
-                setInput(StringReader(originalXml))
-            }
+    private fun parseStyleMenuMetadata(originalXml: String): StyleMenuMetadata =
+        runCatching {
+            val parser =
+                XmlPullParserFactory.newInstance().newPullParser().apply {
+                    setInput(StringReader(originalXml))
+                }
             var insideStyleMenu = false
             var styleMenuDepth = -1
             var defaultStyleId: String? = null
@@ -592,19 +615,23 @@ class BundledAssetThemeComposer(private val context: Context) {
                             parser.name == "stylemenu" -> {
                                 insideStyleMenu = true
                                 styleMenuDepth = parser.depth
-                                defaultStyleId = parser.getAttributeValue(null, "defaultvalue")
-                                    ?.trim()
-                                    ?.takeIf { it.isNotEmpty() }
+                                defaultStyleId =
+                                    parser
+                                        .getAttributeValue(null, "defaultvalue")
+                                        ?.trim()
+                                        ?.takeIf { it.isNotEmpty() }
                             }
 
                             insideStyleMenu && parser.name == "layer" -> {
-                                val layerId = parser.getAttributeValue(null, "id")
-                                    ?.trim()
-                                    ?.takeIf { it.isNotEmpty() }
-                                    ?: run {
-                                        parser.next()
-                                        continue
-                                    }
+                                val layerId =
+                                    parser
+                                        .getAttributeValue(null, "id")
+                                        ?.trim()
+                                        ?.takeIf { it.isNotEmpty() }
+                                        ?: run {
+                                            parser.next()
+                                            continue
+                                        }
                                 val isVisible = parser.getAttributeValue(null, "visible") == "true"
                                 if (isVisible) {
                                     if (firstVisibleLayerId == null) {
@@ -628,20 +655,20 @@ class BundledAssetThemeComposer(private val context: Context) {
 
             StyleMenuMetadata(
                 defaultStyleId = defaultStyleId ?: firstVisibleLayerId,
-                toggleableOverlayLayerIds = toggleable
+                toggleableOverlayLayerIds = toggleable,
             )
         }.getOrElse {
             StyleMenuMetadata(
                 defaultStyleId = null,
-                toggleableOverlayLayerIds = emptySet()
+                toggleableOverlayLayerIds = emptySet(),
             )
         }
-    }
 
     private fun collectToggleableOverlayLayerIds(originalXml: String): Set<String> {
-        val parser = XmlPullParserFactory.newInstance().newPullParser().apply {
-            setInput(StringReader(originalXml))
-        }
+        val parser =
+            XmlPullParserFactory.newInstance().newPullParser().apply {
+                setInput(StringReader(originalXml))
+            }
 
         val toggleable = HashSet<String>(256)
 
@@ -656,11 +683,12 @@ class BundledAssetThemeComposer(private val context: Context) {
                         insideStyleMenu = true
                         styleMenuDepth = parser.depth
                     } else if (insideStyleMenu && tag == "layer") {
-                        val id = parser.getAttributeValue(null, "id") ?: run {
-                            // no id -> ignore this layer
-                            parser.next()
-                            continue
-                        }
+                        val id =
+                            parser.getAttributeValue(null, "id") ?: run {
+                                // no id -> ignore this layer
+                                parser.next()
+                                continue
+                            }
                         val isStyle = parser.getAttributeValue(null, "visible") == "true"
                         if (!isStyle) toggleable.add(id)
                     }
@@ -681,13 +709,16 @@ class BundledAssetThemeComposer(private val context: Context) {
         return toggleable
     }
 
-    private fun copyStartTagWithAttributes(parser: XmlPullParser, serializer: XmlSerializer) {
+    private fun copyStartTagWithAttributes(
+        parser: XmlPullParser,
+        serializer: XmlSerializer,
+    ) {
         serializer.startTag(parser.namespace, parser.name)
         for (i in 0 until parser.attributeCount) {
             serializer.attribute(
                 parser.getAttributeNamespace(i),
                 parser.getAttributeName(i),
-                parser.getAttributeValue(i)
+                parser.getAttributeValue(i),
             )
         }
     }

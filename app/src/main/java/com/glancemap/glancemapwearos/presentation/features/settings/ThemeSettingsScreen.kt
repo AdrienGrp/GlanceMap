@@ -6,9 +6,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -24,13 +24,13 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepositoryImpl
 import com.glancemap.glancemapwearos.domain.model.maps.theme.ThemeListItem
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
+import com.google.android.horologist.annotations.ExperimentalHorologistApi
+import com.google.android.horologist.compose.layout.ScreenScaffold
 import java.util.Locale
 
 internal object ThemeOverlayGrouping {
@@ -114,7 +114,7 @@ internal object ThemeOverlayGrouping {
 private data class OverlayGroupUi(
     val id: String,
     val title: String,
-    val overlays: List<ThemeListItem.Overlay>
+    val overlays: List<ThemeListItem.Overlay>,
 )
 
 @OptIn(ExperimentalHorologistApi::class)
@@ -123,42 +123,47 @@ fun ThemeSettingsScreen(
     themeViewModel: ThemeViewModel,
     mapViewModel: MapViewModel,
     @Suppress("UNUSED_PARAMETER")
-    onOpenMaps: () -> Unit
+    onOpenMaps: () -> Unit,
 ) {
-    val listTokens = rememberSettingsListTokens(
-        compactTop = 12.dp,
-        standardTop = 14.dp,
-        expandedTop = 16.dp,
-        compactBottom = 12.dp,
-        standardBottom = 14.dp,
-        expandedBottom = 16.dp
-    )
+    val listTokens =
+        rememberSettingsListTokens(
+            compactTop = 12.dp,
+            standardTop = 14.dp,
+            expandedTop = 16.dp,
+            compactBottom = 12.dp,
+            standardBottom = 14.dp,
+            expandedBottom = 16.dp,
+        )
     val themeItems by themeViewModel.themeItems.collectAsState()
     val listState = rememberScalingLazyListState()
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
     var showThemePicker by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
 
-    val selectedStyle = themeItems
-        .filterIsInstance<ThemeListItem.Style>()
-        .firstOrNull { it.selected }
+    val selectedStyle =
+        themeItems
+            .filterIsInstance<ThemeListItem.Style>()
+            .firstOrNull { it.selected }
     val selectedStyleId = selectedStyle?.id
 
-    val selectedTheme = themeItems
-        .filterIsInstance<ThemeListItem.ThemeOption>()
-        .firstOrNull { it.selected }
+    val selectedTheme =
+        themeItems
+            .filterIsInstance<ThemeListItem.ThemeOption>()
+            .firstOrNull { it.selected }
     val selectedThemeId = selectedTheme?.id
 
     val themeOptions = themeItems.filterIsInstance<ThemeListItem.ThemeOption>()
     val styleOptions = themeItems.filterIsInstance<ThemeListItem.Style>()
     val overlayOptions = themeItems.filterIsInstance<ThemeListItem.Overlay>()
     val overlayGroups = remember(overlayOptions) { buildOverlayGroups(overlayOptions) }
-    val themePickerOptions = remember(themeOptions) {
-        themeOptions.map { option -> option.id to option.name.ifBlank { option.id } }
-    }
-    val stylePickerOptions = remember(styleOptions) {
-        styleOptions.map { option -> option.id to option.name.ifBlank { option.id } }
-    }
+    val themePickerOptions =
+        remember(themeOptions) {
+            themeOptions.map { option -> option.id to option.name.ifBlank { option.id } }
+        }
+    val stylePickerOptions =
+        remember(styleOptions) {
+            styleOptions.map { option -> option.id to option.name.ifBlank { option.id } }
+        }
 
     val bundledThemeSelected = MapsforgeThemeCatalog.isBundledAssetTheme(selectedThemeId)
     val styleSelectionAvailable = hasMeaningfulStyleSelection(styleOptions)
@@ -182,27 +187,29 @@ fun ThemeSettingsScreen(
         }
     }
 
-    val overlayRows = remember(overlayGroups, expandedGroups.toMap()) {
-        buildOverlayRows(overlayGroups, expandedGroups)
-    }
+    val overlayRows =
+        remember(overlayGroups, expandedGroups.toMap()) {
+            buildOverlayRows(overlayGroups, expandedGroups)
+        }
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(
-                start = listTokens.horizontalPadding,
-                end = listTokens.horizontalPadding,
-                top = listTokens.topPadding,
-                bottom = listTokens.bottomPadding
-            ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing)
+            contentPadding =
+                PaddingValues(
+                    start = listTokens.horizontalPadding,
+                    end = listTokens.horizontalPadding,
+                    top = listTokens.topPadding,
+                    bottom = listTokens.bottomPadding,
+                ),
+            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
         ) {
             item {
                 Button(onClick = { themeViewModel.resetToDefaults() }) {
                     Text(
                         text = "Reset defaults",
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
                 }
             }
@@ -214,7 +221,7 @@ fun ThemeSettingsScreen(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
                 item {
@@ -222,7 +229,7 @@ fun ThemeSettingsScreen(
                         label = "Map theme",
                         secondaryLabel = selectedTheme?.name?.ifBlank { selectedTheme.id } ?: "-",
                         iconImageVector = Icons.Filled.UnfoldMore,
-                        onClick = { showThemePicker = true }
+                        onClick = { showThemePicker = true },
                     )
                 }
             }
@@ -233,7 +240,7 @@ fun ThemeSettingsScreen(
                         label = "Style",
                         secondaryLabel = selectedStyle?.name?.ifBlank { selectedStyle.id } ?: "-",
                         iconImageVector = Icons.Filled.UnfoldMore,
-                        onClick = { showStylePicker = true }
+                        onClick = { showStylePicker = true },
                     )
                 }
             }
@@ -245,7 +252,7 @@ fun ThemeSettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
@@ -257,7 +264,7 @@ fun ThemeSettingsScreen(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
                 items(overlayRows) { row ->
@@ -271,7 +278,7 @@ fun ThemeSettingsScreen(
                                 iconImageVector = null,
                                 onClick = {
                                     expandedGroups[row.group.id] = !row.expanded
-                                }
+                                },
                             )
                         }
 
@@ -285,7 +292,7 @@ fun ThemeSettingsScreen(
                                         themeViewModel.toggleOverlay(row.overlay.layerId)
                                     }
                                 },
-                                label = row.overlay.name.ifBlank { row.overlay.layerId }
+                                label = row.overlay.name.ifBlank { row.overlay.layerId },
                             )
                         }
                     }
@@ -302,7 +309,7 @@ fun ThemeSettingsScreen(
             selectedValue = selectedThemeValue,
             options = themePickerOptions,
             onDismiss = { showThemePicker = false },
-            onSelect = { selected -> themeViewModel.setTheme(selected) }
+            onSelect = { selected -> themeViewModel.setTheme(selected) },
         )
     }
 
@@ -314,7 +321,7 @@ fun ThemeSettingsScreen(
             selectedValue = selectedStyleValue,
             options = stylePickerOptions,
             onDismiss = { showStylePicker = false },
-            onSelect = { selected -> themeViewModel.setMapStyle(selected) }
+            onSelect = { selected -> themeViewModel.setMapStyle(selected) },
         )
     }
 }
@@ -322,18 +329,18 @@ fun ThemeSettingsScreen(
 private sealed interface OverlayRow {
     data class Group(
         val group: OverlayGroupUi,
-        val expanded: Boolean
+        val expanded: Boolean,
     ) : OverlayRow
 
     data class Item(
         val groupId: String,
-        val overlay: ThemeListItem.Overlay
+        val overlay: ThemeListItem.Overlay,
     ) : OverlayRow
 }
 
 private fun buildOverlayRows(
     groups: List<OverlayGroupUi>,
-    expandedState: Map<String, Boolean>
+    expandedState: Map<String, Boolean>,
 ): List<OverlayRow> {
     val rows = mutableListOf<OverlayRow>()
     groups.forEach { group ->
@@ -349,23 +356,25 @@ private fun buildOverlayRows(
 }
 
 private fun buildOverlayGroups(overlays: List<ThemeListItem.Overlay>): List<OverlayGroupUi> {
-    val buckets = linkedMapOf(
-        "winter" to mutableListOf<ThemeListItem.Overlay>(),
-        "routes" to mutableListOf<ThemeListItem.Overlay>(),
-        "poi" to mutableListOf<ThemeListItem.Overlay>(),
-        "map" to mutableListOf<ThemeListItem.Overlay>()
-    )
+    val buckets =
+        linkedMapOf(
+            "winter" to mutableListOf<ThemeListItem.Overlay>(),
+            "routes" to mutableListOf<ThemeListItem.Overlay>(),
+            "poi" to mutableListOf<ThemeListItem.Overlay>(),
+            "map" to mutableListOf<ThemeListItem.Overlay>(),
+        )
 
     overlays.forEach { overlay ->
         buckets[ThemeOverlayGrouping.groupIdForOverlay(overlay.layerId)]?.add(overlay)
     }
 
-    val titles = mapOf(
-        "winter" to "Winter activities",
-        "routes" to "Routes & labels",
-        "poi" to "POI & services",
-        "map" to "Map details"
-    )
+    val titles =
+        mapOf(
+            "winter" to "Winter activities",
+            "routes" to "Routes & labels",
+            "poi" to "POI & services",
+            "map" to "Map details",
+        )
 
     return buckets
         .mapNotNull { (id, list) ->
@@ -373,14 +382,15 @@ private fun buildOverlayGroups(overlays: List<ThemeListItem.Overlay>): List<Over
             OverlayGroupUi(
                 id = id,
                 title = titles[id] ?: id,
-                overlays = list.sortedBy { it.name.lowercase(Locale.ROOT) }
+                overlays = list.sortedBy { it.name.lowercase(Locale.ROOT) },
             )
         }
 }
 
 private fun hasMeaningfulStyleSelection(styles: List<ThemeListItem.Style>): Boolean {
-    val nonDefaultStyleCount = styles.count {
-        it.id != ThemeRepositoryImpl.DEFAULT_STYLE_ID
-    }
+    val nonDefaultStyleCount =
+        styles.count {
+            it.id != ThemeRepositoryImpl.DEFAULT_STYLE_ID
+        }
     return nonDefaultStyleCount > 1
 }

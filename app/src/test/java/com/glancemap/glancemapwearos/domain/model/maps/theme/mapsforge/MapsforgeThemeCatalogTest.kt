@@ -5,7 +5,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MapsforgeThemeCatalogTest {
-
     @Test
     fun bundledThemeIdsRemainRecognized() {
         assertTrue(MapsforgeThemeCatalog.isBundledAssetTheme(MapsforgeThemeCatalog.ELEVATE_THEME_ID))
@@ -21,7 +20,7 @@ class MapsforgeThemeCatalogTest {
         assertEquals("Classic", MapsforgeThemeCatalog.defaultOption().label)
         assertEquals(
             MapsforgeThemeCatalog.DEFAULT_MAPSFORGE_STYLE_ID,
-            MapsforgeThemeCatalog.defaultOption().id
+            MapsforgeThemeCatalog.defaultOption().id,
         )
     }
 }

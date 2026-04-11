@@ -19,14 +19,15 @@ internal fun findTappedTrackPoint(
     tapX: Double,
     tapY: Double,
     mapView: MapView,
-    track: GpxTrackDetails
+    track: GpxTrackDetails,
 ): ClosestTrackPick? {
     val points = track.points
     if (points.size < 2) return null
 
     val pick = nearestTrackPickMercator(tap = tap, trackId = track.id, points = points)
-    val snappedPoint = runCatching { mapView.mapViewProjection.toPixels(pick.snapped) }.getOrNull()
-        ?: return null
+    val snappedPoint =
+        runCatching { mapView.mapViewProjection.toPixels(pick.snapped) }.getOrNull()
+            ?: return null
     val touchRadiusPx = RESHAPE_TRACK_TAP_RADIUS_DP * mapView.resources.displayMetrics.density
     val dx = snappedPoint.x - tapX
     val dy = snappedPoint.y - tapY
@@ -37,7 +38,7 @@ internal fun findTappedTrackPoint(
 private fun nearestTrackPickMercator(
     tap: LatLong,
     trackId: String,
-    points: List<LatLong>
+    points: List<LatLong>,
 ): ClosestTrackPick {
     val zoom: Byte = 20
     val tileSize = 256
@@ -49,7 +50,10 @@ private fun nearestTrackPickMercator(
         return x to y
     }
 
-    fun toLatLong(x: Double, y: Double): LatLong {
+    fun toLatLong(
+        x: Double,
+        y: Double,
+    ): LatLong {
         val lon = MercatorProjection.pixelXToLongitude(x, mapSize)
         val lat = MercatorProjection.pixelYToLatitude(y, mapSize)
         return LatLong(lat, lon)
@@ -70,11 +74,12 @@ private fun nearestTrackPickMercator(
         val apx = px - ax
         val apy = py - ay
         val abLenSquared = abx * abx + aby * aby
-        val t = if (abLenSquared > 0.0) {
-            (apx * abx + apy * aby) / abLenSquared
-        } else {
-            0.0
-        }
+        val t =
+            if (abLenSquared > 0.0) {
+                (apx * abx + apy * aby) / abLenSquared
+            } else {
+                0.0
+            }
         val clampedT = t.coerceIn(0.0, 1.0)
         val projectedX = ax + clampedT * abx
         val projectedY = ay + clampedT * aby
@@ -92,13 +97,14 @@ private fun nearestTrackPickMercator(
 
     val snapped = toLatLong(bestProjectedX, bestProjectedY)
     return ClosestTrackPick(
-        pos = TrackPosition(
-            trackId = trackId,
-            segmentIndex = bestIndex,
-            t = bestT
-        ),
+        pos =
+            TrackPosition(
+                trackId = trackId,
+                segmentIndex = bestIndex,
+                t = bestT,
+            ),
         distanceToLineMeters = navigateHaversineMeters(snapped, tap),
-        snapped = snapped
+        snapped = snapped,
     )
 }
 
@@ -106,24 +112,25 @@ internal fun navigateHaversineMeters(
     lat1: Double,
     lon1: Double,
     lat2: Double,
-    lon2: Double
+    lon2: Double,
 ): Double {
     val earthRadiusM = 6_371_000.0
     val dLat = Math.toRadians(lat2 - lat1)
     val dLon = Math.toRadians(lon2 - lon1)
     val sinLat = sin(dLat / 2.0)
     val sinLon = sin(dLon / 2.0)
-    val a = sinLat * sinLat +
-        cos(Math.toRadians(lat1)) *
-        cos(Math.toRadians(lat2)) *
-        sinLon * sinLon
+    val a =
+        sinLat * sinLat +
+            cos(Math.toRadians(lat1)) *
+            cos(Math.toRadians(lat2)) *
+            sinLon * sinLon
     val c = 2.0 * kotlin.math.atan2(sqrt(a), kotlin.math.sqrt(1.0 - a))
     return earthRadiusM * c
 }
 
 internal fun navigateHaversineMeters(
     a: LatLong,
-    b: LatLong
+    b: LatLong,
 ): Double {
     val r = 6_371_000.0
     val lat1 = Math.toRadians(a.latitude)
