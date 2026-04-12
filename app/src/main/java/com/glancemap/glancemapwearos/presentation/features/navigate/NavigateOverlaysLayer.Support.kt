@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -572,6 +571,7 @@ private enum class NavButtonTrustState {
     UNAVAILABLE,
 }
 
+@Suppress("FunctionName")
 @Composable
 internal fun BoxScope.NavModeButtonOverlay(
     mapView: MapView,

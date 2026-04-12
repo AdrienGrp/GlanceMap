@@ -46,6 +46,7 @@ import kotlinx.coroutines.delay
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.view.MapView
 
+@Suppress("FunctionName")
 @Composable
 internal fun BoxScope.NavigateOverlaysLayer(
     mapView: MapView,

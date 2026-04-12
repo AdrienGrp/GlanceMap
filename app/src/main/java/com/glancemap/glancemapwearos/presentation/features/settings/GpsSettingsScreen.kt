@@ -186,6 +186,7 @@ private fun hasFineForegroundLocationPermission(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED
 
+@Suppress("FunctionName")
 @Composable
 private fun GpsIntervalSummary(
     primaryText: String,

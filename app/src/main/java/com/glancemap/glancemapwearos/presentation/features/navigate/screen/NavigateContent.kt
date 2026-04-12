@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -32,13 +33,12 @@ import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Text
-import androidx.compose.foundation.shape.RoundedCornerShape
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
@@ -65,6 +65,7 @@ import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.util.MercatorProjection
 import org.mapsforge.map.model.common.Observer
 
+@Suppress("FunctionName")
 @Composable
 internal fun NavigateContent(
     hasLocationPermission: Boolean,
@@ -973,6 +974,7 @@ internal fun NavigateContent(
     }
 }
 
+@Suppress("FunctionName")
 @Composable
 private fun BoxScope.MarkerMotionDebugOverlay(
     label: String?,

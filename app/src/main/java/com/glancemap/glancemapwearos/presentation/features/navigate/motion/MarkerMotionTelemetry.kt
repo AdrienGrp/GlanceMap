@@ -21,7 +21,13 @@ internal data class MarkerMotionSummary(
     val latestReason: String? = null,
 ) {
     fun summaryLabel(): String =
-        "mode=${latestMode.label} fix=$acceptedFixes pred=$predictionUpdates blend=$blendStarts drop=$outlierDrops"
+        buildString {
+            append("mode=${latestMode.label}")
+            append(" fix=$acceptedFixes")
+            append(" pred=$predictionUpdates")
+            append(" blend=$blendStarts")
+            append(" drop=$outlierDrops")
+        }
 }
 
 internal data class MarkerMotionSnapshot(
@@ -150,7 +156,12 @@ internal object MarkerMotionTelemetry {
         }
         DebugTelemetry.log(
             TAG,
-            "seed reason=wake acc=${accuracyM.format(1)} speed=${speedMps.format(2)} bearing=${bearingDeg.formatOrNa(1)}",
+            buildString {
+                append("seed reason=wake")
+                append(" acc=${accuracyM.format(1)}")
+                append(" speed=${speedMps.format(2)}")
+                append(" bearing=${bearingDeg.formatOrNa(1)}")
+            },
         )
     }
 
@@ -248,7 +259,13 @@ internal object MarkerMotionTelemetry {
         }
         DebugTelemetry.log(
             TAG,
-            "drop reason=outlier jump=${jumpMeters.format(1)} impliedSpeed=${impliedSpeedMps.format(1)} dt=${dtSec.format(2)} acc=${accuracyM.format(1)}",
+            buildString {
+                append("drop reason=outlier")
+                append(" jump=${jumpMeters.format(1)}")
+                append(" impliedSpeed=${impliedSpeedMps.format(1)}")
+                append(" dt=${dtSec.format(2)}")
+                append(" acc=${accuracyM.format(1)}")
+            },
         )
     }
 
@@ -316,7 +333,13 @@ internal object MarkerMotionTelemetry {
         if (shouldLog) {
             DebugTelemetry.log(
                 TAG,
-                "predict age=${fixAgeMs}ms acc=${accuracyM.format(1)} speed=${speedMps.format(2)} bearing=${bearingDeg.format(1)} dist=${predictedDistanceM.format(1)}",
+                buildString {
+                    append("predict age=${fixAgeMs}ms")
+                    append(" acc=${accuracyM.format(1)}")
+                    append(" speed=${speedMps.format(2)}")
+                    append(" bearing=${bearingDeg.format(1)}")
+                    append(" dist=${predictedDistanceM.format(1)}")
+                },
             )
         }
     }
@@ -344,7 +367,11 @@ internal object MarkerMotionTelemetry {
     }
 
     private fun stateSignature(snapshot: MarkerMotionSnapshot): String =
-        "${snapshot.mode.label}:${snapshot.reason.orEmpty()}"
+        buildString {
+            append(snapshot.mode.label)
+            append(':')
+            append(snapshot.reason.orEmpty())
+        }
 }
 
 private fun reasonLabel(reason: String?): String? =
@@ -372,5 +399,4 @@ private fun reasonLabel(reason: String?): String? =
 
 private fun Float.format(digits: Int): String = "%.${digits}f".format(this)
 
-private fun Float?.formatOrNa(digits: Int): String =
-    this?.let { "%.${digits}f".format(it) } ?: "na"
+private fun Float?.formatOrNa(digits: Int): String = this?.let { "%.${digits}f".format(it) } ?: "na"
