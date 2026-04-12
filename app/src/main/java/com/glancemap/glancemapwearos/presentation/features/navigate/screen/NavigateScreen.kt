@@ -562,7 +562,6 @@ fun NavigateScreen(
         return
     }
 
-    var gpsIndicatorPinned by rememberSaveable { mutableStateOf(false) }
     var pendingPoiFocusTarget by remember { mutableStateOf<PoiNavigateTarget?>(null) }
     var markerMotionDebugOverlayLabel by remember { mutableStateOf<String?>(null) }
 
@@ -624,12 +623,6 @@ fun NavigateScreen(
         gpsSignalSnapshot.isLocationAvailable &&
             gpsSignalSnapshot.lastFixElapsedRealtimeMs > 0L &&
             gpsSignalSnapshot.lastFixAgeMs in 0..gpsSignalSnapshot.lastFixFreshMaxAgeMs
-    val showGpsIndicator =
-        if (offlineMode) {
-            true
-        } else {
-            gpsIndicatorPinned || locationUiState.showGpsIndicatorUnpinned
-        }
     val watchGpsDegradedWarning = locationUiState.watchGpsDegradedWarning
     val mapAppearanceApplyInProgress by mapViewModel.mapAppearanceApplyInProgress.collectAsState()
     val slopeOverlayToggleEnabled by mapViewModel.reliefOverlayToggleEnabled.collectAsState()
@@ -1015,10 +1008,6 @@ fun NavigateScreen(
                 locationViewModel.requestImmediateLocation(source = "ui_recenter_from_panning")
             }
         },
-        onNavModeButtonLongPress = {
-            screenActions.triggerHaptic()
-            gpsIndicatorPinned = !gpsIndicatorPinned
-        },
         triggerHaptic = screenActions.triggerHaptic,
         onMenuClick = onMenuClick,
         onPermissionLaunch = { locationPermissionState.launchPermissions() },
@@ -1033,8 +1022,6 @@ fun NavigateScreen(
         onShortcutTrayDismiss = { shortcutTrayExpanded = false },
         onOpenGpxTools = routeToolActions.openRouteToolsPanel,
         onStartPoiCreation = routeToolActions.startPoiCreationSelection,
-        showGpsIndicator = showGpsIndicator,
-        showGpsIndicatorInPanning = offlineMode,
         gpsIndicatorState = effectiveGpsIndicatorState,
         watchGpsDegradedWarning = watchGpsDegradedWarning,
         isOfflineMode = offlineMode,

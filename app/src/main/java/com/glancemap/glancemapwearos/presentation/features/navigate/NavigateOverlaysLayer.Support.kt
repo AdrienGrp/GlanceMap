@@ -565,135 +565,11 @@ internal fun BoxScope.PoiTapMessageOverlay(
     }
 }
 
-@Composable
-internal fun BoxScope.GpsIndicatorsOverlay(
-    showGpsIndicator: Boolean,
-    isOfflineMode: Boolean,
-    gpsIndicatorState: GpsFixIndicatorState,
-    watchGpsDegradedWarning: Boolean,
-    gpsIndicatorBottomPadding: Dp,
-    gpsIndicatorIconPadding: Dp,
-    gpsIndicatorIconSize: Dp,
-    navButtonBottomPadding: Dp,
-    navButtonSize: Dp,
-) {
-    AnimatedVisibility(
-        visible =
-            showGpsIndicator &&
-                !isOfflineMode &&
-                (gpsIndicatorState == GpsFixIndicatorState.SEARCHING || watchGpsDegradedWarning) &&
-                gpsIndicatorState != GpsFixIndicatorState.UNAVAILABLE,
-        enter = fadeIn(tween(120)),
-        exit = fadeOut(tween(180)),
-        modifier =
-            Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = gpsIndicatorBottomPadding),
-    ) {
-        var blinkOn by remember { mutableStateOf(true) }
-        LaunchedEffect(Unit) {
-            while (true) {
-                delay(420L)
-                blinkOn = !blinkOn
-            }
-        }
-        val indicatorTint =
-            if (blinkOn) {
-                Color(0xFF4FC3F7)
-            } else {
-                Color(0xFF4FC3F7).copy(alpha = 0.16f)
-            }
-        val indicatorBorder =
-            if (blinkOn) {
-                Color(0xFF81D4FA)
-            } else {
-                Color(0xFF81D4FA).copy(alpha = 0.22f)
-            }
-        val indicatorBackground = Color.Black.copy(alpha = if (blinkOn) 0.82f else 0.58f)
-        val glowColor =
-            if (blinkOn) {
-                Color(0xFF29B6F6).copy(alpha = 0.34f)
-            } else {
-                Color.Transparent
-            }
-
-        Box(
-            modifier =
-                Modifier
-                    .background(glowColor, CircleShape)
-                    .padding(3.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .background(indicatorBackground, CircleShape)
-                        .border(1.5.dp, indicatorBorder, CircleShape)
-                        .padding(gpsIndicatorIconPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MyLocation,
-                    contentDescription = "Location not current",
-                    modifier = Modifier.size(gpsIndicatorIconSize),
-                    tint = indicatorTint,
-                )
-            }
-        }
-    }
-
-    AnimatedVisibility(
-        visible =
-            showGpsIndicator &&
-                !isOfflineMode &&
-                gpsIndicatorState == GpsFixIndicatorState.UNAVAILABLE,
-        enter = fadeIn(tween(120)),
-        exit = fadeOut(tween(180)),
-        modifier =
-            Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = gpsIndicatorBottomPadding),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .background(Color.Black.copy(alpha = 0.72f), CircleShape)
-                    .border(1.dp, Color(0xFFFF8A80), CircleShape)
-                    .padding(gpsIndicatorIconPadding),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Default.LocationDisabled,
-                contentDescription = "Location unavailable",
-                modifier = Modifier.size(gpsIndicatorIconSize),
-                tint = Color(0xFFE53935),
-            )
-        }
-    }
-
-    AnimatedVisibility(
-        visible = watchGpsDegradedWarning && !isOfflineMode,
-        enter = fadeIn(tween(140)),
-        exit = fadeOut(tween(180)),
-        modifier =
-            Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = navButtonBottomPadding + navButtonSize + 10.dp),
-    ) {
-        Text(
-            text = "Watch GPS low accuracy",
-            modifier =
-                Modifier
-                    .background(Color(0xFF5A120E).copy(alpha = 0.86f), RoundedCornerShape(8.dp))
-                    .border(1.dp, Color(0xFFFFA726).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-            color = Color.White,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 10.sp,
-            lineHeight = 11.sp,
-            textAlign = TextAlign.Center,
-        )
-    }
+private enum class NavButtonTrustState {
+    GOOD,
+    SEARCHING,
+    CAUTION,
+    UNAVAILABLE,
 }
 
 @Composable
@@ -701,6 +577,8 @@ internal fun BoxScope.NavModeButtonOverlay(
     mapView: MapView,
     navMode: NavMode,
     isOfflineMode: Boolean,
+    gpsIndicatorState: GpsFixIndicatorState,
+    watchGpsDegradedWarning: Boolean,
     lastKnownLocation: LatLong?,
     triggerHaptic: () -> Unit,
     navButtonBottomPadding: Dp,
@@ -709,7 +587,6 @@ internal fun BoxScope.NavModeButtonOverlay(
     onRecenter: () -> Unit,
     onRecenterRequested: () -> Unit,
     onToggleOrientation: () -> Unit,
-    onNavModeButtonLongPress: () -> Unit,
 ) {
     val navIcon =
         when {
@@ -724,14 +601,57 @@ internal fun BoxScope.NavModeButtonOverlay(
             navMode != NavMode.PANNING -> MaterialTheme.colorScheme.primary
             else -> Color.White
         }
+    val trustState =
+        resolveNavButtonTrustState(
+            isOfflineMode = isOfflineMode,
+            gpsIndicatorState = gpsIndicatorState,
+            watchGpsDegradedWarning = watchGpsDegradedWarning,
+        )
+    var pulseOn by remember(trustState) { mutableStateOf(true) }
+    LaunchedEffect(trustState) {
+        if (trustState != NavButtonTrustState.SEARCHING) {
+            pulseOn = true
+            return@LaunchedEffect
+        }
+        pulseOn = true
+        while (true) {
+            delay(420L)
+            pulseOn = !pulseOn
+        }
+    }
+    val trustContainerSize = navButtonSize + 8.dp
+    val trustRingColor =
+        when (trustState) {
+            NavButtonTrustState.SEARCHING ->
+                if (pulseOn) {
+                    Color(0xFF81D4FA)
+                } else {
+                    Color(0xFF81D4FA).copy(alpha = 0.32f)
+                }
+            NavButtonTrustState.CAUTION -> Color(0xFFFFB74D).copy(alpha = 0.92f)
+            NavButtonTrustState.UNAVAILABLE -> Color(0xFFEF5350).copy(alpha = 0.95f)
+            NavButtonTrustState.GOOD -> Color.Transparent
+        }
+    val trustGlowColor =
+        when (trustState) {
+            NavButtonTrustState.SEARCHING ->
+                if (pulseOn) {
+                    Color(0xFF29B6F6).copy(alpha = 0.26f)
+                } else {
+                    Color(0xFF29B6F6).copy(alpha = 0.08f)
+                }
+            NavButtonTrustState.CAUTION -> Color(0xFFFFA726).copy(alpha = 0.16f)
+            NavButtonTrustState.UNAVAILABLE -> Color(0xFFE53935).copy(alpha = 0.18f)
+            NavButtonTrustState.GOOD -> Color.Transparent
+        }
+    val trustRingStroke = 2.dp
 
     Box(
         modifier =
             Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = navButtonBottomPadding)
-                .size(navButtonSize)
-                .background(Color.Black.copy(alpha = 0.7f), CircleShape)
+                .size(trustContainerSize)
                 .pointerInput(navMode, lastKnownLocation, isOfflineMode) {
                     detectTapGestures(
                         onTap = {
@@ -745,27 +665,71 @@ internal fun BoxScope.NavModeButtonOverlay(
                                 onToggleOrientation()
                             }
                         },
-                        onLongPress = {
-                            if (isOfflineMode) return@detectTapGestures
-                            onNavModeButtonLongPress()
-                        },
                     )
                 },
         contentAlignment = Alignment.Center,
     ) {
-        if (navMode == NavMode.NORTH_UP_FOLLOW) {
-            NorthUpLockedModeIcon(
-                iconSize = navButtonIconSize,
-                tint = navTint,
-            )
-        } else {
-            Icon(
-                imageVector = navIcon,
-                contentDescription = "Nav mode",
-                modifier = Modifier.size(navButtonIconSize),
-                tint = navTint,
-            )
+        if (trustState != NavButtonTrustState.GOOD) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val strokePx = trustRingStroke.toPx()
+                val radius = size.minDimension / 2f
+                drawCircle(
+                    color = trustGlowColor,
+                    radius = radius,
+                )
+                drawCircle(
+                    color = trustRingColor,
+                    radius = radius - strokePx / 2f,
+                    style = Stroke(width = strokePx),
+                )
+            }
         }
+
+        Box(
+            modifier =
+                Modifier
+                    .size(navButtonSize)
+                    .background(
+                        Color.Black.copy(
+                            alpha =
+                                if (trustState == NavButtonTrustState.SEARCHING && pulseOn) {
+                                    0.78f
+                                } else {
+                                    0.7f
+                                },
+                        ),
+                        CircleShape,
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (navMode == NavMode.NORTH_UP_FOLLOW) {
+                NorthUpLockedModeIcon(
+                    iconSize = navButtonIconSize,
+                    tint = navTint,
+                )
+            } else {
+                Icon(
+                    imageVector = navIcon,
+                    contentDescription = "Nav mode",
+                    modifier = Modifier.size(navButtonIconSize),
+                    tint = navTint,
+                )
+            }
+        }
+    }
+}
+
+private fun resolveNavButtonTrustState(
+    isOfflineMode: Boolean,
+    gpsIndicatorState: GpsFixIndicatorState,
+    watchGpsDegradedWarning: Boolean,
+): NavButtonTrustState {
+    if (isOfflineMode) return NavButtonTrustState.GOOD
+    return when {
+        gpsIndicatorState == GpsFixIndicatorState.UNAVAILABLE -> NavButtonTrustState.UNAVAILABLE
+        gpsIndicatorState == GpsFixIndicatorState.SEARCHING -> NavButtonTrustState.SEARCHING
+        watchGpsDegradedWarning || gpsIndicatorState == GpsFixIndicatorState.POOR -> NavButtonTrustState.CAUTION
+        else -> NavButtonTrustState.GOOD
     }
 }
 

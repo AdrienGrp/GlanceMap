@@ -97,13 +97,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onCreatePoiClick: () -> Unit,
     keepAppOpen: Boolean,
     onKeepAppOpenToggle: () -> Unit,
-    showGpsIndicator: Boolean,
-    showGpsIndicatorInPanning: Boolean,
     gpsIndicatorState: GpsFixIndicatorState,
     watchGpsDegradedWarning: Boolean,
-    gpsIndicatorBottomPadding: Dp,
-    gpsIndicatorIconPadding: Dp,
-    gpsIndicatorIconSize: Dp,
     navButtonBottomPadding: Dp,
     navButtonSize: Dp,
     navButtonIconSize: Dp,
@@ -112,7 +107,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onRecenterRequested: () -> Unit,
     onToggleOrientation: () -> Unit,
     isOfflineMode: Boolean,
-    onNavModeButtonLongPress: () -> Unit,
 ) {
     var liveDistanceLineStart by remember(mapView, lastKnownLocation) { mutableStateOf<Offset?>(null) }
     val slopeIndicatorButtonSize =
@@ -353,22 +347,12 @@ internal fun BoxScope.NavigateOverlaysLayer(
         )
     }
 
-    GpsIndicatorsOverlay(
-        showGpsIndicator = showGpsIndicator,
-        isOfflineMode = isOfflineMode,
-        gpsIndicatorState = gpsIndicatorState,
-        watchGpsDegradedWarning = watchGpsDegradedWarning,
-        gpsIndicatorBottomPadding = gpsIndicatorBottomPadding,
-        gpsIndicatorIconPadding = gpsIndicatorIconPadding,
-        gpsIndicatorIconSize = gpsIndicatorIconSize,
-        navButtonBottomPadding = navButtonBottomPadding,
-        navButtonSize = navButtonSize,
-    )
-
     NavModeButtonOverlay(
         mapView = mapView,
         navMode = navMode,
         isOfflineMode = isOfflineMode,
+        gpsIndicatorState = gpsIndicatorState,
+        watchGpsDegradedWarning = watchGpsDegradedWarning,
         lastKnownLocation = lastKnownLocation,
         triggerHaptic = triggerHaptic,
         navButtonBottomPadding = navButtonBottomPadding,
@@ -377,6 +361,5 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onRecenter = onRecenter,
         onRecenterRequested = onRecenterRequested,
         onToggleOrientation = onToggleOrientation,
-        onNavModeButtonLongPress = onNavModeButtonLongPress,
     )
 }

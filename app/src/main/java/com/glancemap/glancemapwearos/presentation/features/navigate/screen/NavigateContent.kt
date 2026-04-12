@@ -94,7 +94,6 @@ internal fun NavigateContent(
     onUserPanStarted: () -> Unit,
     onRecenter: () -> Unit,
     onRecenterRequested: () -> Unit,
-    onNavModeButtonLongPress: () -> Unit,
     triggerHaptic: () -> Unit,
     onMenuClick: () -> Unit,
     onPermissionLaunch: () -> Unit,
@@ -109,8 +108,6 @@ internal fun NavigateContent(
     onShortcutTrayDismiss: () -> Unit,
     onOpenGpxTools: () -> Unit,
     onStartPoiCreation: () -> Unit,
-    showGpsIndicator: Boolean,
-    showGpsIndicatorInPanning: Boolean,
     gpsIndicatorState: GpsFixIndicatorState,
     watchGpsDegradedWarning: Boolean,
     isOfflineMode: Boolean,
@@ -303,48 +300,6 @@ internal fun NavigateContent(
                 WearScreenSize.LARGE -> 24.dp
                 WearScreenSize.MEDIUM -> 22.dp
                 WearScreenSize.SMALL -> 20.dp
-            }
-        }
-    val gpsIndicatorBottomPadding =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 36.dp
-                WearScreenSize.MEDIUM -> 32.dp
-                WearScreenSize.SMALL -> 28.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 28.dp
-                WearScreenSize.MEDIUM -> 24.dp
-                WearScreenSize.SMALL -> 20.dp
-            }
-        }
-    val gpsIndicatorIconSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 12.dp
-                WearScreenSize.MEDIUM -> 11.dp
-                WearScreenSize.SMALL -> 10.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 13.dp
-                WearScreenSize.MEDIUM -> 12.dp
-                WearScreenSize.SMALL -> 11.dp
-            }
-        }
-    val gpsIndicatorIconPadding =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 3.dp
-                WearScreenSize.MEDIUM -> 2.5.dp
-                WearScreenSize.SMALL -> 2.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 3.5.dp
-                WearScreenSize.MEDIUM -> 3.dp
-                WearScreenSize.SMALL -> 2.5.dp
             }
         }
     val navButtonBottomPadding =
@@ -910,13 +865,8 @@ internal fun NavigateContent(
                 onCreatePoiClick = onStartPoiCreation,
                 keepAppOpen = keepAppOpen,
                 onKeepAppOpenToggle = onKeepAppOpenToggle,
-                showGpsIndicator = showGpsIndicator,
-                showGpsIndicatorInPanning = showGpsIndicatorInPanning,
                 gpsIndicatorState = gpsIndicatorState,
                 watchGpsDegradedWarning = watchGpsDegradedWarning,
-                gpsIndicatorBottomPadding = gpsIndicatorBottomPadding,
-                gpsIndicatorIconPadding = gpsIndicatorIconPadding,
-                gpsIndicatorIconSize = gpsIndicatorIconSize,
                 navButtonBottomPadding = navButtonBottomPadding,
                 navButtonSize = navButtonSize,
                 navButtonIconSize = navButtonIconSize,
@@ -925,7 +875,6 @@ internal fun NavigateContent(
                 onRecenterRequested = onRecenterRequested,
                 onToggleOrientation = onToggleOrientation,
                 isOfflineMode = isOfflineMode,
-                onNavModeButtonLongPress = onNavModeButtonLongPress,
             )
 
             MarkerMotionDebugOverlay(

@@ -14,6 +14,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -91,31 +92,17 @@ class SettingsRepositoryImpl private constructor(
         val POI_POPUP_MANUAL_CLOSE_ONLY = booleanPreferencesKey("poi_popup_manual_close_only")
     }
 
-    override val gpsInterval: Flow<Long> =
-        context.dataStore.data.map {
-            it[PrefKeys.GPS_INTERVAL] ?: SettingsRepository.DEFAULT_GPS_INTERVAL_MS
-        }
+    // Fixed product choice: keep foreground motion behavior predictable and battery bounded.
+    override val gpsInterval: Flow<Long> = flowOf(SettingsRepository.DEFAULT_GPS_INTERVAL_MS)
 
     override suspend fun setGpsInterval(interval: Long) {
-        context.dataStore.edit { it[PrefKeys.GPS_INTERVAL] = interval }
+        context.dataStore.edit { it.remove(PrefKeys.GPS_INTERVAL) }
     }
 
-    override val ambientGpsInterval: Flow<Long> =
-        context.dataStore.data.map {
-            (it[PrefKeys.AMBIENT_GPS_INTERVAL] ?: SettingsRepository.DEFAULT_AMBIENT_GPS_INTERVAL_MS)
-                .coerceIn(
-                    SettingsRepository.MIN_AMBIENT_GPS_INTERVAL_MS,
-                    SettingsRepository.MAX_AMBIENT_GPS_INTERVAL_MS,
-                )
-        }
+    override val ambientGpsInterval: Flow<Long> = flowOf(SettingsRepository.DEFAULT_AMBIENT_GPS_INTERVAL_MS)
 
     override suspend fun setAmbientGpsInterval(interval: Long) {
-        val safeInterval =
-            interval.coerceIn(
-                SettingsRepository.MIN_AMBIENT_GPS_INTERVAL_MS,
-                SettingsRepository.MAX_AMBIENT_GPS_INTERVAL_MS,
-            )
-        context.dataStore.edit { it[PrefKeys.AMBIENT_GPS_INTERVAL] = safeInterval }
+        context.dataStore.edit { it.remove(PrefKeys.AMBIENT_GPS_INTERVAL) }
     }
 
     override val watchGpsOnly: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.WATCH_GPS_ONLY] ?: false }
