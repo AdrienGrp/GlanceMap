@@ -63,7 +63,7 @@ class NavigateLocationEffectsTimeTest {
     }
 
     @Test
-    fun indicatorStateIsSearchingWhenProviderUnavailableButFixIsStillRecent() {
+    fun indicatorStateKeepsGoodWhenProviderUnavailableButFixIsStillRecent() {
         val state =
             resolveGpsIndicatorState(
                 isLocationAvailable = false,
@@ -74,7 +74,22 @@ class NavigateLocationEffectsTimeTest {
                 staleThresholdMs = 10_000L,
             )
 
-        assertEquals(GpsFixIndicatorState.SEARCHING, state)
+        assertEquals(GpsFixIndicatorState.GOOD, state)
+    }
+
+    @Test
+    fun indicatorStateKeepsPoorWhenProviderUnavailableButFixIsStillRecent() {
+        val state =
+            resolveGpsIndicatorState(
+                isLocationAvailable = false,
+                unavailableSinceElapsedMs = 96_000L,
+                lastFixAtElapsedMs = 95_000L,
+                accuracyM = 20f,
+                nowElapsedMs = 100_000L,
+                staleThresholdMs = 10_000L,
+            )
+
+        assertEquals(GpsFixIndicatorState.POOR, state)
     }
 
     @Test

@@ -626,6 +626,17 @@ internal fun resolveGpsIndicatorState(
         } else {
             Long.MAX_VALUE
         }
+    val hasFreshUsableFix =
+        lastFixAtElapsedMs > 0L &&
+            ageMs <= staleThresholdMs &&
+            accuracyM.isFinite()
+
+    if (hasFreshUsableFix) {
+        return when {
+            accuracyM <= GOOD_FIX_ACCURACY_THRESHOLD_M -> GpsFixIndicatorState.GOOD
+            else -> GpsFixIndicatorState.POOR
+        }
+    }
 
     if (!isLocationAvailable) {
         if (unavailableSinceElapsedMs <= 0L) return GpsFixIndicatorState.SEARCHING
@@ -642,10 +653,7 @@ internal fun resolveGpsIndicatorState(
     if (ageMs > staleThresholdMs) return GpsFixIndicatorState.SEARCHING
     if (!accuracyM.isFinite()) return GpsFixIndicatorState.SEARCHING
 
-    return when {
-        accuracyM <= GOOD_FIX_ACCURACY_THRESHOLD_M -> GpsFixIndicatorState.GOOD
-        else -> GpsFixIndicatorState.POOR
-    }
+    return GpsFixIndicatorState.SEARCHING
 }
 
 internal fun resolveGpsIndicatorDisplayState(
