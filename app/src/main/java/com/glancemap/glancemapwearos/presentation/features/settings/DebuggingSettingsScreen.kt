@@ -74,7 +74,6 @@ import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -130,8 +129,6 @@ fun DebuggingSettingsScreen(
     var exportedDiagnosticsCount by remember { mutableStateOf(0) }
     var exportDialogMode by remember { mutableStateOf<DiagnosticsExportDialogMode?>(null) }
     var exportDialogMessage by remember { mutableStateOf("") }
-    var captureSummaryLabel by remember { mutableStateOf("mode=idle fix=0 pred=0 blend=0 drop=0 log=0") }
-    var markerMotionStatusLabel by remember { mutableStateOf("idle") }
     val helpPrefs =
         remember(context) {
             context.getSharedPreferences(DEBUG_HELP_PREFS, Context.MODE_PRIVATE)
@@ -166,12 +163,6 @@ fun DebuggingSettingsScreen(
                 reason = "capture_toggle_off",
                 detail = "source=debug_screen",
             )
-        }
-        while (isActive) {
-            val telemetryCount = DebugTelemetry.size()
-            captureSummaryLabel = "${MarkerMotionTelemetry.summaryLabel()} log=$telemetryCount"
-            markerMotionStatusLabel = MarkerMotionTelemetry.latestStatusLabel()
-            delay(1200L)
         }
     }
 
@@ -318,14 +309,6 @@ fun DebuggingSettingsScreen(
                             "Off - tap to start"
                         },
                     toggleControl = ToggleChipToggleControl.Switch,
-                )
-            }
-
-            item {
-                Chip(
-                    label = "Marker Motion",
-                    secondaryLabel = markerMotionStatusLabel,
-                    onClick = {},
                 )
             }
 

@@ -1048,14 +1048,16 @@ private fun BoxScope.MarkerMotionDebugOverlay(
         text = label,
         modifier =
             Modifier
-                .align(Alignment.TopStart)
-                .padding(start = overlayPadding, top = overlayPadding, end = 56.dp)
+                .align(Alignment.TopCenter)
+                .padding(top = overlayPadding)
+                .padding(horizontal = overlayPadding)
                 .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
                 .padding(horizontal = 6.dp, vertical = 4.dp),
         color = Color.White,
         fontSize = overlayTextSize,
         lineHeight = overlayTextSize,
         fontWeight = FontWeight.Medium,
+        textAlign = TextAlign.Center,
     )
 }
 

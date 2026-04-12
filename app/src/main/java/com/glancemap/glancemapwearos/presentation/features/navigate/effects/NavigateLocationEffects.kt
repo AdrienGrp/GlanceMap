@@ -17,13 +17,12 @@ import com.glancemap.glancemapwearos.core.service.location.model.resolveLocation
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
-import com.glancemap.glancemapwearos.presentation.features.navigate.CompassMarkerQuality
 import com.glancemap.glancemapwearos.presentation.features.navigate.GpsFixIndicatorState
 import com.glancemap.glancemapwearos.presentation.features.navigate.LocationViewModel
-import com.glancemap.glancemapwearos.presentation.features.navigate.NavMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionController
+import com.glancemap.glancemapwearos.presentation.features.navigate.requestLayerRedrawSafely
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.isActive
@@ -52,11 +51,9 @@ internal fun rememberNavigateLocationUiState(
     locationViewModel: LocationViewModel,
     compassViewModel: CompassViewModel,
     navigateViewModel: NavigateViewModel,
-    navMode: NavMode,
     shouldTrackLocation: Boolean,
     shouldFollowPosition: Boolean,
     screenState: LocationScreenState,
-    compassQuality: CompassMarkerQuality,
     expectedGpsIntervalMs: Long,
     navigationMarkerBitmap: AndroidBitmap,
     suppressLocationMarker: Boolean,
@@ -84,12 +81,19 @@ internal fun rememberNavigateLocationUiState(
     var indicatorLocationAvailable by remember { mutableStateOf(true) }
     var indicatorUnavailableSinceElapsedMs by remember { mutableLongStateOf(0L) }
     var indicatorWatchGpsDegraded by remember { mutableStateOf(false) }
-    var holdMarkerUntilFreshFix by remember { mutableStateOf(false) }
-    var holdMarkerStartedAtElapsedMs by remember { mutableLongStateOf(0L) }
-    var trackingActivatedAtElapsedMs by remember { mutableLongStateOf(0L) }
-    var postWakePredictionHoldFixesRemaining by remember { mutableIntStateOf(0) }
+    var holdMarkerUntilFreshFix by
+        remember(shouldTrackLocation, screenState) {
+            mutableStateOf(shouldTrackLocation && !screenState.isNonInteractive)
+        }
+    var holdMarkerStartedAtElapsedMs by
+        remember(shouldTrackLocation, screenState) { mutableLongStateOf(0L) }
+    var trackingActivatedAtElapsedMs by
+        remember(shouldTrackLocation, screenState) { mutableLongStateOf(0L) }
+    var postWakePredictionHoldFixesRemaining by
+        remember(shouldTrackLocation, screenState) { mutableIntStateOf(0) }
     var lastWakeReacquireStartedAtElapsedMs by remember { mutableLongStateOf(Long.MIN_VALUE) }
-    var wakeAnchorSeeded by remember { mutableStateOf(false) }
+    var wakeAnchorSeeded by
+        remember(shouldTrackLocation, screenState) { mutableStateOf(false) }
 
     var gpsIndicatorClockMs by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
 
@@ -138,9 +142,7 @@ internal fun rememberNavigateLocationUiState(
                         -navigationMarkerBitmap.height / 2,
                     ).also { marker ->
                         mapView.layerManager.layers.add(marker)
-                        if (marker.isVisible) {
-                            marker.requestRedraw()
-                        }
+                        mapView.requestLayerRedrawSafely()
                     }
             }
         }
@@ -220,6 +222,7 @@ internal fun rememberNavigateLocationUiState(
             locationMarker?.let { marker -> mapView.layerManager.layers.remove(marker) }
             locationMarker = null
             lastRenderedMarkerLatLong = null
+            mapView.requestLayerRedrawSafely()
             return@LaunchedEffect
         }
         val currentMarker = locationMarker
@@ -233,9 +236,7 @@ internal fun rememberNavigateLocationUiState(
                     -navigationMarkerBitmap.height / 2,
                 ).also { marker ->
                     mapView.layerManager.layers.add(marker)
-                    if (marker.isVisible) {
-                        marker.requestRedraw()
-                    }
+                    mapView.requestLayerRedrawSafely()
                 }
             return@LaunchedEffect
         }
@@ -254,9 +255,7 @@ internal fun rememberNavigateLocationUiState(
                 marker.heading = heading
                 marker.isVisible = isVisible
                 mapView.layerManager.layers.add(marker)
-                if (marker.isVisible) {
-                    marker.requestRedraw()
-                }
+                mapView.requestLayerRedrawSafely()
             }
     }
 
@@ -273,6 +272,7 @@ internal fun rememberNavigateLocationUiState(
         postWakePredictionHoldFixesRemaining = 0
         wakeAnchorSeeded = false
         markerMotionController.reset()
+        mapView.requestLayerRedrawSafely()
     }
 
     // Restores old working behavior: center only when shouldFollowPosition is true.
@@ -385,9 +385,7 @@ internal fun rememberNavigateLocationUiState(
                     mapView.setCenter(displayLatLong)
                 }
 
-                locationMarker?.let { marker ->
-                    if (marker.isVisible) marker.requestRedraw()
-                }
+                mapView.requestLayerRedrawSafely()
             }
     }
 
@@ -451,7 +449,7 @@ internal fun rememberNavigateLocationUiState(
             ) {
                 mapView.setCenter(predicted)
             }
-            if (marker.isVisible) marker.requestRedraw()
+            mapView.requestLayerRedrawSafely()
         }
     }
 
