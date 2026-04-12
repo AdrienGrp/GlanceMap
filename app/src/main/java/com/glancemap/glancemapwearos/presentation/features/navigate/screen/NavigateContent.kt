@@ -6,9 +6,11 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -25,14 +27,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
@@ -141,6 +147,7 @@ internal fun NavigateContent(
     onPoiTapCreateGpx: (PoiOverlayMarker) -> Unit,
     poiPopupTimeoutSeconds: Int,
     poiPopupManualCloseOnly: Boolean,
+    markerMotionDebugOverlayLabel: String?,
 ) {
     val mapView = mapHolder?.mapView
     val context = LocalContext.current
@@ -921,6 +928,11 @@ internal fun NavigateContent(
                 onNavModeButtonLongPress = onNavModeButtonLongPress,
             )
 
+            MarkerMotionDebugOverlay(
+                label = markerMotionDebugOverlayLabel,
+                screenSize = screenSize,
+            )
+
             if (routeToolSession != null) {
                 val session = routeToolSession
                 val activeRouteToolTrack = activeGpxDetails.singleOrNull()
@@ -1010,6 +1022,41 @@ internal fun NavigateContent(
             }
         }
     }
+}
+
+@Composable
+private fun BoxScope.MarkerMotionDebugOverlay(
+    label: String?,
+    screenSize: WearScreenSize,
+) {
+    if (label.isNullOrBlank()) return
+
+    val overlayPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 10.dp
+            WearScreenSize.MEDIUM -> 9.dp
+            WearScreenSize.SMALL -> 8.dp
+        }
+    val overlayTextSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 9.sp
+            WearScreenSize.SMALL -> 8.sp
+        }
+
+    Text(
+        text = label,
+        modifier =
+            Modifier
+                .align(Alignment.TopStart)
+                .padding(start = overlayPadding, top = overlayPadding, end = 56.dp)
+                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+        color = Color.White,
+        fontSize = overlayTextSize,
+        lineHeight = overlayTextSize,
+        fontWeight = FontWeight.Medium,
+    )
 }
 
 private fun fitMapViewToPreviewPoints(

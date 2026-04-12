@@ -61,7 +61,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnos
 import com.glancemap.glancemapwearos.core.service.diagnostics.GnssDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.FusionReplayTelemetry
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -130,7 +130,8 @@ fun DebuggingSettingsScreen(
     var exportedDiagnosticsCount by remember { mutableStateOf(0) }
     var exportDialogMode by remember { mutableStateOf<DiagnosticsExportDialogMode?>(null) }
     var exportDialogMessage by remember { mutableStateOf("") }
-    var captureSummaryLabel by remember { mutableStateOf("fix=0 drop=0 pred=0 blend=0 log=0") }
+    var captureSummaryLabel by remember { mutableStateOf("mode=idle fix=0 pred=0 blend=0 drop=0 log=0") }
+    var markerMotionStatusLabel by remember { mutableStateOf("idle") }
     val helpPrefs =
         remember(context) {
             context.getSharedPreferences(DEBUG_HELP_PREFS, Context.MODE_PRIVATE)
@@ -168,8 +169,8 @@ fun DebuggingSettingsScreen(
         }
         while (isActive) {
             val telemetryCount = DebugTelemetry.size()
-            val replaySummary = FusionReplayTelemetry.summaryLabel()
-            captureSummaryLabel = "$replaySummary log=$telemetryCount"
+            captureSummaryLabel = "${MarkerMotionTelemetry.summaryLabel()} log=$telemetryCount"
+            markerMotionStatusLabel = MarkerMotionTelemetry.latestStatusLabel()
             delay(1200L)
         }
     }
@@ -271,7 +272,7 @@ fun DebuggingSettingsScreen(
                     onClick = {
                         if (exportInProgress) return@Chip
                         DebugTelemetry.clear()
-                        FusionReplayTelemetry.clear()
+                        MarkerMotionTelemetry.clear()
                         EnergyDiagnostics.clear()
                         FieldMarkerDiagnostics.clear()
                         GnssDiagnostics.clear()
@@ -317,6 +318,14 @@ fun DebuggingSettingsScreen(
                             "Off - tap to start"
                         },
                     toggleControl = ToggleChipToggleControl.Switch,
+                )
+            }
+
+            item {
+                Chip(
+                    label = "Marker Motion",
+                    secondaryLabel = markerMotionStatusLabel,
+                    onClick = {},
                 )
             }
 

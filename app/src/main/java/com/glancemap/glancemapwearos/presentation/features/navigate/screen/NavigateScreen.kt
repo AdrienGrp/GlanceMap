@@ -40,6 +40,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.offline.OfflineStartCenteringEffect
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
@@ -59,6 +60,7 @@ import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidBitmap
@@ -182,6 +184,7 @@ fun NavigateScreen(
     val liveElevationEnabled by settingsViewModel.liveElevation.collectAsState(initial = false)
     val liveDistanceEnabled by settingsViewModel.liveDistance.collectAsState(initial = false)
     val offlineMode by settingsViewModel.offlineMode.collectAsState(initial = false)
+    val gpsDebugTelemetry by settingsViewModel.gpsDebugTelemetry.collectAsState()
     val isGpxInspectionEnabled by settingsViewModel.isGpxInspectionEnabled.collectAsState()
     val isMetric by settingsViewModel.isMetric.collectAsState()
     val poiIconSizePx by settingsViewModel.poiIconSizePx.collectAsState()
@@ -561,8 +564,21 @@ fun NavigateScreen(
 
     var gpsIndicatorPinned by rememberSaveable { mutableStateOf(false) }
     var pendingPoiFocusTarget by remember { mutableStateOf<PoiNavigateTarget?>(null) }
+    var markerMotionDebugOverlayLabel by remember { mutableStateOf<String?>(null) }
 
     val mapView = mapHolder.mapView
+
+    LaunchedEffect(gpsDebugTelemetry, offlineMode) {
+        if (!gpsDebugTelemetry || offlineMode) {
+            markerMotionDebugOverlayLabel = null
+            return@LaunchedEffect
+        }
+
+        while (isActive) {
+            markerMotionDebugOverlayLabel = MarkerMotionTelemetry.latestSnapshot().overlayLabel()
+            delay(250L)
+        }
+    }
 
     LaunchedEffect(navigateTarget, mapView, zoomMin, zoomMax) {
         val target = navigateTarget ?: return@LaunchedEffect
@@ -1073,6 +1089,7 @@ fun NavigateScreen(
         onPoiTapCreateGpx = routeToolActions.createRouteToPoi,
         poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
         poiPopupManualCloseOnly = poiPopupManualCloseOnly,
+        markerMotionDebugOverlayLabel = markerMotionDebugOverlayLabel,
     )
 
     LaunchedEffect(isScreenResumed) {

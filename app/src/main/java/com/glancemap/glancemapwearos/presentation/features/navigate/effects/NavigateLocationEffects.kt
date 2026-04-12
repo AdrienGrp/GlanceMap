@@ -11,15 +11,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
-import com.glancemap.glancemapwearos.core.service.location.config.FINE_FIX_MAX_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationTimingProfile
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
-import com.glancemap.glancemapwearos.domain.sensors.COMPASS_TELEMETRY_TAG
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
-import com.glancemap.glancemapwearos.domain.sensors.format
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.navigate.CompassMarkerQuality
 import com.glancemap.glancemapwearos.presentation.features.navigate.GpsFixIndicatorState
@@ -27,12 +23,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.LocationView
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.BetweenFixMotionInputs
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.BetweenFixMotionPolicy
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.CompassPredictionOverrideEvaluation
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.LocationFusionEngine
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.LowConfidenceCompassPredictionOverrideTracker
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerStabilizer
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.isActive
@@ -74,40 +65,20 @@ internal fun rememberNavigateLocationUiState(
         remember(expectedGpsIntervalMs) {
             resolveLocationTimingProfile(expectedGpsIntervalMs)
         }
-    val locationFusionEngine =
+    val markerMotionController =
         remember(timingProfile.intervalMs) {
-            LocationFusionEngine(
-                staleGpsThresholdMs = timingProfile.fusionStaleThresholdMs,
-                predictionHorizonMs = timingProfile.fusionPredictionHorizonMs,
-                correctionStaleGapMs = timingProfile.correctionStaleGapMs,
-                minBlendDurationMs = MIN_GPS_FIX_BLEND_MS,
-                maxBlendDurationMs = MAX_GPS_FIX_BLEND_MS,
-            )
-        }
-    val markerStabilizer =
-        remember(timingProfile.intervalMs) {
-            MarkerStabilizer(
-                maxAcceptedAccuracyM = FINE_FIX_MAX_ACCURACY_M,
+            MarkerMotionController(
+                predictionFreshnessMaxAgeMs = timingProfile.markerPredictionFreshnessMaxAgeMs,
                 maxAcceptedFixAgeMs = timingProfile.stabilizerMaxAcceptedFixAgeMs,
-                minOutlierWindowMs = 1_000L,
-                maxOutlierImpliedSpeedMps = 14f,
-                maxPredictionWithoutGpsMs = timingProfile.stabilizerMaxPredictionWithoutGpsMs,
-                wakeCorrectionMinGapMs = timingProfile.wakeCorrectionMinGapMs,
             )
         }
 
     val latestShouldFollowPosition = rememberUpdatedState(shouldFollowPosition)
     val latestSuppressLocationMarker = rememberUpdatedState(suppressLocationMarker)
-    val latestCompassQuality = rememberUpdatedState(compassQuality)
-    val lowConfidenceCompassPredictionOverrideTracker =
-        remember {
-            LowConfidenceCompassPredictionOverrideTracker()
-        }
 
     var locationMarker by remember { mutableStateOf<RotatableMarker?>(null) }
     var lastRenderedMarkerLatLong by remember { mutableStateOf<LatLong?>(null) }
     var indicatorFixAtElapsedMs by remember { mutableLongStateOf(0L) }
-    var indicatorFixAgeMs by remember { mutableLongStateOf(Long.MAX_VALUE) }
     var indicatorFixAccuracyM by remember { mutableFloatStateOf(Float.POSITIVE_INFINITY) }
     var indicatorFixFreshMaxAgeMs by remember { mutableLongStateOf(0L) }
     var indicatorLocationAvailable by remember { mutableStateOf(true) }
@@ -116,51 +87,31 @@ internal fun rememberNavigateLocationUiState(
     var holdMarkerUntilFreshFix by remember { mutableStateOf(false) }
     var holdMarkerStartedAtElapsedMs by remember { mutableLongStateOf(0L) }
     var trackingActivatedAtElapsedMs by remember { mutableLongStateOf(0L) }
-    var hasFirstFreshFix by remember { mutableStateOf(false) }
     var postWakePredictionHoldFixesRemaining by remember { mutableIntStateOf(0) }
     var lastWakeReacquireStartedAtElapsedMs by remember { mutableLongStateOf(Long.MIN_VALUE) }
     var wakeAnchorSeeded by remember { mutableStateOf(false) }
-    var allowLowQualityCompassPrediction by remember { mutableStateOf(false) }
 
     var gpsIndicatorClockMs by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
-    val latestAllowLowQualityCompassPrediction =
-        rememberUpdatedState(allowLowQualityCompassPrediction)
 
-    LaunchedEffect(shouldTrackLocation, locationFusionEngine) {
+    LaunchedEffect(shouldTrackLocation, markerMotionController) {
         if (shouldTrackLocation) return@LaunchedEffect
         // Always clear motion memory when tracking stops to avoid stale-gap carry-over.
         holdMarkerUntilFreshFix = false
         holdMarkerStartedAtElapsedMs = 0L
         trackingActivatedAtElapsedMs = 0L
-        hasFirstFreshFix = false
         postWakePredictionHoldFixesRemaining = 0
         wakeAnchorSeeded = false
-        allowLowQualityCompassPrediction =
-            resetCompassPredictionOverrideState(
-                wasActive = allowLowQualityCompassPrediction,
-                tracker = lowConfidenceCompassPredictionOverrideTracker,
-                reason = "tracking_disabled",
-            )
-        locationFusionEngine.reset()
-        markerStabilizer.reset()
+        markerMotionController.reset()
     }
 
     // On every tracking start, require one post-start fresh fix before rendering.
-    LaunchedEffect(screenState, shouldTrackLocation, locationFusionEngine) {
+    LaunchedEffect(screenState, shouldTrackLocation, markerMotionController) {
         if (screenState.isNonInteractive || !shouldTrackLocation) return@LaunchedEffect
         val nowElapsedMs = android.os.SystemClock.elapsedRealtime()
         trackingActivatedAtElapsedMs = nowElapsedMs
-        hasFirstFreshFix = false
         postWakePredictionHoldFixesRemaining = 0
         wakeAnchorSeeded = false
-        allowLowQualityCompassPrediction =
-            resetCompassPredictionOverrideState(
-                wasActive = allowLowQualityCompassPrediction,
-                tracker = lowConfidenceCompassPredictionOverrideTracker,
-                reason = "tracking_started",
-            )
-        locationFusionEngine.reset()
-        markerStabilizer.reset()
+        markerMotionController.reset()
         resolveWakeAnchorSeedOrNull(
             location = locationViewModel.currentLocation.value,
             receivedAtElapsedMs = nowElapsedMs,
@@ -168,22 +119,30 @@ internal fun rememberNavigateLocationUiState(
             maxAgeMs = computeWakeAnchorMaxAgeMs(expectedGpsIntervalMs),
             maxAccuracyM = WAKE_ANCHOR_MAX_ACCURACY_M,
         )?.let { anchor ->
-            locationFusionEngine.seedAnchor(
+            markerMotionController.seedAnchor(
                 latLong = anchor.latLong,
                 fixElapsedMs = anchor.fixElapsedMs,
-                speedMps = anchor.speedMps,
                 accuracyM = anchor.accuracyM,
+                speedMps = anchor.speedMps,
                 bearingDeg = anchor.bearingDeg,
-                nowElapsedMs = nowElapsedMs,
-            )
-            markerStabilizer.seedAnchor(
-                latLong = anchor.latLong,
-                fixElapsedMs = anchor.fixElapsedMs,
-                accuracyM = anchor.accuracyM,
-                speedMps = anchor.speedMps,
             )
             lastRenderedMarkerLatLong = anchor.latLong
             wakeAnchorSeeded = true
+            if (!latestSuppressLocationMarker.value && locationMarker == null) {
+                removeAllRotatableMarkers(mapView)
+                locationMarker =
+                    RotatableMarker(
+                        anchor.latLong,
+                        navigationMarkerBitmap,
+                        -navigationMarkerBitmap.width / 2,
+                        -navigationMarkerBitmap.height / 2,
+                    ).also { marker ->
+                        mapView.layerManager.layers.add(marker)
+                        if (marker.isVisible) {
+                            marker.requestRedraw()
+                        }
+                    }
+            }
         }
         val wakeReacquireInCooldown =
             isWakeReacquireCooldownActive(
@@ -199,7 +158,7 @@ internal fun rememberNavigateLocationUiState(
         lastWakeReacquireStartedAtElapsedMs = nowElapsedMs
         holdMarkerUntilFreshFix = true
         holdMarkerStartedAtElapsedMs = nowElapsedMs
-        locationFusionEngine.requireFreshFixForPrediction()
+        markerMotionController.requireFreshFixForPrediction()
         locationViewModel.requestImmediateLocation(source = "ui_startup_fresh_fix")
     }
 
@@ -215,39 +174,6 @@ internal fun rememberNavigateLocationUiState(
         }
     }
 
-    LaunchedEffect(compassViewModel, locationFusionEngine) {
-        var lastHeading = Float.NaN
-        var lastAccuracy = Int.MIN_VALUE
-        var lastMagneticInterference: Boolean? = null
-        compassViewModel.renderState.collect { state ->
-            val heading = state.headingDeg
-            if (!lastHeading.isFinite() || heading != lastHeading) {
-                locationFusionEngine.onHeading(
-                    headingDeg = heading,
-                    nowElapsedMs = android.os.SystemClock.elapsedRealtime(),
-                )
-                lastHeading = heading
-            }
-            if (state.accuracy != lastAccuracy) {
-                locationFusionEngine.onHeadingAccuracy(state.accuracy)
-                lastAccuracy = state.accuracy
-            }
-            if (lastMagneticInterference == null || state.magneticInterference != lastMagneticInterference) {
-                locationFusionEngine.onMagneticInterference(state.magneticInterference)
-                lastMagneticInterference = state.magneticInterference
-            }
-            val overrideEvaluation =
-                lowConfidenceCompassPredictionOverrideTracker.update(
-                    renderState = state,
-                    nowElapsedMs = android.os.SystemClock.elapsedRealtime(),
-                )
-            if (allowLowQualityCompassPrediction != overrideEvaluation.active) {
-                logCompassPredictionOverrideTransition(overrideEvaluation)
-            }
-            allowLowQualityCompassPrediction = overrideEvaluation.active
-        }
-    }
-
     LaunchedEffect(screenState) {
         if (screenState.isNonInteractive) return@LaunchedEffect
         while (isActive) {
@@ -259,7 +185,6 @@ internal fun rememberNavigateLocationUiState(
     LaunchedEffect(locationViewModel) {
         locationViewModel.gpsSignalSnapshot.collect { signal ->
             indicatorFixAtElapsedMs = signal.lastFixElapsedRealtimeMs
-            indicatorFixAgeMs = signal.lastFixAgeMs
             indicatorFixAccuracyM = signal.lastFixAccuracyM
             indicatorFixFreshMaxAgeMs = signal.lastFixFreshMaxAgeMs
             indicatorLocationAvailable = signal.isLocationAvailable
@@ -268,7 +193,6 @@ internal fun rememberNavigateLocationUiState(
         }
     }
 
-    val markerPredictionFreshnessMaxAgeMs = timingProfile.markerPredictionFreshnessMaxAgeMs
     val gpsStaleIndicatorThresholdMs = timingProfile.indicatorStaleThresholdMs
     val gpsIndicatorRawState =
         resolveGpsIndicatorState(
@@ -300,12 +224,7 @@ internal fun rememberNavigateLocationUiState(
         }
         val currentMarker = locationMarker
         if (currentMarker == null) {
-            val fallbackLatLong =
-                lastRenderedMarkerLatLong
-                    ?: locationViewModel.currentLocation.value?.let { loc ->
-                        toValidLatLongOrNull(loc.latitude, loc.longitude)
-                    }
-                    ?: return@LaunchedEffect
+            val fallbackLatLong = lastRenderedMarkerLatLong ?: return@LaunchedEffect
             locationMarker =
                 RotatableMarker(
                     fallbackLatLong,
@@ -353,14 +272,7 @@ internal fun rememberNavigateLocationUiState(
         trackingActivatedAtElapsedMs = 0L
         postWakePredictionHoldFixesRemaining = 0
         wakeAnchorSeeded = false
-        allowLowQualityCompassPrediction =
-            resetCompassPredictionOverrideState(
-                wasActive = allowLowQualityCompassPrediction,
-                tracker = lowConfidenceCompassPredictionOverrideTracker,
-                reason = "marker_suppressed",
-            )
-        locationFusionEngine.reset()
-        markerStabilizer.reset()
+        markerMotionController.reset()
     }
 
     // Restores old working behavior: center only when shouldFollowPosition is true.
@@ -378,21 +290,12 @@ internal fun rememberNavigateLocationUiState(
                         receivedAtElapsedMs = receivedAtElapsedMs,
                         nowWallClockMs = System.currentTimeMillis(),
                     )
-                val startupFreshMaxAgeMs =
-                    resolveStartupFreshFixMaxAgeMs(
-                        expectedGpsIntervalMs = expectedGpsIntervalMs,
-                        serviceFreshMaxAgeMs = indicatorFixFreshMaxAgeMs,
-                    )
                 val localFixAgeMs =
                     if (fixElapsedMs > 0L) {
                         (receivedAtElapsedMs - fixElapsedMs).coerceAtLeast(0L)
                     } else {
                         Long.MAX_VALUE
                     }
-                val localFixFresh =
-                    localFixAgeMs <= startupFreshMaxAgeMs &&
-                        loc.accuracy.isFinite() &&
-                        loc.accuracy <= STARTUP_FRESH_FIX_MAX_ACCURACY_M
                 val wakeSnapEligible =
                     localFixAgeMs <= computeWakeReacquireSnapMaxAgeMs(expectedGpsIntervalMs) &&
                         loc.accuracy.isFinite() &&
@@ -424,18 +327,12 @@ internal fun rememberNavigateLocationUiState(
                 if (releaseFromWakeHold) {
                     holdMarkerUntilFreshFix = false
                     holdMarkerStartedAtElapsedMs = 0L
-                    hasFirstFreshFix = true
                     postWakePredictionHoldFixesRemaining = 1
                     if (keepWakeAnchorForCorrection) {
                         wakeAnchorSeeded = false
                     } else {
-                        // First accepted post-wake fix should anchor directly with no legacy blending.
-                        locationFusionEngine.reset()
-                        markerStabilizer.reset()
+                        markerMotionController.reset()
                     }
-                }
-                if (localFixFresh) {
-                    hasFirstFreshFix = true
                 }
 
                 compassViewModel.updateDeclinationFromLocation(loc)
@@ -449,28 +346,15 @@ internal fun rememberNavigateLocationUiState(
                         0f
                     }
 
-                val fusionLatLong =
-                    locationFusionEngine.onGpsFix(
+                val displayLatLong =
+                    markerMotionController.onGpsFix(
                         latLong = ll,
-                        speedMps = motionSpeedMps,
-                        accuracyM = loc.accuracy,
-                        bearingDeg = if (loc.hasBearing()) loc.bearing else null,
-                        nowElapsedMs = receivedAtElapsedMs,
-                    )
-                val stabilizedLatLong =
-                    markerStabilizer.onGpsFix(
-                        candidate = fusionLatLong,
                         nowElapsedMs = receivedAtElapsedMs,
                         fixElapsedMs = fixElapsedMs,
                         accuracyM = loc.accuracy,
-                        speedMps = motionSpeedMps,
+                        rawSpeedMps = motionSpeedMps,
+                        rawBearingDeg = if (loc.hasBearing()) loc.bearing else null,
                     )
-                val displayLatLong =
-                    when {
-                        keepWakeAnchorForCorrection -> stabilizedLatLong
-                        releaseFromWakeHold -> ll
-                        else -> stabilizedLatLong
-                    }
                 if (postWakePredictionHoldFixesRemaining > 0 && !releaseFromWakeHold) {
                     postWakePredictionHoldFixesRemaining -= 1
                 }
@@ -518,14 +402,7 @@ internal fun rememberNavigateLocationUiState(
             trackingActivatedAtElapsedMs = 0L
             postWakePredictionHoldFixesRemaining = 0
             wakeAnchorSeeded = false
-            allowLowQualityCompassPrediction =
-                resetCompassPredictionOverrideState(
-                    wasActive = allowLowQualityCompassPrediction,
-                    tracker = lowConfidenceCompassPredictionOverrideTracker,
-                    reason = "dispose",
-                )
-            locationFusionEngine.reset()
-            markerStabilizer.reset()
+            markerMotionController.reset()
         }
     }
 
@@ -534,7 +411,7 @@ internal fun rememberNavigateLocationUiState(
         shouldTrackLocation,
         screenState,
         mapView,
-        locationFusionEngine,
+        markerMotionController,
     ) {
         if (!shouldTrackLocation) return@LaunchedEffect
         if (screenState.isNonInteractive) return@LaunchedEffect
@@ -544,38 +421,17 @@ internal fun rememberNavigateLocationUiState(
                 delay(80L)
                 continue
             }
-            delay(locationFusionEngine.suggestedPredictionTickMs())
+            delay(markerMotionController.suggestedPredictionTickMs())
             if (holdMarkerUntilFreshFix || postWakePredictionHoldFixesRemaining > 0) continue
 
             val nowElapsedMs = android.os.SystemClock.elapsedRealtime()
-            val latestFixAgeMs =
-                if (indicatorFixAtElapsedMs > 0L) {
-                    (nowElapsedMs - indicatorFixAtElapsedMs).coerceAtLeast(0L)
-                } else {
-                    Long.MAX_VALUE
-                }
-            val allowBetweenFixPrediction =
-                BetweenFixMotionPolicy.allowPrediction(
-                    inputs =
-                        BetweenFixMotionInputs(
-                            compassQuality = latestCompassQuality.value,
-                            gpsAccuracyM = indicatorFixAccuracyM,
-                            gpsFixAgeMs = latestFixAgeMs,
-                            gpsFreshMaxAgeMs = indicatorFixFreshMaxAgeMs,
-                            predictionFreshnessMaxAgeMs = markerPredictionFreshnessMaxAgeMs,
-                            watchGpsDegraded = indicatorWatchGpsDegraded,
-                            allowLowQualityCompassPrediction =
-                                latestAllowLowQualityCompassPrediction.value,
-                        ),
-                )
-            if (!allowBetweenFixPrediction) continue
-
-            val predictedFusion = locationFusionEngine.predict(nowElapsedMs) ?: continue
+            if (!indicatorLocationAvailable) continue
             val predicted =
-                markerStabilizer.onPrediction(
-                    candidate = predictedFusion,
+                markerMotionController.predict(
                     nowElapsedMs = nowElapsedMs,
-                )
+                    serviceFreshnessMaxAgeMs = indicatorFixFreshMaxAgeMs,
+                    watchGpsDegraded = indicatorWatchGpsDegraded,
+                ) ?: continue
             val marker = locationMarker ?: continue
 
             lastRenderedMarkerLatLong?.let { last ->
@@ -607,40 +463,12 @@ internal fun rememberNavigateLocationUiState(
     )
 }
 
-private const val MIN_GPS_FIX_BLEND_MS = 250L
-private const val MAX_GPS_FIX_BLEND_MS = 850L
 private const val MARKER_UPDATE_EPSILON_DEG2 = 1e-11
-private const val STARTUP_FRESH_FIX_MAX_ACCURACY_M = 35f
 private const val WAKE_REACQUIRE_TIMEOUT_MS = 6_000L
 private const val WAKE_REACQUIRE_COOLDOWN_MS = 60_000L
 private const val WAKE_REACQUIRE_SNAP_MAX_ACCURACY_M = 35f
 private const val WAKE_ANCHOR_MAX_ACCURACY_M = 35f
 private const val TRACKING_SESSION_FIX_MAX_SKEW_MS = 400L
-
-private fun resetCompassPredictionOverrideState(
-    wasActive: Boolean,
-    tracker: LowConfidenceCompassPredictionOverrideTracker,
-    reason: String,
-): Boolean {
-    val evaluation = tracker.reset(reason = reason)
-    if (wasActive) {
-        logCompassPredictionOverrideTransition(evaluation)
-    }
-    return evaluation.active
-}
-
-private fun logCompassPredictionOverrideTransition(
-    evaluation: CompassPredictionOverrideEvaluation,
-) {
-    if (!DebugTelemetry.isEnabled()) return
-    DebugTelemetry.log(
-        COMPASS_TELEMETRY_TAG,
-        "prediction_override active=${evaluation.active} reason=${evaluation.reason} " +
-            "headingErrorDeg=${evaluation.headingErrorDeg?.format(1) ?: "na"} " +
-            "spreadDeg=${evaluation.spreadDeg?.format(1) ?: "na"} " +
-            "sampleCount=${evaluation.sampleCount} spanMs=${evaluation.spanMs}",
-    )
-}
 
 private fun removeAllRotatableMarkers(mapView: MapView) {
     val layers = mapView.layerManager.layers
@@ -766,29 +594,6 @@ internal fun resolveWakeAnchorSeedFromFixOrNull(
         speedMps = speedMps,
         bearingDeg = bearingDeg,
     )
-}
-
-private fun isFreshLocationFix(
-    location: android.location.Location?,
-    maxAgeMs: Long,
-    maxAccuracyM: Float,
-): Boolean {
-    if (location == null) return false
-    if (!location.accuracy.isFinite() || location.accuracy > maxAccuracyM) return false
-
-    val ageMs =
-        when {
-            location.elapsedRealtimeNanos > 0L -> {
-                val nowNanos = android.os.SystemClock.elapsedRealtimeNanos()
-                ((nowNanos - location.elapsedRealtimeNanos) / 1_000_000L).coerceAtLeast(0L)
-            }
-            location.time > 0L -> {
-                (System.currentTimeMillis() - location.time).coerceAtLeast(0L)
-            }
-            else -> Long.MAX_VALUE
-        }
-
-    return ageMs <= maxAgeMs
 }
 
 internal fun resolveLocationFixElapsedRealtimeMs(
