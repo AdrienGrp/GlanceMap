@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -390,11 +390,11 @@ fun DebuggingSettingsScreen(
                                         )
                                     }
                                 if (handedOff) {
-                                    diagnosticsExportStatus = "Check phone. Tap resend if needed."
+                                    diagnosticsExportStatus = "Check phone. Button 3 resends if needed."
                                     exportDialogMode = DiagnosticsExportDialogMode.CHECK_PHONE
                                     exportDialogMessage =
                                         "Check your phone to send the diagnostics.\n" +
-                                        "If you dismissed the phone prompt there, tap Resend here."
+                                        "If you closed the phone prompt, tap button 3: Resend Diagnostic."
                                     return@launch
                                 }
                                 exportDialogMode = null
@@ -490,7 +490,7 @@ private fun DiagnosticsExportStatusDialog(
         } else if (mode == DiagnosticsExportDialogMode.FAILED) {
             "Export failed"
         } else {
-            "Diagnostics ready"
+            "Ready to send"
         }
 
     Dialog(
@@ -519,7 +519,16 @@ private fun DiagnosticsExportStatusDialog(
             androidx.compose.foundation.layout.Column(
                 modifier =
                     Modifier
-                        .width(184.dp)
+                        .fillMaxWidth()
+                        .widthIn(
+                            max =
+                                when {
+                                    adaptive.isCompact && adaptive.isRound -> 160.dp
+                                    adaptive.isCompact -> 168.dp
+                                    adaptive.isExpanded -> 192.dp
+                                    else -> 176.dp
+                                },
+                        )
                         .background(
                             Color.Black.copy(alpha = 0.92f),
                             RoundedCornerShape(adaptive.dialogCornerRadius),
