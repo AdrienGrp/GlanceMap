@@ -38,6 +38,7 @@ class SettingsRepositoryImpl private constructor(
         val WATCH_GPS_ONLY = booleanPreferencesKey("watch_gps_only")
         val GPS_IN_AMBIENT_MODE = booleanPreferencesKey("gps_in_ambient_mode")
         val GPS_DEBUG_TELEMETRY = booleanPreferencesKey("gps_debug_telemetry")
+        val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
         val PROMPT_FOR_CALIBRATION = booleanPreferencesKey("prompt_for_calibration")
         val SHOW_TIME_IN_NAVIGATE = booleanPreferencesKey("show_time_in_navigate")
         val NAVIGATE_TIME_FORMAT = stringPreferencesKey("navigate_time_format")
@@ -121,6 +122,13 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setGpsDebugTelemetry(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.GPS_DEBUG_TELEMETRY] = enabled }
+    }
+
+    override val gpsDebugTelemetryPopupEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] ?: true }
+
+    override suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] = enabled }
     }
 
     override val promptForCalibration: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.PROMPT_FOR_CALIBRATION] ?: false }

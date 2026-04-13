@@ -52,10 +52,10 @@ import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.CircularProgressIndicator
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
-import androidx.wear.compose.material3.LinearProgressIndicator
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
@@ -729,11 +729,22 @@ fun MapsScreen(
                                 demDownloadState.processedTiles.toFloat() /
                                     demDownloadState.totalTiles.toFloat()
                             ).coerceIn(0f, 1f)
+                        val progressPercent = (progress * 100f).toInt()
 
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth(0.72f),
-                        )
+                        Box(
+                            modifier = Modifier.size(64.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            Text(
+                                text = "$progressPercent%",
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
 
                         Text(
                             text = "DEM ${demDownloadState.processedTiles}/${demDownloadState.totalTiles}",

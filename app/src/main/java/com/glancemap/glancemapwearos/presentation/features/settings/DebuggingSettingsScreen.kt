@@ -40,11 +40,11 @@ import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
@@ -117,6 +117,7 @@ fun DebuggingSettingsScreen(
     val keepAppOpen by viewModel.keepAppOpen.collectAsState(initial = false)
     val gpsInAmbientMode by viewModel.gpsInAmbientMode.collectAsState()
     val gpsDebugTelemetry by viewModel.gpsDebugTelemetry.collectAsState()
+    val gpsDebugTelemetryPopupEnabled by viewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
     var diagnosticsExportStatus by remember {
         mutableStateOf(DIAGNOSTICS_DEFAULT_STATUS)
     }
@@ -312,6 +313,26 @@ fun DebuggingSettingsScreen(
                 )
             }
 
+            if (gpsDebugTelemetry) {
+                item {
+                    ToggleChip(
+                        checked = gpsDebugTelemetryPopupEnabled,
+                        onCheckedChanged = {
+                            if (exportInProgress) return@ToggleChip
+                            viewModel.setGpsDebugTelemetryPopupEnabled(it)
+                        },
+                        label = "Debug popup",
+                        secondaryLabel =
+                            if (gpsDebugTelemetryPopupEnabled) {
+                                "On while capturing"
+                            } else {
+                                "Off while capturing"
+                            },
+                        toggleControl = ToggleChipToggleControl.Switch,
+                    )
+                }
+            }
+
             item {
                 Chip(
                     label =
@@ -390,11 +411,10 @@ fun DebuggingSettingsScreen(
                                         )
                                     }
                                 if (handedOff) {
-                                    diagnosticsExportStatus = "Check phone. Tap resend if needed."
+                                    diagnosticsExportStatus = "Check phone. Use button 3 to resend."
                                     exportDialogMode = DiagnosticsExportDialogMode.CHECK_PHONE
                                     exportDialogMessage =
-                                        "Check your phone to send the diagnostics.\n" +
-                                        "If you dismissed the phone prompt there, tap Resend here."
+                                        "If you closed the phone prompt, tap button 3 again to resend."
                                     return@launch
                                 }
                                 exportDialogMode = null
@@ -490,67 +510,52 @@ private fun DiagnosticsExportStatusDialog(
         } else if (mode == DiagnosticsExportDialogMode.FAILED) {
             "Export failed"
         } else {
-            "Diagnostics ready"
+            "Diagnostic ready - check your phone"
         }
 
-    Dialog(
+    AlertDialog(
+        visible = true,
         onDismissRequest = {
             if (dismissible) {
                 onDismiss()
             }
         },
-        properties =
-            DialogProperties(
-                usePlatformDefaultWidth = false,
-                dismissOnBackPress = dismissible,
-                dismissOnClickOutside = dismissible,
-            ),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(
-                        horizontal = if (adaptive.isRound) 24.dp else 20.dp,
-                        vertical = if (adaptive.isRound) 18.dp else 16.dp,
-                    ),
-            contentAlignment = Alignment.Center,
-        ) {
-            androidx.compose.foundation.layout.Column(
+        icon = {
+            if (mode == DiagnosticsExportDialogMode.GENERATING) {
+                RouteToolBusySpinner(size = 30.dp)
+            }
+        },
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        text = {
+            Box(
                 modifier =
                     Modifier
-                        .width(184.dp)
-                        .background(
-                            Color.Black.copy(alpha = 0.92f),
-                            RoundedCornerShape(adaptive.dialogCornerRadius),
-                        ).padding(
-                            horizontal = adaptive.dialogHorizontalPadding,
-                            vertical = adaptive.dialogVerticalPadding,
-                        ),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .fillMaxWidth()
+                        .padding(horizontal = adaptive.dialogHorizontalPadding),
+                contentAlignment = Alignment.Center,
             ) {
-                if (mode == DiagnosticsExportDialogMode.GENERATING) {
-                    RouteToolBusySpinner(size = 30.dp)
-                }
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                )
                 Text(
                     text = message,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                if (dismissible) {
-                    Button(onClick = onDismiss) {
-                        Text("OK")
-                    }
+            }
+        },
+        confirmButton = {
+            if (dismissible) {
+                Button(onClick = onDismiss) {
+                    Text("OK")
                 }
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable

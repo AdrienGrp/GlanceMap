@@ -984,9 +984,9 @@ private fun BoxScope.MarkerMotionDebugOverlay(
 
     val overlayPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 10.dp
-            WearScreenSize.MEDIUM -> 9.dp
-            WearScreenSize.SMALL -> 8.dp
+            WearScreenSize.LARGE -> 24.dp
+            WearScreenSize.MEDIUM -> 22.dp
+            WearScreenSize.SMALL -> 20.dp
         }
     val overlayTextSize =
         when (screenSize) {

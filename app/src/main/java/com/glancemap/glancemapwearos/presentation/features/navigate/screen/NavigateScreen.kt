@@ -182,6 +182,7 @@ fun NavigateScreen(
     val liveDistanceEnabled by settingsViewModel.liveDistance.collectAsState(initial = false)
     val offlineMode by settingsViewModel.offlineMode.collectAsState(initial = false)
     val gpsDebugTelemetry by settingsViewModel.gpsDebugTelemetry.collectAsState()
+    val gpsDebugTelemetryPopupEnabled by settingsViewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
     val isGpxInspectionEnabled by settingsViewModel.isGpxInspectionEnabled.collectAsState()
     val isMetric by settingsViewModel.isMetric.collectAsState()
     val poiIconSizePx by settingsViewModel.poiIconSizePx.collectAsState()
@@ -564,8 +565,8 @@ fun NavigateScreen(
 
     val mapView = mapHolder.mapView
 
-    LaunchedEffect(gpsDebugTelemetry, offlineMode) {
-        if (!gpsDebugTelemetry || offlineMode) {
+    LaunchedEffect(gpsDebugTelemetry, gpsDebugTelemetryPopupEnabled, offlineMode) {
+        if (!gpsDebugTelemetry || !gpsDebugTelemetryPopupEnabled || offlineMode) {
             markerMotionDebugOverlayLabel = null
             return@LaunchedEffect
         }

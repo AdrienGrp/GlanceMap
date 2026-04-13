@@ -74,6 +74,7 @@ class MapViewModel(
 ) : ViewModel() {
     companion object {
         private const val MAP_APPEARANCE_APPLY_INDICATOR_MIN_MS = 900L
+        private const val INITIAL_MAP_LOAD_INDICATOR_MIN_MS = 1_400L
         private const val MAP_APPEARANCE_VISIBLE_TILE_TIMEOUT_MS = 4_500L
         private const val MAP_APPEARANCE_VISIBLE_TILE_SETTLE_MS = 220L
         private const val MAP_RENDERER_APPLY_DELAY_MS = 16L
@@ -744,7 +745,7 @@ class MapViewModel(
                     if (showInitialMapLoadIndicator) {
                         val elapsedMs = SystemClock.elapsedRealtime() - indicatorStartedAtMs
                         val remainingMs =
-                            (MAP_APPEARANCE_APPLY_INDICATOR_MIN_MS - elapsedMs).coerceAtLeast(0L)
+                            (INITIAL_MAP_LOAD_INDICATOR_MIN_MS - elapsedMs).coerceAtLeast(0L)
                         if (remainingMs > 0L) {
                             runCatching { delay(remainingMs) }
                         }
