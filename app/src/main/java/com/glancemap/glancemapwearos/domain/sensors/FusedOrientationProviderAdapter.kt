@@ -132,12 +132,14 @@ internal class FusedOrientationProviderAdapter(
             _useFallbackProvider,
             _useBootstrapFallbackProvider,
         ) { ownState, fallbackState, useFallback, useBootstrapFallback ->
+            val nowElapsedMs = SystemClock.elapsedRealtime()
             when {
                 useFallback -> fallbackState
                 useBootstrapFallback &&
                     shouldUseFusedBootstrapHeading(
                         fusedRenderState = ownState,
                         bootstrapRenderState = fallbackState,
+                        nowElapsedMs = nowElapsedMs,
                     ) ->
                     bootstrapFusedRenderState(
                         fusedRenderState = ownState,
@@ -367,6 +369,11 @@ internal class FusedOrientationProviderAdapter(
         stopOrientationUpdates()
         ensureCallbackHandler()
         refreshBootstrapFallbackProvider(reason = reason)
+        val cachedHeadingAgeMs =
+            googleFusedCachedHeadingAgeMs(
+                renderState = ownRenderState.value,
+                nowElapsedMs = SystemClock.elapsedRealtime(),
+            )?.takeIf { it <= FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS }
 
         headingRelockUntilElapsedMs = SystemClock.elapsedRealtime() + HEADING_RELOCK_WINDOW_MS
         fusedPendingJumpHeading = null
@@ -386,7 +393,7 @@ internal class FusedOrientationProviderAdapter(
         logDiagnostics(
             "google_fused request reason=$reason forceRestart=$forceRestart " +
                 "samplingMicros=$samplingPeriodMicros lowPower=$lowPowerMode " +
-                "boostActive=$usingBoost",
+                "boostActive=$usingBoost cachedHeadingAgeMs=${cachedHeadingAgeMs ?: "na"}",
         )
         val request = DeviceOrientationRequest.Builder(samplingPeriodMicros).build()
         fusedOrientationClient
@@ -843,19 +850,26 @@ internal class FusedOrientationProviderAdapter(
 internal fun shouldUseFusedBootstrapHeading(
     fusedRenderState: CompassRenderState,
     bootstrapRenderState: CompassRenderState,
+    nowElapsedMs: Long,
 ): Boolean {
-    if (fusedRenderState.providerType != CompassProviderType.GOOGLE_FUSED) return false
-    if (
+    val hasFreshFusedHeading =
         fusedRenderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
-        fusedRenderState.headingSampleElapsedRealtimeMs != null &&
-        !fusedRenderState.headingSampleStale
-    ) {
-        return false
-    }
-    if (bootstrapRenderState.headingSource == HeadingSource.NONE) return false
-    if (bootstrapRenderState.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) return false
-    if (bootstrapRenderState.magneticInterference) return false
-    return true
+            fusedRenderState.headingSampleElapsedRealtimeMs != null &&
+            !fusedRenderState.headingSampleStale
+    val hasRecentCachedFusedHeading =
+        hasRecentGoogleFusedCachedHeading(
+            renderState = fusedRenderState,
+            nowElapsedMs = nowElapsedMs,
+            maxAgeMs = FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS,
+        )
+    val hasUsableBootstrapHeading =
+        bootstrapRenderState.headingSource != HeadingSource.NONE &&
+            bootstrapRenderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE &&
+            !bootstrapRenderState.magneticInterference
+    return fusedRenderState.providerType == CompassProviderType.GOOGLE_FUSED &&
+        !hasFreshFusedHeading &&
+        !hasRecentCachedFusedHeading &&
+        hasUsableBootstrapHeading
 }
 
 internal fun bootstrapFusedRenderState(
@@ -878,6 +892,7 @@ private const val FUSED_ORIENTATION_LOW_POWER_SAMPLING_MICROS = 200_000L // 5 Hz
 private const val FUSED_INVALID_HEADING_ERROR_DEG = 180f
 private const val FUSED_ORIENTATION_SAMPLE_STALE_MS = 1_500L
 private const val FUSED_RECALIBRATION_HIGH_POWER_WINDOW_MS = 6_000L
+private const val FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS = 5_000L
 private const val FUSED_RESTART_CONFIRM_DELTA_DEG = 2f
 private const val FUSED_RESTART_CONFIRM_TIMEOUT_HIGH_POWER_MS = 160L
 private const val FUSED_RESTART_CONFIRM_TIMEOUT_LOW_POWER_MS = 350L

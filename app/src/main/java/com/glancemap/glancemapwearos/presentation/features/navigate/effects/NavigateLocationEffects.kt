@@ -730,7 +730,10 @@ internal fun shouldBypassCorrectionClamp(
     return previousAcceptedFixGapMs >= computeCorrectionClampBypassGapMs(expectedGpsIntervalMs)
 }
 
-internal fun computeCorrectionClampBypassGapMs(expectedGpsIntervalMs: Long): Long = resolveLocationTimingProfile(expectedGpsIntervalMs).correctionStaleGapMs
+internal fun computeCorrectionClampBypassGapMs(expectedGpsIntervalMs: Long): Long {
+    val timingProfile = resolveLocationTimingProfile(expectedGpsIntervalMs)
+    return timingProfile.correctionStaleGapMs
+}
 
 internal data class InteractiveStaleRefreshDecision(
     val shouldRequest: Boolean,

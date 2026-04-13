@@ -119,6 +119,7 @@ class NavigateCompassEffectsStateTest {
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.SCREEN_OFF,
                 isOfflineMode = false,
+                reason = "screen_off",
             ),
         )
         assertEquals(
@@ -127,6 +128,20 @@ class NavigateCompassEffectsStateTest {
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.AMBIENT,
                 isOfflineMode = false,
+                reason = "ambient",
+            ),
+        )
+    }
+
+    @Test
+    fun googleFusedGetsShortDisposeGraceWhenNavigateLeavesInteractiveScreen() {
+        assertEquals(
+            5_000L,
+            resolveNavigateCompassImmediateStopDelayMs(
+                compassProviderType = CompassProviderType.GOOGLE_FUSED,
+                screenState = LocationScreenState.INTERACTIVE,
+                isOfflineMode = false,
+                reason = "effect_dispose",
             ),
         )
     }
@@ -139,6 +154,7 @@ class NavigateCompassEffectsStateTest {
                 compassProviderType = CompassProviderType.SENSOR_MANAGER,
                 screenState = LocationScreenState.SCREEN_OFF,
                 isOfflineMode = false,
+                reason = "screen_off",
             ),
         )
         assertEquals(
@@ -147,6 +163,16 @@ class NavigateCompassEffectsStateTest {
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.SCREEN_OFF,
                 isOfflineMode = true,
+                reason = "screen_off",
+            ),
+        )
+        assertEquals(
+            0L,
+            resolveNavigateCompassImmediateStopDelayMs(
+                compassProviderType = CompassProviderType.GOOGLE_FUSED,
+                screenState = LocationScreenState.INTERACTIVE,
+                isOfflineMode = false,
+                reason = "lifecycle_pause",
             ),
         )
     }

@@ -49,3 +49,32 @@ internal fun initialCompassRenderState(
             ),
         magneticInterference = false,
     )
+
+internal fun googleFusedCachedHeadingAgeMs(
+    renderState: CompassRenderState,
+    nowElapsedMs: Long,
+): Long? {
+    val sampleAtElapsedMs = renderState.headingSampleElapsedRealtimeMs
+    val canUseCachedHeading =
+        renderState.providerType == CompassProviderType.GOOGLE_FUSED &&
+            renderState.headingDeg.isFinite() &&
+            sampleAtElapsedMs != null
+    return if (canUseCachedHeading) {
+        (nowElapsedMs - sampleAtElapsedMs).coerceAtLeast(0L)
+    } else {
+        null
+    }
+}
+
+internal fun hasRecentGoogleFusedCachedHeading(
+    renderState: CompassRenderState,
+    nowElapsedMs: Long,
+    maxAgeMs: Long,
+): Boolean {
+    val ageMs =
+        googleFusedCachedHeadingAgeMs(
+            renderState = renderState,
+            nowElapsedMs = nowElapsedMs,
+        ) ?: return false
+    return ageMs <= maxAgeMs
+}

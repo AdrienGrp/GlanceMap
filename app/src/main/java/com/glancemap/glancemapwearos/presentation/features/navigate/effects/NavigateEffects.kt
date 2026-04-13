@@ -11,6 +11,7 @@ import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.Mapsforge
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
+import com.glancemap.glancemapwearos.domain.sensors.hasRecentGoogleFusedCachedHeading
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import kotlinx.coroutines.flow.StateFlow
@@ -242,13 +243,12 @@ internal fun shouldDriveCompassFollowMap(renderState: CompassRenderState): Boole
 internal fun shouldSeedCompassFollowMapWithCachedHeading(
     renderState: CompassRenderState,
     nowElapsedMs: Long,
-): Boolean {
-    if (renderState.providerType != CompassProviderType.GOOGLE_FUSED) return false
-    val sampleAtElapsedMs = renderState.headingSampleElapsedRealtimeMs ?: return false
-    if (!renderState.headingDeg.isFinite()) return false
-    val ageMs = (nowElapsedMs - sampleAtElapsedMs).coerceAtLeast(0L)
-    return ageMs <= GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS
-}
+): Boolean =
+    hasRecentGoogleFusedCachedHeading(
+        renderState = renderState,
+        nowElapsedMs = nowElapsedMs,
+        maxAgeMs = GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS,
+    )
 
 private fun normalize360(deg: Float): Float = (deg % 360f + 360f) % 360f
 

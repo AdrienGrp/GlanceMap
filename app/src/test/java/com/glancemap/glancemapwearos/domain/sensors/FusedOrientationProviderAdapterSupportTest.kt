@@ -101,6 +101,7 @@ class FusedOrientationProviderAdapterSupportTest {
             shouldUseFusedBootstrapHeading(
                 fusedRenderState = fusedState,
                 bootstrapRenderState = bootstrapState,
+                nowElapsedMs = 1_000L,
             ),
         )
 
@@ -135,6 +136,33 @@ class FusedOrientationProviderAdapterSupportTest {
             shouldUseFusedBootstrapHeading(
                 fusedRenderState = fusedState,
                 bootstrapRenderState = bootstrapState,
+                nowElapsedMs = 1_200L,
+            ),
+        )
+    }
+
+    @Test
+    fun recentCachedFusedHeadingSuppressesBootstrapBridgeDuringWarmRestart() {
+        val fusedState =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingDeg = 184f,
+                accuracy = android.hardware.SensorManager.SENSOR_STATUS_UNRELIABLE,
+                headingSampleElapsedRealtimeMs = 10_000L,
+                headingSampleStale = true,
+                headingSource = HeadingSource.NONE,
+            )
+        val bootstrapState =
+            initialCompassRenderState(providerType = CompassProviderType.SENSOR_MANAGER).copy(
+                headingDeg = 212f,
+                accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
+                headingSource = HeadingSource.ROTATION_VECTOR,
+            )
+
+        assertFalse(
+            shouldUseFusedBootstrapHeading(
+                fusedRenderState = fusedState,
+                bootstrapRenderState = bootstrapState,
+                nowElapsedMs = 14_000L,
             ),
         )
     }

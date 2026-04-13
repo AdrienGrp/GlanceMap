@@ -47,6 +47,7 @@ internal fun NavigateCompassEffects(
                     compassProviderType = compassProviderType,
                     screenState = latestScreenState.value,
                     isOfflineMode = latestIsOfflineMode.value,
+                    reason = reason,
                 )
             logNavigateCompassEffect(
                 "ui_stop immediate=true reason=$reason screenState=${latestScreenState.value.name} " +
@@ -152,7 +153,7 @@ internal fun NavigateCompassEffects(
 
         onDispose {
             lifecycle.removeObserver(observer)
-            stopCompass(immediate = true, reason = "effect_dispose")
+            stopCompass(immediate = true, reason = NAVIGATE_COMPASS_EFFECT_DISPOSE_REASON)
         }
     }
 
@@ -217,14 +218,24 @@ internal fun resolveNavigateCompassImmediateStopDelayMs(
     compassProviderType: CompassProviderType,
     screenState: LocationScreenState,
     isOfflineMode: Boolean,
+    reason: String,
 ): Long {
-    if (isOfflineMode) return 0L
-    if (compassProviderType != CompassProviderType.GOOGLE_FUSED) return 0L
-    return when (screenState) {
-        LocationScreenState.SCREEN_OFF,
-        LocationScreenState.AMBIENT,
-        -> GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS
-        LocationScreenState.INTERACTIVE -> 0L
+    val shouldApplyGoogleFusedGrace =
+        !isOfflineMode && compassProviderType == CompassProviderType.GOOGLE_FUSED
+    return if (shouldApplyGoogleFusedGrace) {
+        when (screenState) {
+            LocationScreenState.SCREEN_OFF,
+            LocationScreenState.AMBIENT,
+            -> GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS
+            LocationScreenState.INTERACTIVE ->
+                if (reason == NAVIGATE_COMPASS_EFFECT_DISPOSE_REASON) {
+                    GOOGLE_FUSED_NAVIGATE_DISPOSE_GRACE_MS
+                } else {
+                    0L
+                }
+        }
+    } else {
+        0L
     }
 }
 
@@ -235,3 +246,5 @@ private fun logNavigateCompassEffect(message: String) {
 
 private const val NAVIGATE_COMPASS_STOP_DEBOUNCE_MS = 2_500L
 private const val GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS = 10_000L
+private const val GOOGLE_FUSED_NAVIGATE_DISPOSE_GRACE_MS = 5_000L
+private const val NAVIGATE_COMPASS_EFFECT_DISPOSE_REASON = "effect_dispose"
