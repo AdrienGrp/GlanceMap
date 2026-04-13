@@ -22,8 +22,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.wear.ambient.AmbientLifecycleObserver
+import androidx.wear.compose.foundation.CurvedTextStyle
 import androidx.wear.compose.material3.TimeText
 import androidx.wear.compose.material3.TimeTextDefaults
+import androidx.wear.compose.material3.timeTextCurvedText
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
@@ -149,21 +151,17 @@ class MainActivity : ComponentActivity() {
                         if (showTimeInNavigate && isNavigateScreen && !isAmbient) {
                             val context = LocalContext.current
                             TimeText(
-                                modifier =
-                                    Modifier
-                                        .background(
-                                            color = Color.Black.copy(alpha = 0.3f),
-                                            shape =
-                                                RoundedCornerShape(
-                                                    bottomStart = timeChipCornerRadius,
-                                                    bottomEnd = timeChipCornerRadius,
-                                                ),
-                                        ).padding(top = 2.dp),
+                                modifier = Modifier.padding(top = 2.dp),
                                 timeSource =
                                     TimeTextDefaults.rememberTimeSource(
                                         navigateTimePattern(context, navigateTimeFormat),
                                     ),
-                            )
+                            ) { time ->
+                                timeTextCurvedText(
+                                    time = time,
+                                    style = CurvedTextStyle(color = Color.White),
+                                )
+                            }
                         }
                     },
                 ) {

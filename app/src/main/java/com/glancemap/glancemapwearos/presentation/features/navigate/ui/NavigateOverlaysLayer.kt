@@ -286,6 +286,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
                     text = indicator.label,
                     modifier =
                         Modifier
+                            .padding(top = 2.dp)
                             .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(5.dp))
                             .padding(horizontal = 5.dp, vertical = 1.dp),
                     color = Color.White,
