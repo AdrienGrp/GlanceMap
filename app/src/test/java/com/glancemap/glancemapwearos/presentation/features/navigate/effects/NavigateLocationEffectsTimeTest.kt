@@ -346,6 +346,42 @@ class NavigateLocationEffectsTimeTest {
     }
 
     @Test
+    fun wakeSessionResolvesWhenFreshCurrentSessionFixArrives() {
+        val shouldResolve =
+            shouldResolveWakeSessionFromAcceptedFix(
+                activeWakeSessionId = 3L,
+                fixFromCurrentTrackingSession = true,
+                wakeSnapEligible = true,
+            )
+
+        assertTrue(shouldResolve)
+    }
+
+    @Test
+    fun wakeSessionDoesNotResolveWithoutActiveSession() {
+        val shouldResolve =
+            shouldResolveWakeSessionFromAcceptedFix(
+                activeWakeSessionId = 0L,
+                fixFromCurrentTrackingSession = true,
+                wakeSnapEligible = true,
+            )
+
+        assertFalse(shouldResolve)
+    }
+
+    @Test
+    fun wakeSessionDoesNotResolveFromNonCurrentFix() {
+        val shouldResolve =
+            shouldResolveWakeSessionFromAcceptedFix(
+                activeWakeSessionId = 5L,
+                fixFromCurrentTrackingSession = false,
+                wakeSnapEligible = true,
+            )
+
+        assertFalse(shouldResolve)
+    }
+
+    @Test
     fun postWakePredictionHoldStaysActiveUntilDeadline() {
         val active =
             isPostWakePredictionHoldActive(
@@ -384,7 +420,7 @@ class NavigateLocationEffectsTimeTest {
         val bypass =
             shouldBypassCorrectionClamp(
                 releaseFromWakeHold = false,
-                previousAcceptedFixGapMs = 6_000L,
+                previousAcceptedFixGapMs = 12_000L,
                 expectedGpsIntervalMs = 3_000L,
             )
 
@@ -397,6 +433,18 @@ class NavigateLocationEffectsTimeTest {
             shouldBypassCorrectionClamp(
                 releaseFromWakeHold = false,
                 previousAcceptedFixGapMs = 2_500L,
+                expectedGpsIntervalMs = 3_000L,
+            )
+
+        assertFalse(bypass)
+    }
+
+    @Test
+    fun correctionClampBypassStaysOffForModerateLongGap() {
+        val bypass =
+            shouldBypassCorrectionClamp(
+                releaseFromWakeHold = false,
+                previousAcceptedFixGapMs = 8_000L,
                 expectedGpsIntervalMs = 3_000L,
             )
 

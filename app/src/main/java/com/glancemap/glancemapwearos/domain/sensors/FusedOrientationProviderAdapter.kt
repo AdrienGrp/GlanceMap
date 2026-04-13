@@ -466,6 +466,8 @@ internal class FusedOrientationProviderAdapter(
                     nowElapsedMs = now,
                     pendingSampleCount = pendingRestartHeadingSampleCount,
                     timeoutMs = timeoutMs,
+                    headingErrorDeg = headingErrorDeg,
+                    conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
                 )
             when (decision.action) {
                 FusedRestartHeadingAction.IGNORE_FIRST -> {
@@ -480,10 +482,22 @@ internal class FusedOrientationProviderAdapter(
                 }
 
                 FusedRestartHeadingAction.AWAIT_PENDING -> {
+                    val reseededPendingHeading =
+                        pendingRestartHeading != null &&
+                            decision.nextPendingSampleCount == 1 &&
+                            decision.nextPendingHeadingDeg != pendingRestartHeading
                     pendingRestartHeading = decision.nextPendingHeadingDeg
                     pendingRestartHeadingAtElapsedMs = decision.nextPendingAtElapsedMs
                     pendingRestartHeadingSampleCount = decision.nextPendingSampleCount
-                    if (decision.nextPendingSampleCount == 2) {
+                    when {
+                        reseededPendingHeading ->
+                            logDiagnostics(
+                                "google_fused restart_heading_reseed reason=$lastOrientationRequestReason " +
+                                    "heading=${displayHeading.format(1)} " +
+                                    "delta=${decision.deltaDeg.format(1)} " +
+                                    "delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs",
+                            )
+                        decision.nextPendingSampleCount == 2 ->
                         logDiagnostics(
                             "google_fused restart_heading_pending reason=$lastOrientationRequestReason " +
                                 "heading=${displayHeading.format(1)} " +
@@ -893,9 +907,13 @@ private const val FUSED_INVALID_HEADING_ERROR_DEG = 180f
 private const val FUSED_ORIENTATION_SAMPLE_STALE_MS = 1_500L
 private const val FUSED_RECALIBRATION_HIGH_POWER_WINDOW_MS = 6_000L
 private const val FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS = 5_000L
-private const val FUSED_RESTART_CONFIRM_DELTA_DEG = 2f
 private const val FUSED_RESTART_CONFIRM_TIMEOUT_HIGH_POWER_MS = 160L
 private const val FUSED_RESTART_CONFIRM_TIMEOUT_LOW_POWER_MS = 350L
+private const val FUSED_RESTART_STABLE_DELTA_DEG = 15f
+private const val FUSED_RESTART_MIN_CONFIRM_SAMPLES = 3
+private const val FUSED_RESTART_MIN_CONFIDENT_SAMPLES = 2
+private const val FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG = 12f
+private const val FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG = 45f
 
 internal enum class FusedRestartHeadingAction {
     IGNORE_FIRST,
@@ -921,6 +939,8 @@ internal fun resolveFusedRestartHeadingDecision(
     nowElapsedMs: Long,
     pendingSampleCount: Int,
     timeoutMs: Long,
+    headingErrorDeg: Float,
+    conservativeHeadingErrorDeg: Float,
 ): FusedRestartHeadingDecision {
     if (pendingHeadingDeg == null) {
         return FusedRestartHeadingDecision(
@@ -943,7 +963,33 @@ internal fun resolveFusedRestartHeadingDecision(
             ),
         )
     val sampleCount = pendingSampleCount + 1
-    if (deltaDeg < FUSED_RESTART_CONFIRM_DELTA_DEG && pendingAgeMs < timeoutMs) {
+    val stableWithPending = deltaDeg <= FUSED_RESTART_STABLE_DELTA_DEG
+    val hasTrustedConservativeError =
+        conservativeHeadingErrorDeg.isFinite() &&
+            conservativeHeadingErrorDeg in 0f..FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG
+    val hasTrustedLiveError =
+        headingErrorDeg.isFinite() &&
+            headingErrorDeg in 0f..FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG
+    val hasTrustedHeadingError = hasTrustedConservativeError || hasTrustedLiveError
+    val hasEnoughStableSamples = sampleCount >= FUSED_RESTART_MIN_CONFIRM_SAMPLES
+    if (stableWithPending && (hasTrustedHeadingError || hasEnoughStableSamples || pendingAgeMs >= timeoutMs)) {
+        return FusedRestartHeadingDecision(
+            action = FusedRestartHeadingAction.CONFIRM,
+            nextPendingHeadingDeg = null,
+            nextPendingAtElapsedMs = 0L,
+            nextPendingSampleCount = 0,
+            sampleCount = sampleCount,
+            deltaDeg = deltaDeg,
+            pendingAgeMs = pendingAgeMs,
+            confirmReason =
+                when {
+                    hasTrustedHeadingError -> "confidence"
+                    hasEnoughStableSamples -> "stable"
+                    else -> "timeout"
+                },
+        )
+    }
+    if (stableWithPending) {
         return FusedRestartHeadingDecision(
             action = FusedRestartHeadingAction.AWAIT_PENDING,
             nextPendingHeadingDeg = pendingHeadingDeg,
@@ -955,19 +1001,28 @@ internal fun resolveFusedRestartHeadingDecision(
             confirmReason = null,
         )
     }
+
+    if (hasTrustedHeadingError && sampleCount >= FUSED_RESTART_MIN_CONFIDENT_SAMPLES) {
+        return FusedRestartHeadingDecision(
+            action = FusedRestartHeadingAction.CONFIRM,
+            nextPendingHeadingDeg = null,
+            nextPendingAtElapsedMs = 0L,
+            nextPendingSampleCount = 0,
+            sampleCount = sampleCount,
+            deltaDeg = deltaDeg,
+            pendingAgeMs = pendingAgeMs,
+            confirmReason = "confidence",
+        )
+    }
+
     return FusedRestartHeadingDecision(
-        action = FusedRestartHeadingAction.CONFIRM,
-        nextPendingHeadingDeg = null,
-        nextPendingAtElapsedMs = 0L,
-        nextPendingSampleCount = 0,
+        action = FusedRestartHeadingAction.AWAIT_PENDING,
+        nextPendingHeadingDeg = displayHeadingDeg,
+        nextPendingAtElapsedMs = nowElapsedMs,
+        nextPendingSampleCount = 1,
         sampleCount = sampleCount,
         deltaDeg = deltaDeg,
         pendingAgeMs = pendingAgeMs,
-        confirmReason =
-            if (deltaDeg >= FUSED_RESTART_CONFIRM_DELTA_DEG) {
-                "changed"
-            } else {
-                "timeout"
-            },
+        confirmReason = null,
     )
 }

@@ -17,6 +17,8 @@ class FusedOrientationProviderAdapterSupportTest {
                 nowElapsedMs = 100L,
                 pendingSampleCount = 0,
                 timeoutMs = 160L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
             )
 
         assertEquals(FusedRestartHeadingAction.IGNORE_FIRST, decision.action)
@@ -37,6 +39,8 @@ class FusedOrientationProviderAdapterSupportTest {
                 nowElapsedMs = 140L,
                 pendingSampleCount = 1,
                 timeoutMs = 160L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
             )
 
         assertEquals(FusedRestartHeadingAction.AWAIT_PENDING, decision.action)
@@ -49,7 +53,7 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
-    fun largeRestartJumpConfirmsReplacementHeading() {
+    fun largeRestartJumpReseedsPendingHeadingUntilItStabilizes() {
         val decision =
             resolveFusedRestartHeadingDecision(
                 pendingHeadingDeg = 4.2f,
@@ -58,33 +62,75 @@ class FusedOrientationProviderAdapterSupportTest {
                 nowElapsedMs = 159L,
                 pendingSampleCount = 1,
                 timeoutMs = 160L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
             )
 
-        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
-        assertNull(decision.nextPendingHeadingDeg)
-        assertEquals(0L, decision.nextPendingAtElapsedMs)
-        assertEquals(0, decision.nextPendingSampleCount)
+        assertEquals(FusedRestartHeadingAction.AWAIT_PENDING, decision.action)
+        assertEquals(163.5f, decision.nextPendingHeadingDeg)
+        assertEquals(159L, decision.nextPendingAtElapsedMs)
+        assertEquals(1, decision.nextPendingSampleCount)
         assertEquals(2, decision.sampleCount)
-        assertEquals("changed", decision.confirmReason)
+        assertNull(decision.confirmReason)
         assertTrue(decision.deltaDeg > 100f)
     }
 
     @Test
-    fun timeoutAlsoConfirmsLatestHeading() {
+    fun stableRestartSamplesConfirmAfterEnoughSamples() {
+        val decision =
+            resolveFusedRestartHeadingDecision(
+                pendingHeadingDeg = 4.2f,
+                displayHeadingDeg = 5.0f,
+                pendingAtElapsedMs = 100L,
+                nowElapsedMs = 180L,
+                pendingSampleCount = 2,
+                timeoutMs = 160L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
+        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
+        assertEquals(3, decision.sampleCount)
+        assertEquals("stable", decision.confirmReason)
+        assertTrue(decision.deltaDeg < 15f)
+    }
+
+    @Test
+    fun trustedConservativeErrorCanConfirmChangedHeadingFaster() {
+        val decision =
+            resolveFusedRestartHeadingDecision(
+                pendingHeadingDeg = 4.2f,
+                displayHeadingDeg = 163.5f,
+                pendingAtElapsedMs = 100L,
+                nowElapsedMs = 159L,
+                pendingSampleCount = 1,
+                timeoutMs = 160L,
+                headingErrorDeg = 10f,
+                conservativeHeadingErrorDeg = 25f,
+            )
+
+        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
+        assertEquals(2, decision.sampleCount)
+        assertEquals("confidence", decision.confirmReason)
+    }
+
+    @Test
+    fun timeoutConfirmsWhenStableSamplesPersistLongEnough() {
         val decision =
             resolveFusedRestartHeadingDecision(
                 pendingHeadingDeg = 4.2f,
                 displayHeadingDeg = 5.0f,
                 pendingAtElapsedMs = 100L,
                 nowElapsedMs = 280L,
-                pendingSampleCount = 2,
+                pendingSampleCount = 1,
                 timeoutMs = 160L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
             )
 
         assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
-        assertEquals(3, decision.sampleCount)
+        assertEquals(2, decision.sampleCount)
         assertEquals("timeout", decision.confirmReason)
-        assertTrue(decision.deltaDeg < 2f)
     }
 
     @Test

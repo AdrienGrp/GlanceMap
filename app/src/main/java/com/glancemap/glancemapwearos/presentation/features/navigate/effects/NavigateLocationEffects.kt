@@ -372,6 +372,12 @@ internal fun rememberNavigateLocationUiState(
                         wakeReleaseEligible = wakeReleaseEligible,
                         holdTimedOut = holdTimedOut,
                     )
+                val resolveWakeSessionFromAcceptedFix =
+                    shouldResolveWakeSessionFromAcceptedFix(
+                        activeWakeSessionId = activeWakeSessionId,
+                        fixFromCurrentTrackingSession = fixFromCurrentTrackingSession,
+                        wakeSnapEligible = wakeSnapEligible,
+                    )
                 if (holdMarkerUntilFreshFix && !releaseFromWakeHold) {
                     return@collect
                 }
@@ -397,6 +403,19 @@ internal fun rememberNavigateLocationUiState(
                     } else {
                         markerMotionController.reset(reason = "fresh_fix_release")
                     }
+                } else if (resolveWakeSessionFromAcceptedFix) {
+                    val resolvedWakeSessionId = activeWakeSessionId
+                    holdMarkerUntilFreshFix = false
+                    holdMarkerStartedAtElapsedMs = 0L
+                    activeWakeSessionId = 0L
+                    wakeAnchorSeeded = false
+                    logWakeSessionEvent(
+                        stage = "cancel",
+                        sessionId = resolvedWakeSessionId,
+                        nowElapsedMs = receivedAtElapsedMs,
+                        reason = "accepted_fix",
+                        fixAgeMs = localFixAgeMs,
+                    )
                 }
 
                 compassViewModel.updateDeclinationFromLocation(loc)
@@ -597,6 +616,7 @@ private const val INTERACTIVE_STALE_REFRESH_COOLDOWN_MS = 12_000L
 private const val WAKE_REACQUIRE_SNAP_MAX_ACCURACY_M = 35f
 private const val WAKE_ANCHOR_MAX_ACCURACY_M = 35f
 private const val TRACKING_SESSION_FIX_MAX_SKEW_MS = 400L
+private const val CORRECTION_CLAMP_BYPASS_MULTIPLIER = 2L
 private const val NAV_MARKER_TELEMETRY_TAG = "MarkerMotion"
 private const val UI_INTERACTIVE_STALE_REFRESH_SOURCE = "ui_interactive_stale_refresh"
 
@@ -708,6 +728,12 @@ internal fun shouldStartInteractiveWakeSession(
     screenState: LocationScreenState,
 ): Boolean = shouldTrackLocation && !screenState.isNonInteractive && !wasInteractiveTrackingActive
 
+internal fun shouldResolveWakeSessionFromAcceptedFix(
+    activeWakeSessionId: Long,
+    fixFromCurrentTrackingSession: Boolean,
+    wakeSnapEligible: Boolean,
+): Boolean = activeWakeSessionId > 0L && fixFromCurrentTrackingSession && wakeSnapEligible
+
 internal fun isPostWakePredictionHoldActive(
     nowElapsedMs: Long,
     holdUntilElapsedMs: Long,
@@ -732,7 +758,7 @@ internal fun shouldBypassCorrectionClamp(
 
 internal fun computeCorrectionClampBypassGapMs(expectedGpsIntervalMs: Long): Long {
     val timingProfile = resolveLocationTimingProfile(expectedGpsIntervalMs)
-    return timingProfile.correctionStaleGapMs
+    return timingProfile.correctionStaleGapMs * CORRECTION_CLAMP_BYPASS_MULTIPLIER
 }
 
 internal data class InteractiveStaleRefreshDecision(

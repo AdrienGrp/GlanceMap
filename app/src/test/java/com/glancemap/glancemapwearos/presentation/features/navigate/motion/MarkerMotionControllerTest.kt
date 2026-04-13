@@ -248,6 +248,41 @@ class MarkerMotionControllerTest {
         assertTrue(distanceMeters(settled, farTarget) < 2f)
         assertEquals(0, MarkerMotionTelemetry.summary().clampedCorrections)
     }
+
+    @Test
+    fun clampsModerateAccuracyLargeCorrection() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+        val farTarget = moveLatLong(base, bearing = 180f, distanceMeters = 28f)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 90_000L,
+            fixElapsedMs = 90_000L,
+            accuracyM = 10f,
+            rawSpeedMps = 1.1f,
+            rawBearingDeg = 180f,
+        )
+        controller.onGpsFix(
+            latLong = farTarget,
+            nowElapsedMs = 93_200L,
+            fixElapsedMs = 93_200L,
+            accuracyM = 15f,
+            rawSpeedMps = 1.2f,
+            rawBearingDeg = 180f,
+        )
+
+        val settled =
+            controller.predict(
+                nowElapsedMs = 93_600L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: farTarget
+
+        assertTrue(distanceMeters(settled, farTarget) > 5f)
+        assertEquals(1, MarkerMotionTelemetry.summary().clampedCorrections)
+    }
 }
 
 private fun distanceMeters(
