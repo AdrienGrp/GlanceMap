@@ -394,6 +394,11 @@ private fun reasonLabel(reason: String?): String? =
         "between_fixes" -> "between"
         "degraded_gps" -> "gps weak"
         "reset" -> "reset"
+        "interactive_start" -> "screen wake"
+        "tracking_stopped" -> "track off"
+        "fresh_fix_release" -> "fresh start"
+        "marker_hidden" -> "hidden"
+        "dispose" -> "dispose"
         else -> reason.replace('_', ' ')
     }
 

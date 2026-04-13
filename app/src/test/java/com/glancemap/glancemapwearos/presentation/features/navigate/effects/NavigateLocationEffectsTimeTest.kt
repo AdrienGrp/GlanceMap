@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate.effects
 
+import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.presentation.features.navigate.GpsFixIndicatorState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -318,6 +319,52 @@ class NavigateLocationEffectsTimeTest {
             )
 
         assertTrue(release)
+    }
+
+    @Test
+    fun interactiveWakeSessionStartsOnlyWhenTrackingBecomesInteractive() {
+        val shouldStart =
+            shouldStartInteractiveWakeSession(
+                wasInteractiveTrackingActive = false,
+                shouldTrackLocation = true,
+                screenState = LocationScreenState.INTERACTIVE,
+            )
+
+        assertTrue(shouldStart)
+    }
+
+    @Test
+    fun interactiveWakeSessionDoesNotRestartWhileAlreadyInteractive() {
+        val shouldStart =
+            shouldStartInteractiveWakeSession(
+                wasInteractiveTrackingActive = true,
+                shouldTrackLocation = true,
+                screenState = LocationScreenState.INTERACTIVE,
+            )
+
+        assertFalse(shouldStart)
+    }
+
+    @Test
+    fun postWakePredictionHoldStaysActiveUntilDeadline() {
+        val active =
+            isPostWakePredictionHoldActive(
+                nowElapsedMs = 10_400L,
+                holdUntilElapsedMs = 10_500L,
+            )
+
+        assertTrue(active)
+    }
+
+    @Test
+    fun postWakePredictionHoldStopsAtDeadline() {
+        val active =
+            isPostWakePredictionHoldActive(
+                nowElapsedMs = 10_500L,
+                holdUntilElapsedMs = 10_500L,
+            )
+
+        assertFalse(active)
     }
 
     @Test

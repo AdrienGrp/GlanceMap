@@ -5,7 +5,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -89,33 +88,45 @@ internal fun rememberNavigateLocationUiState(
         remember(shouldTrackLocation, screenState) { mutableLongStateOf(0L) }
     var trackingActivatedAtElapsedMs by
         remember(shouldTrackLocation, screenState) { mutableLongStateOf(0L) }
-    var postWakePredictionHoldFixesRemaining by
-        remember(shouldTrackLocation, screenState) { mutableIntStateOf(0) }
+    var postWakePredictionHoldUntilElapsedMs by
+        remember(shouldTrackLocation, screenState) { mutableLongStateOf(0L) }
     var lastWakeReacquireStartedAtElapsedMs by remember { mutableLongStateOf(Long.MIN_VALUE) }
     var wakeAnchorSeeded by
         remember(shouldTrackLocation, screenState) { mutableStateOf(false) }
+    var wasInteractiveTrackingActive by remember { mutableStateOf(false) }
 
     var gpsIndicatorClockMs by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
 
-    LaunchedEffect(shouldTrackLocation, markerMotionController) {
+    LaunchedEffect(shouldTrackLocation) {
         if (shouldTrackLocation) return@LaunchedEffect
         // Always clear motion memory when tracking stops to avoid stale-gap carry-over.
         holdMarkerUntilFreshFix = false
         holdMarkerStartedAtElapsedMs = 0L
         trackingActivatedAtElapsedMs = 0L
-        postWakePredictionHoldFixesRemaining = 0
+        postWakePredictionHoldUntilElapsedMs = 0L
         wakeAnchorSeeded = false
-        markerMotionController.reset()
+        wasInteractiveTrackingActive = false
+        markerMotionController.reset(reason = "tracking_stopped")
     }
 
-    // On every tracking start, require one post-start fresh fix before rendering.
-    LaunchedEffect(screenState, shouldTrackLocation, markerMotionController) {
-        if (screenState.isNonInteractive || !shouldTrackLocation) return@LaunchedEffect
+    val interactiveTrackingActive = shouldTrackLocation && !screenState.isNonInteractive
+
+    // Only re-enter wake handling when interactive tracking actually starts again.
+    LaunchedEffect(interactiveTrackingActive) {
+        val shouldStartWakeSession =
+            shouldStartInteractiveWakeSession(
+                wasInteractiveTrackingActive = wasInteractiveTrackingActive,
+                shouldTrackLocation = shouldTrackLocation,
+                screenState = screenState,
+            )
+        wasInteractiveTrackingActive = interactiveTrackingActive
+        if (!shouldStartWakeSession) return@LaunchedEffect
+
         val nowElapsedMs = android.os.SystemClock.elapsedRealtime()
         trackingActivatedAtElapsedMs = nowElapsedMs
-        postWakePredictionHoldFixesRemaining = 0
+        postWakePredictionHoldUntilElapsedMs = 0L
         wakeAnchorSeeded = false
-        markerMotionController.reset()
+        markerMotionController.reset(reason = "interactive_start")
         resolveWakeAnchorSeedOrNull(
             location = locationViewModel.currentLocation.value,
             receivedAtElapsedMs = nowElapsedMs,
@@ -269,9 +280,9 @@ internal fun rememberNavigateLocationUiState(
         holdMarkerUntilFreshFix = false
         holdMarkerStartedAtElapsedMs = 0L
         trackingActivatedAtElapsedMs = 0L
-        postWakePredictionHoldFixesRemaining = 0
+        postWakePredictionHoldUntilElapsedMs = 0L
         wakeAnchorSeeded = false
-        markerMotionController.reset()
+        markerMotionController.reset(reason = "marker_hidden")
         mapView.requestLayerRedrawSafely()
     }
 
@@ -327,11 +338,12 @@ internal fun rememberNavigateLocationUiState(
                 if (releaseFromWakeHold) {
                     holdMarkerUntilFreshFix = false
                     holdMarkerStartedAtElapsedMs = 0L
-                    postWakePredictionHoldFixesRemaining = 1
+                    postWakePredictionHoldUntilElapsedMs =
+                        receivedAtElapsedMs + POST_WAKE_PREDICTION_GRACE_MS
                     if (keepWakeAnchorForCorrection) {
                         wakeAnchorSeeded = false
                     } else {
-                        markerMotionController.reset()
+                        markerMotionController.reset(reason = "fresh_fix_release")
                     }
                 }
 
@@ -355,9 +367,6 @@ internal fun rememberNavigateLocationUiState(
                         rawSpeedMps = motionSpeedMps,
                         rawBearingDeg = if (loc.hasBearing()) loc.bearing else null,
                     )
-                if (postWakePredictionHoldFixesRemaining > 0 && !releaseFromWakeHold) {
-                    postWakePredictionHoldFixesRemaining -= 1
-                }
 
                 if (locationMarker == null) {
                     removeAllRotatableMarkers(mapView)
@@ -398,9 +407,9 @@ internal fun rememberNavigateLocationUiState(
             holdMarkerUntilFreshFix = false
             holdMarkerStartedAtElapsedMs = 0L
             trackingActivatedAtElapsedMs = 0L
-            postWakePredictionHoldFixesRemaining = 0
+            postWakePredictionHoldUntilElapsedMs = 0L
             wakeAnchorSeeded = false
-            markerMotionController.reset()
+            markerMotionController.reset(reason = "dispose")
         }
     }
 
@@ -420,9 +429,16 @@ internal fun rememberNavigateLocationUiState(
                 continue
             }
             delay(markerMotionController.suggestedPredictionTickMs())
-            if (holdMarkerUntilFreshFix || postWakePredictionHoldFixesRemaining > 0) continue
-
             val nowElapsedMs = android.os.SystemClock.elapsedRealtime()
+            if (
+                holdMarkerUntilFreshFix ||
+                isPostWakePredictionHoldActive(
+                    nowElapsedMs = nowElapsedMs,
+                    holdUntilElapsedMs = postWakePredictionHoldUntilElapsedMs,
+                )
+            ) {
+                continue
+            }
             if (!indicatorLocationAvailable) continue
             val predicted =
                 markerMotionController.predict(
@@ -464,6 +480,7 @@ internal fun rememberNavigateLocationUiState(
 private const val MARKER_UPDATE_EPSILON_DEG2 = 1e-11
 private const val WAKE_REACQUIRE_TIMEOUT_MS = 6_000L
 private const val WAKE_REACQUIRE_COOLDOWN_MS = 60_000L
+private const val POST_WAKE_PREDICTION_GRACE_MS = 700L
 private const val WAKE_REACQUIRE_SNAP_MAX_ACCURACY_M = 35f
 private const val WAKE_ANCHOR_MAX_ACCURACY_M = 35f
 private const val TRACKING_SESSION_FIX_MAX_SKEW_MS = 400L
@@ -569,6 +586,17 @@ internal fun shouldReleaseWakeReacquireHold(
     if (holdTimedOut && wakeReleaseEligible) return true
     return false
 }
+
+internal fun shouldStartInteractiveWakeSession(
+    wasInteractiveTrackingActive: Boolean,
+    shouldTrackLocation: Boolean,
+    screenState: LocationScreenState,
+): Boolean = shouldTrackLocation && !screenState.isNonInteractive && !wasInteractiveTrackingActive
+
+internal fun isPostWakePredictionHoldActive(
+    nowElapsedMs: Long,
+    holdUntilElapsedMs: Long,
+): Boolean = holdUntilElapsedMs > 0L && nowElapsedMs < holdUntilElapsedMs
 
 internal fun resolveWakeAnchorSeedFromFixOrNull(
     latLong: LatLong?,

@@ -23,7 +23,7 @@ internal class MarkerMotionController(
     private var smoothedSpeedMps: Float = 0f
     private var predictionRequiresFreshFix: Boolean = true
 
-    fun reset() {
+    fun reset(reason: String = "reset") {
         lastAcceptedFix = null
         displayedLatLong = null
         correctionBlend = null
@@ -31,7 +31,7 @@ internal class MarkerMotionController(
         predictionRequiresFreshFix = true
         MarkerMotionTelemetry.recordIdle(
             nowElapsedMs = 0L,
-            reason = "reset",
+            reason = reason,
         )
     }
 

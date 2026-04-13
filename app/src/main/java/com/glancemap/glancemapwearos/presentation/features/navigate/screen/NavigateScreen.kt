@@ -172,9 +172,6 @@ fun NavigateScreen(
     val autoRecenterDelay by settingsViewModel.autoRecenterDelay.collectAsState(initial = 5)
     val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
     val keepGpsInAmbient by settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
-    val effectiveGpsIntervalMs by locationViewModel.effectiveGpsIntervalMs.collectAsState(
-        initial = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
-    )
     val crownZoomEnabled by settingsViewModel.crownZoomEnabled.collectAsState(initial = true)
     val crownZoomInverted by settingsViewModel.crownZoomInverted.collectAsState(initial = true)
     val navigateTimeFormat by settingsViewModel.navigateTimeFormat.collectAsState()
@@ -605,7 +602,8 @@ fun NavigateScreen(
             shouldTrackLocation = shouldTrackLocation,
             shouldFollowPosition = shouldFollowPosition,
             screenState = screenState,
-            expectedGpsIntervalMs = effectiveGpsIntervalMs,
+            // Keep marker-motion timing stable; the 1s wake burst is a service detail.
+            expectedGpsIntervalMs = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
             navigationMarkerBitmap = navigationMarkerBitmap,
             suppressLocationMarker = offlineMode,
         )
