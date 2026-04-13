@@ -320,15 +320,15 @@ internal fun NavigateContent(
     val navButtonSize =
         if (adaptive.isRound) {
             when (screenSize) {
-                WearScreenSize.LARGE -> 30.dp
-                WearScreenSize.MEDIUM -> 28.dp
-                WearScreenSize.SMALL -> 26.dp
+                WearScreenSize.LARGE -> 28.dp
+                WearScreenSize.MEDIUM -> 26.dp
+                WearScreenSize.SMALL -> 24.dp
             }
         } else {
             when (screenSize) {
-                WearScreenSize.LARGE -> 32.dp
-                WearScreenSize.MEDIUM -> 30.dp
-                WearScreenSize.SMALL -> 28.dp
+                WearScreenSize.LARGE -> 30.dp
+                WearScreenSize.MEDIUM -> 28.dp
+                WearScreenSize.SMALL -> 26.dp
             }
         }
     val navButtonIconSize =

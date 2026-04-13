@@ -10,6 +10,7 @@ import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -149,14 +150,15 @@ class MainActivity : ComponentActivity() {
                             val context = LocalContext.current
                             TimeText(
                                 modifier =
-                                    Modifier.background(
-                                        color = Color.Black.copy(alpha = 0.3f),
-                                        shape =
-                                            RoundedCornerShape(
-                                                bottomStart = timeChipCornerRadius,
-                                                bottomEnd = timeChipCornerRadius,
-                                            ),
-                                    ),
+                                    Modifier
+                                        .background(
+                                            color = Color.Black.copy(alpha = 0.3f),
+                                            shape =
+                                                RoundedCornerShape(
+                                                    bottomStart = timeChipCornerRadius,
+                                                    bottomEnd = timeChipCornerRadius,
+                                                ),
+                                        ).padding(top = 2.dp),
                                 timeSource =
                                     TimeTextDefaults.rememberTimeSource(
                                         navigateTimePattern(context, navigateTimeFormat),

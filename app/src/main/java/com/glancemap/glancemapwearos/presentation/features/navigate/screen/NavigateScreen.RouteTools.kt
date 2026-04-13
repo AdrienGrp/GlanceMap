@@ -127,7 +127,7 @@ internal fun rememberNavigateRouteToolActions(
         @Suppress("UNUSED_PARAMETER") showProgressToast: Boolean,
     ) {
         if (routeToolExecutionInProgress) return
-        beginRouteToolExecution("Previewing route...")
+        beginRouteToolExecution("Previewing...")
         setRouteToolExecutionMessage(null)
         setRouteToolPreview(null)
         gpxViewModel.previewRouteToolModification(draft) { result ->

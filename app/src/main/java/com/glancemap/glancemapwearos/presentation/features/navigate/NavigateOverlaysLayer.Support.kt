@@ -619,7 +619,7 @@ internal fun BoxScope.NavModeButtonOverlay(
             pulseOn = !pulseOn
         }
     }
-    val trustContainerSize = navButtonSize + 8.dp
+    val trustContainerSize = navButtonSize + 6.dp
     val trustRingColor =
         when (trustState) {
             NavButtonTrustState.SEARCHING ->

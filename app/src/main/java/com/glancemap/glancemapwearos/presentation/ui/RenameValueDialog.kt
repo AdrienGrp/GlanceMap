@@ -37,6 +37,7 @@ fun RenameValueDialog(
     initialValue: String,
     isSaving: Boolean,
     error: String?,
+    autoFocusInput: Boolean = true,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
@@ -48,7 +49,7 @@ fun RenameValueDialog(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(visible, isSaving) {
-        if (visible && !isSaving) {
+        if (visible && !isSaving && autoFocusInput) {
             focusRequester.requestFocus()
             keyboardController?.show()
         }
@@ -93,7 +94,7 @@ fun RenameValueDialog(
                         .fillMaxWidth()
                         .focusRequester(focusRequester)
                         .background(
-                            Color.White.copy(alpha = 0.10f),
+                            Color(0xFF1F1F1F),
                             RoundedCornerShape(12.dp),
                         ).padding(horizontal = 12.dp, vertical = 10.dp),
                 decorationBox = { innerTextField ->

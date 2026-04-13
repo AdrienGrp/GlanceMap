@@ -64,6 +64,7 @@ internal fun RouteToolResultDialog(
             initialValue = result.displayTitle,
             isSaving = renameInProgress,
             error = renameError,
+            autoFocusInput = false,
             onDismiss = {
                 if (!renameInProgress) {
                     showRenameDialog = false
@@ -86,6 +87,7 @@ internal fun RouteToolResultDialog(
             modifier =
                 Modifier
                     .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.90f))
                     .padding(
                         horizontal = if (adaptive.isRound) 18.dp else 14.dp,
                         vertical = if (adaptive.isRound) 16.dp else 14.dp,
@@ -96,10 +98,7 @@ internal fun RouteToolResultDialog(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .background(
-                            Color.Black.copy(alpha = 0.90f),
-                            RoundedCornerShape(adaptive.dialogCornerRadius),
-                        ).padding(
+                        .padding(
                             horizontal = adaptive.dialogHorizontalPadding,
                             vertical = adaptive.dialogVerticalPadding,
                         ),

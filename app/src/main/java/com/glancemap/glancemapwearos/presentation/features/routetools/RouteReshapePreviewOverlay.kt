@@ -50,9 +50,9 @@ internal fun BoxScope.RouteReshapePreviewOverlay(
         }
     val bottomPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 38.dp
-            WearScreenSize.MEDIUM -> 34.dp
-            WearScreenSize.SMALL -> 30.dp
+            WearScreenSize.LARGE -> 41.dp
+            WearScreenSize.MEDIUM -> 37.dp
+            WearScreenSize.SMALL -> 33.dp
         }
 
     Column(

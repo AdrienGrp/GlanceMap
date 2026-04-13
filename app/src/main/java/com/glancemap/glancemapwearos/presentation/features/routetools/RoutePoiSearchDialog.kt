@@ -103,7 +103,7 @@ internal fun RoutePoiSearchDialog(
                         .fillMaxWidth()
                         .focusRequester(focusRequester)
                         .background(
-                            Color.White.copy(alpha = 0.10f),
+                            Color(0xFF1F1F1F),
                             RoundedCornerShape(12.dp),
                         ).padding(horizontal = 12.dp, vertical = 10.dp),
                 decorationBox = { innerTextField ->

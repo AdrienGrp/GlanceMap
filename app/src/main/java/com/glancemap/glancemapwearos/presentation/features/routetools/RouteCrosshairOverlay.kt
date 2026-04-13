@@ -570,6 +570,13 @@ private val RouteToolSession.hasCapturedPoints: Boolean
 
 @Composable
 private fun RouteCapturedPointsSummary(session: RouteToolSession) {
+    if (
+        session.options.toolKind == RouteToolKind.CREATE &&
+        session.options.createMode == RouteCreateMode.POINT_A_TO_B
+    ) {
+        return
+    }
+
     Row(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
