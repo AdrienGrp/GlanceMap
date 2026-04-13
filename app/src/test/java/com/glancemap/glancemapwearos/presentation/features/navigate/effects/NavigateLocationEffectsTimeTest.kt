@@ -368,6 +368,110 @@ class NavigateLocationEffectsTimeTest {
     }
 
     @Test
+    fun correctionClampBypassUsesWakeRelease() {
+        val bypass =
+            shouldBypassCorrectionClamp(
+                releaseFromWakeHold = true,
+                previousAcceptedFixGapMs = 1_000L,
+                expectedGpsIntervalMs = 3_000L,
+            )
+
+        assertTrue(bypass)
+    }
+
+    @Test
+    fun correctionClampBypassUsesStaleGap() {
+        val bypass =
+            shouldBypassCorrectionClamp(
+                releaseFromWakeHold = false,
+                previousAcceptedFixGapMs = 6_000L,
+                expectedGpsIntervalMs = 3_000L,
+            )
+
+        assertTrue(bypass)
+    }
+
+    @Test
+    fun correctionClampBypassStaysOffForNormalGap() {
+        val bypass =
+            shouldBypassCorrectionClamp(
+                releaseFromWakeHold = false,
+                previousAcceptedFixGapMs = 2_500L,
+                expectedGpsIntervalMs = 3_000L,
+            )
+
+        assertFalse(bypass)
+    }
+
+    @Test
+    fun interactiveStaleRefreshTriggersOnlyWhenFixAndVisualAreStale() {
+        val decision =
+            resolveInteractiveStaleRefreshDecision(
+                input =
+                    InteractiveStaleRefreshInput(
+                        shouldTrackLocation = true,
+                        screenState = LocationScreenState.INTERACTIVE,
+                        holdMarkerUntilFreshFix = false,
+                        postWakePredictionHoldActive = false,
+                        activeWakeSessionId = 0L,
+                        lastFixAtElapsedMs = 10_000L,
+                        lastFixFreshMaxAgeMs = 6_000L,
+                        lastVisualUpdateAtElapsedMs = 10_500L,
+                        lastRefreshRequestAtElapsedMs = Long.MIN_VALUE,
+                        nowElapsedMs = 16_500L,
+                    ),
+            )
+
+        assertTrue(decision.shouldRequest)
+        assertEquals(6_500L, decision.fixAgeMs)
+        assertEquals(6_000L, decision.visualAgeMs)
+    }
+
+    @Test
+    fun interactiveStaleRefreshSkipsDuringWakeRecovery() {
+        val decision =
+            resolveInteractiveStaleRefreshDecision(
+                input =
+                    InteractiveStaleRefreshInput(
+                        shouldTrackLocation = true,
+                        screenState = LocationScreenState.INTERACTIVE,
+                        holdMarkerUntilFreshFix = true,
+                        postWakePredictionHoldActive = false,
+                        activeWakeSessionId = 7L,
+                        lastFixAtElapsedMs = 10_000L,
+                        lastFixFreshMaxAgeMs = 6_000L,
+                        lastVisualUpdateAtElapsedMs = 10_000L,
+                        lastRefreshRequestAtElapsedMs = Long.MIN_VALUE,
+                        nowElapsedMs = 17_000L,
+                    ),
+            )
+
+        assertFalse(decision.shouldRequest)
+    }
+
+    @Test
+    fun interactiveStaleRefreshHonorsCooldown() {
+        val decision =
+            resolveInteractiveStaleRefreshDecision(
+                input =
+                    InteractiveStaleRefreshInput(
+                        shouldTrackLocation = true,
+                        screenState = LocationScreenState.INTERACTIVE,
+                        holdMarkerUntilFreshFix = false,
+                        postWakePredictionHoldActive = false,
+                        activeWakeSessionId = 0L,
+                        lastFixAtElapsedMs = 10_000L,
+                        lastFixFreshMaxAgeMs = 6_000L,
+                        lastVisualUpdateAtElapsedMs = 10_000L,
+                        lastRefreshRequestAtElapsedMs = 15_000L,
+                        nowElapsedMs = 20_000L,
+                    ),
+            )
+
+        assertFalse(decision.shouldRequest)
+    }
+
+    @Test
     fun wakeReacquireCooldownInactiveWhenThereWasNoPreviousStart() {
         val active =
             isWakeReacquireCooldownActive(

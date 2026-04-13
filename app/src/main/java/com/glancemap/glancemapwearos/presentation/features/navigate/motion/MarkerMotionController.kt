@@ -85,6 +85,7 @@ internal class MarkerMotionController(
         accuracyM: Float,
         rawSpeedMps: Float,
         rawBearingDeg: Float?,
+        allowLargeCorrection: Boolean = false,
     ): LatLong {
         val currentDisplayed = displayedLatLong
         val sanitizedAccuracy = sanitizeAccuracy(accuracyM)
@@ -211,22 +212,48 @@ internal class MarkerMotionController(
             return latLong
         }
 
+        val correctionTarget =
+            resolveCorrectionTarget(
+                request =
+                    CorrectionTargetRequest(
+                        currentDisplayed = currentDisplayed,
+                        targetLatLong = latLong,
+                        correctionDistanceM = correctionDistanceM,
+                        accuracyM = sanitizedAccuracy,
+                        speedMps = smoothedSpeedMps,
+                        allowLargeCorrection = allowLargeCorrection,
+                    ),
+            )
+        val visibleTarget = correctionTarget.targetLatLong
+        if (correctionTarget.wasClamped) {
+            MarkerMotionTelemetry.recordCorrectionClamped(
+                event =
+                    CorrectionClampTelemetryEvent(
+                        nowElapsedMs = nowElapsedMs,
+                        actualCorrectionDistanceM = correctionDistanceM,
+                        visibleCorrectionDistanceM = correctionTarget.visibleCorrectionDistanceM,
+                        accuracyM = sanitizedAccuracy,
+                        speedMps = smoothedSpeedMps,
+                        bearingDeg = resolvedBearingDeg,
+                    ),
+            )
+        }
         correctionBlend =
             CorrectionBlend(
                 from = currentDisplayed,
-                to = latLong,
+                to = visibleTarget,
                 startElapsedMs = nowElapsedMs,
                 durationMs = correctionBlendDurationMs,
             )
         MarkerMotionTelemetry.recordFixAccepted(
             mode = MarkerMotionMode.BLEND,
-            reason = "gps_correction",
+            reason = if (correctionTarget.wasClamped) "correction_clamped" else "gps_correction",
             nowElapsedMs = nowElapsedMs,
             fixAgeMs = fixAgeMs,
             accuracyM = sanitizedAccuracy,
             speedMps = smoothedSpeedMps,
             bearingDeg = resolvedBearingDeg,
-            correctionDistanceM = correctionDistanceM,
+            correctionDistanceM = correctionTarget.visibleCorrectionDistanceM,
             blendDurationMs = correctionBlendDurationMs,
         )
         return currentDisplayed
@@ -414,6 +441,49 @@ internal class MarkerMotionController(
             else -> 1.2f
         }
 
+    private fun resolveCorrectionTarget(request: CorrectionTargetRequest): CorrectionTargetDecision {
+        val canClamp =
+            !request.allowLargeCorrection &&
+                request.correctionDistanceM >= LARGE_CORRECTION_MIN_DISTANCE_M &&
+                request.accuracyM >= LARGE_CORRECTION_MIN_ACCURACY_M
+        if (!canClamp) {
+            return CorrectionTargetDecision(
+                targetLatLong = request.targetLatLong,
+                visibleCorrectionDistanceM = request.correctionDistanceM,
+                wasClamped = false,
+            )
+        }
+
+        val maxVisibleCorrectionM =
+            (
+                LARGE_CORRECTION_BASE_VISIBLE_M +
+                    request.accuracyM * LARGE_CORRECTION_ACCURACY_SCALE +
+                    request.speedMps * LARGE_CORRECTION_SPEED_SCALE
+            ).coerceAtLeast(LARGE_CORRECTION_BASE_VISIBLE_M)
+        val wasClamped = request.correctionDistanceM > maxVisibleCorrectionM
+        val visibleCorrectionDistanceM =
+            if (wasClamped) {
+                maxVisibleCorrectionM
+            } else {
+                request.correctionDistanceM
+            }
+        val targetLatLong =
+            if (wasClamped) {
+                moveLatLong(
+                    start = request.currentDisplayed,
+                    bearing = bearingBetweenDegrees(request.currentDisplayed, request.targetLatLong),
+                    distanceMeters = maxVisibleCorrectionM,
+                )
+            } else {
+                request.targetLatLong
+            }
+        return CorrectionTargetDecision(
+            targetLatLong = targetLatLong,
+            visibleCorrectionDistanceM = visibleCorrectionDistanceM,
+            wasClamped = wasClamped,
+        )
+    }
+
     private fun resolveMotionSpeedMps(
         rawSpeedMps: Float,
         derivedSpeedMps: Float?,
@@ -493,6 +563,21 @@ private data class OutlierDecision(
     val jumpMeters: Float,
     val impliedSpeedMps: Float,
     val dtSec: Float,
+)
+
+private data class CorrectionTargetDecision(
+    val targetLatLong: LatLong,
+    val visibleCorrectionDistanceM: Float,
+    val wasClamped: Boolean,
+)
+
+private data class CorrectionTargetRequest(
+    val currentDisplayed: LatLong,
+    val targetLatLong: LatLong,
+    val correctionDistanceM: Float,
+    val accuracyM: Float,
+    val speedMps: Float,
+    val allowLargeCorrection: Boolean,
 )
 
 private fun MotionFix.deriveMotionTo(
@@ -592,3 +677,8 @@ private const val OUTLIER_SPEED_MARGIN_M = 5f
 private const val STATIONARY_JITTER_MAX_SPEED_MPS = 0.35f
 private const val STATIONARY_JITTER_MIN_RADIUS_M = 3f
 private const val STATIONARY_JITTER_MAX_RADIUS_M = 10f
+private const val LARGE_CORRECTION_MIN_DISTANCE_M = 18f
+private const val LARGE_CORRECTION_MIN_ACCURACY_M = 16f
+private const val LARGE_CORRECTION_BASE_VISIBLE_M = 8f
+private const val LARGE_CORRECTION_ACCURACY_SCALE = 0.35f
+private const val LARGE_CORRECTION_SPEED_SCALE = 2.2f

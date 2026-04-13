@@ -16,6 +16,7 @@ internal data class MarkerMotionSummary(
     val outlierDrops: Int = 0,
     val predictionUpdates: Int = 0,
     val blendStarts: Int = 0,
+    val clampedCorrections: Int = 0,
     val blockedTransitions: Int = 0,
     val latestMode: MarkerMotionMode = MarkerMotionMode.IDLE,
     val latestReason: String? = null,
@@ -26,6 +27,7 @@ internal data class MarkerMotionSummary(
             append(" fix=$acceptedFixes")
             append(" pred=$predictionUpdates")
             append(" blend=$blendStarts")
+            append(" clamp=$clampedCorrections")
             append(" drop=$outlierDrops")
         }
 }
@@ -73,6 +75,15 @@ internal data class MarkerMotionSnapshot(
     }
 }
 
+internal data class CorrectionClampTelemetryEvent(
+    val nowElapsedMs: Long,
+    val actualCorrectionDistanceM: Float,
+    val visibleCorrectionDistanceM: Float,
+    val accuracyM: Float,
+    val speedMps: Float,
+    val bearingDeg: Float?,
+)
+
 internal object MarkerMotionTelemetry {
     private const val TAG = "MarkerMotion"
 
@@ -82,6 +93,7 @@ internal object MarkerMotionTelemetry {
     private var outlierDrops: Int = 0
     private var predictionUpdates: Int = 0
     private var blendStarts: Int = 0
+    private var clampedCorrections: Int = 0
     private var blockedTransitions: Int = 0
     private var lastLoggedStateSignature: String? = null
 
@@ -92,6 +104,7 @@ internal object MarkerMotionTelemetry {
             outlierDrops = 0
             predictionUpdates = 0
             blendStarts = 0
+            clampedCorrections = 0
             blockedTransitions = 0
             lastLoggedStateSignature = null
         }
@@ -111,6 +124,7 @@ internal object MarkerMotionTelemetry {
                 outlierDrops = outlierDrops,
                 predictionUpdates = predictionUpdates,
                 blendStarts = blendStarts,
+                clampedCorrections = clampedCorrections,
                 blockedTransitions = blockedTransitions,
                 latestMode = latestSnapshot.mode,
                 latestReason = latestSnapshot.reason,
@@ -232,6 +246,23 @@ internal object MarkerMotionTelemetry {
         synchronized(lock) {
             latestSnapshot = snapshot
         }
+    }
+
+    fun recordCorrectionClamped(event: CorrectionClampTelemetryEvent) {
+        synchronized(lock) {
+            clampedCorrections += 1
+        }
+        DebugTelemetry.log(
+            TAG,
+            buildString {
+                append("clamp actual=${event.actualCorrectionDistanceM.format(1)}")
+                append(" visible=${event.visibleCorrectionDistanceM.format(1)}")
+                append(" acc=${event.accuracyM.format(1)}")
+                append(" speed=${event.speedMps.format(2)}")
+                append(" bearing=${event.bearingDeg.formatOrNa(1)}")
+                append(" at=${event.nowElapsedMs}ms")
+            },
+        )
     }
 
     fun recordOutlierDropped(
@@ -381,6 +412,7 @@ private fun reasonLabel(reason: String?): String? =
         "wake_anchor" -> "wake"
         "initial_fix" -> "first"
         "gps_correction" -> "correct"
+        "correction_clamped" -> "clamp"
         "stationary_jitter" -> "steady"
         "deadband_snap" -> "snap"
         "stale_fix" -> "stale fix"

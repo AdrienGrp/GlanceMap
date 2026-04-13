@@ -702,6 +702,7 @@ object DiagnosticsExporter {
             writer.appendLine("outlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("predictionUpdates=${markerMotionSummary.predictionUpdates}")
             writer.appendLine("blendStarts=${markerMotionSummary.blendStarts}")
+            writer.appendLine("clampedCorrections=${markerMotionSummary.clampedCorrections}")
             writer.appendLine("blockedTransitions=${markerMotionSummary.blockedTransitions}")
             writer.appendLine("latestMode=${markerMotionSnapshot.mode.label}")
             writer.appendLine("latestReason=${markerMotionSnapshot.reason ?: "na"}")
