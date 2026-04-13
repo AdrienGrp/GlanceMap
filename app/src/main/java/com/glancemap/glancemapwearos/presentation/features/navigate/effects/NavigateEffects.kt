@@ -103,24 +103,21 @@ fun NavigationOrientationEffect(
     ) {
         val renderStateNow = renderStateFlow.value
         val headingNow = normalize360(renderStateNow.headingDeg)
+        val shouldDriveHeadingNow = shouldDriveHeadingForNavMode(navMode, renderStateNow)
         val shouldSeedCachedHeading =
             navMode == NavMode.COMPASS_FOLLOW &&
                 shouldSeedCompassFollowMapWithCachedHeading(
                     renderState = renderStateNow,
                     nowElapsedMs = SystemClock.elapsedRealtime(),
                 )
-        if (
-            navMode != NavMode.COMPASS_FOLLOW ||
-            shouldDriveCompassFollowMap(renderStateNow) ||
-            shouldSeedCachedHeading
-        ) {
+        if (shouldDriveHeadingNow || shouldSeedCachedHeading) {
             displayedHeading.floatValue = headingNow
             onRenderedHeadingChanged(headingNow)
         }
 
         when (navMode) {
             NavMode.COMPASS_FOLLOW -> {
-                if (shouldDriveCompassFollowMap(renderStateNow) || shouldSeedCachedHeading) {
+                if (shouldDriveHeadingNow || shouldSeedCachedHeading) {
                     val rot = -displayedHeading.floatValue
                     applyMapRotation(rot)
                 } else {
@@ -175,7 +172,7 @@ fun NavigationOrientationEffect(
                     normalize360(state.headingDeg)
                 }.distinctUntilChanged()
                 .collect { heading ->
-                    if (navMode != NavMode.COMPASS_FOLLOW || shouldDriveCompassFollowMap(latestRenderState)) {
+                    if (shouldDriveHeadingForNavMode(navMode, latestRenderState)) {
                         liveTarget = heading
                     }
                 }
@@ -185,9 +182,7 @@ fun NavigationOrientationEffect(
         while (true) {
             withFrameNanos {
                 if (navMode == NavMode.PANNING) return@withFrameNanos
-                if (navMode == NavMode.COMPASS_FOLLOW &&
-                    !shouldDriveCompassFollowMap(latestRenderState)
-                ) {
+                if (!shouldDriveHeadingForNavMode(navMode, latestRenderState)) {
                     return@withFrameNanos
                 }
                 val current = displayedHeading.floatValue
@@ -239,6 +234,31 @@ internal fun shouldDriveCompassFollowMap(renderState: CompassRenderState): Boole
     }
     return true
 }
+
+internal fun shouldDriveMarkerHeading(renderState: CompassRenderState): Boolean {
+    val hasBaseHeading =
+        renderState.headingSource != HeadingSource.NONE &&
+            renderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE
+    val providerAllowsMarkerHeading =
+        when (renderState.providerType) {
+            CompassProviderType.SENSOR_MANAGER -> true
+            CompassProviderType.GOOGLE_FUSED ->
+                renderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
+                    renderState.headingSampleElapsedRealtimeMs != null &&
+                    !renderState.headingSampleStale
+        }
+    return hasBaseHeading && providerAllowsMarkerHeading
+}
+
+internal fun shouldDriveHeadingForNavMode(
+    navMode: NavMode,
+    renderState: CompassRenderState,
+): Boolean =
+    when (navMode) {
+        NavMode.COMPASS_FOLLOW -> shouldDriveCompassFollowMap(renderState)
+        NavMode.NORTH_UP_FOLLOW -> shouldDriveMarkerHeading(renderState)
+        NavMode.PANNING -> false
+    }
 
 internal fun shouldSeedCompassFollowMapWithCachedHeading(
     renderState: CompassRenderState,
