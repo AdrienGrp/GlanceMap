@@ -445,7 +445,10 @@ internal class MarkerMotionController(
         val canClamp =
             !request.allowLargeCorrection &&
                 request.correctionDistanceM >= LARGE_CORRECTION_MIN_DISTANCE_M &&
-                request.accuracyM >= LARGE_CORRECTION_MIN_ACCURACY_M
+                (
+                    request.accuracyM >= LARGE_CORRECTION_MIN_ACCURACY_M ||
+                        request.correctionDistanceM >= LARGE_CORRECTION_FORCE_CLAMP_DISTANCE_M
+                )
         if (!canClamp) {
             return CorrectionTargetDecision(
                 targetLatLong = request.targetLatLong,
@@ -679,6 +682,7 @@ private const val STATIONARY_JITTER_MIN_RADIUS_M = 3f
 private const val STATIONARY_JITTER_MAX_RADIUS_M = 10f
 private const val LARGE_CORRECTION_MIN_DISTANCE_M = 18f
 private const val LARGE_CORRECTION_MIN_ACCURACY_M = 14f
+private const val LARGE_CORRECTION_FORCE_CLAMP_DISTANCE_M = 26f
 private const val LARGE_CORRECTION_BASE_VISIBLE_M = 8f
 private const val LARGE_CORRECTION_ACCURACY_SCALE = 0.35f
 private const val LARGE_CORRECTION_SPEED_SCALE = 2.2f

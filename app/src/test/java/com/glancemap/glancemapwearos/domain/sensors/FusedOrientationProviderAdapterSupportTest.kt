@@ -141,6 +141,7 @@ class FusedOrientationProviderAdapterSupportTest {
                 inRelock = true,
                 hasPendingLargeJump = false,
                 pendingDeltaDeg = Float.NaN,
+                pendingAgeMs = 0L,
                 headingErrorDeg = 25f,
                 conservativeHeadingErrorDeg = 180f,
             )
@@ -156,6 +157,7 @@ class FusedOrientationProviderAdapterSupportTest {
                 inRelock = true,
                 hasPendingLargeJump = false,
                 pendingDeltaDeg = Float.NaN,
+                pendingAgeMs = 0L,
                 headingErrorDeg = 8f,
                 conservativeHeadingErrorDeg = 30f,
             )
@@ -171,11 +173,28 @@ class FusedOrientationProviderAdapterSupportTest {
                 inRelock = true,
                 hasPendingLargeJump = true,
                 pendingDeltaDeg = 12f,
+                pendingAgeMs = 150L,
                 headingErrorDeg = 25f,
                 conservativeHeadingErrorDeg = 180f,
             )
 
         assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
+    }
+
+    @Test
+    fun relockPendingJumpStillWaitsWhenWeakConfidenceSamplesArriveTooQuickly() {
+        val action =
+            resolveFusedLargeJumpAction(
+                jumpDeg = 148f,
+                inRelock = true,
+                hasPendingLargeJump = true,
+                pendingDeltaDeg = 12f,
+                pendingAgeMs = 20L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
+        assertEquals(LargeJumpAction.REJECT_PENDING, action)
     }
 
     @Test

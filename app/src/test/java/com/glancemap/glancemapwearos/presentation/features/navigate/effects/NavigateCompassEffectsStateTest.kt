@@ -136,7 +136,7 @@ class NavigateCompassEffectsStateTest {
     @Test
     fun googleFusedGetsShortDisposeGraceWhenNavigateLeavesInteractiveScreen() {
         assertEquals(
-            5_000L,
+            10_000L,
             resolveNavigateCompassImmediateStopDelayMs(
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.INTERACTIVE,

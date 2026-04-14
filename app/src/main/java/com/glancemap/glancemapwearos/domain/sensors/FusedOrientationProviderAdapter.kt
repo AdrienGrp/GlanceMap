@@ -554,6 +554,12 @@ internal class FusedOrientationProviderAdapter(
             } else {
                 Float.NaN
             }
+        val pendingAgeMs =
+            if (hasPendingJump) {
+                (now - fusedPendingJumpAtMs).coerceAtLeast(0L)
+            } else {
+                0L
+            }
 
         when (
             resolveFusedLargeJumpAction(
@@ -561,6 +567,7 @@ internal class FusedOrientationProviderAdapter(
                 inRelock = inRelock,
                 hasPendingLargeJump = hasPendingJump,
                 pendingDeltaDeg = pendingDelta,
+                pendingAgeMs = pendingAgeMs,
                 headingErrorDeg = headingErrorDeg,
                 conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
             )
@@ -923,6 +930,8 @@ private const val FUSED_RESTART_MIN_CONFIRM_SAMPLES = 3
 private const val FUSED_RESTART_MIN_CONFIDENT_SAMPLES = 2
 private const val FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG = 12f
 private const val FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG = 45f
+private const val FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MIN_CONFIRM_AGE_MS = 120L
+private const val FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MAX_DELTA_DEG = 18f
 
 internal enum class FusedRestartHeadingAction {
     IGNORE_FIRST,
@@ -1041,6 +1050,7 @@ internal fun resolveFusedLargeJumpAction(
     inRelock: Boolean,
     hasPendingLargeJump: Boolean,
     pendingDeltaDeg: Float,
+    pendingAgeMs: Long,
     headingErrorDeg: Float,
     conservativeHeadingErrorDeg: Float,
 ): LargeJumpAction {
@@ -1053,6 +1063,19 @@ internal fun resolveFusedLargeJumpAction(
         headingErrorDeg.isFinite() &&
             headingErrorDeg in 0f..FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG
     val allowImmediateRelockAcceptance = inRelock && (hasTrustedConservativeError || hasTrustedLiveError)
+    val weakConfidencePendingConfirmationReady =
+        hasPendingLargeJump &&
+            pendingAgeMs >= FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MIN_CONFIRM_AGE_MS &&
+            pendingDeltaDeg.isFinite() &&
+            pendingDeltaDeg <= FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MAX_DELTA_DEG
+
+    if (!hasTrustedConservativeError && !hasTrustedLiveError && hasPendingLargeJump) {
+        return if (weakConfidencePendingConfirmationReady) {
+            LargeJumpAction.ACCEPT_CONFIRMED
+        } else {
+            LargeJumpAction.REJECT_PENDING
+        }
+    }
 
     return resolveLargeJumpAction(
         jumpDeg = jumpDeg,
