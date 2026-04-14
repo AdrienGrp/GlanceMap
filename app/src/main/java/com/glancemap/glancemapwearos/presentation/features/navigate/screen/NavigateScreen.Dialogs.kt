@@ -97,6 +97,7 @@ internal fun NavigateCreatedPoiRenameDialog(
         initialValue = pendingRename?.name.orEmpty(),
         isSaving = isSaving,
         error = error,
+        autoFocusInput = false,
         onDismiss = onDismiss,
         onConfirm = onConfirm,
     )

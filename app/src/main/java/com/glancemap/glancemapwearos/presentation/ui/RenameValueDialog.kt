@@ -44,6 +44,7 @@ fun RenameValueDialog(
     if (!visible) return
 
     val adaptive = rememberWearAdaptiveSpec()
+    val dialogWidthFraction = 0.84f
     var draftValue by remember(initialValue) { mutableStateOf(initialValue) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -62,9 +63,9 @@ fun RenameValueDialog(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth(dialogWidthFraction)
                     .background(
-                        Color.Black.copy(alpha = 0.90f),
+                        Color.Black,
                         RoundedCornerShape(adaptive.dialogCornerRadius),
                     ).padding(
                         horizontal = adaptive.dialogHorizontalPadding,
