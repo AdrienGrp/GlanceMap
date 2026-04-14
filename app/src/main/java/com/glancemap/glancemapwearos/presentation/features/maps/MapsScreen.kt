@@ -55,12 +55,12 @@ import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
-import androidx.wear.compose.material3.LinearProgressIndicator
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
@@ -724,16 +724,7 @@ fun MapsScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     if (demDownloadState.isDownloading && demDownloadState.totalTiles > 0) {
-                        val progress =
-                            (
-                                demDownloadState.processedTiles.toFloat() /
-                                    demDownloadState.totalTiles.toFloat()
-                            ).coerceIn(0f, 1f)
-
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth(0.72f),
-                        )
+                        RouteToolBusySpinner(size = 30.dp)
 
                         Text(
                             text = "DEM ${demDownloadState.processedTiles}/${demDownloadState.totalTiles}",
@@ -749,7 +740,6 @@ fun MapsScreen(
                             color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
-                            maxLines = 3,
                         )
                     }
                 }

@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate.effects
 
+import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.presentation.features.navigate.GpsFixIndicatorState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -63,7 +64,7 @@ class NavigateLocationEffectsTimeTest {
     }
 
     @Test
-    fun indicatorStateIsSearchingWhenProviderUnavailableButFixIsStillRecent() {
+    fun indicatorStateKeepsGoodWhenProviderUnavailableButFixIsStillRecent() {
         val state =
             resolveGpsIndicatorState(
                 isLocationAvailable = false,
@@ -74,7 +75,22 @@ class NavigateLocationEffectsTimeTest {
                 staleThresholdMs = 10_000L,
             )
 
-        assertEquals(GpsFixIndicatorState.SEARCHING, state)
+        assertEquals(GpsFixIndicatorState.GOOD, state)
+    }
+
+    @Test
+    fun indicatorStateKeepsPoorWhenProviderUnavailableButFixIsStillRecent() {
+        val state =
+            resolveGpsIndicatorState(
+                isLocationAvailable = false,
+                unavailableSinceElapsedMs = 96_000L,
+                lastFixAtElapsedMs = 95_000L,
+                accuracyM = 20f,
+                nowElapsedMs = 100_000L,
+                staleThresholdMs = 10_000L,
+            )
+
+        assertEquals(GpsFixIndicatorState.POOR, state)
     }
 
     @Test
@@ -303,6 +319,136 @@ class NavigateLocationEffectsTimeTest {
             )
 
         assertTrue(release)
+    }
+
+    @Test
+    fun interactiveWakeSessionStartsOnlyWhenTrackingBecomesInteractive() {
+        val shouldStart =
+            shouldStartInteractiveWakeSession(
+                wasInteractiveTrackingActive = false,
+                shouldTrackLocation = true,
+                screenState = LocationScreenState.INTERACTIVE,
+            )
+
+        assertTrue(shouldStart)
+    }
+
+    @Test
+    fun interactiveWakeSessionDoesNotRestartWhileAlreadyInteractive() {
+        val shouldStart =
+            shouldStartInteractiveWakeSession(
+                wasInteractiveTrackingActive = true,
+                shouldTrackLocation = true,
+                screenState = LocationScreenState.INTERACTIVE,
+            )
+
+        assertFalse(shouldStart)
+    }
+
+    @Test
+    fun wakeSessionResolvesWhenFreshCurrentSessionFixArrives() {
+        val shouldResolve =
+            shouldResolveWakeSessionFromAcceptedFix(
+                activeWakeSessionId = 3L,
+                fixFromCurrentTrackingSession = true,
+                wakeSnapEligible = true,
+            )
+
+        assertTrue(shouldResolve)
+    }
+
+    @Test
+    fun wakeSessionDoesNotResolveWithoutActiveSession() {
+        val shouldResolve =
+            shouldResolveWakeSessionFromAcceptedFix(
+                activeWakeSessionId = 0L,
+                fixFromCurrentTrackingSession = true,
+                wakeSnapEligible = true,
+            )
+
+        assertFalse(shouldResolve)
+    }
+
+    @Test
+    fun wakeSessionDoesNotResolveFromNonCurrentFix() {
+        val shouldResolve =
+            shouldResolveWakeSessionFromAcceptedFix(
+                activeWakeSessionId = 5L,
+                fixFromCurrentTrackingSession = false,
+                wakeSnapEligible = true,
+            )
+
+        assertFalse(shouldResolve)
+    }
+
+    @Test
+    fun postWakePredictionHoldStaysActiveUntilDeadline() {
+        val active =
+            isPostWakePredictionHoldActive(
+                nowElapsedMs = 10_400L,
+                holdUntilElapsedMs = 10_500L,
+            )
+
+        assertTrue(active)
+    }
+
+    @Test
+    fun postWakePredictionHoldStopsAtDeadline() {
+        val active =
+            isPostWakePredictionHoldActive(
+                nowElapsedMs = 10_500L,
+                holdUntilElapsedMs = 10_500L,
+            )
+
+        assertFalse(active)
+    }
+
+    @Test
+    fun correctionClampBypassUsesWakeRelease() {
+        val bypass =
+            shouldBypassCorrectionClamp(
+                releaseFromWakeHold = true,
+                previousAcceptedFixGapMs = 1_000L,
+                expectedGpsIntervalMs = 3_000L,
+            )
+
+        assertTrue(bypass)
+    }
+
+    @Test
+    fun correctionClampBypassUsesStaleGap() {
+        val bypass =
+            shouldBypassCorrectionClamp(
+                releaseFromWakeHold = false,
+                previousAcceptedFixGapMs = 12_000L,
+                expectedGpsIntervalMs = 3_000L,
+            )
+
+        assertTrue(bypass)
+    }
+
+    @Test
+    fun correctionClampBypassStaysOffForNormalGap() {
+        val bypass =
+            shouldBypassCorrectionClamp(
+                releaseFromWakeHold = false,
+                previousAcceptedFixGapMs = 2_500L,
+                expectedGpsIntervalMs = 3_000L,
+            )
+
+        assertFalse(bypass)
+    }
+
+    @Test
+    fun correctionClampBypassStaysOffForModerateLongGap() {
+        val bypass =
+            shouldBypassCorrectionClamp(
+                releaseFromWakeHold = false,
+                previousAcceptedFixGapMs = 8_000L,
+                expectedGpsIntervalMs = 3_000L,
+            )
+
+        assertFalse(bypass)
     }
 
     @Test

@@ -11,6 +11,7 @@ import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.Mapsforge
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
+import com.glancemap.glancemapwearos.domain.sensors.hasRecentGoogleFusedCachedHeading
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import kotlinx.coroutines.flow.StateFlow
@@ -102,24 +103,29 @@ fun NavigationOrientationEffect(
     ) {
         val renderStateNow = renderStateFlow.value
         val headingNow = normalize360(renderStateNow.headingDeg)
+        val shouldDriveHeadingNow = shouldDriveHeadingForNavMode(navMode, renderStateNow)
         val shouldSeedCachedHeading =
-            navMode == NavMode.COMPASS_FOLLOW &&
-                shouldSeedCompassFollowMapWithCachedHeading(
-                    renderState = renderStateNow,
-                    nowElapsedMs = SystemClock.elapsedRealtime(),
-                )
-        if (
-            navMode != NavMode.COMPASS_FOLLOW ||
-            shouldDriveCompassFollowMap(renderStateNow) ||
-            shouldSeedCachedHeading
-        ) {
+            when (navMode) {
+                NavMode.COMPASS_FOLLOW ->
+                    shouldSeedCompassFollowMapWithCachedHeading(
+                        renderState = renderStateNow,
+                        nowElapsedMs = SystemClock.elapsedRealtime(),
+                    )
+                NavMode.NORTH_UP_FOLLOW ->
+                    shouldSeedNorthUpMarkerWithCachedHeading(
+                        renderState = renderStateNow,
+                        nowElapsedMs = SystemClock.elapsedRealtime(),
+                    )
+                NavMode.PANNING -> false
+            }
+        if (shouldDriveHeadingNow || shouldSeedCachedHeading) {
             displayedHeading.floatValue = headingNow
             onRenderedHeadingChanged(headingNow)
         }
 
         when (navMode) {
             NavMode.COMPASS_FOLLOW -> {
-                if (shouldDriveCompassFollowMap(renderStateNow) || shouldSeedCachedHeading) {
+                if (shouldDriveHeadingNow || shouldSeedCachedHeading) {
                     val rot = -displayedHeading.floatValue
                     applyMapRotation(rot)
                 } else {
@@ -174,7 +180,7 @@ fun NavigationOrientationEffect(
                     normalize360(state.headingDeg)
                 }.distinctUntilChanged()
                 .collect { heading ->
-                    if (navMode != NavMode.COMPASS_FOLLOW || shouldDriveCompassFollowMap(latestRenderState)) {
+                    if (shouldDriveHeadingForNavMode(navMode, latestRenderState)) {
                         liveTarget = heading
                     }
                 }
@@ -184,9 +190,7 @@ fun NavigationOrientationEffect(
         while (true) {
             withFrameNanos {
                 if (navMode == NavMode.PANNING) return@withFrameNanos
-                if (navMode == NavMode.COMPASS_FOLLOW &&
-                    !shouldDriveCompassFollowMap(latestRenderState)
-                ) {
+                if (!shouldDriveHeadingForNavMode(navMode, latestRenderState)) {
                     return@withFrameNanos
                 }
                 val current = displayedHeading.floatValue
@@ -239,16 +243,66 @@ internal fun shouldDriveCompassFollowMap(renderState: CompassRenderState): Boole
     return true
 }
 
+internal fun shouldDriveMarkerHeading(renderState: CompassRenderState): Boolean {
+    val hasBaseHeading =
+        renderState.headingSource != HeadingSource.NONE &&
+            renderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE
+    val providerAllowsMarkerHeading =
+        when (renderState.providerType) {
+            CompassProviderType.SENSOR_MANAGER -> true
+            CompassProviderType.GOOGLE_FUSED ->
+                renderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
+                    renderState.headingSampleElapsedRealtimeMs != null &&
+                    !renderState.headingSampleStale
+        }
+    return hasBaseHeading && providerAllowsMarkerHeading
+}
+
+internal fun shouldDriveHeadingForNavMode(
+    navMode: NavMode,
+    renderState: CompassRenderState,
+): Boolean =
+    when (navMode) {
+        NavMode.COMPASS_FOLLOW -> shouldDriveCompassFollowMap(renderState)
+        NavMode.NORTH_UP_FOLLOW -> shouldDriveMarkerHeading(renderState)
+        NavMode.PANNING -> false
+    }
+
 internal fun shouldSeedCompassFollowMapWithCachedHeading(
     renderState: CompassRenderState,
     nowElapsedMs: Long,
-): Boolean {
-    if (renderState.providerType != CompassProviderType.GOOGLE_FUSED) return false
-    val sampleAtElapsedMs = renderState.headingSampleElapsedRealtimeMs ?: return false
-    if (!renderState.headingDeg.isFinite()) return false
-    val ageMs = (nowElapsedMs - sampleAtElapsedMs).coerceAtLeast(0L)
-    return ageMs <= GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS
-}
+): Boolean =
+    hasRecentGoogleFusedCachedHeading(
+        renderState = renderState,
+        nowElapsedMs = nowElapsedMs,
+        maxAgeMs = GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS,
+    )
+
+internal fun shouldSeedNorthUpMarkerWithCachedHeading(
+    renderState: CompassRenderState,
+    nowElapsedMs: Long,
+): Boolean =
+    renderState.providerType == CompassProviderType.GOOGLE_FUSED &&
+        hasRecentGoogleFusedCachedHeading(
+            renderState = renderState,
+            nowElapsedMs = nowElapsedMs,
+            maxAgeMs = GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS,
+        )
+
+internal fun resolveNavigateInitialRenderedHeadingDeg(
+    renderState: CompassRenderState,
+    nowElapsedMs: Long,
+): Float =
+    if (
+        shouldDriveCompassFollowMap(renderState) ||
+        shouldDriveMarkerHeading(renderState) ||
+        shouldSeedCompassFollowMapWithCachedHeading(renderState, nowElapsedMs) ||
+        shouldSeedNorthUpMarkerWithCachedHeading(renderState, nowElapsedMs)
+    ) {
+        normalize360(renderState.headingDeg)
+    } else {
+        0f
+    }
 
 private fun normalize360(deg: Float): Float = (deg % 360f + 360f) % 360f
 

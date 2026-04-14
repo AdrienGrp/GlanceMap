@@ -101,12 +101,12 @@ internal fun RouteToolDraftSummaryDialog(
     val adaptive = rememberWearAdaptiveSpec()
     val bottomActionSafeInset =
         if (!adaptive.isRound) {
-            0.dp
+            3.dp
         } else {
             when (adaptive.screenSize) {
-                WearScreenSize.LARGE -> 8.dp
-                WearScreenSize.MEDIUM -> 10.dp
-                WearScreenSize.SMALL -> 12.dp
+                WearScreenSize.LARGE -> 11.dp
+                WearScreenSize.MEDIUM -> 13.dp
+                WearScreenSize.SMALL -> 15.dp
             }
         }
     val isCreate = session.options.toolKind == RouteToolKind.CREATE

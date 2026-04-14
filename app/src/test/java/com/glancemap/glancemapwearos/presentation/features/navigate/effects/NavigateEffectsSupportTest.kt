@@ -93,6 +93,47 @@ class NavigateEffectsSupportTest {
     }
 
     @Test
+    fun northUpMarkerWaitsWhileGoogleFusedUsesBootstrapSensorHeading() {
+        val state =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingSource = HeadingSource.ROTATION_VECTOR,
+                accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
+                headingSampleElapsedRealtimeMs = null,
+                headingSampleStale = true,
+            )
+
+        assertFalse(shouldDriveMarkerHeading(state))
+        assertFalse(shouldDriveHeadingForNavMode(NavMode.NORTH_UP_FOLLOW, state))
+        assertTrue(shouldDriveHeadingForNavMode(NavMode.COMPASS_FOLLOW, state))
+    }
+
+    @Test
+    fun northUpMarkerDrivesWhenGoogleFusedSampleIsFresh() {
+        val state =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingSource = HeadingSource.FUSED_ORIENTATION,
+                accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
+                headingSampleElapsedRealtimeMs = 1_000L,
+                headingSampleStale = false,
+            )
+
+        assertTrue(shouldDriveMarkerHeading(state))
+        assertTrue(shouldDriveHeadingForNavMode(NavMode.NORTH_UP_FOLLOW, state))
+    }
+
+    @Test
+    fun northUpMarkerDrivesWhenSensorManagerHeadingIsReady() {
+        val state =
+            initialCompassRenderState(providerType = CompassProviderType.SENSOR_MANAGER).copy(
+                headingSource = HeadingSource.ROTATION_VECTOR,
+                accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
+            )
+
+        assertTrue(shouldDriveMarkerHeading(state))
+        assertTrue(shouldDriveHeadingForNavMode(NavMode.NORTH_UP_FOLLOW, state))
+    }
+
+    @Test
     fun compassFollowMapCanSeedFromRecentGoogleFusedCachedHeading() {
         val state =
             initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
@@ -127,6 +168,44 @@ class NavigateEffectsSupportTest {
                 renderState = state,
                 nowElapsedMs = 45_001L,
             ),
+        )
+    }
+
+    @Test
+    fun northUpMarkerCanSeedFromRecentGoogleFusedCachedHeading() {
+        val state =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingDeg = 182f,
+                accuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                headingSampleElapsedRealtimeMs = 10_000L,
+                headingSampleStale = true,
+                headingSource = HeadingSource.NONE,
+            )
+
+        assertTrue(
+            shouldSeedNorthUpMarkerWithCachedHeading(
+                renderState = state,
+                nowElapsedMs = 25_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun initialRenderedHeadingUsesRecentGoogleFusedCachedHeading() {
+        val state =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingDeg = 182f,
+                accuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                headingSampleElapsedRealtimeMs = 10_000L,
+                headingSampleStale = true,
+                headingSource = HeadingSource.NONE,
+            )
+
+        assertTrue(
+            resolveNavigateInitialRenderedHeadingDeg(
+                renderState = state,
+                nowElapsedMs = 25_000L,
+            ) > 180f,
         )
     }
 }

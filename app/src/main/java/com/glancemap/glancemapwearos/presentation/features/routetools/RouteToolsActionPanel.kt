@@ -25,6 +25,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
@@ -92,6 +94,10 @@ internal fun RouteToolsActionPanel(
     var coordinateDraftLat by remember(visible) { mutableStateOf(0.0) }
     var coordinateDraftLon by remember(visible) { mutableStateOf(0.0) }
     var coordinateStep by remember(visible) { mutableStateOf(CoordinateStep.ONE_THOUSANDTH) }
+    val shouldUsePreflightPopup =
+        preflightMessage == "Routing packs missing for selected map" ||
+            preflightMessage == "Routing data missing"
+    var showPreflightPopup by remember(preflightMessage) { mutableStateOf(shouldUsePreflightPopup) }
     val startSelection: (RouteToolSession) -> Unit = startSelection@{ session ->
         val canStart = !session.options.requiresSingleActiveGpx || canModifyActiveGpx
         if (!canStart) return@startSelection
@@ -106,13 +112,16 @@ internal fun RouteToolsActionPanel(
         showCoordinateEditor = true
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .background(
-                        Color.Black.copy(alpha = 0.86f),
+                        Color.Black.copy(alpha = 0.90f),
                         RoundedCornerShape(adaptive.dialogCornerRadius),
                     ).padding(
                         horizontal = adaptive.dialogHorizontalPadding,
@@ -170,7 +179,7 @@ internal fun RouteToolsActionPanel(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (!preflightMessage.isNullOrBlank()) {
+                    if (!preflightMessage.isNullOrBlank() && !shouldUsePreflightPopup) {
                         Box(
                             modifier =
                                 Modifier
@@ -425,6 +434,25 @@ internal fun RouteToolsActionPanel(
                         .height(routeToolsBottomActionSafeInset),
             )
         }
+    }
+
+    if (!preflightMessage.isNullOrBlank() && shouldUsePreflightPopup && showPreflightPopup) {
+        AlertDialog(
+            visible = true,
+            onDismissRequest = { showPreflightPopup = false },
+            title = { Text("Routing Missing") },
+            text = {
+                Text(
+                    text = preflightMessage,
+                    textAlign = TextAlign.Center,
+                )
+            },
+            confirmButton = {
+                Button(onClick = { showPreflightPopup = false }) {
+                    Text("OK")
+                }
+            },
+        )
     }
 
     CoordinateEntryDialog(

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,7 +38,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 
 @Composable
 internal fun RouteToolBusySpinner(
@@ -77,8 +75,6 @@ internal fun RouteToolProgressDialog(
 ) {
     if (!visible) return
 
-    val adaptive = rememberWearAdaptiveSpec()
-
     Dialog(
         onDismissRequest = {},
         properties =
@@ -91,37 +87,34 @@ internal fun RouteToolProgressDialog(
         Box(
             modifier =
                 Modifier
-                    .fillMaxSize()
-                    .padding(
-                        horizontal = if (adaptive.isRound) 28.dp else 22.dp,
-                        vertical = if (adaptive.isRound) 22.dp else 18.dp,
-                    ),
+                    .fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Column(
+            BoxWithConstraints(
                 modifier =
                     Modifier
-                        .widthIn(max = 176.dp)
-                        .background(
-                            Color.Black.copy(alpha = 0.90f),
-                            RoundedCornerShape(adaptive.dialogCornerRadius),
-                        ).padding(
-                            horizontal = adaptive.dialogHorizontalPadding,
-                            vertical = adaptive.dialogVerticalPadding,
-                        ),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp, vertical = 18.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 Row(
+                    modifier =
+                        Modifier
+                            .widthIn(max = minOf(maxWidth, 164.dp))
+                            .background(
+                                Color.Black.copy(alpha = 0.88f),
+                                RoundedCornerShape(15.dp),
+                            ).padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    RouteToolBusySpinner()
+                    RouteToolBusySpinner(size = 18.dp)
                     Text(
                         text = message,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.labelMedium,
                         textAlign = TextAlign.Start,
                         maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

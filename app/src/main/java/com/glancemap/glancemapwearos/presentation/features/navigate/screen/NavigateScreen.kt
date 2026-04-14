@@ -40,6 +40,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.offline.OfflineStartCenteringEffect
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
@@ -59,6 +60,7 @@ import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidBitmap
@@ -170,9 +172,6 @@ fun NavigateScreen(
     val autoRecenterDelay by settingsViewModel.autoRecenterDelay.collectAsState(initial = 5)
     val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
     val keepGpsInAmbient by settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
-    val effectiveGpsIntervalMs by locationViewModel.effectiveGpsIntervalMs.collectAsState(
-        initial = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
-    )
     val crownZoomEnabled by settingsViewModel.crownZoomEnabled.collectAsState(initial = true)
     val crownZoomInverted by settingsViewModel.crownZoomInverted.collectAsState(initial = true)
     val navigateTimeFormat by settingsViewModel.navigateTimeFormat.collectAsState()
@@ -182,6 +181,8 @@ fun NavigateScreen(
     val liveElevationEnabled by settingsViewModel.liveElevation.collectAsState(initial = false)
     val liveDistanceEnabled by settingsViewModel.liveDistance.collectAsState(initial = false)
     val offlineMode by settingsViewModel.offlineMode.collectAsState(initial = false)
+    val gpsDebugTelemetry by settingsViewModel.gpsDebugTelemetry.collectAsState()
+    val gpsDebugTelemetryPopupEnabled by settingsViewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
     val isGpxInspectionEnabled by settingsViewModel.isGpxInspectionEnabled.collectAsState()
     val isMetric by settingsViewModel.isMetric.collectAsState()
     val poiIconSizePx by settingsViewModel.poiIconSizePx.collectAsState()
@@ -559,10 +560,22 @@ fun NavigateScreen(
         return
     }
 
-    var gpsIndicatorPinned by rememberSaveable { mutableStateOf(false) }
     var pendingPoiFocusTarget by remember { mutableStateOf<PoiNavigateTarget?>(null) }
+    var markerMotionDebugOverlayLabel by remember { mutableStateOf<String?>(null) }
 
     val mapView = mapHolder.mapView
+
+    LaunchedEffect(gpsDebugTelemetry, gpsDebugTelemetryPopupEnabled, offlineMode) {
+        if (!gpsDebugTelemetry || !gpsDebugTelemetryPopupEnabled || offlineMode) {
+            markerMotionDebugOverlayLabel = null
+            return@LaunchedEffect
+        }
+
+        while (isActive) {
+            markerMotionDebugOverlayLabel = MarkerMotionTelemetry.latestSnapshot().overlayLabel()
+            delay(250L)
+        }
+    }
 
     LaunchedEffect(navigateTarget, mapView, zoomMin, zoomMax) {
         val target = navigateTarget ?: return@LaunchedEffect
@@ -587,12 +600,11 @@ fun NavigateScreen(
             locationViewModel = locationViewModel,
             compassViewModel = compassViewModel,
             navigateViewModel = navigateViewModel,
-            navMode = effectiveNavMode,
             shouldTrackLocation = shouldTrackLocation,
             shouldFollowPosition = shouldFollowPosition,
             screenState = screenState,
-            compassQuality = displayedCompassQuality,
-            expectedGpsIntervalMs = effectiveGpsIntervalMs,
+            // Keep marker-motion timing stable; the 1s wake burst is a service detail.
+            expectedGpsIntervalMs = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
             navigationMarkerBitmap = navigationMarkerBitmap,
             suppressLocationMarker = offlineMode,
         )
@@ -610,12 +622,6 @@ fun NavigateScreen(
         gpsSignalSnapshot.isLocationAvailable &&
             gpsSignalSnapshot.lastFixElapsedRealtimeMs > 0L &&
             gpsSignalSnapshot.lastFixAgeMs in 0..gpsSignalSnapshot.lastFixFreshMaxAgeMs
-    val showGpsIndicator =
-        if (offlineMode) {
-            true
-        } else {
-            gpsIndicatorPinned || locationUiState.showGpsIndicatorUnpinned
-        }
     val watchGpsDegradedWarning = locationUiState.watchGpsDegradedWarning
     val mapAppearanceApplyInProgress by mapViewModel.mapAppearanceApplyInProgress.collectAsState()
     val slopeOverlayToggleEnabled by mapViewModel.reliefOverlayToggleEnabled.collectAsState()
@@ -641,7 +647,15 @@ fun NavigateScreen(
 
     // All overlays + popups + yellow A/B markers
     var renderedMapRotationDeg by remember { mutableFloatStateOf(0f) }
-    var renderedCompassHeadingDeg by remember { mutableFloatStateOf(0f) }
+    var renderedCompassHeadingDeg by
+        remember {
+            mutableFloatStateOf(
+                resolveNavigateInitialRenderedHeadingDeg(
+                    renderState = compassRenderState,
+                    nowElapsedMs = SystemClock.elapsedRealtime(),
+                ),
+            )
+        }
     var visiblePoiMarkers by remember { mutableStateOf<List<PoiOverlayMarker>>(emptyList()) }
     MapOverlays(
         mapHolder = mapHolder,
@@ -1001,10 +1015,6 @@ fun NavigateScreen(
                 locationViewModel.requestImmediateLocation(source = "ui_recenter_from_panning")
             }
         },
-        onNavModeButtonLongPress = {
-            screenActions.triggerHaptic()
-            gpsIndicatorPinned = !gpsIndicatorPinned
-        },
         triggerHaptic = screenActions.triggerHaptic,
         onMenuClick = onMenuClick,
         onPermissionLaunch = { locationPermissionState.launchPermissions() },
@@ -1019,8 +1029,6 @@ fun NavigateScreen(
         onShortcutTrayDismiss = { shortcutTrayExpanded = false },
         onOpenGpxTools = routeToolActions.openRouteToolsPanel,
         onStartPoiCreation = routeToolActions.startPoiCreationSelection,
-        showGpsIndicator = showGpsIndicator,
-        showGpsIndicatorInPanning = offlineMode,
         gpsIndicatorState = effectiveGpsIndicatorState,
         watchGpsDegradedWarning = watchGpsDegradedWarning,
         isOfflineMode = offlineMode,
@@ -1073,6 +1081,7 @@ fun NavigateScreen(
         onPoiTapCreateGpx = routeToolActions.createRouteToPoi,
         poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
         poiPopupManualCloseOnly = poiPopupManualCloseOnly,
+        markerMotionDebugOverlayLabel = markerMotionDebugOverlayLabel,
     )
 
     LaunchedEffect(isScreenResumed) {

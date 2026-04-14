@@ -354,6 +354,17 @@ internal class LocationServiceTelemetry(
         )
     }
 
+    fun logAutoFusedNoFixRecoveryProbeTriggered(
+        fixGapMs: Long,
+        thresholdMs: Long,
+        graceMs: Long,
+    ) {
+        log(
+            "sourceFailover: auto_fused recovery_probe reason=no_fix_gap " +
+                "fixGapMs=$fixGapMs thresholdMs=$thresholdMs graceMs=$graceMs",
+        )
+    }
+
     fun logAutoFusedFallbackCleared(reason: String) {
         log("sourceFailover: cleared reason=$reason")
     }

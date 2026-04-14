@@ -64,6 +64,15 @@ class SettingsViewModel(
             settingsRepository.setGpsDebugTelemetry(enabled)
         }
 
+    val gpsDebugTelemetryPopupEnabled: StateFlow<Boolean> =
+        settingsRepository.gpsDebugTelemetryPopupEnabled
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setGpsDebugTelemetryPopupEnabled(enabled)
+        }
+
     val promptForCalibration: StateFlow<Boolean> =
         settingsRepository.promptForCalibration
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)

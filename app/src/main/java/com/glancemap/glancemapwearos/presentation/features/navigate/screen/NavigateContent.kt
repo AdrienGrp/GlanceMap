@@ -6,12 +6,15 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -25,10 +28,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.wear.compose.material3.Button
@@ -59,6 +65,7 @@ import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.util.MercatorProjection
 import org.mapsforge.map.model.common.Observer
 
+@Suppress("FunctionName")
 @Composable
 internal fun NavigateContent(
     hasLocationPermission: Boolean,
@@ -88,7 +95,6 @@ internal fun NavigateContent(
     onUserPanStarted: () -> Unit,
     onRecenter: () -> Unit,
     onRecenterRequested: () -> Unit,
-    onNavModeButtonLongPress: () -> Unit,
     triggerHaptic: () -> Unit,
     onMenuClick: () -> Unit,
     onPermissionLaunch: () -> Unit,
@@ -103,8 +109,6 @@ internal fun NavigateContent(
     onShortcutTrayDismiss: () -> Unit,
     onOpenGpxTools: () -> Unit,
     onStartPoiCreation: () -> Unit,
-    showGpsIndicator: Boolean,
-    showGpsIndicatorInPanning: Boolean,
     gpsIndicatorState: GpsFixIndicatorState,
     watchGpsDegradedWarning: Boolean,
     isOfflineMode: Boolean,
@@ -141,6 +145,7 @@ internal fun NavigateContent(
     onPoiTapCreateGpx: (PoiOverlayMarker) -> Unit,
     poiPopupTimeoutSeconds: Int,
     poiPopupManualCloseOnly: Boolean,
+    markerMotionDebugOverlayLabel: String?,
 ) {
     val mapView = mapHolder?.mapView
     val context = LocalContext.current
@@ -298,48 +303,6 @@ internal fun NavigateContent(
                 WearScreenSize.SMALL -> 20.dp
             }
         }
-    val gpsIndicatorBottomPadding =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 36.dp
-                WearScreenSize.MEDIUM -> 32.dp
-                WearScreenSize.SMALL -> 28.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 28.dp
-                WearScreenSize.MEDIUM -> 24.dp
-                WearScreenSize.SMALL -> 20.dp
-            }
-        }
-    val gpsIndicatorIconSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 12.dp
-                WearScreenSize.MEDIUM -> 11.dp
-                WearScreenSize.SMALL -> 10.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 13.dp
-                WearScreenSize.MEDIUM -> 12.dp
-                WearScreenSize.SMALL -> 11.dp
-            }
-        }
-    val gpsIndicatorIconPadding =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 3.dp
-                WearScreenSize.MEDIUM -> 2.5.dp
-                WearScreenSize.SMALL -> 2.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 3.5.dp
-                WearScreenSize.MEDIUM -> 3.dp
-                WearScreenSize.SMALL -> 2.5.dp
-            }
-        }
     val navButtonBottomPadding =
         if (adaptive.isRound) {
             when (screenSize) {
@@ -357,15 +320,15 @@ internal fun NavigateContent(
     val navButtonSize =
         if (adaptive.isRound) {
             when (screenSize) {
-                WearScreenSize.LARGE -> 30.dp
-                WearScreenSize.MEDIUM -> 28.dp
-                WearScreenSize.SMALL -> 26.dp
+                WearScreenSize.LARGE -> 28.dp
+                WearScreenSize.MEDIUM -> 26.dp
+                WearScreenSize.SMALL -> 24.dp
             }
         } else {
             when (screenSize) {
-                WearScreenSize.LARGE -> 32.dp
-                WearScreenSize.MEDIUM -> 30.dp
-                WearScreenSize.SMALL -> 28.dp
+                WearScreenSize.LARGE -> 30.dp
+                WearScreenSize.MEDIUM -> 28.dp
+                WearScreenSize.SMALL -> 26.dp
             }
         }
     val navButtonIconSize =
@@ -903,13 +866,8 @@ internal fun NavigateContent(
                 onCreatePoiClick = onStartPoiCreation,
                 keepAppOpen = keepAppOpen,
                 onKeepAppOpenToggle = onKeepAppOpenToggle,
-                showGpsIndicator = showGpsIndicator,
-                showGpsIndicatorInPanning = showGpsIndicatorInPanning,
                 gpsIndicatorState = gpsIndicatorState,
                 watchGpsDegradedWarning = watchGpsDegradedWarning,
-                gpsIndicatorBottomPadding = gpsIndicatorBottomPadding,
-                gpsIndicatorIconPadding = gpsIndicatorIconPadding,
-                gpsIndicatorIconSize = gpsIndicatorIconSize,
                 navButtonBottomPadding = navButtonBottomPadding,
                 navButtonSize = navButtonSize,
                 navButtonIconSize = navButtonIconSize,
@@ -918,7 +876,11 @@ internal fun NavigateContent(
                 onRecenterRequested = onRecenterRequested,
                 onToggleOrientation = onToggleOrientation,
                 isOfflineMode = isOfflineMode,
-                onNavModeButtonLongPress = onNavModeButtonLongPress,
+            )
+
+            MarkerMotionDebugOverlay(
+                label = markerMotionDebugOverlayLabel,
+                screenSize = screenSize,
             )
 
             if (routeToolSession != null) {
@@ -1010,6 +972,44 @@ internal fun NavigateContent(
             }
         }
     }
+}
+
+@Suppress("FunctionName")
+@Composable
+private fun BoxScope.MarkerMotionDebugOverlay(
+    label: String?,
+    screenSize: WearScreenSize,
+) {
+    if (label.isNullOrBlank()) return
+
+    val overlayPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 24.dp
+            WearScreenSize.MEDIUM -> 22.dp
+            WearScreenSize.SMALL -> 20.dp
+        }
+    val overlayTextSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 9.sp
+            WearScreenSize.SMALL -> 8.sp
+        }
+
+    Text(
+        text = label,
+        modifier =
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = overlayPadding)
+                .padding(horizontal = overlayPadding)
+                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+        color = Color.White,
+        fontSize = overlayTextSize,
+        lineHeight = overlayTextSize,
+        fontWeight = FontWeight.Medium,
+        textAlign = TextAlign.Center,
+    )
 }
 
 private fun fitMapViewToPreviewPoints(

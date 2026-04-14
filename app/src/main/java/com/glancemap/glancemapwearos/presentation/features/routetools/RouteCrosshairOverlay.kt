@@ -514,7 +514,7 @@ internal fun guidancePopupSpec(screenSize: WearScreenSize): GuidancePopupSpec =
     when (screenSize) {
         WearScreenSize.LARGE ->
             GuidancePopupSpec(
-                topPadding = 23.dp,
+                topPadding = 26.dp,
                 maxWidth = 112.dp,
                 horizontalPadding = 6.dp,
                 verticalPadding = 3.dp,
@@ -527,7 +527,7 @@ internal fun guidancePopupSpec(screenSize: WearScreenSize): GuidancePopupSpec =
 
         WearScreenSize.MEDIUM ->
             GuidancePopupSpec(
-                topPadding = 21.dp,
+                topPadding = 24.dp,
                 maxWidth = 106.dp,
                 horizontalPadding = 6.dp,
                 verticalPadding = 3.dp,
@@ -540,7 +540,7 @@ internal fun guidancePopupSpec(screenSize: WearScreenSize): GuidancePopupSpec =
 
         WearScreenSize.SMALL ->
             GuidancePopupSpec(
-                topPadding = 19.dp,
+                topPadding = 22.dp,
                 maxWidth = 100.dp,
                 horizontalPadding = 5.dp,
                 verticalPadding = 3.dp,
@@ -570,6 +570,13 @@ private val RouteToolSession.hasCapturedPoints: Boolean
 
 @Composable
 private fun RouteCapturedPointsSummary(session: RouteToolSession) {
+    if (
+        session.options.toolKind == RouteToolKind.CREATE &&
+        session.options.createMode == RouteCreateMode.POINT_A_TO_B
+    ) {
+        return
+    }
+
     Row(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,

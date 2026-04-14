@@ -54,4 +54,43 @@ class SelfHealFailoverCoordinatorTest {
 
         assertEquals(3, requiredStreak)
     }
+
+    @Test
+    fun noFixRecoveryStartsProbeBeforeFailover() {
+        val action =
+            resolveAutoFusedNoFixRecoveryAction(
+                fixGapMs = 12_500L,
+                thresholdMs = 12_000L,
+                nowElapsedMs = 30_000L,
+                probeUntilElapsedMs = 0L,
+            )
+
+        assertEquals(AutoFusedNoFixRecoveryAction.START_PROBE, action)
+    }
+
+    @Test
+    fun noFixRecoveryWaitsWhileProbeWindowIsActive() {
+        val action =
+            resolveAutoFusedNoFixRecoveryAction(
+                fixGapMs = 12_500L,
+                thresholdMs = 12_000L,
+                nowElapsedMs = 30_000L,
+                probeUntilElapsedMs = 33_000L,
+            )
+
+        assertEquals(AutoFusedNoFixRecoveryAction.WAIT_FOR_PROBE, action)
+    }
+
+    @Test
+    fun noFixRecoveryFailsOverAfterProbeWindowExpires() {
+        val action =
+            resolveAutoFusedNoFixRecoveryAction(
+                fixGapMs = 16_500L,
+                thresholdMs = 12_000L,
+                nowElapsedMs = 34_500L,
+                probeUntilElapsedMs = 34_000L,
+            )
+
+        assertEquals(AutoFusedNoFixRecoveryAction.FAILOVER, action)
+    }
 }

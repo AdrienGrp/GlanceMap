@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.Build
 import com.glancemap.glancemapwearos.core.service.location.config.ENABLE_STRICT_FIX_FILTERING
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.FusionReplayTelemetry
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import java.io.File
 import java.time.Duration
 import java.time.Instant
@@ -225,9 +225,8 @@ object DiagnosticsExporter {
                 kotlin.math.abs(captureDurationMs - bufferedSpanMs) > SESSION_DURATION_MISMATCH_THRESHOLD_MS
         val energyLines = EnergyDiagnostics.snapshotLines()
         val energyDroppedLines = EnergyDiagnostics.droppedLineCount()
-        val fusionReplaySummary = FusionReplayTelemetry.summary()
-        val fusionReplayLines = FusionReplayTelemetry.snapshotLines()
-        val fusionReplayDroppedLines = FusionReplayTelemetry.droppedLineCount()
+        val markerMotionSummary = MarkerMotionTelemetry.summary()
+        val markerMotionSnapshot = MarkerMotionTelemetry.latestSnapshot()
         val mapHotPathSummary = MapHotPathDiagnostics.summary()
         val mapHotPathLines = MapHotPathDiagnostics.snapshotLines()
         val mapHotPathDroppedLines = MapHotPathDiagnostics.droppedLineCount()
@@ -238,7 +237,6 @@ object DiagnosticsExporter {
         val fieldMarkerDroppedLines = FieldMarkerDiagnostics.droppedLineCount()
         val telemetryTruncated = captureSession.droppedLines > 0
         val energyTruncated = energyDroppedLines > 0
-        val fusionReplayTruncated = fusionReplayDroppedLines > 0
         val mapHotPathTruncated = mapHotPathDroppedLines > 0
         val gnssTruncated = gnssDroppedLines > 0
         val fieldMarkerTruncated = fieldMarkerDroppedLines > 0
@@ -375,10 +373,11 @@ object DiagnosticsExporter {
             writer.appendLine("energyBufferMaxLines=${EnergyDiagnostics.maxBufferedLines()}")
             writer.appendLine("energyDroppedLines=$energyDroppedLines")
             writer.appendLine("energyTruncated=$energyTruncated")
-            writer.appendLine("fusionReplayBufferedLines=${fusionReplayLines.size}")
-            writer.appendLine("fusionReplayBufferMaxLines=${FusionReplayTelemetry.maxBufferedLines()}")
-            writer.appendLine("fusionReplayDroppedLines=$fusionReplayDroppedLines")
-            writer.appendLine("fusionReplayTruncated=$fusionReplayTruncated")
+            writer.appendLine("markerMotionAcceptedFixes=${markerMotionSummary.acceptedFixes}")
+            writer.appendLine("markerMotionPredictionUpdates=${markerMotionSummary.predictionUpdates}")
+            writer.appendLine("markerMotionBlendStarts=${markerMotionSummary.blendStarts}")
+            writer.appendLine("markerMotionOutlierDrops=${markerMotionSummary.outlierDrops}")
+            writer.appendLine("markerMotionBlockedTransitions=${markerMotionSummary.blockedTransitions}")
             writer.appendLine("mapHotPathBufferedLines=${mapHotPathLines.size}")
             writer.appendLine("mapHotPathBufferMaxLines=${MapHotPathDiagnostics.maxBufferedLines()}")
             writer.appendLine("mapHotPathDroppedLines=$mapHotPathDroppedLines")
@@ -395,7 +394,6 @@ object DiagnosticsExporter {
                 "anyCaptureBufferTruncated=${
                     telemetryTruncated ||
                         energyTruncated ||
-                        fusionReplayTruncated ||
                         mapHotPathTruncated ||
                         gnssTruncated ||
                         fieldMarkerTruncated
@@ -698,23 +696,41 @@ object DiagnosticsExporter {
                 fieldMarkerLines.forEach { line -> writer.appendLine(line) }
             }
             writer.appendLine()
-            writer.appendLine("Fusion Replay Summary")
-            writer.appendLine("acceptedFixes=${fusionReplaySummary.acceptedFixes}")
-            writer.appendLine("outlierDrops=${fusionReplaySummary.outlierDrops}")
-            writer.appendLine("predictions=${fusionReplaySummary.predictions}")
-            writer.appendLine("blendStarts=${fusionReplaySummary.blendStarts}")
-            writer.appendLine("avgBlendDurationMs=${fusionReplaySummary.avgBlendDurationMs}")
-            writer.appendLine("toStationary=${fusionReplaySummary.toStationary}")
-            writer.appendLine("toMoving=${fusionReplaySummary.toMoving}")
-            writer.appendLine("maxJumpMeters=${"%.1f".format(fusionReplaySummary.maxJumpMeters)}")
-            writer.appendLine("maxImpliedSpeedMps=${"%.1f".format(fusionReplaySummary.maxImpliedSpeedMps)}")
+            writer.appendLine("Marker Motion Summary")
+            writer.appendLine("summary=${markerMotionSummary.summaryLabel()}")
+            writer.appendLine("acceptedFixes=${markerMotionSummary.acceptedFixes}")
+            writer.appendLine("outlierDrops=${markerMotionSummary.outlierDrops}")
+            writer.appendLine("predictionUpdates=${markerMotionSummary.predictionUpdates}")
+            writer.appendLine("blendStarts=${markerMotionSummary.blendStarts}")
+            writer.appendLine("clampedCorrections=${markerMotionSummary.clampedCorrections}")
+            writer.appendLine("blockedTransitions=${markerMotionSummary.blockedTransitions}")
+            writer.appendLine("latestMode=${markerMotionSnapshot.mode.label}")
+            writer.appendLine("latestReason=${markerMotionSnapshot.reason ?: "na"}")
+            writer.appendLine("latestFixAgeMs=${markerMotionSnapshot.fixAgeMs?.toString() ?: "na"}")
+            writer.appendLine(
+                "latestAccuracyM=${
+                    markerMotionSnapshot.accuracyM?.let { "%.1f".format(it) } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "latestSpeedMps=${
+                    markerMotionSnapshot.speedMps?.let { "%.2f".format(it) } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "latestBearingDeg=${
+                    markerMotionSnapshot.bearingDeg?.let { "%.1f".format(it) } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "latestCorrectionDistanceM=${
+                    markerMotionSnapshot.correctionDistanceM?.let { "%.1f".format(it) } ?: "na"
+                }",
+            )
+            writer.appendLine("latestUpdatedAtElapsedMs=${markerMotionSnapshot.updatedAtElapsedMs}")
             writer.appendLine()
-            writer.appendLine("Fusion Replay Events")
-            if (fusionReplayLines.isEmpty()) {
-                writer.appendLine("No fusion replay events captured yet.")
-            } else {
-                fusionReplayLines.forEach { line -> writer.appendLine(line) }
-            }
+            writer.appendLine("Marker Motion Events")
+            writer.appendLine("Marker motion decisions are included in the Telemetry section under [MarkerMotion].")
             writer.appendLine()
             writer.appendLine("Performance Summary")
             writer.appendLine("skippedFrameEventCount=${performanceSummary.skippedFrameEventCount}")

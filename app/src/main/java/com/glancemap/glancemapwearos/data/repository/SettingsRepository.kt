@@ -80,6 +80,10 @@ interface SettingsRepository {
 
     suspend fun setGpsDebugTelemetry(enabled: Boolean)
 
+    val gpsDebugTelemetryPopupEnabled: Flow<Boolean>
+
+    suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean)
+
     val promptForCalibration: Flow<Boolean>
 
     suspend fun setPromptForCalibration(enabled: Boolean)

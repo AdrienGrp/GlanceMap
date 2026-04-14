@@ -40,11 +40,11 @@ import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
@@ -61,7 +61,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnos
 import com.glancemap.glancemapwearos.core.service.diagnostics.GnssDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.FusionReplayTelemetry
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -74,7 +74,6 @@ import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -118,6 +117,7 @@ fun DebuggingSettingsScreen(
     val keepAppOpen by viewModel.keepAppOpen.collectAsState(initial = false)
     val gpsInAmbientMode by viewModel.gpsInAmbientMode.collectAsState()
     val gpsDebugTelemetry by viewModel.gpsDebugTelemetry.collectAsState()
+    val gpsDebugTelemetryPopupEnabled by viewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
     var diagnosticsExportStatus by remember {
         mutableStateOf(DIAGNOSTICS_DEFAULT_STATUS)
     }
@@ -130,7 +130,6 @@ fun DebuggingSettingsScreen(
     var exportedDiagnosticsCount by remember { mutableStateOf(0) }
     var exportDialogMode by remember { mutableStateOf<DiagnosticsExportDialogMode?>(null) }
     var exportDialogMessage by remember { mutableStateOf("") }
-    var captureSummaryLabel by remember { mutableStateOf("fix=0 drop=0 pred=0 blend=0 log=0") }
     val helpPrefs =
         remember(context) {
             context.getSharedPreferences(DEBUG_HELP_PREFS, Context.MODE_PRIVATE)
@@ -165,12 +164,6 @@ fun DebuggingSettingsScreen(
                 reason = "capture_toggle_off",
                 detail = "source=debug_screen",
             )
-        }
-        while (isActive) {
-            val telemetryCount = DebugTelemetry.size()
-            val replaySummary = FusionReplayTelemetry.summaryLabel()
-            captureSummaryLabel = "$replaySummary log=$telemetryCount"
-            delay(1200L)
         }
     }
 
@@ -271,7 +264,7 @@ fun DebuggingSettingsScreen(
                     onClick = {
                         if (exportInProgress) return@Chip
                         DebugTelemetry.clear()
-                        FusionReplayTelemetry.clear()
+                        MarkerMotionTelemetry.clear()
                         EnergyDiagnostics.clear()
                         FieldMarkerDiagnostics.clear()
                         GnssDiagnostics.clear()
@@ -318,6 +311,26 @@ fun DebuggingSettingsScreen(
                         },
                     toggleControl = ToggleChipToggleControl.Switch,
                 )
+            }
+
+            if (gpsDebugTelemetry) {
+                item {
+                    ToggleChip(
+                        checked = gpsDebugTelemetryPopupEnabled,
+                        onCheckedChanged = {
+                            if (exportInProgress) return@ToggleChip
+                            viewModel.setGpsDebugTelemetryPopupEnabled(it)
+                        },
+                        label = "Debug popup",
+                        secondaryLabel =
+                            if (gpsDebugTelemetryPopupEnabled) {
+                                "On while capturing"
+                            } else {
+                                "Off while capturing"
+                            },
+                        toggleControl = ToggleChipToggleControl.Switch,
+                    )
+                }
             }
 
             item {
@@ -398,11 +411,10 @@ fun DebuggingSettingsScreen(
                                         )
                                     }
                                 if (handedOff) {
-                                    diagnosticsExportStatus = "Check phone. Tap resend if needed."
+                                    diagnosticsExportStatus = "Check phone. Use button 3 to resend."
                                     exportDialogMode = DiagnosticsExportDialogMode.CHECK_PHONE
                                     exportDialogMessage =
-                                        "Check your phone to send the diagnostics.\n" +
-                                        "If you dismissed the phone prompt there, tap Resend here."
+                                        "If you closed the phone prompt, tap button 3 again to resend."
                                     return@launch
                                 }
                                 exportDialogMode = null
@@ -498,67 +510,52 @@ private fun DiagnosticsExportStatusDialog(
         } else if (mode == DiagnosticsExportDialogMode.FAILED) {
             "Export failed"
         } else {
-            "Diagnostics ready"
+            "Diagnostic ready - check your phone"
         }
 
-    Dialog(
+    AlertDialog(
+        visible = true,
         onDismissRequest = {
             if (dismissible) {
                 onDismiss()
             }
         },
-        properties =
-            DialogProperties(
-                usePlatformDefaultWidth = false,
-                dismissOnBackPress = dismissible,
-                dismissOnClickOutside = dismissible,
-            ),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(
-                        horizontal = if (adaptive.isRound) 24.dp else 20.dp,
-                        vertical = if (adaptive.isRound) 18.dp else 16.dp,
-                    ),
-            contentAlignment = Alignment.Center,
-        ) {
-            androidx.compose.foundation.layout.Column(
+        icon = {
+            if (mode == DiagnosticsExportDialogMode.GENERATING) {
+                RouteToolBusySpinner(size = 30.dp)
+            }
+        },
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        text = {
+            Box(
                 modifier =
                     Modifier
-                        .width(184.dp)
-                        .background(
-                            Color.Black.copy(alpha = 0.92f),
-                            RoundedCornerShape(adaptive.dialogCornerRadius),
-                        ).padding(
-                            horizontal = adaptive.dialogHorizontalPadding,
-                            vertical = adaptive.dialogVerticalPadding,
-                        ),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .fillMaxWidth()
+                        .padding(horizontal = adaptive.dialogHorizontalPadding),
+                contentAlignment = Alignment.Center,
             ) {
-                if (mode == DiagnosticsExportDialogMode.GENERATING) {
-                    RouteToolBusySpinner(size = 30.dp)
-                }
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                )
                 Text(
                     text = message,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                if (dismissible) {
-                    Button(onClick = onDismiss) {
-                        Text("OK")
-                    }
+            }
+        },
+        confirmButton = {
+            if (dismissible) {
+                Button(onClick = onDismiss) {
+                    Text("OK")
                 }
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable

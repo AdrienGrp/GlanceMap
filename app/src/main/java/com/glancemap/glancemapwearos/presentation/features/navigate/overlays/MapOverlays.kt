@@ -91,7 +91,10 @@ internal fun MapOverlays(
                 strokePaint = stroke,
             )
         }
-    val compassConeLayer = remember(mapView) { CompassConeLayer() }
+    val compassConeLayer =
+        remember(mapView) {
+            findExistingCompassConeLayer(mapView) ?: CompassConeLayer()
+        }
     val markerAHolder = remember(mapView) { arrayOfNulls<Marker>(1) }
     val markerBHolder = remember(mapView) { arrayOfNulls<Marker>(1) }
     val topOverlayCoordinator =
@@ -341,13 +344,17 @@ private fun CompassConeLayerEffect(
     DisposableEffect(mapView) {
         onDispose {
             mapView.post {
-                layers.remove(coneLayer)
-                coneLayer.onDestroy()
+                coneLayer.anchorMarker = null
+                coneLayer.isVisible = false
                 mapView.requestLayerRedrawSafely()
             }
         }
     }
 }
+
+private fun findExistingCompassConeLayer(mapView: MapView): CompassConeLayer? =
+    mapView.layerManager.layers
+        .firstOrNull { it is CompassConeLayer } as? CompassConeLayer
 
 @Composable
 @OptIn(FlowPreview::class)

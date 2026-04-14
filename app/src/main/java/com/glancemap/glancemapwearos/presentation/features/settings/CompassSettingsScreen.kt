@@ -140,8 +140,8 @@ fun CompassSettingsScreen(
                 SettingsRepository.COMPASS_HEADING_SOURCE_MAGNETOMETER to "Magnetometer",
             )
         }
-    val calibrationAlertsLabel = if (adaptive.isCompact) "Calib alerts" else "Calibration alerts"
-    val calibrationAlertsSecondary = if (adaptive.isCompact) "Compass unstable" else "If compass unstable"
+    val calibrationAlertsLabel = if (adaptive.isCompact) "Custom alerts" else "Custom compass alerts"
+    val calibrationAlertsSecondary = if (adaptive.isCompact) "If custom drifts" else "If custom compass drifts"
     val isCompatibilityRunning = compatibilityState.running
 
     LaunchedEffect(compassSettingsMode, headingSourceModeSetting) {
@@ -377,11 +377,11 @@ fun CompassSettingsScreen(
                     }
                 }
                 item {
-                    Text("Calibration", style = MaterialTheme.typography.titleMedium)
+                    Text("Custom compass", style = MaterialTheme.typography.titleMedium)
                 }
                 item {
                     Chip(
-                        label = "Recalibrate compass",
+                        label = "Reset custom compass",
                         onClick = { showCalibrationDialog = true },
                     )
                 }
@@ -395,7 +395,7 @@ fun CompassSettingsScreen(
                 }
                 item {
                     Chip(
-                        label = "Run compatibility test",
+                        label = "Run source test",
                         secondaryLabel = "Checks still + turn response",
                         onClick = {
                             compatibilityState = CompatibilityTestUiState()
@@ -494,7 +494,7 @@ fun CompassSettingsScreen(
                 compatibilityState = CompatibilityTestUiState()
             }
         },
-        title = { Text("Compatibility test") },
+        title = { Text("Custom sensor test") },
         text = {
             val result = compatibilityState.result
             val error = compatibilityState.errorMessage
@@ -511,7 +511,7 @@ fun CompassSettingsScreen(
                 }
                 result != null -> {
                     Text(
-                        "Recommended settings:\n" +
+                        "Recommended custom settings:\n" +
                             "Compass mode: ${result.recommendedCompassModeLabel()}\n" +
                             result.recommendedHeadingSourceLine() +
                             "North mode: Keep True north for maps\n" +
@@ -583,7 +583,9 @@ fun CompassSettingsScreen(
                     "Use Magnetic north only if you want to match a magnetic compass.\n\n" +
                     "If Google Fused still feels wrong on your watch,\n" +
                     "switch Orientation provider to Custom sensors.\n" +
-                    "That unlocks Compatibility test, recalibration, heading source, and accuracy-color options.",
+                    "Custom mode prefers Rotation vector when available,\n" +
+                    "and gives you Reset custom compass, source test,\n" +
+                    "heading source selection, and accuracy-color options.",
             )
         },
         confirmButton = {

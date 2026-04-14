@@ -7,7 +7,7 @@ import org.junit.Test
 
 class CompassManagerMathTest {
     @Test
-    fun resolveHeadingPipelineAutoPrefersHeadingSensor() {
+    fun resolveHeadingPipelineAutoPrefersRotationVector() {
         val pipeline =
             resolveHeadingPipeline(
                 mode = CompassHeadingSourceMode.AUTO,
@@ -15,7 +15,7 @@ class CompassManagerMathTest {
                 rotationVectorAvailable = true,
                 magAccelFallbackAvailable = true,
             )
-        assertEquals(HeadingPipeline.HEADING_SENSOR, pipeline)
+        assertEquals(HeadingPipeline.ROTATION_VECTOR, pipeline)
     }
 
     @Test

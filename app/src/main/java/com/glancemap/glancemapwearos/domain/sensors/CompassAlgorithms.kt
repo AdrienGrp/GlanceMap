@@ -113,8 +113,8 @@ internal fun resolveHeadingPipeline(
     when (mode) {
         CompassHeadingSourceMode.AUTO ->
             when {
-                headingSensorAvailable -> HeadingPipeline.HEADING_SENSOR
                 rotationVectorAvailable -> HeadingPipeline.ROTATION_VECTOR
+                headingSensorAvailable -> HeadingPipeline.HEADING_SENSOR
                 magAccelFallbackAvailable -> HeadingPipeline.MAG_ACCEL_FALLBACK
                 else -> HeadingPipeline.NONE
             }
