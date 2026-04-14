@@ -498,12 +498,12 @@ internal class FusedOrientationProviderAdapter(
                                     "delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs",
                             )
                         decision.nextPendingSampleCount == 2 ->
-                        logDiagnostics(
-                            "google_fused restart_heading_pending reason=$lastOrientationRequestReason " +
-                                "heading=${displayHeading.format(1)} " +
-                                "delta=${decision.deltaDeg.format(1)} " +
-                                "delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs",
-                        )
+                            logDiagnostics(
+                                "google_fused restart_heading_pending reason=$lastOrientationRequestReason " +
+                                    "heading=${displayHeading.format(1)} " +
+                                    "delta=${decision.deltaDeg.format(1)} " +
+                                    "delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs",
+                            )
                     }
                     return
                 }
@@ -555,7 +555,16 @@ internal class FusedOrientationProviderAdapter(
                 Float.NaN
             }
 
-        when (resolveLargeJumpAction(jump, inRelock, hasPendingJump, pendingDelta)) {
+        when (
+            resolveFusedLargeJumpAction(
+                jumpDeg = jump,
+                inRelock = inRelock,
+                hasPendingLargeJump = hasPendingJump,
+                pendingDeltaDeg = pendingDelta,
+                headingErrorDeg = headingErrorDeg,
+                conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
+            )
+        ) {
             LargeJumpAction.ACCEPT_IMMEDIATE, LargeJumpAction.ACCEPT_CONFIRMED -> {
                 if (!inRelock && jump > HEADING_LARGE_JUMP_REJECT_DEG) {
                     logDiagnostics(
@@ -1024,5 +1033,31 @@ internal fun resolveFusedRestartHeadingDecision(
         deltaDeg = deltaDeg,
         pendingAgeMs = pendingAgeMs,
         confirmReason = null,
+    )
+}
+
+internal fun resolveFusedLargeJumpAction(
+    jumpDeg: Float,
+    inRelock: Boolean,
+    hasPendingLargeJump: Boolean,
+    pendingDeltaDeg: Float,
+    headingErrorDeg: Float,
+    conservativeHeadingErrorDeg: Float,
+): LargeJumpAction {
+    if (jumpDeg <= HEADING_LARGE_JUMP_REJECT_DEG) return LargeJumpAction.NONE
+
+    val hasTrustedConservativeError =
+        conservativeHeadingErrorDeg.isFinite() &&
+            conservativeHeadingErrorDeg in 0f..FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG
+    val hasTrustedLiveError =
+        headingErrorDeg.isFinite() &&
+            headingErrorDeg in 0f..FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG
+    val allowImmediateRelockAcceptance = inRelock && (hasTrustedConservativeError || hasTrustedLiveError)
+
+    return resolveLargeJumpAction(
+        jumpDeg = jumpDeg,
+        inRelock = allowImmediateRelockAcceptance,
+        hasPendingLargeJump = hasPendingLargeJump,
+        pendingDeltaDeg = pendingDeltaDeg,
     )
 }

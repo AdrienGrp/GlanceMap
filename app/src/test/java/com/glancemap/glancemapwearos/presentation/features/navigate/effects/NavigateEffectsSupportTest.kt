@@ -170,4 +170,42 @@ class NavigateEffectsSupportTest {
             ),
         )
     }
+
+    @Test
+    fun northUpMarkerCanSeedFromRecentGoogleFusedCachedHeading() {
+        val state =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingDeg = 182f,
+                accuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                headingSampleElapsedRealtimeMs = 10_000L,
+                headingSampleStale = true,
+                headingSource = HeadingSource.NONE,
+            )
+
+        assertTrue(
+            shouldSeedNorthUpMarkerWithCachedHeading(
+                renderState = state,
+                nowElapsedMs = 25_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun initialRenderedHeadingUsesRecentGoogleFusedCachedHeading() {
+        val state =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingDeg = 182f,
+                accuracy = SensorManager.SENSOR_STATUS_UNRELIABLE,
+                headingSampleElapsedRealtimeMs = 10_000L,
+                headingSampleStale = true,
+                headingSource = HeadingSource.NONE,
+            )
+
+        assertTrue(
+            resolveNavigateInitialRenderedHeadingDeg(
+                renderState = state,
+                nowElapsedMs = 25_000L,
+            ) > 180f,
+        )
+    }
 }

@@ -32,6 +32,7 @@ import com.glancemap.glancemapwearos.core.service.location.config.GpsSettingsSta
 import com.glancemap.glancemapwearos.core.service.location.config.NOTIFICATION_ID
 import com.glancemap.glancemapwearos.core.service.location.config.TELEMETRY_SUMMARY_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.config.TELEMETRY_TAG
+import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_AUTO_FALLBACK_INTERACTIVE_MAX_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.engine.LocationEngine
 import com.glancemap.glancemapwearos.core.service.location.model.LocationPermissionChecker
@@ -152,6 +153,7 @@ class LocationService : Service() {
             engine = engine,
             telemetry = telemetry,
             requestLocationUpdateIfNeeded = { requestLocationUpdateIfNeeded() },
+            requestImmediateLocation = { source -> requestImmediateLocation(source) },
             trackingEnabled = { latestTrackingEnabled },
             ambientModeActive = { isNonInteractiveScreenState() },
             hasFinePermission = { latestHasFinePermission },
@@ -696,10 +698,17 @@ class LocationService : Service() {
                 fineMaxAccuracyM = FINE_FIX_MAX_ACCURACY_M,
                 coarseMaxAccuracyM = COARSE_FIX_MAX_ACCURACY_M,
             )
+        val watchGpsMaxAccuracyM =
+            when {
+                sourceMode != LocationSourceMode.WATCH_GPS -> WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
+                latestWatchGpsOnly -> WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
+                engine.currentRuntimeModeOrNull() == LocationRuntimeMode.PASSIVE -> WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
+                else -> WATCH_GPS_AUTO_FALLBACK_INTERACTIVE_MAX_ACCURACY_M
+            }
         return LocationFixPolicy.adaptAcceptanceForSourceMode(
             policy = basePolicy,
             sourceMode = sourceMode,
-            watchGpsMaxAccuracyM = WATCH_GPS_MAX_ACCEPTED_ACCURACY_M,
+            watchGpsMaxAccuracyM = watchGpsMaxAccuracyM,
         )
     }
 

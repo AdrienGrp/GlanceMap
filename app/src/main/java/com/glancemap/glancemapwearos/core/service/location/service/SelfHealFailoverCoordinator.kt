@@ -21,6 +21,7 @@ internal class SelfHealFailoverCoordinator(
     private val engine: LocationEngine,
     private val telemetry: LocationServiceTelemetry,
     private val requestLocationUpdateIfNeeded: () -> Unit,
+    private val requestImmediateLocation: (String) -> Unit,
     private val trackingEnabled: () -> Boolean,
     private val ambientModeActive: () -> Boolean,
     private val hasFinePermission: () -> Boolean,
@@ -38,6 +39,7 @@ internal class SelfHealFailoverCoordinator(
     private var autoFusedFallbackSinceElapsedMs: Long = 0L
     private var lastAutoFusedRecoveryProbeAtElapsedMs: Long = 0L
     private var autoFusedRecoveryGraceUntilElapsedMs: Long = 0L
+    private var pendingNoFixRecoveryProbeUntilElapsedMs: Long = 0L
     private var lastSelfHealAtElapsedMs: Long = 0L
     private var selfHealJob: Job? = null
 
@@ -54,6 +56,7 @@ internal class SelfHealFailoverCoordinator(
         clearAutoFusedFailoverStateInternal(reason = reason)
         lastAutoFusedRecoveryProbeAtElapsedMs = 0L
         autoFusedRecoveryGraceUntilElapsedMs = 0L
+        pendingNoFixRecoveryProbeUntilElapsedMs = 0L
     }
 
     fun maybeTriggerAutoFusedFailover(
@@ -78,6 +81,9 @@ internal class SelfHealFailoverCoordinator(
 
         val ageMs = LocationFixPolicy.locationAgeMs(acceptedLocation, nowElapsedMs)
         val isFresh = ageMs != Long.MAX_VALUE && ageMs <= strictFreshMaxAgeMs()
+        if (isFresh && acceptedLocation.accuracy.isFinite() && acceptedLocation.accuracy <= AUTO_FUSED_NO_FIX_RECOVERY_CLEAR_ACCURACY_M) {
+            pendingNoFixRecoveryProbeUntilElapsedMs = 0L
+        }
         if (!isFresh) {
             autoFusedPoorAccuracyStreak = 0
             return
@@ -168,6 +174,7 @@ internal class SelfHealFailoverCoordinator(
         autoFusedFallbackSinceElapsedMs = 0L
         lastAutoFusedRecoveryProbeAtElapsedMs = 0L
         autoFusedRecoveryGraceUntilElapsedMs = 0L
+        pendingNoFixRecoveryProbeUntilElapsedMs = 0L
         lastSelfHealAtElapsedMs = 0L
     }
 
@@ -340,13 +347,35 @@ internal class SelfHealFailoverCoordinator(
         if (watchGpsOnly() || autoFusedFallbackToWatchGps) return false
         if (nowElapsedMs < autoFusedRecoveryGraceUntilElapsedMs) return false
         if (engine.currentSourceModeOrNull() != LocationSourceMode.AUTO_FUSED) return false
-        if (fixGapMs < thresholdMs) return false
+        when (
+            resolveAutoFusedNoFixRecoveryAction(
+                fixGapMs = fixGapMs,
+                thresholdMs = thresholdMs,
+                nowElapsedMs = nowElapsedMs,
+                probeUntilElapsedMs = pendingNoFixRecoveryProbeUntilElapsedMs,
+            )
+        ) {
+            AutoFusedNoFixRecoveryAction.NONE -> return false
+            AutoFusedNoFixRecoveryAction.WAIT_FOR_PROBE -> return true
+            AutoFusedNoFixRecoveryAction.START_PROBE -> {
+                pendingNoFixRecoveryProbeUntilElapsedMs = nowElapsedMs + AUTO_FUSED_NO_FIX_RECOVERY_PROBE_GRACE_MS
+                telemetry.logAutoFusedNoFixRecoveryProbeTriggered(
+                    fixGapMs = fixGapMs,
+                    thresholdMs = thresholdMs,
+                    graceMs = AUTO_FUSED_NO_FIX_RECOVERY_PROBE_GRACE_MS,
+                )
+                requestImmediateLocation(AUTO_FUSED_NO_FIX_RECOVERY_SOURCE)
+                return true
+            }
+            AutoFusedNoFixRecoveryAction.FAILOVER -> Unit
+        }
 
         autoFusedPoorAccuracyStreak = 0
         autoFusedWatchGpsRecoveryStreak = 0
         autoFusedFallbackToWatchGps = true
         autoFusedFallbackSinceElapsedMs = nowElapsedMs
         lastAutoFusedRecoveryProbeAtElapsedMs = 0L
+        pendingNoFixRecoveryProbeUntilElapsedMs = 0L
         telemetry.logAutoFusedFallbackTriggeredNoFix(
             fixGapMs = fixGapMs,
             thresholdMs = thresholdMs,
@@ -361,12 +390,32 @@ internal class SelfHealFailoverCoordinator(
         autoFusedWatchGpsRecoveryStreak = 0
         autoFusedFallbackToWatchGps = false
         autoFusedFallbackSinceElapsedMs = 0L
+        pendingNoFixRecoveryProbeUntilElapsedMs = 0L
         if (wasEnabled) {
             telemetry.logAutoFusedFallbackCleared(reason = reason)
         }
     }
 
     private fun isNearKnownWatchGpsAccuracyFloor(accuracyM: Float): Boolean = abs(accuracyM - WATCH_GPS_ACCURACY_FLOOR_M) <= WATCH_GPS_ACCURACY_FLOOR_TOLERANCE_M
+}
+
+internal enum class AutoFusedNoFixRecoveryAction {
+    NONE,
+    START_PROBE,
+    WAIT_FOR_PROBE,
+    FAILOVER,
+}
+
+internal fun resolveAutoFusedNoFixRecoveryAction(
+    fixGapMs: Long,
+    thresholdMs: Long,
+    nowElapsedMs: Long,
+    probeUntilElapsedMs: Long,
+): AutoFusedNoFixRecoveryAction {
+    if (fixGapMs < thresholdMs) return AutoFusedNoFixRecoveryAction.NONE
+    if (probeUntilElapsedMs > nowElapsedMs) return AutoFusedNoFixRecoveryAction.WAIT_FOR_PROBE
+    if (probeUntilElapsedMs <= 0L) return AutoFusedNoFixRecoveryAction.START_PROBE
+    return AutoFusedNoFixRecoveryAction.FAILOVER
 }
 
 internal fun resolveAutoFusedAccuracyFailoverRequiredStreak(
@@ -410,3 +459,6 @@ private const val AUTO_FUSED_RECOVERY_PROBE_MIN_MULTIPLIER = 6L
 private const val AUTO_FUSED_RECOVERY_PROBE_MIN_FALLBACK_MS = 30_000L
 private const val AUTO_FUSED_RECOVERY_PROBE_COOLDOWN_MS = 45_000L
 private const val AUTO_FUSED_RECOVERY_GRACE_MS = 15_000L
+private const val AUTO_FUSED_NO_FIX_RECOVERY_PROBE_GRACE_MS = 4_000L
+private const val AUTO_FUSED_NO_FIX_RECOVERY_CLEAR_ACCURACY_M = 65f
+private const val AUTO_FUSED_NO_FIX_RECOVERY_SOURCE = "auto_fused_no_fix_recovery"

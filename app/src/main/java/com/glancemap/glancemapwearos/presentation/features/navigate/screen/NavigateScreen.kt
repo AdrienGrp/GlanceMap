@@ -647,7 +647,15 @@ fun NavigateScreen(
 
     // All overlays + popups + yellow A/B markers
     var renderedMapRotationDeg by remember { mutableFloatStateOf(0f) }
-    var renderedCompassHeadingDeg by remember { mutableFloatStateOf(0f) }
+    var renderedCompassHeadingDeg by
+        remember {
+            mutableFloatStateOf(
+                resolveNavigateInitialRenderedHeadingDeg(
+                    renderState = compassRenderState,
+                    nowElapsedMs = SystemClock.elapsedRealtime(),
+                ),
+            )
+        }
     var visiblePoiMarkers by remember { mutableStateOf<List<PoiOverlayMarker>>(emptyList()) }
     MapOverlays(
         mapHolder = mapHolder,

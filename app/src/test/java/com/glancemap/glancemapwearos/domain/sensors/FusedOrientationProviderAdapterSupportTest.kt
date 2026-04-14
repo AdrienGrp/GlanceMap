@@ -134,6 +134,51 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
+    fun relockLargeJumpNeedsConfirmationWhenFusedConfidenceIsWeak() {
+        val action =
+            resolveFusedLargeJumpAction(
+                jumpDeg = 148f,
+                inRelock = true,
+                hasPendingLargeJump = false,
+                pendingDeltaDeg = Float.NaN,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
+        assertEquals(LargeJumpAction.REJECT_PENDING, action)
+    }
+
+    @Test
+    fun relockLargeJumpCanStillPassImmediatelyWhenFusedConfidenceIsGood() {
+        val action =
+            resolveFusedLargeJumpAction(
+                jumpDeg = 148f,
+                inRelock = true,
+                hasPendingLargeJump = false,
+                pendingDeltaDeg = Float.NaN,
+                headingErrorDeg = 8f,
+                conservativeHeadingErrorDeg = 30f,
+            )
+
+        assertEquals(LargeJumpAction.ACCEPT_IMMEDIATE, action)
+    }
+
+    @Test
+    fun relockPendingJumpConfirmsWhenRepeatedConsistently() {
+        val action =
+            resolveFusedLargeJumpAction(
+                jumpDeg = 148f,
+                inRelock = true,
+                hasPendingLargeJump = true,
+                pendingDeltaDeg = 12f,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
+        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
+    }
+
+    @Test
     fun bootstrapSensorHeadingCanBridgeGoogleFusedWarmup() {
         val fusedState = initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED)
         val bootstrapState =
