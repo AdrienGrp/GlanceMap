@@ -353,7 +353,8 @@ private fun CompassConeLayerEffect(
 }
 
 private fun findExistingCompassConeLayer(mapView: MapView): CompassConeLayer? =
-    mapView.layerManager.layers.firstOrNull { it is CompassConeLayer } as? CompassConeLayer
+    mapView.layerManager.layers
+        .firstOrNull { it is CompassConeLayer } as? CompassConeLayer
 
 @Composable
 @OptIn(FlowPreview::class)

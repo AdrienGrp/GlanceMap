@@ -11,7 +11,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,8 +47,6 @@ import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefault
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
-import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.compose.layout.AppScaffold
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
@@ -121,13 +118,6 @@ class MainActivity : ComponentActivity() {
             val isDeviceInteractive = _isDeviceInteractive
 
             GlanceMapTheme {
-                val wearScreenSize = rememberWearScreenSize()
-                val timeChipCornerRadius =
-                    when (wearScreenSize) {
-                        WearScreenSize.SMALL -> 16.dp
-                        WearScreenSize.MEDIUM -> 18.dp
-                        WearScreenSize.LARGE -> 20.dp
-                    }
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val route = backStackEntry?.destination?.route

@@ -81,7 +81,11 @@ internal class SelfHealFailoverCoordinator(
 
         val ageMs = LocationFixPolicy.locationAgeMs(acceptedLocation, nowElapsedMs)
         val isFresh = ageMs != Long.MAX_VALUE && ageMs <= strictFreshMaxAgeMs()
-        if (isFresh && acceptedLocation.accuracy.isFinite() && acceptedLocation.accuracy <= AUTO_FUSED_NO_FIX_RECOVERY_CLEAR_ACCURACY_M) {
+        if (
+            isFresh &&
+            acceptedLocation.accuracy.isFinite() &&
+            acceptedLocation.accuracy <= AUTO_FUSED_NO_FIX_RECOVERY_CLEAR_ACCURACY_M
+        ) {
             pendingNoFixRecoveryProbeUntilElapsedMs = 0L
         }
         if (!isFresh) {
@@ -396,7 +400,10 @@ internal class SelfHealFailoverCoordinator(
         }
     }
 
-    private fun isNearKnownWatchGpsAccuracyFloor(accuracyM: Float): Boolean = abs(accuracyM - WATCH_GPS_ACCURACY_FLOOR_M) <= WATCH_GPS_ACCURACY_FLOOR_TOLERANCE_M
+    private fun isNearKnownWatchGpsAccuracyFloor(accuracyM: Float): Boolean =
+        abs(
+            accuracyM - WATCH_GPS_ACCURACY_FLOOR_M,
+        ) <= WATCH_GPS_ACCURACY_FLOOR_TOLERANCE_M
 }
 
 internal enum class AutoFusedNoFixRecoveryAction {
@@ -411,12 +418,13 @@ internal fun resolveAutoFusedNoFixRecoveryAction(
     thresholdMs: Long,
     nowElapsedMs: Long,
     probeUntilElapsedMs: Long,
-): AutoFusedNoFixRecoveryAction {
-    if (fixGapMs < thresholdMs) return AutoFusedNoFixRecoveryAction.NONE
-    if (probeUntilElapsedMs > nowElapsedMs) return AutoFusedNoFixRecoveryAction.WAIT_FOR_PROBE
-    if (probeUntilElapsedMs <= 0L) return AutoFusedNoFixRecoveryAction.START_PROBE
-    return AutoFusedNoFixRecoveryAction.FAILOVER
-}
+): AutoFusedNoFixRecoveryAction =
+    when {
+        fixGapMs < thresholdMs -> AutoFusedNoFixRecoveryAction.NONE
+        probeUntilElapsedMs > nowElapsedMs -> AutoFusedNoFixRecoveryAction.WAIT_FOR_PROBE
+        probeUntilElapsedMs <= 0L -> AutoFusedNoFixRecoveryAction.START_PROBE
+        else -> AutoFusedNoFixRecoveryAction.FAILOVER
+    }
 
 internal fun resolveAutoFusedAccuracyFailoverRequiredStreak(
     accuracyM: Float,

@@ -93,7 +93,9 @@ internal fun rememberNavigateLocationUiState(
         remember(shouldTrackLocation, screenState) { mutableLongStateOf(0L) }
     var lastAcceptedLocationFixElapsedMs by remember { mutableLongStateOf(0L) }
     var lastMarkerVisualUpdateAtElapsedMs by remember { mutableLongStateOf(0L) }
+    var lastMarkerMotionAdvanceAtElapsedMs by remember { mutableLongStateOf(0L) }
     var lastInteractiveStaleRefreshAtElapsedMs by remember { mutableLongStateOf(Long.MIN_VALUE) }
+    var lastInteractiveStaleRefreshStateLabel by remember { mutableStateOf<String?>(null) }
     var lastWakeReacquireStartedAtElapsedMs by remember { mutableLongStateOf(Long.MIN_VALUE) }
     var activeWakeSessionId by remember { mutableLongStateOf(0L) }
     var nextWakeSessionId by remember { mutableLongStateOf(0L) }
@@ -112,7 +114,9 @@ internal fun rememberNavigateLocationUiState(
         postWakePredictionHoldUntilElapsedMs = 0L
         lastAcceptedLocationFixElapsedMs = 0L
         lastMarkerVisualUpdateAtElapsedMs = 0L
+        lastMarkerMotionAdvanceAtElapsedMs = 0L
         lastInteractiveStaleRefreshAtElapsedMs = Long.MIN_VALUE
+        lastInteractiveStaleRefreshStateLabel = null
         activeWakeSessionId = 0L
         wakeAnchorSeeded = false
         wasInteractiveTrackingActive = false
@@ -164,6 +168,7 @@ internal fun rememberNavigateLocationUiState(
                     ).also { marker ->
                         mapView.layerManager.layers.add(marker)
                         lastMarkerVisualUpdateAtElapsedMs = nowElapsedMs
+                        lastMarkerMotionAdvanceAtElapsedMs = nowElapsedMs
                         mapView.requestLayerRedrawSafely()
                     }
             }
@@ -278,6 +283,7 @@ internal fun rememberNavigateLocationUiState(
                 ).also { marker ->
                     mapView.layerManager.layers.add(marker)
                     lastMarkerVisualUpdateAtElapsedMs = android.os.SystemClock.elapsedRealtime()
+                    lastMarkerMotionAdvanceAtElapsedMs = android.os.SystemClock.elapsedRealtime()
                     mapView.requestLayerRedrawSafely()
                 }
             return@LaunchedEffect
@@ -315,7 +321,9 @@ internal fun rememberNavigateLocationUiState(
         postWakePredictionHoldUntilElapsedMs = 0L
         lastAcceptedLocationFixElapsedMs = 0L
         lastMarkerVisualUpdateAtElapsedMs = 0L
+        lastMarkerMotionAdvanceAtElapsedMs = 0L
         lastInteractiveStaleRefreshAtElapsedMs = Long.MIN_VALUE
+        lastInteractiveStaleRefreshStateLabel = null
         activeWakeSessionId = 0L
         wakeAnchorSeeded = false
         markerMotionController.reset(reason = "marker_hidden")
@@ -343,6 +351,19 @@ internal fun rememberNavigateLocationUiState(
                     } else {
                         Long.MAX_VALUE
                     }
+                val startupFreshFixMaxAgeMs =
+                    resolveStartupFreshFixMaxAgeMs(
+                        expectedGpsIntervalMs = expectedGpsIntervalMs,
+                        serviceFreshMaxAgeMs = indicatorFixFreshMaxAgeMs,
+                    )
+                val shouldIgnoreStalePreWakeFix =
+                    lastAcceptedLocationFixElapsedMs <= 0L &&
+                        activeWakeSessionId <= 0L &&
+                        !wakeAnchorSeeded &&
+                        localFixAgeMs > startupFreshFixMaxAgeMs
+                if (shouldIgnoreStalePreWakeFix) {
+                    return@collect
+                }
                 val wakeSnapEligible =
                     localFixAgeMs <= computeWakeReacquireSnapMaxAgeMs(expectedGpsIntervalMs) &&
                         loc.accuracy.isFinite() &&
@@ -461,8 +482,19 @@ internal fun rememberNavigateLocationUiState(
                 } else {
                     locationMarker?.latLong = displayLatLong
                 }
+                val previousRenderedMarkerLatLong = lastRenderedMarkerLatLong
                 lastRenderedMarkerLatLong = displayLatLong
                 lastMarkerVisualUpdateAtElapsedMs = receivedAtElapsedMs
+                if (
+                    previousRenderedMarkerLatLong == null ||
+                    shouldCenterOnRenderedMarker(
+                        shouldFollowPosition = true,
+                        target = displayLatLong,
+                        currentCenter = previousRenderedMarkerLatLong,
+                    )
+                ) {
+                    lastMarkerMotionAdvanceAtElapsedMs = receivedAtElapsedMs
+                }
 
                 if (
                     shouldCenterOnRenderedMarker(
@@ -490,7 +522,9 @@ internal fun rememberNavigateLocationUiState(
             postWakePredictionHoldUntilElapsedMs = 0L
             lastAcceptedLocationFixElapsedMs = 0L
             lastMarkerVisualUpdateAtElapsedMs = 0L
+            lastMarkerMotionAdvanceAtElapsedMs = 0L
             lastInteractiveStaleRefreshAtElapsedMs = Long.MIN_VALUE
+            lastInteractiveStaleRefreshStateLabel = null
             activeWakeSessionId = 0L
             wakeAnchorSeeded = false
             markerMotionController.reset(reason = "dispose")
@@ -539,6 +573,7 @@ internal fun rememberNavigateLocationUiState(
             }
             lastRenderedMarkerLatLong = predicted
             lastMarkerVisualUpdateAtElapsedMs = nowElapsedMs
+            lastMarkerMotionAdvanceAtElapsedMs = nowElapsedMs
 
             marker.latLong = predicted
             if (
@@ -581,17 +616,31 @@ internal fun rememberNavigateLocationUiState(
                             lastFixAtElapsedMs = indicatorFixAtElapsedMs,
                             lastFixFreshMaxAgeMs = indicatorFixFreshMaxAgeMs,
                             lastVisualUpdateAtElapsedMs = lastMarkerVisualUpdateAtElapsedMs,
+                            lastMotionAdvanceAtElapsedMs = lastMarkerMotionAdvanceAtElapsedMs,
                             lastRefreshRequestAtElapsedMs = lastInteractiveStaleRefreshAtElapsedMs,
+                            predictionFreshnessMaxAgeMs = timingProfile.markerPredictionFreshnessMaxAgeMs,
                             nowElapsedMs = nowElapsedMs,
                         ),
                 )
+            if (refreshDecision.stateLabel != lastInteractiveStaleRefreshStateLabel) {
+                lastInteractiveStaleRefreshStateLabel = refreshDecision.stateLabel
+                logInteractiveStaleRefresh(
+                    nowElapsedMs = nowElapsedMs,
+                    reason = refreshDecision.reason,
+                    fixAgeMs = refreshDecision.fixAgeMs ?: Long.MAX_VALUE,
+                    visualAgeMs = refreshDecision.visualAgeMs ?: Long.MAX_VALUE,
+                    motionIdleMs = refreshDecision.motionIdleMs ?: Long.MAX_VALUE,
+                )
+            }
             if (!refreshDecision.shouldRequest) continue
 
             lastInteractiveStaleRefreshAtElapsedMs = nowElapsedMs
             logInteractiveStaleRefresh(
                 nowElapsedMs = nowElapsedMs,
+                reason = refreshDecision.reason,
                 fixAgeMs = refreshDecision.fixAgeMs ?: Long.MAX_VALUE,
                 visualAgeMs = refreshDecision.visualAgeMs ?: Long.MAX_VALUE,
+                motionIdleMs = refreshDecision.motionIdleMs ?: Long.MAX_VALUE,
             )
             locationViewModel.requestImmediateLocation(source = UI_INTERACTIVE_STALE_REFRESH_SOURCE)
         }
@@ -610,8 +659,9 @@ private const val WAKE_REACQUIRE_TIMEOUT_MS = 6_000L
 private const val WAKE_REACQUIRE_COOLDOWN_MS = 60_000L
 private const val POST_WAKE_PREDICTION_GRACE_MS = 700L
 private const val INTERACTIVE_STALE_REFRESH_CHECK_MS = 1_000L
-private const val INTERACTIVE_STALE_REFRESH_MIN_FIX_AGE_MS = 6_000L
-private const val INTERACTIVE_STALE_REFRESH_MIN_VISUAL_AGE_MS = 5_000L
+private const val INTERACTIVE_STALE_REFRESH_MIN_FIX_AGE_MS = 2_500L
+private const val INTERACTIVE_STALE_REFRESH_AFTER_PREDICTION_STALL_MS = 1_250L
+private const val INTERACTIVE_STALE_REFRESH_MIN_MOTION_IDLE_MS = 1_250L
 private const val INTERACTIVE_STALE_REFRESH_COOLDOWN_MS = 12_000L
 private const val WAKE_REACQUIRE_SNAP_MAX_ACCURACY_M = 35f
 private const val WAKE_ANCHOR_MAX_ACCURACY_M = 35f
@@ -763,8 +813,11 @@ internal fun computeCorrectionClampBypassGapMs(expectedGpsIntervalMs: Long): Lon
 
 internal data class InteractiveStaleRefreshDecision(
     val shouldRequest: Boolean,
+    val reason: String,
+    val stateLabel: String,
     val fixAgeMs: Long? = null,
     val visualAgeMs: Long? = null,
+    val motionIdleMs: Long? = null,
 )
 
 internal data class InteractiveStaleRefreshInput(
@@ -776,55 +829,127 @@ internal data class InteractiveStaleRefreshInput(
     val lastFixAtElapsedMs: Long,
     val lastFixFreshMaxAgeMs: Long,
     val lastVisualUpdateAtElapsedMs: Long,
+    val lastMotionAdvanceAtElapsedMs: Long,
     val lastRefreshRequestAtElapsedMs: Long,
+    val predictionFreshnessMaxAgeMs: Long,
     val nowElapsedMs: Long,
+)
+
+private data class InteractiveStaleRefreshAges(
+    val fixAgeMs: Long,
+    val visualAgeMs: Long,
+    val motionIdleMs: Long,
 )
 
 internal fun resolveInteractiveStaleRefreshDecision(
     input: InteractiveStaleRefreshInput,
 ): InteractiveStaleRefreshDecision {
-    val fixAgeMs =
-        if (input.lastFixAtElapsedMs > 0L) {
-            (input.nowElapsedMs - input.lastFixAtElapsedMs).coerceAtLeast(0L)
-        } else {
-            Long.MAX_VALUE
-        }
-    val freshnessThresholdMs =
-        maxOf(
-            INTERACTIVE_STALE_REFRESH_MIN_FIX_AGE_MS,
-            input.lastFixFreshMaxAgeMs.takeIf { it > 0L } ?: 0L,
-        )
+    val ages = resolveInteractiveStaleRefreshAges(input)
+    val reason = resolveInteractiveStaleRefreshReason(input = input, ages = ages)
+    return interactiveStaleRefreshDecision(
+        reason = reason,
+        ages = ages,
+    )
+}
+
+private fun resolveInteractiveStaleRefreshAges(
+    input: InteractiveStaleRefreshInput,
+): InteractiveStaleRefreshAges {
+    val fixAgeMs = resolveElapsedAgeMs(anchorElapsedMs = input.lastFixAtElapsedMs, nowElapsedMs = input.nowElapsedMs)
     val visualAgeMs =
-        if (input.lastVisualUpdateAtElapsedMs > 0L) {
-            (input.nowElapsedMs - input.lastVisualUpdateAtElapsedMs).coerceAtLeast(0L)
-        } else {
-            fixAgeMs
-        }
-    val interactiveTrackingActive =
-        input.shouldTrackLocation && !input.screenState.isNonInteractive
+        resolveElapsedAgeMs(
+            anchorElapsedMs = input.lastVisualUpdateAtElapsedMs,
+            nowElapsedMs = input.nowElapsedMs,
+            fallbackAgeMs = fixAgeMs,
+        )
+    val motionIdleMs =
+        resolveElapsedAgeMs(
+            anchorElapsedMs = input.lastMotionAdvanceAtElapsedMs,
+            nowElapsedMs = input.nowElapsedMs,
+            fallbackAgeMs = visualAgeMs,
+        )
+    return InteractiveStaleRefreshAges(
+        fixAgeMs = fixAgeMs,
+        visualAgeMs = visualAgeMs,
+        motionIdleMs = motionIdleMs,
+    )
+}
+
+private fun resolveInteractiveStaleRefreshReason(
+    input: InteractiveStaleRefreshInput,
+    ages: InteractiveStaleRefreshAges,
+): String {
+    val interactiveTrackingInactive = !input.shouldTrackLocation || input.screenState.isNonInteractive
     val wakeRecoveryActive =
         input.holdMarkerUntilFreshFix ||
             input.postWakePredictionHoldActive ||
             input.activeWakeSessionId > 0L
-    val hasKnownFix = fixAgeMs != Long.MAX_VALUE
-    val fixIsStale = hasKnownFix && fixAgeMs >= freshnessThresholdMs
-    val visualIsStale = visualAgeMs >= INTERACTIVE_STALE_REFRESH_MIN_VISUAL_AGE_MS
+    val noKnownFix = ages.fixAgeMs == Long.MAX_VALUE
+    val fixRecoveryThresholdMs =
+        resolveInteractiveStaleRefreshFixRecoveryThresholdMs(
+            lastFixFreshMaxAgeMs = input.lastFixFreshMaxAgeMs,
+            predictionFreshnessMaxAgeMs = input.predictionFreshnessMaxAgeMs,
+        )
     val refreshCooldownActive =
         input.lastRefreshRequestAtElapsedMs != Long.MIN_VALUE &&
             (input.nowElapsedMs - input.lastRefreshRequestAtElapsedMs).coerceAtLeast(0L) <
             INTERACTIVE_STALE_REFRESH_COOLDOWN_MS
-    return InteractiveStaleRefreshDecision(
-        shouldRequest =
-            interactiveTrackingActive &&
-                !wakeRecoveryActive &&
-                hasKnownFix &&
-                fixIsStale &&
-                visualIsStale &&
-                !refreshCooldownActive,
-        fixAgeMs = fixAgeMs.takeUnless { it == Long.MAX_VALUE },
-        visualAgeMs = visualAgeMs.takeUnless { it == Long.MAX_VALUE },
+    return when {
+        interactiveTrackingInactive -> "tracking_inactive"
+        wakeRecoveryActive -> "wake_recovery_active"
+        noKnownFix -> "no_fix"
+        ages.fixAgeMs < fixRecoveryThresholdMs -> "prediction_active"
+        ages.motionIdleMs < INTERACTIVE_STALE_REFRESH_MIN_MOTION_IDLE_MS -> "motion_recent"
+        refreshCooldownActive -> "cooldown"
+        else -> "motion_stalled"
+    }
+}
+
+private fun resolveInteractiveStaleRefreshFixRecoveryThresholdMs(
+    lastFixFreshMaxAgeMs: Long,
+    predictionFreshnessMaxAgeMs: Long,
+): Long {
+    val effectivePredictionFreshnessMaxAgeMs =
+        when {
+            lastFixFreshMaxAgeMs > 0L && predictionFreshnessMaxAgeMs > 0L ->
+                minOf(lastFixFreshMaxAgeMs, predictionFreshnessMaxAgeMs)
+            lastFixFreshMaxAgeMs > 0L -> lastFixFreshMaxAgeMs
+            else -> predictionFreshnessMaxAgeMs
+        }
+    return maxOf(
+        INTERACTIVE_STALE_REFRESH_MIN_FIX_AGE_MS,
+        effectivePredictionFreshnessMaxAgeMs + INTERACTIVE_STALE_REFRESH_AFTER_PREDICTION_STALL_MS,
     )
 }
+
+private fun interactiveStaleRefreshDecision(
+    reason: String,
+    ages: InteractiveStaleRefreshAges,
+): InteractiveStaleRefreshDecision =
+    InteractiveStaleRefreshDecision(
+        shouldRequest = reason == "motion_stalled",
+        reason = reason,
+        stateLabel =
+            if (reason == "motion_stalled") {
+                "request:$reason"
+            } else {
+                "blocked:$reason"
+            },
+        fixAgeMs = ages.fixAgeMs.takeUnless { it == Long.MAX_VALUE },
+        visualAgeMs = ages.visualAgeMs.takeUnless { it == Long.MAX_VALUE },
+        motionIdleMs = ages.motionIdleMs.takeUnless { it == Long.MAX_VALUE },
+    )
+
+private fun resolveElapsedAgeMs(
+    anchorElapsedMs: Long,
+    nowElapsedMs: Long,
+    fallbackAgeMs: Long = Long.MAX_VALUE,
+): Long =
+    if (anchorElapsedMs > 0L) {
+        (nowElapsedMs - anchorElapsedMs).coerceAtLeast(0L)
+    } else {
+        fallbackAgeMs
+    }
 
 internal fun resolveWakeAnchorSeedFromFixOrNull(
     latLong: LatLong?,
@@ -954,16 +1079,19 @@ private fun logWakeSessionEvent(
 
 private fun logInteractiveStaleRefresh(
     nowElapsedMs: Long,
+    reason: String,
     fixAgeMs: Long,
     visualAgeMs: Long,
+    motionIdleMs: Long,
 ) {
     DebugTelemetry.log(
         NAV_MARKER_TELEMETRY_TAG,
         buildString {
-            append("refresh reason=stale_screen")
+            append("refresh reason=$reason")
             append(" at=${nowElapsedMs}ms")
             append(" fixAge=${fixAgeMs}ms")
             append(" visualAge=${visualAgeMs}ms")
+            append(" motionIdle=${motionIdleMs}ms")
         },
     )
 }

@@ -66,12 +66,15 @@ class CompassRecalibrationDialogSupportTest {
     fun unsupportedBodyTextExplainsThatResetIsCustomOnly() {
         val body =
             compassRecalibrationBodyText(
-                phase = CalibrationPhase.UNSUPPORTED,
-                providerType = CompassProviderType.GOOGLE_FUSED,
-                hasAnyHeadingSource = true,
-                initialQuality = CompassMarkerQuality.LOW,
-                resultQuality = CompassMarkerQuality.LOW,
-                qualityImproved = false,
+                state =
+                    CompassRecalibrationBodyState(
+                        phase = CalibrationPhase.UNSUPPORTED,
+                        providerType = CompassProviderType.GOOGLE_FUSED,
+                        hasAnyHeadingSource = true,
+                        initialQuality = CompassMarkerQuality.LOW,
+                        resultQuality = CompassMarkerQuality.LOW,
+                        qualityImproved = false,
+                    ),
             )
 
         assertTrue(body.contains("Custom sensors"))

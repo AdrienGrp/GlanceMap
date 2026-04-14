@@ -50,7 +50,6 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
 import com.glancemap.glancemapwearos.presentation.features.navigate.CompassMarkerQuality
-import com.glancemap.glancemapwearos.presentation.features.navigate.compassMarkerQualityRank
 import com.glancemap.glancemapwearos.presentation.features.navigate.compassQualityReadingFromRenderState
 import com.glancemap.glancemapwearos.presentation.features.navigate.compassQualityTransitionHoldMs
 import com.glancemap.glancemapwearos.presentation.features.navigate.coneColorArgbForQuality
@@ -109,7 +108,9 @@ fun CompassRecalibrationDialog(
         headingSourceStatus.headingSensorAvailable ||
             headingSourceStatus.rotationVectorAvailable ||
             headingSourceStatus.magAccelFallbackAvailable
-    val hasQualitySample = activeProviderType == CompassProviderType.SENSOR_MANAGER && activeHeadingSource != HeadingSource.NONE
+    val hasQualitySample =
+        activeProviderType == CompassProviderType.SENSOR_MANAGER &&
+            activeHeadingSource != HeadingSource.NONE
     val rawQuality = compassQualityReading.quality
     val scrollState = rememberScrollState()
     val focusRequester = remember { FocusRequester() }
@@ -468,12 +469,15 @@ fun CompassRecalibrationDialog(
                 Text(
                     text =
                         compassRecalibrationBodyText(
-                            phase = phase,
-                            providerType = activeProviderType,
-                            hasAnyHeadingSource = hasAnyHeadingSource,
-                            initialQuality = initialQuality ?: displayedQuality,
-                            resultQuality = resultQuality ?: displayedQuality,
-                            qualityImproved = qualityImproved,
+                            state =
+                                CompassRecalibrationBodyState(
+                                    phase = phase,
+                                    providerType = activeProviderType,
+                                    hasAnyHeadingSource = hasAnyHeadingSource,
+                                    initialQuality = initialQuality ?: displayedQuality,
+                                    resultQuality = resultQuality ?: displayedQuality,
+                                    qualityImproved = qualityImproved,
+                                ),
                         ),
                     fontSize = tokens.bodyFontSize,
                     lineHeight = tokens.bodyLineHeight,
@@ -607,29 +611,33 @@ fun CompassRecalibrationDialog(
     }
 }
 
-internal fun compassRecalibrationBodyText(
-    phase: CalibrationPhase,
-    providerType: CompassProviderType,
-    hasAnyHeadingSource: Boolean,
-    initialQuality: CompassMarkerQuality,
-    resultQuality: CompassMarkerQuality,
-    qualityImproved: Boolean,
-): String =
-    when (phase) {
+internal data class CompassRecalibrationBodyState(
+    val phase: CalibrationPhase,
+    val providerType: CompassProviderType,
+    val hasAnyHeadingSource: Boolean,
+    val initialQuality: CompassMarkerQuality,
+    val resultQuality: CompassMarkerQuality,
+    val qualityImproved: Boolean,
+)
+
+internal fun compassRecalibrationBodyText(state: CompassRecalibrationBodyState): String =
+    when (state.phase) {
         CalibrationPhase.MEASURING -> {
-            "We’ll reset the custom compass, then check it while you move the watch in a gentle figure-8 and rotate your wrist slowly."
+            "We’ll reset the custom compass, then check it while you move the watch in a gentle " +
+                "figure-8 and rotate your wrist slowly."
         }
 
         CalibrationPhase.HOLD_STILL -> "Now hold watch still so we can verify that the custom compass is stable."
 
         CalibrationPhase.RESULT -> {
-            val before = compassQualityShortLabel(initialQuality)
-            val after = compassQualityShortLabel(resultQuality)
-            if (qualityImproved) {
+            val before = compassQualityShortLabel(state.initialQuality)
+            val after = compassQualityShortLabel(state.resultQuality)
+            val isUsableQuality =
+                compassQualityRank(state.resultQuality) >=
+                    compassQualityRank(CompassMarkerQuality.MEDIUM)
+            if (state.qualityImproved) {
                 "Custom compass reset complete.\nQuality improved: $before -> $after.\nTap Done to continue."
-            } else if (
-                compassQualityRank(resultQuality) >= compassQualityRank(CompassMarkerQuality.MEDIUM)
-            ) {
+            } else if (isUsableQuality) {
                 "Custom compass reset complete.\nQuality is now usable: $after.\nTap Done to continue."
             } else {
                 "Custom compass is still $after.\nMove away from metal or magnets for 5-10 seconds, then tap Try Again."
@@ -637,9 +645,9 @@ internal fun compassRecalibrationBodyText(
         }
 
         CalibrationPhase.UNSUPPORTED -> {
-            if (providerType != CompassProviderType.SENSOR_MANAGER) {
+            if (state.providerType != CompassProviderType.SENSOR_MANAGER) {
                 "Custom compass reset is only available when Orientation provider is set to Custom sensors."
-            } else if (hasAnyHeadingSource) {
+            } else if (state.hasAnyHeadingSource) {
                 "Selected custom compass source unavailable."
             } else {
                 "No custom compass source available."
@@ -647,8 +655,7 @@ internal fun compassRecalibrationBodyText(
         }
     }
 
-internal fun recalibrationResultButtonLabel(succeeded: Boolean): String =
-    if (succeeded) "Done" else "Try Again"
+internal fun recalibrationResultButtonLabel(succeeded: Boolean): String = if (succeeded) "Done" else "Try Again"
 
 internal fun didCompleteCompassRecalibration(
     providerType: CompassProviderType,
@@ -666,6 +673,7 @@ internal fun didCompleteCompassRecalibration(
                         compassQualityRank(CompassMarkerQuality.MEDIUM)
                 )
     }
+
 private const val CALIBRATION_DIALOG_TELEMETRY_TAG = "CalibrationTelemetry"
 
 private fun logCompassCalibrationTelemetry(message: String) {
@@ -681,15 +689,6 @@ private fun summarizeHoldStillQuality(
     val sortedRanks = samples.map(::compassQualityRank).sorted()
     val medianRank = sortedRanks[sortedRanks.size / 2]
     return compassQualityFromRank(medianRank)
-}
-
-private fun summarizeHoldStillHeadingError(
-    samples: List<Float>,
-    fallback: Float?,
-): Float? {
-    if (samples.isEmpty()) return fallback
-    val sortedSamples = samples.sorted()
-    return sortedSamples[sortedSamples.size / 2]
 }
 
 private fun compassQualityRank(quality: CompassMarkerQuality): Int =
