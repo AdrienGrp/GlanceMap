@@ -51,10 +51,11 @@ val releaseArtifactTaskRequested =
     }
 
 if (releaseArtifactTaskRequested && !hasReleaseSigning) {
-    throw GradleException(
-        "Missing release signing properties. Define RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, " +
-            "RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD in local/private Gradle properties or " +
-            "environment variables, or use Android Studio's Generate Signed Bundle/APK flow.",
+    logger.warn(
+        "Missing release signing properties. Falling back to debug signing for this release build. " +
+            "Define RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and " +
+            "RELEASE_KEY_PASSWORD in local/private Gradle properties or environment variables, " +
+            "or use Android Studio's Generate Signed Bundle/APK flow.",
     )
 }
 
@@ -66,8 +67,8 @@ android {
         applicationId = "com.glancemap.glancemapwearos"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -89,7 +90,11 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
