@@ -43,7 +43,9 @@ Build both:
 
 ## Key Architecture Notes
 
-- The watch and companion currently use the same `applicationId` (`com.glancemap.glancemapwearos`) for Data Layer interoperability.
+- The watch and companion use the same `applicationId` (`com.glancemap.glancemapwearos`) and must be signed by the same certificate for Wear Data Layer interoperability.
+- Play `versionCode` values are centralized in `gradle.properties` and use separate phone/watch artifact suffixes under the same app version.
+- The Wear OS app is marked non-standalone because the companion is required for the core first-run map/data transfer path.
 - Transfer protocol paths/capabilities are centralized in `:transfercontract`:
   - `transfercontract/src/main/kotlin/com/glancemap/shared/transfer/TransferDataLayerContract.kt`
 - Watch transfer/location services live in:

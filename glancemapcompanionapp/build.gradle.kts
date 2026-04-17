@@ -13,6 +13,8 @@ if (hasGoogleServicesConfig) {
     apply(plugin = "com.google.firebase.crashlytics")
 }
 
+val glanceMapVersionName = providers.gradleProperty("glanceMapVersionName").get()
+val glanceMapPhoneVersionCode = providers.gradleProperty("glanceMapPhoneVersionCode").get().toInt()
 val releaseStoreFile =
     providers
         .gradleProperty("android.injected.signing.store.file")
@@ -66,8 +68,8 @@ android {
         applicationId = "com.glancemap.glancemapwearos"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.1"
+        versionCode = glanceMapPhoneVersionCode
+        versionName = glanceMapVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -89,11 +91,12 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (hasReleaseSigning) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig =
+                if (hasReleaseSigning) {
+                    signingConfigs.getByName("release")
+                } else {
+                    signingConfigs.getByName("debug")
+                }
             isMinifyEnabled = true
             isShrinkResources = false
 

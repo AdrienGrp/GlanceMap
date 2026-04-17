@@ -34,7 +34,7 @@
 
         <meta-data
             android:name="com.google.android.wearable.standalone"
-            android:value="true" />
+            android:value="false" />
 
         <meta-data
             android:name="com.google.android.gms.wearable.CHANNEL_BUFFER_SIZE"
