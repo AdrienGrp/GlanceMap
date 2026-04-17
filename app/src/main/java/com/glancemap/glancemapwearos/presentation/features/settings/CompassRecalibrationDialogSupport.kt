@@ -15,7 +15,7 @@ import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 
 internal enum class CalibrationPhase { MEASURING, HOLD_STILL, RESULT, UNSUPPORTED }
 
-internal const val CALIBRATION_TIMEOUT_MS = 12_000L
+internal const val CALIBRATION_TIMEOUT_MS = 8_000L
 internal const val HOLD_STILL_TIMEOUT_MS = 3_000L
 internal const val COUNTDOWN_AFTER_QUALITY_VISIBLE_MS = 600L
 internal const val COMPASS_SOURCE_RESOLUTION_TIMEOUT_MS = 1_500L

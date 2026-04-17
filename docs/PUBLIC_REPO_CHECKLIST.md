@@ -1,0 +1,57 @@
+# Public Repository Checklist
+
+This checklist is for making the GitHub repository public. It is separate from
+Google Play review, but some legal and privacy checks overlap because publishing
+source code and bundled assets is still public distribution.
+
+## Current Status
+
+- Secrets: `PASS`
+  - Current tracked files do not contain release signing secrets.
+  - Active `main` history was rewritten to remove the previously committed
+    uncommented `RELEASE_*` signing values from `gradle.properties`.
+  - Keystore and signed artifact file patterns are ignored in `.gitignore`.
+- Build artifacts: `PASS`
+  - Signed `.aab`/`.apk` files and module `release/` directories are ignored.
+- Project license: `NEEDS CLARITY`
+  - The root `LICENSE` covers GlanceMap project code unless another file says
+    otherwise.
+  - Bundled third-party themes, icons, map styles, and vendored code have their
+    own provenance and license notes under `licenses/` and `third_party/`.
+- Third-party bundled assets: `BLOCK BEFORE PUBLIC`
+  - Do not make the repository public until the pending redistribution items in
+    `licenses/COMPLIANCE_STATUS.md` are resolved or the affected assets are
+    removed from the public branch.
+
+## Before Switching GitHub Visibility
+
+1. Confirm GitHub code search does not find the old signing password or active
+   `RELEASE_*=` signing lines.
+2. Confirm no keystore, signed bundle, APK, `google-services.json`, or
+   `local.properties` file is tracked:
+
+   ```bash
+   git ls-files | rg -i '(\.aab$|\.apk$|\.jks$|\.keystore$|\.p12$|\.pfx$|google-services\.json|local\.properties)'
+   ```
+
+   Expected result: no output.
+
+3. Resolve or remove bundled assets with pending redistribution review:
+   - OpenAndroMaps/Elevate permission and referenced resource license file.
+   - OpenHiking bundled theme redistribution/license verification.
+   - French Kiss bundled theme redistribution/license verification.
+   - Hike, Ride & Sight non-commercial license implications.
+4. Re-check `licenses/COMPLIANCE_STATUS.md` and update its review date/status.
+5. Host the privacy policy publicly if you also plan to distribute builds through
+   Google Play.
+
+## Useful Local Checks
+
+```bash
+git status --short --branch
+git log --all --oneline -G'^RELEASE_(STORE_FILE|STORE_PASSWORD|KEY_ALIAS|KEY_PASSWORD)=' -- gradle.properties
+git grep -n -I -E '(BEGIN .*PRIVATE KEY|AIza[0-9A-Za-z_-]{35}|ghp_[0-9A-Za-z_]{36,})' -- .
+./gradlew ktlintCheck detekt :app:compileDebugKotlin :glancemapcompanionapp:compileDebugKotlin :app:testDebugUnitTest :glancemapcompanionapp:testDebugUnitTest :app:lintDebug :glancemapcompanionapp:lintDebug
+```
+
+For the first two history/current signing checks, expected result is no output.

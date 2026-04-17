@@ -2,6 +2,13 @@
 
 GlanceMap is a Wear OS navigation app with an Android companion app for file transfer and sync.
 
+## Public Repository Status
+
+This repository is not ready to be made public until the bundled third-party
+asset redistribution items in `licenses/COMPLIANCE_STATUS.md` are resolved or
+the affected assets are removed from the public branch. Use
+`docs/PUBLIC_REPO_CHECKLIST.md` before changing GitHub visibility.
+
 ## Modules
 
 - `:app`
@@ -41,6 +48,12 @@ Build both:
 ./gradlew :app:compileDebugKotlin :glancemapcompanionapp:compileDebugKotlin
 ```
 
+Run the same quality gate used by CI:
+
+```bash
+./gradlew ktlintCheck detekt :app:compileDebugKotlin :glancemapcompanionapp:compileDebugKotlin :app:testDebugUnitTest :glancemapcompanionapp:testDebugUnitTest :app:lintDebug :glancemapcompanionapp:lintDebug
+```
+
 ## Key Architecture Notes
 
 - The watch and companion use the same `applicationId` (`com.glancemap.glancemapwearos`) and must be signed by the same certificate for Wear Data Layer interoperability.
@@ -50,6 +63,20 @@ Build both:
   - `transfercontract/src/main/kotlin/com/glancemap/shared/transfer/TransferDataLayerContract.kt`
 - Watch transfer/location services live in:
   - `app/src/main/java/com/glancemap/glancemapwearos/core/service`
+
+## Release Signing
+
+Do not commit signing credentials, keystores, signed bundles, or APKs. Release
+builds can use Android Studio's Generate Signed Bundle / APK flow, private
+Gradle properties, or environment variables. The checked-in `gradle.properties`
+contains only placeholder comments for signing values.
+
+## License And Third-Party Assets
+
+The root `LICENSE` covers GlanceMap project code unless another file says
+otherwise. Bundled map themes, icons, vendored code, and service/API notes are
+tracked under `licenses/` and `third_party/`. Review
+`licenses/COMPLIANCE_STATUS.md` before any public repository or app release.
 
 ## Documentation
 
@@ -63,6 +90,9 @@ Build both:
 - Compass module architecture: `docs/compass/ARCHITECTURE.md`
 - Compass contribution guide: `docs/compass/CONTRIBUTING.md`
 - Compass threshold rationale: `docs/compass/THRESHOLDS.md`
+- Public repository checklist: `docs/PUBLIC_REPO_CHECKLIST.md`
+- Google Play/privacy checklist: `docs/GOOGLE_PLAY_RELEASE_PRIVACY_CHECKLIST.md`
+- License and attribution notes: `licenses/README.md`
 
 ## Contributing
 

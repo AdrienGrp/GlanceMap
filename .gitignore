@@ -18,10 +18,15 @@ tmp/
 
 *.aab
 *.apk
+**/release/
 output-metadata.json
 *.hprof
 google-services.json
+*.env
+*.env.*
 *.jks
 *.keystore
 *.p12
 *.pfx
+*.pem
+*.key

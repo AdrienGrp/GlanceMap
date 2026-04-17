@@ -68,9 +68,11 @@ Status legend:
      - No separate standalone license file was observed alongside the theme assets.
      - Confirm redistribution and attribution requirements with upstream/XCTrack before public release.
 
-## Public release gate
+## Public repository and release gate
 
-For a public release, resolve all `BLOCKER` items and explicitly accept residual risk for `PENDING` items.
+For a public repository or public app release, resolve all `BLOCKER` items and
+explicitly accept residual risk for `PENDING` items. Publishing this repository
+publicly also publishes the bundled third-party assets.
 
 Current gate result:
-- `GO WITH CAUTION` (pending legal confirmation for Elevate-related redistribution details).
+- `DO NOT MAKE PUBLIC YET` unless pending bundled asset redistribution items are resolved or the affected assets are removed from the public branch.

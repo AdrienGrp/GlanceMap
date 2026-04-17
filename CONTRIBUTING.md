@@ -32,6 +32,12 @@ Run before opening a PR:
 ./gradlew :glancemapcompanionapp:compileDebugKotlin
 ```
 
+Run the full local CI gate before merging release or public-repo changes:
+
+```bash
+./gradlew ktlintCheck detekt :app:compileDebugKotlin :glancemapcompanionapp:compileDebugKotlin :app:testDebugUnitTest :glancemapcompanionapp:testDebugUnitTest :app:lintDebug :glancemapcompanionapp:lintDebug
+```
+
 If your change touches transfer behavior, also verify:
 
 - watch receives transfer requests,
@@ -61,3 +67,5 @@ When structure or behavior changes:
 1. Update relevant file-level comments (if needed).
 2. Update architecture docs in `docs/architecture/`.
 3. Update root `README.md` if setup or module responsibilities changed.
+
+Before making the repository public, follow `docs/PUBLIC_REPO_CHECKLIST.md`.

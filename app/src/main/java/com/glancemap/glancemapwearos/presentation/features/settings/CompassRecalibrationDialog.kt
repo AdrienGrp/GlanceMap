@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,9 +38,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Dialog
 import androidx.wear.compose.material3.Text
@@ -67,7 +63,6 @@ fun CompassRecalibrationDialog(
     KeepScreenOnEffect()
 
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val tokens = rememberCompassRecalibrationDialogTokens()
     val configuration = LocalConfiguration.current
     val dialogMaxHeight =
@@ -90,10 +85,6 @@ fun CompassRecalibrationDialog(
     var holdStillRemainingMs by remember { mutableLongStateOf(HOLD_STILL_TIMEOUT_MS) }
     var countdownStarted by remember { mutableStateOf(false) }
     var completed by remember { mutableStateOf(false) }
-    var isDialogResumed by remember(lifecycleOwner) {
-        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
-    }
-    var pauseStartedAtMs by remember { mutableLongStateOf(0L) }
     var lastQuality by remember { mutableStateOf<CompassMarkerQuality?>(null) }
     var displayedQuality by remember { mutableStateOf(CompassMarkerQuality.LOW) }
     var hasDisplayedInitialQuality by remember { mutableStateOf(false) }
@@ -114,53 +105,6 @@ fun CompassRecalibrationDialog(
     val rawQuality = compassQualityReading.quality
     val scrollState = rememberScrollState()
     val focusRequester = remember { FocusRequester() }
-
-    DisposableEffect(lifecycleOwner) {
-        val lifecycle = lifecycleOwner.lifecycle
-        val observer =
-            LifecycleEventObserver { _, event ->
-                when (event) {
-                    Lifecycle.Event.ON_PAUSE -> {
-                        isDialogResumed = false
-                        if (
-                            pauseStartedAtMs == 0L &&
-                            (phase == CalibrationPhase.MEASURING || phase == CalibrationPhase.HOLD_STILL)
-                        ) {
-                            pauseStartedAtMs = SystemClock.elapsedRealtime()
-                            logCompassCalibrationTelemetry(
-                                "lifecycle_pause phase=${phase.name} countdownStarted=$countdownStarted",
-                            )
-                        }
-                    }
-
-                    Lifecycle.Event.ON_RESUME -> {
-                        isDialogResumed = true
-                        val pausedAtMs = pauseStartedAtMs
-                        if (pausedAtMs > 0L) {
-                            val pausedDurationMs =
-                                (SystemClock.elapsedRealtime() - pausedAtMs).coerceAtLeast(0L)
-                            if (phase == CalibrationPhase.MEASURING && countdownStarted && startedAtMs > 0L) {
-                                startedAtMs += pausedDurationMs
-                            }
-                            if (phase == CalibrationPhase.HOLD_STILL && holdStillStartedAtMs > 0L) {
-                                holdStillStartedAtMs += pausedDurationMs
-                            }
-                            pauseStartedAtMs = 0L
-                            logCompassCalibrationTelemetry(
-                                "lifecycle_resume phase=${phase.name} pausedMs=$pausedDurationMs " +
-                                    "countdownStarted=$countdownStarted",
-                            )
-                        }
-                    }
-
-                    else -> Unit
-                }
-            }
-        lifecycle.addObserver(observer)
-        onDispose {
-            lifecycle.removeObserver(observer)
-        }
-    }
 
     fun finish(success: Boolean) {
         if (completed) return
@@ -201,11 +145,9 @@ fun CompassRecalibrationDialog(
         qualityImproved = false
         holdStillQualitySamples.clear()
         lastLoggedDisplayedQuality = null
-        pauseStartedAtMs = 0L
     }
 
     LaunchedEffect(phase, hasAnyHeadingSource, activeHeadingSource) {
-        if (!isDialogResumed) return@LaunchedEffect
         if (phase != CalibrationPhase.MEASURING) return@LaunchedEffect
         if (activeProviderType != CompassProviderType.SENSOR_MANAGER) {
             logCompassCalibrationTelemetry(
@@ -238,9 +180,7 @@ fun CompassRecalibrationDialog(
         countdownStarted,
         hasDisplayedInitialQuality,
         initialQualityDisplayedAtMs,
-        isDialogResumed,
     ) {
-        if (!isDialogResumed) return@LaunchedEffect
         if (phase != CalibrationPhase.MEASURING) return@LaunchedEffect
         if (!hasQualitySample || countdownStarted || !hasDisplayedInitialQuality) return@LaunchedEffect
         if (initialQualityDisplayedAtMs <= 0L) return@LaunchedEffect
@@ -266,8 +206,7 @@ fun CompassRecalibrationDialog(
     }
 
     // First stage: movement routine.
-    LaunchedEffect(phase, startedAtMs, countdownStarted, isDialogResumed) {
-        if (!isDialogResumed) return@LaunchedEffect
+    LaunchedEffect(phase, startedAtMs, countdownStarted) {
         if (phase != CalibrationPhase.MEASURING) return@LaunchedEffect
         if (!countdownStarted || startedAtMs <= 0L) return@LaunchedEffect
 
@@ -279,6 +218,12 @@ fun CompassRecalibrationDialog(
                 logCompassCalibrationTelemetry(
                     "move_phase_complete provider=${activeProviderType.name} " +
                         "displayed=${displayedQuality.name} raw=${rawQuality?.name ?: "UNKNOWN"}",
+                )
+                vibrator?.vibrate(
+                    VibrationEffect.createOneShot(
+                        MOVE_PHASE_COMPLETE_HAPTIC_MS,
+                        VibrationEffect.DEFAULT_AMPLITUDE,
+                    ),
                 )
                 holdStillStartedAtMs = SystemClock.elapsedRealtime()
                 holdStillRemainingMs = HOLD_STILL_TIMEOUT_MS
@@ -293,15 +238,13 @@ fun CompassRecalibrationDialog(
     }
 
     // Second stage: hold still and measure final quality.
-    LaunchedEffect(phase, rawQuality, hasQualitySample, isDialogResumed) {
-        if (!isDialogResumed) return@LaunchedEffect
+    LaunchedEffect(phase, rawQuality, hasQualitySample) {
         if (phase != CalibrationPhase.HOLD_STILL) return@LaunchedEffect
         if (!hasQualitySample || rawQuality == null) return@LaunchedEffect
         holdStillQualitySamples.add(rawQuality)
     }
 
-    LaunchedEffect(phase, holdStillStartedAtMs, isDialogResumed) {
-        if (!isDialogResumed) return@LaunchedEffect
+    LaunchedEffect(phase, holdStillStartedAtMs) {
         if (phase != CalibrationPhase.HOLD_STILL) return@LaunchedEffect
         if (holdStillStartedAtMs <= 0L) return@LaunchedEffect
         val timeoutMs = HOLD_STILL_TIMEOUT_MS
@@ -460,7 +403,7 @@ fun CompassRecalibrationDialog(
                         ),
             ) {
                 Text(
-                    text = "Reset Custom Compass",
+                    text = "Recalibrate Compass",
                     fontSize = tokens.titleFontSize,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = tokens.titleTopPadding),
@@ -526,9 +469,9 @@ fun CompassRecalibrationDialog(
                             when (phase) {
                                 CalibrationPhase.MEASURING -> {
                                     if (countdownStarted) {
-                                        "Move phase: ${(remainingMs / 1000L).coerceAtLeast(0L)}s"
+                                        "Move: ${(remainingMs / 1000L).coerceAtLeast(0L)}s"
                                     } else {
-                                        "Move phase: Checking sensor..."
+                                        "Checking sensor..."
                                     }
                                 }
 
@@ -623,11 +566,11 @@ internal data class CompassRecalibrationBodyState(
 internal fun compassRecalibrationBodyText(state: CompassRecalibrationBodyState): String =
     when (state.phase) {
         CalibrationPhase.MEASURING -> {
-            "We’ll reset the custom compass, then check it while you move the watch in a gentle " +
-                "figure-8 and rotate your wrist slowly."
+            "Move in a figure-8 for ${CALIBRATION_TIMEOUT_MS / 1000L} seconds. " +
+                "Then hold still for ${HOLD_STILL_TIMEOUT_MS / 1000L} seconds."
         }
 
-        CalibrationPhase.HOLD_STILL -> "Now hold watch still so we can verify that the custom compass is stable."
+        CalibrationPhase.HOLD_STILL -> "Hold still while we check the compass."
 
         CalibrationPhase.RESULT -> {
             val before = compassQualityShortLabel(state.initialQuality)
@@ -636,21 +579,21 @@ internal fun compassRecalibrationBodyText(state: CompassRecalibrationBodyState):
                 compassQualityRank(state.resultQuality) >=
                     compassQualityRank(CompassMarkerQuality.MEDIUM)
             if (state.qualityImproved) {
-                "Custom compass reset complete.\nQuality improved: $before -> $after.\nTap Done to continue."
+                "Compass recalibrated.\nQuality improved: $before -> $after.\nTap Done."
             } else if (isUsableQuality) {
-                "Custom compass reset complete.\nQuality is now usable: $after.\nTap Done to continue."
+                "Compass recalibrated.\nQuality: $after.\nTap Done."
             } else {
-                "Custom compass is still $after.\nMove away from metal or magnets for 5-10 seconds, then tap Try Again."
+                "Compass is still $after.\nMove away from metal, then tap Try Again."
             }
         }
 
         CalibrationPhase.UNSUPPORTED -> {
             if (state.providerType != CompassProviderType.SENSOR_MANAGER) {
-                "Custom compass reset is only available when Orientation provider is set to Custom sensors."
+                "Recalibration needs Orientation provider set to Custom sensors."
             } else if (state.hasAnyHeadingSource) {
-                "Selected custom compass source unavailable."
+                "Selected compass source unavailable."
             } else {
-                "No custom compass source available."
+                "No compass source available."
             }
         }
     }
@@ -675,6 +618,7 @@ internal fun didCompleteCompassRecalibration(
     }
 
 private const val CALIBRATION_DIALOG_TELEMETRY_TAG = "CalibrationTelemetry"
+private const val MOVE_PHASE_COMPLETE_HAPTIC_MS = 70L
 
 private fun logCompassCalibrationTelemetry(message: String) {
     if (!DebugTelemetry.isEnabled()) return

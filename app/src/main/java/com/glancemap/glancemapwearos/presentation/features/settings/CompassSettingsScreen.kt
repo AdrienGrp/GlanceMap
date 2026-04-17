@@ -95,6 +95,7 @@ fun CompassSettingsScreen(
     val latestNorthReferenceMode by rememberUpdatedState(northReferenceMode)
     val latestHeadingSourceSetting by rememberUpdatedState(headingSourceModeSetting)
     val latestHeadingSourceStatus by rememberUpdatedState(headingSourceStatus)
+    val latestShowCalibrationDialog by rememberUpdatedState(showCalibrationDialog)
     val effectiveCompassProviderModeSetting = compassProviderModeSetting
     val effectiveProviderType = compassProviderTypeFromSetting(effectiveCompassProviderModeSetting)
     val effectiveHeadingSourceModeSetting =
@@ -168,7 +169,9 @@ fun CompassSettingsScreen(
                     Lifecycle.Event.ON_RESUME -> isScreenResumed = true
                     Lifecycle.Event.ON_PAUSE -> {
                         isScreenResumed = false
-                        compassViewModel.stop()
+                        if (!latestShowCalibrationDialog) {
+                            compassViewModel.stop()
+                        }
                     }
                     else -> Unit
                 }
@@ -180,9 +183,9 @@ fun CompassSettingsScreen(
         }
     }
 
-    LaunchedEffect(isCompatibilityRunning, isScreenResumed) {
-        if (isScreenResumed) {
-            compassViewModel.start(lowPower = !isCompatibilityRunning)
+    LaunchedEffect(isCompatibilityRunning, isScreenResumed, showCalibrationDialog) {
+        if (isScreenResumed || showCalibrationDialog) {
+            compassViewModel.start(lowPower = !isCompatibilityRunning && !showCalibrationDialog)
         } else {
             compassViewModel.stop()
         }
@@ -381,7 +384,7 @@ fun CompassSettingsScreen(
                 }
                 item {
                     Chip(
-                        label = "Reset custom compass",
+                        label = "Recalibrate Compass",
                         onClick = { showCalibrationDialog = true },
                     )
                 }
@@ -584,7 +587,7 @@ fun CompassSettingsScreen(
                     "If Google Fused still feels wrong on your watch,\n" +
                     "switch Orientation provider to Custom sensors.\n" +
                     "Custom mode prefers Rotation vector when available,\n" +
-                    "and gives you Reset custom compass, source test,\n" +
+                    "and gives you Recalibrate Compass, source test,\n" +
                     "heading source selection, and accuracy-color options.",
             )
         },
