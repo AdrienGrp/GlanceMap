@@ -65,10 +65,10 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="content"
-                    android:pathPattern=".*\\.gpx" />
+                    android:pathPattern="/.*\\.gpx" />
                 <data
                     android:scheme="file"
-                    android:pathPattern=".*\\.gpx" />
+                    android:pathPattern="/.*\\.gpx" />
             </intent-filter>
 
             <!-- MAP: most providers use */* so we match by extension -->
@@ -78,10 +78,10 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="content"
-                    android:pathPattern=".*\\.map" />
+                    android:pathPattern="/.*\\.map" />
                 <data
                     android:scheme="file"
-                    android:pathPattern=".*\\.map" />
+                    android:pathPattern="/.*\\.map" />
             </intent-filter>
 
             <!-- MAP: MIME fallback for providers that hide or rewrite the original file path -->
@@ -116,10 +116,10 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="content"
-                    android:pathPattern=".*\\.GPX" />
+                    android:pathPattern="/.*\\.GPX" />
                 <data
                     android:scheme="file"
-                    android:pathPattern=".*\\.GPX" />
+                    android:pathPattern="/.*\\.GPX" />
             </intent-filter>
 
             <intent-filter tools:ignore="AppLinkUrlError">
@@ -128,10 +128,10 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="content"
-                    android:pathPattern=".*\\.MAP" />
+                    android:pathPattern="/.*\\.MAP" />
                 <data
                     android:scheme="file"
-                    android:pathPattern=".*\\.MAP" />
+                    android:pathPattern="/.*\\.MAP" />
             </intent-filter>
 
         </activity>
