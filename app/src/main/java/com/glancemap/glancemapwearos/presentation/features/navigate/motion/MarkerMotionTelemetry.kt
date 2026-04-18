@@ -425,6 +425,7 @@ private fun reasonLabel(reason: String?): String? =
         "too_close" -> "tiny"
         "between_fixes" -> "between"
         "degraded_gps" -> "gps weak"
+        "watch_gps_catch_up" -> "watch catch up"
         "reset" -> "reset"
         "interactive_start" -> "screen wake"
         "tracking_stopped" -> "track off"

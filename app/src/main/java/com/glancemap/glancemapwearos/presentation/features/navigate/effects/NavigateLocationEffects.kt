@@ -15,6 +15,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenS
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationTimingProfile
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
+import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.navigate.GpsFixIndicatorState
@@ -80,6 +81,7 @@ internal fun rememberNavigateLocationUiState(
     var indicatorFixFreshMaxAgeMs by remember { mutableLongStateOf(0L) }
     var indicatorLocationAvailable by remember { mutableStateOf(true) }
     var indicatorUnavailableSinceElapsedMs by remember { mutableLongStateOf(0L) }
+    var indicatorWatchGpsOnlyActive by remember { mutableStateOf(false) }
     var indicatorWatchGpsDegraded by remember { mutableStateOf(false) }
     var holdMarkerUntilFreshFix by
         remember(shouldTrackLocation, screenState) {
@@ -148,12 +150,19 @@ internal fun rememberNavigateLocationUiState(
             maxAgeMs = computeWakeAnchorMaxAgeMs(expectedGpsIntervalMs),
             maxAccuracyM = WAKE_ANCHOR_MAX_ACCURACY_M,
         )?.let { anchor ->
+            val markerSourceMode =
+                if (indicatorWatchGpsOnlyActive) {
+                    LocationSourceMode.WATCH_GPS
+                } else {
+                    LocationSourceMode.AUTO_FUSED
+                }
             markerMotionController.seedAnchor(
                 latLong = anchor.latLong,
                 fixElapsedMs = anchor.fixElapsedMs,
                 accuracyM = anchor.accuracyM,
                 speedMps = anchor.speedMps,
                 bearingDeg = anchor.bearingDeg,
+                sourceMode = markerSourceMode,
             )
             lastRenderedMarkerLatLong = anchor.latLong
             wakeAnchorSeeded = true
@@ -237,6 +246,7 @@ internal fun rememberNavigateLocationUiState(
             indicatorFixFreshMaxAgeMs = signal.lastFixFreshMaxAgeMs
             indicatorLocationAvailable = signal.isLocationAvailable
             indicatorUnavailableSinceElapsedMs = signal.unavailableSinceElapsedMs
+            indicatorWatchGpsOnlyActive = signal.watchGpsOnlyActive
             indicatorWatchGpsDegraded = signal.watchGpsOnlyActive && signal.watchGpsDegraded
         }
     }
@@ -449,6 +459,12 @@ internal fun rememberNavigateLocationUiState(
                     } else {
                         0f
                     }
+                val markerSourceMode =
+                    if (indicatorWatchGpsOnlyActive) {
+                        LocationSourceMode.WATCH_GPS
+                    } else {
+                        LocationSourceMode.AUTO_FUSED
+                    }
 
                 val displayLatLong =
                     markerMotionController.onGpsFix(
@@ -464,6 +480,7 @@ internal fun rememberNavigateLocationUiState(
                                 previousAcceptedFixGapMs = previousAcceptedFixGapMs,
                                 expectedGpsIntervalMs = expectedGpsIntervalMs,
                             ),
+                        sourceMode = markerSourceMode,
                     )
                 lastAcceptedLocationFixElapsedMs =
                     fixElapsedMs.takeIf { it > 0L } ?: receivedAtElapsedMs
