@@ -24,6 +24,9 @@ Repo-specific inference:
 ## Current repo audit
 
 - Public privacy policy source file: `licenses/PRIVACY_POLICY.md`
+- GitHub Pages privacy policy page source: `docs/privacy-policy.md`
+- Planned public privacy policy URL:
+  `https://adriengrp.github.io/GlanceMap/privacy-policy/`
 - No account creation or sign-in flow was found.
 - No ads SDK or ad flow was found.
 - No `ACCESS_BACKGROUND_LOCATION` permission was found.
@@ -40,13 +43,15 @@ Repo-specific inference:
 
 ## Release-time checks
 
-1. Publish the privacy policy at a stable public HTTPS URL and place the same URL in the Play Console privacy policy field.
-2. Keep the hosted text in sync with `licenses/PRIVACY_POLICY.md`.
-3. Complete the Data safety form for the total behavior of every artifact currently distributed for `com.glancemap.glancemapwearos`.
-4. Re-review the Data safety form before release if you add `google-services.json`, enable Firebase, add any new SDK, or start transmitting new data off-device.
-5. Re-review whether user-initiated diagnostics export changes your Data safety answers, especially for crash logs, app info, and any location-related telemetry captured in support files.
-6. Re-review whether any user-selected or location-derived bounding box requests to third-party services should be reflected in your Play disclosures for the exact shipped flow.
-7. Do not claim stronger security than the app actually provides. In particular, the current local phone-to-watch Wi-Fi transfer is token-protected but uses local HTTP, not end-to-end encrypted internet transport.
+1. Enable GitHub Pages from repository settings with source
+   `Deploy from a branch`, branch `main`, folder `/docs`.
+2. Publish the privacy policy at a stable public HTTPS URL and place the same URL in the Play Console privacy policy field.
+3. Keep the hosted text in sync with `licenses/PRIVACY_POLICY.md`.
+4. Complete the Data safety form for the total behavior of every artifact currently distributed for `com.glancemap.glancemapwearos`.
+5. Re-review the Data safety form before release if you add `google-services.json`, enable Firebase, add any new SDK, or start transmitting new data off-device.
+6. Re-review whether user-initiated diagnostics export changes your Data safety answers, especially for crash logs, app info, and any location-related telemetry captured in support files.
+7. Re-review whether any user-selected or location-derived bounding box requests to third-party services should be reflected in your Play disclosures for the exact shipped flow.
+8. Do not claim stronger security than the app actually provides. In particular, the current local phone-to-watch Wi-Fi transfer is token-protected but uses local HTTP, not end-to-end encrypted internet transport.
 
 ## Practical submission note
 

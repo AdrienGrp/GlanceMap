@@ -71,6 +71,15 @@ builds can use Android Studio's Generate Signed Bundle / APK flow, private
 Gradle properties, or environment variables. The checked-in `gradle.properties`
 contains only placeholder comments for signing values.
 
+## Privacy Policy
+
+The public privacy policy page is prepared for GitHub Pages at:
+
+`https://adriengrp.github.io/GlanceMap/privacy-policy/`
+
+Enable it from GitHub repository settings with source `Deploy from a branch`,
+branch `main`, folder `/docs`.
+
 ## License And Third-Party Assets
 
 The root `LICENSE` covers GlanceMap project code unless another file says
@@ -92,6 +101,7 @@ tracked under `licenses/` and `third_party/`. Review
 - Compass threshold rationale: `docs/compass/THRESHOLDS.md`
 - Public repository checklist: `docs/PUBLIC_REPO_CHECKLIST.md`
 - Google Play/privacy checklist: `docs/GOOGLE_PLAY_RELEASE_PRIVACY_CHECKLIST.md`
+- Public privacy policy page source: `docs/privacy-policy.md`
 - License and attribution notes: `licenses/README.md`
 
 ## Contributing

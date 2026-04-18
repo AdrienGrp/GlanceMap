@@ -13,6 +13,9 @@ source code and bundled assets is still public distribution.
   - Keystore and signed artifact file patterns are ignored in `.gitignore`.
 - Build artifacts: `PASS`
   - Signed `.aab`/`.apk` files and module `release/` directories are ignored.
+- Privacy policy page: `READY WHEN PAGES IS ENABLED`
+  - GitHub Pages source files are under `docs/`.
+  - Planned URL: `https://adriengrp.github.io/GlanceMap/privacy-policy/`
 - Project license: `NEEDS CLARITY`
   - The root `LICENSE` covers GlanceMap project code unless another file says
     otherwise.
@@ -42,8 +45,8 @@ source code and bundled assets is still public distribution.
    - French Kiss bundled theme redistribution/license verification.
    - Hike, Ride & Sight non-commercial license implications.
 4. Re-check `licenses/COMPLIANCE_STATUS.md` and update its review date/status.
-5. Host the privacy policy publicly if you also plan to distribute builds through
-   Google Play.
+5. Enable GitHub Pages from branch `main`, folder `/docs`, then confirm
+   `https://adriengrp.github.io/GlanceMap/privacy-policy/` loads.
 
 ## Useful Local Checks
 
