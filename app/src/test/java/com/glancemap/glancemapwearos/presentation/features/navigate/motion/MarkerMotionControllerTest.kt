@@ -552,6 +552,34 @@ class MarkerMotionControllerTest {
     }
 }
 
+@Suppress("LongParameterList")
+private fun MarkerMotionController.onGpsFix(
+    latLong: LatLong,
+    nowElapsedMs: Long,
+    fixElapsedMs: Long,
+    accuracyM: Float,
+    rawSpeedMps: Float,
+    rawBearingDeg: Float?,
+    allowLargeCorrection: Boolean = false,
+    sourceMode: LocationSourceMode = LocationSourceMode.AUTO_FUSED,
+): LatLong =
+    onGpsFix(
+        fix =
+            MarkerMotionGpsFix(
+                latLong = latLong,
+                nowElapsedMs = nowElapsedMs,
+                reading =
+                    MarkerMotionReading(
+                        fixElapsedMs = fixElapsedMs,
+                        accuracyM = accuracyM,
+                        speedMps = rawSpeedMps,
+                        bearingDeg = rawBearingDeg,
+                    ),
+                allowLargeCorrection = allowLargeCorrection,
+                sourceMode = sourceMode,
+            ),
+    )
+
 private fun distanceMeters(
     from: LatLong,
     to: LatLong,

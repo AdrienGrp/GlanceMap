@@ -23,6 +23,9 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.LocationView
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionController
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionGpsFix
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionReading
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionSeed
 import com.glancemap.glancemapwearos.presentation.features.navigate.requestLayerRedrawSafely
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
@@ -157,12 +160,18 @@ internal fun rememberNavigateLocationUiState(
                     LocationSourceMode.AUTO_FUSED
                 }
             markerMotionController.seedAnchor(
-                latLong = anchor.latLong,
-                fixElapsedMs = anchor.fixElapsedMs,
-                accuracyM = anchor.accuracyM,
-                speedMps = anchor.speedMps,
-                bearingDeg = anchor.bearingDeg,
-                sourceMode = markerSourceMode,
+                seed =
+                    MarkerMotionSeed(
+                        latLong = anchor.latLong,
+                        reading =
+                            MarkerMotionReading(
+                                fixElapsedMs = anchor.fixElapsedMs,
+                                accuracyM = anchor.accuracyM,
+                                speedMps = anchor.speedMps,
+                                bearingDeg = anchor.bearingDeg,
+                            ),
+                        sourceMode = markerSourceMode,
+                    ),
             )
             lastRenderedMarkerLatLong = anchor.latLong
             wakeAnchorSeeded = true
@@ -468,19 +477,25 @@ internal fun rememberNavigateLocationUiState(
 
                 val displayLatLong =
                     markerMotionController.onGpsFix(
-                        latLong = ll,
-                        nowElapsedMs = receivedAtElapsedMs,
-                        fixElapsedMs = fixElapsedMs,
-                        accuracyM = loc.accuracy,
-                        rawSpeedMps = motionSpeedMps,
-                        rawBearingDeg = if (loc.hasBearing()) loc.bearing else null,
-                        allowLargeCorrection =
-                            shouldBypassCorrectionClamp(
-                                releaseFromWakeHold = releaseFromWakeHold,
-                                previousAcceptedFixGapMs = previousAcceptedFixGapMs,
-                                expectedGpsIntervalMs = expectedGpsIntervalMs,
+                        fix =
+                            MarkerMotionGpsFix(
+                                latLong = ll,
+                                nowElapsedMs = receivedAtElapsedMs,
+                                reading =
+                                    MarkerMotionReading(
+                                        fixElapsedMs = fixElapsedMs,
+                                        accuracyM = loc.accuracy,
+                                        speedMps = motionSpeedMps,
+                                        bearingDeg = if (loc.hasBearing()) loc.bearing else null,
+                                    ),
+                                allowLargeCorrection =
+                                    shouldBypassCorrectionClamp(
+                                        releaseFromWakeHold = releaseFromWakeHold,
+                                        previousAcceptedFixGapMs = previousAcceptedFixGapMs,
+                                        expectedGpsIntervalMs = expectedGpsIntervalMs,
+                                    ),
+                                sourceMode = markerSourceMode,
                             ),
-                        sourceMode = markerSourceMode,
                     )
                 lastAcceptedLocationFixElapsedMs =
                     fixElapsedMs.takeIf { it > 0L } ?: receivedAtElapsedMs
