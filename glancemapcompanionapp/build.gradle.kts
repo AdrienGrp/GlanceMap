@@ -52,11 +52,11 @@ val releaseArtifactTaskRequested =
     }
 
 if (releaseArtifactTaskRequested && !hasReleaseSigning) {
-    logger.warn(
-        "Missing release signing properties. Falling back to debug signing for this release build. " +
-            "Define RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and " +
-            "RELEASE_KEY_PASSWORD in local/private Gradle properties or environment variables, " +
-            "or use Android Studio's Generate Signed Bundle/APK flow.",
+    throw GradleException(
+        "Missing release signing properties. Release artifacts must not be debug-signed. " +
+            "Use Android Studio's Generate Signed Bundle/APK flow, or define RELEASE_STORE_FILE, " +
+            "RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD in local/private " +
+            "Gradle properties or environment variables.",
     )
 }
 
@@ -91,6 +91,9 @@ android {
 
     buildTypes {
         release {
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             signingConfig =
                 if (hasReleaseSigning) {
                     signingConfigs.getByName("release")
