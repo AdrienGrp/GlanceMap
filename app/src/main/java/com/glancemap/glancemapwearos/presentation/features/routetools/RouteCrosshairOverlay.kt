@@ -252,7 +252,12 @@ internal fun BoxScope.RouteCrosshairOverlay(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (createPreview != null && onSaveCreatePreview != null && session.chainPoints.size >= 2) {
+                if (
+                    createPreview != null &&
+                    onSaveCreatePreview != null &&
+                    session.chainPoints.size >= 2 &&
+                    !createPreviewInProgress
+                ) {
                     Text(
                         text = "Save GPX",
                         modifier =

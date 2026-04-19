@@ -122,6 +122,7 @@ internal fun NavigateContent(
     crosshairSelectionBusy: Boolean = false,
     crosshairSelectionBusyMessage: String? = null,
     routeToolCreatePreview: RouteToolCreatePreview?,
+    routeToolDraftConnectorPoints: List<LatLong>,
     routeToolCreatePreviewInProgress: Boolean,
     routeToolCreatePreviewMessage: String?,
     reshapePreviewInspectMode: Boolean,
@@ -910,6 +911,7 @@ internal fun NavigateContent(
                 )
                 RouteMultiPointPointsOverlay(
                     session = session,
+                    draftConnectorPoints = routeToolDraftConnectorPoints,
                     mapView = mapView,
                     mapRotationDeg = mapRotationDeg,
                     viewportRevision = routeToolOverlayRevision,

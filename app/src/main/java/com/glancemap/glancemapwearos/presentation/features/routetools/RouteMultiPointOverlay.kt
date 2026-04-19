@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.style.TextAlign
@@ -30,6 +31,7 @@ import kotlin.math.sin
 @Composable
 internal fun BoxScope.RouteMultiPointPointsOverlay(
     session: RouteToolSession,
+    draftConnectorPoints: List<LatLong>,
     mapView: MapView,
     mapRotationDeg: Float,
     viewportRevision: Int,
@@ -41,6 +43,15 @@ internal fun BoxScope.RouteMultiPointPointsOverlay(
 
     val projectedPoints =
         session.chainPoints.mapNotNull { point ->
+            projectRouteToolPointToScreenOffset(
+                mapView = mapView,
+                latLong = point,
+                mapRotationDeg = mapRotationDeg,
+                viewportRevision = viewportRevision,
+            )
+        }
+    val projectedConnectorPoints =
+        draftConnectorPoints.mapNotNull { point ->
             projectRouteToolPointToScreenOffset(
                 mapView = mapView,
                 latLong = point,
@@ -65,7 +76,7 @@ internal fun BoxScope.RouteMultiPointPointsOverlay(
                     .align(Alignment.TopStart)
                     .fillMaxSize(),
         ) {
-            projectedPoints.zipWithNext().forEach { (start, end) ->
+            projectedConnectorPoints.zipWithNext().forEach { (start, end) ->
                 drawLine(
                     color = trackColor.copy(alpha = 0.72f),
                     start = start,
@@ -76,11 +87,12 @@ internal fun BoxScope.RouteMultiPointPointsOverlay(
             }
             if (candidateOffset != null) {
                 drawLine(
-                    color = trackColor.copy(alpha = 0.52f),
+                    color = trackColor.copy(alpha = 0.34f),
                     start = projectedPoints.last(),
                     end = candidateOffset,
-                    strokeWidth = 4f,
+                    strokeWidth = 3f,
                     cap = StrokeCap.Round,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 7f), 0f),
                 )
             }
         }

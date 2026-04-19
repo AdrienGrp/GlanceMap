@@ -177,6 +177,43 @@ internal data class RouteToolOptions(
 
 internal fun RouteToolOptions.withVisibleLoopDefaults(): RouteToolOptions = copy(loopShapeMode = LoopShapeMode.PREFER_CIRCUIT)
 
+internal fun visibleRouteToolCreatePreview(
+    session: RouteToolSession?,
+    createPreview: RouteToolCreatePreview?,
+    createPreviewInProgress: Boolean,
+): RouteToolCreatePreview? {
+    if (createPreview == null) return null
+    val current = session?.takeIf { it.isMultiPointCreate } ?: return createPreview
+    val chainSize = current.chainPoints.size
+    if (chainSize < 2) return null
+
+    val previewChainSize = createPreview.multiPointChainPointCount ?: return null
+    return when {
+        previewChainSize == chainSize -> createPreview
+        createPreviewInProgress && previewChainSize == chainSize - 1 -> createPreview
+        else -> null
+    }
+}
+
+internal fun routeToolMultiPointDraftConnectorPoints(
+    session: RouteToolSession?,
+    visibleCreatePreview: RouteToolCreatePreview?,
+    createPreviewInProgress: Boolean,
+): List<LatLong> {
+    val current = session?.takeIf { it.isMultiPointCreate } ?: return emptyList()
+    val chainPoints = current.chainPoints
+    if (chainPoints.size < 2) return emptyList()
+
+    val previewChainSize = visibleCreatePreview?.multiPointChainPointCount
+    if (previewChainSize == chainPoints.size) return emptyList()
+
+    return if (createPreviewInProgress || previewChainSize == null || previewChainSize < chainPoints.size) {
+        chainPoints.takeLast(2)
+    } else {
+        emptyList()
+    }
+}
+
 internal enum class RouteSelectionTarget(
     val title: String,
 ) {

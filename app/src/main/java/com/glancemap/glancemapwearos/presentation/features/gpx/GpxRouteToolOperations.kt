@@ -3,8 +3,10 @@ package com.glancemap.glancemapwearos.presentation.features.gpx
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterConfig
 import com.glancemap.glancemapwearos.core.routing.RouteGeometryPoint
 import com.glancemap.glancemapwearos.core.routing.RoutePlanner
+import com.glancemap.glancemapwearos.core.routing.RoutePlannerOutput
 import com.glancemap.glancemapwearos.core.routing.RoutePlannerRequest
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
+import com.glancemap.glancemapwearos.presentation.features.routetools.LoopTargetMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteReshapeBounds
@@ -39,6 +41,15 @@ import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import java.io.ByteArrayInputStream
 import java.io.File
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+private const val LOOP_TIME_TARGET_MIN_CORRECTION_RATIO = 0.10
+private const val LOOP_TIME_TARGET_MIN_CORRECTION_SECONDS = 180.0
+private const val LOOP_TIME_TARGET_MIN_CORRECTION_METERS = 500
+private const val LOOP_TIME_TARGET_MIN_DISTANCE_METERS = 2_000
+private const val LOOP_TIME_TARGET_MAX_DISTANCE_METERS = 60_000
+private const val LOOP_TIME_TARGET_MAX_CORRECTION_FACTOR = 1.35
 
 internal class GpxRouteToolOperations(
     private val gpxRepository: GpxRepository,
@@ -276,23 +287,11 @@ internal class GpxRouteToolOperations(
                 }
 
                 RouteCreateMode.LOOP_AROUND_HERE -> {
-                    val plannerRequest = session.toRoundTripPlannerRequest(currentLocation)
-                    routePlanner.createLoop(plannerRequest)
+                    createLoopRoute(session, currentLocation)
                 }
             }
         val previewPoints = route.points.map { it.latLong }
-        val profile =
-            buildProfile(
-                sig = FileSig(0L, route.points.size.toLong()),
-                pts =
-                    route.points.map { routePoint ->
-                        TrackPoint(
-                            latLong = routePoint.latLong,
-                            elevation = routePoint.elevation,
-                        )
-                    },
-                elevationFilterConfig = elevationFilterConfig(),
-            )
+        val profile = buildRouteOutputProfile(route)
         return RouteToolCreatePreview(
             previewPoints = previewPoints,
             distanceMeters = profile.totalDistance,
@@ -304,6 +303,10 @@ internal class GpxRouteToolOperations(
                     fileName = route.fileName,
                     gpxBytes = route.gpxBytes,
                 ),
+            multiPointChainPointCount =
+                session.chainPoints.size.takeIf {
+                    session.options.createMode == RouteCreateMode.MULTI_POINT_CHAIN
+                },
         )
     }
 
@@ -371,8 +374,7 @@ internal class GpxRouteToolOperations(
             RouteCreateMode.LOOP_AROUND_HERE -> {
                 val plannedCreation =
                     preview?.plannedCreation ?: run {
-                        val plannerRequest = session.toRoundTripPlannerRequest(currentLocation)
-                        val route = routePlanner.createLoop(plannerRequest)
+                        val route = createLoopRoute(session, currentLocation)
                         RouteToolPlannedCreation(
                             fileName = route.fileName,
                             gpxBytes = route.gpxBytes,
@@ -471,6 +473,95 @@ internal class GpxRouteToolOperations(
         }
 
         return savedFile
+    }
+
+    private suspend fun createLoopRoute(
+        session: RouteToolSession,
+        currentLocation: LatLong?,
+    ): RoutePlannerOutput {
+        val etaConfig = etaModelConfig()
+        val initialRequest =
+            session.toRoundTripPlannerRequest(
+                currentLocation = currentLocation,
+                etaModelConfig = etaConfig,
+            )
+        val initialRoute = routePlanner.createLoop(initialRequest)
+        if (session.options.loopTargetMode != LoopTargetMode.TIME) {
+            return initialRoute
+        }
+
+        val targetSeconds = session.options.loopDurationMinutes.coerceAtLeast(1) * 60.0
+        val initialEtaSeconds =
+            buildEtaProjection(
+                profile = buildRouteOutputProfile(initialRoute),
+                config = etaConfig,
+            )?.totalSeconds
+                ?: return initialRoute
+        val adjustedDistanceMeters =
+            adjustedLoopTimeTargetDistanceMeters(
+                currentDistanceMeters = initialRequest.targetDistanceMeters,
+                actualSeconds = initialEtaSeconds,
+                targetSeconds = targetSeconds,
+            ) ?: return initialRoute
+
+        val adjustedRequest =
+            session.toRoundTripPlannerRequest(
+                currentLocation = currentLocation,
+                etaModelConfig = etaConfig,
+                targetDistanceMetersOverride = adjustedDistanceMeters,
+            )
+        return runCatching { routePlanner.createLoop(adjustedRequest) }
+            .getOrElse { initialRoute }
+    }
+
+    private fun buildRouteOutputProfile(route: RoutePlannerOutput): TrackProfile =
+        buildProfile(
+            sig = FileSig(0L, route.points.size.toLong()),
+            pts =
+                route.points.map { routePoint ->
+                    TrackPoint(
+                        latLong = routePoint.latLong,
+                        elevation = routePoint.elevation,
+                    )
+                },
+            elevationFilterConfig = elevationFilterConfig(),
+        )
+
+    private fun adjustedLoopTimeTargetDistanceMeters(
+        currentDistanceMeters: Int,
+        actualSeconds: Double,
+        targetSeconds: Double,
+    ): Int? {
+        if (!actualSeconds.isFinite() || actualSeconds <= 0.0) return null
+        if (!targetSeconds.isFinite() || targetSeconds <= 0.0) return null
+
+        val missSeconds = abs(actualSeconds - targetSeconds)
+        val missRatio = missSeconds / targetSeconds
+        if (
+            missSeconds < LOOP_TIME_TARGET_MIN_CORRECTION_SECONDS &&
+            missRatio < LOOP_TIME_TARGET_MIN_CORRECTION_RATIO
+        ) {
+            return null
+        }
+
+        val correctionFactor =
+            (targetSeconds / actualSeconds)
+                .coerceIn(
+                    1.0 / LOOP_TIME_TARGET_MAX_CORRECTION_FACTOR,
+                    LOOP_TIME_TARGET_MAX_CORRECTION_FACTOR,
+                )
+        val adjustedDistanceMeters =
+            (currentDistanceMeters * correctionFactor)
+                .roundToInt()
+                .coerceIn(
+                    LOOP_TIME_TARGET_MIN_DISTANCE_METERS,
+                    LOOP_TIME_TARGET_MAX_DISTANCE_METERS,
+                )
+        val adjustmentMeters = abs(adjustedDistanceMeters - currentDistanceMeters)
+        if (adjustmentMeters < LOOP_TIME_TARGET_MIN_CORRECTION_METERS) {
+            return null
+        }
+        return adjustedDistanceMeters
     }
 
     private suspend fun requireSingleActiveRouteToolSource(): ActiveRouteToolSource {

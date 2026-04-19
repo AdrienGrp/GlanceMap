@@ -53,6 +53,7 @@ internal data class RouteToolCreatePreview(
     val elevationLossMeters: Double,
     val estimatedDurationSec: Double?,
     val plannedCreation: RouteToolPlannedCreation? = null,
+    val multiPointChainPointCount: Int? = null,
 )
 
 internal data class RouteToolPlannedCreation(
