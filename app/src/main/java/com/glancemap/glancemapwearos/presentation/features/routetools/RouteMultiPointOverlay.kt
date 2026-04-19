@@ -28,122 +28,178 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
+internal data class RouteMultiPointOverlayState(
+    val session: RouteToolSession,
+    val draftConnectorPoints: List<LatLong>,
+    val gpxTrackColor: Int,
+)
+
+internal data class RouteMultiPointMapProjection(
+    val mapView: MapView,
+    val mapRotationDeg: Float,
+    val viewportRevision: Int,
+)
+
+@Suppress("FunctionName", "FunctionNaming")
 @Composable
 internal fun BoxScope.RouteMultiPointPointsOverlay(
-    session: RouteToolSession,
-    draftConnectorPoints: List<LatLong>,
-    mapView: MapView,
-    mapRotationDeg: Float,
-    viewportRevision: Int,
-    gpxTrackColor: Int,
+    overlayState: RouteMultiPointOverlayState,
+    mapProjection: RouteMultiPointMapProjection,
 ) {
-    if (!session.isMultiPointCreate) return
-
-    val trackColor = Color(gpxTrackColor)
+    if (!overlayState.session.isMultiPointCreate) return
 
     val projectedPoints =
-        session.chainPoints.mapNotNull { point ->
-            projectRouteToolPointToScreenOffset(
-                mapView = mapView,
-                latLong = point,
-                mapRotationDeg = mapRotationDeg,
-                viewportRevision = viewportRevision,
-            )
-        }
+        projectRouteToolPointsToScreenOffsets(
+            points = overlayState.session.chainPoints,
+            mapProjection = mapProjection,
+        )
     val projectedConnectorPoints =
-        draftConnectorPoints.mapNotNull { point ->
-            projectRouteToolPointToScreenOffset(
-                mapView = mapView,
-                latLong = point,
-                mapRotationDeg = mapRotationDeg,
-                viewportRevision = viewportRevision,
-            )
-        }
-    if (projectedPoints.isNotEmpty()) {
-        val candidateOffset =
-            if (session.usesCrosshair) {
-                Offset(
-                    x = mapView.width / 2f,
-                    y = mapView.height / 2f,
-                )
-            } else {
-                null
-            }
+        projectRouteToolPointsToScreenOffsets(
+            points = overlayState.draftConnectorPoints,
+            mapProjection = mapProjection,
+        )
+    val trackColor = Color(overlayState.gpxTrackColor)
 
-        Canvas(
-            modifier =
-                Modifier
-                    .align(Alignment.TopStart)
-                    .fillMaxSize(),
-        ) {
-            projectedConnectorPoints.zipWithNext().forEach { (start, end) ->
-                drawLine(
-                    color = trackColor.copy(alpha = 0.72f),
-                    start = start,
-                    end = end,
-                    strokeWidth = 5f,
-                    cap = StrokeCap.Round,
-                )
-            }
-            if (candidateOffset != null) {
-                drawLine(
-                    color = trackColor.copy(alpha = 0.34f),
-                    start = projectedPoints.last(),
-                    end = candidateOffset,
-                    strokeWidth = 3f,
-                    cap = StrokeCap.Round,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 7f), 0f),
-                )
-            }
-        }
+    if (projectedPoints.isNotEmpty()) {
+        routeMultiPointConnectorCanvas(
+            projectedPoints = projectedPoints,
+            projectedConnectorPoints = projectedConnectorPoints,
+            usesCrosshair = overlayState.session.usesCrosshair,
+            mapView = mapProjection.mapView,
+            trackColor = trackColor,
+        )
     }
 
-    projectedPoints.forEachIndexed { index, screenOffset ->
-        val isLast = index == projectedPoints.lastIndex
-        val badgeSize = if (isLast) 20.dp else 18.dp
-        val haloSize = badgeSize + 8.dp
-        val halfSizePx = if (isLast) 10f else 9f
-        val fill =
-            if (isLast) {
-                trackColor.copy(alpha = 0.94f)
-            } else {
-                Color(0xFFF7C948).copy(alpha = 0.92f)
-            }
-        val labelColor = if (isLast && fill.luminance() < 0.5f) Color.White else Color.Black
+    routeMultiPointBadges(
+        projectedPoints = projectedPoints,
+        trackColor = trackColor,
+    )
+}
 
+private fun projectRouteToolPointsToScreenOffsets(
+    points: List<LatLong>,
+    mapProjection: RouteMultiPointMapProjection,
+): List<Offset> =
+    points.mapNotNull { point ->
+        projectRouteToolPointToScreenOffset(
+            mapView = mapProjection.mapView,
+            latLong = point,
+            mapRotationDeg = mapProjection.mapRotationDeg,
+            viewportRevision = mapProjection.viewportRevision,
+        )
+    }
+
+@Composable
+private fun BoxScope.routeMultiPointConnectorCanvas(
+    projectedPoints: List<Offset>,
+    projectedConnectorPoints: List<Offset>,
+    usesCrosshair: Boolean,
+    mapView: MapView,
+    trackColor: Color,
+) {
+    val candidateOffset =
+        if (usesCrosshair) {
+            Offset(
+                x = mapView.width / 2f,
+                y = mapView.height / 2f,
+            )
+        } else {
+            null
+        }
+
+    Canvas(
+        modifier =
+            Modifier
+                .align(Alignment.TopStart)
+                .fillMaxSize(),
+    ) {
+        projectedConnectorPoints.zipWithNext().forEach { (start, end) ->
+            drawLine(
+                color = trackColor.copy(alpha = 0.72f),
+                start = start,
+                end = end,
+                strokeWidth = 5f,
+                cap = StrokeCap.Round,
+            )
+        }
+        if (candidateOffset != null) {
+            drawLine(
+                color = trackColor.copy(alpha = 0.34f),
+                start = projectedPoints.last(),
+                end = candidateOffset,
+                strokeWidth = 3f,
+                cap = StrokeCap.Round,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 7f), 0f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.routeMultiPointBadges(
+    projectedPoints: List<Offset>,
+    trackColor: Color,
+) {
+    projectedPoints.forEachIndexed { index, screenOffset ->
+        routeMultiPointBadge(
+            index = index,
+            screenOffset = screenOffset,
+            isLast = index == projectedPoints.lastIndex,
+            trackColor = trackColor,
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.routeMultiPointBadge(
+    index: Int,
+    screenOffset: Offset,
+    isLast: Boolean,
+    trackColor: Color,
+) {
+    val badgeSize = if (isLast) 20.dp else 18.dp
+    val haloSize = badgeSize + 8.dp
+    val halfSizePx = if (isLast) 10f else 9f
+    val fill =
+        if (isLast) {
+            trackColor.copy(alpha = 0.94f)
+        } else {
+            Color(0xFFF7C948).copy(alpha = 0.92f)
+        }
+    val labelColor = if (isLast && fill.luminance() < 0.5f) Color.White else Color.Black
+
+    Box(
+        modifier =
+            Modifier
+                .align(Alignment.TopStart)
+                .offset {
+                    IntOffset(
+                        x = (screenOffset.x - halfSizePx).toInt(),
+                        y = (screenOffset.y - halfSizePx).toInt(),
+                    )
+                }.size(haloSize),
+        contentAlignment = Alignment.Center,
+    ) {
         Box(
             modifier =
                 Modifier
-                    .align(Alignment.TopStart)
-                    .offset {
-                        IntOffset(
-                            x = (screenOffset.x - halfSizePx).toInt(),
-                            y = (screenOffset.y - halfSizePx).toInt(),
-                        )
-                    }.size(haloSize),
+                    .size(haloSize)
+                    .background(Color.Black.copy(alpha = 0.24f), CircleShape),
+        )
+        Box(
+            modifier =
+                Modifier
+                    .size(badgeSize)
+                    .background(fill, CircleShape)
+                    .border(2.dp, Color.Black.copy(alpha = 0.82f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(haloSize)
-                        .background(Color.Black.copy(alpha = 0.24f), CircleShape),
+            Text(
+                text = if (index == 0) "1" else (index + 1).toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = labelColor,
+                textAlign = TextAlign.Center,
             )
-            Box(
-                modifier =
-                    Modifier
-                        .size(badgeSize)
-                        .background(fill, CircleShape)
-                        .border(2.dp, Color.Black.copy(alpha = 0.82f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (index == 0) "1" else (index + 1).toString(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = labelColor,
-                    textAlign = TextAlign.Center,
-                )
-            }
         }
     }
 }

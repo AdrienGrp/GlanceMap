@@ -182,16 +182,20 @@ internal fun visibleRouteToolCreatePreview(
     createPreview: RouteToolCreatePreview?,
     createPreviewInProgress: Boolean,
 ): RouteToolCreatePreview? {
-    if (createPreview == null) return null
-    val current = session?.takeIf { it.isMultiPointCreate } ?: return createPreview
-    val chainSize = current.chainPoints.size
-    if (chainSize < 2) return null
-
-    val previewChainSize = createPreview.multiPointChainPointCount ?: return null
+    val current = session?.takeIf { it.isMultiPointCreate }
     return when {
-        previewChainSize == chainSize -> createPreview
-        createPreviewInProgress && previewChainSize == chainSize - 1 -> createPreview
-        else -> null
+        createPreview == null -> null
+        current == null -> createPreview
+        current.chainPoints.size < 2 -> null
+        else -> {
+            val chainSize = current.chainPoints.size
+            val previewChainSize = createPreview.multiPointChainPointCount
+            when {
+                previewChainSize == chainSize -> createPreview
+                createPreviewInProgress && previewChainSize == chainSize - 1 -> createPreview
+                else -> null
+            }
+        }
     }
 }
 
@@ -200,17 +204,19 @@ internal fun routeToolMultiPointDraftConnectorPoints(
     visibleCreatePreview: RouteToolCreatePreview?,
     createPreviewInProgress: Boolean,
 ): List<LatLong> {
-    val current = session?.takeIf { it.isMultiPointCreate } ?: return emptyList()
-    val chainPoints = current.chainPoints
-    if (chainPoints.size < 2) return emptyList()
-
-    val previewChainSize = visibleCreatePreview?.multiPointChainPointCount
-    if (previewChainSize == chainPoints.size) return emptyList()
-
-    return if (createPreviewInProgress || previewChainSize == null || previewChainSize < chainPoints.size) {
-        chainPoints.takeLast(2)
-    } else {
-        emptyList()
+    val current = session?.takeIf { it.isMultiPointCreate }
+    return when {
+        current == null -> emptyList()
+        current.chainPoints.size < 2 -> emptyList()
+        visibleCreatePreview?.multiPointChainPointCount == current.chainPoints.size -> emptyList()
+        else -> {
+            val previewChainSize = visibleCreatePreview?.multiPointChainPointCount
+            if (createPreviewInProgress || previewChainSize == null || previewChainSize < current.chainPoints.size) {
+                current.chainPoints.takeLast(2)
+            } else {
+                emptyList()
+            }
+        }
     }
 }
 
