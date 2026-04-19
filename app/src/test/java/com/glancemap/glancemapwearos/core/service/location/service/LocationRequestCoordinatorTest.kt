@@ -15,6 +15,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocationRequestCoordinatorTest {
@@ -89,6 +91,7 @@ class LocationRequestCoordinatorTest {
             }
 
             assertEquals(1_000L, gateway.lastRequest?.intervalMs)
+            assertTrue(gateway.lastRequest?.waitForAccurateLocation == true)
         }
 
     @Test
@@ -151,6 +154,7 @@ class LocationRequestCoordinatorTest {
             }
 
             assertEquals(60_000L, gateway.lastRequest?.intervalMs)
+            assertFalse(gateway.lastRequest?.waitForAccurateLocation == true)
         }
 
     @Test

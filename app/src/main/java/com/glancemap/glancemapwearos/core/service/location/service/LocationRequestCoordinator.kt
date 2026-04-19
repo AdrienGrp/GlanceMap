@@ -151,7 +151,9 @@ internal class LocationRequestCoordinator(
                                 priority = requestSpec.priority,
                                 intervalMs = requestSpec.intervalMs,
                                 minDistanceMeters = requestSpec.minDistanceMeters,
-                                waitForAccurateLocation = false,
+                                waitForAccurateLocation =
+                                    requestSpec.mode == LocationRuntimeMode.BURST &&
+                                        requestSpec.sourceMode == LocationSourceMode.AUTO_FUSED,
                                 maxUpdateDelayMs = maxUpdateDelayMs,
                             ),
                         sink = locationUpdateSink(),

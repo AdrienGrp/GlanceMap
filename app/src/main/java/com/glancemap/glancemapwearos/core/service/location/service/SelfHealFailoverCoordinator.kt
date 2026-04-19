@@ -2,8 +2,6 @@ package com.glancemap.glancemapwearos.core.service.location.service
 
 import android.location.Location
 import android.os.SystemClock
-import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_ACCURACY_FLOOR_M
-import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_ACCURACY_FLOOR_TOLERANCE_M
 import com.glancemap.glancemapwearos.core.service.location.engine.LocationEngine
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationTimingProfile
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
@@ -13,7 +11,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 internal class SelfHealFailoverCoordinator(
     private val serviceScope: CoroutineScope,
@@ -273,12 +270,7 @@ internal class SelfHealFailoverCoordinator(
         val ageMs = LocationFixPolicy.locationAgeMs(acceptedLocation, nowElapsedMs)
         val isFresh = ageMs != Long.MAX_VALUE && ageMs <= strictFreshMaxAgeMs()
         val accuracyM = acceptedLocation.accuracy
-        val isGoodAccuracy =
-            accuracyM.isFinite() &&
-                (
-                    accuracyM <= AUTO_FUSED_RECOVERY_ACCURACY_M ||
-                        isNearKnownWatchGpsAccuracyFloor(accuracyM)
-                )
+        val isGoodAccuracy = isWatchGpsGoodEnoughForAutoFusedRecovery(accuracyM)
         if (!isFresh || !isGoodAccuracy) {
             autoFusedWatchGpsRecoveryStreak = 0
             return
@@ -400,10 +392,6 @@ internal class SelfHealFailoverCoordinator(
         }
     }
 
-    private fun isNearKnownWatchGpsAccuracyFloor(accuracyM: Float): Boolean =
-        abs(
-            accuracyM - WATCH_GPS_ACCURACY_FLOOR_M,
-        ) <= WATCH_GPS_ACCURACY_FLOOR_TOLERANCE_M
 }
 
 internal enum class AutoFusedNoFixRecoveryAction {
@@ -453,6 +441,9 @@ internal fun resolveAutoFusedFailoverThresholdM(requiredStreak: Int): Float =
     } else {
         AUTO_FUSED_FAILOVER_ACCURACY_M
     }
+
+internal fun isWatchGpsGoodEnoughForAutoFusedRecovery(accuracyM: Float): Boolean =
+    accuracyM.isFinite() && accuracyM <= AUTO_FUSED_RECOVERY_ACCURACY_M
 
 private const val SELF_HEAL_CHECK_INTERVAL_MS = 5_000L // was 2 s; cooldown is 15 s so 5 s is sufficient
 private const val SELF_HEAL_COOLDOWN_MS = 15_000L

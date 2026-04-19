@@ -1,7 +1,9 @@
 package com.glancemap.glancemapwearos.core.service.location.service
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SelfHealFailoverCoordinatorTest {
@@ -92,5 +94,15 @@ class SelfHealFailoverCoordinatorTest {
             )
 
         assertEquals(AutoFusedNoFixRecoveryAction.FAILOVER, action)
+    }
+
+    @Test
+    fun knownWatchGpsAccuracyFloorDoesNotCountAsAutoFusedRecovery() {
+        assertFalse(isWatchGpsGoodEnoughForAutoFusedRecovery(125f))
+    }
+
+    @Test
+    fun goodWatchGpsAccuracyCountsAsAutoFusedRecovery() {
+        assertTrue(isWatchGpsGoodEnoughForAutoFusedRecovery(35f))
     }
 }

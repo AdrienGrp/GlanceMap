@@ -63,6 +63,18 @@ internal object LocationFixPolicy {
         return policy.copy(maxAccuracyM = relaxedMaxAccuracyM)
     }
 
+    fun resolveWatchGpsAcceptanceAccuracyM(
+        sourceMode: LocationSourceMode,
+        watchGpsOnly: Boolean,
+        runtimeMode: LocationRuntimeMode?,
+        watchGpsMaxAccuracyM: Float,
+        watchGpsAutoFallbackInteractiveMaxAccuracyM: Float,
+    ): Float {
+        if (sourceMode != LocationSourceMode.WATCH_GPS) return watchGpsMaxAccuracyM
+        if (watchGpsOnly || runtimeMode == LocationRuntimeMode.PASSIVE) return watchGpsMaxAccuracyM
+        return max(watchGpsMaxAccuracyM, watchGpsAutoFallbackInteractiveMaxAccuracyM)
+    }
+
     fun locationAgeMs(
         location: Location,
         nowElapsedMs: Long,

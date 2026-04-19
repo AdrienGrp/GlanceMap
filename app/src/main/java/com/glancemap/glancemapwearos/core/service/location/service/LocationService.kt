@@ -699,12 +699,14 @@ class LocationService : Service() {
                 coarseMaxAccuracyM = COARSE_FIX_MAX_ACCURACY_M,
             )
         val watchGpsMaxAccuracyM =
-            when {
-                sourceMode != LocationSourceMode.WATCH_GPS -> WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
-                latestWatchGpsOnly -> WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
-                engine.currentRuntimeModeOrNull() == LocationRuntimeMode.PASSIVE -> WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
-                else -> WATCH_GPS_AUTO_FALLBACK_INTERACTIVE_MAX_ACCURACY_M
-            }
+            LocationFixPolicy.resolveWatchGpsAcceptanceAccuracyM(
+                sourceMode = sourceMode,
+                watchGpsOnly = latestWatchGpsOnly,
+                runtimeMode = engine.currentRuntimeModeOrNull(),
+                watchGpsMaxAccuracyM = WATCH_GPS_MAX_ACCEPTED_ACCURACY_M,
+                watchGpsAutoFallbackInteractiveMaxAccuracyM =
+                    WATCH_GPS_AUTO_FALLBACK_INTERACTIVE_MAX_ACCURACY_M,
+            )
         return LocationFixPolicy.adaptAcceptanceForSourceMode(
             policy = basePolicy,
             sourceMode = sourceMode,
@@ -846,7 +848,7 @@ class LocationService : Service() {
         const val EXTRA_KEEP_APP_OPEN = "extra_keep_app_open"
         const val EXTRA_TRACKING_ENABLED = "extra_tracking_enabled"
         const val EXTRA_SCREEN_STATE = "extra_screen_state"
-        private const val IMMEDIATE_GET_CURRENT_TIMEOUT_MS = 7_000L
+        private const val IMMEDIATE_GET_CURRENT_TIMEOUT_MS = 12_000L
         private const val HARD_STALE_FIX_MAX_AGE_INTERACTIVE_MS = 20_000L
         private const val HARD_STALE_FIX_MAX_AGE_PASSIVE_MS = 60_000L
         private const val SOURCE_MODE_WARMUP_MS = 1_500L
