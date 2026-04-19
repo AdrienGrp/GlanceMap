@@ -252,7 +252,14 @@ internal fun BoxScope.RouteCrosshairOverlay(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (createPreview != null && onSaveCreatePreview != null && session.chainPoints.size >= 2) {
+                if (
+                    canShowCreatePreviewSaveChip(
+                        session = session,
+                        createPreview = createPreview,
+                        createPreviewInProgress = createPreviewInProgress,
+                        onSaveCreatePreview = onSaveCreatePreview,
+                    )
+                ) {
                     Text(
                         text = "Save GPX",
                         modifier =
@@ -260,7 +267,7 @@ internal fun BoxScope.RouteCrosshairOverlay(
                                 .background(
                                     Color(0xFFF7C948).copy(alpha = 0.94f),
                                     RoundedCornerShape(8.dp),
-                                ).clickable(onClick = onSaveCreatePreview)
+                                ).clickable(onClick = requireNotNull(onSaveCreatePreview))
                                 .padding(horizontal = 6.dp, vertical = 1.dp),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = saveChipFontSize),
                         color = Color.Black,
@@ -448,6 +455,19 @@ private data class CreatePreviewLines(
     val primary: String,
     val secondary: String,
 )
+
+private fun canShowCreatePreviewSaveChip(
+    session: RouteToolSession,
+    createPreview: RouteToolCreatePreview?,
+    createPreviewInProgress: Boolean,
+    onSaveCreatePreview: (() -> Unit)?,
+): Boolean {
+    var canShow = createPreview != null
+    canShow = canShow && onSaveCreatePreview != null
+    canShow = canShow && session.chainPoints.size >= 2
+    canShow = canShow && !createPreviewInProgress
+    return canShow
+}
 
 private fun compactMultiPointBannerText(
     session: RouteToolSession,
