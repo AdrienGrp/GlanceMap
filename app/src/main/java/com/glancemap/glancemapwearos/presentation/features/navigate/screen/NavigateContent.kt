@@ -419,6 +419,7 @@ internal fun NavigateContent(
     val latestOnZoomLevelChange = rememberUpdatedState(onZoomLevelChange)
     val latestOnViewportChanged = rememberUpdatedState(onViewportChanged)
     val latestVisiblePoiMarkers = rememberUpdatedState(visiblePoiMarkers)
+    val latestLastKnownLocation = rememberUpdatedState(lastKnownLocation)
     var rotaryScrollAccumulator by remember(mapView, crownZoomEnabled, crownZoomInverted) {
         mutableStateOf(0f)
     }
@@ -426,6 +427,7 @@ internal fun NavigateContent(
     var poiTapPopup by remember { mutableStateOf<PoiTapPopupContent?>(null) }
     var poiTapPopupExpanded by remember { mutableStateOf(false) }
     var routeToolOverlayRevision by remember { mutableIntStateOf(0) }
+    var pendingDoubleTapPanningCheck by remember { mutableStateOf(false) }
 
     LaunchedEffect(poiFocusTarget) {
         val target = poiFocusTarget ?: return@LaunchedEffect
@@ -477,6 +479,30 @@ internal fun NavigateContent(
                 .toInt()
         val next = (current + step).coerceIn(zoomMin, zoomMax)
         return next != current
+    }
+
+    fun checkDoubleTapPanningAfterViewportSettles() {
+        val mv = latestMapView.value ?: return
+        mv.post {
+            if (!pendingDoubleTapPanningCheck) return@post
+            pendingDoubleTapPanningCheck = false
+            if (latestNavMode.value == NavMode.PANNING) return@post
+            if (
+                shouldEnterPanningAfterDoubleTap(
+                    center = mv.model.mapViewPosition.center,
+                    marker = latestLastKnownLocation.value,
+                )
+            ) {
+                latestOnUserPanStarted.value.invoke()
+            }
+        }
+    }
+
+    fun scheduleDoubleTapPanningCheck() {
+        latestMapView.value?.postDelayed(
+            { checkDoubleTapPanningAfterViewportSettles() },
+            DOUBLE_TAP_PANNING_CHECK_DELAY_MS,
+        )
     }
 
     val gestureDetector =
@@ -537,6 +563,23 @@ internal fun NavigateContent(
                                 mv.mapViewProjection.fromPixels(x, y)
                             }.getOrNull() ?: return
                         latestOnInspectTrack.value(ll)
+                    }
+                },
+            )
+        }
+    val doubleTapGestureDetector =
+        remember {
+            GestureDetector(
+                context,
+                object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onDown(e: MotionEvent): Boolean = true
+
+                    override fun onDoubleTap(e: MotionEvent): Boolean {
+                        if (latestNavMode.value == NavMode.PANNING) return false
+                        if (latestLastKnownLocation.value == null) return false
+                        pendingDoubleTapPanningCheck = true
+                        scheduleDoubleTapPanningCheck()
+                        return false
                     }
                 },
             )
@@ -765,6 +808,9 @@ internal fun NavigateContent(
                             lastCenter = newCenter
                             routeToolOverlayRevision++
                             latestOnViewportChanged.value(newCenter, newZoom)
+                            if (pendingDoubleTapPanningCheck) {
+                                scheduleDoubleTapPanningCheck()
+                            }
                         }
                     }
                 mapView.model.mapViewPosition.addObserver(observer)
@@ -778,6 +824,7 @@ internal fun NavigateContent(
                     (mapView.parent as? ViewGroup)?.removeView(mapView)
                     mapView.apply {
                         setOnTouchListener { v, event ->
+                            doubleTapGestureDetector.onTouchEvent(event)
                             if (latestInspectionEnabled.value) {
                                 gestureDetector.onTouchEvent(event)
                             }
@@ -1118,4 +1165,15 @@ private fun fitMapViewToPreviewPoints(
     mapView.model.mapViewPosition.setZoomLevel(chosenZoom.toByte(), false)
 }
 
+internal fun shouldEnterPanningAfterDoubleTap(
+    center: LatLong?,
+    marker: LatLong?,
+    thresholdMeters: Double = DOUBLE_TAP_PANNING_DISTANCE_THRESHOLD_METERS,
+): Boolean {
+    if (center == null || marker == null) return false
+    return navigateHaversineMeters(center, marker) > thresholdMeters
+}
+
 private const val LIVE_ELEVATION_RESAMPLE_DISTANCE_METERS = 3.0
+private const val DOUBLE_TAP_PANNING_DISTANCE_THRESHOLD_METERS = 4.0
+private const val DOUBLE_TAP_PANNING_CHECK_DELAY_MS = 120L
