@@ -30,6 +30,7 @@ internal object LocationUpdatePolicy {
         passiveTracking: Boolean,
         watchOnly: Boolean,
         hasFinePermission: Boolean,
+        passiveLocationExperiment: Boolean,
         userIntervalMs: Long,
         ambientUserIntervalMs: Long,
         minUserIntervalMs: Long,
@@ -62,10 +63,13 @@ internal object LocationUpdatePolicy {
 
         if (interactive) {
             val interactivePriority =
-                if (hasFinePermission) {
-                    Priority.PRIORITY_HIGH_ACCURACY
-                } else {
-                    Priority.PRIORITY_BALANCED_POWER_ACCURACY
+                when {
+                    usePassiveFusedPriority(
+                        sourceMode = sourceMode,
+                        passiveLocationExperiment = passiveLocationExperiment,
+                    ) -> Priority.PRIORITY_PASSIVE
+                    hasFinePermission -> Priority.PRIORITY_HIGH_ACCURACY
+                    else -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
                 }
             return LocationUpdateConfig(
                 priority = interactivePriority,
@@ -77,11 +81,26 @@ internal object LocationUpdatePolicy {
         }
 
         return LocationUpdateConfig(
-            priority = Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            priority =
+                if (
+                    usePassiveFusedPriority(
+                        sourceMode = sourceMode,
+                        passiveLocationExperiment = passiveLocationExperiment,
+                    )
+                ) {
+                    Priority.PRIORITY_PASSIVE
+                } else {
+                    Priority.PRIORITY_BALANCED_POWER_ACCURACY
+                },
             intervalMs = safeAmbientIntervalMs,
             minDistanceMeters = backgroundMinDistanceM,
             mode = LocationRuntimeMode.PASSIVE,
             sourceMode = sourceMode,
         )
     }
+
+    private fun usePassiveFusedPriority(
+        sourceMode: LocationSourceMode,
+        passiveLocationExperiment: Boolean,
+    ): Boolean = passiveLocationExperiment && sourceMode == LocationSourceMode.AUTO_FUSED
 }

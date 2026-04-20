@@ -1,6 +1,6 @@
 # Data and Asset Attribution
 
-Last reviewed: 2026-03-20
+Last reviewed: 2026-04-20
 
 This file tracks attribution and licensing notes for non-code map assets, datasets and imported POI sources used by GlanceMap.
 
@@ -25,9 +25,11 @@ This file tracks attribution and licensing notes for non-code map assets, datase
 
 Important:
 - `Elevate.xml` references `read_me_elevate.txt` for resource reuse licenses.
-- This referenced file is not currently bundled in `app/src/main/assets`.
+- Generated theme assets currently include `read_me_elevate.txt` when the Elevate download/sync step succeeds.
+- The source fallback asset path tracks `app/src/main/assets/read_me_elevate.txt` next to the root `Elevate.xml`.
 - OpenAndroMaps license page includes bundling/permission constraints.
-- Elevate permission status should be tracked in `COMPLIANCE_STATUS.md`.
+- Permission for GlanceMap's OpenAndroMaps/Elevate use/integration has been reported by the project owner as received from OpenAndroMaps and Tobias Kuehn.
+- Exact agreement dates and approved scope should be recorded outside the public repository before switching visibility.
 
 ## 3) OpenHiking Mapsforge theme
 

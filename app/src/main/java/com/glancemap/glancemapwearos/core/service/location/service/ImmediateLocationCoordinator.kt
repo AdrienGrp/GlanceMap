@@ -36,6 +36,7 @@ internal class ImmediateLocationCoordinator(
     private val currentLocationSourceMode: () -> LocationSourceMode,
     private val locationGatewayFor: (LocationSourceMode) -> LocationGateway,
     private val requestLocationUpdateIfNeeded: () -> Unit,
+    private val passiveLocationExperiment: () -> Boolean,
     private val emitGpsSignalSnapshot: () -> Unit,
     private val emitAcceptedImmediateLocation: (Location, Long) -> Unit,
     private val immediateGetCurrentTimeoutMs: Long,
@@ -44,6 +45,21 @@ internal class ImmediateLocationCoordinator(
     private var immediateLocationJob: Job? = null
 
     fun requestImmediateLocation(source: String = "service_unknown") {
+        val sourceMode = currentLocationSourceMode()
+        if (
+            shouldSuppressActiveImmediateLocationForPassiveExperiment(
+                passiveLocationExperiment = passiveLocationExperiment(),
+                sourceMode = sourceMode,
+            )
+        ) {
+            telemetry.logImmediateRequestSkippedPassiveExperiment(
+                source = source,
+                backend = sourceMode.telemetryValue,
+            )
+            requestLocationUpdateIfNeeded()
+            return
+        }
+
         val now = SystemClock.elapsedRealtime()
         when (val decision = engine.requestImmediateBurst(nowElapsedMs = now, source = source)) {
             is ImmediateBurstDecision.SkipActiveBurst,
@@ -238,3 +254,8 @@ internal class ImmediateLocationCoordinator(
         }
     }
 }
+
+internal fun shouldSuppressActiveImmediateLocationForPassiveExperiment(
+    passiveLocationExperiment: Boolean,
+    sourceMode: LocationSourceMode,
+): Boolean = passiveLocationExperiment && sourceMode == LocationSourceMode.AUTO_FUSED

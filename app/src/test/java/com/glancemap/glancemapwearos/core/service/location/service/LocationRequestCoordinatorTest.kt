@@ -9,12 +9,15 @@ import com.glancemap.glancemapwearos.core.service.location.engine.LocationEngine
 import com.glancemap.glancemapwearos.core.service.location.model.LocationPermissionSnapshot
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocationRequestCoordinatorTest {
@@ -42,15 +45,18 @@ class LocationRequestCoordinatorTest {
                     updateSelfHealMonitor = {},
                     updateGnssDiagnostics = {},
                     foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
                     cancelImmediateLocationWork = {},
                     currentState = {
                         RequestUpdateState(
                             bound = false,
                             tracking = true,
                             keepOpen = true,
+                            watchOnlyRequested = false,
                             watchOnlyEffective = false,
                             screenState = LocationScreenState.INTERACTIVE,
                             backgroundGps = false,
+                            passiveLocationExperiment = false,
                             userIntervalMs = 3_000L,
                             ambientIntervalMs = 60_000L,
                         )
@@ -89,6 +95,7 @@ class LocationRequestCoordinatorTest {
             }
 
             assertEquals(1_000L, gateway.lastRequest?.intervalMs)
+            assertTrue(gateway.lastRequest?.waitForAccurateLocation == true)
         }
 
     @Test
@@ -113,15 +120,18 @@ class LocationRequestCoordinatorTest {
                     updateSelfHealMonitor = {},
                     updateGnssDiagnostics = {},
                     foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
                     cancelImmediateLocationWork = {},
                     currentState = {
                         RequestUpdateState(
                             bound = false,
                             tracking = true,
                             keepOpen = true,
+                            watchOnlyRequested = false,
                             watchOnlyEffective = false,
                             screenState = LocationScreenState.SCREEN_OFF,
                             backgroundGps = true,
+                            passiveLocationExperiment = false,
                             userIntervalMs = 3_000L,
                             ambientIntervalMs = 60_000L,
                         )
@@ -151,6 +161,7 @@ class LocationRequestCoordinatorTest {
             }
 
             assertEquals(60_000L, gateway.lastRequest?.intervalMs)
+            assertFalse(gateway.lastRequest?.waitForAccurateLocation == true)
         }
 
     @Test
@@ -175,15 +186,18 @@ class LocationRequestCoordinatorTest {
                     updateSelfHealMonitor = {},
                     updateGnssDiagnostics = {},
                     foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
                     cancelImmediateLocationWork = {},
                     currentState = {
                         RequestUpdateState(
                             bound = false,
                             tracking = true,
                             keepOpen = true,
+                            watchOnlyRequested = false,
                             watchOnlyEffective = false,
                             screenState = LocationScreenState.INTERACTIVE,
                             backgroundGps = false,
+                            passiveLocationExperiment = false,
                             userIntervalMs = 3_000L,
                             ambientIntervalMs = 60_000L,
                         )
@@ -215,6 +229,72 @@ class LocationRequestCoordinatorTest {
 
             assertEquals(2, gateway.requestCount)
             assertEquals(3_000L, gateway.lastRequest?.intervalMs)
+        }
+
+    @Test
+    fun passiveExperimentAppliesPassiveFusedPriority() =
+        runBlocking {
+            val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+            telemetry.setDebugEnabled(false)
+            val engine = LocationEngine(telemetry)
+            val gateway = CapturingLocationGateway()
+            val scope = CoroutineScope(coroutineContext + SupervisorJob())
+            val coordinator =
+                LocationRequestCoordinator(
+                    serviceScope = scope,
+                    engine = engine,
+                    telemetry = telemetry,
+                    readAndStoreLocationPermissions = {
+                        LocationPermissionSnapshot(
+                            hasFinePermission = true,
+                            hasCoarsePermission = true,
+                        )
+                    },
+                    updateSelfHealMonitor = {},
+                    updateGnssDiagnostics = {},
+                    foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
+                    cancelImmediateLocationWork = {},
+                    currentState = {
+                        RequestUpdateState(
+                            bound = false,
+                            tracking = true,
+                            keepOpen = true,
+                            watchOnlyRequested = false,
+                            watchOnlyEffective = false,
+                            screenState = LocationScreenState.INTERACTIVE,
+                            backgroundGps = false,
+                            passiveLocationExperiment = true,
+                            userIntervalMs = 3_000L,
+                            ambientIntervalMs = 60_000L,
+                        )
+                    },
+                    effectiveUpdateIntervalMs = { 3_000L },
+                    strictSourceWarmupMs = 0L,
+                    setSourceModeWarmup = { _, _ -> },
+                    clearSourceModeWarmup = {},
+                    locationGatewayFor = { gateway },
+                    locationUpdateSink = { NoopLocationUpdateSink },
+                    removeAllLocationUpdates = {},
+                    onNoPermissions = {},
+                    onNoRequestSpec = { _, _ -> },
+                    onRequestApplied = { _, _ -> },
+                    onRequestFailed = {},
+                    maybeTriggerInteractiveSelfHealNow = { _, _, _ -> },
+                    recordEnergySample = { _, _ -> },
+                    elapsedRealtime = { 1_000L },
+                )
+
+            coordinator.requestLocationUpdateIfNeeded()
+
+            withTimeout(1_000L) {
+                while (gateway.lastRequest == null) {
+                    yield()
+                }
+            }
+
+            assertEquals(Priority.PRIORITY_PASSIVE, gateway.lastRequest?.priority)
+            assertFalse(gateway.lastRequest?.waitForAccurateLocation == true)
         }
 }
 

@@ -517,6 +517,38 @@ class MarkerMotionControllerTest {
     }
 
     @Test
+    fun watchGpsCorrectionMovesMarkerOnAcceptedFixWithoutPredictionLoop() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+        val target = moveLatLong(base, bearing = 80f, distanceMeters = 70f)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 110_000L,
+            fixElapsedMs = 110_000L,
+            accuracyM = 125f,
+            rawSpeedMps = 1.5f,
+            rawBearingDeg = 80f,
+            sourceMode = LocationSourceMode.WATCH_GPS,
+        )
+        val displayed =
+            controller.onGpsFix(
+                latLong = target,
+                nowElapsedMs = 116_000L,
+                fixElapsedMs = 116_000L,
+                accuracyM = 125f,
+                rawSpeedMps = 1.5f,
+                rawBearingDeg = 80f,
+                sourceMode = LocationSourceMode.WATCH_GPS,
+            )
+
+        assertTrue(distanceMeters(base, displayed) > 15f)
+        assertTrue(distanceMeters(displayed, target) < distanceMeters(base, target))
+        assertEquals(1, MarkerMotionTelemetry.summary().clampedCorrections)
+    }
+
+    @Test
     fun clampsVeryLargeCorrectionEvenWhenReportedAccuracyLooksGood() {
         MarkerMotionTelemetry.clear()
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)

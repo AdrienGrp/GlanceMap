@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationTimingProfile
@@ -37,6 +38,7 @@ import org.mapsforge.map.android.view.MapView
 internal data class NavigateLocationUiState(
     val locationMarker: RotatableMarker?,
     val gpsIndicatorState: GpsFixIndicatorState,
+    val gpsEnvironmentWarning: GpsEnvironmentWarning,
     val showGpsIndicatorUnpinned: Boolean,
     val watchGpsDegradedWarning: Boolean,
 )
@@ -86,6 +88,7 @@ internal fun rememberNavigateLocationUiState(
     var indicatorUnavailableSinceElapsedMs by remember { mutableLongStateOf(0L) }
     var indicatorWatchGpsOnlyActive by remember { mutableStateOf(false) }
     var indicatorWatchGpsDegraded by remember { mutableStateOf(false) }
+    var indicatorEnvironmentWarning by remember { mutableStateOf(GpsEnvironmentWarning.NONE) }
     var holdMarkerUntilFreshFix by
         remember(shouldTrackLocation, screenState) {
             mutableStateOf(shouldTrackLocation && !screenState.isNonInteractive)
@@ -257,6 +260,7 @@ internal fun rememberNavigateLocationUiState(
             indicatorUnavailableSinceElapsedMs = signal.unavailableSinceElapsedMs
             indicatorWatchGpsOnlyActive = signal.watchGpsOnlyActive
             indicatorWatchGpsDegraded = signal.watchGpsOnlyActive && signal.watchGpsDegraded
+            indicatorEnvironmentWarning = signal.environmentWarning
         }
     }
 
@@ -274,8 +278,23 @@ internal fun rememberNavigateLocationUiState(
         resolveGpsIndicatorDisplayState(
             rawState = gpsIndicatorRawState,
         )
-    val gpsIndicatorState = gpsIndicatorDisplayRawState
-    val watchGpsDegradedWarning = shouldTrackLocation && indicatorWatchGpsDegraded
+    val activeEnvironmentWarning =
+        if (shouldTrackLocation) {
+            indicatorEnvironmentWarning
+        } else {
+            GpsEnvironmentWarning.NONE
+        }
+    val gpsIndicatorState =
+        resolveGpsIndicatorStateForEnvironment(
+            rawState = gpsIndicatorDisplayRawState,
+            environmentWarning = activeEnvironmentWarning,
+        )
+    val watchGpsDegradedWarning =
+        shouldTrackLocation &&
+            (
+                indicatorWatchGpsDegraded ||
+                    activeEnvironmentWarning == GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS
+            )
     val showGpsIndicatorUnpinned =
         shouldShowGpsIndicatorUnpinned(
             gpsIndicatorState = gpsIndicatorState,
@@ -681,6 +700,7 @@ internal fun rememberNavigateLocationUiState(
     return NavigateLocationUiState(
         locationMarker = if (suppressLocationMarker) null else locationMarker,
         gpsIndicatorState = gpsIndicatorState,
+        gpsEnvironmentWarning = activeEnvironmentWarning,
         showGpsIndicatorUnpinned = showGpsIndicatorUnpinned,
         watchGpsDegradedWarning = watchGpsDegradedWarning,
     )
@@ -1072,6 +1092,19 @@ internal fun resolveGpsIndicatorState(
 internal fun resolveGpsIndicatorDisplayState(
     rawState: GpsFixIndicatorState,
 ): GpsFixIndicatorState = rawState
+
+internal fun resolveGpsIndicatorStateForEnvironment(
+    rawState: GpsFixIndicatorState,
+    environmentWarning: GpsEnvironmentWarning,
+): GpsFixIndicatorState =
+    when (environmentWarning) {
+        GpsEnvironmentWarning.LOCATION_SETTINGS_UNSATISFIED -> GpsFixIndicatorState.UNAVAILABLE
+        GpsEnvironmentWarning.NONE,
+        GpsEnvironmentWarning.WATCH_GPS_UNAVAILABLE,
+        GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_NO_WATCH_GPS,
+        GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS,
+        -> rawState
+    }
 
 internal fun shouldShowGpsIndicatorUnpinned(
     gpsIndicatorState: GpsFixIndicatorState,

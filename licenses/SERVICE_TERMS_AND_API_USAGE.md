@@ -1,6 +1,6 @@
 # Service Terms and API Usage
 
-Last reviewed: 2026-03-20
+Last reviewed: 2026-04-20
 
 This document captures non-library legal/usage constraints for external services and providers referenced by the app/build pipeline.
 
@@ -21,7 +21,9 @@ Important term notes (from upstream license page):
 - Integrating Tobias themes (including Elevate) requires written permission from Tobias.
 
 Project status:
-- Written permission for Elevate integration is currently pending.
+- Permission for GlanceMap's OpenAndroMaps/Elevate use/integration has been reported by the project owner as received from OpenAndroMaps and Tobias Kuehn.
+- Keep the original agreement messages outside the public repository.
+- Before switching GitHub visibility, record request/response dates and approved scope in private release notes or an internal issue.
 
 ## 2) OpenHiking Mapsforge theme
 

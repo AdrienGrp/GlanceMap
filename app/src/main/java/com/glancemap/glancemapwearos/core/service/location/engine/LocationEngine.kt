@@ -14,7 +14,9 @@ import com.glancemap.glancemapwearos.core.service.location.config.JITTER_THRESHO
 import com.glancemap.glancemapwearos.core.service.location.config.MAX_USER_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.config.MIN_USER_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.config.MOVEMENT_HISTORY_DURATION
+import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_BURST_EARLY_STOP_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.filter.LocationOutputFilter
+import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalTracker
 import com.glancemap.glancemapwearos.core.service.location.policy.FixAcceptancePolicy
@@ -41,6 +43,7 @@ internal class LocationEngine(
             jitterThresholdMoving = JITTER_THRESHOLD_MOVING,
             jitterThresholdStationary = JITTER_THRESHOLD_STATIONARY,
             burstEarlyStopAccuracyM = HIGH_ACCURACY_BURST_EARLY_STOP_ACCURACY_M,
+            watchGpsBurstEarlyStopAccuracyM = WATCH_GPS_BURST_EARLY_STOP_ACCURACY_M,
         )
     private val immediateRequestBurstController =
         ImmediateRequestBurstController(
@@ -90,6 +93,15 @@ internal class LocationEngine(
             telemetry.logLocationAvailabilityChanged(isAvailable)
         }
     }
+
+    fun updateEnvironmentWarning(
+        warning: GpsEnvironmentWarning,
+        nowElapsedMs: Long,
+    ): Boolean =
+        gpsSignalTracker.onEnvironmentWarning(
+            warning = warning,
+            nowElapsedMs = nowElapsedMs,
+        )
 
     fun updateGpsSignalSample(
         nowElapsedMs: Long,
@@ -179,6 +191,7 @@ internal class LocationEngine(
         passiveTracking: Boolean,
         watchOnly: Boolean,
         hasFinePermission: Boolean,
+        passiveLocationExperiment: Boolean,
         userIntervalMs: Long,
         ambientIntervalMs: Long,
     ): RequestSpec? {
@@ -190,6 +203,7 @@ internal class LocationEngine(
                 passiveTracking = passiveTracking,
                 watchOnly = watchOnly,
                 hasFinePermission = hasFinePermission,
+                passiveLocationExperiment = passiveLocationExperiment,
                 userIntervalMs = userIntervalMs,
                 ambientUserIntervalMs = ambientIntervalMs,
                 minUserIntervalMs = MIN_USER_INTERVAL_MS,
@@ -357,6 +371,7 @@ internal class LocationEngine(
                 strictMaxAgeMs = strictMaxAgeMs,
                 hardMaxAgeMs = hardMaxAgeMs,
                 source = source,
+                sourceMode = sourceMode,
                 isInHighAccuracyBurst = burstActive,
                 burstEarlyStopMaxAgeMs = strictMaxAgeMs,
             )

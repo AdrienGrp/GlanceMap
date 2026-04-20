@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -117,6 +118,7 @@ fun DebuggingSettingsScreen(
     val keepAppOpen by viewModel.keepAppOpen.collectAsState(initial = false)
     val gpsInAmbientMode by viewModel.gpsInAmbientMode.collectAsState()
     val gpsDebugTelemetry by viewModel.gpsDebugTelemetry.collectAsState()
+    val gpsPassiveLocationExperiment by viewModel.gpsPassiveLocationExperiment.collectAsState()
     val gpsDebugTelemetryPopupEnabled by viewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
     var diagnosticsExportStatus by remember {
         mutableStateOf(DIAGNOSTICS_DEFAULT_STATUS)
@@ -388,6 +390,7 @@ fun DebuggingSettingsScreen(
                                                     keepAppOpen = keepAppOpen,
                                                     gpsInAmbientMode = gpsInAmbientMode,
                                                     gpsDebugTelemetry = captureWasEnabled,
+                                                    gpsPassiveLocationExperiment = gpsPassiveLocationExperiment,
                                                 ),
                                             reuseLatestIfAvailable = !captureWasEnabled,
                                         )
@@ -576,6 +579,7 @@ private fun DiagnosticsExportInfoDialog(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .offset(y = 2.dp)
                     .background(
                         Color.Black.copy(alpha = 0.82f),
                         RoundedCornerShape(adaptive.dialogCornerRadius),
@@ -634,9 +638,8 @@ private fun DiagnosticsExportInfoDialog(
                 Text(
                     text =
                         "After export, check your phone.\n" +
-                            "The phone opens the email draft with diagnostics attached.\n" +
-                            "If you dismiss the phone prompt, come back here and tap Resend.\n" +
-                            "If phone handoff is unavailable, the watch needs a mail/share app.",
+                            "It opens the email draft with diagnostics attached.\n" +
+                            "If you closed the phone prompt, come back here and tap Resend.",
                     textAlign = TextAlign.Center,
                 )
             }

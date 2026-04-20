@@ -15,6 +15,7 @@ internal class GpsSignalTracker {
     private var hasLoggedAvailabilityState: Boolean = false
     private var watchGpsDegradedFixStreak: Int = 0
     private var watchGpsDegradedSinceMs: Long = 0L
+    private var environmentWarningSinceMs: Long = 0L
 
     fun onSourceModeChanged(sourceMode: LocationSourceMode?) {
         val watchGpsOnlyActive = sourceMode == LocationSourceMode.WATCH_GPS
@@ -63,6 +64,26 @@ internal class GpsSignalTracker {
         return shouldLog
     }
 
+    fun onEnvironmentWarning(
+        warning: GpsEnvironmentWarning,
+        nowElapsedMs: Long,
+    ): Boolean {
+        val previous = snapshot.environmentWarning
+        if (previous == warning) return false
+        environmentWarningSinceMs =
+            if (warning == GpsEnvironmentWarning.NONE) {
+                0L
+            } else {
+                nowElapsedMs
+            }
+        snapshot =
+            snapshot.copy(
+                environmentWarning = warning,
+                environmentWarningSinceElapsedMs = environmentWarningSinceMs,
+            )
+        return true
+    }
+
     fun onGpsSignalSample(
         nowElapsedMs: Long,
         ageMs: Long,
@@ -97,6 +118,8 @@ internal class GpsSignalTracker {
             watchGpsDegradedSinceMs = 0L
         }
         val watchGpsDegraded = watchGpsOnlyActive && watchGpsDegradedSinceMs > 0L
+        val environmentWarning = snapshot.environmentWarning
+        val environmentWarningSinceElapsedMs = snapshot.environmentWarningSinceElapsedMs
         snapshot =
             GpsSignalSnapshot(
                 lastFixElapsedRealtimeMs = fixElapsedMs,
@@ -110,6 +133,8 @@ internal class GpsSignalTracker {
                 watchGpsDegraded = watchGpsDegraded,
                 watchGpsDegradedFixStreak = watchGpsDegradedFixStreak,
                 watchGpsDegradedSinceElapsedMs = watchGpsDegradedSinceMs,
+                environmentWarning = environmentWarning,
+                environmentWarningSinceElapsedMs = environmentWarningSinceElapsedMs,
             )
         return GpsSignalSample(
             ageMs = ageMs,
@@ -127,6 +152,7 @@ internal class GpsSignalTracker {
         locationUnavailableSinceMs = nowElapsedMs
         watchGpsDegradedFixStreak = 0
         watchGpsDegradedSinceMs = 0L
+        environmentWarningSinceMs = 0L
         snapshot =
             GpsSignalSnapshot(
                 isLocationAvailable = false,
@@ -139,6 +165,7 @@ internal class GpsSignalTracker {
         hasLoggedAvailabilityState = false
         watchGpsDegradedFixStreak = 0
         watchGpsDegradedSinceMs = 0L
+        environmentWarningSinceMs = 0L
         snapshot = GpsSignalSnapshot()
     }
 

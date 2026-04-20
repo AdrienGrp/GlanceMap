@@ -225,6 +225,13 @@ internal class LocationServiceTelemetry(
         log("immediateRequest: burstEnd id=$burstId source=$source reason=$reason")
     }
 
+    fun logImmediateRequestSkippedPassiveExperiment(
+        source: String,
+        backend: String,
+    ) {
+        log("immediateRequest: skipPassiveExperiment source=$source backend=$backend")
+    }
+
     fun logGetCurrentLocationFailed(
         source: String,
         backend: String,
@@ -354,6 +361,10 @@ internal class LocationServiceTelemetry(
         )
     }
 
+    fun logAutoFusedFallbackForced(reason: String) {
+        log("sourceFailover: auto_fused->watch_gps reason=$reason")
+    }
+
     fun logAutoFusedNoFixRecoveryProbeTriggered(
         fixGapMs: Long,
         thresholdMs: Long,
@@ -380,6 +391,28 @@ internal class LocationServiceTelemetry(
                 "fallbackDurationMs=$fallbackDurationMs fixGapMs=$fixGapMs " +
                 "expectedIntervalMs=$expectedIntervalMs",
         )
+    }
+
+    fun logLocationEnvironmentPreflight(
+        sourceMode: String,
+        locationSettingsSatisfied: Boolean?,
+        locationSettingsStatusCode: Int?,
+        phoneConnected: Boolean?,
+        watchGpsAvailability: String?,
+        warning: String,
+        action: String,
+    ) {
+        log(
+            "locationEnvironment: sourceMode=$sourceMode " +
+                "settingsSatisfied=${locationSettingsSatisfied ?: "na"} " +
+                "settingsStatus=${locationSettingsStatusCode?.toString() ?: "na"} " +
+                "phoneConnected=${phoneConnected ?: "na"} " +
+                "watchGps=${watchGpsAvailability ?: "na"} warning=$warning action=$action",
+        )
+    }
+
+    fun logLocationEnvironmentWarningChanged(warning: String) {
+        log("locationEnvironment: warning=$warning")
     }
 
     fun logCachedLocationAccepted(
@@ -485,6 +518,7 @@ internal class LocationServiceTelemetry(
         screenState: String,
         hasFinePermission: Boolean,
         hasCoarsePermission: Boolean,
+        passivePriority: Boolean,
     ) {
         if (burst && runtimeMode == "INTERACTIVE") {
             burstInteractiveDoubleApplyCount += 1
@@ -495,7 +529,23 @@ internal class LocationServiceTelemetry(
                 "bound=$bound keepOpen=$keepOpen watchOnly=$watchOnly burst=$burst " +
                 "backend=$backend mode=$runtimeMode trackingEnabled=$trackingEnabled " +
                 "interactive=$interactive screenState=$screenState " +
-                "finePermission=$hasFinePermission coarsePermission=$hasCoarsePermission",
+                "finePermission=$hasFinePermission coarsePermission=$hasCoarsePermission " +
+                "passivePriority=$passivePriority",
+        )
+    }
+
+    fun logRequestUpdatesCleared(
+        reason: String,
+        bound: Boolean,
+        keepOpen: Boolean,
+        trackingEnabled: Boolean,
+        screenState: String,
+        backgroundGpsEnabled: Boolean,
+    ) {
+        log(
+            "requestUpdates cleared: reason=$reason bound=$bound keepOpen=$keepOpen " +
+                "trackingEnabled=$trackingEnabled screenState=$screenState " +
+                "backgroundGpsEnabled=$backgroundGpsEnabled",
         )
     }
 

@@ -67,7 +67,7 @@ internal fun BoxScope.RouteShortcutTray(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 ShortcutActionChip(
-                    text = "Sleep",
+                    text = "Stay open",
                     height = actionHeight,
                     onClick = onKeepAppOpenClick,
                 ) {

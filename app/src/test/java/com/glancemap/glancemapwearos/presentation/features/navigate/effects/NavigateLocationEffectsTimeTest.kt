@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate.effects
 
+import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.presentation.features.navigate.GpsFixIndicatorState
 import org.junit.Assert.assertEquals
@@ -208,6 +209,28 @@ class NavigateLocationEffectsTimeTest {
         val state =
             resolveGpsIndicatorDisplayState(
                 rawState = GpsFixIndicatorState.UNAVAILABLE,
+            )
+
+        assertEquals(GpsFixIndicatorState.UNAVAILABLE, state)
+    }
+
+    @Test
+    fun phoneDisconnectedWithoutWatchGpsDoesNotForceUnavailableWhenFixIsUsable() {
+        val state =
+            resolveGpsIndicatorStateForEnvironment(
+                rawState = GpsFixIndicatorState.POOR,
+                environmentWarning = GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_NO_WATCH_GPS,
+            )
+
+        assertEquals(GpsFixIndicatorState.POOR, state)
+    }
+
+    @Test
+    fun locationSettingsWarningStillForcesUnavailable() {
+        val state =
+            resolveGpsIndicatorStateForEnvironment(
+                rawState = GpsFixIndicatorState.GOOD,
+                environmentWarning = GpsEnvironmentWarning.LOCATION_SETTINGS_UNSATISFIED,
             )
 
         assertEquals(GpsFixIndicatorState.UNAVAILABLE, state)

@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.core.service.location
 
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
+import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntimeMode
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -64,5 +65,19 @@ class LocationFixPolicyTest {
             )
 
         assertEquals(basePolicy.maxAccuracyM, adaptedPolicy.maxAccuracyM)
+    }
+
+    @Test
+    fun autoModeWatchGpsFallbackUsesWatchGpsCapForKnownAccuracyFloor() {
+        val accuracyM =
+            LocationFixPolicy.resolveWatchGpsAcceptanceAccuracyM(
+                sourceMode = LocationSourceMode.WATCH_GPS,
+                watchGpsOnly = false,
+                runtimeMode = LocationRuntimeMode.INTERACTIVE,
+                watchGpsMaxAccuracyM = 130f,
+                watchGpsAutoFallbackInteractiveMaxAccuracyM = 65f,
+            )
+
+        assertEquals(130f, accuracyM)
     }
 }

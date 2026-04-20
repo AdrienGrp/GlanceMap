@@ -13,6 +13,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractiv
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntimeMode
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -25,9 +26,11 @@ internal data class RequestUpdateState(
     val bound: Boolean,
     val tracking: Boolean,
     val keepOpen: Boolean,
+    val watchOnlyRequested: Boolean,
     val watchOnlyEffective: Boolean,
     val screenState: LocationScreenState,
     val backgroundGps: Boolean,
+    val passiveLocationExperiment: Boolean,
     val userIntervalMs: Long,
     val ambientIntervalMs: Long,
 )
@@ -46,6 +49,12 @@ internal class LocationRequestCoordinator(
     private val updateSelfHealMonitor: () -> Unit,
     private val updateGnssDiagnostics: () -> Unit,
     private val foregroundRefresh: () -> Unit,
+    private val inspectLocationEnvironment: suspend (
+        requestSpec: RequestSpec,
+        state: RequestUpdateState,
+        permissions: LocationPermissionSnapshot,
+        nowElapsedMs: Long,
+    ) -> LocationEnvironmentAction,
     private val cancelImmediateLocationWork: (String) -> Unit,
     private val currentState: () -> RequestUpdateState,
     private val effectiveUpdateIntervalMs: () -> Long,
@@ -83,6 +92,10 @@ internal class LocationRequestCoordinator(
                     foregroundRefresh()
                     runCatching { removeAllLocationUpdates() }
                     if (isSuperseded(generation)) return@launch
+                    logRequestUpdatesCleared(
+                        reason = "no_permission",
+                        state = currentState(),
+                    )
                     resetRetryState()
                     onNoPermissions(elapsedRealtime())
                     return@launch
@@ -111,8 +124,25 @@ internal class LocationRequestCoordinator(
                 if (requestSpec == null) {
                     runCatching { removeAllLocationUpdates() }
                     if (isSuperseded(generation)) return@launch
+                    logRequestUpdatesCleared(
+                        reason = requestClearReason(state),
+                        state = state,
+                    )
                     resetRetryState()
                     onNoRequestSpec(state.keepOpen, state.tracking)
+                    return@launch
+                }
+
+                val environmentAction =
+                    inspectLocationEnvironment(
+                        requestSpec,
+                        state,
+                        permissions,
+                        nowElapsedMs,
+                    )
+                if (isSuperseded(generation)) return@launch
+                if (environmentAction == LocationEnvironmentAction.RESTART_REQUEST) {
+                    requestLocationUpdateIfNeeded()
                     return@launch
                 }
 
@@ -151,7 +181,9 @@ internal class LocationRequestCoordinator(
                                 priority = requestSpec.priority,
                                 intervalMs = requestSpec.intervalMs,
                                 minDistanceMeters = requestSpec.minDistanceMeters,
-                                waitForAccurateLocation = false,
+                                waitForAccurateLocation =
+                                    requestSpec.mode == LocationRuntimeMode.BURST &&
+                                        requestSpec.sourceMode == LocationSourceMode.AUTO_FUSED,
                                 maxUpdateDelayMs = maxUpdateDelayMs,
                             ),
                         sink = locationUpdateSink(),
@@ -177,6 +209,7 @@ internal class LocationRequestCoordinator(
                         screenState = appliedPlan.state.screenState.name,
                         hasFinePermission = permissions.hasFinePermission,
                         hasCoarsePermission = permissions.hasCoarsePermission,
+                        passivePriority = requestSpec.priority == Priority.PRIORITY_PASSIVE,
                     )
                     recordEnergySample(
                         "gps_request_applied",
@@ -187,7 +220,8 @@ internal class LocationRequestCoordinator(
                             "watchOnly=${appliedPlan.state.watchOnlyEffective} burst=${engine.isBurstActive()} " +
                             "backend=${requestSpec.sourceMode.telemetryValue} mode=${requestSpec.mode.name} " +
                             "interactive=${appliedPlan.interactiveTracking} " +
-                            "screenState=${appliedPlan.state.screenState.name}",
+                            "screenState=${appliedPlan.state.screenState.name} " +
+                            "passivePriority=${requestSpec.priority == Priority.PRIORITY_PASSIVE}",
                     )
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -221,6 +255,27 @@ internal class LocationRequestCoordinator(
 
     private fun isSuperseded(generation: Long): Boolean = generation != requestGeneration.get()
 
+    private fun logRequestUpdatesCleared(
+        reason: String,
+        state: RequestUpdateState,
+    ) {
+        telemetry.logRequestUpdatesCleared(
+            reason = reason,
+            bound = state.bound,
+            keepOpen = state.keepOpen,
+            trackingEnabled = state.tracking,
+            screenState = state.screenState.name,
+            backgroundGpsEnabled = state.backgroundGps,
+        )
+    }
+
+    private fun requestClearReason(state: RequestUpdateState): String =
+        when {
+            !state.tracking -> "tracking_disabled"
+            state.screenState.isNonInteractive && !state.backgroundGps -> "background_gps_disabled"
+            else -> "no_request_spec"
+        }
+
     private fun resolveRequestPlan(
         state: RequestUpdateState,
         permissions: LocationPermissionSnapshot,
@@ -233,6 +288,7 @@ internal class LocationRequestCoordinator(
                 passiveTracking = passiveTracking,
                 watchOnly = state.watchOnlyEffective,
                 hasFinePermission = permissions.hasFinePermission,
+                passiveLocationExperiment = state.passiveLocationExperiment,
                 userIntervalMs = state.userIntervalMs,
                 ambientIntervalMs = state.ambientIntervalMs,
             )

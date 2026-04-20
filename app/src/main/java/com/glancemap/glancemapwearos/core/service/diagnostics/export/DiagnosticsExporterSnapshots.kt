@@ -7,16 +7,21 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorManager
+import android.location.LocationManager
 import android.os.Build
 import android.os.Debug
 import androidx.core.content.ContextCompat
+import com.google.android.gms.tasks.Tasks
+import com.google.android.gms.wearable.Wearable
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 private val diagnosticsExporterTimestampFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(ZoneId.systemDefault())
+private const val CONNECTED_PHONE_NODES_TIMEOUT_MS = 1_500L
 
 internal data class LocationPermissionSnapshot(
     val hasFinePermission: Boolean,
@@ -30,6 +35,21 @@ internal data class LocationPermissionSnapshot(
                 else -> "none"
             }
 }
+
+internal data class GpsCapabilitySnapshot(
+    val locationManagerAvailable: Boolean,
+    val systemLocationEnabled: Boolean?,
+    val watchGpsHardwareFeature: Boolean?,
+    val gpsProviderPresent: Boolean,
+    val gpsProviderEnabled: Boolean?,
+    val networkProviderPresent: Boolean,
+    val networkProviderEnabled: Boolean?,
+    val passiveProviderPresent: Boolean,
+    val passiveProviderEnabled: Boolean?,
+    val allProviders: List<String>,
+    val connectedPhoneNodeCount: Int?,
+    val connectedPhoneNodeCaptureError: String?,
+)
 
 internal data class SensorInventorySnapshot(
     val headingPublicApiSupported: Boolean,
@@ -141,6 +161,65 @@ internal fun captureLocationPermissionSnapshot(context: Context): LocationPermis
         hasCoarsePermission = hasCoarsePermission,
     )
 }
+
+internal fun captureGpsCapabilitySnapshot(context: Context): GpsCapabilitySnapshot {
+    val locationManager = context.getSystemService(LocationManager::class.java)
+    val providers =
+        locationManager
+            ?.let { manager -> runCatching { manager.allProviders }.getOrDefault(emptyList()) }
+            .orEmpty()
+            .sorted()
+    val connectedPhoneNodes = captureConnectedPhoneNodeCount(context)
+    return GpsCapabilitySnapshot(
+        locationManagerAvailable = locationManager != null,
+        systemLocationEnabled = locationManager?.let { manager -> runCatching { manager.isLocationEnabled }.getOrNull() },
+        watchGpsHardwareFeature =
+            runCatching {
+                context.packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS)
+            }.getOrNull(),
+        gpsProviderPresent = providers.contains(LocationManager.GPS_PROVIDER),
+        gpsProviderEnabled = providerEnabled(locationManager, LocationManager.GPS_PROVIDER),
+        networkProviderPresent = providers.contains(LocationManager.NETWORK_PROVIDER),
+        networkProviderEnabled = providerEnabled(locationManager, LocationManager.NETWORK_PROVIDER),
+        passiveProviderPresent = providers.contains(LocationManager.PASSIVE_PROVIDER),
+        passiveProviderEnabled = providerEnabled(locationManager, LocationManager.PASSIVE_PROVIDER),
+        allProviders = providers,
+        connectedPhoneNodeCount = connectedPhoneNodes.count,
+        connectedPhoneNodeCaptureError = connectedPhoneNodes.error,
+    )
+}
+
+private fun providerEnabled(
+    locationManager: LocationManager?,
+    provider: String,
+): Boolean? =
+    locationManager?.let { manager ->
+        runCatching { manager.isProviderEnabled(provider) }.getOrNull()
+    }
+
+private data class ConnectedPhoneNodesSnapshot(
+    val count: Int?,
+    val error: String?,
+)
+
+private fun captureConnectedPhoneNodeCount(context: Context): ConnectedPhoneNodesSnapshot =
+    try {
+        val nodes =
+            Tasks.await(
+                Wearable.getNodeClient(context).connectedNodes,
+                CONNECTED_PHONE_NODES_TIMEOUT_MS,
+                TimeUnit.MILLISECONDS,
+            )
+        ConnectedPhoneNodesSnapshot(
+            count = nodes.size,
+            error = null,
+        )
+    } catch (error: Exception) {
+        ConnectedPhoneNodesSnapshot(
+            count = null,
+            error = error.javaClass.simpleName,
+        )
+    }
 
 internal fun captureMemorySnapshot(context: Context): MemorySnapshot {
     val runtime = Runtime.getRuntime()
@@ -255,6 +334,13 @@ internal fun formatBytesToMb(bytes: Long): String = "%.1f".format(Locale.US, byt
 internal fun formatNullableBytesToMb(bytes: Long?): String = bytes?.let { formatBytesToMb(it) } ?: "na"
 
 internal fun formatNullableBoolean(value: Boolean?): String = value?.toString() ?: "na"
+
+internal fun formatStringList(values: List<String>): String =
+    if (values.isEmpty()) {
+        "none"
+    } else {
+        values.joinToString(separator = ",")
+    }
 
 internal fun formatAgeMs(
     nowMs: Long,

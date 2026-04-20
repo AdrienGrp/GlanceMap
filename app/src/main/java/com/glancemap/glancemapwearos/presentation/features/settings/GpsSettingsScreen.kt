@@ -49,6 +49,8 @@ fun GpsSettingsScreen(
 
     val gpsInAmbientMode by viewModel.gpsInAmbientMode.collectAsState()
     val isWatchGpsOnly by viewModel.watchGpsOnly.collectAsState()
+    val gpsDebugTelemetry by viewModel.gpsDebugTelemetry.collectAsState()
+    val gpsPassiveLocationExperiment by viewModel.gpsPassiveLocationExperiment.collectAsState()
 
     // Foreground location permission (fine or coarse)
     var hasLocationPermission by remember { mutableStateOf(hasForegroundLocationPermission(context)) }
@@ -124,6 +126,23 @@ fun GpsSettingsScreen(
                     primaryText = "GPS interval is fixed to 3s while the screen is on.",
                     secondaryText = "This keeps walking motion smooth without pushing battery too hard.",
                 )
+            }
+
+            if (gpsDebugTelemetry) {
+                item {
+                    ToggleChip(
+                        checked = gpsPassiveLocationExperiment,
+                        onCheckedChanged = { viewModel.setGpsPassiveLocationExperiment(it) },
+                        label = "Use GPS from other apps",
+                        secondaryLabel =
+                            if (gpsPassiveLocationExperiment) {
+                                "On during capture"
+                            } else {
+                                "Off during capture"
+                            },
+                        toggleControl = ToggleChipToggleControl.Switch,
+                    )
+                }
             }
 
             item {

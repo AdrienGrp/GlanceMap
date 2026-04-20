@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -73,6 +74,7 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.view.MapView
 import java.util.Locale
@@ -291,6 +293,7 @@ internal fun BoxScope.PoiTapMessageOverlay(
     onPoiTapExpandToggle: () -> Unit,
     onPoiTapCreateGpx: () -> Unit,
     onPoiTapDismiss: () -> Unit,
+    onPoiTapScrollInProgressChanged: (Boolean) -> Unit,
     screenSize: WearScreenSize,
     sideButtonEdgePadding: Dp,
     sideButtonSize: Dp,
@@ -404,6 +407,15 @@ internal fun BoxScope.PoiTapMessageOverlay(
         var popupViewportHeightPx by remember { mutableIntStateOf(0) }
         LaunchedEffect(poiTapMessage, poiTapExpanded) {
             if (!poiTapExpanded) popupScrollState.scrollTo(0)
+        }
+        LaunchedEffect(poiTapMessage, poiTapExpanded, useExpandedScroll) {
+            if (poiTapMessage == null || !poiTapExpanded || !useExpandedScroll) {
+                onPoiTapScrollInProgressChanged(false)
+                return@LaunchedEffect
+            }
+            snapshotFlow { popupScrollState.isScrollInProgress }.collect { isScrolling ->
+                onPoiTapScrollInProgressChanged(isScrolling)
+            }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (!poiTapExpanded) {

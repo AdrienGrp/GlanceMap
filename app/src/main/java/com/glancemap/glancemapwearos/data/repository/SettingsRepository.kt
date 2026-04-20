@@ -55,7 +55,7 @@ interface SettingsRepository {
         const val POI_ICON_SIZE_MEDIUM_PX = 24
         const val POI_ICON_SIZE_LARGE_PX = 26
 
-        const val POI_POPUP_TIMEOUT_DEFAULT_SECONDS = 3
+        const val POI_POPUP_TIMEOUT_DEFAULT_SECONDS = 5
         const val POI_POPUP_TIMEOUT_MIN_SECONDS = 1
         const val POI_POPUP_TIMEOUT_MAX_SECONDS = 20
     }
@@ -79,6 +79,10 @@ interface SettingsRepository {
     val gpsDebugTelemetry: Flow<Boolean>
 
     suspend fun setGpsDebugTelemetry(enabled: Boolean)
+
+    val gpsPassiveLocationExperiment: Flow<Boolean>
+
+    suspend fun setGpsPassiveLocationExperiment(enabled: Boolean)
 
     val gpsDebugTelemetryPopupEnabled: Flow<Boolean>
 

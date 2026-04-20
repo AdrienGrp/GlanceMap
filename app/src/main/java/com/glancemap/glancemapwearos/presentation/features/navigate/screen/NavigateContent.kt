@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -39,6 +40,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
@@ -117,6 +119,7 @@ internal fun NavigateContent(
     onOpenGpxTools: () -> Unit,
     onStartPoiCreation: () -> Unit,
     gpsIndicatorState: GpsFixIndicatorState,
+    gpsEnvironmentWarning: GpsEnvironmentWarning,
     watchGpsDegradedWarning: Boolean,
     isOfflineMode: Boolean,
     isGpxInspectionEnabled: Boolean,
@@ -416,13 +419,17 @@ internal fun NavigateContent(
     val latestOnZoomLevelChange = rememberUpdatedState(onZoomLevelChange)
     val latestOnViewportChanged = rememberUpdatedState(onViewportChanged)
     val latestVisiblePoiMarkers = rememberUpdatedState(visiblePoiMarkers)
+    val latestLastKnownLocation = rememberUpdatedState(lastKnownLocation)
     var rotaryScrollAccumulator by remember(mapView, crownZoomEnabled, crownZoomInverted) {
         mutableStateOf(0f)
     }
     var poiTapMarker by remember { mutableStateOf<PoiOverlayMarker?>(null) }
     var poiTapPopup by remember { mutableStateOf<PoiTapPopupContent?>(null) }
     var poiTapPopupExpanded by remember { mutableStateOf(false) }
+    var poiTapPopupScrollInProgress by remember { mutableStateOf(false) }
     var routeToolOverlayRevision by remember { mutableIntStateOf(0) }
+    var pendingDoubleTapPanningCheck by remember { mutableStateOf(false) }
+    val latestPoiTapPopupScrollInProgress = rememberUpdatedState(poiTapPopupScrollInProgress)
 
     LaunchedEffect(poiFocusTarget) {
         val target = poiFocusTarget ?: return@LaunchedEffect
@@ -438,6 +445,7 @@ internal fun NavigateContent(
         poiTapMarker = marker
         poiTapPopup = buildPoiTapPopupContent(marker, isMetric = isMetric)
         poiTapPopupExpanded = false
+        poiTapPopupScrollInProgress = false
         onPoiFocusTargetConsumed()
     }
 
@@ -474,6 +482,30 @@ internal fun NavigateContent(
                 .toInt()
         val next = (current + step).coerceIn(zoomMin, zoomMax)
         return next != current
+    }
+
+    fun checkDoubleTapPanningAfterViewportSettles() {
+        val mv = latestMapView.value ?: return
+        mv.post {
+            if (!pendingDoubleTapPanningCheck) return@post
+            pendingDoubleTapPanningCheck = false
+            if (latestNavMode.value == NavMode.PANNING) return@post
+            if (
+                shouldEnterPanningAfterDoubleTap(
+                    center = mv.model.mapViewPosition.center,
+                    marker = latestLastKnownLocation.value,
+                )
+            ) {
+                latestOnUserPanStarted.value.invoke()
+            }
+        }
+    }
+
+    fun scheduleDoubleTapPanningCheck() {
+        latestMapView.value?.postDelayed(
+            { checkDoubleTapPanningAfterViewportSettles() },
+            DOUBLE_TAP_PANNING_CHECK_DELAY_MS,
+        )
     }
 
     val gestureDetector =
@@ -515,6 +547,7 @@ internal fun NavigateContent(
                         poiTapMarker = tappedPoi
                         poiTapPopup = buildPoiTapPopupContent(tappedPoi, isMetric = isMetric)
                         poiTapPopupExpanded = false
+                        poiTapPopupScrollInProgress = false
                         return true
                     }
 
@@ -534,6 +567,23 @@ internal fun NavigateContent(
                                 mv.mapViewProjection.fromPixels(x, y)
                             }.getOrNull() ?: return
                         latestOnInspectTrack.value(ll)
+                    }
+                },
+            )
+        }
+    val doubleTapGestureDetector =
+        remember {
+            GestureDetector(
+                context,
+                object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onDown(e: MotionEvent): Boolean = true
+
+                    override fun onDoubleTap(e: MotionEvent): Boolean {
+                        if (latestNavMode.value == NavMode.PANNING) return false
+                        if (latestLastKnownLocation.value == null) return false
+                        pendingDoubleTapPanningCheck = true
+                        scheduleDoubleTapPanningCheck()
+                        return false
                     }
                 },
             )
@@ -569,11 +619,18 @@ internal fun NavigateContent(
 
     LaunchedEffect(poiTapPopup, poiTapPopupExpanded, poiPopupTimeoutSeconds, poiPopupManualCloseOnly) {
         if (poiTapPopup == null || poiPopupManualCloseOnly) return@LaunchedEffect
-        val timeoutMs = poiPopupTimeoutSeconds.coerceAtLeast(1) * 1_000L
-        delay(timeoutMs)
+        var remainingMs = poiPopupTimeoutSeconds.coerceAtLeast(1) * 1_000L
+        while (remainingMs > 0L) {
+            val tickMs = minOf(100L, remainingMs)
+            delay(tickMs)
+            if (!latestPoiTapPopupScrollInProgress.value) {
+                remainingMs -= tickMs
+            }
+        }
         poiTapMarker = null
         poiTapPopup = null
         poiTapPopupExpanded = false
+        poiTapPopupScrollInProgress = false
     }
 
     LaunchedEffect(
@@ -762,6 +819,9 @@ internal fun NavigateContent(
                             lastCenter = newCenter
                             routeToolOverlayRevision++
                             latestOnViewportChanged.value(newCenter, newZoom)
+                            if (pendingDoubleTapPanningCheck) {
+                                scheduleDoubleTapPanningCheck()
+                            }
                         }
                     }
                 mapView.model.mapViewPosition.addObserver(observer)
@@ -775,6 +835,7 @@ internal fun NavigateContent(
                     (mapView.parent as? ViewGroup)?.removeView(mapView)
                     mapView.apply {
                         setOnTouchListener { v, event ->
+                            doubleTapGestureDetector.onTouchEvent(event)
                             if (latestInspectionEnabled.value) {
                                 gestureDetector.onTouchEvent(event)
                             }
@@ -855,12 +916,17 @@ internal fun NavigateContent(
                         poiTapMarker = null
                         poiTapPopup = null
                         poiTapPopupExpanded = false
+                        poiTapPopupScrollInProgress = false
                     }
                 },
                 onPoiTapDismiss = {
                     poiTapMarker = null
                     poiTapPopup = null
                     poiTapPopupExpanded = false
+                    poiTapPopupScrollInProgress = false
+                },
+                onPoiTapScrollInProgressChanged = { isScrolling ->
+                    poiTapPopupScrollInProgress = isScrolling
                 },
                 onMenuClick = onMenuClick,
                 sideButtonEdgePadding = sideButtonEdgePadding,
@@ -889,6 +955,11 @@ internal fun NavigateContent(
             MarkerMotionDebugOverlay(
                 label = markerMotionDebugOverlayLabel,
                 screenSize = screenSize,
+            )
+
+            GpsEnvironmentWarningOverlay(
+                warning = gpsEnvironmentWarning,
+                visible = hasLocationPermission && !isOfflineMode,
             )
 
             if (routeToolSession != null) {
@@ -991,6 +1062,41 @@ internal fun NavigateContent(
 
 @Suppress("FunctionName")
 @Composable
+private fun BoxScope.GpsEnvironmentWarningOverlay(
+    warning: GpsEnvironmentWarning,
+    visible: Boolean,
+) {
+    val message =
+        when (warning) {
+            GpsEnvironmentWarning.NONE -> null
+            GpsEnvironmentWarning.LOCATION_SETTINGS_UNSATISFIED -> "Turn on watch Location"
+            GpsEnvironmentWarning.WATCH_GPS_UNAVAILABLE -> null
+            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_NO_WATCH_GPS,
+            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS,
+            -> null
+        }
+    if (!visible || message == null) return
+
+    Text(
+        text = message,
+        modifier =
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 38.dp, vertical = 10.dp)
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        color = Color.White,
+        fontSize = 11.sp,
+        lineHeight = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+        maxLines = 2,
+    )
+}
+
+@Suppress("FunctionName")
+@Composable
 private fun BoxScope.MarkerMotionDebugOverlay(
     label: String?,
     screenSize: WearScreenSize,
@@ -1075,4 +1181,15 @@ private fun fitMapViewToPreviewPoints(
     mapView.model.mapViewPosition.setZoomLevel(chosenZoom.toByte(), false)
 }
 
+internal fun shouldEnterPanningAfterDoubleTap(
+    center: LatLong?,
+    marker: LatLong?,
+    thresholdMeters: Double = DOUBLE_TAP_PANNING_DISTANCE_THRESHOLD_METERS,
+): Boolean {
+    if (center == null || marker == null) return false
+    return navigateHaversineMeters(center, marker) > thresholdMeters
+}
+
 private const val LIVE_ELEVATION_RESAMPLE_DISTANCE_METERS = 3.0
+private const val DOUBLE_TAP_PANNING_DISTANCE_THRESHOLD_METERS = 4.0
+private const val DOUBLE_TAP_PANNING_CHECK_DELAY_MS = 120L

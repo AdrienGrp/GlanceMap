@@ -1,6 +1,6 @@
 # Compliance Status
 
-Last reviewed: 2026-03-18
+Last reviewed: 2026-04-20
 
 Status legend:
 - `DONE`: implemented and verified.
@@ -34,16 +34,22 @@ Status legend:
    - Evidence: `licenses/COMPANION_EXTERNAL_SOURCES.md`.
 
 7. OpenAndroMaps/Elevate bundled redistribution permission
-   - Status: `PENDING`
+   - Status: `DONE`
+   - Evidence:
+     - Project owner confirmed on 2026-04-20 that OpenAndroMaps and Tobias Kuehn agreed to GlanceMap's use/integration.
    - Notes:
-     - Written permission from Tobias for Elevate integration is still pending.
-     - Track request/response date and approved scope in release notes.
+     - Keep the original agreement messages outside the public repository.
+     - Before switching visibility, record the request/response dates and approved scope in private release notes or an internal issue.
+     - Scope should cover public source redistribution, APK/AAB bundling, and any modified/adapted Elevate theme/resources used by GlanceMap.
 
 8. Elevate referenced resource-license file (`read_me_elevate.txt`)
-   - Status: `PENDING`
+   - Status: `DONE`
+   - Evidence:
+     - `app/src/main/assets/read_me_elevate.txt` is checked in next to the root source fallback `Elevate.xml`.
    - Notes:
      - Referenced by `app/src/main/assets/Elevate.xml`.
-     - Not currently present in bundled assets.
+     - Generated theme assets currently include `read_me_elevate.txt` when the Elevate download/sync step succeeds.
+     - The checked-in source fallback file preserves the upstream license/resource-license information needed for public source review.
 
 9. Overpass public instance usage limits
    - Status: `PENDING`
@@ -68,11 +74,28 @@ Status legend:
      - No separate standalone license file was observed alongside the theme assets.
      - Confirm redistribution and attribution requirements with upstream/XCTrack before public release.
 
+12. Tiramisu bundled theme non-commercial license review
+   - Status: `PENDING`
+   - Notes:
+     - Tiramisu snapshot is embedded in `app/src/main/assets/theme/tiramisu`.
+     - The observed release archive includes a CC BY-NC-SA 3.0 license.
+     - Confirm whether public repository distribution and any app release plan are compatible with this license.
+
+13. Hike, Ride & Sight bundled theme non-commercial license review
+   - Status: `PENDING`
+   - Notes:
+     - Hike, Ride & Sight snapshot is embedded in `app/src/main/assets/theme/hike-ride-sight`.
+     - The observed XML header declares CC BY-NC-SA 3.0.
+     - Confirm whether public repository distribution and any app release plan are compatible with this license.
+
 ## Public repository and release gate
 
-For a public repository or public app release, resolve all `BLOCKER` items and
-explicitly accept residual risk for `PENDING` items. Publishing this repository
-publicly also publishes the bundled third-party assets.
+For a public repository or public app release, resolve all `BLOCKER` items.
+Treat unresolved bundled asset redistribution/license `PENDING` items as
+blocking unless the affected assets are removed from the public branch or the
+residual risk is explicitly accepted. Publishing this repository publicly also
+publishes the bundled third-party assets.
 
 Current gate result:
-- `DO NOT MAKE PUBLIC YET` unless pending bundled asset redistribution items are resolved or the affected assets are removed from the public branch.
+- `DO NOT MAKE PUBLIC YET` unless the remaining pending bundled asset redistribution/license items are resolved or the affected assets are removed from the public branch.
+- OpenAndroMaps/Elevate permission and source readme/license evidence are no longer blockers based on the project owner's confirmation and the checked-in source fallback readme.

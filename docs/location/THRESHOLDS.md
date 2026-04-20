@@ -25,10 +25,12 @@ Source constants files:
 | `IMMEDIATE_COOLDOWN_MS` | `2500 ms` | Prevent rapid repeated bursts | Limits redundant bursts | Protects battery |
 | `WATCH_GPS_DEGRADED_ACCURACY_M` | `100 m` | Watch GPS degraded threshold | Detect persistent poor fixes | Triggers follow-up logic |
 | `WATCH_GPS_DEGRADED_STREAK_THRESHOLD` | `4` | Consecutive degraded samples to flag | Avoids single-sample false alarm | Avoids frequent mode churn |
-| `WATCH_GPS_MAX_ACCEPTED_ACCURACY_M` | `130 m` | Relaxed acceptance cap for watch-GPS source mode | Prevents blank marker when watch GPS is coarse | Slightly more noisy fixes accepted in watch mode |
+| `WATCH_GPS_MAX_ACCEPTED_ACCURACY_M` | `130 m` | Relaxed acceptance cap for watch-GPS source mode, including Auto-mode fallback when fused/phone-assisted location is unusable | Prevents blank marker when watch GPS is coarse or reports the known 125 m floor | Slightly more noisy fixes accepted in watch mode |
+| `WATCH_GPS_AUTO_FALLBACK_INTERACTIVE_MAX_ACCURACY_M` | `65 m` | Historical target for good Auto-mode fallback quality; effective fallback acceptance is never stricter than `WATCH_GPS_MAX_ACCEPTED_ACCURACY_M` | Keeps fallback usable while still distinguishing poor vs good in UI/recovery logic | Avoids forcing repeated reacquisition when onboard GPS is the only live source |
+| `IMMEDIATE_GET_CURRENT_TIMEOUT_MS` | `12000 ms` | Timeout for immediate `getCurrentLocation` during startup/burst | Gives slow first fix more time before returning null | Slightly longer bounded high-accuracy attempt |
 | `AUTO_FUSED_FAILOVER_ACCURACY_M` | `120 m` | Auto-fused poor accuracy threshold for fallback | Escalates when fused quality is persistently weak | May switch to higher-power watch GPS |
 | `AUTO_FUSED_FAILOVER_STREAK` | `4` | Consecutive poor fused fixes before fallback | Reduces false fallback triggers | Avoids frequent source churn |
-| `AUTO_FUSED_RECOVERY_ACCURACY_M` | `65 m` | Watch GPS quality threshold to recover back to auto-fused | Requires stable watch GPS quality before switching back | Helps avoid sticky high-power mode |
+| `AUTO_FUSED_RECOVERY_ACCURACY_M` | `65 m` | Watch GPS quality threshold to recover back to auto-fused; the known 125 m watch GPS floor does not qualify | Requires genuinely better watch GPS quality before switching back | Helps avoid sticky high-power mode without bouncing away from usable onboard GPS too early |
 | `AUTO_FUSED_RECOVERY_STREAK` | `4` | Consecutive good watch GPS fixes to recover | Adds hysteresis for stable recovery | Avoids oscillation between sources |
 | `AUTO_FUSED_RECOVERY_MIN_FALLBACK_MS` | `20000 ms` | Minimum fallback dwell before recovery | Prevents immediate back-switch churn | Reduces request re-registration churn |
 | `AUTO_FUSED_RECOVERY_PROBE_MIN_FALLBACK_MS` | `30000 ms` | Minimum fallback time before periodic probe back to auto-fused | Ensures fallback has meaningful runtime before probing | Limits probe overhead |
