@@ -1,8 +1,8 @@
 package com.glancemap.glancemapwearos.core.service.location.model
 
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
