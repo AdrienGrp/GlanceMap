@@ -15,6 +15,7 @@ import com.glancemap.glancemapwearos.core.service.location.config.MAX_USER_INTER
 import com.glancemap.glancemapwearos.core.service.location.config.MIN_USER_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.config.MOVEMENT_HISTORY_DURATION
 import com.glancemap.glancemapwearos.core.service.location.filter.LocationOutputFilter
+import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalTracker
 import com.glancemap.glancemapwearos.core.service.location.policy.FixAcceptancePolicy
@@ -90,6 +91,15 @@ internal class LocationEngine(
             telemetry.logLocationAvailabilityChanged(isAvailable)
         }
     }
+
+    fun updateEnvironmentWarning(
+        warning: GpsEnvironmentWarning,
+        nowElapsedMs: Long,
+    ): Boolean =
+        gpsSignalTracker.onEnvironmentWarning(
+            warning = warning,
+            nowElapsedMs = nowElapsedMs,
+        )
 
     fun updateGpsSignalSample(
         nowElapsedMs: Long,

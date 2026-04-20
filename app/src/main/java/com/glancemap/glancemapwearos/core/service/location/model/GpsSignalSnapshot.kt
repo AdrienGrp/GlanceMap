@@ -12,4 +12,6 @@ data class GpsSignalSnapshot(
     val watchGpsDegraded: Boolean = false,
     val watchGpsDegradedFixStreak: Int = 0,
     val watchGpsDegradedSinceElapsedMs: Long = 0L,
+    val environmentWarning: GpsEnvironmentWarning = GpsEnvironmentWarning.NONE,
+    val environmentWarningSinceElapsedMs: Long = 0L,
 )

@@ -14,9 +14,12 @@ import android.os.SystemClock
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.adapters.FusedLocationGateway
+import com.glancemap.glancemapwearos.core.service.location.adapters.LocationSettingsPreflight
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationGateway
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateEvent
+import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateRequestParams
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateSink
+import com.glancemap.glancemapwearos.core.service.location.adapters.WearPhoneConnectionProbe
 import com.glancemap.glancemapwearos.core.service.location.adapters.WatchGpsLocationGateway
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_ACCURACY_COARSE_M
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_ACCURACY_M
@@ -35,6 +38,7 @@ import com.glancemap.glancemapwearos.core.service.location.config.TELEMETRY_TAG
 import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_AUTO_FALLBACK_INTERACTIVE_MAX_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.engine.LocationEngine
+import com.glancemap.glancemapwearos.core.service.location.engine.RequestSpec
 import com.glancemap.glancemapwearos.core.service.location.model.LocationPermissionChecker
 import com.glancemap.glancemapwearos.core.service.location.model.LocationPermissionSnapshot
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
@@ -49,6 +53,7 @@ import com.glancemap.glancemapwearos.core.service.location.policy.LocationSource
 import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -71,6 +76,8 @@ class LocationService : Service() {
     private val binder = LocalBinder()
     private lateinit var fusedLocationGateway: FusedLocationGateway
     private lateinit var watchGpsLocationGateway: WatchGpsLocationGateway
+    private lateinit var locationSettingsPreflight: LocationSettingsPreflight
+    private lateinit var phoneConnectionProbe: WearPhoneConnectionProbe
     private lateinit var locationUpdateSink: LocationUpdateSink
     private lateinit var callbackProcessor: LocationCallbackProcessor
     private lateinit var immediateLocationCoordinator: ImmediateLocationCoordinator
@@ -189,6 +196,8 @@ class LocationService : Service() {
         super.onCreate()
         val fused = LocationServices.getFusedLocationProviderClient(this)
         fusedLocationGateway = FusedLocationGateway(fused)
+        locationSettingsPreflight = LocationSettingsPreflight(LocationServices.getSettingsClient(this))
+        phoneConnectionProbe = WearPhoneConnectionProbe(Wearable.getNodeClient(this))
         watchGpsLocationGateway =
             WatchGpsLocationGateway(
                 locationManager = requireNotNull(locationManager) { "location_manager_unavailable" },
@@ -256,6 +265,14 @@ class LocationService : Service() {
                 updateSelfHealMonitor = { selfHealFailoverCoordinator.updateSelfHealMonitor() },
                 updateGnssDiagnostics = { updateGnssDiagnostics(enabled = latestGpsDebugTelemetry) },
                 foregroundRefresh = { refreshKeepAliveNotificationState() },
+                inspectLocationEnvironment = { requestSpec, state, permissions, nowElapsedMs ->
+                    inspectLocationEnvironment(
+                        requestSpec = requestSpec,
+                        state = state,
+                        permissions = permissions,
+                        nowElapsedMs = nowElapsedMs,
+                    )
+                },
                 cancelImmediateLocationWork = { reason ->
                     immediateLocationCoordinator.cancelImmediateLocationWork(reason = reason)
                 },
@@ -264,6 +281,7 @@ class LocationService : Service() {
                         bound = isBound.value,
                         tracking = latestTrackingEnabled,
                         keepOpen = keepAppOpen.value,
+                        watchOnlyRequested = latestWatchGpsOnly,
                         watchOnlyEffective =
                             latestWatchGpsOnly ||
                                 selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps(),
@@ -479,6 +497,102 @@ class LocationService : Service() {
     private fun requestLocationUpdateIfNeeded() {
         requestCoordinator.requestLocationUpdateIfNeeded()
     }
+
+    private suspend fun inspectLocationEnvironment(
+        requestSpec: RequestSpec,
+        state: RequestUpdateState,
+        permissions: LocationPermissionSnapshot,
+        nowElapsedMs: Long,
+    ): LocationEnvironmentAction {
+        val locationSettings =
+            if (requestSpec.sourceMode == LocationSourceMode.AUTO_FUSED) {
+                locationSettingsPreflight.check(
+                    LocationUpdateRequestParams(
+                        priority = requestSpec.priority,
+                        intervalMs = requestSpec.intervalMs,
+                        minDistanceMeters = requestSpec.minDistanceMeters,
+                        waitForAccurateLocation =
+                            requestSpec.mode == LocationRuntimeMode.BURST &&
+                                requestSpec.sourceMode == LocationSourceMode.AUTO_FUSED,
+                        maxUpdateDelayMs = maxUpdateDelayMsFor(requestSpec),
+                    ),
+                )
+            } else {
+                null
+            }
+        val shouldCheckPhone =
+            requestSpec.sourceMode == LocationSourceMode.AUTO_FUSED ||
+                (requestSpec.sourceMode == LocationSourceMode.WATCH_GPS && !state.watchOnlyRequested)
+        val phoneConnected =
+            if (shouldCheckPhone) {
+                phoneConnectionProbe.isPhoneConnected()
+            } else {
+                null
+            }
+        val shouldCheckWatchGps =
+            requestSpec.sourceMode == LocationSourceMode.WATCH_GPS ||
+                requestSpec.sourceMode == LocationSourceMode.AUTO_FUSED
+        val watchGpsAvailability =
+            if (shouldCheckWatchGps) {
+                watchGpsLocationGateway.availabilityReason()
+            } else {
+                null
+            }
+        val decision =
+            resolveLocationEnvironmentDecision(
+                sourceMode = requestSpec.sourceMode,
+                watchOnlyRequested = state.watchOnlyRequested,
+                watchGpsAvailability = watchGpsAvailability,
+                phoneConnected = phoneConnected,
+                locationSettings = locationSettings,
+            )
+        val warningChanged =
+            engine.updateEnvironmentWarning(
+                warning = decision.warning,
+                nowElapsedMs = nowElapsedMs,
+            )
+        if (
+            warningChanged ||
+            locationSettings?.satisfied == false ||
+            phoneConnected == false
+        ) {
+            telemetry.logLocationEnvironmentPreflight(
+                sourceMode = requestSpec.sourceMode.telemetryValue,
+                locationSettingsSatisfied = locationSettings?.satisfied,
+                locationSettingsStatusCode = locationSettings?.statusCode,
+                phoneConnected = phoneConnected,
+                watchGpsAvailability = watchGpsAvailability?.name,
+                warning = decision.warning.name,
+                action = decision.action.name,
+            )
+        }
+        if (warningChanged) {
+            telemetry.logLocationEnvironmentWarningChanged(decision.warning.name)
+        }
+        _gpsSignalSnapshot.value = engine.gpsSignalSnapshot
+
+        if (decision.action != LocationEnvironmentAction.RESTART_REQUEST) {
+            return LocationEnvironmentAction.CONTINUE
+        }
+        val forcedFallback =
+            selfHealFailoverCoordinator.forceAutoFusedFallbackToWatchGps(
+                reason = "phone_disconnected",
+                nowElapsedMs = nowElapsedMs,
+            )
+        return if (forcedFallback) {
+            LocationEnvironmentAction.RESTART_REQUEST
+        } else {
+            LocationEnvironmentAction.CONTINUE
+        }
+    }
+
+    private fun maxUpdateDelayMsFor(requestSpec: RequestSpec): Long =
+        when (requestSpec.mode) {
+            LocationRuntimeMode.BURST,
+            LocationRuntimeMode.INTERACTIVE,
+            -> 0L
+            LocationRuntimeMode.PASSIVE -> requestSpec.intervalMs * 2L
+        }
 
     @SuppressLint("MissingPermission")
     private fun observeGpsSettings() {

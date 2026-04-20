@@ -56,6 +56,21 @@ internal class SelfHealFailoverCoordinator(
         pendingNoFixRecoveryProbeUntilElapsedMs = 0L
     }
 
+    fun forceAutoFusedFallbackToWatchGps(
+        reason: String,
+        nowElapsedMs: Long,
+    ): Boolean {
+        if (watchGpsOnly() || autoFusedFallbackToWatchGps) return false
+        autoFusedPoorAccuracyStreak = 0
+        autoFusedWatchGpsRecoveryStreak = 0
+        autoFusedFallbackToWatchGps = true
+        autoFusedFallbackSinceElapsedMs = nowElapsedMs
+        lastAutoFusedRecoveryProbeAtElapsedMs = 0L
+        pendingNoFixRecoveryProbeUntilElapsedMs = 0L
+        telemetry.logAutoFusedFallbackForced(reason = reason)
+        return true
+    }
+
     fun maybeTriggerAutoFusedFailover(
         acceptedLocation: Location,
         callbackOrigin: LocationSourceMode,

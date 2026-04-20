@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.core.service.location.model
 
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -67,5 +68,28 @@ class GpsSignalTrackerTest {
         assertFalse(tracker.snapshot.watchGpsDegraded)
         assertTrue(tracker.snapshot.watchGpsDegradedFixStreak == 0)
         assertTrue(tracker.snapshot.watchGpsDegradedSinceElapsedMs == 0L)
+    }
+
+    @Test
+    fun preservesEnvironmentWarningAcrossFixSamples() {
+        val tracker = GpsSignalTracker()
+
+        tracker.onEnvironmentWarning(
+            warning = GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS,
+            nowElapsedMs = 15_000L,
+        )
+        tracker.onGpsSignalSample(
+            nowElapsedMs = 16_000L,
+            ageMs = 100L,
+            accuracyM = 12f,
+            freshnessMaxAgeMs = 6_000L,
+            sourceMode = LocationSourceMode.WATCH_GPS,
+        )
+
+        assertEquals(
+            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS,
+            tracker.snapshot.environmentWarning,
+        )
+        assertEquals(15_000L, tracker.snapshot.environmentWarningSinceElapsedMs)
     }
 }

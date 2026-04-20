@@ -45,12 +45,14 @@ class LocationRequestCoordinatorTest {
                     updateSelfHealMonitor = {},
                     updateGnssDiagnostics = {},
                     foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
                     cancelImmediateLocationWork = {},
                     currentState = {
                         RequestUpdateState(
                             bound = false,
                             tracking = true,
                             keepOpen = true,
+                            watchOnlyRequested = false,
                             watchOnlyEffective = false,
                             screenState = LocationScreenState.INTERACTIVE,
                             backgroundGps = false,
@@ -118,12 +120,14 @@ class LocationRequestCoordinatorTest {
                     updateSelfHealMonitor = {},
                     updateGnssDiagnostics = {},
                     foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
                     cancelImmediateLocationWork = {},
                     currentState = {
                         RequestUpdateState(
                             bound = false,
                             tracking = true,
                             keepOpen = true,
+                            watchOnlyRequested = false,
                             watchOnlyEffective = false,
                             screenState = LocationScreenState.SCREEN_OFF,
                             backgroundGps = true,
@@ -182,12 +186,14 @@ class LocationRequestCoordinatorTest {
                     updateSelfHealMonitor = {},
                     updateGnssDiagnostics = {},
                     foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
                     cancelImmediateLocationWork = {},
                     currentState = {
                         RequestUpdateState(
                             bound = false,
                             tracking = true,
                             keepOpen = true,
+                            watchOnlyRequested = false,
                             watchOnlyEffective = false,
                             screenState = LocationScreenState.INTERACTIVE,
                             backgroundGps = false,
@@ -247,12 +253,14 @@ class LocationRequestCoordinatorTest {
                     updateSelfHealMonitor = {},
                     updateGnssDiagnostics = {},
                     foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
                     cancelImmediateLocationWork = {},
                     currentState = {
                         RequestUpdateState(
                             bound = false,
                             tracking = true,
                             keepOpen = true,
+                            watchOnlyRequested = false,
                             watchOnlyEffective = false,
                             screenState = LocationScreenState.INTERACTIVE,
                             backgroundGps = false,

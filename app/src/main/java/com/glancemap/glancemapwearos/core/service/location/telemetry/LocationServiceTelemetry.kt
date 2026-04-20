@@ -354,6 +354,10 @@ internal class LocationServiceTelemetry(
         )
     }
 
+    fun logAutoFusedFallbackForced(reason: String) {
+        log("sourceFailover: auto_fused->watch_gps reason=$reason")
+    }
+
     fun logAutoFusedNoFixRecoveryProbeTriggered(
         fixGapMs: Long,
         thresholdMs: Long,
@@ -380,6 +384,28 @@ internal class LocationServiceTelemetry(
                 "fallbackDurationMs=$fallbackDurationMs fixGapMs=$fixGapMs " +
                 "expectedIntervalMs=$expectedIntervalMs",
         )
+    }
+
+    fun logLocationEnvironmentPreflight(
+        sourceMode: String,
+        locationSettingsSatisfied: Boolean?,
+        locationSettingsStatusCode: Int?,
+        phoneConnected: Boolean?,
+        watchGpsAvailability: String?,
+        warning: String,
+        action: String,
+    ) {
+        log(
+            "locationEnvironment: sourceMode=$sourceMode " +
+                "settingsSatisfied=${locationSettingsSatisfied ?: "na"} " +
+                "settingsStatus=${locationSettingsStatusCode?.toString() ?: "na"} " +
+                "phoneConnected=${phoneConnected ?: "na"} " +
+                "watchGps=${watchGpsAvailability ?: "na"} warning=$warning action=$action",
+        )
+    }
+
+    fun logLocationEnvironmentWarningChanged(warning: String) {
+        log("locationEnvironment: warning=$warning")
     }
 
     fun logCachedLocationAccepted(

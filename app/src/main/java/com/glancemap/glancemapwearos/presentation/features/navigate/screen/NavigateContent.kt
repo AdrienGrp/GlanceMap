@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -39,6 +40,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
@@ -110,6 +112,7 @@ internal fun NavigateContent(
     onOpenGpxTools: () -> Unit,
     onStartPoiCreation: () -> Unit,
     gpsIndicatorState: GpsFixIndicatorState,
+    gpsEnvironmentWarning: GpsEnvironmentWarning,
     watchGpsDegradedWarning: Boolean,
     isOfflineMode: Boolean,
     isGpxInspectionEnabled: Boolean,
@@ -883,6 +886,11 @@ internal fun NavigateContent(
                 screenSize = screenSize,
             )
 
+            GpsEnvironmentWarningOverlay(
+                warning = gpsEnvironmentWarning,
+                visible = hasLocationPermission && !isOfflineMode,
+            )
+
             if (routeToolSession != null) {
                 val session = routeToolSession
                 val activeRouteToolTrack = activeGpxDetails.singleOrNull()
@@ -972,6 +980,40 @@ internal fun NavigateContent(
             }
         }
     }
+}
+
+@Suppress("FunctionName")
+@Composable
+private fun BoxScope.GpsEnvironmentWarningOverlay(
+    warning: GpsEnvironmentWarning,
+    visible: Boolean,
+) {
+    val message =
+        when (warning) {
+            GpsEnvironmentWarning.NONE -> null
+            GpsEnvironmentWarning.LOCATION_SETTINGS_UNSATISFIED -> "Turn on watch Location"
+            GpsEnvironmentWarning.WATCH_GPS_UNAVAILABLE -> "Watch GPS unavailable"
+            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_NO_WATCH_GPS -> "Phone out of reach"
+            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS -> "Phone away. Watch GPS active"
+        }
+    if (!visible || message == null) return
+
+    Text(
+        text = message,
+        modifier =
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 38.dp, vertical = 10.dp)
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        color = Color.White,
+        fontSize = 11.sp,
+        lineHeight = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+        maxLines = 2,
+    )
 }
 
 @Suppress("FunctionName")

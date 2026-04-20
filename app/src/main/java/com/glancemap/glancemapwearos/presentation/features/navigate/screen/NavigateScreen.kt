@@ -623,6 +623,7 @@ fun NavigateScreen(
             gpsSignalSnapshot.lastFixElapsedRealtimeMs > 0L &&
             gpsSignalSnapshot.lastFixAgeMs in 0..gpsSignalSnapshot.lastFixFreshMaxAgeMs
     val watchGpsDegradedWarning = locationUiState.watchGpsDegradedWarning
+    val gpsEnvironmentWarning = locationUiState.gpsEnvironmentWarning
     val mapAppearanceApplyInProgress by mapViewModel.mapAppearanceApplyInProgress.collectAsState()
     val slopeOverlayToggleEnabled by mapViewModel.reliefOverlayToggleEnabled.collectAsState()
     var slopeOverlayState by remember {
@@ -1030,6 +1031,7 @@ fun NavigateScreen(
         onOpenGpxTools = routeToolActions.openRouteToolsPanel,
         onStartPoiCreation = routeToolActions.startPoiCreationSelection,
         gpsIndicatorState = effectiveGpsIndicatorState,
+        gpsEnvironmentWarning = gpsEnvironmentWarning,
         watchGpsDegradedWarning = watchGpsDegradedWarning,
         isOfflineMode = offlineMode,
         isGpxInspectionEnabled = isGpxInspectionEnabled,

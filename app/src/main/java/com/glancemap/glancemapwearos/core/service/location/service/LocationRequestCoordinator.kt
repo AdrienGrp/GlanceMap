@@ -26,6 +26,7 @@ internal data class RequestUpdateState(
     val bound: Boolean,
     val tracking: Boolean,
     val keepOpen: Boolean,
+    val watchOnlyRequested: Boolean,
     val watchOnlyEffective: Boolean,
     val screenState: LocationScreenState,
     val backgroundGps: Boolean,
@@ -48,6 +49,12 @@ internal class LocationRequestCoordinator(
     private val updateSelfHealMonitor: () -> Unit,
     private val updateGnssDiagnostics: () -> Unit,
     private val foregroundRefresh: () -> Unit,
+    private val inspectLocationEnvironment: suspend (
+        requestSpec: RequestSpec,
+        state: RequestUpdateState,
+        permissions: LocationPermissionSnapshot,
+        nowElapsedMs: Long,
+    ) -> LocationEnvironmentAction,
     private val cancelImmediateLocationWork: (String) -> Unit,
     private val currentState: () -> RequestUpdateState,
     private val effectiveUpdateIntervalMs: () -> Long,
@@ -115,6 +122,19 @@ internal class LocationRequestCoordinator(
                     if (isSuperseded(generation)) return@launch
                     resetRetryState()
                     onNoRequestSpec(state.keepOpen, state.tracking)
+                    return@launch
+                }
+
+                val environmentAction =
+                    inspectLocationEnvironment(
+                        requestSpec,
+                        state,
+                        permissions,
+                        nowElapsedMs,
+                    )
+                if (isSuperseded(generation)) return@launch
+                if (environmentAction == LocationEnvironmentAction.RESTART_REQUEST) {
+                    requestLocationUpdateIfNeeded()
                     return@launch
                 }
 

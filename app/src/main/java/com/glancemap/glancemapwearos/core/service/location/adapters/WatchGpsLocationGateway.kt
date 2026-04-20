@@ -182,6 +182,13 @@ internal class WatchGpsLocationGateway(
         }
     }
 
+    fun availabilityReason(): WatchGpsAvailabilityReason =
+        resolveWatchGpsAvailabilityReason(
+            hasGpsHardwareFeature = hasGpsHardwareFeature(),
+            isGpsProviderPresent = isGpsProviderPresent(),
+            isGpsProviderEnabled = isGpsProviderEnabled(),
+        )
+
     private fun emitLocations(
         sink: LocationUpdateSink,
         rawLocations: List<Location>,

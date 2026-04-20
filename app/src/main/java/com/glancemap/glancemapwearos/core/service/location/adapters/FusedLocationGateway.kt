@@ -92,6 +92,7 @@ internal class FusedLocationGateway(
             val locationRequest =
                 LocationRequest
                     .Builder(request.priority, request.intervalMs)
+                    .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
                     .setMinUpdateIntervalMillis(request.intervalMs)
                     .setMinUpdateDistanceMeters(request.minDistanceMeters)
                     .setWaitForAccurateLocation(request.waitForAccurateLocation)
