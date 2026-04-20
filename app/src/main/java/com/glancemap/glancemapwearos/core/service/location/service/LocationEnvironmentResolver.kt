@@ -21,6 +21,7 @@ internal fun resolveLocationEnvironmentDecision(
     watchGpsAvailability: WatchGpsAvailabilityReason?,
     phoneConnected: Boolean?,
     locationSettings: LocationSettingsPreflightResult?,
+    passiveLocationExperiment: Boolean = false,
 ): LocationEnvironmentDecision {
     if (locationSettings?.satisfied == false) {
         return LocationEnvironmentDecision(
@@ -45,6 +46,12 @@ internal fun resolveLocationEnvironmentDecision(
     }
 
     if (sourceMode == LocationSourceMode.AUTO_FUSED && phoneConnected == false) {
+        if (passiveLocationExperiment) {
+            return LocationEnvironmentDecision(
+                warning = GpsEnvironmentWarning.NONE,
+                action = LocationEnvironmentAction.CONTINUE,
+            )
+        }
         return if (watchGpsAvailable) {
             LocationEnvironmentDecision(
                 warning = GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS,

@@ -59,6 +59,62 @@ class LocationEnvironmentResolverTest {
     }
 
     @Test
+    fun unknownLocationSettingsCheckDoesNotMaskPhoneFallback() {
+        val decision =
+            resolveLocationEnvironmentDecision(
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+                watchOnlyRequested = false,
+                watchGpsAvailability = WatchGpsAvailabilityReason.AVAILABLE,
+                phoneConnected = false,
+                locationSettings =
+                    LocationSettingsPreflightResult(
+                        satisfied = null,
+                        statusCode = 10,
+                        detail = "developer_error",
+                    ),
+            )
+
+        assertEquals(GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS, decision.warning)
+        assertEquals(LocationEnvironmentAction.RESTART_REQUEST, decision.action)
+    }
+
+    @Test
+    fun unknownLocationSettingsCheckDoesNotWarnWhenPhoneConnected() {
+        val decision =
+            resolveLocationEnvironmentDecision(
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+                watchOnlyRequested = false,
+                watchGpsAvailability = WatchGpsAvailabilityReason.AVAILABLE,
+                phoneConnected = true,
+                locationSettings =
+                    LocationSettingsPreflightResult(
+                        satisfied = null,
+                        statusCode = 10,
+                        detail = "developer_error",
+                    ),
+            )
+
+        assertEquals(GpsEnvironmentWarning.NONE, decision.warning)
+        assertEquals(LocationEnvironmentAction.CONTINUE, decision.action)
+    }
+
+    @Test
+    fun passiveExperimentDoesNotForceWatchGpsWhenPhoneDisconnected() {
+        val decision =
+            resolveLocationEnvironmentDecision(
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+                watchOnlyRequested = false,
+                watchGpsAvailability = WatchGpsAvailabilityReason.AVAILABLE,
+                phoneConnected = false,
+                locationSettings = null,
+                passiveLocationExperiment = true,
+            )
+
+        assertEquals(GpsEnvironmentWarning.NONE, decision.warning)
+        assertEquals(LocationEnvironmentAction.CONTINUE, decision.action)
+    }
+
+    @Test
     fun watchGpsFallbackKeepsPhoneDisconnectedWarning() {
         val decision =
             resolveLocationEnvironmentDecision(

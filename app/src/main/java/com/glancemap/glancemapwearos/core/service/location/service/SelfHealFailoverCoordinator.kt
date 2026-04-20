@@ -24,6 +24,7 @@ internal class SelfHealFailoverCoordinator(
     private val hasFinePermission: () -> Boolean,
     private val hasCoarsePermission: () -> Boolean,
     private val watchGpsOnly: () -> Boolean,
+    private val passiveLocationExperiment: () -> Boolean,
     private val lastAnyAcceptedFixAtElapsedMs: () -> Long,
     private val lastCallbackAcceptedFixAtElapsedMs: () -> Long,
     private val lastRequestAppliedAtElapsedMs: () -> Long,
@@ -78,6 +79,10 @@ internal class SelfHealFailoverCoordinator(
     ) {
         if (watchGpsOnly()) {
             clearAutoFusedFailoverStateInternal(reason = "watch_only_enabled")
+            return
+        }
+        if (passiveLocationExperiment() && !watchGpsOnly()) {
+            autoFusedPoorAccuracyStreak = 0
             return
         }
         if (autoFusedFallbackToWatchGps) {
@@ -196,7 +201,10 @@ internal class SelfHealFailoverCoordinator(
 
     private fun shouldRunSelfHealMonitor(): Boolean {
         val hasAnyPermission = hasFinePermission() || hasCoarsePermission()
-        return trackingEnabled() && !ambientModeActive() && hasAnyPermission
+        return trackingEnabled() &&
+            !ambientModeActive() &&
+            hasAnyPermission &&
+            !(passiveLocationExperiment() && !watchGpsOnly())
     }
 
     private fun maybeTriggerInteractiveSelfHeal(

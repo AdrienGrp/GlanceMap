@@ -168,6 +168,7 @@ class LocationService : Service() {
             hasFinePermission = { latestHasFinePermission },
             hasCoarsePermission = { latestHasCoarsePermission },
             watchGpsOnly = { latestWatchGpsOnly },
+            passiveLocationExperiment = { latestGpsDebugTelemetry && latestPassiveLocationExperiment },
             lastAnyAcceptedFixAtElapsedMs = { lastAnyAcceptedFixAtElapsedMs },
             lastCallbackAcceptedFixAtElapsedMs = { lastCallbackAcceptedFixAtElapsedMs },
             lastRequestAppliedAtElapsedMs = { lastRequestAppliedAtElapsedMs },
@@ -249,6 +250,7 @@ class LocationService : Service() {
                 currentLocationSourceMode = { currentLocationSourceMode() },
                 locationGatewayFor = { sourceMode -> locationGatewayFor(sourceMode) },
                 requestLocationUpdateIfNeeded = { requestLocationUpdateIfNeeded() },
+                passiveLocationExperiment = { latestGpsDebugTelemetry && latestPassiveLocationExperiment },
                 emitGpsSignalSnapshot = { _gpsSignalSnapshot.value = engine.gpsSignalSnapshot },
                 emitAcceptedImmediateLocation = { location, acceptedAtMs ->
                     _currentLocation.value = location
@@ -545,6 +547,7 @@ class LocationService : Service() {
                 watchGpsAvailability = watchGpsAvailability,
                 phoneConnected = phoneConnected,
                 locationSettings = locationSettings,
+                passiveLocationExperiment = state.passiveLocationExperiment,
             )
         val warningChanged =
             engine.updateEnvironmentWarning(
@@ -623,6 +626,9 @@ class LocationService : Service() {
     private fun onGpsSettingsStateChanged(state: GpsSettingsState) {
         val debugTelemetryEnabledNow = state.debugTelemetry
         val debugTelemetryJustEnabled = !latestGpsDebugTelemetry && debugTelemetryEnabledNow
+        val passiveExperimentWasActive = latestGpsDebugTelemetry && latestPassiveLocationExperiment
+        val passiveExperimentActiveNow = debugTelemetryEnabledNow && state.passiveLocationExperiment
+        val passiveExperimentChanged = passiveExperimentWasActive != passiveExperimentActiveNow
         val watchOnlyChanged = latestWatchGpsOnly != state.watchOnly
         latestWatchGpsOnly = state.watchOnly
         latestUserIntervalMs = state.intervalMs
@@ -633,11 +639,14 @@ class LocationService : Service() {
         telemetry.setDebugEnabled(latestGpsDebugTelemetry)
         updateEnergySampling(latestGpsDebugTelemetry)
         updateGnssDiagnostics(enabled = latestGpsDebugTelemetry)
-        if (debugTelemetryJustEnabled) {
+        if (debugTelemetryJustEnabled || passiveExperimentChanged) {
             engine.forceRequestRefresh()
         }
         if (watchOnlyChanged) {
             selfHealFailoverCoordinator.clearAutoFusedFailoverState(reason = "watch_setting_changed")
+        }
+        if (passiveExperimentChanged) {
+            selfHealFailoverCoordinator.clearAutoFusedFailoverState(reason = "passive_experiment_changed")
         }
 
         requestLocationUpdateIfNeeded()

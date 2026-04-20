@@ -225,6 +225,13 @@ internal class LocationServiceTelemetry(
         log("immediateRequest: burstEnd id=$burstId source=$source reason=$reason")
     }
 
+    fun logImmediateRequestSkippedPassiveExperiment(
+        source: String,
+        backend: String,
+    ) {
+        log("immediateRequest: skipPassiveExperiment source=$source backend=$backend")
+    }
+
     fun logGetCurrentLocationFailed(
         source: String,
         backend: String,

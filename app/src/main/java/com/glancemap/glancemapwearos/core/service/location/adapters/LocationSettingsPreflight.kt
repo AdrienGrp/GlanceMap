@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.core.service.location.adapters
 
 import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.location.Granularity
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationSettingsRequest
@@ -8,7 +9,7 @@ import com.google.android.gms.location.SettingsClient
 import kotlinx.coroutines.tasks.await
 
 internal data class LocationSettingsPreflightResult(
-    val satisfied: Boolean,
+    val satisfied: Boolean?,
     val statusCode: Int?,
     val detail: String?,
 )
@@ -40,16 +41,22 @@ internal class LocationSettingsPreflight(
             )
         } catch (error: ApiException) {
             LocationSettingsPreflightResult(
-                satisfied = false,
+                satisfied = error.statusCode.locationSettingsCheckSatisfied(),
                 statusCode = error.statusCode,
                 detail = error.message,
             )
         } catch (error: Exception) {
             LocationSettingsPreflightResult(
-                satisfied = false,
+                satisfied = null,
                 statusCode = null,
                 detail = error.javaClass.simpleName,
             )
         }
     }
 }
+
+private fun Int.locationSettingsCheckSatisfied(): Boolean? =
+    when (this) {
+        CommonStatusCodes.DEVELOPER_ERROR -> null
+        else -> false
+    }

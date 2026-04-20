@@ -21,6 +21,17 @@ source code and bundled assets is still public distribution.
     otherwise.
   - Bundled third-party themes, icons, map styles, and vendored code have their
     own provenance and license notes under `licenses/` and `third_party/`.
+- OpenAndroMaps/Elevate permission: `RECEIVED`
+  - Project owner confirmed agreement from OpenAndroMaps and Tobias Kuehn on
+    2026-04-20.
+  - Keep the original agreement messages private, and record dates/scope before
+    switching visibility.
+- GitHub repository metadata: `NEEDS POLISH`
+  - Current repository description is long and has grammar issues.
+  - Suggested description: `Offline Wear OS navigation with an Android companion for transferring maps, GPX tracks, POIs, and routing data to your watch.`
+  - Suggested topics: `android`, `kotlin`, `wear-os`, `offline-maps`, `mapsforge`, `gpx`, `brouter`.
+  - Set the repository website to `https://adriengrp.github.io/GlanceMap/`
+    after GitHub Pages is enabled.
 - Third-party bundled assets: `BLOCK BEFORE PUBLIC`
   - Do not make the repository public until the pending redistribution items in
     `licenses/COMPLIANCE_STATUS.md` are resolved or the affected assets are
@@ -40,13 +51,23 @@ source code and bundled assets is still public distribution.
    Expected result: no output.
 
 3. Resolve or remove bundled assets with pending redistribution review:
-   - OpenAndroMaps/Elevate permission and referenced resource license file.
    - OpenHiking bundled theme redistribution/license verification.
    - French Kiss bundled theme redistribution/license verification.
+   - Tiramisu non-commercial license implications.
    - Hike, Ride & Sight non-commercial license implications.
-4. Re-check `licenses/COMPLIANCE_STATUS.md` and update its review date/status.
-5. Enable GitHub Pages from branch `main`, folder `/docs`, then confirm
+4. Archive the OpenAndroMaps/Elevate agreement details outside the public repo:
+   - parties,
+   - request/response dates,
+   - approved scope for public source distribution, APK/AAB bundling, and modified/adapted assets.
+5. Re-check `licenses/COMPLIANCE_STATUS.md` and update its review date/status.
+6. Update GitHub repository metadata:
+   - Replace the description with the concise public description above.
+   - Add the suggested repository topics.
+   - Leave the website empty until GitHub Pages is actually enabled.
+7. Enable GitHub Pages from branch `main`, folder `/docs`, then confirm
    `https://adriengrp.github.io/GlanceMap/privacy-policy/` loads.
+8. Enable GitHub private vulnerability reporting or add `SECURITY.md` with a
+   current contact path before inviting outside users to report issues.
 
 ## Useful Local Checks
 
