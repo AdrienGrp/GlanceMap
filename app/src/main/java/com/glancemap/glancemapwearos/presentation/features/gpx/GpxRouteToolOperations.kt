@@ -31,7 +31,6 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRou
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteToolTrackMatch
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeToolSnapThresholdMeters
 import com.glancemap.glancemapwearos.presentation.features.routetools.toPlannerPreset
-import com.glancemap.glancemapwearos.presentation.features.routetools.toRoundTripPlannerRequest
 import com.glancemap.glancemapwearos.presentation.features.routetools.toRoutePlannerRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -276,22 +275,20 @@ internal class GpxRouteToolOperations(
                 }
 
                 RouteCreateMode.LOOP_AROUND_HERE -> {
-                    val plannerRequest = session.toRoundTripPlannerRequest(currentLocation)
-                    routePlanner.createLoop(plannerRequest)
+                    createLoopRoute(
+                        routePlanner = routePlanner,
+                        elevationFilterConfig = elevationFilterConfig,
+                        etaModelConfig = etaModelConfig,
+                        session = session,
+                        currentLocation = currentLocation,
+                    )
                 }
             }
         val previewPoints = route.points.map { it.latLong }
         val profile =
-            buildProfile(
-                sig = FileSig(0L, route.points.size.toLong()),
-                pts =
-                    route.points.map { routePoint ->
-                        TrackPoint(
-                            latLong = routePoint.latLong,
-                            elevation = routePoint.elevation,
-                        )
-                    },
-                elevationFilterConfig = elevationFilterConfig(),
+            buildRouteOutputProfile(
+                route = route,
+                elevationFilterConfig = elevationFilterConfig,
             )
         return RouteToolCreatePreview(
             previewPoints = previewPoints,
@@ -304,6 +301,10 @@ internal class GpxRouteToolOperations(
                     fileName = route.fileName,
                     gpxBytes = route.gpxBytes,
                 ),
+            multiPointChainPointCount =
+                session.chainPoints.size.takeIf {
+                    session.options.createMode == RouteCreateMode.MULTI_POINT_CHAIN
+                },
         )
     }
 
@@ -371,8 +372,14 @@ internal class GpxRouteToolOperations(
             RouteCreateMode.LOOP_AROUND_HERE -> {
                 val plannedCreation =
                     preview?.plannedCreation ?: run {
-                        val plannerRequest = session.toRoundTripPlannerRequest(currentLocation)
-                        val route = routePlanner.createLoop(plannerRequest)
+                        val route =
+                            createLoopRoute(
+                                routePlanner = routePlanner,
+                                elevationFilterConfig = elevationFilterConfig,
+                                etaModelConfig = etaModelConfig,
+                                session = session,
+                                currentLocation = currentLocation,
+                            )
                         RouteToolPlannedCreation(
                             fileName = route.fileName,
                             gpxBytes = route.gpxBytes,

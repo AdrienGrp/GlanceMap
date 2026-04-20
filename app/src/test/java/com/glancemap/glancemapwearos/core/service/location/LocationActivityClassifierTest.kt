@@ -32,7 +32,7 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.ACTIVE,
             classifier.evaluate(
-                nowElapsedMs = 8_999L,
+                nowElapsedMs = 15_999L,
                 speedMps = 0.1f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
@@ -44,7 +44,7 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.STATIONARY,
             classifier.evaluate(
-                nowElapsedMs = 9_000L,
+                nowElapsedMs = 16_000L,
                 speedMps = 0.1f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
@@ -93,7 +93,7 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.ACTIVE,
             classifier.evaluate(
-                nowElapsedMs = 13_999L,
+                nowElapsedMs = 20_999L,
                 speedMps = 0.1f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
@@ -105,12 +105,39 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.STATIONARY,
             classifier.evaluate(
-                nowElapsedMs = 14_000L,
+                nowElapsedMs = 21_000L,
                 speedMps = 0.1f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 2f,
                 hasExitWindowHistory = false,
                 exitDisplacementMeters = 0f,
+            ),
+        )
+    }
+
+    @Test
+    fun staysActiveForWalkingDisplacementEvenWhenProviderSpeedIsZero() {
+        val classifier = LocationActivityClassifier()
+        classifier.reset(LocationActivityState.ACTIVE)
+
+        classifier.evaluate(
+            nowElapsedMs = 1_000L,
+            speedMps = 0f,
+            hasEnterWindowHistory = true,
+            enterDisplacementMeters = 12f,
+            hasExitWindowHistory = true,
+            exitDisplacementMeters = 12f,
+        )
+
+        assertEquals(
+            LocationActivityState.ACTIVE,
+            classifier.evaluate(
+                nowElapsedMs = 30_000L,
+                speedMps = 0f,
+                hasEnterWindowHistory = true,
+                enterDisplacementMeters = 12f,
+                hasExitWindowHistory = true,
+                exitDisplacementMeters = 12f,
             ),
         )
     }
@@ -135,7 +162,7 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.STATIONARY,
             classifier.evaluate(
-                nowElapsedMs = 4_999L,
+                nowElapsedMs = 2_999L,
                 speedMps = 0.8f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 1f,
@@ -147,12 +174,42 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.ACTIVE,
             classifier.evaluate(
-                nowElapsedMs = 5_000L,
+                nowElapsedMs = 3_000L,
                 speedMps = 0.8f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 1f,
                 hasExitWindowHistory = true,
                 exitDisplacementMeters = 25f,
+            ),
+        )
+    }
+
+    @Test
+    fun exitsStationaryFromWalkingDisplacementEvenWhenProviderSpeedIsZero() {
+        val classifier = LocationActivityClassifier()
+        classifier.reset(LocationActivityState.STATIONARY)
+
+        assertEquals(
+            LocationActivityState.STATIONARY,
+            classifier.evaluate(
+                nowElapsedMs = 1_000L,
+                speedMps = 0f,
+                hasEnterWindowHistory = true,
+                enterDisplacementMeters = 1f,
+                hasExitWindowHistory = true,
+                exitDisplacementMeters = 12f,
+            ),
+        )
+
+        assertEquals(
+            LocationActivityState.ACTIVE,
+            classifier.evaluate(
+                nowElapsedMs = 3_000L,
+                speedMps = 0f,
+                hasEnterWindowHistory = true,
+                enterDisplacementMeters = 1f,
+                hasExitWindowHistory = true,
+                exitDisplacementMeters = 12f,
             ),
         )
     }
@@ -190,7 +247,7 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.ACTIVE,
             classifier.evaluate(
-                nowElapsedMs = 17_999L,
+                nowElapsedMs = 24_999L,
                 speedMps = 0.1f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 5f,
@@ -203,7 +260,7 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.STATIONARY,
             classifier.evaluate(
-                nowElapsedMs = 18_000L,
+                nowElapsedMs = 25_000L,
                 speedMps = 0.1f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 5f,
@@ -216,7 +273,7 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.STATIONARY,
             classifier.evaluate(
-                nowElapsedMs = 20_000L,
+                nowElapsedMs = 27_000L,
                 speedMps = 0.95f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 20f,
@@ -227,7 +284,7 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.STATIONARY,
             classifier.evaluate(
-                nowElapsedMs = 23_999L,
+                nowElapsedMs = 28_999L,
                 speedMps = 0.95f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 20f,
@@ -240,7 +297,7 @@ class LocationActivityClassifierTest {
         assertEquals(
             LocationActivityState.ACTIVE,
             classifier.evaluate(
-                nowElapsedMs = 24_000L,
+                nowElapsedMs = 29_000L,
                 speedMps = 0.95f,
                 hasEnterWindowHistory = true,
                 enterDisplacementMeters = 20f,

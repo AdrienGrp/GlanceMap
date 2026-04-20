@@ -3,14 +3,14 @@ package com.glancemap.glancemapwearos.core.service.location.activity
 internal enum class LocationActivityState { ACTIVE, STATIONARY }
 
 internal data class LocationActivityClassifierConfig(
-    val enterStationaryWindowMs: Long = 30000L,
-    val enterStationaryConfirmMs: Long = 8000L,
-    val enterStationarySpeedThresholdMps: Float = 0.35f,
-    val enterStationaryDistanceThresholdMeters: Float = 12.0f,
+    val enterStationaryWindowMs: Long = 45000L,
+    val enterStationaryConfirmMs: Long = 15000L,
+    val enterStationarySpeedThresholdMps: Float = 0.25f,
+    val enterStationaryDistanceThresholdMeters: Float = 8.0f,
     val exitActiveWindowMs: Long = 12000L,
-    val exitActiveConfirmMs: Long = 4000L,
-    val exitActiveSpeedThresholdMps: Float = 0.70f,
-    val exitActiveDistanceThresholdMeters: Float = 18.0f,
+    val exitActiveConfirmMs: Long = 2000L,
+    val exitActiveSpeedThresholdMps: Float = 0.40f,
+    val exitActiveDistanceThresholdMeters: Float = 10.0f,
 )
 
 internal class LocationActivityClassifier(
