@@ -1,5 +1,13 @@
 package com.glancemap.glancemapwearos.core.service.location.service
 
+import com.glancemap.glancemapwearos.core.service.location.engine.LocationEngine
+import com.glancemap.glancemapwearos.core.service.location.engine.RequestSpec
+import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntimeMode
+import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
+import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
+import com.google.android.gms.location.Priority
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -94,6 +102,58 @@ class SelfHealFailoverCoordinatorTest {
             )
 
         assertEquals(AutoFusedNoFixRecoveryAction.FAILOVER, action)
+    }
+
+    @Test
+    fun passiveExperimentUsesShorterNoFixFailoverThreshold() {
+        assertEquals(8_000L, resolvePassiveExperimentNoFixFailoverThresholdMs(12_000L))
+        assertEquals(6_000L, resolvePassiveExperimentNoFixFailoverThresholdMs(6_000L))
+    }
+
+    @Test
+    fun passiveExperimentNoFixFallsBackToWatchGpsWithoutGenericRefreshLoop() {
+        val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+        telemetry.setDebugEnabled(false)
+        val engine = LocationEngine(telemetry)
+        engine.markRequestApplied(
+            RequestSpec(
+                priority = Priority.PRIORITY_PASSIVE,
+                intervalMs = 3_000L,
+                minDistanceMeters = 1f,
+                mode = LocationRuntimeMode.INTERACTIVE,
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+            ),
+        )
+        var requestRefreshes = 0
+        val coordinator =
+            SelfHealFailoverCoordinator(
+                serviceScope = CoroutineScope(SupervisorJob()),
+                isServiceActive = { true },
+                engine = engine,
+                telemetry = telemetry,
+                requestLocationUpdateIfNeeded = { requestRefreshes += 1 },
+                requestImmediateLocation = {},
+                trackingEnabled = { true },
+                ambientModeActive = { false },
+                hasFinePermission = { true },
+                hasCoarsePermission = { true },
+                watchGpsOnly = { false },
+                passiveLocationExperiment = { true },
+                lastAnyAcceptedFixAtElapsedMs = { 0L },
+                lastCallbackAcceptedFixAtElapsedMs = { 0L },
+                lastRequestAppliedAtElapsedMs = { 1_000L },
+                expectedIntervalMs = { 3_000L },
+                strictFreshMaxAgeMs = { 6_000L },
+            )
+
+        coordinator.maybeTriggerInteractiveSelfHealNow(
+            nowElapsedMs = 10_000L,
+            interactiveTracking = true,
+            expectedIntervalMs = 3_000L,
+        )
+
+        assertTrue(coordinator.isAutoFusedFallbackToWatchGps())
+        assertEquals(1, requestRefreshes)
     }
 
     @Test

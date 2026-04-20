@@ -203,8 +203,7 @@ internal class SelfHealFailoverCoordinator(
         val hasAnyPermission = hasFinePermission() || hasCoarsePermission()
         return trackingEnabled() &&
             !ambientModeActive() &&
-            hasAnyPermission &&
-            !(passiveLocationExperiment() && !watchGpsOnly())
+            hasAnyPermission
     }
 
     private fun maybeTriggerInteractiveSelfHeal(
@@ -231,6 +230,19 @@ internal class SelfHealFailoverCoordinator(
         if (referenceFixAt <= 0L) return
 
         val fixGapMs = (nowElapsedMs - referenceFixAt).coerceAtLeast(0L)
+        val timingProfile = resolveLocationTimingProfile(expectedIntervalMs)
+        if (
+            maybeTriggerPassiveExperimentNoFixFailover(
+                nowElapsedMs = nowElapsedMs,
+                fixGapMs = fixGapMs,
+                thresholdMs =
+                    resolvePassiveExperimentNoFixFailoverThresholdMs(
+                        defaultThresholdMs = timingProfile.autoFusedNoFixFailoverGapMs,
+                    ),
+            )
+        ) {
+            return
+        }
         if (
             maybeTriggerAutoFusedRecoveryProbe(
                 nowElapsedMs = nowElapsedMs,
@@ -241,7 +253,6 @@ internal class SelfHealFailoverCoordinator(
             return
         }
 
-        val timingProfile = resolveLocationTimingProfile(expectedIntervalMs)
         val noFixFailoverThresholdMs = timingProfile.autoFusedNoFixFailoverGapMs
         if (
             maybeTriggerAutoFusedNoFixFailover(
@@ -281,6 +292,25 @@ internal class SelfHealFailoverCoordinator(
         )
         engine.forceRequestRefresh()
         serviceScope.launch { requestLocationUpdateIfNeeded() }
+    }
+
+    private fun maybeTriggerPassiveExperimentNoFixFailover(
+        nowElapsedMs: Long,
+        fixGapMs: Long,
+        thresholdMs: Long,
+    ): Boolean {
+        if (!passiveLocationExperiment() || watchGpsOnly()) return false
+        if (autoFusedFallbackToWatchGps) return true
+        if (nowElapsedMs < autoFusedRecoveryGraceUntilElapsedMs) return true
+        if (engine.currentSourceModeOrNull() != LocationSourceMode.AUTO_FUSED) return true
+        if (fixGapMs < thresholdMs) return true
+
+        activateAutoFusedNoFixFallback(
+            nowElapsedMs = nowElapsedMs,
+            fixGapMs = fixGapMs,
+            thresholdMs = thresholdMs,
+        )
+        return true
     }
 
     private fun maybeRecoverAutoFusedFromWatchGps(
@@ -389,6 +419,19 @@ internal class SelfHealFailoverCoordinator(
             AutoFusedNoFixRecoveryAction.FAILOVER -> Unit
         }
 
+        activateAutoFusedNoFixFallback(
+            nowElapsedMs = nowElapsedMs,
+            fixGapMs = fixGapMs,
+            thresholdMs = thresholdMs,
+        )
+        return true
+    }
+
+    private fun activateAutoFusedNoFixFallback(
+        nowElapsedMs: Long,
+        fixGapMs: Long,
+        thresholdMs: Long,
+    ) {
         autoFusedPoorAccuracyStreak = 0
         autoFusedWatchGpsRecoveryStreak = 0
         autoFusedFallbackToWatchGps = true
@@ -400,7 +443,6 @@ internal class SelfHealFailoverCoordinator(
             thresholdMs = thresholdMs,
         )
         requestLocationUpdateIfNeeded()
-        return true
     }
 
     private fun clearAutoFusedFailoverStateInternal(reason: String) {
@@ -436,6 +478,9 @@ internal fun resolveAutoFusedNoFixRecoveryAction(
         probeUntilElapsedMs <= 0L -> AutoFusedNoFixRecoveryAction.START_PROBE
         else -> AutoFusedNoFixRecoveryAction.FAILOVER
     }
+
+internal fun resolvePassiveExperimentNoFixFailoverThresholdMs(defaultThresholdMs: Long): Long =
+    minOf(defaultThresholdMs, PASSIVE_EXPERIMENT_NO_FIX_FAILOVER_MAX_GAP_MS)
 
 internal fun resolveAutoFusedAccuracyFailoverRequiredStreak(
     accuracyM: Float,
@@ -481,6 +526,7 @@ private const val AUTO_FUSED_RECOVERY_PROBE_MIN_MULTIPLIER = 6L
 private const val AUTO_FUSED_RECOVERY_PROBE_MIN_FALLBACK_MS = 30_000L
 private const val AUTO_FUSED_RECOVERY_PROBE_COOLDOWN_MS = 45_000L
 private const val AUTO_FUSED_RECOVERY_GRACE_MS = 15_000L
+private const val PASSIVE_EXPERIMENT_NO_FIX_FAILOVER_MAX_GAP_MS = 8_000L
 private const val AUTO_FUSED_NO_FIX_RECOVERY_PROBE_GRACE_MS = 4_000L
 private const val AUTO_FUSED_NO_FIX_RECOVERY_CLEAR_ACCURACY_M = 65f
 private const val AUTO_FUSED_NO_FIX_RECOVERY_SOURCE = "auto_fused_no_fix_recovery"

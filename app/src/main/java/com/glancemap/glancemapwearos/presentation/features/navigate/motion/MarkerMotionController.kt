@@ -512,6 +512,22 @@ private class MarkerMotionGpsFixProcessor(
                     ),
             )
         updateClampTelemetry(context, motion, correction, correctionTarget)
+        if (shouldApplyWatchGpsCorrectionImmediately(context)) {
+            state.displayedLatLong = correctionTarget.targetLatLong
+            state.correctionBlend = null
+            recordFixAccepted(
+                context = context,
+                motion = motion,
+                event =
+                    FixAcceptedTelemetry(
+                        mode = MarkerMotionMode.FIXED,
+                        reason = correctionReason(useWatchGpsCatchUp, correctionTarget.wasClamped),
+                        correctionDistanceM = correctionTarget.visibleCorrectionDistanceM,
+                        blendDurationMs = null,
+                    ),
+            )
+            return correctionTarget.targetLatLong
+        }
         state.correctionBlend =
             CorrectionBlend(
                 from = correction.currentDisplayed,
@@ -556,6 +572,9 @@ private class MarkerMotionGpsFixProcessor(
             state.clampedCorrectionStreak = 0
         }
     }
+
+    private fun shouldApplyWatchGpsCorrectionImmediately(context: GpsFixContext): Boolean =
+        context.fix.sourceMode == LocationSourceMode.WATCH_GPS
 
     private fun correctionReason(
         useWatchGpsCatchUp: Boolean,

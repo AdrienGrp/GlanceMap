@@ -14,6 +14,7 @@ import com.glancemap.glancemapwearos.core.service.location.config.JITTER_THRESHO
 import com.glancemap.glancemapwearos.core.service.location.config.MAX_USER_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.config.MIN_USER_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.config.MOVEMENT_HISTORY_DURATION
+import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_BURST_EARLY_STOP_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.filter.LocationOutputFilter
 import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
@@ -42,6 +43,7 @@ internal class LocationEngine(
             jitterThresholdMoving = JITTER_THRESHOLD_MOVING,
             jitterThresholdStationary = JITTER_THRESHOLD_STATIONARY,
             burstEarlyStopAccuracyM = HIGH_ACCURACY_BURST_EARLY_STOP_ACCURACY_M,
+            watchGpsBurstEarlyStopAccuracyM = WATCH_GPS_BURST_EARLY_STOP_ACCURACY_M,
         )
     private val immediateRequestBurstController =
         ImmediateRequestBurstController(
@@ -369,6 +371,7 @@ internal class LocationEngine(
                 strictMaxAgeMs = strictMaxAgeMs,
                 hardMaxAgeMs = hardMaxAgeMs,
                 source = source,
+                sourceMode = sourceMode,
                 isInHighAccuracyBurst = burstActive,
                 burstEarlyStopMaxAgeMs = strictMaxAgeMs,
             )

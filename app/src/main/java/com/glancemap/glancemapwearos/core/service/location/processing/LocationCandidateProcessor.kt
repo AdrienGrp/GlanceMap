@@ -30,6 +30,7 @@ internal class LocationCandidateProcessor(
     private val jitterThresholdMoving: Float,
     private val jitterThresholdStationary: Float,
     private val burstEarlyStopAccuracyM: Float,
+    private val watchGpsBurstEarlyStopAccuracyM: Float,
 ) {
     private var lastLocation: Location? = null
     private var lastAcceptedFixAtMs: Long = 0L
@@ -62,6 +63,7 @@ internal class LocationCandidateProcessor(
         strictMaxAgeMs: Long,
         hardMaxAgeMs: Long,
         source: String,
+        sourceMode: LocationSourceMode,
         isInHighAccuracyBurst: Boolean,
         burstEarlyStopMaxAgeMs: Long,
     ): ProcessedLocationCandidate {
@@ -126,6 +128,7 @@ internal class LocationCandidateProcessor(
             shouldEndBurstEarly =
                 shouldEndBurstEarly(
                     isInHighAccuracyBurst = isInHighAccuracyBurst,
+                    sourceMode = sourceMode,
                     accuracyM = location.accuracy,
                     ageMs = ageMs,
                     burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs,
@@ -274,6 +277,7 @@ internal class LocationCandidateProcessor(
             shouldEndBurstEarly =
                 shouldEndBurstEarly(
                     isInHighAccuracyBurst = isInHighAccuracyBurst,
+                    sourceMode = callbackOrigin,
                     accuracyM = location.accuracy,
                     ageMs = ageMs,
                     burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs,
@@ -344,6 +348,7 @@ internal class LocationCandidateProcessor(
                 shouldEndBurstEarly =
                     shouldEndBurstEarly(
                         isInHighAccuracyBurst = isInHighAccuracyBurst,
+                        sourceMode = LocationSourceMode.AUTO_FUSED,
                         accuracyM = location.accuracy,
                         ageMs = ageMs,
                         burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs,
@@ -370,6 +375,7 @@ internal class LocationCandidateProcessor(
             shouldEndBurstEarly =
                 shouldEndBurstEarly(
                     isInHighAccuracyBurst = isInHighAccuracyBurst,
+                    sourceMode = LocationSourceMode.AUTO_FUSED,
                     accuracyM = location.accuracy,
                     ageMs = ageMs,
                     burstEarlyStopMaxAgeMs = burstEarlyStopMaxAgeMs,
@@ -379,13 +385,19 @@ internal class LocationCandidateProcessor(
 
     fun shouldEndBurstEarly(
         isInHighAccuracyBurst: Boolean,
+        sourceMode: LocationSourceMode,
         accuracyM: Float,
         ageMs: Long,
         burstEarlyStopMaxAgeMs: Long,
     ): Boolean {
         if (!isInHighAccuracyBurst) return false
         if (!accuracyM.isFinite()) return false
-        if (accuracyM > burstEarlyStopAccuracyM) return false
+        val accuracyLimitM =
+            when (sourceMode) {
+                LocationSourceMode.AUTO_FUSED -> burstEarlyStopAccuracyM
+                LocationSourceMode.WATCH_GPS -> watchGpsBurstEarlyStopAccuracyM
+            }
+        if (accuracyM > accuracyLimitM) return false
         return ageMs <= burstEarlyStopMaxAgeMs
     }
 
