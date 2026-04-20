@@ -54,6 +54,8 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolM
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
+import com.glancemap.glancemapwearos.presentation.features.routetools.routeToolMultiPointDraftConnectorPoints
+import com.glancemap.glancemapwearos.presentation.features.routetools.visibleRouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.withVisibleLoopDefaults
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsViewModel
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -657,19 +659,27 @@ fun NavigateScreen(
             )
         }
     var visiblePoiMarkers by remember { mutableStateOf<List<PoiOverlayMarker>>(emptyList()) }
+    val displayedRouteToolCreatePreview =
+        visibleRouteToolCreatePreview(
+            session = routeToolSession,
+            createPreview = routeToolCreatePreview,
+            createPreviewInProgress = routeToolCreatePreviewInProgress,
+        )
+    val routeToolDraftConnectorPoints =
+        routeToolMultiPointDraftConnectorPoints(
+            session = routeToolSession,
+            visibleCreatePreview = displayedRouteToolCreatePreview,
+            createPreviewInProgress = routeToolCreatePreviewInProgress,
+        )
     MapOverlays(
         mapHolder = mapHolder,
         activeGpxDetails = activeGpxDetails,
         routeToolPreviewPoints =
             routeToolPreview?.previewPoints
-                ?: routeToolCreatePreview?.previewPoints
+                ?: displayedRouteToolCreatePreview?.previewPoints
                 ?: emptyList(),
-        routeToolCreatePreviewActive = routeToolCreatePreview != null,
-        routeToolDraftPoints =
-            routeToolSession
-                ?.takeIf { it.isMultiPointCreate }
-                ?.chainPoints
-                ?: emptyList(),
+        routeToolCreatePreviewActive = displayedRouteToolCreatePreview != null,
+        routeToolDraftPoints = routeToolDraftConnectorPoints,
         poiViewModel = poiViewModel,
         activePoiOverlaySources = activePoiOverlaySources,
         poiMarkerSizePx = poiIconSizePx,
@@ -1041,7 +1051,8 @@ fun NavigateScreen(
         crosshairSelectionInstruction = "Move map, then check.",
         crosshairSelectionBusy = createdPoiCreateInProgress,
         crosshairSelectionBusyMessage = "Saving POI...",
-        routeToolCreatePreview = routeToolCreatePreview,
+        routeToolCreatePreview = displayedRouteToolCreatePreview,
+        routeToolDraftConnectorPoints = routeToolDraftConnectorPoints,
         routeToolCreatePreviewInProgress = routeToolCreatePreviewInProgress,
         routeToolCreatePreviewMessage = routeToolCreatePreviewMessage,
         reshapePreviewInspectMode = reshapePreviewInspectMode,

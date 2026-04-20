@@ -62,6 +62,79 @@ class RouteToolSessionTest {
     }
 
     @Test
+    fun multiPointDraftConnectorDisappearsWhenPreviewMatchesChain() {
+        val session =
+            multiPointSession(
+                LatLong(42.5, 1.5),
+                LatLong(42.6, 1.6),
+            )
+        val preview = routeToolCreatePreview(chainPointCount = 2)
+
+        val visiblePreview =
+            visibleRouteToolCreatePreview(
+                session = session,
+                createPreview = preview,
+                createPreviewInProgress = false,
+            )
+        val draftConnectors =
+            routeToolMultiPointDraftConnectorPoints(
+                session = session,
+                visibleCreatePreview = visiblePreview,
+                createPreviewInProgress = false,
+            )
+
+        assertEquals(preview, visiblePreview)
+        assertTrue(draftConnectors.isEmpty())
+    }
+
+    @Test
+    fun multiPointDraftConnectorKeepsOnlyPendingLegWhilePreviewUpdates() {
+        val second = LatLong(42.6, 1.6)
+        val third = LatLong(42.7, 1.7)
+        val session =
+            multiPointSession(
+                LatLong(42.5, 1.5),
+                second,
+                third,
+            )
+        val previousPreview = routeToolCreatePreview(chainPointCount = 2)
+
+        val visiblePreview =
+            visibleRouteToolCreatePreview(
+                session = session,
+                createPreview = previousPreview,
+                createPreviewInProgress = true,
+            )
+        val draftConnectors =
+            routeToolMultiPointDraftConnectorPoints(
+                session = session,
+                visibleCreatePreview = visiblePreview,
+                createPreviewInProgress = true,
+            )
+
+        assertEquals(previousPreview, visiblePreview)
+        assertEquals(listOf(second, third), draftConnectors)
+    }
+
+    @Test
+    fun multiPointPreviewHidesStalePreviewFromLongerChain() {
+        val session =
+            multiPointSession(
+                LatLong(42.5, 1.5),
+                LatLong(42.6, 1.6),
+            )
+        val stalePreview = routeToolCreatePreview(chainPointCount = 3)
+
+        assertNull(
+            visibleRouteToolCreatePreview(
+                session = session,
+                createPreview = stalePreview,
+                createPreviewInProgress = true,
+            ),
+        )
+    }
+
+    @Test
     fun reverseGpxCompletesImmediatelyWithoutPointSelection() {
         val session =
             RouteToolSession(
@@ -95,4 +168,24 @@ class RouteToolSessionTest {
         assertEquals(1, retried.loopVariationIndex)
         assertEquals(session.pointA, retried.pointA)
     }
+
+    private fun multiPointSession(vararg points: LatLong): RouteToolSession =
+        RouteToolSession(
+            options =
+                RouteToolOptions(
+                    toolKind = RouteToolKind.CREATE,
+                    createMode = RouteCreateMode.MULTI_POINT_CHAIN,
+                ),
+            chainPoints = points.toList(),
+        )
+
+    private fun routeToolCreatePreview(chainPointCount: Int): RouteToolCreatePreview =
+        RouteToolCreatePreview(
+            previewPoints = emptyList(),
+            distanceMeters = 0.0,
+            elevationGainMeters = 0.0,
+            elevationLossMeters = 0.0,
+            estimatedDurationSec = null,
+            multiPointChainPointCount = chainPointCount,
+        )
 }

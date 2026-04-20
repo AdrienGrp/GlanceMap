@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.presentation.features.routetools
 import com.glancemap.glancemapwearos.core.routing.RoundTripPlannerRequest
 import com.glancemap.glancemapwearos.core.routing.RoutePlannerPreset
 import com.glancemap.glancemapwearos.core.routing.RoutePlannerRequest
+import com.glancemap.glancemapwearos.presentation.features.gpx.GpxEtaModelConfig
 import org.mapsforge.core.model.LatLong
 import kotlin.math.roundToInt
 
@@ -112,6 +113,8 @@ internal fun RouteToolSession.toRoutePlannerRequest(
 
 internal fun RouteToolSession.toRoundTripPlannerRequest(
     currentLocation: LatLong?,
+    etaModelConfig: GpxEtaModelConfig? = null,
+    targetDistanceMetersOverride: Int? = null,
 ): RoundTripPlannerRequest {
     require(options.toolKind == RouteToolKind.CREATE) {
         "Only create actions can be mapped to the route planner."
@@ -135,7 +138,9 @@ internal fun RouteToolSession.toRoundTripPlannerRequest(
 
     return RoundTripPlannerRequest(
         start = start,
-        targetDistanceMeters = options.resolvedLoopDistanceMeters(),
+        targetDistanceMeters =
+            targetDistanceMetersOverride
+                ?: options.resolvedLoopDistanceMeters(etaModelConfig),
         targetLabel = options.loopTargetLabel(),
         preset = options.routeStyle.toPlannerPreset(),
         useElevation = options.useElevation,
@@ -161,13 +166,13 @@ private fun RouteToolSession.coordinatesDestination(): LatLong? =
             }
         }
 
-private fun RouteToolOptions.resolvedLoopDistanceMeters(): Int {
+private fun RouteToolOptions.resolvedLoopDistanceMeters(etaModelConfig: GpxEtaModelConfig?): Int {
     val distanceKm =
         when (loopTargetMode) {
             LoopTargetMode.DISTANCE -> loopDistanceKm.toDouble()
             LoopTargetMode.TIME -> {
                 val hours = loopDurationMinutes / 60.0
-                hours * estimatedLoopSpeedKmPerHour()
+                hours * estimatedLoopSpeedKmPerHour(etaModelConfig)
             }
         }
     return (distanceKm * 1_000.0)
@@ -187,9 +192,13 @@ private fun RouteToolOptions.loopPointCount(): Int =
         LoopShapeMode.ALLOW_OUT_AND_BACK -> 5
     }
 
-private fun RouteToolOptions.estimatedLoopSpeedKmPerHour(): Double =
-    when (routeStyle) {
-        RouteStylePreset.BALANCED_HIKE -> if (useElevation) 4.0 else 4.5
-        RouteStylePreset.PREFER_TRAILS -> if (useElevation) 3.5 else 4.0
-        RouteStylePreset.PREFER_EASIEST -> if (useElevation) 4.5 else 5.0
-    }
+private fun RouteToolOptions.estimatedLoopSpeedKmPerHour(etaModelConfig: GpxEtaModelConfig?): Double =
+    etaModelConfig
+        ?.flatSpeedMps
+        ?.takeIf { it.isFinite() && it > 0.0 }
+        ?.let { it * 3.6 }
+        ?: when (routeStyle) {
+            RouteStylePreset.BALANCED_HIKE -> if (useElevation) 4.0 else 4.5
+            RouteStylePreset.PREFER_TRAILS -> if (useElevation) 3.5 else 4.0
+            RouteStylePreset.PREFER_EASIEST -> if (useElevation) 4.5 else 5.0
+        }

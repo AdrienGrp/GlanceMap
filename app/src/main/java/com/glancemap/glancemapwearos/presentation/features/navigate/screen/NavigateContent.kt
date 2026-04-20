@@ -46,6 +46,8 @@ import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCrosshairOverlay
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteMultiPointMapProjection
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteMultiPointOverlayState
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteMultiPointPointsOverlay
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteReshapeHandlesOverlay
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteReshapePreviewOverlay
@@ -65,7 +67,12 @@ import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.util.MercatorProjection
 import org.mapsforge.map.model.common.Observer
 
-@Suppress("FunctionName")
+@Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionName",
+    "LongMethod",
+    "LongParameterList",
+)
 @Composable
 internal fun NavigateContent(
     hasLocationPermission: Boolean,
@@ -122,6 +129,7 @@ internal fun NavigateContent(
     crosshairSelectionBusy: Boolean = false,
     crosshairSelectionBusyMessage: String? = null,
     routeToolCreatePreview: RouteToolCreatePreview?,
+    routeToolDraftConnectorPoints: List<LatLong>,
     routeToolCreatePreviewInProgress: Boolean,
     routeToolCreatePreviewMessage: String?,
     reshapePreviewInspectMode: Boolean,
@@ -909,11 +917,18 @@ internal fun NavigateContent(
                     onRefreshCreatePreview = onRouteToolRefreshCreatePreview,
                 )
                 RouteMultiPointPointsOverlay(
-                    session = session,
-                    mapView = mapView,
-                    mapRotationDeg = mapRotationDeg,
-                    viewportRevision = routeToolOverlayRevision,
-                    gpxTrackColor = gpxTrackColor,
+                    overlayState =
+                        RouteMultiPointOverlayState(
+                            session = session,
+                            draftConnectorPoints = routeToolDraftConnectorPoints,
+                            gpxTrackColor = gpxTrackColor,
+                        ),
+                    mapProjection =
+                        RouteMultiPointMapProjection(
+                            mapView = mapView,
+                            mapRotationDeg = mapRotationDeg,
+                            viewportRevision = routeToolOverlayRevision,
+                        ),
                 )
             } else if (reshapePreviewInspectMode && reshapePreviewPoints.size >= 2) {
                 RouteReshapePreviewOverlay(
