@@ -43,7 +43,7 @@ internal fun NavigateKeepAppOpenDialog(
     AlertDialog(
         visible = true,
         onDismissRequest = onDismiss,
-        title = { Text("Sleep mode") },
+        title = { Text("Stay open") },
         text = {
             Column(
                 modifier =
@@ -58,14 +58,14 @@ internal fun NavigateKeepAppOpenDialog(
                         imageVector = Icons.Filled.Visibility,
                         contentDescription = null,
                     )
-                    Text(" keep the app in foreground (use during navigation)")
+                    Text(" keeps GlanceMap active.")
                 }
                 Row {
                     Icon(
                         imageVector = Icons.Filled.VisibilityOff,
                         contentDescription = null,
                     )
-                    Text(" allow watch to put the app in background")
+                    Text(" lets the watch put the app in the background and remove it from Recent apps.")
                 }
             }
         },

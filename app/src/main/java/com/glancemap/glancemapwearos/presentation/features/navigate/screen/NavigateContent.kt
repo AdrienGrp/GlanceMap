@@ -426,8 +426,10 @@ internal fun NavigateContent(
     var poiTapMarker by remember { mutableStateOf<PoiOverlayMarker?>(null) }
     var poiTapPopup by remember { mutableStateOf<PoiTapPopupContent?>(null) }
     var poiTapPopupExpanded by remember { mutableStateOf(false) }
+    var poiTapPopupScrollInProgress by remember { mutableStateOf(false) }
     var routeToolOverlayRevision by remember { mutableIntStateOf(0) }
     var pendingDoubleTapPanningCheck by remember { mutableStateOf(false) }
+    val latestPoiTapPopupScrollInProgress = rememberUpdatedState(poiTapPopupScrollInProgress)
 
     LaunchedEffect(poiFocusTarget) {
         val target = poiFocusTarget ?: return@LaunchedEffect
@@ -443,6 +445,7 @@ internal fun NavigateContent(
         poiTapMarker = marker
         poiTapPopup = buildPoiTapPopupContent(marker, isMetric = isMetric)
         poiTapPopupExpanded = false
+        poiTapPopupScrollInProgress = false
         onPoiFocusTargetConsumed()
     }
 
@@ -544,6 +547,7 @@ internal fun NavigateContent(
                         poiTapMarker = tappedPoi
                         poiTapPopup = buildPoiTapPopupContent(tappedPoi, isMetric = isMetric)
                         poiTapPopupExpanded = false
+                        poiTapPopupScrollInProgress = false
                         return true
                     }
 
@@ -615,11 +619,18 @@ internal fun NavigateContent(
 
     LaunchedEffect(poiTapPopup, poiTapPopupExpanded, poiPopupTimeoutSeconds, poiPopupManualCloseOnly) {
         if (poiTapPopup == null || poiPopupManualCloseOnly) return@LaunchedEffect
-        val timeoutMs = poiPopupTimeoutSeconds.coerceAtLeast(1) * 1_000L
-        delay(timeoutMs)
+        var remainingMs = poiPopupTimeoutSeconds.coerceAtLeast(1) * 1_000L
+        while (remainingMs > 0L) {
+            val tickMs = minOf(100L, remainingMs)
+            delay(tickMs)
+            if (!latestPoiTapPopupScrollInProgress.value) {
+                remainingMs -= tickMs
+            }
+        }
         poiTapMarker = null
         poiTapPopup = null
         poiTapPopupExpanded = false
+        poiTapPopupScrollInProgress = false
     }
 
     LaunchedEffect(
@@ -905,12 +916,17 @@ internal fun NavigateContent(
                         poiTapMarker = null
                         poiTapPopup = null
                         poiTapPopupExpanded = false
+                        poiTapPopupScrollInProgress = false
                     }
                 },
                 onPoiTapDismiss = {
                     poiTapMarker = null
                     poiTapPopup = null
                     poiTapPopupExpanded = false
+                    poiTapPopupScrollInProgress = false
+                },
+                onPoiTapScrollInProgressChanged = { isScrolling ->
+                    poiTapPopupScrollInProgress = isScrolling
                 },
                 onMenuClick = onMenuClick,
                 sideButtonEdgePadding = sideButtonEdgePadding,
