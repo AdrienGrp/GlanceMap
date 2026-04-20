@@ -1008,8 +1008,9 @@ private fun BoxScope.GpsEnvironmentWarningOverlay(
             GpsEnvironmentWarning.NONE -> null
             GpsEnvironmentWarning.LOCATION_SETTINGS_UNSATISFIED -> "Turn on watch Location"
             GpsEnvironmentWarning.WATCH_GPS_UNAVAILABLE -> "Watch GPS unavailable"
-            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_NO_WATCH_GPS -> "Phone out of reach"
-            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS -> "Phone away. Watch GPS active"
+            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_NO_WATCH_GPS,
+            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS,
+            -> null
         }
     if (!visible || message == null) return
 
