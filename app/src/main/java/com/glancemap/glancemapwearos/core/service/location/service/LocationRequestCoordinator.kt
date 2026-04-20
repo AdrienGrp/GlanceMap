@@ -13,6 +13,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractiv
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntimeMode
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -28,6 +29,7 @@ internal data class RequestUpdateState(
     val watchOnlyEffective: Boolean,
     val screenState: LocationScreenState,
     val backgroundGps: Boolean,
+    val passiveLocationExperiment: Boolean,
     val userIntervalMs: Long,
     val ambientIntervalMs: Long,
 )
@@ -179,6 +181,7 @@ internal class LocationRequestCoordinator(
                         screenState = appliedPlan.state.screenState.name,
                         hasFinePermission = permissions.hasFinePermission,
                         hasCoarsePermission = permissions.hasCoarsePermission,
+                        passivePriority = requestSpec.priority == Priority.PRIORITY_PASSIVE,
                     )
                     recordEnergySample(
                         "gps_request_applied",
@@ -189,7 +192,8 @@ internal class LocationRequestCoordinator(
                             "watchOnly=${appliedPlan.state.watchOnlyEffective} burst=${engine.isBurstActive()} " +
                             "backend=${requestSpec.sourceMode.telemetryValue} mode=${requestSpec.mode.name} " +
                             "interactive=${appliedPlan.interactiveTracking} " +
-                            "screenState=${appliedPlan.state.screenState.name}",
+                            "screenState=${appliedPlan.state.screenState.name} " +
+                            "passivePriority=${requestSpec.priority == Priority.PRIORITY_PASSIVE}",
                     )
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -235,6 +239,7 @@ internal class LocationRequestCoordinator(
                 passiveTracking = passiveTracking,
                 watchOnly = state.watchOnlyEffective,
                 hasFinePermission = permissions.hasFinePermission,
+                passiveLocationExperiment = state.passiveLocationExperiment,
                 userIntervalMs = state.userIntervalMs,
                 ambientIntervalMs = state.ambientIntervalMs,
             )

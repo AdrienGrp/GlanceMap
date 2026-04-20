@@ -80,6 +80,10 @@ interface SettingsRepository {
 
     suspend fun setGpsDebugTelemetry(enabled: Boolean)
 
+    val gpsPassiveLocationExperiment: Flow<Boolean>
+
+    suspend fun setGpsPassiveLocationExperiment(enabled: Boolean)
+
     val gpsDebugTelemetryPopupEnabled: Flow<Boolean>
 
     suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean)

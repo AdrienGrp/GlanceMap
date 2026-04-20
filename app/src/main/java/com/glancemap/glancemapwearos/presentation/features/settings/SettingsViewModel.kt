@@ -64,6 +64,15 @@ class SettingsViewModel(
             settingsRepository.setGpsDebugTelemetry(enabled)
         }
 
+    val gpsPassiveLocationExperiment: StateFlow<Boolean> =
+        settingsRepository.gpsPassiveLocationExperiment
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setGpsPassiveLocationExperiment(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setGpsPassiveLocationExperiment(enabled)
+        }
+
     val gpsDebugTelemetryPopupEnabled: StateFlow<Boolean> =
         settingsRepository.gpsDebugTelemetryPopupEnabled
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)

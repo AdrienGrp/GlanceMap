@@ -485,6 +485,7 @@ internal class LocationServiceTelemetry(
         screenState: String,
         hasFinePermission: Boolean,
         hasCoarsePermission: Boolean,
+        passivePriority: Boolean,
     ) {
         if (burst && runtimeMode == "INTERACTIVE") {
             burstInteractiveDoubleApplyCount += 1
@@ -495,7 +496,8 @@ internal class LocationServiceTelemetry(
                 "bound=$bound keepOpen=$keepOpen watchOnly=$watchOnly burst=$burst " +
                 "backend=$backend mode=$runtimeMode trackingEnabled=$trackingEnabled " +
                 "interactive=$interactive screenState=$screenState " +
-                "finePermission=$hasFinePermission coarsePermission=$hasCoarsePermission",
+                "finePermission=$hasFinePermission coarsePermission=$hasCoarsePermission " +
+                "passivePriority=$passivePriority",
         )
     }
 

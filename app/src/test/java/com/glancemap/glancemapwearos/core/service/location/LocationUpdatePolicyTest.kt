@@ -19,6 +19,7 @@ class LocationUpdatePolicyTest {
                 passiveTracking = false,
                 watchOnly = false,
                 hasFinePermission = true,
+                passiveLocationExperiment = false,
                 userIntervalMs = 4_000L,
                 ambientUserIntervalMs = 60_000L,
                 minUserIntervalMs = 1_000L,
@@ -41,6 +42,7 @@ class LocationUpdatePolicyTest {
                 passiveTracking = false,
                 watchOnly = false,
                 hasFinePermission = true,
+                passiveLocationExperiment = false,
                 userIntervalMs = 4_000L,
                 ambientUserIntervalMs = 60_000L,
                 minUserIntervalMs = 1_000L,
@@ -68,6 +70,7 @@ class LocationUpdatePolicyTest {
                 passiveTracking = false,
                 watchOnly = false,
                 hasFinePermission = true,
+                passiveLocationExperiment = false,
                 userIntervalMs = 4_000L,
                 ambientUserIntervalMs = 60_000L,
                 minUserIntervalMs = 1_000L,
@@ -95,6 +98,7 @@ class LocationUpdatePolicyTest {
                 passiveTracking = false,
                 watchOnly = false,
                 hasFinePermission = false,
+                passiveLocationExperiment = false,
                 userIntervalMs = 4_000L,
                 ambientUserIntervalMs = 60_000L,
                 minUserIntervalMs = 1_000L,
@@ -122,6 +126,7 @@ class LocationUpdatePolicyTest {
                 passiveTracking = true,
                 watchOnly = false,
                 hasFinePermission = false,
+                passiveLocationExperiment = false,
                 userIntervalMs = 4_000L,
                 ambientUserIntervalMs = 15_000L,
                 minUserIntervalMs = 1_000L,
@@ -149,6 +154,7 @@ class LocationUpdatePolicyTest {
                 passiveTracking = true,
                 watchOnly = false,
                 hasFinePermission = true,
+                passiveLocationExperiment = false,
                 userIntervalMs = 40_000L,
                 ambientUserIntervalMs = 90_000L,
                 minUserIntervalMs = 1_000L,
@@ -176,6 +182,7 @@ class LocationUpdatePolicyTest {
                 passiveTracking = false,
                 watchOnly = true,
                 hasFinePermission = true,
+                passiveLocationExperiment = false,
                 userIntervalMs = 4_000L,
                 ambientUserIntervalMs = 60_000L,
                 minUserIntervalMs = 1_000L,
@@ -188,5 +195,108 @@ class LocationUpdatePolicyTest {
 
         assertNotNull(config)
         assertEquals(LocationSourceMode.WATCH_GPS, config?.sourceMode)
+    }
+
+    @Test
+    fun interactivePassiveExperimentUsesPassivePriorityForAutoFused() {
+        val config =
+            LocationUpdatePolicy.resolveServiceConfig(
+                isInHighAccuracyBurst = false,
+                interactive = true,
+                passiveTracking = false,
+                watchOnly = false,
+                hasFinePermission = true,
+                passiveLocationExperiment = true,
+                userIntervalMs = 4_000L,
+                ambientUserIntervalMs = 60_000L,
+                minUserIntervalMs = 1_000L,
+                maxUserIntervalMs = 120_000L,
+                minAmbientIntervalMs = 1_000L,
+                highAccuracyBurstIntervalMs = 1_000L,
+                foregroundMinDistanceM = 1f,
+                backgroundMinDistanceM = 5f,
+            )
+
+        assertNotNull(config)
+        assertEquals(Priority.PRIORITY_PASSIVE, config?.priority)
+        assertEquals(LocationRuntimeMode.INTERACTIVE, config?.mode)
+        assertEquals(LocationSourceMode.AUTO_FUSED, config?.sourceMode)
+    }
+
+    @Test
+    fun passiveExperimentDoesNotOverrideWatchOnlySource() {
+        val config =
+            LocationUpdatePolicy.resolveServiceConfig(
+                isInHighAccuracyBurst = false,
+                interactive = true,
+                passiveTracking = false,
+                watchOnly = true,
+                hasFinePermission = true,
+                passiveLocationExperiment = true,
+                userIntervalMs = 4_000L,
+                ambientUserIntervalMs = 60_000L,
+                minUserIntervalMs = 1_000L,
+                maxUserIntervalMs = 120_000L,
+                minAmbientIntervalMs = 1_000L,
+                highAccuracyBurstIntervalMs = 1_000L,
+                foregroundMinDistanceM = 1f,
+                backgroundMinDistanceM = 5f,
+            )
+
+        assertNotNull(config)
+        assertEquals(Priority.PRIORITY_HIGH_ACCURACY, config?.priority)
+        assertEquals(LocationSourceMode.WATCH_GPS, config?.sourceMode)
+    }
+
+    @Test
+    fun burstIgnoresPassiveExperiment() {
+        val config =
+            LocationUpdatePolicy.resolveServiceConfig(
+                isInHighAccuracyBurst = true,
+                interactive = true,
+                passiveTracking = false,
+                watchOnly = false,
+                hasFinePermission = true,
+                passiveLocationExperiment = true,
+                userIntervalMs = 4_000L,
+                ambientUserIntervalMs = 60_000L,
+                minUserIntervalMs = 1_000L,
+                maxUserIntervalMs = 120_000L,
+                minAmbientIntervalMs = 1_000L,
+                highAccuracyBurstIntervalMs = 1_000L,
+                foregroundMinDistanceM = 1f,
+                backgroundMinDistanceM = 5f,
+            )
+
+        assertNotNull(config)
+        assertEquals(Priority.PRIORITY_HIGH_ACCURACY, config?.priority)
+        assertEquals(LocationRuntimeMode.BURST, config?.mode)
+        assertEquals(LocationSourceMode.AUTO_FUSED, config?.sourceMode)
+    }
+
+    @Test
+    fun screenOffPassiveExperimentUsesPassivePriorityForAutoFused() {
+        val config =
+            LocationUpdatePolicy.resolveServiceConfig(
+                isInHighAccuracyBurst = false,
+                interactive = false,
+                passiveTracking = true,
+                watchOnly = false,
+                hasFinePermission = true,
+                passiveLocationExperiment = true,
+                userIntervalMs = 4_000L,
+                ambientUserIntervalMs = 60_000L,
+                minUserIntervalMs = 1_000L,
+                maxUserIntervalMs = 120_000L,
+                minAmbientIntervalMs = 1_000L,
+                highAccuracyBurstIntervalMs = 1_000L,
+                foregroundMinDistanceM = 1f,
+                backgroundMinDistanceM = 5f,
+            )
+
+        assertNotNull(config)
+        assertEquals(Priority.PRIORITY_PASSIVE, config?.priority)
+        assertEquals(LocationRuntimeMode.PASSIVE, config?.mode)
+        assertEquals(LocationSourceMode.AUTO_FUSED, config?.sourceMode)
     }
 }

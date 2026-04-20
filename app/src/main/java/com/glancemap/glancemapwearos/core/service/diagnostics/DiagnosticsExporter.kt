@@ -34,6 +34,7 @@ data class DiagnosticsSettingsSnapshot(
     val keepAppOpen: Boolean,
     val gpsInAmbientMode: Boolean,
     val gpsDebugTelemetry: Boolean,
+    val gpsPassiveLocationExperiment: Boolean,
 )
 
 object DiagnosticsExporter {
@@ -342,6 +343,7 @@ object DiagnosticsExporter {
             writer.appendLine("keepAppOpen=${settings.keepAppOpen}")
             writer.appendLine("gpsInAmbientMode=${settings.gpsInAmbientMode}")
             writer.appendLine("gpsDebugTelemetry=${settings.gpsDebugTelemetry}")
+            writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("locationFinePermissionGranted=${locationPermission.hasFinePermission}")
             writer.appendLine("locationCoarsePermissionGranted=${locationPermission.hasCoarsePermission}")
             writer.appendLine("locationPermissionMode=${locationPermission.mode}")

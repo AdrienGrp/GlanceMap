@@ -123,6 +123,8 @@ class LocationService : Service() {
 
     @Volatile private var latestGpsDebugTelemetry: Boolean = false
 
+    @Volatile private var latestPassiveLocationExperiment: Boolean = false
+
     @Volatile private var latestUserIntervalMs: Long = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
 
     @Volatile private var latestAmbientIntervalMs: Long = SettingsRepository.DEFAULT_AMBIENT_GPS_INTERVAL_MS
@@ -267,6 +269,7 @@ class LocationService : Service() {
                                 selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps(),
                         screenState = latestScreenState,
                         backgroundGps = latestAmbientGps,
+                        passiveLocationExperiment = latestGpsDebugTelemetry && latestPassiveLocationExperiment,
                         userIntervalMs = latestUserIntervalMs,
                         ambientIntervalMs = latestAmbientIntervalMs,
                     )
@@ -333,6 +336,7 @@ class LocationService : Service() {
             runCatching { latestWatchGpsOnly = settingsRepository.watchGpsOnly.first() }
             runCatching { latestAmbientGps = settingsRepository.gpsInAmbientMode.first() }
             runCatching { latestAmbientIntervalMs = settingsRepository.ambientGpsInterval.first() }
+            runCatching { latestPassiveLocationExperiment = settingsRepository.gpsPassiveLocationExperiment.first() }
             runCatching {
                 latestGpsDebugTelemetry = settingsRepository.gpsDebugTelemetry.first()
                 telemetry.setDebugEnabled(latestGpsDebugTelemetry)
@@ -492,7 +496,10 @@ class LocationService : Service() {
                     ambientIntervalMs = ambientInterval,
                     ambientGps = ambientGps,
                     debugTelemetry = debugTelemetry,
+                    passiveLocationExperiment = false,
                 )
+            }.combine(settingsRepository.gpsPassiveLocationExperiment) { state, passiveLocationExperiment ->
+                state.copy(passiveLocationExperiment = passiveLocationExperiment)
             }.collectLatest { state ->
                 onGpsSettingsStateChanged(state)
             }
@@ -508,6 +515,7 @@ class LocationService : Service() {
         latestAmbientIntervalMs = state.ambientIntervalMs
         latestAmbientGps = state.ambientGps
         latestGpsDebugTelemetry = debugTelemetryEnabledNow
+        latestPassiveLocationExperiment = state.passiveLocationExperiment
         telemetry.setDebugEnabled(latestGpsDebugTelemetry)
         updateEnergySampling(latestGpsDebugTelemetry)
         updateGnssDiagnostics(enabled = latestGpsDebugTelemetry)

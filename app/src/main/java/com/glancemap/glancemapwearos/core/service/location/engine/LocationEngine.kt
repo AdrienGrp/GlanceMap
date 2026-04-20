@@ -179,6 +179,7 @@ internal class LocationEngine(
         passiveTracking: Boolean,
         watchOnly: Boolean,
         hasFinePermission: Boolean,
+        passiveLocationExperiment: Boolean,
         userIntervalMs: Long,
         ambientIntervalMs: Long,
     ): RequestSpec? {
@@ -190,6 +191,7 @@ internal class LocationEngine(
                 passiveTracking = passiveTracking,
                 watchOnly = watchOnly,
                 hasFinePermission = hasFinePermission,
+                passiveLocationExperiment = passiveLocationExperiment,
                 userIntervalMs = userIntervalMs,
                 ambientUserIntervalMs = ambientIntervalMs,
                 minUserIntervalMs = MIN_USER_INTERVAL_MS,

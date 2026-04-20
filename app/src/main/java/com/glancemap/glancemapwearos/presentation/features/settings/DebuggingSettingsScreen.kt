@@ -117,6 +117,7 @@ fun DebuggingSettingsScreen(
     val keepAppOpen by viewModel.keepAppOpen.collectAsState(initial = false)
     val gpsInAmbientMode by viewModel.gpsInAmbientMode.collectAsState()
     val gpsDebugTelemetry by viewModel.gpsDebugTelemetry.collectAsState()
+    val gpsPassiveLocationExperiment by viewModel.gpsPassiveLocationExperiment.collectAsState()
     val gpsDebugTelemetryPopupEnabled by viewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
     var diagnosticsExportStatus by remember {
         mutableStateOf(DIAGNOSTICS_DEFAULT_STATUS)
@@ -388,6 +389,7 @@ fun DebuggingSettingsScreen(
                                                     keepAppOpen = keepAppOpen,
                                                     gpsInAmbientMode = gpsInAmbientMode,
                                                     gpsDebugTelemetry = captureWasEnabled,
+                                                    gpsPassiveLocationExperiment = gpsPassiveLocationExperiment,
                                                 ),
                                             reuseLatestIfAvailable = !captureWasEnabled,
                                         )
