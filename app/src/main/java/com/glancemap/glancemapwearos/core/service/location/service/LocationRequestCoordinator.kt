@@ -92,6 +92,10 @@ internal class LocationRequestCoordinator(
                     foregroundRefresh()
                     runCatching { removeAllLocationUpdates() }
                     if (isSuperseded(generation)) return@launch
+                    logRequestUpdatesCleared(
+                        reason = "no_permission",
+                        state = currentState(),
+                    )
                     resetRetryState()
                     onNoPermissions(elapsedRealtime())
                     return@launch
@@ -120,6 +124,10 @@ internal class LocationRequestCoordinator(
                 if (requestSpec == null) {
                     runCatching { removeAllLocationUpdates() }
                     if (isSuperseded(generation)) return@launch
+                    logRequestUpdatesCleared(
+                        reason = requestClearReason(state),
+                        state = state,
+                    )
                     resetRetryState()
                     onNoRequestSpec(state.keepOpen, state.tracking)
                     return@launch
@@ -246,6 +254,27 @@ internal class LocationRequestCoordinator(
     }
 
     private fun isSuperseded(generation: Long): Boolean = generation != requestGeneration.get()
+
+    private fun logRequestUpdatesCleared(
+        reason: String,
+        state: RequestUpdateState,
+    ) {
+        telemetry.logRequestUpdatesCleared(
+            reason = reason,
+            bound = state.bound,
+            keepOpen = state.keepOpen,
+            trackingEnabled = state.tracking,
+            screenState = state.screenState.name,
+            backgroundGpsEnabled = state.backgroundGps,
+        )
+    }
+
+    private fun requestClearReason(state: RequestUpdateState): String =
+        when {
+            !state.tracking -> "tracking_disabled"
+            state.screenState.isNonInteractive && !state.backgroundGps -> "background_gps_disabled"
+            else -> "no_request_spec"
+        }
 
     private fun resolveRequestPlan(
         state: RequestUpdateState,

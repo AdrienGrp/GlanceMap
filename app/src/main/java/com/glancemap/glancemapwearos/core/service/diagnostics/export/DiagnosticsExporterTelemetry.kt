@@ -123,6 +123,7 @@ internal fun deriveTelemetryInsights(
     var lastScreenFixAtMs: Long? = null
     val modeSamples = mutableListOf<ModeSample>()
     val backendSamples = mutableListOf<BackendSample>()
+    val requestStopSamples = mutableListOf<Long>()
 
     lines.forEach { line ->
         val lineEpochMs = parseTelemetryLineEpochMs(line)
@@ -152,6 +153,15 @@ internal fun deriveTelemetryInsights(
                     backendSamples += BackendSample(atEpochMs = ts, backend = backendMode)
                 }
             }
+        }
+        if (isRequestStopLine(line)) {
+            lineEpochMs?.let { requestStopSamples += it }
+            lastObservedBound = parseBooleanToken(line, "bound=") ?: lastObservedBound
+            lastObservedTrackingEnabled =
+                parseBooleanToken(line, "trackingEnabled=")
+                    ?: parseLegacyTrackingEnabled(line)
+                    ?: lastObservedTrackingEnabled
+            lastObservedKeepOpen = parseBooleanToken(line, "keepOpen=") ?: lastObservedKeepOpen
         }
 
         if ("locationBatch:" in line) {
@@ -277,11 +287,13 @@ internal fun deriveTelemetryInsights(
     val modeDurations =
         accumulateModeDurations(
             samples = modeSamples,
+            requestStopSamples = requestStopSamples,
             captureWindowEndEpochMs = captureWindowEndEpochMs,
         )
     val backendDurations =
         accumulateBackendDurations(
             samples = backendSamples,
+            requestStopSamples = requestStopSamples,
             captureWindowEndEpochMs = captureWindowEndEpochMs,
         )
 
@@ -420,6 +432,26 @@ private fun parseRequestMode(line: String): LocationRequestMode? {
         LocationRequestMode.OTHERWISE
     }
 }
+
+private fun isRequestStopLine(line: String): Boolean {
+    if ("requestUpdates cleared:" in line || "reason=gps_request_cleared" in line) return true
+    if ("tracking: enabled=false" in line) return true
+    if ("runtimeState:" !in line) return false
+
+    val trackingEnabled = parseBooleanToken(line, "trackingEnabled=")
+    if (trackingEnabled == false) return true
+
+    val screenState = extractTokenValue(line, "screenState=")
+    val backgroundGpsEnabled = parseBooleanToken(line, "backgroundGpsEnabled=")
+    return screenState in setOf("SCREEN_OFF", "AMBIENT") && backgroundGpsEnabled == false
+}
+
+private fun parseLegacyTrackingEnabled(line: String): Boolean? =
+    when {
+        "tracking: enabled=true" in line -> true
+        "tracking: enabled=false" in line -> false
+        else -> null
+    }
 
 private fun parseBackendMode(token: String?): RequestBackendMode? =
     when (token?.lowercase()) {
@@ -826,6 +858,7 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
 
 private fun accumulateModeDurations(
     samples: List<ModeSample>,
+    requestStopSamples: List<Long>,
     captureWindowEndEpochMs: Long?,
 ): ModeDurations {
     if (samples.isEmpty()) {
@@ -842,15 +875,22 @@ private fun accumulateModeDurations(
     var stationaryBoundMs = 0L
     var stationaryBackgroundMs = 0L
     var otherwiseMs = 0L
+    val sortedStopSamples = requestStopSamples.sorted()
 
     for (index in samples.indices) {
         val current = samples[index]
-        val nextAtMs =
+        val nextSampleAtMs =
             if (index < samples.lastIndex) {
                 samples[index + 1].atEpochMs
             } else {
                 captureWindowEndEpochMs ?: current.atEpochMs
             }
+        val nextAtMs =
+            firstRequestStopBetween(
+                sortedStopSamples = sortedStopSamples,
+                currentAtMs = current.atEpochMs,
+                nextSampleAtMs = nextSampleAtMs,
+            ) ?: nextSampleAtMs
         val deltaMs = (nextAtMs - current.atEpochMs).coerceAtLeast(0L)
         when (current.mode) {
             LocationRequestMode.BURST -> burstMs += deltaMs
@@ -871,6 +911,7 @@ private fun accumulateModeDurations(
 
 private fun accumulateBackendDurations(
     samples: List<BackendSample>,
+    requestStopSamples: List<Long>,
     captureWindowEndEpochMs: Long?,
 ): BackendDurations {
     if (samples.isEmpty()) {
@@ -885,18 +926,25 @@ private fun accumulateBackendDurations(
     var autoFusedMs = 0L
     var watchGpsMs = 0L
     var switchCount = 0
+    val sortedStopSamples = requestStopSamples.sorted()
 
     for (index in samples.indices) {
         val current = samples[index]
         if (index > 0 && samples[index - 1].backend != current.backend) {
             switchCount += 1
         }
-        val nextAtMs =
+        val nextSampleAtMs =
             if (index < samples.lastIndex) {
                 samples[index + 1].atEpochMs
             } else {
                 captureWindowEndEpochMs ?: current.atEpochMs
             }
+        val nextAtMs =
+            firstRequestStopBetween(
+                sortedStopSamples = sortedStopSamples,
+                currentAtMs = current.atEpochMs,
+                nextSampleAtMs = nextSampleAtMs,
+            ) ?: nextSampleAtMs
         val deltaMs = (nextAtMs - current.atEpochMs).coerceAtLeast(0L)
         when (current.backend) {
             RequestBackendMode.AUTO_FUSED -> autoFusedMs += deltaMs
@@ -911,3 +959,12 @@ private fun accumulateBackendDurations(
         switchCount = switchCount,
     )
 }
+
+private fun firstRequestStopBetween(
+    sortedStopSamples: List<Long>,
+    currentAtMs: Long,
+    nextSampleAtMs: Long,
+): Long? =
+    sortedStopSamples.firstOrNull { stopAtMs ->
+        stopAtMs > currentAtMs && stopAtMs < nextSampleAtMs
+    }

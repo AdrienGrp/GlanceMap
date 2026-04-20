@@ -534,6 +534,21 @@ internal class LocationServiceTelemetry(
         )
     }
 
+    fun logRequestUpdatesCleared(
+        reason: String,
+        bound: Boolean,
+        keepOpen: Boolean,
+        trackingEnabled: Boolean,
+        screenState: String,
+        backgroundGpsEnabled: Boolean,
+    ) {
+        log(
+            "requestUpdates cleared: reason=$reason bound=$bound keepOpen=$keepOpen " +
+                "trackingEnabled=$trackingEnabled screenState=$screenState " +
+                "backgroundGpsEnabled=$backgroundGpsEnabled",
+        )
+    }
+
     fun logLocationBatchProcessed(
         rawCandidates: Int,
         normalizedCandidates: Int,
