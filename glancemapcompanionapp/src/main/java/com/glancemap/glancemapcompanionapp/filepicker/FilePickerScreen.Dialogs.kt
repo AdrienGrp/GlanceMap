@@ -328,7 +328,8 @@ internal fun FilePickerQuickGuideDialog(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Quick guide")
                 Text(
-                    "The companion app is mainly for sending files to your watch. It does not display maps on your phone; GlanceMap is a watch app.",
+                    "The companion app is mainly for sending files to your watch. " +
+                        "It does not display maps on your phone; GlanceMap is a watch app.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

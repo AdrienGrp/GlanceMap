@@ -258,5 +258,4 @@ internal class ImmediateLocationCoordinator(
 internal fun shouldSuppressActiveImmediateLocationForPassiveExperiment(
     passiveLocationExperiment: Boolean,
     sourceMode: LocationSourceMode,
-): Boolean =
-    passiveLocationExperiment && sourceMode == LocationSourceMode.AUTO_FUSED
+): Boolean = passiveLocationExperiment && sourceMode == LocationSourceMode.AUTO_FUSED

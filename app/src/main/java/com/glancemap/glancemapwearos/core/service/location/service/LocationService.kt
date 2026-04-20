@@ -14,13 +14,13 @@ import android.os.SystemClock
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.adapters.FusedLocationGateway
-import com.glancemap.glancemapwearos.core.service.location.adapters.LocationSettingsPreflight
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationGateway
+import com.glancemap.glancemapwearos.core.service.location.adapters.LocationSettingsPreflight
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateEvent
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateRequestParams
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateSink
-import com.glancemap.glancemapwearos.core.service.location.adapters.WearPhoneConnectionProbe
 import com.glancemap.glancemapwearos.core.service.location.adapters.WatchGpsLocationGateway
+import com.glancemap.glancemapwearos.core.service.location.adapters.WearPhoneConnectionProbe
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_ACCURACY_COARSE_M
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_MAX_AGE_MS
@@ -836,7 +836,7 @@ class LocationService : Service() {
                 runtimeMode = engine.currentRuntimeModeOrNull(),
                 watchGpsMaxAccuracyM = WATCH_GPS_MAX_ACCEPTED_ACCURACY_M,
                 watchGpsAutoFallbackInteractiveMaxAccuracyM =
-                    WATCH_GPS_AUTO_FALLBACK_INTERACTIVE_MAX_ACCURACY_M,
+                WATCH_GPS_AUTO_FALLBACK_INTERACTIVE_MAX_ACCURACY_M,
             )
         return LocationFixPolicy.adaptAcceptanceForSourceMode(
             policy = basePolicy,

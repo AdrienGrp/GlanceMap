@@ -102,6 +102,5 @@ internal object LocationUpdatePolicy {
     private fun usePassiveFusedPriority(
         sourceMode: LocationSourceMode,
         passiveLocationExperiment: Boolean,
-    ): Boolean =
-        passiveLocationExperiment && sourceMode == LocationSourceMode.AUTO_FUSED
+    ): Boolean = passiveLocationExperiment && sourceMode == LocationSourceMode.AUTO_FUSED
 }

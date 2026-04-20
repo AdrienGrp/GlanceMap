@@ -456,7 +456,6 @@ internal class SelfHealFailoverCoordinator(
             telemetry.logAutoFusedFallbackCleared(reason = reason)
         }
     }
-
 }
 
 internal enum class AutoFusedNoFixRecoveryAction {
@@ -479,8 +478,9 @@ internal fun resolveAutoFusedNoFixRecoveryAction(
         else -> AutoFusedNoFixRecoveryAction.FAILOVER
     }
 
-internal fun resolvePassiveExperimentNoFixFailoverThresholdMs(defaultThresholdMs: Long): Long =
-    minOf(defaultThresholdMs, PASSIVE_EXPERIMENT_NO_FIX_FAILOVER_MAX_GAP_MS)
+internal fun resolvePassiveExperimentNoFixFailoverThresholdMs(
+    defaultThresholdMs: Long,
+): Long = minOf(defaultThresholdMs, PASSIVE_EXPERIMENT_NO_FIX_FAILOVER_MAX_GAP_MS)
 
 internal fun resolveAutoFusedAccuracyFailoverRequiredStreak(
     accuracyM: Float,
@@ -510,8 +510,9 @@ internal fun resolveAutoFusedFailoverThresholdM(requiredStreak: Int): Float =
         AUTO_FUSED_FAILOVER_ACCURACY_M
     }
 
-internal fun isWatchGpsGoodEnoughForAutoFusedRecovery(accuracyM: Float): Boolean =
-    accuracyM.isFinite() && accuracyM <= AUTO_FUSED_RECOVERY_ACCURACY_M
+internal fun isWatchGpsGoodEnoughForAutoFusedRecovery(
+    accuracyM: Float,
+): Boolean = accuracyM.isFinite() && accuracyM <= AUTO_FUSED_RECOVERY_ACCURACY_M
 
 private const val SELF_HEAL_CHECK_INTERVAL_MS = 5_000L // was 2 s; cooldown is 15 s so 5 s is sufficient
 private const val SELF_HEAL_COOLDOWN_MS = 15_000L

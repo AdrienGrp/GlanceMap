@@ -573,8 +573,9 @@ private class MarkerMotionGpsFixProcessor(
         }
     }
 
-    private fun shouldApplyWatchGpsCorrectionImmediately(context: GpsFixContext): Boolean =
-        context.fix.sourceMode == LocationSourceMode.WATCH_GPS
+    private fun shouldApplyWatchGpsCorrectionImmediately(
+        context: GpsFixContext,
+    ): Boolean = context.fix.sourceMode == LocationSourceMode.WATCH_GPS
 
     private fun correctionReason(
         useWatchGpsCatchUp: Boolean,
