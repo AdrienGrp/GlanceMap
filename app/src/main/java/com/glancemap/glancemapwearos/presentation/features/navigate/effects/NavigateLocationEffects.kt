@@ -1098,10 +1098,9 @@ internal fun resolveGpsIndicatorStateForEnvironment(
     environmentWarning: GpsEnvironmentWarning,
 ): GpsFixIndicatorState =
     when (environmentWarning) {
-        GpsEnvironmentWarning.LOCATION_SETTINGS_UNSATISFIED,
-        GpsEnvironmentWarning.WATCH_GPS_UNAVAILABLE,
-        -> GpsFixIndicatorState.UNAVAILABLE
+        GpsEnvironmentWarning.LOCATION_SETTINGS_UNSATISFIED -> GpsFixIndicatorState.UNAVAILABLE
         GpsEnvironmentWarning.NONE,
+        GpsEnvironmentWarning.WATCH_GPS_UNAVAILABLE,
         GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_NO_WATCH_GPS,
         GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS,
         -> rawState
