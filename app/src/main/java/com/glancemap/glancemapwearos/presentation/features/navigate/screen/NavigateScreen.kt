@@ -1013,6 +1013,7 @@ fun NavigateScreen(
         },
         isMetric = isMetric,
         navMode = effectiveNavMode,
+        locationMarker = locationMarker,
         lastKnownLocation = recenterTarget,
         onToggleOrientation = {
             if (!offlineMode) {

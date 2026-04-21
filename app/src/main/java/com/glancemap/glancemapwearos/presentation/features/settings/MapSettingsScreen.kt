@@ -22,6 +22,7 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepositoryImpl
 import com.glancemap.glancemapwearos.domain.model.maps.theme.ThemeListItem
 import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupBottomSheet
+import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupReason
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -45,6 +46,7 @@ fun MapSettingsScreen(
     val selectedMapPath by viewModel.selectedMapPath.collectAsState()
     val scope = rememberCoroutineScope()
     var showDemSetupDialog by remember { mutableStateOf(false) }
+    var demSetupReason by remember { mutableStateOf(DemSetupReason.GENERIC) }
     val hillShadingEnabled =
         remember(themeItems) {
             themeItems
@@ -82,7 +84,11 @@ fun MapSettingsScreen(
 
     DemSetupBottomSheet(
         visible = showDemSetupDialog,
-        onDismiss = { showDemSetupDialog = false },
+        reason = demSetupReason,
+        onDismiss = {
+            showDemSetupDialog = false
+            demSetupReason = DemSetupReason.GENERIC
+        },
     )
 
     ScreenScaffold(scrollState = listState) {
@@ -131,6 +137,7 @@ fun MapSettingsScreen(
                                     viewModel.setLiveElevation(true)
                                 } else {
                                     viewModel.setLiveElevation(false)
+                                    demSetupReason = DemSetupReason.LIVE_ELEVATION
                                     showDemSetupDialog = true
                                 }
                             }
@@ -162,6 +169,7 @@ fun MapSettingsScreen(
                                     themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, true)
                                 } else {
                                     themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, false)
+                                    demSetupReason = DemSetupReason.GENERIC
                                     showDemSetupDialog = true
                                 }
                             }
@@ -184,6 +192,7 @@ fun MapSettingsScreen(
                                     themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, true)
                                 } else {
                                     themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, false)
+                                    demSetupReason = DemSetupReason.SLOPE_OVERLAY
                                     showDemSetupDialog = true
                                 }
                             }

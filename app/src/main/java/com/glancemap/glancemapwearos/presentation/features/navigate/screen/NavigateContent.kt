@@ -44,6 +44,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentW
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
+import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
@@ -99,6 +100,7 @@ internal fun NavigateContent(
     onViewportChanged: (LatLong, Int) -> Unit,
     isMetric: Boolean,
     navMode: NavMode,
+    locationMarker: RotatableMarker?,
     lastKnownLocation: LatLong?,
     onToggleOrientation: () -> Unit,
     onUserPanStarted: () -> Unit,
@@ -592,7 +594,7 @@ internal fun NavigateContent(
     var hasSeenInitialZoomState by remember { mutableStateOf(false) }
     var showScaleBar by remember { mutableStateOf(false) }
     var liveElevationLabel by remember(mapHolder, isMetric) { mutableStateOf<String?>(null) }
-    var liveDistanceLabel by remember(lastKnownLocation, isMetric) { mutableStateOf<String?>(null) }
+    var liveDistanceLabel by remember(isMetric) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(mapView, isMetric) {
         scaleIndicator =
@@ -639,6 +641,7 @@ internal fun NavigateContent(
         liveDistanceEnabled,
         mapHolder,
         mapView,
+        locationMarker,
         lastKnownLocation,
         isMetric,
     ) {
@@ -654,7 +657,7 @@ internal fun NavigateContent(
 
         var lastElevationSampleCenter: LatLong? = null
         while (isActive) {
-            val center = mapView.model.mapViewPosition.center
+            val center = resolveVisibleScreenCenterLatLong(mapView) ?: mapView.model.mapViewPosition.center
             if (liveElevationEnabled) {
                 val previousCenter = lastElevationSampleCenter
                 val movedMeters =
@@ -692,16 +695,20 @@ internal fun NavigateContent(
                 lastElevationSampleCenter = null
             }
 
-            if (liveDistanceEnabled && lastKnownLocation != null) {
+            val liveDistanceOrigin =
+                resolveLiveDistanceOrigin(
+                    currentMarkerLatLong = locationMarker?.latLong,
+                    fallbackLatLong = lastKnownLocation,
+                )
+            if (liveDistanceEnabled && liveDistanceOrigin != null) {
                 val straightDistanceMeters =
                     navigateHaversineMeters(
-                        lat1 = lastKnownLocation.latitude,
-                        lon1 = lastKnownLocation.longitude,
+                        lat1 = liveDistanceOrigin.latitude,
+                        lon1 = liveDistanceOrigin.longitude,
                         lat2 = center.latitude,
                         lon2 = center.longitude,
                     )
-                val (value, unit) = UnitFormatter.formatDistance(straightDistanceMeters, isMetric)
-                liveDistanceLabel = "$value $unit"
+                liveDistanceLabel = formatLiveDistanceLabel(straightDistanceMeters, isMetric)
             } else {
                 liveDistanceLabel = null
             }
@@ -945,6 +952,7 @@ internal fun NavigateContent(
                 navButtonBottomPadding = navButtonBottomPadding,
                 navButtonSize = navButtonSize,
                 navButtonIconSize = navButtonIconSize,
+                locationMarker = locationMarker,
                 lastKnownLocation = lastKnownLocation,
                 onRecenter = onRecenter,
                 onRecenterRequested = onRecenterRequested,

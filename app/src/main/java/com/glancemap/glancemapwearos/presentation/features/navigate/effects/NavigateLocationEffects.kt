@@ -11,6 +11,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_ACCURACY_FLOOR_M
+import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_ACCURACY_FLOOR_TOLERANCE_M
 import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
@@ -34,6 +36,7 @@ import kotlinx.coroutines.isActive
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidBitmap
 import org.mapsforge.map.android.view.MapView
+import kotlin.math.abs
 
 internal data class NavigateLocationUiState(
     val locationMarker: RotatableMarker?,
@@ -271,6 +274,7 @@ internal fun rememberNavigateLocationUiState(
             unavailableSinceElapsedMs = indicatorUnavailableSinceElapsedMs,
             lastFixAtElapsedMs = indicatorFixAtElapsedMs,
             accuracyM = indicatorFixAccuracyM,
+            watchGpsOnlyActive = indicatorWatchGpsOnlyActive,
             nowElapsedMs = gpsIndicatorClockMs,
             staleThresholdMs = gpsStaleIndicatorThresholdMs,
         )
@@ -1050,6 +1054,7 @@ internal fun resolveGpsIndicatorState(
     unavailableSinceElapsedMs: Long,
     lastFixAtElapsedMs: Long,
     accuracyM: Float,
+    watchGpsOnlyActive: Boolean = false,
     nowElapsedMs: Long,
     staleThresholdMs: Long,
 ): GpsFixIndicatorState {
@@ -1065,8 +1070,10 @@ internal fun resolveGpsIndicatorState(
             accuracyM.isFinite()
 
     if (hasFreshUsableFix) {
+        val effectiveAccuracyM = effectiveGpsIndicatorAccuracy(accuracyM, watchGpsOnlyActive)
+        val goodAccuracyThresholdM = gpsIndicatorGoodAccuracyThresholdM(watchGpsOnlyActive)
         return when {
-            accuracyM <= GOOD_FIX_ACCURACY_THRESHOLD_M -> GpsFixIndicatorState.GOOD
+            effectiveAccuracyM <= goodAccuracyThresholdM -> GpsFixIndicatorState.GOOD
             else -> GpsFixIndicatorState.POOR
         }
     }
@@ -1087,6 +1094,28 @@ internal fun resolveGpsIndicatorState(
     if (!accuracyM.isFinite()) return GpsFixIndicatorState.SEARCHING
 
     return GpsFixIndicatorState.SEARCHING
+}
+
+private fun effectiveGpsIndicatorAccuracy(
+    accuracyM: Float,
+    watchGpsOnlyActive: Boolean,
+): Float {
+    if (!watchGpsOnlyActive || !accuracyM.isFinite()) return accuracyM
+    if (isKnownWatchGpsAccuracyFloor(accuracyM)) {
+        return WATCH_GPS_FLOOR_INDICATOR_ACCURACY_M
+    }
+    return accuracyM
+}
+
+private fun gpsIndicatorGoodAccuracyThresholdM(
+    watchGpsOnlyActive: Boolean,
+): Float = if (watchGpsOnlyActive) WATCH_GPS_GOOD_FIX_ACCURACY_THRESHOLD_M else GOOD_FIX_ACCURACY_THRESHOLD_M
+
+private fun isKnownWatchGpsAccuracyFloor(
+    accuracyM: Float,
+): Boolean {
+    if (!accuracyM.isFinite()) return false
+    return abs(accuracyM - WATCH_GPS_ACCURACY_FLOOR_M) <= WATCH_GPS_ACCURACY_FLOOR_TOLERANCE_M
 }
 
 internal fun resolveGpsIndicatorDisplayState(
@@ -1162,3 +1191,5 @@ private fun logInteractiveStaleRefresh(
 }
 
 private const val GOOD_FIX_ACCURACY_THRESHOLD_M = 12f
+private const val WATCH_GPS_GOOD_FIX_ACCURACY_THRESHOLD_M = 20f
+private const val WATCH_GPS_FLOOR_INDICATOR_ACCURACY_M = 18f

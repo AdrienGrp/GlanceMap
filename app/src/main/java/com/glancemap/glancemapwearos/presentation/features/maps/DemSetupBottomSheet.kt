@@ -40,15 +40,43 @@ import kotlin.math.abs
 
 private const val DEM_SETUP_DRAG_DISMISS_PX = 55f
 
+enum class DemSetupReason {
+    GENERIC,
+    LIVE_ELEVATION,
+    SLOPE_OVERLAY,
+}
+
 @Composable
 fun DemSetupBottomSheet(
     visible: Boolean,
+    reason: DemSetupReason = DemSetupReason.GENERIC,
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
     val adaptive = rememberWearAdaptiveSpec()
     val scrollState = rememberScrollState()
     val focusRequester = remember { FocusRequester() }
+    val title =
+        when (reason) {
+            DemSetupReason.GENERIC -> "DEM Setup"
+            DemSetupReason.LIVE_ELEVATION -> "Elevation data needed"
+            DemSetupReason.SLOPE_OVERLAY -> "Elevation data needed"
+        }
+    val message =
+        when (reason) {
+            DemSetupReason.GENERIC ->
+                "For each offline map, use the DEM icon to download elevation data (DEM).\n" +
+                    "Grey icon means not downloaded.\n" +
+                    "Green icon means ready for hill/slope layers."
+            DemSetupReason.LIVE_ELEVATION ->
+                "Live elevation needs DEM data for this map.\n" +
+                    "Open Maps and tap the DEM icon to download it.\n" +
+                    "When it is ready, come back and enable Live elevation again."
+            DemSetupReason.SLOPE_OVERLAY ->
+                "Slope overlay needs DEM data for this map.\n" +
+                    "Open Maps and tap the DEM icon to download it.\n" +
+                    "When it is ready, come back and enable Slope overlay again."
+        }
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
@@ -96,7 +124,7 @@ fun DemSetupBottomSheet(
                 )
             }
             Text(
-                text = "DEM Setup",
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
@@ -114,32 +142,31 @@ fun DemSetupBottomSheet(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Landscape,
-                        contentDescription = "Elevation icon",
-                        tint = Color(0xFFFFB300),
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Text(
-                        text = "DEM",
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "DEM means elevation data",
-                        tint = Color.White.copy(alpha = 0.82f),
-                        modifier = Modifier.size(14.dp),
-                    )
+                if (reason == DemSetupReason.GENERIC) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Landscape,
+                            contentDescription = "Elevation icon",
+                            tint = Color(0xFFFFB300),
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            text = "DEM",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "DEM means elevation data",
+                            tint = Color.White.copy(alpha = 0.82f),
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
                 }
                 Text(
-                    text =
-                        "For each offline map, use the DEM icon to download elevation data (DEM).\n" +
-                            "Grey icon means not downloaded.\n" +
-                            "Green icon means ready for hill/slope layers.",
+                    text = message,
                     textAlign = TextAlign.Center,
                 )
             }

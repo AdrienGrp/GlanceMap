@@ -175,6 +175,48 @@ class NavigateLocationEffectsTimeTest {
     }
 
     @Test
+    fun indicatorStateRelaxesGoodThresholdForWatchGps() {
+        val watchGpsGood =
+            resolveGpsIndicatorState(
+                isLocationAvailable = true,
+                unavailableSinceElapsedMs = 0L,
+                lastFixAtElapsedMs = 95_000L,
+                accuracyM = 18f,
+                watchGpsOnlyActive = true,
+                nowElapsedMs = 100_000L,
+                staleThresholdMs = 10_000L,
+            )
+        val nonWatchGpsPoor =
+            resolveGpsIndicatorState(
+                isLocationAvailable = true,
+                unavailableSinceElapsedMs = 0L,
+                lastFixAtElapsedMs = 95_000L,
+                accuracyM = 18f,
+                nowElapsedMs = 100_000L,
+                staleThresholdMs = 10_000L,
+            )
+
+        assertEquals(GpsFixIndicatorState.GOOD, watchGpsGood)
+        assertEquals(GpsFixIndicatorState.POOR, nonWatchGpsPoor)
+    }
+
+    @Test
+    fun indicatorStateTreatsKnownWatchGpsAccuracyFloorAsGoodEnough() {
+        val state =
+            resolveGpsIndicatorState(
+                isLocationAvailable = true,
+                unavailableSinceElapsedMs = 0L,
+                lastFixAtElapsedMs = 95_000L,
+                accuracyM = 125f,
+                watchGpsOnlyActive = true,
+                nowElapsedMs = 100_000L,
+                staleThresholdMs = 10_000L,
+            )
+
+        assertEquals(GpsFixIndicatorState.GOOD, state)
+    }
+
+    @Test
     fun displayStateKeepsGoodUnchanged() {
         val state =
             resolveGpsIndicatorDisplayState(

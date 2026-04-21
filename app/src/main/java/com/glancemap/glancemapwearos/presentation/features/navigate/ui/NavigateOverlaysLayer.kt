@@ -39,6 +39,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteShortcutTray
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolInlineProgressBanner
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -104,13 +105,17 @@ internal fun BoxScope.NavigateOverlaysLayer(
     navButtonBottomPadding: Dp,
     navButtonSize: Dp,
     navButtonIconSize: Dp,
+    locationMarker: RotatableMarker?,
     lastKnownLocation: LatLong?,
     onRecenter: () -> Unit,
     onRecenterRequested: () -> Unit,
     onToggleOrientation: () -> Unit,
     isOfflineMode: Boolean,
 ) {
-    var liveDistanceLineStart by remember(mapView, lastKnownLocation) { mutableStateOf<Offset?>(null) }
+    var liveDistanceLineStart by
+        remember(mapView, locationMarker, lastKnownLocation) {
+            mutableStateOf<Offset?>(null)
+        }
     val slopeIndicatorButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 28.dp
@@ -139,18 +144,25 @@ internal fun BoxScope.NavigateOverlaysLayer(
         }
     }
 
-    LaunchedEffect(navMode, liveDistanceEnabled, lastKnownLocation, mapView, mapRotationDeg) {
-        if (navMode != NavMode.PANNING || !liveDistanceEnabled || lastKnownLocation == null) {
+    LaunchedEffect(navMode, liveDistanceEnabled, locationMarker, lastKnownLocation, mapView, mapRotationDeg) {
+        if (navMode != NavMode.PANNING || !liveDistanceEnabled) {
             liveDistanceLineStart = null
             return@LaunchedEffect
         }
         while (true) {
-            liveDistanceLineStart =
-                projectLatLongToScreenOffset(
-                    mapView = mapView,
-                    latLong = lastKnownLocation,
-                    mapRotationDeg = mapRotationDeg,
+            val liveDistanceOrigin =
+                resolveLiveDistanceOrigin(
+                    currentMarkerLatLong = locationMarker?.latLong,
+                    fallbackLatLong = lastKnownLocation,
                 )
+            liveDistanceLineStart =
+                liveDistanceOrigin?.let { origin ->
+                    projectLatLongToScreenOffset(
+                        mapView = mapView,
+                        latLong = origin,
+                        mapRotationDeg = mapRotationDeg,
+                    )
+                }
             delay(80L)
         }
     }
