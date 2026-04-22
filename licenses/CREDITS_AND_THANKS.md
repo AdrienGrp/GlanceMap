@@ -34,8 +34,9 @@ This page is the user-friendly credit summary for the main projects and communit
    - `Map data (c) OpenStreetMap contributors`
    - Copyright/licensing page: https://www.openstreetmap.org/copyright
 
-8. Refuges.info contributors
+8. Refuges.info
    - Refuge and mountain POI data imports in the companion app.
+   - Attribution: `© Les contributeurs de Refuges.info`
    - Website: https://www.refuges.info/
 
 9. Overpass API / OpenStreetMap community
