@@ -1,6 +1,6 @@
 # Data and Asset Attribution
 
-Last reviewed: 2026-04-20
+Last reviewed: 2026-04-23
 
 This file tracks attribution and licensing notes for non-code map assets, datasets and imported POI sources used by GlanceMap.
 
@@ -49,7 +49,9 @@ Important:
 
 Important:
 - The downloaded ZIP did not include an obvious standalone license/readme file.
-- Redistribution and attribution terms for bundling the OpenHiking theme should be confirmed before public release.
+- Project owner confirmed on 2026-04-23 that the OpenHiking theme license is `CC BY-SA`.
+- Keep attribution and share-alike obligations with the project docs.
+- Archive the exact upstream page/version privately when available.
 - User-facing note is available in `licenses/OPENHIKING_THEME.md`.
 
 ## 4) Tiramisu Mapsforge theme

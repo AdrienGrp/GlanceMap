@@ -7,12 +7,6 @@ plugins {
 
 apply(from = rootProject.file("gradle/android-app-testing.gradle.kts"))
 
-val hasGoogleServicesConfig = file("google-services.json").exists()
-if (hasGoogleServicesConfig) {
-    apply(plugin = "com.google.gms.google-services")
-    apply(plugin = "com.google.firebase.crashlytics")
-}
-
 val glanceMapVersionName = providers.gradleProperty("glanceMapVersionName").get()
 val glanceMapPhoneVersionCode = providers.gradleProperty("glanceMapPhoneVersionCode").get().toInt()
 val releaseStoreFile =
@@ -144,10 +138,6 @@ kotlin {
 }
 
 dependencies {
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.crashlytics.ktx)
-    implementation(libs.firebase.analytics.ktx)
-
     // Compose
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
@@ -161,6 +151,7 @@ dependencies {
 
     // AndroidX & Coroutines
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.documentfile)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)

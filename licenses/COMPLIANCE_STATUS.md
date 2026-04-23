@@ -1,6 +1,6 @@
 # Compliance Status
 
-Last reviewed: 2026-04-20
+Last reviewed: 2026-04-23
 
 Status legend:
 - `DONE`: implemented and verified.
@@ -58,12 +58,15 @@ Status legend:
      - Monitor/import throttling should remain conservative.
 
 10. OpenHiking bundled theme redistribution/license verification
-   - Status: `PENDING`
+   - Status: `DONE`
+   - Evidence:
+     - Project owner confirmed on 2026-04-23 that the OpenHiking theme license is `CC BY-SA`.
    - Notes:
      - OpenHiking snapshot is now embedded in `app/src/main/assets/theme/openhiking`.
      - OpenHiking theme ZIP integration remains available as an optional refresh path in the build pipeline.
      - The observed ZIP did not include an obvious standalone license/readme file.
-     - Confirm redistribution and attribution requirements with upstream before public release.
+     - Keep attribution and share-alike obligations with the project docs.
+     - Archive the exact upstream page/version privately when available.
 
 11. French Kiss bundled theme redistribution/license verification
    - Status: `PENDING`

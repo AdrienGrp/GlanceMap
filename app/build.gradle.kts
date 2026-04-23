@@ -8,12 +8,6 @@ plugins {
 apply(from = file("gradle/map-assets.gradle.kts"))
 apply(from = rootProject.file("gradle/android-app-testing.gradle.kts"))
 
-val hasGoogleServicesConfig = file("google-services.json").exists()
-if (hasGoogleServicesConfig) {
-    apply(plugin = "com.google.gms.google-services")
-    apply(plugin = "com.google.firebase.crashlytics")
-}
-
 val glanceMapVersionName = providers.gradleProperty("glanceMapVersionName").get()
 val glanceMapWearVersionCode = providers.gradleProperty("glanceMapWearVersionCode").get().toInt()
 val releaseStoreFile =
@@ -189,10 +183,6 @@ tasks.named("preBuild").configure {
 }
 
 dependencies {
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.crashlytics.ktx)
-    implementation(libs.firebase.analytics.ktx)
-
     implementation(platform(libs.compose.bom))
 
     // Compose / Wear

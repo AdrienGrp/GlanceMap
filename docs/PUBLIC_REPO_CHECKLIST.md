@@ -51,10 +51,7 @@ source code and bundled assets is still public distribution.
    Expected result: no output.
 
 3. Resolve or remove bundled assets with pending redistribution review:
-   - OpenHiking bundled theme redistribution/license verification.
    - French Kiss bundled theme redistribution/license verification.
-   - Tiramisu non-commercial license implications.
-   - Hike, Ride & Sight non-commercial license implications.
 4. Archive the OpenAndroMaps/Elevate agreement details outside the public repo:
    - parties,
    - request/response dates,
