@@ -169,7 +169,7 @@ fun MapSettingsScreen(
                                     themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, true)
                                 } else {
                                     themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, false)
-                                    demSetupReason = DemSetupReason.GENERIC
+                                    demSetupReason = DemSetupReason.HILL_SHADING
                                     showDemSetupDialog = true
                                 }
                             }

@@ -42,6 +42,7 @@ private const val DEM_SETUP_DRAG_DISMISS_PX = 55f
 
 enum class DemSetupReason {
     GENERIC,
+    HILL_SHADING,
     LIVE_ELEVATION,
     SLOPE_OVERLAY,
 }
@@ -59,6 +60,7 @@ fun DemSetupBottomSheet(
     val title =
         when (reason) {
             DemSetupReason.GENERIC -> "DEM Setup"
+            DemSetupReason.HILL_SHADING -> "Elevation data needed"
             DemSetupReason.LIVE_ELEVATION -> "Elevation data needed"
             DemSetupReason.SLOPE_OVERLAY -> "Elevation data needed"
         }
@@ -68,6 +70,10 @@ fun DemSetupBottomSheet(
                 "For each offline map, use the DEM icon to download elevation data (DEM).\n" +
                     "Grey icon means not downloaded.\n" +
                     "Green icon means ready for hill/slope layers."
+            DemSetupReason.HILL_SHADING ->
+                "Hill shading needs DEM data for this map.\n" +
+                    "Open Maps and tap the DEM icon to download it.\n" +
+                    "When it is ready, come back and enable Hill shading again."
             DemSetupReason.LIVE_ELEVATION ->
                 "Live elevation needs DEM data for this map.\n" +
                     "Open Maps and tap the DEM icon to download it.\n" +
