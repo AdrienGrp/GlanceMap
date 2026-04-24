@@ -1049,6 +1049,7 @@ internal fun resolveLocationFixElapsedRealtimeMs(
     return 0L
 }
 
+@Suppress("LongParameterList")
 internal fun resolveGpsIndicatorState(
     isLocationAvailable: Boolean,
     unavailableSinceElapsedMs: Long,
@@ -1069,43 +1070,44 @@ internal fun resolveGpsIndicatorState(
             ageMs <= staleThresholdMs &&
             accuracyM.isFinite()
 
-    if (hasFreshUsableFix) {
-        val effectiveAccuracyM = effectiveGpsIndicatorAccuracy(accuracyM, watchGpsOnlyActive)
-        val goodAccuracyThresholdM = gpsIndicatorGoodAccuracyThresholdM(watchGpsOnlyActive)
-        return when {
-            effectiveAccuracyM <= goodAccuracyThresholdM -> GpsFixIndicatorState.GOOD
-            else -> GpsFixIndicatorState.POOR
+    return when {
+        hasFreshUsableFix -> {
+            val effectiveAccuracyM = effectiveGpsIndicatorAccuracy(accuracyM, watchGpsOnlyActive)
+            val goodAccuracyThresholdM = gpsIndicatorGoodAccuracyThresholdM(watchGpsOnlyActive)
+            if (effectiveAccuracyM <= goodAccuracyThresholdM) {
+                GpsFixIndicatorState.GOOD
+            } else {
+                GpsFixIndicatorState.POOR
+            }
         }
-    }
 
-    if (!isLocationAvailable) {
-        if (unavailableSinceElapsedMs <= 0L) return GpsFixIndicatorState.SEARCHING
-        val outageConfirmWindowMs = computeUnavailableConfirmWindowMs(staleThresholdMs)
-        val unavailableForMs = (nowElapsedMs - unavailableSinceElapsedMs).coerceAtLeast(0L)
-        return if (unavailableForMs >= outageConfirmWindowMs) {
-            GpsFixIndicatorState.UNAVAILABLE
-        } else {
-            GpsFixIndicatorState.SEARCHING
+        !isLocationAvailable -> {
+            if (unavailableSinceElapsedMs <= 0L) {
+                GpsFixIndicatorState.SEARCHING
+            } else {
+                val outageConfirmWindowMs = computeUnavailableConfirmWindowMs(staleThresholdMs)
+                val unavailableForMs = (nowElapsedMs - unavailableSinceElapsedMs).coerceAtLeast(0L)
+                if (unavailableForMs >= outageConfirmWindowMs) {
+                    GpsFixIndicatorState.UNAVAILABLE
+                } else {
+                    GpsFixIndicatorState.SEARCHING
+                }
+            }
         }
+
+        else -> GpsFixIndicatorState.SEARCHING
     }
-
-    if (lastFixAtElapsedMs <= 0L) return GpsFixIndicatorState.SEARCHING
-    if (ageMs > staleThresholdMs) return GpsFixIndicatorState.SEARCHING
-    if (!accuracyM.isFinite()) return GpsFixIndicatorState.SEARCHING
-
-    return GpsFixIndicatorState.SEARCHING
 }
 
 private fun effectiveGpsIndicatorAccuracy(
     accuracyM: Float,
     watchGpsOnlyActive: Boolean,
-): Float {
-    if (!watchGpsOnlyActive || !accuracyM.isFinite()) return accuracyM
-    if (isKnownWatchGpsAccuracyFloor(accuracyM)) {
-        return WATCH_GPS_FLOOR_INDICATOR_ACCURACY_M
+): Float =
+    if (watchGpsOnlyActive && accuracyM.isFinite() && isKnownWatchGpsAccuracyFloor(accuracyM)) {
+        WATCH_GPS_FLOOR_INDICATOR_ACCURACY_M
+    } else {
+        accuracyM
     }
-    return accuracyM
-}
 
 private fun gpsIndicatorGoodAccuracyThresholdM(
     watchGpsOnlyActive: Boolean,

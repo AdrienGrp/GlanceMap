@@ -24,38 +24,12 @@ internal fun resolveVisibleScreenCenterLatLong(mapView: MapView): LatLong? {
 internal fun formatLiveDistance(
     meters: Double,
     isMetric: Boolean,
-): Pair<String, String> {
-    if (!meters.isFinite() || meters < 0.0) return "--" to ""
-
-    if (isMetric) {
-        return if (meters < 1000.0) {
-            meters.roundToInt().toString() to "m"
-        } else {
-            val km = meters / 1000.0
-            val value =
-                if (km >= 10.0) {
-                    km.roundToInt().toString()
-                } else {
-                    String.format(Locale.getDefault(), "%.1f", km)
-                }
-            value to "km"
-        }
+): Pair<String, String> =
+    when {
+        !meters.isFinite() || meters < 0.0 -> "--" to ""
+        isMetric -> formatMetricLiveDistance(meters)
+        else -> formatImperialLiveDistance(meters)
     }
-
-    val feet = meters * 3.28084
-    return if (feet < 2640.0) {
-        feet.roundToInt().toString() to "ft"
-    } else {
-        val miles = meters * 0.000621371
-        val value =
-            if (miles >= 10.0) {
-                miles.roundToInt().toString()
-            } else {
-                String.format(Locale.getDefault(), "%.1f", miles)
-            }
-        value to "mi"
-    }
-}
 
 internal fun formatLiveDistanceLabel(
     meters: Double,
@@ -63,4 +37,37 @@ internal fun formatLiveDistanceLabel(
 ): String {
     val (value, unit) = formatLiveDistance(meters = meters, isMetric = isMetric)
     return if (unit.isBlank()) value else "$value $unit"
+}
+
+private fun formatMetricLiveDistance(
+    meters: Double,
+): Pair<String, String> =
+    if (meters < 1000.0) {
+        meters.roundToInt().toString() to "m"
+    } else {
+        formatLargeDistanceValue(value = meters / 1000.0, unit = "km")
+    }
+
+private fun formatImperialLiveDistance(
+    meters: Double,
+): Pair<String, String> {
+    val feet = meters * 3.28084
+    return if (feet < 2640.0) {
+        feet.roundToInt().toString() to "ft"
+    } else {
+        formatLargeDistanceValue(value = meters * 0.000621371, unit = "mi")
+    }
+}
+
+private fun formatLargeDistanceValue(
+    value: Double,
+    unit: String,
+): Pair<String, String> {
+    val displayValue =
+        if (value >= 10.0) {
+            value.roundToInt().toString()
+        } else {
+            String.format(Locale.getDefault(), "%.1f", value)
+        }
+    return displayValue to unit
 }

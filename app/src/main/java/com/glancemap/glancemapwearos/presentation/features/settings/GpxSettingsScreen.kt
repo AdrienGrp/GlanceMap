@@ -38,6 +38,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -57,7 +58,6 @@ import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -107,10 +107,11 @@ fun GpxSettingsScreen(
     var showAdvancedElevationFilter by remember { mutableStateOf(false) }
     val helpDialogScrollState = rememberScrollState()
     val helpDialogFocusRequester = remember { FocusRequester() }
+    val currentLocale = LocalLocale.current.platformLocale
     val longPressSecondsLabel =
-        remember {
+        remember(currentLocale) {
             val longPressSeconds = ViewConfiguration.getLongPressTimeout() / 1000f
-            String.format(Locale.getDefault(), "%.1f", longPressSeconds)
+            String.format(currentLocale, "%.1f", longPressSeconds)
         }
     LaunchedEffect(showInspectionHelpDialog) {
         if (showInspectionHelpDialog) {
@@ -585,6 +586,7 @@ private fun FlatSpeedSetting(
     isMetric: Boolean,
     onSpeedChange: (Float) -> Unit,
 ) {
+    val currentLocale = LocalLocale.current.platformLocale
     val maxDisplaySpeed =
         if (isMetric) {
             20f
@@ -611,7 +613,7 @@ private fun FlatSpeedSetting(
         Text(
             text =
                 String.format(
-                    Locale.getDefault(),
+                    currentLocale,
                     "Flat Speed: %.1f %s",
                     sliderValue,
                     displayUnit,

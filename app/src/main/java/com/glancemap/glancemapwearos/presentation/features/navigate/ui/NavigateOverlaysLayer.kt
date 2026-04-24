@@ -47,7 +47,12 @@ import kotlinx.coroutines.delay
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.view.MapView
 
-@Suppress("FunctionName")
+@Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionName",
+    "LongMethod",
+    "LongParameterList",
+)
 @Composable
 internal fun BoxScope.NavigateOverlaysLayer(
     mapView: MapView,
