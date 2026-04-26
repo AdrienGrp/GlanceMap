@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.presentation.features.maps
 
 import android.os.SystemClock
 import android.util.Log
+import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import org.mapsforge.core.graphics.Canvas
 import org.mapsforge.core.model.BoundingBox
 import org.mapsforge.core.model.Point
@@ -763,8 +764,13 @@ internal class ReliefOverlayLayer(
                 val entry =
                     runCatching {
                         diskCache.loadOverlayTileEntryFromDisk(key)
-                            ?: tileRenderer.buildOverlayTile(key, quality).also { built ->
+                            ?: run {
+                                val built =
+                                    BenchmarkTrace.section("relief.overlayTileBuild") {
+                                        tileRenderer.buildOverlayTile(key, quality)
+                                    }
                                 diskCache.persistOverlayTileEntryToDisk(key = key, entry = built)
+                                built
                             }
                     }.onFailure { error ->
                         Log.w(
