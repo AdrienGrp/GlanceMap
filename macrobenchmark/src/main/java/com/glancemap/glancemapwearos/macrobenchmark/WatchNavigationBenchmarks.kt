@@ -169,7 +169,6 @@ class WatchNavigationBenchmarks {
     @OptIn(ExperimentalMetricApi::class)
     private fun navigateBaselineMetrics() =
         listOf(
-            FrameTimingMetric(),
             MemoryUsageMetric(
                 mode = MemoryUsageMetric.Mode.Max,
                 subMetrics =
@@ -194,7 +193,6 @@ class WatchNavigationBenchmarks {
     private fun mapLoadMetrics() =
         listOf(
             StartupTimingMetric(),
-            FrameTimingMetric(),
             TraceSectionMetric(
                 sectionName = "mapRenderer.updateMapLayer",
                 mode = TraceSectionMetric.Mode.Sum,
@@ -225,7 +223,6 @@ class WatchNavigationBenchmarks {
     @OptIn(ExperimentalMetricApi::class)
     private fun reliefBaselineMetrics() =
         listOf(
-            FrameTimingMetric(),
             MemoryUsageMetric(
                 mode = MemoryUsageMetric.Mode.Max,
                 subMetrics =
@@ -260,7 +257,7 @@ class WatchNavigationBenchmarks {
     private fun launchIntent(): Intent {
         return Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
-            setPackage(TARGET_PACKAGE)
+            setClassName(TARGET_PACKAGE, MAIN_ACTIVITY_CLASS)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
     }
@@ -275,6 +272,7 @@ class WatchNavigationBenchmarks {
 
     companion object {
         private const val TARGET_PACKAGE = "com.glancemap.glancemapwearos"
+        private const val MAIN_ACTIVITY_CLASS = "$TARGET_PACKAGE.presentation.MainActivity"
         private const val SWIPE_STEPS = 24
         private const val PAN_REPEATS_PER_ITERATION = 2
         private const val RELIEF_PAN_REPEATS_PER_ITERATION = 4

@@ -64,12 +64,13 @@ class PhoneCompanionBenchmarks {
     private fun launchIntent(): Intent =
         Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
-            setPackage(TARGET_PACKAGE)
+            setClassName(TARGET_PACKAGE, MAIN_ACTIVITY_CLASS)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
     private companion object {
         const val TARGET_PACKAGE = "com.glancemap.glancemapwearos"
+        const val MAIN_ACTIVITY_CLASS = "com.glancemap.glancemapcompanionapp.MainActivityMobile"
         const val APP_LAUNCH_SETTLE_MS = 1_500L
         const val FILE_PICKER_IDLE_MS = 3_000L
     }

@@ -34,7 +34,7 @@ Run only the phone companion idle baseline:
   -Pandroid.testInstrumentationRunnerArguments.class=com.glancemap.glancemapcompanionapp.macrobenchmark.PhoneCompanionBenchmarks#filePickerIdleBaseline
 ```
 
-Run only the navigation recomposition/frame baseline:
+Run only the navigation recomposition/memory baseline:
 
 ```sh
 ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest \
@@ -57,9 +57,9 @@ Run only the relief memory/DEM baseline:
 
 ## Metrics To Compare
 
-- Navigation: `frameDurationCpuMs`, `frameOverrunMs`, `frameCount`, `navigateScreenRecomposeCount`, `navigateContentRecomposeCount`, heap/RSS memory.
+- Navigation: `navigateScreenRecomposeCount`, `navigateContentRecomposeCount`, heap/RSS memory. Run `navigateFrameTiming` separately if the device reports RenderThread slices.
 - Map load: startup timing plus `mapLayerUpdateSumMs`, `mapFileOpenSumMs`, `renderThemeBuildSumMs`, `themeSelectionApplySumMs`, `dynamicThemeCreateSumMs`.
-- Relief: `reliefDemReadSumMs`, `reliefDemDecodeSumMs`, `reliefTileBuildSumMs`, `reliefTileBuildCount`, heap/RSS memory, frame timing.
+- Relief: `reliefDemReadSumMs`, `reliefDemDecodeSumMs`, `reliefTileBuildSumMs`, `reliefTileBuildCount`, heap/RSS memory.
 
 Watch benchmark JSON and trace artifacts are written under:
 
