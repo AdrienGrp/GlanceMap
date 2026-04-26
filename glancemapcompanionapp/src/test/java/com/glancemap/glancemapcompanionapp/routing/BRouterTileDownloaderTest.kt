@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class BRouterTileDownloaderTest {
     @Test
@@ -18,5 +19,67 @@ class BRouterTileDownloaderTest {
         assertTrue(isRetriableRoutingStatus(504))
         assertTrue(isRetriableRoutingStatus(429))
         assertFalse(isRetriableRoutingStatus(404))
+    }
+
+    @Test
+    fun `reads rd5 lookup version from routing pack header`() {
+        val file = temporaryRoutingPack(lookupVersion = 11)
+
+        try {
+            assertEquals(11, readRoutingPackLookupVersion(file))
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun `rejects cached routing pack with incompatible lookup version`() {
+        val oldFile = temporaryRoutingPack(lookupVersion = 10)
+        val currentFile = temporaryRoutingPack(lookupVersion = SUPPORTED_ROUTING_PACK_LOOKUP_VERSION)
+
+        try {
+            assertFalse(isUsableRoutingPackCache(oldFile))
+            assertTrue(isUsableRoutingPackCache(currentFile))
+        } finally {
+            oldFile.delete()
+            currentFile.delete()
+        }
+    }
+
+    @Test
+    fun `supported routing pack lookup version matches watch bundled lookup table`() {
+        val lookupFile = projectFile("app/src/main/assets/brouter/profiles2/lookups.dat")
+        val lookupVersion =
+            lookupFile
+                .readLines()
+                .first { it.startsWith("---lookupversion:") }
+                .substringAfter(":")
+                .trim()
+                .toInt()
+
+        assertEquals(lookupVersion, SUPPORTED_ROUTING_PACK_LOOKUP_VERSION)
+    }
+
+    private fun temporaryRoutingPack(lookupVersion: Int): File =
+        File.createTempFile("routing-pack", ".rd5").apply {
+            writeBytes(
+                byteArrayOf(
+                    ((lookupVersion ushr 8) and 0xff).toByte(),
+                    (lookupVersion and 0xff).toByte(),
+                    0,
+                    0,
+                ),
+            )
+        }
+
+    private fun projectFile(path: String): File {
+        val candidates =
+            listOf(
+                File(path),
+                File("../$path"),
+                File("../../$path"),
+            )
+        return candidates.firstOrNull { it.exists() }
+            ?: error("Could not find project file: $path")
     }
 }

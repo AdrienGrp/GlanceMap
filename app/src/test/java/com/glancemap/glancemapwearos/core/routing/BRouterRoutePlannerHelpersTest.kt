@@ -138,13 +138,26 @@ class BRouterRoutePlannerHelpersTest {
     }
 
     @Test
-    fun lookupVersionMismatchBecomesFriendlyRefreshMessage() {
+    fun oldRoutingPackLookupVersionBecomesRefreshMessage() {
         val message =
             normalizeRoutingErrorMessage(
                 "lookup version mismatch (old rd5?) lookups.dat=11 E0_N40.rd5=10",
             )
 
-        assertEquals("Routing data is out of date. Refresh the routing packs.", message)
+        assertEquals("Routing packs use an older format. Refresh the routing packs.", message)
+    }
+
+    @Test
+    fun newerRoutingPackLookupVersionBecomesAppUpdateMessage() {
+        val message =
+            normalizeRoutingErrorMessage(
+                "lookup version mismatch (old rd5?) lookups.dat=10 E0_N40.rd5=11",
+            )
+
+        assertEquals(
+            "Routing packs are newer than this app supports. Update GlanceMap, then refresh routing packs.",
+            message,
+        )
     }
 
     @Test

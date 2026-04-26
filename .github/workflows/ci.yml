@@ -23,6 +23,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Check BRouter routing metadata
+        run: CHECK_LIVE_BROUTER=false scripts/check-brouter-routing-compatibility.sh
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:

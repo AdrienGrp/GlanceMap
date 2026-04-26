@@ -116,6 +116,26 @@ internal object BRouterTileMath {
 
 private fun formatCoord(value: Double): String = "%1$.5f".format(value)
 
+internal const val SUPPORTED_ROUTING_PACK_LOOKUP_VERSION = 11
+
+internal fun readRoutingPackLookupVersion(file: File): Int? {
+    if (!file.exists() || !file.isFile || file.length() < 2L) return null
+    return file.inputStream().use { input ->
+        val high = input.read()
+        val low = input.read()
+        if (high < 0 || low < 0) {
+            null
+        } else {
+            (high shl 8) or low
+        }
+    }
+}
+
+internal fun isUsableRoutingPackCache(file: File): Boolean =
+    file.exists() &&
+        file.length() > 0L &&
+        readRoutingPackLookupVersion(file) == SUPPORTED_ROUTING_PACK_LOOKUP_VERSION
+
 internal class BRouterTileDownloader(
     private val context: Context,
 ) {
@@ -179,7 +199,7 @@ internal class BRouterTileDownloader(
                     )
 
                     val target = File(outputDir, tileName)
-                    if (!forceRefresh && target.exists() && target.length() > 0L) {
+                    if (!forceRefresh && isUsableRoutingPackCache(target)) {
                         skipped += 1
                         PhoneDownloadDiagnostics.log(
                             "BRouter",
@@ -194,6 +214,20 @@ internal class BRouterTileDownloader(
                             ),
                         )
                     } else {
+                        if (!forceRefresh && target.exists() && target.length() > 0L) {
+                            val cachedLookupVersion = readRoutingPackLookupVersion(target)
+                            PhoneDownloadDiagnostics.log(
+                                "BRouter",
+                                "Cache refresh tile=$tileName step=$step/${tileNames.size} " +
+                                    "lookupVersion=$cachedLookupVersion " +
+                                    "supported=$SUPPORTED_ROUTING_PACK_LOOKUP_VERSION",
+                            )
+                            reportProgress(
+                                overallRoutingDownloadProgress(index, tileNames.size, 0.0),
+                                "Refreshing routing pack $step/${tileNames.size}…",
+                                "",
+                            )
+                        }
                         downloadTile(
                             tileName = tileName,
                             target = target,
