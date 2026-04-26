@@ -90,7 +90,7 @@ internal class DataLayerSmallFileRequestHandler(
 
         appScope.launch(Dispatchers.IO) {
             transferMutex.withLock {
-                if (fileOps.fileExistsOnWatch(fileName)) {
+                if (fileOps.fileBlocksIncomingTransfer(fileName)) {
                     val msg = "FILE_EXISTS:$fileName"
                     TransferDiagnostics.warn("Small", "Target file already exists id=$transferId file=$fileName")
                     notificationHelper.startForeground(notificationId, fileName, "Already exists")

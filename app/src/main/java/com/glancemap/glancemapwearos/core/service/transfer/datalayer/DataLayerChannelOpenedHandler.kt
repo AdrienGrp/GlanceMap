@@ -59,7 +59,7 @@ internal class DataLayerChannelOpenedHandler(
         )
 
         transferMutex.withLock {
-            if (fileOps.fileExistsOnWatch(fileName)) {
+            if (fileOps.fileBlocksIncomingTransfer(fileName)) {
                 val msg = "FILE_EXISTS:$fileName"
                 TransferDiagnostics.warn("Channel", "Target file already exists id=$transferId file=$fileName")
                 notificationHelper.startForeground(metadata.notificationId, metadata.fileName, "Already exists")

@@ -175,7 +175,7 @@ internal class DataLayerMessageRequestHandler(
         TransferDiagnostics.log("MsgReq", "Exists request id=$requestId file=$fileName")
 
         appScope.launch(Dispatchers.IO) {
-            val exists = runCatching { fileOps.fileExistsOnWatch(fileName) }.getOrDefault(false)
+            val exists = runCatching { fileOps.fileBlocksIncomingTransfer(fileName) }.getOrDefault(false)
 
             val reply =
                 JSONObject().apply {
@@ -275,7 +275,7 @@ internal class DataLayerMessageRequestHandler(
 
                 val decoded = runCatching { Uri.decode(safeNameEncoded) }.getOrDefault(safeNameEncoded)
                 val fileName = fileOps.sanitizeFileName(decoded)
-                val exists = runCatching { fileOps.fileExistsOnWatch(fileName) }.getOrDefault(false)
+                val exists = runCatching { fileOps.fileBlocksIncomingTransfer(fileName) }.getOrDefault(false)
 
                 results.put(
                     JSONObject()

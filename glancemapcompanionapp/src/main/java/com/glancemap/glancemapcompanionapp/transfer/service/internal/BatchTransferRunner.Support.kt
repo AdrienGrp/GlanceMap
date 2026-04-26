@@ -195,6 +195,8 @@ internal fun toUserFacingTransferError(result: TransferResult): String {
 
 internal fun isSupportedTransferFileName(fileName: String): Boolean = fileName.endsWith(".gpx", ignoreCase = true) || isMapLikeTransferFile(fileName)
 
+internal fun isReplaceableTransferFileName(fileName: String): Boolean = fileName.endsWith(".rd5", ignoreCase = true)
+
 internal fun isMapLikeTransferFile(fileName: String): Boolean =
     fileName.endsWith(".map", ignoreCase = true) ||
         fileName.endsWith(".poi", ignoreCase = true) ||

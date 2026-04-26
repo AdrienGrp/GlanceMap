@@ -114,4 +114,11 @@ class BatchTransferRunnerSupportTest {
 
         assertFalse(shouldPreferChannelForRemainingBatch(result))
     }
+
+    @Test
+    fun `routing packs are replaceable transfer targets`() {
+        assertTrue(isReplaceableTransferFileName("E5_N45.rd5"))
+        assertFalse(isReplaceableTransferFileName("Alps.map"))
+        assertFalse(isReplaceableTransferFileName("track.gpx"))
+    }
 }

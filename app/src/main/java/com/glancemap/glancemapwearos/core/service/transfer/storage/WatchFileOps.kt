@@ -54,6 +54,12 @@ internal class WatchFileOps(
             else -> false
         }
 
+    suspend fun fileBlocksIncomingTransfer(name: String): Boolean = fileExistsOnWatch(name) && !isReplaceable(name)
+
+    fun isReplaceableTransferFileName(fileName: String): Boolean = isReplaceable(fileName)
+
+    private fun isReplaceable(fileName: String): Boolean = isRoutingSegmentFileName(fileName)
+
     suspend fun deleteLocalFile(fileName: String) {
         runCatching {
             when {

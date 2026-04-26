@@ -31,6 +31,8 @@ private val LOOP_RADIUS_MULTIPLIERS = listOf(1.0, 0.85, 1.15)
 private val SAME_WAY_BACK_RADIUS_MULTIPLIERS = listOf(0.9, 1.0, 1.1)
 private val LOOP_CARDINAL_START_DIRECTIONS = listOf(0, 90, 180, 270)
 private val LOOP_DIAGONAL_START_DIRECTIONS = listOf(45, 135, 225, 315)
+private val LOOKUP_VERSION_MISMATCH_REGEX =
+    Regex("""lookups\.dat=(\d+)\s+\S+\.rd5=(\d+)""", RegexOption.IGNORE_CASE)
 
 internal fun cityLoopRetryDirections(): List<Int> = LOOP_DIAGONAL_START_DIRECTIONS
 
@@ -202,7 +204,7 @@ internal fun normalizeRoutingErrorMessage(message: String): String =
         }
 
         message.contains("lookup version mismatch", ignoreCase = true) -> {
-            "Routing data is out of date. Refresh the routing packs."
+            normalizeLookupVersionMismatch(message)
         }
 
         message.contains("dummy.brf", ignoreCase = true) -> {
@@ -227,6 +229,31 @@ internal fun normalizeRoutingErrorMessage(message: String): String =
 
         else -> message
     }
+
+private fun normalizeLookupVersionMismatch(message: String): String {
+    val versionMatch = LOOKUP_VERSION_MISMATCH_REGEX.find(message)
+    val appLookupVersion = versionMatch?.groupValues?.getOrNull(1)?.toIntOrNull()
+    val packLookupVersion = versionMatch?.groupValues?.getOrNull(2)?.toIntOrNull()
+
+    return when {
+        appLookupVersion != null &&
+            packLookupVersion != null &&
+            packLookupVersion > appLookupVersion -> {
+            "Routing packs are newer than this app supports. " +
+                "Update GlanceMap, then refresh routing packs."
+        }
+
+        appLookupVersion != null &&
+            packLookupVersion != null &&
+            packLookupVersion < appLookupVersion -> {
+            "Routing packs use an older format. Refresh the routing packs."
+        }
+
+        else -> {
+            "Routing data format does not match this app. Update GlanceMap or refresh routing packs."
+        }
+    }
+}
 
 class BRouterRoutePlanner(
     private val context: Context,

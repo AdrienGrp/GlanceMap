@@ -877,6 +877,11 @@ internal class BatchTransferRunner(
                 continue
             }
 
+            if (isReplaceableTransferFileName(item.displayName)) {
+                toTransfer += item
+                continue
+            }
+
             if (shouldDeleteBeforeTransfer(item)) {
                 val deleted = deleteRequester.delete(nodeId, item.displayName)
                 if (deleted == true) {
