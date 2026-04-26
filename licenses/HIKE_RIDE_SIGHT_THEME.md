@@ -1,6 +1,6 @@
 # Hike, Ride & Sight Theme
 
-Last reviewed: 2026-03-18
+Last reviewed: 2026-04-26
 
 This note tracks the bundled Hike, Ride & Sight Mapsforge render theme used by GlanceMap.
 
@@ -18,6 +18,8 @@ This note tracks the bundled Hike, Ride & Sight Mapsforge render theme used by G
 
 - Theme page:
   - http://j.seydoux.free.fr/locus/hrs.html
+- Contact / issue form:
+  - https://arkluz.com/trk?contact
 - Manual download ZIP:
   - http://j.seydoux.free.fr/locus/Hike,%20Ride%20&%20Sight!.zip
 - Legend PDF:
@@ -47,7 +49,10 @@ This note tracks the bundled Hike, Ride & Sight Mapsforge render theme used by G
 - The XML comment header states:
   - `Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported`
   - `CC BY-NC-SA 3.0`
-- This non-commercial license should be reviewed before any public/commercial distribution of the app.
+- Project owner confirmed on 2026-04-26 that approval was received for GlanceMap's use/redistribution.
+- For GlanceMap's current noncommercial distribution model, this theme is treated as cleared.
+- Keep the required theme page and contact-form links in `licenses/CREDITS_AND_THANKS.md`.
+- If GlanceMap later adopts a commercial distribution model, re-review or remove this bundled snapshot.
 
 ## Notes
 

@@ -16,10 +16,10 @@ source code and bundled assets is still public distribution.
 - Privacy policy page: `READY WHEN PAGES IS ENABLED`
   - GitHub Pages source files are under `docs/`.
   - Planned URL: `https://adriengrp.github.io/GlanceMap/privacy-policy/`
-- Project license: `NEEDS CLARITY`
-  - The root `LICENSE` covers GlanceMap project code unless another file says
-    otherwise.
-  - Bundled third-party themes, icons, map styles, and vendored code have their
+- Project license: `READY`
+  - The root `LICENSE` is MIT and covers GlanceMap project code unless another
+    file says otherwise.
+  - Bundled third-party themes, icons, map styles, and vendored code keep their
     own provenance and license notes under `licenses/` and `third_party/`.
 - OpenAndroMaps/Elevate permission: `RECEIVED`
   - Project owner confirmed agreement from OpenAndroMaps and Tobias Kuehn on
@@ -32,10 +32,9 @@ source code and bundled assets is still public distribution.
   - Suggested topics: `android`, `kotlin`, `wear-os`, `offline-maps`, `mapsforge`, `gpx`, `brouter`.
   - Set the repository website to `https://adriengrp.github.io/GlanceMap/`
     after GitHub Pages is enabled.
-- Third-party bundled assets: `BLOCK BEFORE PUBLIC`
-  - Do not make the repository public until the pending redistribution items in
-    `licenses/COMPLIANCE_STATUS.md` are resolved or the affected assets are
-    removed from the public branch.
+- Third-party bundled assets: `ONE BLOCKER LEFT`
+  - Do not make the repository public until French Kiss redistribution is
+    resolved or the French Kiss assets are removed from the public branch.
 
 ## Before Switching GitHub Visibility
 

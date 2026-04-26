@@ -1,6 +1,6 @@
 # OpenHiking Theme
 
-Last reviewed: 2026-04-23
+Last reviewed: 2026-04-26
 
 This note tracks the bundled OpenHiking Mapsforge render theme used by GlanceMap.
 
@@ -29,9 +29,10 @@ This note tracks the bundled OpenHiking Mapsforge render theme used by GlanceMap
 ## License and redistribution status
 
 - The observed ZIP did not include an obvious standalone license or readme file.
-- Project owner confirmed on 2026-04-23 that the OpenHiking theme is licensed under `CC BY-SA`.
-- For GlanceMap's current distribution model, that clears the noncommercial/public-release concern.
-- Keep attribution and share-alike obligations with the project docs, and archive the exact upstream page/version privately when available.
+- Project owner confirmed on 2026-04-26 that approval was received from OpenHiking.
+- Project owner confirmed the OpenHiking theme is licensed under `CC BY-SA`.
+- For GlanceMap's current distribution model, that clears the public-release concern.
+- Keep attribution and share-alike obligations with the project docs, and archive the exact upstream page/version plus approval details privately when available.
 
 ## Notes
 

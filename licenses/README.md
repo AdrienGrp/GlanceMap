@@ -17,13 +17,13 @@ This folder tracks third-party licensing and attribution for `GlanceMap` (watch 
 - `DATA_AND_ASSET_ATTRIBUTION.md`
   - Attribution and usage notes for map/theme/data/icon assets and imported POI data.
 - `OPENHIKING_THEME.md`
-  - Dedicated note for the bundled OpenHiking theme snapshot and pending redistribution review.
+  - Dedicated note for the bundled OpenHiking theme snapshot and approval/license status.
 - `FRENCH_KISS_THEME.md`
   - Dedicated note for the bundled French Kiss theme snapshot sourced from XCTrack and pending redistribution review.
 - `TIRAMISU_THEME.md`
-  - Dedicated note for the bundled Tiramisu theme snapshot and its CC BY-NC-SA review status.
+  - Dedicated note for the bundled Tiramisu theme snapshot and its noncommercial compatibility status.
 - `HIKE_RIDE_SIGHT_THEME.md`
-  - Dedicated note for the bundled Hike, Ride & Sight theme snapshot and its CC BY-NC-SA review status.
+  - Dedicated note for the bundled Hike, Ride & Sight theme snapshot and its approval/noncommercial compatibility status.
 - `SERVICE_TERMS_AND_API_USAGE.md`
   - Service/API usage terms and limits (OpenAndroMaps, Refuges.info, Overpass, Google Play services).
 - `COMPANION_EXTERNAL_SOURCES.md`

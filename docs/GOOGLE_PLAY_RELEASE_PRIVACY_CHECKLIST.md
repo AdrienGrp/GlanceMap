@@ -1,6 +1,6 @@
 # Google Play Privacy Release Checklist
 
-Last reviewed: 2026-04-08
+Last reviewed: 2026-04-26
 
 This checklist is a repo-side release aid for GlanceMap. It is not the public privacy policy.
 
@@ -27,6 +27,12 @@ Repo-specific inference:
 - GitHub Pages privacy policy page source: `docs/privacy-policy.md`
 - Planned public privacy policy URL:
   `https://adriengrp.github.io/GlanceMap/privacy-policy/`
+- The current policy text covers:
+  - app name and privacy contact,
+  - personal/sensitive data types accessed and used,
+  - off-device sharing/transmission paths and parties,
+  - security handling notes,
+  - retention/deletion behavior.
 - No account creation or sign-in flow was found.
 - No ads SDK or ad flow was found.
 - No `ACCESS_BACKGROUND_LOCATION` permission was found.
@@ -34,7 +40,7 @@ Repo-specific inference:
 - Companion app requests Bluetooth and notification permissions for watch discovery and transfer UX.
 - Third-party network requests exist for user-requested POI, routing, and terrain downloads.
 - User-initiated diagnostics export exists and may include device, crash, transfer, and location-related troubleshooting details.
-- Firebase Analytics / Crashlytics code is present, but `google-services.json` was not found in either app module in the checked-in repo state.
+- Firebase release setup documentation exists, but `google-services.json` was not found in either app module in the checked-in repo state.
 
 ## In-app privacy access points implemented in this repo
 
@@ -46,6 +52,9 @@ Repo-specific inference:
 1. Enable GitHub Pages from repository settings with source
    `Deploy from a branch`, branch `main`, folder `/docs`.
 2. Publish the privacy policy at a stable public HTTPS URL and place the same URL in the Play Console privacy policy field.
+   - GitHub Pages is acceptable for this if the page is active, public,
+     non-geofenced, and renders as a normal web page rather than a PDF or
+     editable document view.
 3. Keep the hosted text in sync with `licenses/PRIVACY_POLICY.md`.
 4. Complete the Data safety form for the total behavior of every artifact currently distributed for `com.glancemap.glancemapwearos`.
 5. Re-review the Data safety form before release if you add `google-services.json`, enable Firebase, add any new SDK, or start transmitting new data off-device.

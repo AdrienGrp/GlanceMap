@@ -1,6 +1,6 @@
 # Data and Asset Attribution
 
-Last reviewed: 2026-04-23
+Last reviewed: 2026-04-26
 
 This file tracks attribution and licensing notes for non-code map assets, datasets and imported POI sources used by GlanceMap.
 
@@ -49,9 +49,10 @@ Important:
 
 Important:
 - The downloaded ZIP did not include an obvious standalone license/readme file.
-- Project owner confirmed on 2026-04-23 that the OpenHiking theme license is `CC BY-SA`.
+- Project owner confirmed on 2026-04-26 that approval was received from OpenHiking.
+- Project owner confirmed the OpenHiking theme license is `CC BY-SA`.
 - Keep attribution and share-alike obligations with the project docs.
-- Archive the exact upstream page/version privately when available.
+- Archive the exact upstream page/version and approval details privately when available.
 - User-facing note is available in `licenses/OPENHIKING_THEME.md`.
 
 ## 4) Tiramisu Mapsforge theme
@@ -70,7 +71,10 @@ Important:
   - CC BY-NC-SA 3.0
 
 Important:
-- The upstream license is non-commercial, so redistribution must be reviewed before public/commercial release.
+- The upstream license is non-commercial.
+- Project owner confirmed on 2026-04-26 that GlanceMap's distribution model is noncommercial, so the current public repository/app plan is treated as compatible.
+- Keep attribution and share-alike obligations with the project docs.
+- Re-review if the project distribution model becomes commercial.
 - User-facing note is available in `licenses/TIRAMISU_THEME.md`.
 
 ## 5) French Kiss Mapsforge theme
@@ -106,7 +110,11 @@ Important:
 
 Important:
 - No separate license file was observed in the downloaded ZIP.
-- The stated license is non-commercial, so redistribution must be reviewed before public/commercial release.
+- The stated license is non-commercial.
+- Project owner confirmed on 2026-04-26 that approval was received for GlanceMap's use/redistribution.
+- GlanceMap's current noncommercial distribution model is treated as compatible.
+- Keep attribution and share-alike obligations with the project docs.
+- The required user-facing links are kept in `licenses/CREDITS_AND_THANKS.md`.
 - User-facing note is available in `licenses/HIKE_RIDE_SIGHT_THEME.md`.
 
 ## 7) Refuges.info data imports

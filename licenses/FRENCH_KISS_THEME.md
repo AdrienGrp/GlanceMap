@@ -1,6 +1,6 @@
 # French Kiss Theme
 
-Last reviewed: 2026-03-18
+Last reviewed: 2026-04-26
 
 ## Summary
 
@@ -33,6 +33,7 @@ Notes:
 - French Kiss is bundled here for local evaluation/testing.
 - We have provenance from the XCTrack APK snapshot and the XML header attribution.
 - We do not yet have a separate explicit redistribution grant or standalone license text for this theme.
+- This is the remaining bundled-theme blocker before making the repository public.
 
 Before any public release, confirm:
 

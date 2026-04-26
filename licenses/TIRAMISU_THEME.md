@@ -1,6 +1,6 @@
 # Tiramisu Theme
 
-Last reviewed: 2026-03-18
+Last reviewed: 2026-04-26
 
 This note tracks the bundled Tiramisu Mapsforge render theme used by GlanceMap.
 
@@ -46,7 +46,9 @@ This note tracks the bundled Tiramisu Mapsforge render theme used by GlanceMap.
 - The release archive includes a license file declaring:
   - `Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported`
   - `CC BY-NC-SA 3.0`
-- This non-commercial license should be reviewed before any public/commercial distribution of the app.
+- Project owner confirmed on 2026-04-26 that GlanceMap's current distribution model is noncommercial.
+- For the current public repository/app plan, this theme is treated as compatible with the CC BY-NC-SA 3.0 terms.
+- If GlanceMap later adopts a commercial distribution model, re-review or remove this bundled snapshot.
 
 ## Notes
 

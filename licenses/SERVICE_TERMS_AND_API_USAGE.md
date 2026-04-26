@@ -1,6 +1,6 @@
 # Service Terms and API Usage
 
-Last reviewed: 2026-04-20
+Last reviewed: 2026-04-26
 
 This document captures non-library legal/usage constraints for external services and providers referenced by the app/build pipeline.
 
@@ -41,7 +41,9 @@ Term notes:
 - The downloaded theme ZIP observed on 2026-03-14 did not contain an obvious standalone license/readme file.
 
 Project status:
-- Redistribution/attribution requirements for bundling the OpenHiking theme are pending confirmation.
+- Project owner confirmed on 2026-04-26 that approval was received from OpenHiking.
+- Project owner confirmed the OpenHiking theme license is `CC BY-SA`.
+- Keep attribution and share-alike obligations with the project docs.
 - Track current bundled snapshot details in `licenses/OPENHIKING_THEME.md`.
 
 ## 3) Refuges.info API and data

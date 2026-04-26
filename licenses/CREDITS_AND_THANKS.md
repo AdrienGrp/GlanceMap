@@ -1,6 +1,6 @@
 # Credits and Thanks
 
-Last reviewed: 2026-03-20
+Last reviewed: 2026-04-26
 
 This page is the user-friendly credit summary for the main projects and communities used by GlanceMap.
 
@@ -28,6 +28,7 @@ This page is the user-friendly credit summary for the main projects and communit
 6. Hike, Ride & Sight! (Jérôme Seydoux)
    - Additional bundled Mapsforge theme focused on hiking, cycling and overlay-rich map detail.
    - Theme page: http://j.seydoux.free.fr/locus/hrs.html
+   - Contact: https://arkluz.com/trk?contact
 
 7. OpenStreetMap contributors
    - Map data attribution:

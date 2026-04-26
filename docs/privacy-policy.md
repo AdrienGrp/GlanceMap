@@ -6,10 +6,11 @@ permalink: /privacy-policy/
 
 # Privacy Policy for GlanceMap
 
-Last updated: 2026-04-09
+Last updated: 2026-04-26
 
 This Privacy Policy applies to GlanceMap, including the Wear OS watch app and
-the Android companion app in this project (`com.glancemap.glancemapwearos`).
+its Android companion app, distributed under the GlanceMap name and package
+`com.glancemap.glancemapwearos`.
 
 Privacy contact: `Glancemap@protonmail.com`
 
@@ -29,8 +30,9 @@ personal data. We do not use your location or files for advertising.
 - Precise or approximate location, when you grant permission.
 - Used for live navigation, map centering, route guidance, ETA,
   compass/location features, and related foreground GPS features.
-- In the current source, the app does not request `ACCESS_BACKGROUND_LOCATION`.
-  Location permission is requested for foreground use.
+- In the current reviewed app configuration, GlanceMap does not request
+  `ACCESS_BACKGROUND_LOCATION`. Location permission is requested for foreground
+  use.
 
 ### 2. Files and user content
 
@@ -44,9 +46,9 @@ personal data. We do not use your location or files for advertising.
 ### 3. Device, app, and connection information
 
 - App version, device model, Android/Wear OS version, notification state,
-  Bluetooth/Wi-Fi/network state, nearby watch information, transfer state,
-  selected watch identifiers, and local file metadata such as file names and
-  sizes.
+  location/Bluetooth/notification permission state, Bluetooth/Wi-Fi/network
+  state, nearby watch information, transfer state, selected watch identifiers,
+  and local file metadata such as file names and sizes.
 - Used for pairing, transfers, compatibility, notifications, debugging, and
   performance.
 
@@ -77,7 +79,11 @@ the information needed to fulfill that request to the selected provider, such
 as a user-selected geographic area (bounding box), requested tile names, or
 requested files.
 
-Providers referenced in the current source include:
+As with normal internet requests, those providers may also receive standard
+request metadata such as your IP address, request time, and user-agent or
+similar connection information.
+
+Providers used by the current app configuration include:
 
 - `refuges.info`
 - `overpass-api.de`
@@ -104,12 +110,11 @@ own policies.
 
 ### 4. Optional Firebase services, if configured in a release build
 
-The source tree includes optional Firebase Analytics and Firebase Crashlytics
-integrations.
+The GlanceMap codebase contains an optional future integration path for Firebase
+Analytics and Firebase Crashlytics.
 
-As of 2026-04-08, the checked-in project does not include
-`google-services.json` in either app module, so Firebase is not active in this
-repository state.
+In the currently reviewed app configuration, Firebase is not enabled, and
+GlanceMap does not send analytics or crash reports to Firebase.
 
 If Firebase is enabled in a future release, Google or Firebase may process
 analytics events, crash diagnostics, device or app metadata, and related
@@ -121,8 +126,8 @@ release.
 
 We may share data only as needed to provide app features you choose to use:
 
-- With Google and Wear OS components to connect the phone and watch and deliver
-  watch communication.
+- With Wear OS / Google Play services communication components used to connect
+  the phone and watch and move data between them.
 - With third-party providers you directly use for map, POI, routing, or terrain
   downloads.
 - With your chosen email or sharing app and downstream provider when you
@@ -152,8 +157,8 @@ We do not sell your personal data.
 
 - The app primarily stores data in app-private storage areas and uses Android
   `FileProvider` for controlled file sharing where needed.
-- Requests to third-party data providers in the current source generally use
-  HTTPS.
+- Requests to third-party data providers in the current app configuration
+  generally use HTTPS.
 - Local phone-to-watch Wi-Fi transfer currently uses a token-protected local
   HTTP connection on your network and should not be treated as end-to-end
   encrypted internet storage.

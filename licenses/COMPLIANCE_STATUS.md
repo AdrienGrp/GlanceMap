@@ -1,6 +1,6 @@
 # Compliance Status
 
-Last reviewed: 2026-04-23
+Last reviewed: 2026-04-26
 
 Status legend:
 - `DONE`: implemented and verified.
@@ -60,13 +60,14 @@ Status legend:
 10. OpenHiking bundled theme redistribution/license verification
    - Status: `DONE`
    - Evidence:
-     - Project owner confirmed on 2026-04-23 that the OpenHiking theme license is `CC BY-SA`.
+     - Project owner confirmed on 2026-04-26 that approval was received from OpenHiking.
+     - Project owner confirmed the OpenHiking theme license is `CC BY-SA`.
    - Notes:
      - OpenHiking snapshot is now embedded in `app/src/main/assets/theme/openhiking`.
      - OpenHiking theme ZIP integration remains available as an optional refresh path in the build pipeline.
      - The observed ZIP did not include an obvious standalone license/readme file.
      - Keep attribution and share-alike obligations with the project docs.
-     - Archive the exact upstream page/version privately when available.
+     - Archive the exact upstream page/version and approval details privately when available.
 
 11. French Kiss bundled theme redistribution/license verification
    - Status: `PENDING`
@@ -78,18 +79,25 @@ Status legend:
      - Confirm redistribution and attribution requirements with upstream/XCTrack before public release.
 
 12. Tiramisu bundled theme non-commercial license review
-   - Status: `PENDING`
-   - Notes:
+   - Status: `DONE`
+   - Evidence:
      - Tiramisu snapshot is embedded in `app/src/main/assets/theme/tiramisu`.
      - The observed release archive includes a CC BY-NC-SA 3.0 license.
-     - Confirm whether public repository distribution and any app release plan are compatible with this license.
+     - Project owner confirmed on 2026-04-26 that GlanceMap's distribution model is noncommercial.
+   - Notes:
+     - Keep attribution and share-alike obligations with the project docs.
+     - Re-review before any commercial distribution model change.
 
 13. Hike, Ride & Sight bundled theme non-commercial license review
-   - Status: `PENDING`
-   - Notes:
+   - Status: `DONE`
+   - Evidence:
      - Hike, Ride & Sight snapshot is embedded in `app/src/main/assets/theme/hike-ride-sight`.
      - The observed XML header declares CC BY-NC-SA 3.0.
-     - Confirm whether public repository distribution and any app release plan are compatible with this license.
+     - Project owner confirmed on 2026-04-26 that approval was received for GlanceMap's use/redistribution.
+     - Required credit links are included in `licenses/CREDITS_AND_THANKS.md`.
+   - Notes:
+     - Keep attribution and share-alike obligations with the project docs.
+     - Re-review before any commercial distribution model change.
 
 ## Public repository and release gate
 
@@ -100,5 +108,6 @@ residual risk is explicitly accepted. Publishing this repository publicly also
 publishes the bundled third-party assets.
 
 Current gate result:
-- `DO NOT MAKE PUBLIC YET` unless the remaining pending bundled asset redistribution/license items are resolved or the affected assets are removed from the public branch.
+- `DO NOT MAKE PUBLIC YET` unless French Kiss redistribution/license is resolved or the French Kiss assets are removed from the public branch.
 - OpenAndroMaps/Elevate permission and source readme/license evidence are no longer blockers based on the project owner's confirmation and the checked-in source fallback readme.
+- OpenHiking, Tiramisu, and Hike, Ride & Sight are no longer blockers based on the project owner's confirmations and the current noncommercial distribution model.
