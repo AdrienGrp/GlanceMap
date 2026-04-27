@@ -1,6 +1,6 @@
 # Data and Asset Attribution
 
-Last reviewed: 2026-04-26
+Last reviewed: 2026-04-27
 
 This file tracks attribution and licensing notes for non-code map assets, datasets and imported POI sources used by GlanceMap.
 
@@ -92,7 +92,9 @@ Important:
 
 Important:
 - No standalone license file was observed next to the extracted theme assets.
-- Redistribution and attribution terms for bundling French Kiss should be confirmed before public release.
+- Project owner confirmed on 2026-04-27 that approval was received from the French Kiss developer.
+- Keep the current attribution in the project credits unless upstream requests more specific wording later.
+- Archive the exact approval details privately.
 - User-facing note is available in `licenses/FRENCH_KISS_THEME.md`.
 
 ## 6) Hike, Ride & Sight Mapsforge theme

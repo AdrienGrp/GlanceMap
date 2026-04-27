@@ -1,6 +1,6 @@
 # French Kiss Theme
 
-Last reviewed: 2026-04-26
+Last reviewed: 2026-04-27
 
 ## Summary
 
@@ -26,23 +26,19 @@ No standalone license/readme file was observed next to these assets in the APK s
 
 ## Redistribution status
 
-Current status: `PENDING REVIEW`
+Current status: `APPROVED FOR CURRENT GLANCEMAP DISTRIBUTION`
 
 Notes:
 
-- French Kiss is bundled here for local evaluation/testing.
+- French Kiss is bundled here as part of the GlanceMap theme set.
 - We have provenance from the XCTrack APK snapshot and the XML header attribution.
-- We do not yet have a separate explicit redistribution grant or standalone license text for this theme.
-- This is the remaining bundled-theme blocker before making the repository public.
-
-Before any public release, confirm:
-
-1. whether XCTrack/Pascal Cochet permits redistribution of the theme files in another app,
-2. what attribution text is required, and
-3. whether modified or extracted copies need additional notice.
+- Project owner confirmed on 2026-04-27 that approval was received from the French Kiss developer.
+- No standalone license/readme file was observed next to the extracted theme assets.
+- Keep the current attribution in the project credits unless upstream requests more specific wording later.
+- Keep the original approval message outside the public repository and archive the request/response dates and approved scope privately.
 
 ## User-facing attribution draft
 
-Suggested short attribution while under review:
+Suggested short attribution:
 
 - `French Kiss theme for XCTrack by Pascal Cochet`

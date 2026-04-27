@@ -19,7 +19,7 @@ This folder tracks third-party licensing and attribution for `GlanceMap` (watch 
 - `OPENHIKING_THEME.md`
   - Dedicated note for the bundled OpenHiking theme snapshot and approval/license status.
 - `FRENCH_KISS_THEME.md`
-  - Dedicated note for the bundled French Kiss theme snapshot sourced from XCTrack and pending redistribution review.
+  - Dedicated note for the bundled French Kiss theme snapshot sourced from XCTrack and its approval status.
 - `TIRAMISU_THEME.md`
   - Dedicated note for the bundled Tiramisu theme snapshot and its noncommercial compatibility status.
 - `HIKE_RIDE_SIGHT_THEME.md`

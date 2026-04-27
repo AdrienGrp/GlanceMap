@@ -4,10 +4,9 @@ GlanceMap is a Wear OS navigation app with an Android companion app for file tra
 
 ## Public Repository Status
 
-This repository is close to public-ready, but the bundled French Kiss theme
-still needs redistribution clearance or removal from the public branch. Check
-`licenses/COMPLIANCE_STATUS.md` and `docs/PUBLIC_REPO_CHECKLIST.md` before
-changing GitHub visibility.
+From a bundled-asset licensing standpoint, this repository is now ready to be
+made public. Before changing GitHub visibility, complete the remaining
+operational steps in `docs/PUBLIC_REPO_CHECKLIST.md`.
 
 ## Modules
 

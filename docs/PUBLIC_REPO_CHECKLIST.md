@@ -32,9 +32,9 @@ source code and bundled assets is still public distribution.
   - Suggested topics: `android`, `kotlin`, `wear-os`, `offline-maps`, `mapsforge`, `gpx`, `brouter`.
   - Set the repository website to `https://adriengrp.github.io/GlanceMap/`
     after GitHub Pages is enabled.
-- Third-party bundled assets: `ONE BLOCKER LEFT`
-  - Do not make the repository public until French Kiss redistribution is
-    resolved or the French Kiss assets are removed from the public branch.
+- Third-party bundled assets: `READY`
+  - No remaining bundled-theme redistribution blocker is recorded for the
+    current public repository plan.
 
 ## Before Switching GitHub Visibility
 
@@ -49,20 +49,23 @@ source code and bundled assets is still public distribution.
 
    Expected result: no output.
 
-3. Resolve or remove bundled assets with pending redistribution review:
-   - French Kiss bundled theme redistribution/license verification.
-4. Archive the OpenAndroMaps/Elevate agreement details outside the public repo:
-   - parties,
-   - request/response dates,
-   - approved scope for public source distribution, APK/AAB bundling, and modified/adapted assets.
-5. Re-check `licenses/COMPLIANCE_STATUS.md` and update its review date/status.
-6. Update GitHub repository metadata:
+3. Archive third-party approval details outside the public repo:
+   - OpenAndroMaps/Elevate
+   - OpenHiking
+   - French Kiss
+   - Hike, Ride & Sight, if the approval terms are only stored in private messages
+   - For each approval, keep:
+     - parties,
+     - request/response dates,
+     - approved scope for public source distribution, APK/AAB bundling, and modified/adapted assets.
+4. Re-check `licenses/COMPLIANCE_STATUS.md` and update its review date/status.
+5. Update GitHub repository metadata:
    - Replace the description with the concise public description above.
    - Add the suggested repository topics.
    - Leave the website empty until GitHub Pages is actually enabled.
-7. Enable GitHub Pages from branch `main`, folder `/docs`, then confirm
+6. Enable GitHub Pages from branch `main`, folder `/docs`, then confirm
    `https://adriengrp.github.io/GlanceMap/privacy-policy/` loads.
-8. Enable GitHub private vulnerability reporting or add `SECURITY.md` with a
+7. Enable GitHub private vulnerability reporting or add `SECURITY.md` with a
    current contact path before inviting outside users to report issues.
 
 ## Useful Local Checks

@@ -1,6 +1,6 @@
 # Compliance Status
 
-Last reviewed: 2026-04-26
+Last reviewed: 2026-04-27
 
 Status legend:
 - `DONE`: implemented and verified.
@@ -70,13 +70,16 @@ Status legend:
      - Archive the exact upstream page/version and approval details privately when available.
 
 11. French Kiss bundled theme redistribution/license verification
-   - Status: `PENDING`
-   - Notes:
+   - Status: `DONE`
+   - Evidence:
      - French Kiss snapshot is now embedded in `app/src/main/assets/theme/frenchkiss`.
      - Current snapshot was extracted from the user-provided XCTrack beta APK.
      - The embedded XML identifies it as an IGN TOP25 theme for XCTrack by Pascal Cochet.
+     - Project owner confirmed on 2026-04-27 that approval was received from the French Kiss developer.
+   - Notes:
      - No separate standalone license file was observed alongside the theme assets.
-     - Confirm redistribution and attribution requirements with upstream/XCTrack before public release.
+     - Keep the current attribution in the project credits unless upstream requests more specific wording later.
+     - Keep the original approval message outside the public repository and archive the request/response dates and approved scope privately.
 
 12. Tiramisu bundled theme non-commercial license review
    - Status: `DONE`
@@ -108,6 +111,7 @@ residual risk is explicitly accepted. Publishing this repository publicly also
 publishes the bundled third-party assets.
 
 Current gate result:
-- `DO NOT MAKE PUBLIC YET` unless French Kiss redistribution/license is resolved or the French Kiss assets are removed from the public branch.
+- `READY FROM A BUNDLED-ASSET LICENSING STANDPOINT`, with no remaining recorded redistribution blocker for the current theme set.
 - OpenAndroMaps/Elevate permission and source readme/license evidence are no longer blockers based on the project owner's confirmation and the checked-in source fallback readme.
-- OpenHiking, Tiramisu, and Hike, Ride & Sight are no longer blockers based on the project owner's confirmations and the current noncommercial distribution model.
+- OpenHiking, French Kiss, Tiramisu, and Hike, Ride & Sight are no longer blockers based on the project owner's confirmations and the current noncommercial distribution model where relevant.
+- Remaining pre-public tasks are operational items in `docs/PUBLIC_REPO_CHECKLIST.md` such as GitHub metadata, Pages enablement, and security reporting.
