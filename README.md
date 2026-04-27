@@ -2,6 +2,19 @@
 
 GlanceMap is a Wear OS navigation app with an Android companion app for file transfer and sync.
 
+![GlanceMap feature banner](docs/images/GlanceMap_feature_1024x500_final.png)
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/screenshots/home-screen.png" alt="Home screen" width="220" />
+  <img src="docs/images/screenshots/maps-screen.png" alt="Offline maps screen" width="220" />
+</p>
+<p align="center">
+  <img src="docs/images/screenshots/measuring-gpx.png" alt="GPX measurement screen" width="220" />
+  <img src="docs/images/screenshots/slope-overlay.png" alt="Slope overlay screen" width="220" />
+</p>
+
 ## Public Repository Status
 
 From a bundled-asset licensing standpoint, this repository is now ready to be
