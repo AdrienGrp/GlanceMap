@@ -131,14 +131,7 @@ private fun CreditsAndLegalScreen(
                     .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = versionLabel,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            CreditsAndLegalIntro(versionLabel = versionLabel)
             COMPANION_CREDITS_AND_LEGAL_DOCUMENTS.forEach { document ->
                 OutlinedButton(
                     onClick = { onOpenDocument(document) },
@@ -158,6 +151,19 @@ private fun CreditsAndLegalScreen(
             }
         }
     }
+}
+
+@Suppress("FunctionNaming")
+@Composable
+private fun CreditsAndLegalIntro(versionLabel: String) {
+    Text(
+        text = "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    Text(
+        text = versionLabel,
+        style = MaterialTheme.typography.bodySmall,
+    )
 }
 
 @Composable

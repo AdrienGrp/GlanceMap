@@ -200,7 +200,9 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         listOf(
                             ThemeLegendLink(
                                 label = "Open legend PDF",
-                                url = "https://raw.githubusercontent.com/IgorMagellan/Tiramisu/main/Tiramisu_3_Legend.pdf",
+                                url =
+                                    "https://raw.githubusercontent.com/IgorMagellan/Tiramisu/main/" +
+                                        "Tiramisu_3_Legend.pdf",
                                 fileName = "Tiramisu_3_Legend.pdf",
                             ),
                             ThemeLegendLink(
@@ -215,7 +217,9 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         listOf(
                             ThemeLegendLink(
                                 label = "Open theme website",
-                                url = "https://github.com/mapsforge/mapsforge/tree/master/mapsforge-themes/src/main/resources/assets",
+                                url =
+                                    "https://github.com/mapsforge/mapsforge/tree/master/" +
+                                        "mapsforge-themes/src/main/resources/assets",
                             ),
                         ),
                 ),
@@ -936,7 +940,8 @@ private fun downloadCompanionPdf(
 ) {
     runCatching {
         val request =
-            DownloadManager.Request(Uri.parse(url))
+            DownloadManager
+                .Request(Uri.parse(url))
                 .setTitle(fileName)
                 .setDescription("Downloading theme legend")
                 .setMimeType("application/pdf")
