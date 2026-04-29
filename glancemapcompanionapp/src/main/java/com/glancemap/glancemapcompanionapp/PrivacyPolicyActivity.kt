@@ -329,6 +329,7 @@ private const val OPENHIKING_THEME_ASSET_PATH = "OPENHIKING_THEME.md"
 private const val FRENCH_KISS_THEME_ASSET_PATH = "FRENCH_KISS_THEME.md"
 private const val TIRAMISU_THEME_ASSET_PATH = "TIRAMISU_THEME.md"
 private const val HIKE_RIDE_SIGHT_THEME_ASSET_PATH = "HIKE_RIDE_SIGHT_THEME.md"
+private const val VOLUNTARY_THEME_ASSET_PATH = "VOLUNTARY_THEME.md"
 private const val DATA_AND_ASSET_ATTRIBUTION_ASSET_PATH = "DATA_AND_ASSET_ATTRIBUTION.md"
 private const val SERVICE_TERMS_AND_API_USAGE_ASSET_PATH = "SERVICE_TERMS_AND_API_USAGE.md"
 
@@ -412,9 +413,16 @@ private val COMPANION_CREDITS_AND_LEGAL_DOCUMENTS =
             showPrivacyContact = false,
         ),
         LegalDocument(
+            buttonLabel = "Voluntary Theme",
+            documentTitle = "Voluntary Theme",
+            secondaryLabel = "Bundled OS-inspired theme details",
+            assetPath = VOLUNTARY_THEME_ASSET_PATH,
+            showPrivacyContact = false,
+        ),
+        LegalDocument(
             buttonLabel = "Data & Asset Attribution",
             documentTitle = "Data & Asset Attribution",
-            secondaryLabel = "OSM, Elevate, OpenHiking, French Kiss, Tiramisu, HRS, DEM, icons",
+            secondaryLabel = "OSM, Elevate, bundled themes, DEM, icons",
             assetPath = DATA_AND_ASSET_ATTRIBUTION_ASSET_PATH,
             showPrivacyContact = false,
         ),

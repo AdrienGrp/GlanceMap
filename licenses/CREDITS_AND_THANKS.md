@@ -1,6 +1,6 @@
 # Credits and Thanks
 
-Last reviewed: 2026-04-26
+Last reviewed: 2026-04-29
 
 This page is the user-friendly credit summary for the main projects and communities used by GlanceMap.
 
@@ -30,29 +30,34 @@ This page is the user-friendly credit summary for the main projects and communit
    - Theme page: http://j.seydoux.free.fr/locus/hrs.html
    - Contact: https://arkluz.com/trk?contact
 
-7. OpenStreetMap contributors
+7. Voluntary themes (John Campbell)
+   - Additional bundled Mapsforge theme inspired by UK Ordnance Survey map conventions.
+   - Website: https://voluntary.nichesite.org/
+   - Credits: https://voluntary.nichesite.org/credits.html
+
+8. OpenStreetMap contributors
    - Map data attribution:
    - `Map data (c) OpenStreetMap contributors`
    - Copyright/licensing page: https://www.openstreetmap.org/copyright
 
-8. Refuges.info
+9. Refuges.info
    - Refuge and mountain POI data imports in the companion app.
    - Attribution: `© Les contributeurs de Refuges.info`
    - Website: https://www.refuges.info/
 
-9. Overpass API / OpenStreetMap community
+10. Overpass API / OpenStreetMap community
    - OSM POI enrichment for some imports.
    - API endpoint used: https://overpass-api.de/api/interpreter
 
-10. Mapsforge project
+11. Mapsforge project
    - Core offline map rendering stack in the watch app.
    - Project: https://github.com/mapsforge/mapsforge
 
-11. BRouter (Arndt Brenschede and contributors)
+12. BRouter (Arndt Brenschede and contributors)
    - Offline routing engine used by the watch app, with routing packs downloaded by the companion app.
    - Project: https://github.com/abrensch/brouter
 
-12. Mapbox Maki icons
+13. Mapbox Maki icons
    - Build-time POI icon source.
    - Project: https://github.com/mapbox/maki
 

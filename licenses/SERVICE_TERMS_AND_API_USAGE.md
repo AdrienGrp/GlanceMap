@@ -1,6 +1,6 @@
 # Service Terms and API Usage
 
-Last reviewed: 2026-04-26
+Last reviewed: 2026-04-29
 
 This document captures non-library legal/usage constraints for external services and providers referenced by the app/build pipeline.
 
@@ -46,7 +46,29 @@ Project status:
 - Keep attribution and share-alike obligations with the project docs.
 - Track current bundled snapshot details in `licenses/OPENHIKING_THEME.md`.
 
-## 3) Refuges.info API and data
+## 3) Voluntary Mapsforge theme
+
+Used for:
+- Voluntary local embedded theme assets in the watch app.
+- Voluntary theme website and legend references in the companion app.
+
+References:
+- https://voluntary.nichesite.org/
+- https://voluntary.nichesite.org/downloads.html
+- https://voluntary.nichesite.org/key.html
+- https://voluntary.nichesite.org/credits.html
+
+Term notes:
+- The public site exposes direct manual download and legend links, but no documented general-purpose API was found.
+- The downloaded theme ZIP observed on 2026-04-29 did not contain an obvious standalone license/readme file.
+- The XML header and credits page identify the theme license as CC BY-NC-SA 3.0.
+
+Project status:
+- Project owner confirmed on 2026-04-29 that approval was received from the creator for GlanceMap integration.
+- Keep attribution and share-alike obligations with the project docs.
+- Track current bundled snapshot details in `licenses/VOLUNTARY_THEME.md`.
+
+## 4) Refuges.info API and data
 
 Used for:
 - Companion API calls to:
@@ -61,7 +83,7 @@ Term notes:
 - Refuges.info point-page content is published under Creative Commons BY-SA.
 - Refuges.info also reuses OpenStreetMap data under ODbL where applicable.
 
-## 4) OpenStreetMap and Overpass
+## 5) OpenStreetMap and Overpass
 
 Used for:
 - OSM attribution in app.
@@ -78,7 +100,7 @@ Usage policy note:
   - less than 10,000 queries/day
   - less than 1 GB downloaded/day
 
-## 5) BRouter routing engine and routing segments
+## 6) BRouter routing engine and routing segments
 
 Used for:
 - Offline route calculation in the watch app through vendored BRouter modules.
@@ -99,7 +121,7 @@ Project note:
 - No separate public service-policy or rate-limit page was identified in the reviewed BRouter upstream pages on 2026-03-20.
 - Project inference: keep companion downloads conservative and re-check upstream terms before any large-scale automated usage.
 
-## 6) DEM and terrain sources
+## 7) DEM and terrain sources
 
 Used for:
 - DEM3 downloads from:
@@ -109,7 +131,7 @@ References:
 - https://download.mapsforge.org/maps/dem/
 - https://download.mapsforge.org/maps/dem/ReadMe.md
 
-## 7) Build-time POI icon source
+## 8) Build-time POI icon source
 
 Used for:
 - Maki SVG icon download during build.
@@ -118,7 +140,7 @@ References:
 - https://github.com/mapbox/maki
 - License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
 
-## 8) Google Play services terms context
+## 9) Google Play services terms context
 
 Used for:
 - `play-services-wearable`, `play-services-location` runtime dependencies.
@@ -130,6 +152,6 @@ References:
 Note:
 - These are Google SDK/service terms, not standard OSS licenses like Apache/LGPL.
 
-## 9) Non-affiliation statement
+## 10) Non-affiliation statement
 
 The app references external providers and websites for user convenience. Unless explicitly stated by those providers, GlanceMap is not officially affiliated with or endorsed by them.

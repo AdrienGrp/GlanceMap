@@ -17,6 +17,7 @@ object MapsforgeThemeCatalog {
     const val FRENCH_KISS_THEME_ID = "frenchkiss"
     const val TIRAMISU_THEME_ID = "tiramisu"
     const val HIKE_RIDE_SIGHT_THEME_ID = "hike_ride_sight"
+    const val VOLUNTARY_THEME_ID = "voluntary"
     private const val MAPSFORGE_THEME_PREFIX = "mapsforge:"
     val LEGACY_HILLSHADING_THEME_ID = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.HILLSHADING.name}"
     val DEFAULT_MAPSFORGE_STYLE_ID = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.DEFAULT.name}"
@@ -79,5 +80,6 @@ object MapsforgeThemeCatalog {
             themeId == OPENHIKING_THEME_ID ||
             themeId == FRENCH_KISS_THEME_ID ||
             themeId == TIRAMISU_THEME_ID ||
-            themeId == HIKE_RIDE_SIGHT_THEME_ID
+            themeId == HIKE_RIDE_SIGHT_THEME_ID ||
+            themeId == VOLUNTARY_THEME_ID
 }

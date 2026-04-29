@@ -32,4 +32,12 @@ class ThemeOverlayGroupingTest {
         assertEquals("map", ThemeOverlayGrouping.groupIdForOverlay("more"))
         assertEquals("map", ThemeOverlayGrouping.groupIdForOverlay("less"))
     }
+
+    @Test
+    fun groupsVoluntaryRouteAndWinterOverlays() {
+        assertEquals("routes", ThemeOverlayGrouping.groupIdForOverlay("h_routes"))
+        assertEquals("routes", ThemeOverlayGrouping.groupIdForOverlay("c_s_color_routes"))
+        assertEquals("routes", ThemeOverlayGrouping.groupIdForOverlay("mtb_routes"))
+        assertEquals("winter", ThemeOverlayGrouping.groupIdForOverlay("ski"))
+    }
 }

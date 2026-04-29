@@ -175,6 +175,27 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         ),
                 ),
                 ThemeLegendSource(
+                    label = "Voluntary",
+                    links =
+                        listOf(
+                            ThemeLegendLink(
+                                label = "Open legend PDF",
+                                url =
+                                    "https://ftp.gwdg.de/pub/misc/openstreetmap/openandromaps/" +
+                                        "themes/voluntary/downloads/Voluntary%20Key.pdf",
+                                fileName = "Voluntary_Key.pdf",
+                            ),
+                            ThemeLegendLink(
+                                label = "Open theme website",
+                                url = "https://voluntary.nichesite.org/",
+                            ),
+                            ThemeLegendLink(
+                                label = "Open theme details",
+                                url = "https://voluntary.nichesite.org/details.html",
+                            ),
+                        ),
+                ),
+                ThemeLegendSource(
                     label = "OpenHiking",
                     links =
                         listOf(
