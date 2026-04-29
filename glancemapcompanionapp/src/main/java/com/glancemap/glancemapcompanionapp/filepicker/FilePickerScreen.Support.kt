@@ -23,6 +23,7 @@ internal data class ExternalDownloadSource(
 internal data class ThemeLegendLink(
     val label: String,
     val url: String,
+    val fileName: String? = null,
 )
 
 internal data class ThemeLegendSource(
