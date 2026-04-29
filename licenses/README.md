@@ -24,6 +24,8 @@ This folder tracks third-party licensing and attribution for `GlanceMap` (watch 
   - Dedicated note for the bundled Tiramisu theme snapshot and its noncommercial compatibility status.
 - `HIKE_RIDE_SIGHT_THEME.md`
   - Dedicated note for the bundled Hike, Ride & Sight theme snapshot and its approval/noncommercial compatibility status.
+- `VOLUNTARY_THEME.md`
+  - Dedicated note for the bundled Voluntary theme snapshot and its approval/noncommercial compatibility status.
 - `SERVICE_TERMS_AND_API_USAGE.md`
   - Service/API usage terms and limits (OpenAndroMaps, Refuges.info, Overpass, Google Play services).
 - `COMPANION_EXTERNAL_SOURCES.md`

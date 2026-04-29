@@ -21,11 +21,13 @@ class ThemeRepositoryImpl(
         const val THEME_ID_FRENCH_KISS = MapsforgeThemeCatalog.FRENCH_KISS_THEME_ID
         const val THEME_ID_TIRAMISU = MapsforgeThemeCatalog.TIRAMISU_THEME_ID
         const val THEME_ID_HIKE_RIDE_SIGHT = MapsforgeThemeCatalog.HIKE_RIDE_SIGHT_THEME_ID
+        const val THEME_ID_VOLUNTARY = MapsforgeThemeCatalog.VOLUNTARY_THEME_ID
         const val DEFAULT_STYLE_ID = "__DEFAULT__"
         const val GLOBAL_HILL_SHADING_ID = "__GLOBAL_HILL_SHADING__"
         const val GLOBAL_RELIEF_OVERLAY_ID = "__GLOBAL_RELIEF_OVERLAY__"
         private const val WINTER_STYLE_ID = "elv-winter"
         private const val WINTER_WHITE_STYLE_ID = "__WINTER_WHITE__"
+        private const val VOLUNTARY_DEFAULT_STYLE_ID = "vol-hiking"
         private const val TAG = "ThemeRepository"
         private const val KEY_PREFIX_SELECTED_STYLE = "selected_style_"
         private const val KEY_PREFIX_ENABLED_OVERLAYS = "enabled_overlays_for_theme_"
@@ -78,6 +80,12 @@ class ThemeRepositoryImpl(
                 put(
                     THEME_ID_HIKE_RIDE_SIGHT,
                     parseThemeStyleMenuFromXml(context, THEME_ID_HIKE_RIDE_SIGHT, TAG),
+                )
+            }
+            if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_VOLUNTARY)) {
+                put(
+                    THEME_ID_VOLUNTARY,
+                    parseThemeStyleMenuFromXml(context, THEME_ID_VOLUNTARY, TAG),
                 )
             }
         }
@@ -138,6 +146,7 @@ class ThemeRepositoryImpl(
             THEME_ID_FRENCH_KISS,
             THEME_ID_TIRAMISU,
             THEME_ID_HIKE_RIDE_SIGHT,
+            THEME_ID_VOLUNTARY,
         )
 
     private fun themeSupportsNativeHillShading(themeId: String?): Boolean {
@@ -505,6 +514,9 @@ class ThemeRepositoryImpl(
         if (isWinterFamilyTheme(themeId) && parsed.stylesById.containsKey(WINTER_STYLE_ID)) {
             return WINTER_STYLE_ID
         }
+        if (themeId == THEME_ID_VOLUNTARY && parsed.stylesById.containsKey(VOLUNTARY_DEFAULT_STYLE_ID)) {
+            return VOLUNTARY_DEFAULT_STYLE_ID
+        }
         val fromMenu = parsed.defaultStyleId
         if (fromMenu != null && isStyleAllowedForTheme(themeId, fromMenu, parsed)) return fromMenu
         return allowedStylesForTheme(themeId, parsed).firstOrNull()?.id
@@ -622,6 +634,14 @@ class ThemeRepositoryImpl(
                     id = THEME_ID_HIKE_RIDE_SIGHT,
                     name = "Hike, Ride & Sight",
                     selected = selectedThemeIdUi == THEME_ID_HIKE_RIDE_SIGHT,
+                )
+        }
+        if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_VOLUNTARY)) {
+            items +=
+                ThemeListItem.ThemeOption(
+                    id = THEME_ID_VOLUNTARY,
+                    name = "Voluntary",
+                    selected = selectedThemeIdUi == THEME_ID_VOLUNTARY,
                 )
         }
         if (BundledRenderThemeAssetLocator.isThemeAvailable(context.assets, THEME_ID_OPENHIKING)) {

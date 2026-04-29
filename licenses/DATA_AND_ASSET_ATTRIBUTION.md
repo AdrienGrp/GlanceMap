@@ -1,6 +1,6 @@
 # Data and Asset Attribution
 
-Last reviewed: 2026-04-27
+Last reviewed: 2026-04-29
 
 This file tracks attribution and licensing notes for non-code map assets, datasets and imported POI sources used by GlanceMap.
 
@@ -119,7 +119,30 @@ Important:
 - The required user-facing links are kept in `licenses/CREDITS_AND_THANKS.md`.
 - User-facing note is available in `licenses/HIKE_RIDE_SIGHT_THEME.md`.
 
-## 7) Refuges.info data imports
+## 7) Voluntary Mapsforge theme
+
+- Local embedded theme files:
+  - `app/src/main/assets/theme/voluntary/Voluntary V5.xml`
+  - `app/src/main/assets/theme/voluntary/vol_res/`
+- Theme website:
+  - https://voluntary.nichesite.org/
+- Manual ZIP download:
+  - https://ftp.gwdg.de/pub/misc/openstreetmap/openandromaps/themes/voluntary/downloads/Voluntary%20MF5.zip
+- Legend:
+  - https://voluntary.nichesite.org/key.html
+  - https://ftp.gwdg.de/pub/misc/openstreetmap/openandromaps/themes/voluntary/downloads/Voluntary%20Key.pdf
+- Observed upstream license statement:
+  - Declared in the XML comment header and upstream credits page as CC BY-NC-SA 3.0
+
+Important:
+- No separate license file was observed in the downloaded ZIP.
+- The stated license is non-commercial.
+- Project owner confirmed on 2026-04-29 that approval was received from the creator for GlanceMap integration.
+- GlanceMap's current noncommercial distribution model is treated as compatible.
+- Keep attribution and share-alike obligations with the project docs.
+- User-facing note is available in `licenses/VOLUNTARY_THEME.md`.
+
+## 8) Refuges.info data imports
 
 - Companion imports POI data from:
   - `https://www.refuges.info/api/bbox`
@@ -131,7 +154,7 @@ Notes:
 - Refuges.info indicates point-page content under CC BY-SA.
 - Refuges.info also references OpenStreetMap data and ODbL constraints where applicable.
 
-## 8) Overpass API enrichment for OSM POIs
+## 9) Overpass API enrichment for OSM POIs
 
 - Companion enrichment endpoint:
   - `https://overpass-api.de/api/interpreter`
@@ -141,7 +164,7 @@ Notes:
 Usage note:
 - Public instance guidance indicates conservative limits (query/day and bandwidth/day).
 
-## 9) DEM elevation data (slope/hill rendering)
+## 10) DEM elevation data (slope/hill rendering)
 
 - Build/runtime flows use DEM3-style `.hgt.zip` tiles.
 - Default source in app/build pipeline:
@@ -150,7 +173,7 @@ Usage note:
   - https://download.mapsforge.org/maps/dem/
   - https://download.mapsforge.org/maps/dem/ReadMe.md
 
-## 10) POI icon assets
+## 11) POI icon assets
 
 - Build pipeline downloads Maki SVG icons from:
   - https://github.com/mapbox/maki
@@ -158,7 +181,7 @@ Usage note:
   - CC0 1.0 Universal
   - https://creativecommons.org/publicdomain/zero/1.0/
 
-## 11) BRouter routing assets and segments
+## 12) BRouter routing assets and segments
 
 - Bundled routing profile assets:
   - `app/src/main/assets/brouter/profiles2/lookups.dat`
@@ -174,12 +197,12 @@ Notes:
 - OpenStreetMap attribution remains relevant for the routing-segment data context.
 - The watch app vendors BRouter code separately under the MIT License; see `THIRD_PARTY_NOTICES.md` for the code-license notice.
 
-## 12) User-imported files
+## 13) User-imported files
 
 - The app supports user-imported map/POI/GPX files.
 - Licensing and redistribution rights for user-provided files remain the user's responsibility.
 
-## 13) Practical compliance checklist
+## 14) Practical compliance checklist
 
 - Keep a legal screen reachable from watch settings.
 - Keep `CREDITS_AND_THANKS.md` user-friendly and short.

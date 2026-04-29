@@ -256,8 +256,22 @@ fun LicensesScreen(onOpenGeneralSettings: () -> Unit) {
             item {
                 Chip(
                     modifier = Modifier.fillMaxWidth(),
+                    label = "Voluntary Theme",
+                    secondaryLabel = "Bundled OS-inspired theme details",
+                    onClick = {
+                        selectedDocument =
+                            LicenseDocument(
+                                title = "Voluntary Theme",
+                                assetPath = "licenses/VOLUNTARY_THEME.md",
+                            )
+                    },
+                )
+            }
+            item {
+                Chip(
+                    modifier = Modifier.fillMaxWidth(),
                     label = "Data & Asset Attribution",
-                    secondaryLabel = "OSM, Elevate, OpenHiking, French Kiss, Tiramisu, HRS, DEM, icons",
+                    secondaryLabel = "OSM, Elevate, bundled themes, DEM, icons",
                     onClick = {
                         selectedDocument =
                             LicenseDocument(

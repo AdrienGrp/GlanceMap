@@ -24,6 +24,7 @@ class BundledAssetThemeComposer(
     companion object {
         private const val TAG = "BundledThemeComposer"
         private const val RESOURCE_THEME_MARKER_FILE = ".theme_id"
+        private const val VOLUNTARY_DEFAULT_STYLE_ID = "vol-hiking"
     }
 
     private data class StyleMenuMetadata(
@@ -336,7 +337,11 @@ class BundledAssetThemeComposer(
             }.toCollection(linkedSetOf())
     }
 
-    private fun resolveDefaultStyleIdFromAssets(themeId: String): String? = assetMetadataForTheme(themeId).styleMenuMetadata.defaultStyleId
+    private fun resolveDefaultStyleIdFromAssets(themeId: String): String? =
+        when (themeId) {
+            MapsforgeThemeCatalog.VOLUNTARY_THEME_ID -> VOLUNTARY_DEFAULT_STYLE_ID
+            else -> assetMetadataForTheme(themeId).styleMenuMetadata.defaultStyleId
+        }
 
     private fun fingerprintForTheme(themeId: String): String {
         val timingMarker = MapHotPathDiagnostics.begin("themeComposer.fingerprintForTheme")

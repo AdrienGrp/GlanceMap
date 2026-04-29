@@ -1,6 +1,6 @@
 # Compliance Status
 
-Last reviewed: 2026-04-27
+Last reviewed: 2026-04-29
 
 Status legend:
 - `DONE`: implemented and verified.
@@ -102,6 +102,18 @@ Status legend:
      - Keep attribution and share-alike obligations with the project docs.
      - Re-review before any commercial distribution model change.
 
+14. Voluntary bundled theme non-commercial license review
+   - Status: `DONE`
+   - Evidence:
+     - Voluntary snapshot is embedded in `app/src/main/assets/theme/voluntary`.
+     - The observed XML header and upstream credits page declare CC BY-NC-SA 3.0.
+     - Project owner confirmed on 2026-04-29 that approval was received from the creator for GlanceMap integration.
+     - Legend and reference links are included in the companion app.
+   - Notes:
+     - Keep attribution and share-alike obligations with the project docs.
+     - Keep the original approval message outside the public repository and archive the request/response dates and approved scope privately.
+     - Re-review before any commercial distribution model change.
+
 ## Public repository and release gate
 
 For a public repository or public app release, resolve all `BLOCKER` items.
@@ -113,5 +125,5 @@ publishes the bundled third-party assets.
 Current gate result:
 - `READY FROM A BUNDLED-ASSET LICENSING STANDPOINT`, with no remaining recorded redistribution blocker for the current theme set.
 - OpenAndroMaps/Elevate permission and source readme/license evidence are no longer blockers based on the project owner's confirmation and the checked-in source fallback readme.
-- OpenHiking, French Kiss, Tiramisu, and Hike, Ride & Sight are no longer blockers based on the project owner's confirmations and the current noncommercial distribution model where relevant.
+- OpenHiking, French Kiss, Tiramisu, Hike, Ride & Sight, and Voluntary are no longer blockers based on the project owner's confirmations and the current noncommercial distribution model where relevant.
 - Remaining pre-public tasks are operational items in `docs/PUBLIC_REPO_CHECKLIST.md` such as GitHub metadata, Pages enablement, and security reporting.

@@ -50,6 +50,11 @@ object BundledRenderThemeAssetLocator {
                     generatedRoot = "theme/hike-ride-sight",
                     xmlFileName = "HikeRideSight.xml",
                 ),
+            MapsforgeThemeCatalog.VOLUNTARY_THEME_ID to
+                ThemeSpec(
+                    generatedRoot = "theme/voluntary",
+                    xmlFileName = "Voluntary V5.xml",
+                ),
         )
 
     fun isThemeAvailable(
@@ -107,6 +112,7 @@ object BundledRenderThemeAssetLocator {
             MapsforgeThemeCatalog.FRENCH_KISS_THEME_ID -> MapsforgeThemeCatalog.FRENCH_KISS_THEME_ID
             MapsforgeThemeCatalog.TIRAMISU_THEME_ID -> MapsforgeThemeCatalog.TIRAMISU_THEME_ID
             MapsforgeThemeCatalog.HIKE_RIDE_SIGHT_THEME_ID -> MapsforgeThemeCatalog.HIKE_RIDE_SIGHT_THEME_ID
+            MapsforgeThemeCatalog.VOLUNTARY_THEME_ID -> MapsforgeThemeCatalog.VOLUNTARY_THEME_ID
             else -> null
         }
 
