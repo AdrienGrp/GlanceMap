@@ -26,12 +26,14 @@ source code and bundled assets is still public distribution.
     2026-04-20.
   - Keep the original agreement messages private, and record dates/scope before
     switching visibility.
-- GitHub repository metadata: `NEEDS POLISH`
-  - Current repository description is long and has grammar issues.
-  - Suggested description: `Offline Wear OS navigation with an Android companion for transferring maps, GPX tracks, POIs, and routing data to your watch.`
-  - Suggested topics: `android`, `kotlin`, `wear-os`, `offline-maps`, `mapsforge`, `gpx`, `brouter`.
+- GitHub repository metadata: `READY`
+  - Repository description should be: `Offline Wear OS navigation with an Android companion for transferring maps, GPX tracks, POIs, and routing data to your watch.`
+  - Repository topics should include: `android`, `kotlin`, `wear-os`,
+    `offline-maps`, `mapsforge`, `gpx`, `brouter`.
   - Set the repository website to `https://adriengrp.github.io/GlanceMap/`
     after GitHub Pages is enabled.
+- Security contact path: `READY`
+  - `SECURITY.md` points vulnerability reports to `Glancemap@protonmail.com`.
 - Third-party bundled assets: `READY`
   - No remaining bundled-theme redistribution blocker is recorded for the
     current public repository plan.
@@ -54,6 +56,7 @@ source code and bundled assets is still public distribution.
    - OpenHiking
    - French Kiss
    - Hike, Ride & Sight, if the approval terms are only stored in private messages
+   - Voluntary Theme
    - For each approval, keep:
      - parties,
      - request/response dates,
@@ -65,8 +68,8 @@ source code and bundled assets is still public distribution.
    - Leave the website empty until GitHub Pages is actually enabled.
 6. Enable GitHub Pages from branch `main`, folder `/docs`, then confirm
    `https://adriengrp.github.io/GlanceMap/privacy-policy/` loads.
-7. Enable GitHub private vulnerability reporting or add `SECURITY.md` with a
-   current contact path before inviting outside users to report issues.
+7. Enable GitHub private vulnerability reporting after the repository is public
+   if you want GitHub-native private advisories in addition to `SECURITY.md`.
 
 ## Useful Local Checks
 
