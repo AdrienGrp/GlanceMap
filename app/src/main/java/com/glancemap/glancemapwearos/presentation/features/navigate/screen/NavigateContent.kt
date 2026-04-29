@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +41,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
@@ -160,6 +162,9 @@ internal fun NavigateContent(
     poiPopupManualCloseOnly: Boolean,
     markerMotionDebugOverlayLabel: String?,
 ) {
+    SideEffect {
+        BenchmarkTrace.mark("recompose.NavigateContent")
+    }
     val mapView = mapHolder?.mapView
     val context = LocalContext.current
     val screenSize = rememberWearScreenSize()

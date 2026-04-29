@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.maps
 
 import android.util.Log
+import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
@@ -112,10 +113,12 @@ internal class ReliefDemRepository(
     }
 
     private fun readDemBytes(file: File): ByteArray? =
-        if (file.name.endsWith(".zip", ignoreCase = true)) {
-            readZipEntryBytes(file)
-        } else {
-            file.readBytes()
+        BenchmarkTrace.section("relief.demReadBytes") {
+            if (file.name.endsWith(".zip", ignoreCase = true)) {
+                readZipEntryBytes(file)
+            } else {
+                file.readBytes()
+            }
         }
 
     private fun readZipEntryBytes(file: File): ByteArray? {
@@ -137,24 +140,25 @@ internal class ReliefDemRepository(
         return null
     }
 
-    private fun decodeDemBytes(bytes: ByteArray): DemTileData? {
-        if (bytes.size < 4 || bytes.size % 2 != 0) return null
+    private fun decodeDemBytes(bytes: ByteArray): DemTileData? =
+        BenchmarkTrace.section("relief.demDecode") {
+            if (bytes.size < 4 || bytes.size % 2 != 0) return@section null
 
-        val sampleCount = bytes.size / 2
-        val rowLen = sqrt(sampleCount.toDouble()).toInt()
-        if (rowLen < 2 || rowLen * rowLen != sampleCount) return null
-        val axisLen = rowLen - 1
+            val sampleCount = bytes.size / 2
+            val rowLen = sqrt(sampleCount.toDouble()).toInt()
+            if (rowLen < 2 || rowLen * rowLen != sampleCount) return@section null
+            val axisLen = rowLen - 1
 
-        val samples = ShortArray(sampleCount)
-        var cursor = 0
-        for (i in 0 until sampleCount) {
-            val hi = bytes[cursor].toInt() and 0xFF
-            val lo = bytes[cursor + 1].toInt() and 0xFF
-            samples[i] = ((hi shl 8) or lo).toShort()
-            cursor += 2
+            val samples = ShortArray(sampleCount)
+            var cursor = 0
+            for (i in 0 until sampleCount) {
+                val hi = bytes[cursor].toInt() and 0xFF
+                val lo = bytes[cursor + 1].toInt() and 0xFF
+                samples[i] = ((hi shl 8) or lo).toShort()
+                cursor += 2
+            }
+            DemTileData(axisLen = axisLen, rowLen = rowLen, samples = samples)
         }
-        return DemTileData(axisLen = axisLen, rowLen = rowLen, samples = samples)
-    }
 
     private fun tileId(
         latTile: Int,

@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.presentation.features.maps
 
 import android.os.SystemClock
 import android.util.Log
+import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import org.mapsforge.core.graphics.Canvas
 import org.mapsforge.core.model.BoundingBox
 import org.mapsforge.core.model.Point
@@ -742,64 +743,100 @@ internal class ReliefOverlayLayer(
         val request = OverlayBuildRequest(key = key, quality = quality)
         val pendingCap = maxPendingJobs.coerceIn(1, MAX_PENDING_OVERLAY_JOBS)
 
-        synchronized(pendingOverlayJobs) {
-            if (pendingOverlayJobs.contains(request)) return
-            if (quality == OverlayBuildQuality.COARSE) {
-                val hasFinePending =
-                    pendingOverlayJobs.any { pending ->
-                        pending.key == key && pending.quality == OverlayBuildQuality.FINE
-                    }
-                if (hasFinePending) return
-            }
-            if (pendingOverlayJobs.size >= pendingCap) return
-            pendingOverlayJobs.add(request)
-        }
+        if (!enqueueOverlayTileBuild(request, pendingCap)) return
         notifyProcessingStateChangedIfNeeded()
 
         overlayWorker.execute {
             try {
                 if (isDestroyed || !overlayWorkEnabled) return@execute
 
-                val entry =
-                    runCatching {
-                        diskCache.loadOverlayTileEntryFromDisk(key)
-                            ?: tileRenderer.buildOverlayTile(key, quality).also { built ->
-                                diskCache.persistOverlayTileEntryToDisk(key = key, entry = built)
-                            }
-                    }.onFailure { error ->
-                        Log.w(
-                            TAG,
-                            "Failed building overlay tile z=${key.zoom} x=${key.tileX} y=${key.tileY} q=$quality",
-                            error,
-                        )
-                    }.getOrElse {
-                        OverlayTileEntry(
-                            bitmap = null,
-                            builtElapsedMs = SystemClock.elapsedRealtime(),
-                            status = OverlayTileStatus.FAILED,
-                            drawMode = OverlayTileDrawMode.STEADY,
-                            quality = quality,
-                        )
-                    }
+                val entry = buildOverlayTileEntry(key, quality)
 
-                if (isDestroyed) {
-                    entry.bitmap?.decrementRefCount()
-                    return@execute
-                }
-
-                synchronized(overlayTileCache) {
-                    overlayTileCache[key]?.bitmap?.decrementRefCount()
-                    overlayTileCache[key] = entry
-                }
+                if (!publishOverlayTileEntry(key, entry)) return@execute
 
                 notifyProcessingStateChangedIfNeeded()
                 requestRedrawSafely()
             } finally {
-                synchronized(pendingOverlayJobs) {
-                    pendingOverlayJobs.remove(request)
-                }
+                removePendingOverlayTileBuild(request)
                 notifyProcessingStateChangedIfNeeded()
             }
+        }
+    }
+
+    private fun enqueueOverlayTileBuild(
+        request: OverlayBuildRequest,
+        pendingCap: Int,
+    ): Boolean =
+        synchronized(pendingOverlayJobs) {
+            if (pendingOverlayJobs.contains(request)) return@synchronized false
+            if (request.quality == OverlayBuildQuality.COARSE && hasPendingFineOverlayTile(request.key)) {
+                return@synchronized false
+            }
+            if (pendingOverlayJobs.size >= pendingCap) return@synchronized false
+            pendingOverlayJobs.add(request)
+        }
+
+    private fun hasPendingFineOverlayTile(key: OverlayTileKey): Boolean =
+        pendingOverlayJobs.any { pending ->
+            pending.key == key && pending.quality == OverlayBuildQuality.FINE
+        }
+
+    private fun buildOverlayTileEntry(
+        key: OverlayTileKey,
+        quality: OverlayBuildQuality,
+    ): OverlayTileEntry =
+        runCatching {
+            diskCache.loadOverlayTileEntryFromDisk(key) ?: buildAndPersistOverlayTileEntry(key, quality)
+        }.onFailure { error ->
+            Log.w(
+                TAG,
+                "Failed building overlay tile z=${key.zoom} x=${key.tileX} y=${key.tileY} q=$quality",
+                error,
+            )
+        }.getOrElse {
+            failedOverlayTileEntry(quality)
+        }
+
+    private fun buildAndPersistOverlayTileEntry(
+        key: OverlayTileKey,
+        quality: OverlayBuildQuality,
+    ): OverlayTileEntry {
+        val built =
+            BenchmarkTrace.section("relief.overlayTileBuild") {
+                tileRenderer.buildOverlayTile(key, quality)
+            }
+        diskCache.persistOverlayTileEntryToDisk(key = key, entry = built)
+        return built
+    }
+
+    private fun failedOverlayTileEntry(quality: OverlayBuildQuality): OverlayTileEntry =
+        OverlayTileEntry(
+            bitmap = null,
+            builtElapsedMs = SystemClock.elapsedRealtime(),
+            status = OverlayTileStatus.FAILED,
+            drawMode = OverlayTileDrawMode.STEADY,
+            quality = quality,
+        )
+
+    private fun publishOverlayTileEntry(
+        key: OverlayTileKey,
+        entry: OverlayTileEntry,
+    ): Boolean {
+        if (isDestroyed) {
+            entry.bitmap?.decrementRefCount()
+            return false
+        }
+
+        synchronized(overlayTileCache) {
+            overlayTileCache[key]?.bitmap?.decrementRefCount()
+            overlayTileCache[key] = entry
+        }
+        return true
+    }
+
+    private fun removePendingOverlayTileBuild(request: OverlayBuildRequest) {
+        synchronized(pendingOverlayJobs) {
+            pendingOverlayJobs.remove(request)
         }
     }
 

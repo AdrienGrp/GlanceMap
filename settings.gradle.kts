@@ -30,6 +30,7 @@ dependencyResolutionManagement {
 rootProject.name = "GlanceMap"
 include(":app")
 include(":macrobenchmark")
+include(":companionmacrobenchmark")
 include(":glancemapcompanionapp")
 include(":transfercontract")
 include(":brouter-util")

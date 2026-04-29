@@ -31,6 +31,7 @@ internal object MapHotPathDiagnostics {
     class Marker internal constructor(
         val stage: String,
         val startedAtElapsedMs: Long,
+        val diagnosticsEnabled: Boolean,
     )
 
     private data class TimingEvent(
@@ -139,12 +140,19 @@ internal object MapHotPathDiagnostics {
         }
 
     fun begin(stage: String): Marker? {
-        if (!DebugTelemetry.isEnabled()) return null
+        BenchmarkTrace.begin(stage)
+        val diagnosticsEnabled = DebugTelemetry.isEnabled()
         val nowElapsedMs = SystemClock.elapsedRealtime()
-        synchronized(lock) {
-            ensureSession(nowElapsedMs)
+        if (diagnosticsEnabled) {
+            synchronized(lock) {
+                ensureSession(nowElapsedMs)
+            }
         }
-        return Marker(stage = stage, startedAtElapsedMs = nowElapsedMs)
+        return Marker(
+            stage = stage,
+            startedAtElapsedMs = nowElapsedMs,
+            diagnosticsEnabled = diagnosticsEnabled,
+        )
     }
 
     fun end(
@@ -153,36 +161,44 @@ internal object MapHotPathDiagnostics {
         detail: String = "",
     ) {
         if (marker == null) return
-        val nowElapsedMs = SystemClock.elapsedRealtime()
-        val eventLine =
-            synchronized(lock) {
-                if (sessionStartElapsedMs == 0L) {
-                    sessionStartElapsedMs = marker.startedAtElapsedMs
-                }
-                val event =
-                    TimingEvent(
-                        relativeMs = (nowElapsedMs - sessionStartElapsedMs).coerceAtLeast(0L),
-                        stage = marker.stage,
-                        durationMs = (nowElapsedMs - marker.startedAtElapsedMs).coerceAtLeast(0L),
-                        status = status,
-                        detail = detail,
-                    )
-                events.addLast(event)
-                while (events.size > MAX_LINES) {
-                    events.removeFirst()
-                    droppedLines += 1
-                }
-                buildString {
-                    append("+").append(event.relativeMs).append("ms")
-                    append(" stage=").append(event.stage)
-                    append(" durationMs=").append(event.durationMs)
-                    append(" status=").append(event.status)
-                    if (event.detail.isNotBlank()) {
-                        append(" ").append(event.detail)
+        if (!marker.diagnosticsEnabled) {
+            BenchmarkTrace.end()
+            return
+        }
+        try {
+            val nowElapsedMs = SystemClock.elapsedRealtime()
+            val eventLine =
+                synchronized(lock) {
+                    if (sessionStartElapsedMs == 0L) {
+                        sessionStartElapsedMs = marker.startedAtElapsedMs
+                    }
+                    val event =
+                        TimingEvent(
+                            relativeMs = (nowElapsedMs - sessionStartElapsedMs).coerceAtLeast(0L),
+                            stage = marker.stage,
+                            durationMs = (nowElapsedMs - marker.startedAtElapsedMs).coerceAtLeast(0L),
+                            status = status,
+                            detail = detail,
+                        )
+                    events.addLast(event)
+                    while (events.size > MAX_LINES) {
+                        events.removeFirst()
+                        droppedLines += 1
+                    }
+                    buildString {
+                        append("+").append(event.relativeMs).append("ms")
+                        append(" stage=").append(event.stage)
+                        append(" durationMs=").append(event.durationMs)
+                        append(" status=").append(event.status)
+                        if (event.detail.isNotBlank()) {
+                            append(" ").append(event.detail)
+                        }
                     }
                 }
-            }
-        DebugTelemetry.log(TAG, eventLine)
+            DebugTelemetry.log(TAG, eventLine)
+        } finally {
+            BenchmarkTrace.end()
+        }
     }
 
     inline fun <T> measure(

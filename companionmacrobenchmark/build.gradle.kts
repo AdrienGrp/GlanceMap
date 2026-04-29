@@ -3,18 +3,18 @@ plugins {
 }
 
 android {
-    namespace = "com.glancemap.glancemapwearos.macrobenchmark"
+    namespace = "com.glancemap.glancemapcompanionapp.macrobenchmark"
     compileSdk = 36
 
     defaultConfig {
-        minSdk = 30
+        minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Allow local iteration on emulators, but battery metrics still skip themselves there.
+        // Allow local smoke runs on emulators. Use a real phone for trusted numbers.
         testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "EMULATOR"
     }
 
-    targetProjectPath = ":app"
+    targetProjectPath = ":glancemapcompanionapp"
     experimentalProperties["android.experimental.self-instrumenting"] = true
 
     buildTypes {
@@ -37,5 +37,4 @@ kotlin {
 dependencies {
     implementation(libs.androidx.benchmark.macro.junit4)
     implementation(libs.androidx.junit)
-    implementation(libs.androidx.uiautomator)
 }
