@@ -10,7 +10,12 @@ to do:
 
 ::: Changelog ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-14/10.2025
+07.04.2026, Jérôme Seydoux
+- specific label for glaciers
+- no longer show labels for buildings that are also tourism with custom labels (or castle/ruins)
+- show alpin_huts that have an access tag (we previously show only those with no access tag at all, or access=private)
+
+14.10.2025
 - specific casing (butt) for bridges, to avoid rounded bridge boundary
 - always show overlay for unpaved roads
 - better overlay for cobbled roads
@@ -732,7 +737,6 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 		<overlay id="mtb_scale"/>
 		<overlay id="mtb_scale_uphill"/>
 		<overlay id="mtb_scale_imba"/>
-		<overlay id="mtb_scale_base"/>
 <!-- 
 		<overlay id="bicycle_access"/>
  -->
@@ -834,6 +838,9 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 	</rule>
 	<rule e="way" k="natural" v="glacier" closed="yes">
 		<area src="file:PATTERNS/glacier.svg" stroke="#add8e6" stroke-width="0.2"/>
+		<rule cat="placenames" e="way" k="*" v="*" zoom-min="14">
+			<caption k="name" font-style="bold_italic" font-size="9" fill="#1980bb" stroke="#ffffff" stroke-width="2" />
+		</rule>
 	</rule>
 	<rule e="node" k="natural" v="glacier">
 		<rule cat="placenames" e="node" k="*" v="*" zoom-min="14">
@@ -911,9 +918,9 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 			<pathText k="name" font-style="bold" font-size="9" fill="#606060" stroke="#ffffff" stroke-width="2"/>
 		</rule>
 	</rule>
-	<rule e="way" k="natural" v="valley">
-		<rule e="way" closed="no" k="*" v="*" zoom-max="15">	<pathText k="name" font-style="italic" font-family="serif" font-size="12" fill="#606060" stroke="#ffffff" stroke-width="0.1" repeat-start="10" repeat-gap="100" />	</rule>
-		<rule e="way" closed="no" k="*" v="*" zoom-min="16">	<pathText k="name" font-style="italic" font-family="serif" font-size="14" fill="#606060" stroke="#ffffff" stroke-width="0.1" repeat-start="80" repeat-gap="300" />	</rule>
+	<rule e="way" k="natural" v="valley" closed="no">
+		<rule e="way" k="*" v="*" zoom-max="15">	<pathText k="name" font-style="italic" font-family="serif" font-size="12" fill="#606060" stroke="#ffffff" stroke-width="0.1" display="always" repeat-start="10" repeat-gap="100"/>	</rule>
+		<rule e="way" k="*" v="*" zoom-min="16">	<pathText k="name" font-style="italic" font-family="serif" font-size="14" fill="#606060" stroke="#ffffff" stroke-width="0.1" display="always" repeat-start="80" repeat-gap="300"/>	</rule>
 	</rule>
 	<rule e="way" k="natural" v="ridge|arete" zoom-min="14">				<!-- <line stroke="#80606060" stroke-width="0.4" stroke-dasharray="6,8" stroke-linecap="round" /> -->
 																			<lineSymbol src="file:PATTERNS/ridge.svg" position="center" repeat="true" repeat-gap="10" repeat-start="0" display="always" priority="-20" symbol-height="16" />
@@ -948,7 +955,7 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 		<!-- add caption for natural tags for wich we don't already draw a caption or pathText -->
 		<!-- before mapsforge 0.22 (08/2024, Locus 4.x), we had to enumerate values which are not those we want to exclude: k="natural" v="marsh|wetland|crevasse|sinkhole" -->
 		<rule e="way" k="natural" v="*" zoom-min="14">
-			<rule e="way" k="natural" v="-|cliff|ridge|arete|gorge|canyon|gully|earth_bank" zoom-min="14">
+			<rule e="way" k="natural" v="-|cliff|ridge|arete|gorge|canyon|gully|earth_bank|valley|glacier" zoom-min="14">
 				<caption k="name" font-style="bold_italic" font-size="9" fill="#00A333" stroke="#ffffff" stroke-width="2" />
 			</rule>
 		</rule>
@@ -1057,6 +1064,9 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 	</rule>
 </rule>
 <rule e="any" k="leisure" v="slipway" zoom-min="15">					<symbol src="file:SYMBOLS/slipway.svg" symbol-height="20"/>																	</rule>
+
+<!-- Hillshading -->
+<hillshading zoom-min="7"/>
 
 <!-- major and medium contour lines -->
 <rule cat="major_elevations" e="way" k="contour_ext" v="*" zoom-min="11" zoom-max="12">
@@ -1331,7 +1341,7 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 	</rule>
 </rule>
 <rule e="node" k="waterway" v="weir" zoom-min="14">
-	<circle r="0.4" scale-radius="true" fill="#B3DDFF" stroke="#6060bf" stroke-width="0.2"/>
+	<circle radius="0.4" scale-radius="true" fill="#B3DDFF" stroke="#6060bf" stroke-width="0.2"/>
 </rule>
 
 <!-- airports, aeroway -->
@@ -2822,8 +2832,15 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 </rule>
 
 <!-- building -->
-<rule cat="buildings" e="way" k="building" v="*" zoom-min="15">	<area fill="#BBAAAAAA" stroke="#777777" stroke-width="0.1"/>
-	<rule cat="placenames" e="way" k="*" v="*" zoom-min="16">		<caption k="name" dy="-20" font-style="bold_italic" font-size="9" fill="#7E5A20" stroke="#ffffff" stroke-width="2" />				</rule>
+<rule cat="buildings" e="way" k="building" v="*" zoom-min="15">
+	<area fill="#BBAAAAAA" stroke="#777777" stroke-width="0.1"/>
+	<rule e="way" k="tourism" v="-|alpine_hut|wilderness_hut|hotel|motel|hostel|guest_house|chalet|apartment|camp_site|caravan_site|artwork|information|attraction|zoo">
+		<rule e="way" k="historic" v="-|castle|ruins">
+			<rule cat="placenames" e="way" k="*" v="*" zoom-min="16">
+				<caption k="name" dy="-20" font-style="bold_italic" font-size="9" fill="#7E5A20" stroke="#ffffff" stroke-width="2" />
+			</rule>
+		</rule>
+	</rule>
 </rule>
 <rule cat="house_numbers" e="any" k="*" v="*" zoom-min="17">		<caption k="addr:housenumber" display="always" font-style="bold_italic" font-size="8" fill="#333333" stroke="#ffffff" stroke-width="1.3" /></rule>
 
@@ -2867,20 +2884,20 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 		</rule>
 	</rule>
 	<rule cat="publictrans" e="any" k="railway" v="tram_stop" zoom-min="15">
-		<circle r="0.6" scale-radius="true" fill="#007700" stroke="#FFFFFF" stroke-width="0.2"/>
+		<circle radius="0.6" scale-radius="true" fill="#007700" stroke="#FFFFFF" stroke-width="0.2"/>
 		<rule cat="placenames" e="any" k="*" v="*" zoom-min="16">
 			<caption k="name" dy="-12" display="always" priority="100" font-style="bold_italic" font-size="9" fill="#007700" stroke="#FFFFFF" stroke-width="1" />
 		</rule>
 	</rule>
 </rule>
 <rule cat="publictrans" e="any" k="highway" v="bus_stop" zoom-min="15">
-	<circle r="0.6" scale-radius="true" fill="#FFFF00" stroke="#088A08" stroke-width="0.2"/>
+	<circle radius="0.6" scale-radius="true" fill="#FFFF00" stroke="#088A08" stroke-width="0.2"/>
 	<rule cat="placenames" e="any" k="*" v="*" zoom-min="17">
 		<caption k="name" dy="-15" priority="105" font-style="bold_italic" font-size="9" fill="#338833" stroke="#FFFFFF" stroke-width="1" />
 	</rule>
 </rule>
 <rule cat="publictrans" e="any" k="amenity" v="bus_station" zoom-min="14">
-	<circle r="0.8" scale-radius="true" fill="#77FF77" stroke="#088A08" stroke-width="0.2"/>
+	<circle radius="0.8" scale-radius="true" fill="#77FF77" stroke="#088A08" stroke-width="0.2"/>
 	<rule cat="placenames" e="any" k="*" v="*" zoom-min="15">
 		<caption k="name" dy="-25" priority="110" font-style="bold_italic" font-size="10" fill="#338833" stroke="#FFFFFF" stroke-width="2" />
 	</rule>
@@ -2911,7 +2928,7 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 </rule>
  -->
 <rule cat="hut_shelter" e="any" k="tourism" v="alpine_hut">
-	<rule e="any" k="access" v="~">
+	<rule e="any" k="access" v="-|private|acc_no|members_only">
 		<rule e="any" k="winter_room" v="wr_yes">
 			<symbol id="hut_alpine" src="file:SYMBOLS/hut_alpine_winter.svg" priority="110" display="always" symbol-height="16"/>
 		</rule>
@@ -2919,7 +2936,7 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 			<symbol id="hut_alpine" src="file:SYMBOLS/hut_alpine.svg" priority="110" display="always" symbol-height="16"/>
 		</rule>
 	</rule>
-	<rule e="any" k="access|reservation" v="private|acc_no|members_only" zoom-min="15">
+	<rule e="any" k="access" v="private|acc_no|members_only" zoom-min="15">
 		<symbol id="hut_alpine" src="file:SYMBOLS/hut_alpine_private.svg" priority="110" display="always" symbol-height="16"/>
 	</rule>
 	<rule e="any" k="*" v="*" zoom-min="13">
@@ -3165,8 +3182,8 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 		<caption k="ele" priority="-5" symbol-id="cave_entrance" position="below" font-style="bold" font-size="10" fill="#666666" stroke="#E5FFFFFF" stroke-width="2" />
 	</rule>
 </rule>
-<rule e="node" k="natural" v="spring" zoom-min="14">			<circle r="0.6" scale-radius="true" fill="#0080FF"/>																				</rule>
-<rule e="node" k="natural" v="hot_spring" zoom-min="14">		<circle r="0.6" scale-radius="true" fill="#d84447"/>																				</rule>
+<rule e="node" k="natural" v="spring" zoom-min="14">			<circle radius="0.6" scale-radius="true" fill="#0080FF"/>																				</rule>
+<rule e="node" k="natural" v="hot_spring" zoom-min="14">		<circle radius="0.6" scale-radius="true" fill="#d84447"/>																				</rule>
 <rule e="node" k="natural" v="geyser" zoom-min="14">			<symbol src="file:SYMBOLS/geyser.svg" symbol-height="20" />																			</rule>
 <rule e="node" k="natural" v="nat_stone" zoom-min="14">
 	<symbol src="file:SYMBOLS/stone.svg" symbol-height="20" id="nat_stone"/>
@@ -3232,8 +3249,8 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 </rule>
 
 <rule cat="vegetation_geology" e="node" k="natural" v="*">
-	<rule cat="placenames" e="any" k="*" v="*" zoom-min="15">
-		<caption k="name" dy="-15" font-style="bold_italic" font-size="9" fill="#00A333" stroke="#ffffff" stroke-width="2" />••••
+	<rule cat="placenames" e="any" k="natural" v="-|glacier|valley|peak|volcano|cave_entrance|nat_stone|saddle" zoom-min="15">
+		<caption k="name" dy="-15" font-style="bold_italic" font-size="9" fill="#00A333" stroke="#ffffff" stroke-width="2" />
 	</rule>
 </rule>
 
@@ -3241,10 +3258,10 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 <rule cat="hotel" e="any" k="tourism" v="hotel|motel|hostel|guest_house|chalet|apartment" zoom-min="15">
 	<rule cat="more" e="any" k="tourism" v="hotel|motel" zoom-min="15">										<symbol src="file:SYMBOLS/hotel.svg"	symbol-height="14"/>										</rule>
 	<rule cat="more" e="any" k="tourism" v="hostel|guest_house|chalet|apartment" zoom-min="15">				<symbol src="file:SYMBOLS/hostel.svg"	symbol-height="14"/>										</rule>
-	<rule cat="placenames" e="any" k="tourism" v="hotel|motel|hostel|guest_house|chalet|apartment" zoom-min="17">									
+	<rule cat="placenames" e="any" k="tourism" v="*" zoom-min="17">									
 		<caption k="name" dy="-15" font-style="bold_italic" font-size="10" fill="#0092DA" stroke="#ffffff" stroke-width="2" />
 	</rule>
-	<rule cat="less" e="any" k="tourism" v="hotel|motel|hostel|guest_house|chalet|apartment" zoom-min="16">	<symbol src="file:SYMBOLS/_blau.svg"	symbol-height="7"/>											</rule>
+	<rule cat="less" e="any" k="tourism" v="*" zoom-min="16">	<symbol src="file:SYMBOLS/_blau.svg"	symbol-height="7"/>											</rule>
 </rule>
 
 <!-- accomodation camping -->
@@ -3564,13 +3581,13 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 
 <!-- barrier -->
 <rule cat="barriers_parkings" e="any" k="barrier" v="gate" zoom-min="15">
-																		<!--	<circle r="0.6" scale-radius="true" fill="#707070"/>	-->
+																		<!--	<circle radius="0.6" scale-radius="true" fill="#707070"/>	-->
 																				<symbol src="file:SYMBOLS/gate.svg" symbol-height="20" />															</rule>
 <rule cat="barriers_parkings" e="any" k="barrier" v="block|cycle_barrier|kissing_gate|lift_gate|swing_gate|bollard|chain|log|entrance|yes" zoom-min="15">
 																				<symbol src="file:SYMBOLS/lift_gate.svg" symbol-height="20" />														</rule>
 <rule cat="barriers_parkings" e="any" k="barrier" v="stile|full-height_turnstile" zoom-min="15">
 																				<symbol src="file:SYMBOLS/stile.svg" symbol-height="20" />															</rule>
-<rule e="any" k="barrier" v="border_control|checkpoint" zoom-min="14">			<circle r="1.0" scale-radius="true" fill="#707070" stroke="#000000" stroke-width="0.4"/>							</rule>
+<rule e="any" k="barrier" v="border_control|checkpoint" zoom-min="14">			<circle radius="1.0" scale-radius="true" fill="#707070" stroke="#000000" stroke-width="0.4"/>							</rule>
 
 <!-- waymarks -->
 <rule cat="guidepost_board_cairn_survey" e="any" k="man_made" v="*">
@@ -3588,7 +3605,7 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 
 <!-- turning cycle -->
 <rule e="node" k="highway" v="*">
-	<rule e="node" k="highway" v="turning_circle" zoom-min="16">				<circle r="0.5" scale-radius="true" fill="#eeeeee" stroke="#444444" stroke-width="0.1" />							</rule>
+	<rule e="node" k="highway" v="turning_circle" zoom-min="16">				<circle radius="0.5" scale-radius="true" fill="#eeeeee" stroke="#444444" stroke-width="0.1" />							</rule>
 </rule>
 
 <!-- highway one-way markers -->
@@ -3620,9 +3637,9 @@ most symbols: http://www.sjjb.co.uk/mapicons - CC-0 license
 </rule>
 
 <!-- highway exits -->
-<rule e="node" k="highway" v="motorway_junction" zoom-max="13">					<circle r="3.0" fill="#FF0000" />																					</rule>
+<rule e="node" k="highway" v="motorway_junction" zoom-max="13">					<circle radius="3.0" fill="#FF0000" />																					</rule>
 <rule e="node" k="highway" v="motorway_junction" zoom-min="14">					
-	<circle r="1.9" scale-radius="true" fill="#dFdFFF" stroke="#FF0000" stroke-width="0.4"/>
+	<circle radius="1.9" scale-radius="true" fill="#dFdFFF" stroke="#FF0000" stroke-width="0.4"/>
 	<rule cat="placenames" e="any" k="*" v="*">
 		<caption k="name" 				display="always" dy="-20" font-style="bold" font-size="10" fill="#0100C8" stroke="#FFFF00" stroke-width="1.5" />
 	</rule>

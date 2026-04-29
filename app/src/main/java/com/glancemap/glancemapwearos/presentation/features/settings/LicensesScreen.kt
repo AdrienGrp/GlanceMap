@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.MaterialTheme
@@ -47,6 +48,7 @@ import kotlin.math.abs
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun LicensesScreen(onOpenGeneralSettings: () -> Unit) {
+    val appVersionLabel = rememberAppVersionLabel()
     val listTokens =
         rememberSettingsListTokens(
             compactTop = 24.dp,
@@ -86,6 +88,13 @@ fun LicensesScreen(onOpenGeneralSettings: () -> Unit) {
             item {
                 Text(
                     text = "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            item {
+                Text(
+                    text = appVersionLabel,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                 )
@@ -375,6 +384,29 @@ private fun LicenseDocumentDialog(
         }
     }
 }
+
+@Composable
+private fun rememberAppVersionLabel(): String {
+    val context = LocalContext.current
+    return remember(context) {
+        buildAppVersionLabel(context)
+    }
+}
+
+@Suppress("DEPRECATION")
+private fun buildAppVersionLabel(context: Context): String =
+    runCatching {
+        val packageInfo =
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                0,
+            )
+        val versionName = packageInfo.versionName ?: "unknown"
+        val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
+        "Version $versionName ($versionCode)"
+    }.getOrElse {
+        "Version unknown"
+    }
 
 private fun loadTextAsset(
     context: Context,

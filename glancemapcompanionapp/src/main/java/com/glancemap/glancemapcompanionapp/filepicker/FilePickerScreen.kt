@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpCenter
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -74,6 +76,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
     var showDebugDialog by remember { mutableStateOf(false) }
     var showRefugesDialog by remember { mutableStateOf(false) }
     var showRoutingMenu by remember { mutableStateOf(false) }
+    var showThemeLegendMenu by remember { mutableStateOf(false) }
     var showRoutingDialog by remember { mutableStateOf(false) }
     var showManagePhoneFilesDialog by remember { mutableStateOf(false) }
     var showMapSourcesMenu by remember { mutableStateOf(false) }
@@ -120,6 +123,94 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 ),
             )
         }
+    val themeLegendSources =
+        remember {
+            listOf(
+                ThemeLegendSource(
+                    label = "Elevate",
+                    links =
+                        listOf(
+                            ThemeLegendLink(
+                                label = "Open legend website",
+                                url = "https://www.openandromaps.org/en/legend/elevate-mountain-hike-theme",
+                            ),
+                            ThemeLegendLink(
+                                label = "Open legend PDF",
+                                url = "https://www.openandromaps.org/wp-content/users/tobias/Elevate.pdf",
+                            ),
+                        ),
+                ),
+                ThemeLegendSource(
+                    label = "Elevate Winter",
+                    links =
+                        listOf(
+                            ThemeLegendLink(
+                                label = "Open winter theme website",
+                                url = "https://www.senotto.de/Tipps_Tricks/GPS/OAM_Winter/OAM_Elevate_Winter.htm",
+                            ),
+                            ThemeLegendLink(
+                                label = "Open Elevate legend website",
+                                url = "https://www.openandromaps.org/en/legend/elevate-mountain-hike-theme",
+                            ),
+                        ),
+                ),
+                ThemeLegendSource(
+                    label = "Hike, Ride & Sight",
+                    links =
+                        listOf(
+                            ThemeLegendLink(
+                                label = "Open legend website",
+                                url = "http://j.seydoux.free.fr/locus/hrs.html",
+                            ),
+                            ThemeLegendLink(
+                                label = "Open legend PDF",
+                                url = "http://j.seydoux.free.fr/locus/Hike,%20Ride%20&%20Sight!.pdf",
+                            ),
+                        ),
+                ),
+                ThemeLegendSource(
+                    label = "OpenHiking",
+                    links =
+                        listOf(
+                            ThemeLegendLink(
+                                label = "Open theme website",
+                                url = "https://www.openhiking.eu/en/downloads/mapsforge-maps",
+                            ),
+                        ),
+                ),
+                ThemeLegendSource(
+                    label = "French Kiss",
+                    links =
+                        listOf(
+                            ThemeLegendLink(
+                                label = "Open XCTrack theme reference",
+                                url = "https://xctrack.org/AboutMaps.html",
+                            ),
+                        ),
+                ),
+                ThemeLegendSource(
+                    label = "Tiramisu",
+                    links =
+                        listOf(
+                            ThemeLegendLink(
+                                label = "Open README / legend notes",
+                                url = "https://github.com/IgorMagellan/Tiramisu",
+                            ),
+                        ),
+                ),
+                ThemeLegendSource(
+                    label = "Mapsforge",
+                    links =
+                        listOf(
+                            ThemeLegendLink(
+                                label = "Open Mapsforge themes",
+                                url = "https://github.com/mapsforge/mapsforge/tree/master/mapsforge-themes/src/main/resources/assets",
+                            ),
+                        ),
+                ),
+            )
+        }
+    var selectedThemeLegend by remember { mutableStateOf(themeLegendSources.first()) }
     // --- Permission Handling ---
     var hasNotificationPermission by remember {
         mutableStateOf(
@@ -644,7 +735,71 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     Spacer(modifier = Modifier.height(adaptive.sectionGap))
 
                     SectionCard(
-                        title = "6. Credits & Legal",
+                        title = "6. Theme legend",
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "Select a bundled theme and open its legend or reference page.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(
+                                    onClick = { showThemeLegendMenu = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        text = selectedThemeLegend.label,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.UnfoldMore,
+                                        contentDescription = "Select theme",
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showThemeLegendMenu,
+                                    onDismissRequest = { showThemeLegendMenu = false },
+                                ) {
+                                    themeLegendSources.forEach { source ->
+                                        DropdownMenuItem(
+                                            text = { Text(source.label) },
+                                            onClick = {
+                                                selectedThemeLegend = source
+                                                showThemeLegendMenu = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                            if (selectedThemeLegend.links.isEmpty()) {
+                                Text(
+                                    text = "No public legend link found yet for this theme.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                selectedThemeLegend.links.forEach { link ->
+                                    OutlinedButton(
+                                        onClick = { openCompanionUrl(context, link.url) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Text(link.label)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
+
+                    SectionCard(
+                        title = "7. Credits & Legal",
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(
@@ -734,5 +889,17 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 )
             }
         }
+    }
+}
+
+private fun openCompanionUrl(
+    context: android.content.Context,
+    url: String,
+) {
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }.onFailure { error ->
+        Log.w("FilePickerScreen", "Unable to open URL: $url", error)
+        Toast.makeText(context, "Unable to open link.", Toast.LENGTH_SHORT).show()
     }
 }

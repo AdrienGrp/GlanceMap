@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.pm.PackageInfoCompat
 import com.glancemap.glancemapcompanionapp.ui.theme.GlanceMapTheme
 import com.glancemap.shared.transfer.TransferDataLayerContract
 
@@ -97,6 +98,8 @@ private fun CreditsAndLegalScreen(
     onBack: () -> Unit,
     onOpenDocument: (LegalDocument) -> Unit,
 ) {
+    val versionLabel = rememberAppVersionLabel()
+
     Column(
         modifier =
             Modifier
@@ -131,6 +134,10 @@ private fun CreditsAndLegalScreen(
             Text(
                 text = "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
                 style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = versionLabel,
+                style = MaterialTheme.typography.bodySmall,
             )
             COMPANION_CREDITS_AND_LEGAL_DOCUMENTS.forEach { document ->
                 OutlinedButton(
@@ -221,6 +228,29 @@ private fun LegalDocumentScreen(
         }
     }
 }
+
+@Composable
+private fun rememberAppVersionLabel(): String {
+    val context = LocalContext.current
+    return remember(context) {
+        buildAppVersionLabel(context)
+    }
+}
+
+@Suppress("DEPRECATION")
+private fun buildAppVersionLabel(context: Context): String =
+    runCatching {
+        val packageInfo =
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                0,
+            )
+        val versionName = packageInfo.versionName ?: "unknown"
+        val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
+        "Version $versionName ($versionCode)"
+    }.getOrElse {
+        "Version unknown"
+    }
 
 private fun loadAssetDocumentText(
     context: Context,

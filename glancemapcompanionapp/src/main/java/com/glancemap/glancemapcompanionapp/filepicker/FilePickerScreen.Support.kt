@@ -20,6 +20,16 @@ internal data class ExternalDownloadSource(
     val url: String,
 )
 
+internal data class ThemeLegendLink(
+    val label: String,
+    val url: String,
+)
+
+internal data class ThemeLegendSource(
+    val label: String,
+    val links: List<ThemeLegendLink>,
+)
+
 internal data class PhoneStoredFilesGroup(
     val fileCount: Int,
     val totalBytes: Long,

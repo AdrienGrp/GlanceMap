@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -139,6 +140,7 @@ fun ThemeSettingsScreen(
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
     var showThemePicker by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
+    var selectedLegend by remember { mutableStateOf<ThemeLegendSpec?>(null) }
 
     val selectedStyle =
         themeItems
@@ -156,6 +158,10 @@ fun ThemeSettingsScreen(
     val styleOptions = themeItems.filterIsInstance<ThemeListItem.Style>()
     val overlayOptions = themeItems.filterIsInstance<ThemeListItem.Overlay>()
     val overlayGroups = remember(overlayOptions) { buildOverlayGroups(overlayOptions) }
+    val legendSpec =
+        remember(selectedThemeId, selectedStyleId) {
+            ThemeLegendCatalog.legendFor(selectedThemeId, selectedStyleId)
+        }
     val themePickerOptions =
         remember(themeOptions) {
             themeOptions.map { option -> option.id to option.name.ifBlank { option.id } }
@@ -245,6 +251,17 @@ fun ThemeSettingsScreen(
                 }
             }
 
+            if (legendSpec != null) {
+                item {
+                    SettingsPickerChip(
+                        label = "Legend",
+                        secondaryLabel = legendSpec.title,
+                        iconImageVector = Icons.AutoMirrored.Filled.MenuBook,
+                        onClick = { selectedLegend = legendSpec },
+                    )
+                }
+            }
+
             if (themeOptions.isNotEmpty()) {
                 item {
                     Text(
@@ -322,6 +339,13 @@ fun ThemeSettingsScreen(
             options = stylePickerOptions,
             onDismiss = { showStylePicker = false },
             onSelect = { selected -> themeViewModel.setMapStyle(selected) },
+        )
+    }
+
+    selectedLegend?.let { legend ->
+        ThemeLegendDialog(
+            legend = legend,
+            onDismiss = { selectedLegend = null },
         )
     }
 }
