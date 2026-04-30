@@ -9,6 +9,7 @@ This checklist is a repo-side release aid for GlanceMap. It is not the public pr
 - Developer Program Policy: https://support.google.com/googleplay/android-developer/answer/16070163?hl=en
 - Data safety form help: https://support.google.com/googleplay/android-developer/answer/10787469?hl=en
 - Sensitive permissions and APIs: https://support.google.com/googleplay/android-developer/answer/16558241?hl=en
+- Native debug symbols: https://developer.android.com/build/include-native-symbols
 
 ## Useful Play definitions
 
@@ -61,6 +62,10 @@ Repo-specific inference:
 6. Re-review whether user-initiated diagnostics export changes your Data safety answers, especially for crash logs, app info, and any location-related telemetry captured in support files.
 7. Re-review whether any user-selected or location-derived bounding box requests to third-party services should be reflected in your Play disclosures for the exact shipped flow.
 8. Do not claim stronger security than the app actually provides. In particular, the current local phone-to-watch Wi-Fi transfer is token-protected but uses local HTTP, not end-to-end encrypted internet transport.
+9. If Play Console shows the native debug symbols warning, check
+   `docs/GOOGLE_PLAY_NATIVE_SYMBOLS.md`. The current Gradle release config
+   already enables `SYMBOL_TABLE`; Play may still warn when the only bundled
+   native library is the already-stripped AndroidX `libandroidx.graphics.path.so`.
 
 ## Practical submission note
 
