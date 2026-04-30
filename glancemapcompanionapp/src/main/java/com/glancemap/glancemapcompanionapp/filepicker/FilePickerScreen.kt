@@ -1,13 +1,11 @@
 package com.glancemap.glancemapcompanionapp.filepicker
 
 import android.Manifest
-import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -136,7 +134,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                             ThemeLegendLink(
                                 label = "Open legend PDF",
                                 url = "https://www.openandromaps.org/wp-content/users/tobias/Elevate.pdf",
-                                fileName = "Elevate_Winter_legend.pdf",
                             ),
                             ThemeLegendLink(
                                 label = "Open theme website",
@@ -151,7 +148,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                             ThemeLegendLink(
                                 label = "Open legend PDF",
                                 url = "https://www.openandromaps.org/wp-content/users/tobias/Elevate.pdf",
-                                fileName = "Elevate_legend.pdf",
                             ),
                             ThemeLegendLink(
                                 label = "Open theme website",
@@ -166,7 +162,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                             ThemeLegendLink(
                                 label = "Open legend PDF",
                                 url = "http://j.seydoux.free.fr/locus/Hike,%20Ride%20&%20Sight!.pdf",
-                                fileName = "Hike_Ride_Sight_legend.pdf",
                             ),
                             ThemeLegendLink(
                                 label = "Open theme website",
@@ -183,15 +178,10 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                                 url =
                                     "https://ftp.gwdg.de/pub/misc/openstreetmap/openandromaps/" +
                                         "themes/voluntary/downloads/Voluntary%20Key.pdf",
-                                fileName = "Voluntary_Key.pdf",
                             ),
                             ThemeLegendLink(
                                 label = "Open theme website",
                                 url = "https://voluntary.nichesite.org/",
-                            ),
-                            ThemeLegendLink(
-                                label = "Open theme details",
-                                url = "https://voluntary.nichesite.org/details.html",
                             ),
                         ),
                 ),
@@ -224,7 +214,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                                 url =
                                     "https://raw.githubusercontent.com/IgorMagellan/Tiramisu/main/" +
                                         "Tiramisu_3_Legend.pdf",
-                                fileName = "Tiramisu_3_Legend.pdf",
                             ),
                             ThemeLegendLink(
                                 label = "Open theme website",
@@ -827,20 +816,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                                     ) {
                                         Text(link.label)
                                     }
-                                    if (link.fileName != null) {
-                                        OutlinedButton(
-                                            onClick = {
-                                                downloadCompanionPdf(
-                                                    context = context,
-                                                    url = link.url,
-                                                    fileName = link.fileName,
-                                                )
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                        ) {
-                                            Text("Download legend PDF")
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -951,31 +926,5 @@ private fun openCompanionUrl(
     }.onFailure { error ->
         Log.w("FilePickerScreen", "Unable to open URL: $url", error)
         Toast.makeText(context, "Unable to open link.", Toast.LENGTH_SHORT).show()
-    }
-}
-
-private fun downloadCompanionPdf(
-    context: Context,
-    url: String,
-    fileName: String,
-) {
-    runCatching {
-        val request =
-            DownloadManager
-                .Request(Uri.parse(url))
-                .setTitle(fileName)
-                .setDescription("Downloading theme legend")
-                .setMimeType("application/pdf")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(
-                    Environment.DIRECTORY_DOWNLOADS,
-                    fileName,
-                )
-        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        manager.enqueue(request)
-        Toast.makeText(context, "Downloading $fileName", Toast.LENGTH_SHORT).show()
-    }.onFailure { error ->
-        Log.w("FilePickerScreen", "Unable to download PDF: $url", error)
-        Toast.makeText(context, "Unable to download PDF.", Toast.LENGTH_SHORT).show()
     }
 }
