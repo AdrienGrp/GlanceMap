@@ -26,10 +26,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileNotFoundException
-import java.io.FileOutputStream
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URI
 import java.util.Locale
 
 private enum class OverlayPreset {
@@ -69,11 +65,6 @@ private data class DemTileDownloadOutcome(
     val networkUnavailable: Boolean,
 )
 
-private data class DemDownloadAttemptResult(
-    val bytesWritten: Long,
-    val resumedFromBytes: Long,
-)
-
 class ThemeViewModel(
     private val themeRepository: ThemeRepository,
     private val context: Context,
@@ -86,7 +77,6 @@ class ThemeViewModel(
         private const val DEM_TILE_RETRY_BASE_DELAY_MS = 1_500L
         private const val DEM_INTERNET_WAIT_TIMEOUT_MS = 8_000L
         private const val DEM_INTERNET_RECHECK_MS = 500L
-        private const val HTTP_REQUESTED_RANGE_NOT_SATISFIABLE = 416
     }
 
     private val appContext: Context = context.applicationContext
@@ -559,122 +549,6 @@ class ThemeViewModel(
 
     private fun getDemOutputRoot(): File = Dem3CoverageUtils.demRootDir(appContext)
 
-    private fun downloadFile(
-        url: String,
-        target: File,
-    ): DemDownloadAttemptResult {
-        val part = File(target.parentFile, ".${target.name}.part")
-        val resumeOffset = part.takeIf { it.exists() && it.isFile }?.length()?.coerceAtLeast(0L) ?: 0L
-        val tileName = target.name.removeSuffix(".hgt.zip").removeSuffix(".hgt")
-        if (resumeOffset > 0L) {
-            DemDownloadDiagnostics.record(
-                event = "tile_resume_attempt",
-                detail = "tile=$tileName partialBytes=$resumeOffset url=${url.demDiagValue()}",
-            )
-        }
-
-        val connection =
-            (URI(url).toURL().openConnection() as HttpURLConnection).apply {
-                connectTimeout = 20_000
-                readTimeout = 60_000
-                requestMethod = "GET"
-                instanceFollowRedirects = true
-                setRequestProperty("User-Agent", DEM3_USER_AGENT)
-                if (resumeOffset > 0L) {
-                    setRequestProperty("Range", "bytes=$resumeOffset-")
-                }
-            }
-
-        try {
-            val code = connection.responseCode
-            if (code == HttpURLConnection.HTTP_NOT_FOUND) {
-                if (part.exists()) part.delete()
-                DemDownloadDiagnostics.record(
-                    event = "tile_http",
-                    detail = "tile=$tileName code=$code action=missing url=${url.demDiagValue()}",
-                )
-                createMissingDemMarker(target)
-                throw FileNotFoundException("HTTP 404 for $url")
-            }
-            if (code == HTTP_REQUESTED_RANGE_NOT_SATISFIABLE && resumeOffset > 0L) {
-                if (part.exists()) part.delete()
-                DemDownloadDiagnostics.record(
-                    event = "tile_resume_rejected",
-                    detail = "tile=$tileName code=$code partialBytes=$resumeOffset url=${url.demDiagValue()}",
-                )
-                throw DemResumeRejectedException("DEM server rejected partial resume for $url")
-            }
-            if (code !in 200..299) {
-                DemDownloadDiagnostics.record(
-                    event = "tile_http",
-                    detail = "tile=$tileName code=$code action=fail url=${url.demDiagValue()}",
-                )
-                throw IllegalStateException("HTTP $code for $url")
-            }
-
-            val append = resumeOffset > 0L && code == HttpURLConnection.HTTP_PARTIAL
-            if (resumeOffset > 0L && code == HttpURLConnection.HTTP_OK && part.exists()) {
-                Log.w(TAG, "DEM server ignored Range for $url; restarting tile download.")
-                DemDownloadDiagnostics.record(
-                    event = "tile_resume_restart",
-                    detail = "tile=$tileName reason=range_ignored partialBytes=$resumeOffset url=${url.demDiagValue()}",
-                )
-                part.delete()
-            }
-
-            val startingBytes = if (append) resumeOffset else 0L
-            val expectedTotalBytes =
-                connection.contentLengthLong
-                    .takeIf { it > 0L }
-                    ?.let { contentLength -> startingBytes + contentLength }
-
-            connection.inputStream.use { input ->
-                FileOutputStream(part, append).use { out ->
-                    input.copyTo(out)
-                    out.flush()
-                    runCatching { out.fd.sync() }
-                }
-            }
-
-            if (expectedTotalBytes != null && part.length() != expectedTotalBytes) {
-                DemDownloadDiagnostics.record(
-                    event = "tile_incomplete",
-                    detail = "tile=$tileName expectedBytes=$expectedTotalBytes actualBytes=${part.length()}",
-                )
-                throw IOException("INCOMPLETE_DEM_TILE: expected=$expectedTotalBytes got=${part.length()}")
-            }
-
-            if (target.exists()) target.delete()
-            if (!part.renameTo(target)) {
-                throw IllegalStateException("Failed moving temp DEM file to ${target.absolutePath}")
-            }
-            try {
-                validateDemTileFile(target)
-            } catch (error: Exception) {
-                DemDownloadDiagnostics.record(
-                    event = "tile_validation_failed",
-                    detail =
-                        "tile=$tileName bytes=${target.length()} " +
-                            "error=${error.javaClass.simpleName} message=${error.message.orEmpty().demDiagValue()}",
-                )
-                target.delete()
-                throw error
-            }
-            DemDownloadDiagnostics.record(
-                event = "tile_saved",
-                detail =
-                    "tile=$tileName code=$code bytes=${target.length()} " +
-                        "resumedFromBytes=${if (append) resumeOffset else 0L}",
-            )
-            return DemDownloadAttemptResult(
-                bytesWritten = target.length(),
-                resumedFromBytes = if (append) resumeOffset else 0L,
-            )
-        } finally {
-            connection.disconnect()
-        }
-    }
-
     private suspend fun downloadTileWithRetries(
         url: String,
         target: File,
@@ -702,7 +576,12 @@ class ThemeViewModel(
 
             val success =
                 runCatching {
-                    downloadFile(url = url, target = target)
+                    downloadDemFile(
+                        url = url,
+                        target = target,
+                        demRoot = getDemOutputRoot(),
+                        userAgent = DEM3_USER_AGENT,
+                    )
                     true
                 }.getOrElse { error ->
                     lastError = error
@@ -771,19 +650,6 @@ class ThemeViewModel(
         return folder to file
     }
 
-    private fun createMissingDemMarker(target: File) {
-        val tileId = target.name.removeSuffix(".hgt.zip").removeSuffix(".hgt")
-        val marker =
-            Dem3CoverageUtils
-                .missingTileMarkerCandidates(
-                    demRoot = getDemOutputRoot(),
-                    tileId = tileId,
-                ).firstOrNull { it.parentFile == target.parentFile }
-                ?: File(target.parentFile ?: getDemOutputRoot(), "$tileId.hgt.missing")
-        marker.parentFile?.mkdirs()
-        marker.writeText("missing_upstream\n")
-    }
-
     private suspend fun waitForWatchInternetConnection(): Boolean {
         val deadline = SystemClock.elapsedRealtime() + DEM_INTERNET_WAIT_TIMEOUT_MS
         while (SystemClock.elapsedRealtime() < deadline) {
@@ -805,7 +671,7 @@ class ThemeViewModel(
     }
 }
 
-private fun String.demDiagValue(): String =
+internal fun String.demDiagValue(): String =
     replace(Regex("\\s+"), "_")
         .replace("|", "_")
         .take(180)
