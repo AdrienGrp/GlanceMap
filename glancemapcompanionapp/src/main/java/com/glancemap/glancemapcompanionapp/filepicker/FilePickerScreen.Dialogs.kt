@@ -6,19 +6,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ViewComfyAlt
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -26,12 +24,18 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.glancemap.glancemapcompanionapp.CompanionAdaptiveSpec
@@ -296,110 +300,246 @@ internal fun FilePickerQuickGuideDialog(
     adaptive: CompanionAdaptiveSpec,
     onDismiss: () -> Unit,
 ) {
-    val keepAppOpenInlineContent =
+    val pages =
         remember {
-            mapOf(
-                "keep_app_open_icon" to
-                    InlineTextContent(
-                        Placeholder(
-                            width = 1.em,
-                            height = 1.em,
-                            placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+            listOf(
+                QuickGuidePage(
+                    title = "Welcome to GlanceMap Companion App",
+                    lines =
+                        listOf(
+                            "Send maps, routes, POI, and GPX files from your phone to the watch.",
+                            "Once files are on the watch, GlanceMap can work offline without the phone.",
+                            "For battery saving, keeping phone and watch connected is still recommended.",
                         ),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Visibility,
-                            contentDescription = "Keep app open",
-                        )
-                    },
+                ),
+                QuickGuidePage(
+                    title = "Get files ready",
+                    lines =
+                        listOf(
+                            "Use 1. Download to get Mapsforge OSM .map, POI, GPX, or routing files.",
+                            "Tap 2. Select file(s) to add .map, .poi, .gpx, or .rd5 files from the phone.",
+                        ),
+                ),
+                QuickGuidePage(
+                    title = "Prepare the watch",
+                    lines =
+                        listOf(
+                            "Open GlanceMap on the watch and keep it near the phone.",
+                            "For large transfers, charge the watch and use the same Wi-Fi or phone hotspot.",
+                            STAY_OPEN_GUIDE_LINE,
+                            "Without Wi-Fi, Bluetooth can send files up to 50 MB.",
+                        ),
+                ),
+                QuickGuidePage(
+                    title = "POI & routing areas",
+                    lines =
+                        listOf(
+                            "Use POI for Refuges / OSM, Routing for BRouter packs.",
+                            "Choose the area from the watch map, a region, or a manual BBox.",
+                            "BBox format: west,south,east,north. Example: 5.50,45.10,6.50,45.60.",
+                            "Use Refresh last import to update the same area later without choosing it again.",
+                        ),
+                ),
+                QuickGuidePage(
+                    title = "Send",
+                    lines =
+                        listOf(
+                            "Tap Send and keep phone and watch close until it finishes.",
+                            "If it stops, send the same file again; it usually resumes " +
+                                "from the partial file already on the watch.",
+                            "Open History to see each transfer status.",
+                        ),
+                ),
             )
         }
-    val keepAppOpenGuideText =
-        remember {
-            buildAnnotatedString {
-                append("• On the watch, enable Keep app open ")
-                appendInlineContent("keep_app_open_icon", "[keep app open]")
-                append(" for long transfers.")
-            }
-        }
+    var pageIndex by rememberSaveable { mutableStateOf(0) }
+    val page = pages[pageIndex]
+    val isWelcomePage = pageIndex == 0
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Quick guide")
-                Text(
-                    "The companion app is mainly for sending files to your watch. " +
-                        "It does not display maps on your phone; GlanceMap is a watch app.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        text = {
-            val quickGuideScrollState = rememberScrollState()
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(max = adaptive.quickGuideDialogMaxHeight),
+                        .height(72.dp),
+                contentAlignment =
+                    if (isWelcomePage) {
+                        Alignment.TopCenter
+                    } else {
+                        Alignment.TopStart
+                    },
             ) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(end = 10.dp)
-                            .verticalScroll(quickGuideScrollState),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text("Best practices", style = MaterialTheme.typography.labelLarge)
-                    Text("• For best speed and reliability, keep phone and watch on the same Wi-Fi network or on the phone hotspot.")
-                    Text("• For large .map files, keep the watch on charger when possible.")
+                if (isWelcomePage) {
                     Text(
-                        text = keepAppOpenGuideText,
-                        inlineContent = keepAppOpenInlineContent,
+                        text = page.title,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
                     )
-                    Text("• The watch screen does not need to stay on, but keeping the app open helps more than keeping the display awake.")
-                    Text("• If a transfer stops or stalls, send the same file again. It usually resumes from the partial file already on the watch instead of restarting from zero.")
-                    Text("• Without Wi-Fi, Bluetooth fallback supports up to 50 MB per file.")
-                    Text("• Check section 5 to confirm the final result.")
-                    HorizontalDivider()
-                    Text("Transfer flow", style = MaterialTheme.typography.labelLarge)
-                    Text("• Section 1: download files if needed.")
-                    Text("• Section 2: select your .gpx, .map, .poi, or .rd5 files.")
-                    Text("• Section 3: select the watch.")
-                    Text("• Section 4: send the files.")
-                    Text("• Section 5: review the transfer result.")
-                    HorizontalDivider()
-                    Text("POI import (Refuges.info 🇫🇷 / OSM)", style = MaterialTheme.typography.labelLarge)
-                    Text("• In section 1, tap POI, then \"Import POI (Refuges / OSM)\".")
-                    Text("• This creates a .poi file for the selected area.")
-                    Text("• Choose the area source: Auto from watch map, Choose refuges.info region, or Enter BBox manually.")
-                    Text("• BBox = rectangle area written as west,south,east,north. Example: 5.50,45.10,6.50,45.60.")
-                    Text("• Then choose the source and the point types to include.")
-                    Text("• Use \"Refresh last import\" to re-import the previous Refuges.info area and types.")
-                    HorizontalDivider()
-                    Text("Routing data (BRouter)", style = MaterialTheme.typography.labelLarge)
-                    Text("• In section 1, tap Routing.")
-                    Text("• Choose area source: Auto from watch map or Enter BBox manually.")
-                    Text("• The companion downloads the needed .rd5 routing packs.")
-                    Text("• BBox = rectangle area written as west,south,east,north. Example: 1.40,42.43,1.79,42.66.")
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text("Quick guide")
+                        Text(
+                            "Step $pageIndex of ${pages.lastIndex}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                PageScrollbar(
-                    scrollState = quickGuideScrollState,
-                    modifier =
-                        Modifier
-                            .align(Alignment.CenterEnd)
-                            .fillMaxHeight(),
+            }
+        },
+        text = {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(if (adaptive.isCompactScreen) 220.dp else 260.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (!isWelcomePage) {
+                    Text(
+                        text = page.title,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.titleMedium,
+                        textAlign = TextAlign.Start,
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    page.lines.forEach { line ->
+                        quickGuideLineText(line = line)
+                    }
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                quickGuidePageIndicator(
+                    pageCount = pages.size,
+                    selectedPage = pageIndex,
                 )
             }
         },
-        confirmButton = {
+        dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Got it")
+                Text("Close")
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = { pageIndex -= 1 },
+                    enabled = pageIndex > 0,
+                ) {
+                    Text("Back")
+                }
+                Button(
+                    onClick = {
+                        if (pageIndex == pages.lastIndex) {
+                            onDismiss()
+                        } else {
+                            pageIndex += 1
+                        }
+                    },
+                ) {
+                    Text(if (pageIndex == pages.lastIndex) "Done" else "Next")
+                }
             }
         },
     )
 }
+
+@Composable
+private fun quickGuideLineText(line: String) {
+    if (line == STAY_OPEN_GUIDE_LINE) {
+        stayOpenGuideLineText()
+    } else {
+        Text(
+            text = "• $line",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+private fun stayOpenGuideLineText() {
+    Text(
+        text =
+            buildAnnotatedString {
+                append("• Tap ")
+                appendInlineContent(GUIDE_TOOLS_ICON_ID, "[tools]")
+                append(" tools, then ")
+                appendInlineContent(GUIDE_STAY_ICON_ID, "[stay]")
+                append(" Stay. You can also enable Always-on display.")
+            },
+        inlineContent = stayOpenGuideInlineContent(),
+        style = MaterialTheme.typography.bodyMedium,
+    )
+}
+
+private fun stayOpenGuideInlineContent(): Map<String, InlineTextContent> =
+    mapOf(
+        GUIDE_TOOLS_ICON_ID to guideInlineIcon(Icons.Filled.ViewComfyAlt, "Tools"),
+        GUIDE_STAY_ICON_ID to guideInlineIcon(Icons.Filled.Visibility, "Stay"),
+    )
+
+private fun guideInlineIcon(
+    imageVector: ImageVector,
+    contentDescription: String,
+): InlineTextContent =
+    InlineTextContent(
+        Placeholder(
+            width = 1.1.em,
+            height = 1.1.em,
+            placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+        ),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = imageVector,
+                contentDescription = contentDescription,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+
+@Composable
+private fun quickGuidePageIndicator(
+    pageCount: Int,
+    selectedPage: Int,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        repeat(pageCount) { index ->
+            Text(
+                text = "•",
+                style = MaterialTheme.typography.titleMedium,
+                color =
+                    if (index == selectedPage) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                    },
+            )
+        }
+    }
+}
+
+private data class QuickGuidePage(
+    val title: String,
+    val lines: List<String>,
+)
+
+private const val GUIDE_TOOLS_ICON_ID = "guide_tools_icon"
+private const val GUIDE_STAY_ICON_ID = "guide_stay_icon"
+private const val STAY_OPEN_GUIDE_LINE = "__stay_open_guide_line__"
 
 @Composable
 internal fun CancelTransferDialog(
