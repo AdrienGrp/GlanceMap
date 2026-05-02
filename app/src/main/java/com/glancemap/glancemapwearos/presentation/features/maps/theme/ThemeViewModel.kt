@@ -25,6 +25,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileNotFoundException
+import java.io.FileOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.Locale
@@ -75,6 +77,7 @@ class ThemeViewModel(
         private const val DEM_TILE_RETRY_BASE_DELAY_MS = 1_500L
         private const val DEM_INTERNET_WAIT_TIMEOUT_MS = 8_000L
         private const val DEM_INTERNET_RECHECK_MS = 500L
+        private const val HTTP_REQUESTED_RANGE_NOT_SATISFIABLE = 416
     }
 
     private val appContext: Context = context.applicationContext
@@ -394,9 +397,20 @@ class ThemeViewModel(
             val localDir = File(outputRoot, folder).apply { mkdirs() }
             val localFile = File(localDir, fileName)
             if (localFile.exists()) {
-                skipped += 1
-                processedTiles = processed
-                continue
+                val existingValid =
+                    runCatching {
+                        validateDemTileFile(localFile)
+                        true
+                    }.getOrElse { error ->
+                        Log.w(TAG, "Deleting invalid existing DEM tile ${localFile.absolutePath}", error)
+                        localFile.delete()
+                        false
+                    }
+                if (existingValid) {
+                    skipped += 1
+                    processedTiles = processed
+                    continue
+                }
             }
 
             val url = "$DEM3_BASE_URL/$folder/$fileName"
@@ -478,8 +492,8 @@ class ThemeViewModel(
         url: String,
         target: File,
     ) {
-        val tmp = File(target.parentFile, "${target.name}.tmp")
-        if (tmp.exists()) tmp.delete()
+        val part = File(target.parentFile, ".${target.name}.part")
+        val resumeOffset = part.takeIf { it.exists() && it.isFile }?.length()?.coerceAtLeast(0L) ?: 0L
 
         val connection =
             (URI(url).toURL().openConnection() as HttpURLConnection).apply {
@@ -488,28 +502,61 @@ class ThemeViewModel(
                 requestMethod = "GET"
                 instanceFollowRedirects = true
                 setRequestProperty("User-Agent", DEM3_USER_AGENT)
+                if (resumeOffset > 0L) {
+                    setRequestProperty("Range", "bytes=$resumeOffset-")
+                }
             }
 
         try {
             val code = connection.responseCode
             if (code == HttpURLConnection.HTTP_NOT_FOUND) {
+                if (part.exists()) part.delete()
                 throw FileNotFoundException("HTTP 404 for $url")
+            }
+            if (code == HTTP_REQUESTED_RANGE_NOT_SATISFIABLE && resumeOffset > 0L) {
+                if (part.exists()) part.delete()
+                throw DemResumeRejectedException("DEM server rejected partial resume for $url")
             }
             if (code !in 200..299) {
                 throw IllegalStateException("HTTP $code for $url")
             }
 
+            val append = resumeOffset > 0L && code == HttpURLConnection.HTTP_PARTIAL
+            if (resumeOffset > 0L && code == HttpURLConnection.HTTP_OK && part.exists()) {
+                Log.w(TAG, "DEM server ignored Range for $url; restarting tile download.")
+                part.delete()
+            }
+
+            val startingBytes = if (append) resumeOffset else 0L
+            val expectedTotalBytes =
+                connection.contentLengthLong
+                    .takeIf { it > 0L }
+                    ?.let { contentLength -> startingBytes + contentLength }
+
             connection.inputStream.use { input ->
-                tmp.outputStream().use { out -> input.copyTo(out) }
+                FileOutputStream(part, append).use { out ->
+                    input.copyTo(out)
+                    out.flush()
+                    runCatching { out.fd.sync() }
+                }
+            }
+
+            if (expectedTotalBytes != null && part.length() != expectedTotalBytes) {
+                throw IOException("INCOMPLETE_DEM_TILE: expected=$expectedTotalBytes got=${part.length()}")
             }
 
             if (target.exists()) target.delete()
-            if (!tmp.renameTo(target)) {
+            if (!part.renameTo(target)) {
                 throw IllegalStateException("Failed moving temp DEM file to ${target.absolutePath}")
+            }
+            try {
+                validateDemTileFile(target)
+            } catch (error: Exception) {
+                target.delete()
+                throw error
             }
         } finally {
             connection.disconnect()
-            if (tmp.exists() && !target.exists()) tmp.delete()
         }
     }
 
