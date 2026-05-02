@@ -62,42 +62,26 @@ internal fun buildDemFailureMessage(
 
 internal fun isRetryableDemDownloadFailure(throwable: Throwable?): Boolean {
     if (throwable == null) return false
-    if (throwable is FileNotFoundException) return false
-    if (throwable is DemInvalidTileException) return false
-    if (throwable is ZipException) return false
-    if (throwable is DemResumeRejectedException) return true
-    if (throwable is SocketException) return true
+    if (isPermanentDemDownloadFailure(throwable)) return false
+    if (throwable is DemResumeRejectedException || throwable is SocketException) return true
     if (hasDirectDemOfflineCause(throwable) || hasDemTimeoutCause(throwable)) return true
 
     val message = throwable.message.orEmpty().lowercase(Locale.ROOT)
-    return message.contains("http 500") ||
-        message.contains("http 502") ||
-        message.contains("http 503") ||
-        message.contains("http 504") ||
-        message.contains("unexpected end of stream") ||
-        message.contains("connection reset") ||
-        message.contains("broken pipe") ||
-        message.contains("connection closed") ||
-        message.contains("connection refused") ||
-        message.contains("software caused connection abort") ||
-        message.contains("http 408") ||
-        message.contains("http 429") ||
-        message.contains("timed out") ||
-        message.contains("timeout")
+    return DEM_RETRYABLE_MESSAGE_PARTS.any(message::contains)
 }
 
 internal fun validateDemTileFile(file: File) {
     if (!file.exists() || !file.isFile) {
-        throw DemInvalidTileException("DEM tile was not saved.")
+        invalidDemTile("DEM tile was not saved.")
     }
     if (file.length() <= 0L) {
-        throw DemInvalidTileException("DEM tile is empty.")
+        invalidDemTile("DEM tile is empty.")
     }
 
     if (file.name.endsWith(".zip", ignoreCase = true)) {
         validateDemZip(file)
     } else if (!isPlausibleHgtByteSize(file.length())) {
-        throw DemInvalidTileException("DEM tile has invalid HGT size: ${file.length()} bytes.")
+        invalidDemTile("DEM tile has invalid HGT size: ${file.length()} bytes.")
     }
 }
 
@@ -113,7 +97,7 @@ private fun validateDemZip(file: File) {
         }
 
     if (hgtEntries.isEmpty()) {
-        throw DemInvalidTileException("DEM ZIP does not contain an HGT file.")
+        invalidDemTile("DEM ZIP does not contain an HGT file.")
     }
 
     val firstInvalidSize =
@@ -121,9 +105,16 @@ private fun validateDemZip(file: File) {
             .mapNotNull { entry -> entry.size.takeIf { it > 0L } }
             .firstOrNull { size -> !isPlausibleHgtByteSize(size) }
     if (firstInvalidSize != null) {
-        throw DemInvalidTileException("DEM ZIP contains invalid HGT size: $firstInvalidSize bytes.")
+        invalidDemTile("DEM ZIP contains invalid HGT size: $firstInvalidSize bytes.")
     }
 }
+
+private fun isPermanentDemDownloadFailure(throwable: Throwable): Boolean =
+    throwable is FileNotFoundException ||
+        throwable is DemInvalidTileException ||
+        throwable is ZipException
+
+private fun invalidDemTile(message: String): Nothing = throw DemInvalidTileException(message)
 
 private fun isPlausibleHgtByteSize(size: Long): Boolean {
     if (size <= 0L || size % Short.SIZE_BYTES != 0L) return false
@@ -131,6 +122,24 @@ private fun isPlausibleHgtByteSize(size: Long): Boolean {
     val rowLen = sqrt(sampleCount.toDouble()).toInt()
     return rowLen * rowLen.toLong() == sampleCount && rowLen in 1201..3601
 }
+
+private val DEM_RETRYABLE_MESSAGE_PARTS =
+    listOf(
+        "http 408",
+        "http 429",
+        "http 500",
+        "http 502",
+        "http 503",
+        "http 504",
+        "unexpected end of stream",
+        "connection reset",
+        "broken pipe",
+        "connection closed",
+        "connection refused",
+        "software caused connection abort",
+        "timed out",
+        "timeout",
+    )
 
 private fun hasDirectDemOfflineCause(throwable: Throwable): Boolean {
     var current: Throwable? = throwable
