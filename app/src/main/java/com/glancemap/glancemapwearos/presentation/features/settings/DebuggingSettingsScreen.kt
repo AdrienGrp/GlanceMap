@@ -54,6 +54,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.CrashDiagnosticsStore
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsEmailHandoff
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsSettingsSnapshot
@@ -268,6 +269,7 @@ fun DebuggingSettingsScreen(
                         DebugTelemetry.clear()
                         MarkerMotionTelemetry.clear()
                         EnergyDiagnostics.clear()
+                        DemDownloadDiagnostics.clear()
                         FieldMarkerDiagnostics.clear()
                         GnssDiagnostics.clear()
                         MapHotPathDiagnostics.clear()

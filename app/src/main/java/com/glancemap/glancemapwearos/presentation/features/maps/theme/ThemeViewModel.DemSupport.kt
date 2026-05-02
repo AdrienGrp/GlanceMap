@@ -5,6 +5,7 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.Locale
@@ -65,6 +66,7 @@ internal fun isRetryableDemDownloadFailure(throwable: Throwable?): Boolean {
     if (throwable is DemInvalidTileException) return false
     if (throwable is ZipException) return false
     if (throwable is DemResumeRejectedException) return true
+    if (throwable is SocketException) return true
     if (hasDirectDemOfflineCause(throwable) || hasDemTimeoutCause(throwable)) return true
 
     val message = throwable.message.orEmpty().lowercase(Locale.ROOT)
@@ -77,6 +79,7 @@ internal fun isRetryableDemDownloadFailure(throwable: Throwable?): Boolean {
         message.contains("broken pipe") ||
         message.contains("connection closed") ||
         message.contains("connection refused") ||
+        message.contains("software caused connection abort") ||
         message.contains("http 408") ||
         message.contains("http 429") ||
         message.contains("timed out") ||

@@ -84,7 +84,7 @@ object Dem3CoverageUtils {
                 0
             } else {
                 requiredTileIds.count { tileId ->
-                    tileFileCandidates(demRoot, tileId).any { it.exists() && it.isFile }
+                    tileCoverageCandidates(demRoot, tileId).any { it.exists() && it.isFile }
                 }
             }
 
@@ -151,6 +151,13 @@ object Dem3CoverageUtils {
                         demChanged = true
                     }
                 }
+            missingTileMarkerCandidates(demRoot, tileId)
+                .toSet()
+                .forEach { marker ->
+                    if (marker.exists() && marker.delete()) {
+                        demChanged = true
+                    }
+                }
         }
 
         if (demChanged) {
@@ -213,6 +220,23 @@ object Dem3CoverageUtils {
             File(File(demRoot, folder), "$upperTileId.hgt"),
             File(demRoot, "$upperTileId.hgt.zip"),
             File(demRoot, "$upperTileId.hgt"),
+        )
+    }
+
+    private fun tileCoverageCandidates(
+        demRoot: File,
+        tileId: String,
+    ): List<File> = tileFileCandidates(demRoot, tileId) + missingTileMarkerCandidates(demRoot, tileId)
+
+    fun missingTileMarkerCandidates(
+        demRoot: File,
+        tileId: String,
+    ): List<File> {
+        val upperTileId = tileId.uppercase(Locale.ROOT)
+        val folder = upperTileId.substring(0, 3)
+        return listOf(
+            File(File(demRoot, folder), "$upperTileId.hgt.missing"),
+            File(demRoot, "$upperTileId.hgt.missing"),
         )
     }
 

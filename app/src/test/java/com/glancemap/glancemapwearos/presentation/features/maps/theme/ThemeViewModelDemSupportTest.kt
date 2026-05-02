@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.nio.file.Files
@@ -62,6 +63,11 @@ class ThemeViewModelDemSupportTest {
     @Test
     fun timeoutFailuresRemainRetryable() {
         assertTrue(isRetryableDemDownloadFailure(SocketTimeoutException("Read timed out")))
+    }
+
+    @Test
+    fun socketAbortFailuresAreRetryable() {
+        assertTrue(isRetryableDemDownloadFailure(SocketException("Software caused connection abort")))
     }
 
     @Test

@@ -64,7 +64,10 @@ object DemSignatureStore {
             .forEach { file ->
                 if (!file.isFile) return@forEach
                 val lowerName = file.name.lowercase(Locale.ROOT)
-                val isDem = lowerName.endsWith(".hgt") || lowerName.endsWith(".hgt.zip")
+                val isDem =
+                    lowerName.endsWith(".hgt") ||
+                        lowerName.endsWith(".hgt.zip") ||
+                        lowerName.endsWith(".hgt.missing")
                 if (!isDem) return@forEach
 
                 count += 1
