@@ -303,7 +303,7 @@ internal fun FilePickerTransferSection(
     SectionCard(
         title = "4. Transfer",
         modifier =
-            if (adaptive.usePageScrollForSmallScreen) {
+            if (adaptive.useCompactPageLayout) {
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 190.dp)
@@ -458,7 +458,7 @@ internal fun FilePickerHistorySection(
     SectionCard(
         title = "5. History",
         modifier =
-            if (adaptive.usePageScrollForSmallScreen) {
+            if (adaptive.useCompactPageLayout) {
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 240.dp)
@@ -481,7 +481,7 @@ internal fun FilePickerHistorySection(
         ) {
             Card(
                 modifier =
-                    if (adaptive.usePageScrollForSmallScreen) {
+                    if (adaptive.useCompactPageLayout) {
                         Modifier
                             .fillMaxWidth()
                             .height(220.dp)

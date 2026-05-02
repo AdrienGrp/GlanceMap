@@ -462,7 +462,8 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 )
             }
         val isCompactScreen = adaptive.isCompactScreen
-        val usePageScrollForSmallScreen = adaptive.usePageScrollForSmallScreen
+        val enablePageScroll = adaptive.enablePageScroll
+        val useCompactPageLayout = adaptive.useCompactPageLayout
 
         val pageScrollState = rememberScrollState()
         val historyListState = rememberLazyListState()
@@ -479,13 +480,17 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     .fillMaxSize()
                     .padding(adaptive.pagePadding),
         ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = adaptive.helpIconButtonSize),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 FilledTonalIconButton(
                     onClick = { showDebugDialog = true },
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopStart)
-                            .size(adaptive.helpIconButtonSize),
+                    modifier = Modifier.size(adaptive.helpIconButtonSize),
                     colors =
                         IconButtonDefaults.filledTonalIconButtonColors(
                             containerColor =
@@ -511,19 +516,18 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     text = "GlanceMap Companion app",
                     style =
                         if (isCompactScreen) {
-                            MaterialTheme.typography.titleLarge
+                            MaterialTheme.typography.titleSmall
                         } else {
                             MaterialTheme.typography.headlineSmall
                         },
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
                 FilledTonalIconButton(
                     onClick = { showHowToDialog = true },
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .size(adaptive.helpIconButtonSize),
+                    modifier = Modifier.size(adaptive.helpIconButtonSize),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.HelpCenter,
@@ -568,7 +572,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
             ) {
                 Column(
                     modifier =
-                        if (usePageScrollForSmallScreen) {
+                        if (enablePageScroll) {
                             Modifier
                                 .fillMaxWidth()
                                 .verticalScroll(pageScrollState)
@@ -610,11 +614,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         },
                     )
 
-                    if (usePageScrollForSmallScreen) {
-                        Spacer(modifier = Modifier.height(adaptive.sectionGap))
-                    } else {
-                        Spacer(modifier = Modifier.height(adaptive.sectionGap))
-                    }
+                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
 
                     SectionCard(
                         title = "2. Select files (.gpx / .map / .poi / .rd5)",
@@ -627,7 +627,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                             }
                         },
                         modifier =
-                            if (usePageScrollForSmallScreen) {
+                            if (useCompactPageLayout) {
                                 Modifier
                                     .fillMaxWidth()
                                     .heightIn(min = 120.dp)
@@ -653,11 +653,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         }
                     }
 
-                    if (usePageScrollForSmallScreen) {
-                        Spacer(modifier = Modifier.height(adaptive.sectionGap))
-                    } else {
-                        Spacer(modifier = Modifier.height(adaptive.sectionGap))
-                    }
+                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
 
                     SectionCard(
                         title = "3. Select watch",
@@ -675,7 +671,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                             }
                         },
                         modifier =
-                            if (usePageScrollForSmallScreen) {
+                            if (useCompactPageLayout) {
                                 Modifier
                                     .fillMaxWidth()
                                     .heightIn(min = 110.dp)
@@ -723,11 +719,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         }
                     }
 
-                    if (usePageScrollForSmallScreen) {
-                        Spacer(modifier = Modifier.height(adaptive.sectionGap))
-                    } else {
-                        Spacer(modifier = Modifier.height(adaptive.sectionGap))
-                    }
+                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
 
                     FilePickerTransferSection(
                         adaptive = adaptive,
@@ -744,11 +736,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         onCancelRequested = { showCancelDialog = true },
                     )
 
-                    if (usePageScrollForSmallScreen) {
-                        Spacer(modifier = Modifier.height(adaptive.sectionGap))
-                    } else {
-                        Spacer(modifier = Modifier.height(adaptive.sectionGap))
-                    }
+                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
 
                     FilePickerHistorySection(
                         adaptive = adaptive,
@@ -846,7 +834,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         }
                     }
                 }
-                if (usePageScrollForSmallScreen) {
+                if (enablePageScroll) {
                     PageScrollbar(
                         scrollState = pageScrollState,
                         modifier =

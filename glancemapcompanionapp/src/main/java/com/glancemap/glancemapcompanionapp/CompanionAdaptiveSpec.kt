@@ -12,7 +12,8 @@ enum class CompanionWindowClass {
 data class CompanionAdaptiveSpec(
     val windowClass: CompanionWindowClass,
     val isCompactScreen: Boolean,
-    val usePageScrollForSmallScreen: Boolean,
+    val enablePageScroll: Boolean,
+    val useCompactPageLayout: Boolean,
     val downloadButtonWidth: Dp,
     val downloadButtonHeight: Dp,
     val pagePadding: Dp,
@@ -29,22 +30,15 @@ fun companionAdaptiveSpec(
     windowHeight: Dp,
     fontScale: Float,
 ): CompanionAdaptiveSpec {
-    val normalizedHeight = windowHeight.value / fontScale.coerceAtLeast(1f)
-    val normalizedWidth = windowWidth.value / fontScale.coerceAtLeast(1f)
-
-    val windowClass =
-        when {
-            normalizedHeight < 760f || normalizedWidth < 360f || fontScale > 1.05f -> CompanionWindowClass.COMPACT
-            normalizedHeight > 960f && normalizedWidth >= 420f && fontScale <= 1.0f -> CompanionWindowClass.EXPANDED
-            else -> CompanionWindowClass.STANDARD
-        }
+    val windowClass = companionWindowClass(windowWidth, windowHeight, fontScale)
 
     return when (windowClass) {
         CompanionWindowClass.COMPACT ->
             CompanionAdaptiveSpec(
                 windowClass = windowClass,
                 isCompactScreen = true,
-                usePageScrollForSmallScreen = true,
+                enablePageScroll = true,
+                useCompactPageLayout = true,
                 downloadButtonWidth = 92.dp,
                 downloadButtonHeight = 72.dp,
                 pagePadding = 6.dp,
@@ -60,7 +54,8 @@ fun companionAdaptiveSpec(
             CompanionAdaptiveSpec(
                 windowClass = windowClass,
                 isCompactScreen = false,
-                usePageScrollForSmallScreen = false,
+                enablePageScroll = true,
+                useCompactPageLayout = false,
                 downloadButtonWidth = 106.dp,
                 downloadButtonHeight = 80.dp,
                 pagePadding = 12.dp,
@@ -76,7 +71,8 @@ fun companionAdaptiveSpec(
             CompanionAdaptiveSpec(
                 windowClass = windowClass,
                 isCompactScreen = false,
-                usePageScrollForSmallScreen = false,
+                enablePageScroll = true,
+                useCompactPageLayout = false,
                 downloadButtonWidth = 112.dp,
                 downloadButtonHeight = 84.dp,
                 pagePadding = 12.dp,
@@ -87,5 +83,20 @@ fun companionAdaptiveSpec(
                 quickGuideDialogMaxHeight = 560.dp,
                 refugesDialogMaxHeight = 620.dp,
             )
+    }
+}
+
+private fun companionWindowClass(
+    windowWidth: Dp,
+    windowHeight: Dp,
+    fontScale: Float,
+): CompanionWindowClass {
+    val normalizedHeight = windowHeight.value / fontScale.coerceAtLeast(1f)
+    val normalizedWidth = windowWidth.value / fontScale.coerceAtLeast(1f)
+
+    return when {
+        normalizedHeight < 760f || normalizedWidth < 360f || fontScale > 1.05f -> CompanionWindowClass.COMPACT
+        normalizedHeight > 960f && normalizedWidth >= 420f && fontScale <= 1.0f -> CompanionWindowClass.EXPANDED
+        else -> CompanionWindowClass.STANDARD
     }
 }
