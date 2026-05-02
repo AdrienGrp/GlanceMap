@@ -4,8 +4,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.nio.file.Files
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class ThemeViewModelDemSupportTest {
     @Test
@@ -58,5 +63,67 @@ class ThemeViewModelDemSupportTest {
     @Test
     fun timeoutFailuresRemainRetryable() {
         assertTrue(isRetryableDemDownloadFailure(SocketTimeoutException("Read timed out")))
+    }
+
+    @Test
+    fun socketAbortFailuresAreRetryable() {
+        assertTrue(isRetryableDemDownloadFailure(SocketException("Software caused connection abort")))
+    }
+
+    @Test
+    fun resumeRejectedFailureIsRetryable() {
+        assertTrue(isRetryableDemDownloadFailure(DemResumeRejectedException("HTTP 416")))
+    }
+
+    @Test
+    fun invalidDemTileFailureIsNotRetryable() {
+        assertFalse(isRetryableDemDownloadFailure(DemInvalidTileException("Bad DEM ZIP")))
+    }
+
+    @Test
+    fun validDemZipPassesValidation() {
+        val file = createTempDemZip(hgtSize = 1201 * 1201 * 2)
+
+        validateDemTileFile(file)
+    }
+
+    @Test(expected = DemInvalidTileException::class)
+    fun zipWithoutHgtEntryFailsValidation() {
+        val file = createTempZipWithEntry(entryName = "readme.txt", payloadSize = 32)
+
+        validateDemTileFile(file)
+    }
+
+    @Test(expected = DemInvalidTileException::class)
+    fun implausibleHgtSizeFailsValidation() {
+        val file = createTempDemZip(hgtSize = 64)
+
+        validateDemTileFile(file)
+    }
+
+    private fun createTempDemZip(hgtSize: Int): File =
+        createTempZipWithEntry(
+            entryName = "N46E006.hgt",
+            payloadSize = hgtSize,
+        )
+
+    private fun createTempZipWithEntry(
+        entryName: String,
+        payloadSize: Int,
+    ): File {
+        val file = Files.createTempFile("dem-validation-test", ".hgt.zip").toFile()
+        ZipOutputStream(file.outputStream().buffered()).use { zip ->
+            zip.putNextEntry(ZipEntry(entryName))
+            val buffer = ByteArray(8192)
+            var remaining = payloadSize
+            while (remaining > 0) {
+                val write = minOf(buffer.size, remaining)
+                zip.write(buffer, 0, write)
+                remaining -= write
+            }
+            zip.closeEntry()
+        }
+        file.deleteOnExit()
+        return file
     }
 }

@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
+import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadDiagnostics
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepository
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepositoryImpl
 import com.glancemap.glancemapwearos.domain.model.maps.theme.ThemeListItem
@@ -25,6 +26,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileNotFoundException
+import java.io.FileOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.Locale
@@ -42,6 +45,7 @@ data class DemDownloadUiState(
     val processedTiles: Int = 0,
     val downloadedTiles: Int = 0,
     val skippedTiles: Int = 0,
+    val missingTiles: Int = 0,
     val failedTiles: Int = 0,
     val networkUnavailable: Boolean = false,
     val statusMessage: String = "",
@@ -53,6 +57,7 @@ private data class DemDownloadResult(
     val processedTiles: Int,
     val downloadedTiles: Int,
     val skippedTiles: Int,
+    val missingTiles: Int,
     val failedTiles: Int,
     val networkUnavailable: Boolean,
     val statusMessage: String,
@@ -60,7 +65,13 @@ private data class DemDownloadResult(
 
 private data class DemTileDownloadOutcome(
     val success: Boolean,
+    val missingUpstream: Boolean,
     val networkUnavailable: Boolean,
+)
+
+private data class DemDownloadAttemptResult(
+    val bytesWritten: Long,
+    val resumedFromBytes: Long,
 )
 
 class ThemeViewModel(
@@ -75,6 +86,7 @@ class ThemeViewModel(
         private const val DEM_TILE_RETRY_BASE_DELAY_MS = 1_500L
         private const val DEM_INTERNET_WAIT_TIMEOUT_MS = 8_000L
         private const val DEM_INTERNET_RECHECK_MS = 500L
+        private const val HTTP_REQUESTED_RANGE_NOT_SATISFIABLE = 416
     }
 
     private val appContext: Context = context.applicationContext
@@ -254,6 +266,10 @@ class ThemeViewModel(
 
         viewModelScope.launch {
             if (mapPath.isNullOrBlank()) {
+                DemDownloadDiagnostics.record(
+                    event = "start_rejected",
+                    detail = "reason=no_map_selected",
+                )
                 _demDownloadUiState.value =
                     DemDownloadUiState(
                         activeMapPath = null,
@@ -265,6 +281,10 @@ class ThemeViewModel(
 
             val selectedMapFile = File(mapPath)
             if (!selectedMapFile.exists()) {
+                DemDownloadDiagnostics.record(
+                    event = "start_rejected",
+                    detail = "reason=map_missing path=${mapPath.demDiagValue()}",
+                )
                 _demDownloadUiState.value =
                     DemDownloadUiState(
                         activeMapPath = null,
@@ -282,6 +302,10 @@ class ThemeViewModel(
                 )
 
             if (!waitForWatchInternetConnection()) {
+                DemDownloadDiagnostics.record(
+                    event = "start_rejected",
+                    detail = "reason=no_internet path=${mapPath.demDiagValue()}",
+                )
                 _demDownloadUiState.value =
                     DemDownloadUiState(
                         isDownloading = false,
@@ -311,6 +335,7 @@ class ThemeViewModel(
                         processedTiles = result.processedTiles,
                         downloadedTiles = result.downloadedTiles,
                         skippedTiles = result.skippedTiles,
+                        missingTiles = result.missingTiles,
                         failedTiles = result.failedTiles,
                         networkUnavailable = result.networkUnavailable,
                         statusMessage = result.statusMessage,
@@ -345,22 +370,41 @@ class ThemeViewModel(
             Dem3CoverageUtils
                 .requiredTileIdsForMap(selectedMapFile)
                 ?.sorted()
-                ?: return DemDownloadResult(
-                    totalTiles = 0,
-                    processedTiles = 0,
-                    downloadedTiles = 0,
-                    skippedTiles = 0,
-                    failedTiles = 0,
-                    networkUnavailable = false,
-                    statusMessage = "Failed reading selected map area.",
-                )
+                ?: run {
+                    DemDownloadDiagnostics.record(
+                        event = "complete",
+                        detail = "status=map_area_failed path=${selectedMapFile.absolutePath.demDiagValue()}",
+                    )
+                    return DemDownloadResult(
+                        totalTiles = 0,
+                        processedTiles = 0,
+                        downloadedTiles = 0,
+                        skippedTiles = 0,
+                        missingTiles = 0,
+                        failedTiles = 0,
+                        networkUnavailable = false,
+                        statusMessage = "Failed reading selected map area.",
+                    )
+                }
+
+        DemDownloadDiagnostics.record(
+            event = "start",
+            detail =
+                "path=${selectedMapFile.absolutePath.demDiagValue()} totalTiles=${tileIds.size} " +
+                    "firstTile=${tileIds.firstOrNull().orEmpty()} lastTile=${tileIds.lastOrNull().orEmpty()}",
+        )
 
         if (tileIds.isEmpty()) {
+            DemDownloadDiagnostics.record(
+                event = "complete",
+                detail = "status=no_tiles path=${selectedMapFile.absolutePath.demDiagValue()}",
+            )
             return DemDownloadResult(
                 totalTiles = 0,
                 processedTiles = 0,
                 downloadedTiles = 0,
                 skippedTiles = 0,
+                missingTiles = 0,
                 failedTiles = 0,
                 networkUnavailable = false,
                 statusMessage = "No DEM tiles required for this map.",
@@ -372,6 +416,7 @@ class ThemeViewModel(
 
         var downloaded = 0
         var skipped = 0
+        var missing = 0
         var failed = 0
         var processedTiles = 0
         var networkUnavailable = false
@@ -386,6 +431,7 @@ class ThemeViewModel(
                     processedTiles = processed,
                     downloadedTiles = downloaded,
                     skippedTiles = skipped,
+                    missingTiles = missing,
                     failedTiles = failed,
                     statusMessage = "Downloading...",
                 )
@@ -394,9 +440,24 @@ class ThemeViewModel(
             val localDir = File(outputRoot, folder).apply { mkdirs() }
             val localFile = File(localDir, fileName)
             if (localFile.exists()) {
-                skipped += 1
-                processedTiles = processed
-                continue
+                val existingValid =
+                    runCatching {
+                        validateDemTileFile(localFile)
+                        true
+                    }.getOrElse { error ->
+                        Log.w(TAG, "Deleting invalid existing DEM tile ${localFile.absolutePath}", error)
+                        localFile.delete()
+                        false
+                    }
+                if (existingValid) {
+                    skipped += 1
+                    processedTiles = processed
+                    DemDownloadDiagnostics.record(
+                        event = "tile_skipped",
+                        detail = "tile=$tileId index=$processed total=${tileIds.size} reason=already_valid",
+                    )
+                    continue
+                }
             }
 
             val url = "$DEM3_BASE_URL/$folder/$fileName"
@@ -411,8 +472,24 @@ class ThemeViewModel(
             processedTiles = processed
             if (outcome.success) {
                 downloaded += 1
+                DemDownloadDiagnostics.record(
+                    event = "tile_downloaded",
+                    detail = "tile=$tileId index=$processed total=${tileIds.size}",
+                )
+            } else if (outcome.missingUpstream) {
+                missing += 1
+                DemDownloadDiagnostics.record(
+                    event = "tile_missing",
+                    detail = "tile=$tileId index=$processed total=${tileIds.size} reason=upstream_404",
+                )
             } else {
                 failed += 1
+                DemDownloadDiagnostics.record(
+                    event = "tile_failed",
+                    detail =
+                        "tile=$tileId index=$processed total=${tileIds.size} " +
+                            "networkUnavailable=${outcome.networkUnavailable}",
+                )
                 if (outcome.networkUnavailable) {
                     networkUnavailable = true
                     break
@@ -420,8 +497,9 @@ class ThemeViewModel(
             }
         }
 
-        if (downloaded > 0) {
+        if (downloaded > 0 || missing > 0) {
             DemSignatureStore.markDirty(appContext)
+            Dem3CoverageUtils.clearCaches()
         }
 
         val remaining = (tileIds.size - processedTiles).coerceAtLeast(0)
@@ -429,6 +507,7 @@ class ThemeViewModel(
             buildDemSummaryMessage(
                 downloaded = downloaded,
                 skipped = skipped,
+                missing = missing,
                 failed = failed,
                 remaining = remaining,
             )
@@ -440,11 +519,20 @@ class ThemeViewModel(
                     DEM_NO_INTERNET_MESSAGE
                 else -> summary
             }
+        DemDownloadDiagnostics.record(
+            event = "complete",
+            detail =
+                "status=${if (failed == 0 && !networkUnavailable) "ready" else "partial"} " +
+                    "total=${tileIds.size} processed=$processedTiles downloaded=$downloaded skipped=$skipped " +
+                    "missing=$missing failed=$failed remaining=$remaining networkUnavailable=$networkUnavailable " +
+                    "message=${finalMessage.demDiagValue()}",
+        )
         return DemDownloadResult(
             totalTiles = tileIds.size,
             processedTiles = processedTiles,
             downloadedTiles = downloaded,
             skippedTiles = skipped,
+            missingTiles = missing,
             failedTiles = failed,
             networkUnavailable = networkUnavailable,
             statusMessage = finalMessage,
@@ -454,22 +542,19 @@ class ThemeViewModel(
     private fun buildDemSummaryMessage(
         downloaded: Int,
         skipped: Int,
+        missing: Int,
         failed: Int,
         remaining: Int,
     ): String =
         when {
-            failed == 0 && downloaded > 0 && skipped == 0 ->
-                "DEM ready: $downloaded tile(s) downloaded."
-            failed == 0 && downloaded > 0 && skipped > 0 ->
-                "DEM ready: $downloaded downloaded, $skipped already on watch."
-            failed == 0 && downloaded == 0 && skipped > 0 ->
-                "DEM already available ($skipped tile(s) already on watch)."
+            failed == 0 && (downloaded > 0 || skipped > 0 || missing > 0) ->
+                "DEM download successful."
             downloaded == 0 && skipped == 0 && failed > 0 ->
-                "DEM download failed ($failed tile(s))."
+                "DEM download failed."
             remaining > 0 ->
-                "DEM partial: $downloaded downloaded, $skipped on watch, $failed failed, $remaining remaining."
+                "DEM download incomplete. Retry to finish."
             else ->
-                "DEM partial: $downloaded downloaded, $skipped on watch, $failed failed."
+                "DEM download incomplete."
         }
 
     private fun getDemOutputRoot(): File = Dem3CoverageUtils.demRootDir(appContext)
@@ -477,9 +562,16 @@ class ThemeViewModel(
     private fun downloadFile(
         url: String,
         target: File,
-    ) {
-        val tmp = File(target.parentFile, "${target.name}.tmp")
-        if (tmp.exists()) tmp.delete()
+    ): DemDownloadAttemptResult {
+        val part = File(target.parentFile, ".${target.name}.part")
+        val resumeOffset = part.takeIf { it.exists() && it.isFile }?.length()?.coerceAtLeast(0L) ?: 0L
+        val tileName = target.name.removeSuffix(".hgt.zip").removeSuffix(".hgt")
+        if (resumeOffset > 0L) {
+            DemDownloadDiagnostics.record(
+                event = "tile_resume_attempt",
+                detail = "tile=$tileName partialBytes=$resumeOffset url=${url.demDiagValue()}",
+            )
+        }
 
         val connection =
             (URI(url).toURL().openConnection() as HttpURLConnection).apply {
@@ -488,28 +580,98 @@ class ThemeViewModel(
                 requestMethod = "GET"
                 instanceFollowRedirects = true
                 setRequestProperty("User-Agent", DEM3_USER_AGENT)
+                if (resumeOffset > 0L) {
+                    setRequestProperty("Range", "bytes=$resumeOffset-")
+                }
             }
 
         try {
             val code = connection.responseCode
             if (code == HttpURLConnection.HTTP_NOT_FOUND) {
+                if (part.exists()) part.delete()
+                DemDownloadDiagnostics.record(
+                    event = "tile_http",
+                    detail = "tile=$tileName code=$code action=missing url=${url.demDiagValue()}",
+                )
+                createMissingDemMarker(target)
                 throw FileNotFoundException("HTTP 404 for $url")
             }
+            if (code == HTTP_REQUESTED_RANGE_NOT_SATISFIABLE && resumeOffset > 0L) {
+                if (part.exists()) part.delete()
+                DemDownloadDiagnostics.record(
+                    event = "tile_resume_rejected",
+                    detail = "tile=$tileName code=$code partialBytes=$resumeOffset url=${url.demDiagValue()}",
+                )
+                throw DemResumeRejectedException("DEM server rejected partial resume for $url")
+            }
             if (code !in 200..299) {
+                DemDownloadDiagnostics.record(
+                    event = "tile_http",
+                    detail = "tile=$tileName code=$code action=fail url=${url.demDiagValue()}",
+                )
                 throw IllegalStateException("HTTP $code for $url")
             }
 
+            val append = resumeOffset > 0L && code == HttpURLConnection.HTTP_PARTIAL
+            if (resumeOffset > 0L && code == HttpURLConnection.HTTP_OK && part.exists()) {
+                Log.w(TAG, "DEM server ignored Range for $url; restarting tile download.")
+                DemDownloadDiagnostics.record(
+                    event = "tile_resume_restart",
+                    detail = "tile=$tileName reason=range_ignored partialBytes=$resumeOffset url=${url.demDiagValue()}",
+                )
+                part.delete()
+            }
+
+            val startingBytes = if (append) resumeOffset else 0L
+            val expectedTotalBytes =
+                connection.contentLengthLong
+                    .takeIf { it > 0L }
+                    ?.let { contentLength -> startingBytes + contentLength }
+
             connection.inputStream.use { input ->
-                tmp.outputStream().use { out -> input.copyTo(out) }
+                FileOutputStream(part, append).use { out ->
+                    input.copyTo(out)
+                    out.flush()
+                    runCatching { out.fd.sync() }
+                }
+            }
+
+            if (expectedTotalBytes != null && part.length() != expectedTotalBytes) {
+                DemDownloadDiagnostics.record(
+                    event = "tile_incomplete",
+                    detail = "tile=$tileName expectedBytes=$expectedTotalBytes actualBytes=${part.length()}",
+                )
+                throw IOException("INCOMPLETE_DEM_TILE: expected=$expectedTotalBytes got=${part.length()}")
             }
 
             if (target.exists()) target.delete()
-            if (!tmp.renameTo(target)) {
+            if (!part.renameTo(target)) {
                 throw IllegalStateException("Failed moving temp DEM file to ${target.absolutePath}")
             }
+            try {
+                validateDemTileFile(target)
+            } catch (error: Exception) {
+                DemDownloadDiagnostics.record(
+                    event = "tile_validation_failed",
+                    detail =
+                        "tile=$tileName bytes=${target.length()} " +
+                            "error=${error.javaClass.simpleName} message=${error.message.orEmpty().demDiagValue()}",
+                )
+                target.delete()
+                throw error
+            }
+            DemDownloadDiagnostics.record(
+                event = "tile_saved",
+                detail =
+                    "tile=$tileName code=$code bytes=${target.length()} " +
+                        "resumedFromBytes=${if (append) resumeOffset else 0L}",
+            )
+            return DemDownloadAttemptResult(
+                bytesWritten = target.length(),
+                resumedFromBytes = if (append) resumeOffset else 0L,
+            )
         } finally {
             connection.disconnect()
-            if (tmp.exists() && !target.exists()) tmp.delete()
         }
     }
 
@@ -533,6 +695,7 @@ class ThemeViewModel(
             if (!hasWatchInternetConnection()) {
                 return DemTileDownloadOutcome(
                     success = false,
+                    missingUpstream = false,
                     networkUnavailable = true,
                 )
             }
@@ -549,11 +712,20 @@ class ThemeViewModel(
             if (success) {
                 return DemTileDownloadOutcome(
                     success = true,
+                    missingUpstream = false,
                     networkUnavailable = false,
                 )
             }
 
             val error = lastError
+            if (error != null) {
+                DemDownloadDiagnostics.record(
+                    event = "tile_attempt_failed",
+                    detail =
+                        "processed=$processed total=$total attempt=$attemptNumber " +
+                            "error=${error.javaClass.simpleName} message=${error.message.orEmpty().demDiagValue()}",
+                )
+            }
             if (error != null && error !is FileNotFoundException) {
                 Log.w(
                     TAG,
@@ -565,6 +737,7 @@ class ThemeViewModel(
             if (attemptNumber >= DEM_TILE_MAX_ATTEMPTS || !isRetryableDemDownloadFailure(error)) {
                 return DemTileDownloadOutcome(
                     success = false,
+                    missingUpstream = error is FileNotFoundException,
                     networkUnavailable =
                         error?.let {
                             classifyDemFailureAsNetworkUnavailable(
@@ -580,6 +753,7 @@ class ThemeViewModel(
 
         return DemTileDownloadOutcome(
             success = false,
+            missingUpstream = lastError is FileNotFoundException,
             networkUnavailable =
                 lastError?.let {
                     classifyDemFailureAsNetworkUnavailable(
@@ -595,6 +769,19 @@ class ThemeViewModel(
         val folder = upper.substring(0, 3)
         val file = "$upper.hgt.zip"
         return folder to file
+    }
+
+    private fun createMissingDemMarker(target: File) {
+        val tileId = target.name.removeSuffix(".hgt.zip").removeSuffix(".hgt")
+        val marker =
+            Dem3CoverageUtils
+                .missingTileMarkerCandidates(
+                    demRoot = getDemOutputRoot(),
+                    tileId = tileId,
+                ).firstOrNull { it.parentFile == target.parentFile }
+                ?: File(target.parentFile ?: getDemOutputRoot(), "$tileId.hgt.missing")
+        marker.parentFile?.mkdirs()
+        marker.writeText("missing_upstream\n")
     }
 
     private suspend fun waitForWatchInternetConnection(): Boolean {
@@ -617,3 +804,8 @@ class ThemeViewModel(
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 }
+
+private fun String.demDiagValue(): String =
+    replace(Regex("\\s+"), "_")
+        .replace("|", "_")
+        .take(180)

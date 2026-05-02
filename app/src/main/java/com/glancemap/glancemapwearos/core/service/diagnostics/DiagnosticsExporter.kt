@@ -226,6 +226,9 @@ object DiagnosticsExporter {
                 kotlin.math.abs(captureDurationMs - bufferedSpanMs) > SESSION_DURATION_MISMATCH_THRESHOLD_MS
         val energyLines = EnergyDiagnostics.snapshotLines()
         val energyDroppedLines = EnergyDiagnostics.droppedLineCount()
+        val demDownloadSummary = DemDownloadDiagnostics.summary()
+        val demDownloadLines = DemDownloadDiagnostics.snapshotLines()
+        val demDownloadDroppedLines = DemDownloadDiagnostics.droppedLineCount()
         val markerMotionSummary = MarkerMotionTelemetry.summary()
         val markerMotionSnapshot = MarkerMotionTelemetry.latestSnapshot()
         val mapHotPathSummary = MapHotPathDiagnostics.summary()
@@ -238,6 +241,7 @@ object DiagnosticsExporter {
         val fieldMarkerDroppedLines = FieldMarkerDiagnostics.droppedLineCount()
         val telemetryTruncated = captureSession.droppedLines > 0
         val energyTruncated = energyDroppedLines > 0
+        val demDownloadTruncated = demDownloadDroppedLines > 0
         val mapHotPathTruncated = mapHotPathDroppedLines > 0
         val gnssTruncated = gnssDroppedLines > 0
         val fieldMarkerTruncated = fieldMarkerDroppedLines > 0
@@ -392,6 +396,10 @@ object DiagnosticsExporter {
             writer.appendLine("energyBufferMaxLines=${EnergyDiagnostics.maxBufferedLines()}")
             writer.appendLine("energyDroppedLines=$energyDroppedLines")
             writer.appendLine("energyTruncated=$energyTruncated")
+            writer.appendLine("demDownloadBufferedLines=${demDownloadLines.size}")
+            writer.appendLine("demDownloadBufferMaxLines=${DemDownloadDiagnostics.maxBufferedLines()}")
+            writer.appendLine("demDownloadDroppedLines=$demDownloadDroppedLines")
+            writer.appendLine("demDownloadTruncated=$demDownloadTruncated")
             writer.appendLine("markerMotionAcceptedFixes=${markerMotionSummary.acceptedFixes}")
             writer.appendLine("markerMotionPredictionUpdates=${markerMotionSummary.predictionUpdates}")
             writer.appendLine("markerMotionBlendStarts=${markerMotionSummary.blendStarts}")
@@ -413,6 +421,7 @@ object DiagnosticsExporter {
                 "anyCaptureBufferTruncated=${
                     telemetryTruncated ||
                         energyTruncated ||
+                        demDownloadTruncated ||
                         mapHotPathTruncated ||
                         gnssTruncated ||
                         fieldMarkerTruncated
@@ -634,6 +643,29 @@ object DiagnosticsExporter {
                 writer.appendLine("No energy diagnostics samples yet.")
             } else {
                 energyLines.forEach { line -> writer.appendLine(line) }
+            }
+            writer.appendLine()
+            writer.appendLine("DEM Download Summary")
+            writer.appendLine("eventCount=${demDownloadSummary.eventCount}")
+            writer.appendLine("bufferMaxLines=${demDownloadSummary.maxBufferedLines}")
+            writer.appendLine("droppedLines=${demDownloadSummary.droppedLineCount}")
+            writer.appendLine("truncated=$demDownloadTruncated")
+            writer.appendLine("startedCount=${demDownloadSummary.startedCount}")
+            writer.appendLine("completedCount=${demDownloadSummary.completedCount}")
+            writer.appendLine("downloadedCount=${demDownloadSummary.downloadedCount}")
+            writer.appendLine("skippedCount=${demDownloadSummary.skippedCount}")
+            writer.appendLine("missingCount=${demDownloadSummary.missingCount}")
+            writer.appendLine("failedCount=${demDownloadSummary.failedCount}")
+            writer.appendLine("resumeAttemptCount=${demDownloadSummary.resumeAttemptCount}")
+            writer.appendLine("resumeRestartCount=${demDownloadSummary.resumeRestartCount}")
+            writer.appendLine("validationFailureCount=${demDownloadSummary.validationFailureCount}")
+            writer.appendLine("networkUnavailableCount=${demDownloadSummary.networkUnavailableCount}")
+            writer.appendLine()
+            writer.appendLine("DEM Download Events")
+            if (demDownloadLines.isEmpty()) {
+                writer.appendLine("No DEM download events captured yet.")
+            } else {
+                demDownloadLines.forEach { line -> writer.appendLine(line) }
             }
             writer.appendLine()
             writer.appendLine("GNSS Summary")
