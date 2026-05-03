@@ -3,7 +3,6 @@ package com.glancemap.glancemapcompanionapp.filepicker
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -29,7 +28,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -94,18 +92,20 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
             listOf(
                 ExternalDownloadSource(
                     category = "Topographic maps",
-                    label = "OpenAndroMaps",
+                    label = "OpenAndroMaps (recommended, worldwide)",
                     url = "https://www.openandromaps.org/en/downloads",
+                    guidance = "Map downloads > select your area > Download V5 Map: Karte/Map.",
                 ),
                 ExternalDownloadSource(
                     category = "Topographic maps",
-                    label = "OpenHiking",
+                    label = "OpenHiking (Europe)",
                     url = "https://www.openhiking.eu/en/downloads/mapsforge-maps",
                 ),
                 ExternalDownloadSource(
                     category = "Non-topographic maps",
                     label = "BBBike",
                     url = "https://extract.bbbike.org/?format=mapsforge-osm.zip",
+                    guidance = "Generate a map for your area, then choose format: Mapsforge OSM.",
                 ),
                 ExternalDownloadSource(
                     category = "Non-topographic maps",
@@ -116,11 +116,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     category = "Non-topographic maps",
                     label = "Alternativas Libres",
                     url = "https://alternativaslibres.org/en/downloads-mf.php",
-                ),
-                ExternalDownloadSource(
-                    category = "Other",
-                    label = "Freizeitkarte",
-                    url = "https://www.freizeitkarte-osm.de/android/en/index.html",
                 ),
             )
         }
@@ -239,19 +234,11 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
     // --- Permission Handling ---
     var hasNotificationPermission by remember {
         mutableStateOf(
-            if (Build.VERSION.SDK_INT >= 33) {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS,
-                ) == PackageManager.PERMISSION_GRANTED
-            } else {
-                true
-            },
+            hasNotificationPermission(context),
         )
     }
-    var hasBluetoothConnectPermission by remember {
-        mutableStateOf(hasBluetoothConnectPermission(context))
-    }
+    // Wear OS Data Layer discovery/transfer does not need a user-facing Bluetooth grant.
+    var hasBluetoothConnectPermission by remember { mutableStateOf(true) }
 
     val permissionLauncher =
         rememberLauncherForActivityResult(
@@ -259,8 +246,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
         ) { permissions ->
             hasNotificationPermission =
                 permissions[Manifest.permission.POST_NOTIFICATIONS] ?: hasNotificationPermission
-            hasBluetoothConnectPermission =
-                permissions[Manifest.permission.BLUETOOTH_CONNECT] ?: hasBluetoothConnectPermission
         }
 
     val saveSingleFileLauncher =
@@ -332,15 +317,8 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
         }
 
     val requestMissingPermissions = {
-        val permissionsToRequest = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission) {
-            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (Build.VERSION.SDK_INT >= 31 && !hasBluetoothConnectPermission) {
-            permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
-        }
-        if (permissionsToRequest.isNotEmpty()) {
-            permissionLauncher.launch(permissionsToRequest.toTypedArray())
+            permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
         }
     }
 
@@ -393,16 +371,8 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     }
 
                     Lifecycle.Event.ON_RESUME -> {
-                        hasNotificationPermission =
-                            if (Build.VERSION.SDK_INT >= 33) {
-                                ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.POST_NOTIFICATIONS,
-                                ) == PackageManager.PERMISSION_GRANTED
-                            } else {
-                                true
-                            }
-                        hasBluetoothConnectPermission = hasBluetoothConnectPermission(context)
+                        hasNotificationPermission = hasNotificationPermission(context)
+                        hasBluetoothConnectPermission = true
                     }
 
                     Lifecycle.Event.ON_STOP -> {
@@ -449,7 +419,12 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
             uiState.progressText.contains("Waiting for watch reconnect", ignoreCase = true)
     val fontScale = LocalDensity.current.fontScale
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing),
+    ) {
         val windowWidth = maxWidth
         val windowHeight = maxHeight
 
