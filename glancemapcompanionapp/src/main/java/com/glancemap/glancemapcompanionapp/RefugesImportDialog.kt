@@ -101,12 +101,12 @@ internal fun RefugesImportDialog(
         mutableStateOf(lastRefugesRequest?.bbox.orEmpty())
     }
     var fileNameInput by remember(lastRefugesRequest?.fileName) {
-        mutableStateOf(lastRefugesRequest?.fileName ?: "refuges-info.poi")
+        mutableStateOf(lastRefugesRequest?.fileName ?: "osm-mountain.poi")
     }
     var selectedTypeIds by remember(lastRefugesRequest?.typePointIds) {
         mutableStateOf(lastRefugesRequest?.typePointIds ?: allPointTypeIds)
     }
-    var selectedSource by remember { mutableStateOf(PoiImportSource.REFUGES) }
+    var selectedSource by remember { mutableStateOf(PoiImportSource.OSM) }
     var enrichWithOsm by remember { mutableStateOf(false) }
     var selectedOsmCategoryIds by remember {
         mutableStateOf(defaultOsmPoiCategoryIds())
@@ -585,13 +585,6 @@ internal fun RefugesImportDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         FilterChip(
-                            selected = selectedSource == PoiImportSource.REFUGES,
-                            onClick = {
-                                selectedSource = PoiImportSource.REFUGES
-                            },
-                            label = { Text("Refuges.info") },
-                        )
-                        FilterChip(
                             selected = selectedSource == PoiImportSource.OSM,
                             onClick = {
                                 selectedSource = PoiImportSource.OSM
@@ -599,8 +592,20 @@ internal fun RefugesImportDialog(
                             },
                             label = { Text("OSM") },
                         )
+                        FilterChip(
+                            selected = selectedSource == PoiImportSource.REFUGES,
+                            onClick = {
+                                selectedSource = PoiImportSource.REFUGES
+                            },
+                            label = { Text("Refuges.info") },
+                        )
                     }
                     if (selectedSource == PoiImportSource.REFUGES) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "refuges.info POIs for France, the Alps, and the Pyrenees.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),

@@ -18,6 +18,7 @@ internal data class ExternalDownloadSource(
     val category: String,
     val label: String,
     val url: String,
+    val guidance: String? = null,
 )
 
 internal data class ThemeLegendLink(
@@ -133,11 +134,11 @@ internal fun markHelpShown(context: Context) {
         .apply()
 }
 
-internal fun hasBluetoothConnectPermission(context: Context): Boolean {
-    if (Build.VERSION.SDK_INT < 31) return true
+internal fun hasNotificationPermission(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < 33) return true
     return ContextCompat.checkSelfPermission(
         context,
-        Manifest.permission.BLUETOOTH_CONNECT,
+        Manifest.permission.POST_NOTIFICATIONS,
     ) == PackageManager.PERMISSION_GRANTED
 }
 

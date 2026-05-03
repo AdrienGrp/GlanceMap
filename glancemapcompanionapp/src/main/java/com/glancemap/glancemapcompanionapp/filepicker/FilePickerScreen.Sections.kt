@@ -27,15 +27,28 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.LinkInteractionListener
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import com.glancemap.glancemapcompanionapp.CompanionAdaptiveSpec
 import com.glancemap.glancemapcompanionapp.CompanionWindowClass
 import com.glancemap.glancemapcompanionapp.FileTransferUiState
 import com.glancemap.glancemapcompanionapp.diagnostics.PhoneDebugCaptureState
 import com.glancemap.glancemapcompanionapp.transfer.presentation.TransferTextFormatter
+
+private const val MAPSFORGE_URL = "https://github.com/mapsforge/mapsforge"
 
 @Composable
 internal fun FilePickerDownloadSection(
@@ -63,6 +76,11 @@ internal fun FilePickerDownloadSection(
     val isCompactScreen = adaptive.isCompactScreen
     val downloadButtonHeight = adaptive.downloadButtonHeight
     val downloadSectionMinHeight = downloadButtonHeight + 60.dp
+    val showNotificationNotice =
+        !hasNotificationPermission &&
+            Build.VERSION.SDK_INT >= 33 &&
+            hasBluetoothConnectPermission
+    var showGpxSourcesMenu by remember { mutableStateOf(false) }
     val openUrl: (String) -> Unit = { url ->
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -82,29 +100,18 @@ internal fun FilePickerDownloadSection(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (!hasNotificationPermission && Build.VERSION.SDK_INT >= 33) {
+            if (showNotificationNotice) {
                 Text(
-                    "Notification permission needed for background transfers.",
-                    color = MaterialTheme.colorScheme.error,
+                    "Notifications are off. Transfers still work, but background progress alerts may be hidden.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                 )
-            }
-            if (!hasBluetoothConnectPermission && Build.VERSION.SDK_INT >= 31) {
-                Text(
-                    "Bluetooth permission needed to detect and pair with watch.",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
-            if ((!hasNotificationPermission && Build.VERSION.SDK_INT >= 33) ||
-                (!hasBluetoothConnectPermission && Build.VERSION.SDK_INT >= 31)
-            ) {
                 OutlinedButton(
                     onClick = onRequestMissingPermissions,
                     enabled = !uiLocked,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Grant missing permissions")
+                    Text("Enable notifications")
                 }
             }
 
@@ -134,6 +141,21 @@ internal fun FilePickerDownloadSection(
                         expanded = showMapSourcesMenu,
                         onDismissRequest = { onShowMapSourcesMenuChange(false) },
                     ) {
+                        MapsDropdownIntro(
+                            onOpenMapsforge = {
+                                onShowMapSourcesMenuChange(false)
+                                openUrl(MAPSFORGE_URL)
+                            },
+                        )
+                        HorizontalDivider()
+                        Text(
+                            "Recommended websites to download maps",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier =
+                                Modifier
+                                    .widthIn(max = 300.dp)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
                         val orderedCategories =
                             listOf(
                                 "Topographic maps",
@@ -161,13 +183,18 @@ internal fun FilePickerDownloadSection(
                                 DropdownMenuItem(
                                     text = {
                                         Column {
-                                            Text(source.label)
                                             Text(
-                                                source.url,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
+                                                source.label,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                textDecoration = TextDecoration.Underline,
                                             )
+                                            source.guidance?.let { guidance ->
+                                                Text(
+                                                    guidance,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
                                         }
                                     },
                                     onClick = {
@@ -180,17 +207,68 @@ internal fun FilePickerDownloadSection(
                     }
                 }
 
-                DownloadActionButton(
-                    label = "GPX",
-                    buttonHeight = downloadButtonHeight,
-                    iconSize = 22.dp,
-                    onClick = { openUrl("https://www.visugpx.com/") },
-                    enabled = !uiLocked,
+                Box(
                     modifier = Modifier.weight(1f),
-                    icon = {
-                        Icon(Icons.Filled.Timeline, contentDescription = "Download GPX")
-                    },
-                )
+                ) {
+                    DownloadActionButton(
+                        label = "GPX",
+                        buttonHeight = downloadButtonHeight,
+                        iconSize = 22.dp,
+                        onClick = { showGpxSourcesMenu = true },
+                        enabled = !uiLocked,
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = {
+                            Icon(Icons.Filled.Timeline, contentDescription = "Download GPX")
+                        },
+                    )
+                    DropdownMenu(
+                        expanded = showGpxSourcesMenu,
+                        onDismissRequest = { showGpxSourcesMenu = false },
+                    ) {
+                        Text(
+                            "GlanceMap can read and display .gpx tracks.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier =
+                                Modifier
+                                    .widthIn(max = 260.dp)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                        Text(
+                            "Download GPX from your favorite website, or create your own route:",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier =
+                                Modifier
+                                    .widthIn(max = 260.dp)
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 8.dp),
+                        )
+                        GpxSourceMenuItem(
+                            label = "gpx.studio",
+                            url = "https://gpx.studio/",
+                            onOpen = { url ->
+                                showGpxSourcesMenu = false
+                                openUrl(url)
+                            },
+                        )
+                        GpxSourceMenuItem(
+                            label = "Trackbook",
+                            url = "https://trackbook.com/",
+                            onOpen = { url ->
+                                showGpxSourcesMenu = false
+                                openUrl(url)
+                            },
+                        )
+                        HorizontalDivider()
+                        Text(
+                            "Send routing files to the watch to create GPX routes directly in the watch app.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier =
+                                Modifier
+                                    .widthIn(max = 260.dp)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
 
                 Box(
                     modifier = Modifier.weight(1f),
@@ -283,6 +361,64 @@ internal fun FilePickerDownloadSection(
             }
         }
     }
+}
+
+@Composable
+@Suppress("FunctionNaming")
+private fun GpxSourceMenuItem(
+    label: String,
+    url: String,
+    onOpen: (String) -> Unit,
+) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                label,
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline,
+            )
+        },
+        onClick = { onOpen(url) },
+    )
+}
+
+@Composable
+@Suppress("FunctionNaming")
+private fun MapsDropdownIntro(onOpenMapsforge: () -> Unit) {
+    val linkColor = MaterialTheme.colorScheme.primary
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textStyle = MaterialTheme.typography.bodySmall.copy(color = textColor)
+    val linkStyles =
+        TextLinkStyles(
+            style =
+                SpanStyle(
+                    color = linkColor,
+                    textDecoration = TextDecoration.Underline,
+                ),
+        )
+    val introText =
+        buildAnnotatedString {
+            append("GlanceMap is powered by ")
+            withLink(
+                LinkAnnotation.Url(
+                    url = MAPSFORGE_URL,
+                    styles = linkStyles,
+                    linkInteractionListener = LinkInteractionListener { onOpenMapsforge() },
+                ),
+            ) {
+                append("Mapsforge")
+            }
+            append(". Compatible map files: .map (v3/v4/v5).")
+        }
+
+    Text(
+        text = introText,
+        style = textStyle,
+        modifier =
+            Modifier
+                .widthIn(max = 300.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 @Composable
