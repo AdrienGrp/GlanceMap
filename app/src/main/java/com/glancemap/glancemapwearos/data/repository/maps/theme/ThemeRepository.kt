@@ -12,6 +12,8 @@ data class ThemeSelection(
     val hillShadingEnabled: Boolean,
     // Global map-layer toggle used by renderer DEM color relief overlay.
     val reliefOverlayEnabled: Boolean,
+    // Global map appearance override that renders with a dark Mapsforge style.
+    val nightModeEnabled: Boolean,
 )
 
 interface ThemeRepository {
@@ -44,6 +46,8 @@ interface ThemeRepository {
     suspend fun setHillShadingEnabled(enabled: Boolean)
 
     suspend fun setReliefOverlayEnabled(enabled: Boolean)
+
+    suspend fun setNightModeEnabled(enabled: Boolean)
 
     suspend fun resetToDefaults()
 }

@@ -594,6 +594,7 @@ class MapViewModel(
                         append(" overlays=").append(selection.enabledOverlayLayerIds.size)
                         append(" hill=").append(selection.hillShadingEnabled)
                         append(" relief=").append(selection.reliefOverlayEnabled)
+                        append(" night=").append(selection.nightModeEnabled)
                         append(" visibleWait=").append(themeApplyResult.requiresVisibleTileWait)
                     },
             )
