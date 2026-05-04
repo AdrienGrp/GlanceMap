@@ -1,6 +1,0 @@
-<wearableApp package="com.glancemap.glancemapwearos">
-    <unbundled />
-    <capabilities>
-        <capability name="glancemap_wear_app"/>
-    </capabilities>
-</wearableApp>

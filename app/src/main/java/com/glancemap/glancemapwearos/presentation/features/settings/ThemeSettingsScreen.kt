@@ -155,6 +155,10 @@ fun ThemeSettingsScreen(
     val themeOptions = themeItems.filterIsInstance<ThemeListItem.ThemeOption>()
     val styleOptions = themeItems.filterIsInstance<ThemeListItem.Style>()
     val overlayOptions = themeItems.filterIsInstance<ThemeListItem.Overlay>()
+    val nightModeToggle =
+        themeItems
+            .filterIsInstance<ThemeListItem.GlobalToggle>()
+            .firstOrNull { it.id == ThemeRepositoryImpl.GLOBAL_NIGHT_MODE_ID }
     val overlayGroups = remember(overlayOptions) { buildOverlayGroups(overlayOptions) }
     val themePickerOptions =
         remember(themeOptions) {
@@ -214,7 +218,30 @@ fun ThemeSettingsScreen(
                 }
             }
 
-            if (themeOptions.isNotEmpty()) {
+            item {
+                SettingsToggleChip(
+                    checked = nightModeToggle?.enabled == true,
+                    onCheckedChanged = { enabled ->
+                        themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_NIGHT_MODE_ID, enabled)
+                    },
+                    label = "Night mode",
+                    secondaryLabel = if (nightModeToggle?.enabled == true) "On" else "Off",
+                )
+            }
+
+            if (nightModeToggle?.enabled == true) {
+                item {
+                    Text(
+                        text =
+                            "Night mode uses Mapsforge Dark. Your normal theme and overlay choices " +
+                                "are saved and return when it is off.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            } else if (themeOptions.isNotEmpty()) {
                 item {
                     Text(
                         text = "Theme",
@@ -234,7 +261,7 @@ fun ThemeSettingsScreen(
                 }
             }
 
-            if (styleSelectionAvailable) {
+            if (nightModeToggle?.enabled != true && styleSelectionAvailable) {
                 item {
                     SettingsPickerChip(
                         label = "Style",
@@ -245,7 +272,7 @@ fun ThemeSettingsScreen(
                 }
             }
 
-            if (themeOptions.isNotEmpty()) {
+            if (nightModeToggle?.enabled != true && themeOptions.isNotEmpty()) {
                 item {
                     Text(
                         text = "Themes can misread terrain or paths. Verify with local conditions and other sources.",
@@ -257,7 +284,7 @@ fun ThemeSettingsScreen(
                 }
             }
 
-            if (bundledThemeSelected && overlayOptions.isNotEmpty()) {
+            if (nightModeToggle?.enabled != true && bundledThemeSelected && overlayOptions.isNotEmpty()) {
                 item {
                     Text(
                         text = "Overlays (tap group to open)",

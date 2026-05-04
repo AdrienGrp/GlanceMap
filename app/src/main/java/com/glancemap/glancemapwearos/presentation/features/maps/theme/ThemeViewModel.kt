@@ -236,6 +236,10 @@ class ThemeViewModel(
                     Log.d("Theme", "setGlobalToggle: reliefOverlay=$enabled")
                     themeRepository.setReliefOverlayEnabled(enabled)
                 }
+                ThemeRepositoryImpl.GLOBAL_NIGHT_MODE_ID -> {
+                    Log.d("Theme", "setGlobalToggle: nightMode=$enabled")
+                    themeRepository.setNightModeEnabled(enabled)
+                }
             }
         }
     }

@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -247,7 +248,14 @@ internal fun BoxScope.NavigateOverlaysLayer(
                             contentColor = Color.White,
                         ),
                 ) {
-                    Icon(Icons.Default.Add, "Zoom In", Modifier.size(zoomIconSize))
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Zoom In",
+                        modifier =
+                            Modifier
+                                .size(zoomIconSize)
+                                .rotate(40f),
+                    )
                 }
             }
         }
@@ -283,7 +291,14 @@ internal fun BoxScope.NavigateOverlaysLayer(
                             contentColor = Color.White,
                         ),
                 ) {
-                    Icon(Icons.Default.Remove, "Zoom Out", Modifier.size(zoomIconSize))
+                    Icon(
+                        imageVector = Icons.Default.Remove,
+                        contentDescription = "Zoom Out",
+                        modifier =
+                            Modifier
+                                .size(zoomIconSize)
+                                .rotate(112f),
+                    )
                 }
             }
         }

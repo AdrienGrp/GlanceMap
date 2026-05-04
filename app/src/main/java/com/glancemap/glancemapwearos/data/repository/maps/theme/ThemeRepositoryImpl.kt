@@ -25,6 +25,7 @@ class ThemeRepositoryImpl(
         const val DEFAULT_STYLE_ID = "__DEFAULT__"
         const val GLOBAL_HILL_SHADING_ID = "__GLOBAL_HILL_SHADING__"
         const val GLOBAL_RELIEF_OVERLAY_ID = "__GLOBAL_RELIEF_OVERLAY__"
+        const val GLOBAL_NIGHT_MODE_ID = "__GLOBAL_NIGHT_MODE__"
         private const val WINTER_STYLE_ID = "elv-winter"
         private const val WINTER_WHITE_STYLE_ID = "__WINTER_WHITE__"
         private const val VOLUNTARY_DEFAULT_STYLE_ID = "vol-hiking"
@@ -41,6 +42,7 @@ class ThemeRepositoryImpl(
     private val keySelectedThemeId = "selected_theme_id"
     private val keyHillShadingEnabled = "global_hill_shading_enabled"
     private val keyReliefOverlayEnabled = "global_relief_overlay_enabled"
+    private val keyNightModeEnabled = "global_night_mode_enabled"
     private val keyLegacySlopeOverlayEnabled = "global_slope_overlay_enabled"
 
     private val parsedByTheme: Map<String, ParsedStyleMenu> by lazy {
@@ -385,6 +387,10 @@ class ThemeRepositoryImpl(
             .apply()
     }
 
+    override suspend fun setNightModeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(keyNightModeEnabled, enabled).apply()
+    }
+
     override suspend fun resetToDefaults() {
         val editor =
             prefs
@@ -393,6 +399,7 @@ class ThemeRepositoryImpl(
                 .remove(KEY_LEGACY_SELECTED_STYLE)
                 .remove(keyHillShadingEnabled)
                 .remove(keyReliefOverlayEnabled)
+                .remove(keyNightModeEnabled)
                 .remove(keyLegacySlopeOverlayEnabled)
         parsedByTheme.forEach { (themeId, parsed) ->
             editor.remove(selectedStyleKeyForTheme(themeId))
@@ -497,6 +504,8 @@ class ThemeRepositoryImpl(
 
     private fun hillShadingEnabledOrDefault(): Boolean = prefs.getBoolean(keyHillShadingEnabled, false)
 
+    private fun nightModeEnabledOrDefault(): Boolean = prefs.getBoolean(keyNightModeEnabled, false)
+
     private fun reliefOverlayEnabledOrDefault(): Boolean =
         when {
             prefs.contains(keyReliefOverlayEnabled) -> prefs.getBoolean(keyReliefOverlayEnabled, false)
@@ -539,11 +548,27 @@ class ThemeRepositoryImpl(
 
     private fun getCurrentSelection(): ThemeSelection {
         val selectedThemeId = selectedThemeIdOrDefault()
+        val nightModeEnabled = nightModeEnabledOrDefault()
         val hillShadingPreferenceEnabled = hillShadingEnabledOrDefault()
+        val renderingThemeId = if (nightModeEnabled) THEME_ID_MAPSFORGE else selectedThemeId
         val hillShadingEnabled =
             hillShadingPreferenceEnabled &&
-                themeSupportsNativeHillShading(selectedThemeId)
+                themeSupportsNativeHillShading(renderingThemeId)
         val reliefOverlayEnabled = reliefOverlayEnabledOrDefault()
+        if (nightModeEnabled) {
+            val darkOption =
+                MapsforgeThemeCatalog.optionById(MapsforgeThemeCatalog.DARK_MAPSFORGE_STYLE_ID)
+                    ?: MapsforgeThemeCatalog.defaultOption()
+            return ThemeSelection(
+                themeId = THEME_ID_MAPSFORGE,
+                mapsforgeThemeName = darkOption.themeName,
+                styleId = darkOption.id,
+                enabledOverlayLayerIds = emptyList(),
+                hillShadingEnabled = hillShadingEnabled,
+                reliefOverlayEnabled = reliefOverlayEnabled,
+                nightModeEnabled = true,
+            )
+        }
         if (MapsforgeThemeCatalog.isMapsforgeFamilyTheme(selectedThemeId)) {
             val selectedStyleId = mapsforgeStyleIdOrDefault()
             val mapsforgeOption =
@@ -556,6 +581,7 @@ class ThemeRepositoryImpl(
                 enabledOverlayLayerIds = emptyList(),
                 hillShadingEnabled = hillShadingEnabled,
                 reliefOverlayEnabled = reliefOverlayEnabled,
+                nightModeEnabled = nightModeEnabled,
             )
         }
 
@@ -574,6 +600,7 @@ class ThemeRepositoryImpl(
                 enabledOverlayLayerIds = emptyList(),
                 hillShadingEnabled = hillShadingEnabled,
                 reliefOverlayEnabled = reliefOverlayEnabled,
+                nightModeEnabled = nightModeEnabled,
             )
         val selectedStyle =
             parsed.stylesById[effectiveStyleId] ?: return ThemeSelection(
@@ -583,6 +610,7 @@ class ThemeRepositoryImpl(
                 enabledOverlayLayerIds = emptyList(),
                 hillShadingEnabled = hillShadingEnabled,
                 reliefOverlayEnabled = reliefOverlayEnabled,
+                nightModeEnabled = nightModeEnabled,
             )
         val enabledLayerIds =
             if (selectedStyleId == DEFAULT_STYLE_ID) {
@@ -598,6 +626,7 @@ class ThemeRepositoryImpl(
             enabledOverlayLayerIds = enabledLayerIds,
             hillShadingEnabled = hillShadingEnabled,
             reliefOverlayEnabled = reliefOverlayEnabled,
+            nightModeEnabled = nightModeEnabled,
         )
     }
 
@@ -609,9 +638,16 @@ class ThemeRepositoryImpl(
         val hillShadingEnabled = hillShadingEnabledOrDefault()
         val hillShadingSupported = themeSupportsNativeHillShading(selectedThemeId)
         val reliefOverlayEnabled = reliefOverlayEnabledOrDefault()
+        val nightModeEnabled = nightModeEnabledOrDefault()
         val items = mutableListOf<ThemeListItem>()
 
         items += ThemeListItem.Header("Theme")
+        items +=
+            ThemeListItem.GlobalToggle(
+                id = GLOBAL_NIGHT_MODE_ID,
+                name = "Night mode",
+                enabled = nightModeEnabled,
+            )
         items +=
             ThemeListItem.ThemeOption(
                 id = THEME_ID_ELEVATE,

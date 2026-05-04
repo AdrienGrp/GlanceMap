@@ -22,6 +22,7 @@ object MapsforgeThemeCatalog {
     val LEGACY_HILLSHADING_THEME_ID = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.HILLSHADING.name}"
     val DEFAULT_MAPSFORGE_STYLE_ID = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.DEFAULT.name}"
     val DEFAULT_MAPSFORGE_THEME_ID = DEFAULT_MAPSFORGE_STYLE_ID
+    val DARK_MAPSFORGE_STYLE_ID = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.DARK.name}"
 
     val options: List<MapsforgeThemeOption> =
         listOf(
@@ -46,7 +47,7 @@ object MapsforgeThemeCatalog {
                 label = "Biker",
             ),
             MapsforgeThemeOption(
-                id = "$MAPSFORGE_THEME_PREFIX${MapsforgeThemes.DARK.name}",
+                id = DARK_MAPSFORGE_STYLE_ID,
                 themeName = MapsforgeThemes.DARK.name,
                 label = "Dark",
             ),

@@ -26,10 +26,6 @@
         android:usesCleartextTraffic="false">
 
         <meta-data
-            android:name="com.google.android.wearable.beta.app"
-            android:resource="@xml/wearable_app_desc" />
-
-        <meta-data
             android:name="com.google.android.gms.wearable.CHANNEL_BUFFER_SIZE"
             android:value="${channelBufferSize}" />
 
