@@ -4,16 +4,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
@@ -32,8 +33,10 @@ import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import org.mapsforge.core.model.LatLong
 
 @Composable
+@Suppress("FunctionNaming")
 internal fun NavigateKeepAppOpenDialog(
     visible: Boolean,
+    @Suppress("UNUSED_PARAMETER")
     helpDialogMaxHeight: Dp,
     onContinue: () -> Unit,
     onDismiss: () -> Unit,
@@ -43,43 +46,71 @@ internal fun NavigateKeepAppOpenDialog(
     AlertDialog(
         visible = true,
         onDismissRequest = onDismiss,
-        title = { Text("Stay open") },
+        title = {
+            Text(
+                text = "Stay open",
+                fontSize = 16.sp,
+                lineHeight = 18.sp,
+            )
+        },
         text = {
             Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = helpDialogMaxHeight)
-                        .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Row {
-                    Icon(
-                        imageVector = Icons.Filled.Visibility,
-                        contentDescription = null,
-                    )
-                    Text(" keeps GlanceMap active.")
-                }
-                Row {
-                    Icon(
-                        imageVector = Icons.Filled.VisibilityOff,
-                        contentDescription = null,
-                    )
-                    Text(" lets the watch put the app in the background and remove it from Recent apps.")
-                }
+                KeepAppOpenInfoRow(
+                    imageVector = Icons.Filled.Visibility,
+                    text = "keeps GlanceMap active.",
+                )
+                KeepAppOpenInfoRow(
+                    imageVector = Icons.Filled.VisibilityOff,
+                    text = "lets the watch sleep and removes it from Recents.",
+                )
             }
         },
         confirmButton = {
             Button(onClick = onContinue) {
-                Text("Continue")
+                Text(
+                    text = "Continue",
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                )
             }
         },
         dismissButton = {
             Button(onClick = onDismiss) {
-                Text("Later")
+                Text(
+                    text = "Later",
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                )
             }
         },
     )
+}
+
+@Composable
+@Suppress("FunctionNaming")
+private fun KeepAppOpenInfoRow(
+    imageVector: ImageVector,
+    text: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+        )
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            lineHeight = 14.sp,
+        )
+    }
 }
 
 @Composable

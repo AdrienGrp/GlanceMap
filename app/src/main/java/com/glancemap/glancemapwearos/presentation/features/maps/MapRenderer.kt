@@ -417,6 +417,7 @@ class MapRenderer(
         val desiredCacheId =
             resolveMapRendererDesiredCacheId(
                 mapSignature = newMapSignature,
+                themeSignature = currentThemeSignature,
                 demSignature = newDemSignature,
                 hillShadingEnabled = currentHillShadingEnabled,
                 elevationLabelsMetric = currentElevationLabelsMetric,

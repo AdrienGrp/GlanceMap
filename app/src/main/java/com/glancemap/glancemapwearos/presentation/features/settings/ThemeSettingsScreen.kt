@@ -232,7 +232,9 @@ fun ThemeSettingsScreen(
             if (nightModeToggle?.enabled == true) {
                 item {
                     Text(
-                        text = "Night mode uses Mapsforge Dark. Your normal theme and overlay choices are saved and return when it is off.",
+                        text =
+                            "Night mode uses Mapsforge Dark. Your normal theme and overlay choices " +
+                                "are saved and return when it is off.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.fillMaxWidth(),

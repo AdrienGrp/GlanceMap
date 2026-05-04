@@ -90,11 +90,13 @@ internal fun computeMapRendererMapSignature(mapPath: String?): String? {
 
 internal fun resolveMapRendererDesiredCacheId(
     mapSignature: String?,
+    themeSignature: String,
     demSignature: String?,
     hillShadingEnabled: Boolean,
     elevationLabelsMetric: Boolean,
 ): String {
     val mapPart = mapSignature ?: "MAP:NONE"
+    val themePart = themeSignature.ifBlank { "THEME:UNSET" }
     val demPart =
         if (hillShadingEnabled) {
             demSignature ?: "DEM:NONE"
@@ -102,7 +104,7 @@ internal fun resolveMapRendererDesiredCacheId(
             "DEM:OFF"
         }
     val unitPart = if (elevationLabelsMetric) "UNITS:METRIC" else "UNITS:IMPERIAL"
-    val signature = "$mapPart|$demPart|$unitPart"
+    val signature = "$mapPart|$themePart|$demPart|$unitPart"
 
     val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray(Charsets.UTF_8))
     val shortHex =
