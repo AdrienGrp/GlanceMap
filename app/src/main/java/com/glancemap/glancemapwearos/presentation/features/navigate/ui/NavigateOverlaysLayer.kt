@@ -254,7 +254,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
                         modifier =
                             Modifier
                                 .size(zoomIconSize)
-                                .rotate(0f),
+                                .rotate(40f),
                     )
                 }
             }
@@ -297,7 +297,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
                         modifier =
                             Modifier
                                 .size(zoomIconSize)
-                                .rotate(45f),
+                                .rotate(112f),
                     )
                 }
             }
