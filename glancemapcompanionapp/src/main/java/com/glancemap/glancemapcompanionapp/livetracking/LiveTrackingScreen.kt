@@ -8,7 +8,9 @@ import android.net.Uri
 import android.util.Patterns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -17,13 +19,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -31,15 +38,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpCenter
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -62,19 +72,23 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.glancemap.glancemapcompanionapp.resolveUriDisplayName
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
+import kotlin.math.roundToInt
 
 private enum class LiveTrackingPage {
     MAIN,
+    LOGIN,
     SETTINGS,
     ABOUT,
 }
@@ -93,17 +107,24 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
     var notificationEmailAddresses by remember { mutableStateOf<List<String>>(emptyList()) }
     var alertEmailInput by remember { mutableStateOf("") }
     var alertEmailAddresses by remember { mutableStateOf<List<String>>(emptyList()) }
-    var stuckAlarmMinutes by remember { mutableStateOf("") }
+    var stuckAlarmMinutes by remember { mutableStateOf("15") }
     var comments by remember { mutableStateOf("") }
     var trackingEndpoint by remember { mutableStateOf(ArkluzTrackingEndpoint.PRODUCTION) }
     var updateIntervalSeconds by remember { mutableStateOf(60) }
-    var customUpdateIntervalSeconds by remember { mutableStateOf("") }
     var selectedGpxUri by remember { mutableStateOf<Uri?>(null) }
     var selectedGpxName by remember { mutableStateOf("") }
     var hasLocationPermission by remember { mutableStateOf(hasLocationPermission(context)) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
+    var headerMessage by remember { mutableStateOf<String?>(null) }
     var sendStatusMessage by remember { mutableStateOf<String?>(null) }
+    var loginJoinStatusMessage by remember { mutableStateOf<String?>(null) }
+    var isLoginJoinLoading by remember { mutableStateOf(false) }
+    var pendingRegistrationGroup by remember { mutableStateOf<String?>(null) }
+    var showCreateGroupDialog by remember { mutableStateOf(false) }
+    var createGroupPasswordConfirmation by remember { mutableStateOf("") }
     var isSendingPlan by remember { mutableStateOf(false) }
+    var deleteTracksStatusMessage by remember { mutableStateOf<String?>(null) }
+    var isDeletingTracks by remember { mutableStateOf(false) }
     var planSent by remember { mutableStateOf(false) }
 
     val gpxPicker =
@@ -193,10 +214,12 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                     selectedUser = null,
                 )
             }
-        val canSendPlan = selectedGpxUri != null || comments.isNotBlank()
+        val isConnected = followerPassword.isNotBlank()
+        val canSendPlan = (selectedGpxUri != null || comments.isNotBlank()) && isConnected
         val canStart =
             group.isNotBlank() &&
                 participantPassword.isNotBlank() &&
+                followerPassword.isNotBlank() &&
                 userName.isNotBlank()
 
         Column(
@@ -207,8 +230,15 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                 LiveTrackingPage.MAIN -> {
                     MainTrackingContent(
                         onBack = onBack,
-                        onOpenSettings = { page = LiveTrackingPage.SETTINGS },
+                        onOpenLogin = { page = LiveTrackingPage.LOGIN },
+                        onOpenSettings = {
+                            page = LiveTrackingPage.SETTINGS
+                            headerMessage = null
+                        },
                         onOpenAbout = { page = LiveTrackingPage.ABOUT },
+                        isConnected = isConnected,
+                        group = group,
+                        headerMessage = headerMessage,
                         selectedGpxName = selectedGpxName,
                         comments = comments,
                         onCommentsChange = {
@@ -222,14 +252,22 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                         canSendPlan = canSendPlan,
                         isSendingPlan = isSendingPlan,
                         onSendPlan = {
-                            validationMessage = validatePlanSettings(group, participantPassword)
+                            validationMessage =
+                                validateAccountSettings(
+                                    group = group,
+                                    participantPassword = participantPassword,
+                                    followerPassword = followerPassword,
+                                )
                             if (validationMessage != null) return@MainTrackingContent
                             isSendingPlan = true
                             sendStatusMessage = "Checking group"
                             coroutineScope.launch {
                                 runCatching {
                                     val client = ArkluzLiveTrackingClient(context)
-                                    client.registerOrJoinGroup(settings)
+                                    client
+                                        .registerOrJoinGroup(settings)
+                                        .viewerPassword
+                                        ?.let { followerPassword = it }
                                     sendStatusMessage = "Sending planned route"
                                     client.uploadPlannedRoute(settings)
                                 }.onSuccess { result ->
@@ -242,10 +280,17 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                             }
                         },
                         sessionState = sessionState,
+                        updateIntervalSeconds = updateIntervalSeconds,
                         validationMessage = validationMessage,
                         sendStatusMessage = sendStatusMessage,
                         onStart = {
-                            validationMessage = validateStartSettings(group, participantPassword, userName)
+                            validationMessage =
+                                validateStartSettings(
+                                    group = group,
+                                    participantPassword = participantPassword,
+                                    followerPassword = followerPassword,
+                                    userName = userName,
+                                )
                             if (!canStart) return@MainTrackingContent
                             if (!hasLocationPermission) {
                                 locationPermissionLauncher.launch(
@@ -260,8 +305,113 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                             LiveTrackingService.start(context = context, settings = settings)
                         },
                         onStop = { LiveTrackingService.stop(context) },
+                        userName = userName,
                         groupTrackUrl = groupTrackUrl,
                         userTrackUrl = userTrackUrl,
+                        scrollState = scrollState,
+                        contentSpacing = contentSpacing,
+                    )
+                }
+
+                LiveTrackingPage.LOGIN -> {
+                    LoginJoinContent(
+                        onBack = { page = LiveTrackingPage.MAIN },
+                        group = group,
+                        onGroupChange = {
+                            group = it
+                            followerPassword = ""
+                            loginJoinStatusMessage = null
+                            pendingRegistrationGroup = null
+                            showCreateGroupDialog = false
+                            createGroupPasswordConfirmation = ""
+                        },
+                        participantPassword = participantPassword,
+                        onParticipantPasswordChange = {
+                            participantPassword = it
+                            followerPassword = ""
+                            if (pendingRegistrationGroup != group.trim()) {
+                                loginJoinStatusMessage = null
+                                pendingRegistrationGroup = null
+                                showCreateGroupDialog = false
+                                createGroupPasswordConfirmation = ""
+                            }
+                        },
+                        isLoginJoinLoading = isLoginJoinLoading,
+                        isConnected = isConnected,
+                        loginJoinStatusMessage = loginJoinStatusMessage,
+                        onLoginJoin = {
+                            loginJoinStatusMessage = validatePlanSettings(group, participantPassword)
+                            if (loginJoinStatusMessage == null) {
+                                val cleanGroup = group.trim()
+                                isLoginJoinLoading = true
+                                loginJoinStatusMessage = "Checking group"
+                                coroutineScope.launch {
+                                    runCatching {
+                                        val client = ArkluzLiveTrackingClient(context)
+                                        val checkResult = client.checkGroup(settings)
+                                        if (checkResult.groupAvailable) {
+                                            pendingRegistrationGroup = cleanGroup
+                                            "Group available"
+                                        } else {
+                                            checkNotNull(checkResult.viewerPassword) {
+                                                "Connected, but viewer password was not returned"
+                                            }.let { followerPassword = it }
+                                            "Connected"
+                                        }
+                                    }.onSuccess { status ->
+                                        if (status == "Group available") {
+                                            loginJoinStatusMessage = "Group does not exist."
+                                            createGroupPasswordConfirmation = ""
+                                            showCreateGroupDialog = true
+                                        } else {
+                                            loginJoinStatusMessage = "Connected to $cleanGroup"
+                                        }
+                                    }.onFailure { error ->
+                                        loginJoinStatusMessage = error.message ?: "Unable to connect"
+                                    }
+                                    isLoginJoinLoading = false
+                                }
+                            }
+                        },
+                        showCreateGroupDialog = showCreateGroupDialog,
+                        createGroupPasswordConfirmation = createGroupPasswordConfirmation,
+                        onCreateGroupPasswordConfirmationChange = { createGroupPasswordConfirmation = it },
+                        onDismissCreateGroupDialog = {
+                            showCreateGroupDialog = false
+                            createGroupPasswordConfirmation = ""
+                        },
+                        onConfirmCreateGroup = {
+                            loginJoinStatusMessage = validatePlanSettings(group, participantPassword)
+                            if (loginJoinStatusMessage == null) {
+                                if (createGroupPasswordConfirmation.trim() != participantPassword.trim()) {
+                                    loginJoinStatusMessage = "Password confirmation does not match."
+                                    return@LoginJoinContent
+                                }
+                                showCreateGroupDialog = false
+                                isLoginJoinLoading = true
+                                loginJoinStatusMessage = "Creating group"
+                                coroutineScope.launch {
+                                    runCatching {
+                                        val client = ArkluzLiveTrackingClient(context)
+                                        val registerResult = client.registerOrJoinGroup(settings)
+                                        val viewerPassword =
+                                            registerResult.viewerPassword
+                                                ?: client.checkGroup(settings).viewerPassword
+                                        checkNotNull(viewerPassword) {
+                                            "Group created, but viewer password was not returned"
+                                        }.let { followerPassword = it }
+                                        pendingRegistrationGroup = null
+                                        createGroupPasswordConfirmation = ""
+                                        "Created + connected"
+                                    }.onSuccess { status ->
+                                        loginJoinStatusMessage = "$status to ${group.trim()}"
+                                    }.onFailure { error ->
+                                        loginJoinStatusMessage = error.message ?: "Unable to create group"
+                                    }
+                                    isLoginJoinLoading = false
+                                }
+                            }
+                        },
                         scrollState = scrollState,
                         contentSpacing = contentSpacing,
                     )
@@ -270,12 +420,6 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                 LiveTrackingPage.SETTINGS -> {
                     SettingsContent(
                         onBack = { page = LiveTrackingPage.MAIN },
-                        group = group,
-                        onGroupChange = { group = it },
-                        participantPassword = participantPassword,
-                        onParticipantPasswordChange = { participantPassword = it },
-                        followerPassword = followerPassword,
-                        onFollowerPasswordChange = { followerPassword = it },
                         userName = userName,
                         onUserNameChange = { userName = it },
                         notificationEmailInput = notificationEmailInput,
@@ -298,12 +442,37 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                         },
                         stuckAlarmMinutes = stuckAlarmMinutes,
                         onStuckAlarmMinutesChange = { value ->
-                            stuckAlarmMinutes = value.filter(Char::isDigit)
+                            stuckAlarmMinutes =
+                                if (value == "-1") {
+                                    value
+                                } else {
+                                    value.filter(Char::isDigit)
+                                }
                         },
                         updateIntervalSeconds = updateIntervalSeconds,
                         onUpdateIntervalSecondsChange = { updateIntervalSeconds = it },
-                        customUpdateIntervalSeconds = customUpdateIntervalSeconds,
-                        onCustomUpdateIntervalSecondsChange = { customUpdateIntervalSeconds = it },
+                        isDeletingTracks = isDeletingTracks,
+                        deleteTracksStatusMessage = deleteTracksStatusMessage,
+                        onDeleteRecordedTracks = {
+                            deleteTracksStatusMessage = validatePlanSettings(group, participantPassword)
+                            if (deleteTracksStatusMessage == null) {
+                                isDeletingTracks = true
+                                deleteTracksStatusMessage = "Deleting recorded tracks"
+                                coroutineScope.launch {
+                                    runCatching {
+                                        ArkluzLiveTrackingClient(context).deleteRecordedTracks(settings)
+                                    }.onSuccess { result ->
+                                        deleteTracksStatusMessage =
+                                            result.message.takeUnless { it == "Server accepted request" }
+                                                ?: "Recorded tracks deleted"
+                                    }.onFailure { error ->
+                                        deleteTracksStatusMessage =
+                                            "Delete failed: ${error.message ?: "unknown error"}"
+                                    }
+                                    isDeletingTracks = false
+                                }
+                            }
+                        },
                         scrollState = scrollState,
                         contentSpacing = contentSpacing,
                     )
@@ -324,8 +493,12 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
 @Composable
 private fun ColumnScope.MainTrackingContent(
     onBack: () -> Unit,
+    onOpenLogin: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
+    isConnected: Boolean,
+    group: String,
+    headerMessage: String?,
     selectedGpxName: String,
     comments: String,
     onCommentsChange: (String) -> Unit,
@@ -334,10 +507,12 @@ private fun ColumnScope.MainTrackingContent(
     isSendingPlan: Boolean,
     onSendPlan: () -> Unit,
     sessionState: LiveTrackingUiState,
+    updateIntervalSeconds: Int,
     validationMessage: String?,
     sendStatusMessage: String?,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    userName: String,
     groupTrackUrl: String,
     userTrackUrl: String,
     scrollState: androidx.compose.foundation.ScrollState,
@@ -348,33 +523,62 @@ private fun ColumnScope.MainTrackingContent(
     HeaderRow(
         onBack = onBack,
         actions = {
-            OutlinedButton(onClick = onOpenSettings, modifier = Modifier.weight(1f)) {
+            Button(onClick = onOpenLogin, modifier = Modifier.weight(1f)) {
+                Text(if (isConnected) group.ifBlank { "Connected" } else "Login / Join")
+            }
+            OutlinedButton(
+                onClick = onOpenSettings,
+                modifier = Modifier.weight(1f),
+            ) {
                 Icon(
                     imageVector = Icons.Filled.Settings,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
+                    tint =
+                        if (isConnected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                 )
                 Spacer(modifier = Modifier.size(6.dp))
-                Text("Settings")
+                Text(
+                    text = "Settings",
+                    color =
+                        if (isConnected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
             }
-            OutlinedButton(onClick = onOpenAbout, modifier = Modifier.weight(1f)) {
+            FilledTonalIconButton(
+                onClick = onOpenAbout,
+                modifier = Modifier.size(36.dp),
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.HelpCenter,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    contentDescription = "About / FAQ",
+                    modifier = Modifier.size(20.dp),
                 )
-                Spacer(modifier = Modifier.size(6.dp))
-                Text("About / FAQ")
             }
         },
     )
+    headerMessage?.let { message ->
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 44.dp),
+        )
+    }
 
-    Column(
-        modifier =
-            Modifier
-                .weight(1f)
-                .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(contentSpacing),
+    ScrollableScreenContent(
+        scrollState = scrollState,
+        contentSpacing = contentSpacing,
     ) {
         TrackingPanel(title = "Today's planned route") {
             OutlinedButton(
@@ -423,6 +627,11 @@ private fun ColumnScope.MainTrackingContent(
         }
 
         TrackingPanel(title = "Session") {
+            Text(
+                text = "GPS update frequency: every ${formatUpdateInterval(updateIntervalSeconds)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -475,7 +684,7 @@ private fun ColumnScope.MainTrackingContent(
             }
         }
 
-        TrackingPanel(title = "Track links") {
+        TrackingPanel(title = "Today's tracks") {
             TrackLinkRow(
                 label = "Group",
                 url = groupTrackUrl,
@@ -483,7 +692,7 @@ private fun ColumnScope.MainTrackingContent(
                 onShare = { shareUrl(context, groupTrackUrl) },
             )
             TrackLinkRow(
-                label = "User",
+                label = userName.trim().ifBlank { "Participant" },
                 url = userTrackUrl,
                 onView = { openUrl(context, userTrackUrl) },
                 onShare = { shareUrl(context, userTrackUrl) },
@@ -493,14 +702,123 @@ private fun ColumnScope.MainTrackingContent(
 }
 
 @Composable
-private fun ColumnScope.SettingsContent(
+private fun ColumnScope.LoginJoinContent(
     onBack: () -> Unit,
     group: String,
     onGroupChange: (String) -> Unit,
     participantPassword: String,
     onParticipantPasswordChange: (String) -> Unit,
-    followerPassword: String,
-    onFollowerPasswordChange: (String) -> Unit,
+    isLoginJoinLoading: Boolean,
+    isConnected: Boolean,
+    loginJoinStatusMessage: String?,
+    onLoginJoin: () -> Unit,
+    showCreateGroupDialog: Boolean,
+    createGroupPasswordConfirmation: String,
+    onCreateGroupPasswordConfirmationChange: (String) -> Unit,
+    onDismissCreateGroupDialog: () -> Unit,
+    onConfirmCreateGroup: () -> Unit,
+    scrollState: androidx.compose.foundation.ScrollState,
+    contentSpacing: androidx.compose.ui.unit.Dp,
+) {
+    val visibleStatusMessage =
+        loginJoinStatusMessage
+            ?: if (isConnected) {
+                "Connected to ${group.trim().ifBlank { "group" }}"
+            } else {
+                null
+            }
+
+    HeaderRow(onBack = onBack) {
+        Text(
+            text = "Login / Join",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.weight(1f),
+        )
+    }
+
+    ScrollableScreenContent(
+        scrollState = scrollState,
+        contentSpacing = contentSpacing,
+    ) {
+        TrackingPanel(title = "Login / Join") {
+            OutlinedTextField(
+                value = group,
+                onValueChange = onGroupChange,
+                label = { Text("Group") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = participantPassword,
+                onValueChange = onParticipantPasswordChange,
+                label = { Text("Password") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = onLoginJoin,
+                enabled = !isLoginJoinLoading && !isConnected,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    when {
+                        isConnected -> "Connected"
+                        isLoginJoinLoading -> "Checking"
+                        else -> "Connect"
+                    },
+                )
+            }
+            visibleStatusMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (message.startsWith("Error", ignoreCase = true)) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            }
+        }
+    }
+
+    if (showCreateGroupDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissCreateGroupDialog,
+            title = { Text("Create group?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("This group does not exist yet. Type the password again to create it.")
+                    OutlinedTextField(
+                        value = createGroupPasswordConfirmation,
+                        onValueChange = onCreateGroupPasswordConfirmationChange,
+                        label = { Text("Password confirmation") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onConfirmCreateGroup,
+                    enabled = createGroupPasswordConfirmation.isNotBlank(),
+                ) {
+                    Text("Create group")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = onDismissCreateGroupDialog) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.SettingsContent(
+    onBack: () -> Unit,
     userName: String,
     onUserNameChange: (String) -> Unit,
     notificationEmailInput: String,
@@ -517,8 +835,9 @@ private fun ColumnScope.SettingsContent(
     onStuckAlarmMinutesChange: (String) -> Unit,
     updateIntervalSeconds: Int,
     onUpdateIntervalSecondsChange: (Int) -> Unit,
-    customUpdateIntervalSeconds: String,
-    onCustomUpdateIntervalSecondsChange: (String) -> Unit,
+    isDeletingTracks: Boolean,
+    deleteTracksStatusMessage: String?,
+    onDeleteRecordedTracks: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
 ) {
@@ -530,35 +849,11 @@ private fun ColumnScope.SettingsContent(
         )
     }
 
-    Column(
-        modifier =
-            Modifier
-                .weight(1f)
-                .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(contentSpacing),
+    ScrollableScreenContent(
+        scrollState = scrollState,
+        contentSpacing = contentSpacing,
     ) {
-        TrackingPanel(title = "Tracking account") {
-            OutlinedTextField(
-                value = group,
-                onValueChange = onGroupChange,
-                label = { Text("Private group") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = participantPassword,
-                onValueChange = onParticipantPasswordChange,
-                label = { Text("Participant password") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = followerPassword,
-                onValueChange = onFollowerPasswordChange,
-                label = { Text("Follower password") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+        TrackingPanel(title = "Participant") {
             OutlinedTextField(
                 value = userName,
                 onValueChange = onUserNameChange,
@@ -579,28 +874,10 @@ private fun ColumnScope.SettingsContent(
             )
             FrequencyPresetGrid(
                 selectedSeconds = updateIntervalSeconds,
-                onSelected = { seconds ->
-                    onUpdateIntervalSecondsChange(seconds)
-                    onCustomUpdateIntervalSecondsChange("")
-                },
-            )
-            OutlinedTextField(
-                value = customUpdateIntervalSeconds,
-                onValueChange = { rawValue ->
-                    val sanitized = rawValue.filter(Char::isDigit).take(3)
-                    onCustomUpdateIntervalSecondsChange(sanitized)
-                    sanitized
-                        .toIntOrNull()
-                        ?.coerceIn(15, 900)
-                        ?.let(onUpdateIntervalSecondsChange)
-                },
-                label = { Text("Custom seconds") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
+                onSelected = onUpdateIntervalSecondsChange,
             )
             EmailAddressInput(
-                label = "Start notification email",
+                label = "Start + alert email",
                 input = notificationEmailInput,
                 onInputChange = onNotificationEmailInputChange,
                 addresses = notificationEmailAddresses,
@@ -608,20 +885,102 @@ private fun ColumnScope.SettingsContent(
                 onRemove = onNotificationEmailRemove,
             )
             EmailAddressInput(
-                label = "Alert email",
+                label = "Alert-only email",
                 input = alertEmailInput,
                 onInputChange = onAlertEmailInputChange,
                 addresses = alertEmailAddresses,
                 onAdd = onAlertEmailAdd,
                 onRemove = onAlertEmailRemove,
             )
+            NoMovementAlertInput(
+                minutes = stuckAlarmMinutes,
+                onMinutesChange = onStuckAlarmMinutesChange,
+            )
+        }
+
+        TrackingPanel(title = "Recorded tracks") {
+            OutlinedButton(
+                onClick = onDeleteRecordedTracks,
+                enabled = !isDeletingTracks,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.size(6.dp))
+                Text(if (isDeletingTracks) "Deleting" else "Delete recorded tracks")
+            }
+            deleteTracksStatusMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (message.startsWith("Delete failed", ignoreCase = true)) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoMovementAlertInput(
+    minutes: String,
+    onMinutesChange: (String) -> Unit,
+) {
+    val isDisabled = minutes == "-1"
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = isDisabled,
+                onCheckedChange = { disabled ->
+                    onMinutesChange(if (disabled) "-1" else "")
+                },
+            )
+            Text(
+                text = "Disable no-movement alerts",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Text(
+            text = "Send alert email when no movement for",
+            style = MaterialTheme.typography.labelMedium,
+            color =
+                if (isDisabled) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             OutlinedTextField(
-                value = stuckAlarmMinutes,
-                onValueChange = onStuckAlarmMinutesChange,
-                label = { Text("Stuck alarm minutes") },
+                value = if (isDisabled) "" else minutes,
+                onValueChange = onMinutesChange,
+                enabled = !isDisabled,
+                placeholder = { Text("default") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "minutes",
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
     }
@@ -730,6 +1089,7 @@ private fun FrequencyPresetGrid(
             60 to "1 min",
             120 to "2 min",
             300 to "5 min",
+            600 to "10 min",
         )
     presets.chunked(3).forEach { row ->
         Row(
@@ -788,12 +1148,9 @@ private fun ColumnScope.AboutContent(
         )
     }
 
-    Column(
-        modifier =
-            Modifier
-                .weight(1f)
-                .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(contentSpacing),
+    ScrollableScreenContent(
+        scrollState = scrollState,
+        contentSpacing = contentSpacing,
     ) {
         TrackingPanel(title = "Privacy policy") {
             Text(
@@ -875,14 +1232,28 @@ private fun validatePlanSettings(
         else -> null
     }
 
+private fun validateAccountSettings(
+    group: String,
+    participantPassword: String,
+    followerPassword: String,
+): String? =
+    when {
+        group.isBlank() -> "Private group is required."
+        participantPassword.isBlank() -> "Participant password is required."
+        followerPassword.isBlank() -> "Login / Join first."
+        else -> null
+    }
+
 private fun validateStartSettings(
     group: String,
     participantPassword: String,
+    followerPassword: String,
     userName: String,
 ): String? =
     when {
         group.isBlank() -> "Private group is required."
         participantPassword.isBlank() -> "Participant password is required."
+        followerPassword.isBlank() -> "Login / Join in settings first."
         userName.isBlank() -> "Participant name is required."
         else -> null
     }
@@ -902,6 +1273,86 @@ private fun sessionStatusText(state: LiveTrackingUiState): String {
             DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(lastUpdate))
         }
     return "${state.status}. Last successful update: $lastUpdateText"
+}
+
+@Composable
+private fun ColumnScope.ScrollableScreenContent(
+    scrollState: androidx.compose.foundation.ScrollState,
+    contentSpacing: androidx.compose.ui.unit.Dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(end = 8.dp)
+                    .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(contentSpacing),
+            content = content,
+        )
+        ScrollbarIndicator(
+            scrollState = scrollState,
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight(),
+        )
+    }
+}
+
+@Composable
+private fun ScrollbarIndicator(
+    scrollState: androidx.compose.foundation.ScrollState,
+    modifier: Modifier = Modifier,
+) {
+    if (scrollState.maxValue <= 0) return
+
+    val density = LocalDensity.current
+    val trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
+    val thumbColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+
+    BoxWithConstraints(
+        modifier =
+            modifier
+                .width(4.dp)
+                .padding(vertical = 2.dp),
+    ) {
+        val viewportHeightPx = constraints.maxHeight.toFloat()
+        if (viewportHeightPx <= 0f) return@BoxWithConstraints
+
+        val contentHeightPx = viewportHeightPx + scrollState.maxValue
+        val minThumbHeightPx = with(density) { 28.dp.toPx() }
+        val thumbHeightPx =
+            (viewportHeightPx * viewportHeightPx / contentHeightPx)
+                .coerceAtLeast(minThumbHeightPx)
+                .coerceAtMost(viewportHeightPx)
+        val scrollFraction = scrollState.value.toFloat() / scrollState.maxValue.toFloat()
+        val thumbOffsetPx = (viewportHeightPx - thumbHeightPx) * scrollFraction
+
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .fillMaxHeight()
+                    .width(3.dp)
+                    .background(trackColor, RoundedCornerShape(999.dp)),
+        )
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .offset { IntOffset(x = 0, y = thumbOffsetPx.roundToInt()) }
+                    .width(3.dp)
+                    .height(with(density) { thumbHeightPx.toDp() })
+                    .background(thumbColor, RoundedCornerShape(999.dp)),
+        )
+    }
 }
 
 @Composable

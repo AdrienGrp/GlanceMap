@@ -103,7 +103,51 @@ internal class ArkluzLiveTrackingClient(
                     .addQueryParameter("q", "register")
                     .addQueryParameter("group", settings.group.trim())
                     .addQueryParameter("pass", settings.participantPassword.trim())
-                    .addEncodedQueryParameter("api!", null)
+                    .addEncodedQueryParameter("api", null)
+                    .build()
+
+            execute(
+                Request
+                    .Builder()
+                    .url(url)
+                    .get()
+                    .build(),
+            )
+        }
+
+    suspend fun checkGroup(settings: LiveTrackingSettings): ArkluzServerResult =
+        withContext(Dispatchers.IO) {
+            val url =
+                settings.trackingUrl
+                    .trim()
+                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .toHttpUrl()
+                    .newBuilder()
+                    .addQueryParameter("q", "check")
+                    .addQueryParameter("group", settings.group.trim())
+                    .addQueryParameter("pass", settings.participantPassword.trim())
+                    .build()
+
+            execute(
+                Request
+                    .Builder()
+                    .url(url)
+                    .get()
+                    .build(),
+            )
+        }
+
+    suspend fun deleteRecordedTracks(settings: LiveTrackingSettings): ArkluzServerResult =
+        withContext(Dispatchers.IO) {
+            val url =
+                settings.trackingUrl
+                    .trim()
+                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .toHttpUrl()
+                    .newBuilder()
+                    .addQueryParameter("q", "cleanup")
+                    .addQueryParameter("group", settings.group.trim())
+                    .addQueryParameter("pass", settings.participantPassword.trim())
                     .build()
 
             execute(
@@ -181,7 +225,7 @@ internal class ArkluzLiveTrackingClient(
             if (serverMessage.isArkluzError()) {
                 throw IllegalStateException(serverMessage)
             }
-            return ArkluzServerResult(serverMessage.toUserFacingServerMessage())
+            return serverMessage.toArkluzServerResult()
         }
     }
 
@@ -210,6 +254,8 @@ internal class ArkluzLiveTrackingClient(
 
 data class ArkluzServerResult(
     val message: String,
+    val viewerPassword: String? = null,
+    val groupAvailable: Boolean = false,
 )
 
 private fun String.toReadableServerMessage(): String =
@@ -228,13 +274,28 @@ private fun String.toReadableServerMessage(): String =
 
 private fun String.isArkluzError(): Boolean {
     val normalized = lowercase()
+    val singleLine = normalized.replace(Regex("\\s+"), " ")
     return normalized.startsWith("error:") ||
         "incorrect password" in normalized ||
-        "please specify a group and a password" in normalized
+        "please specify a group and a password" in singleLine
 }
 
 private fun String.toUserFacingServerMessage(): String {
     if (isBlank()) return "Server accepted request"
     if (startsWith("OK", ignoreCase = true)) return "Server accepted request"
     return this
+}
+
+private fun String.toArkluzServerResult(): ArkluzServerResult {
+    val lines = lines().map { it.trim() }.filter { it.isNotBlank() }
+    val viewerPassword =
+        lines
+            .drop(1)
+            .firstOrNull()
+            ?.takeIf { lines.firstOrNull()?.equals("OK", ignoreCase = true) == true }
+    return ArkluzServerResult(
+        message = toUserFacingServerMessage(),
+        viewerPassword = viewerPassword,
+        groupAvailable = equals("group available", ignoreCase = true),
+    )
 }

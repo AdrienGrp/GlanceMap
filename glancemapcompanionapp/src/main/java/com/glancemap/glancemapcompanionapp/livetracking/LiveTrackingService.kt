@@ -282,7 +282,7 @@ class LiveTrackingService : Service() {
         private const val REQ_STOP = 4202
         private const val DEFAULT_UPDATE_INTERVAL_SECONDS = 60
         private const val MIN_UPDATE_INTERVAL_SECONDS = 15
-        private const val MAX_UPDATE_INTERVAL_SECONDS = 900
+        private const val MAX_UPDATE_INTERVAL_SECONDS = 600
         private const val ACTION_STOP = "com.glancemap.glancemapcompanionapp.livetracking.STOP"
 
         private const val EXTRA_GROUP = "group"
