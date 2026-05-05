@@ -161,6 +161,7 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.play.services.wearable)
+    implementation(libs.play.services.location)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.lifecycle.service)
 
@@ -172,6 +173,7 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.partial.content)
+    implementation(libs.okhttp)
 
     // Gson for JSON serialization
     implementation(libs.gson)

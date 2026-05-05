@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpCenter
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.*
@@ -37,6 +38,7 @@ import com.glancemap.glancemapcompanionapp.PrivacyPolicyActivity
 import com.glancemap.glancemapcompanionapp.RefugesImportDialog
 import com.glancemap.glancemapcompanionapp.RoutingDownloadDialog
 import com.glancemap.glancemapcompanionapp.companionAdaptiveSpec
+import com.glancemap.glancemapcompanionapp.livetracking.LiveTrackingScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,6 +75,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
     var showCancelDialog by remember { mutableStateOf(false) }
     var showHowToDialog by remember(autoOpenHelpOnFirstLaunch) { mutableStateOf(autoOpenHelpOnFirstLaunch) }
     var showDebugDialog by remember { mutableStateOf(false) }
+    var showLiveTrackingScreen by remember { mutableStateOf(false) }
     var showRefugesDialog by remember { mutableStateOf(false) }
     var showRoutingMenu by remember { mutableStateOf(false) }
     var showThemeLegendMenu by remember { mutableStateOf(false) }
@@ -455,6 +458,13 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     .fillMaxSize()
                     .padding(adaptive.pagePadding),
         ) {
+            if (showLiveTrackingScreen) {
+                LiveTrackingScreen(
+                    onBack = { showLiveTrackingScreen = false },
+                )
+                return@Column
+            }
+
             Row(
                 modifier =
                     Modifier
@@ -507,6 +517,16 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.HelpCenter,
                         contentDescription = "Help",
+                        modifier = Modifier.size(adaptive.helpIconSize),
+                    )
+                }
+                FilledTonalIconButton(
+                    onClick = { showLiveTrackingScreen = true },
+                    modifier = Modifier.size(adaptive.helpIconButtonSize),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MyLocation,
+                        contentDescription = "Live tracking",
                         modifier = Modifier.size(adaptive.helpIconSize),
                     )
                 }
