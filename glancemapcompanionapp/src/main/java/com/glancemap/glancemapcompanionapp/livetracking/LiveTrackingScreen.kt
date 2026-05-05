@@ -841,11 +841,24 @@ private fun ColumnScope.SettingsContent(
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
 ) {
-    HeaderRow(onBack = onBack) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        FilledTonalIconButton(
+            onClick = onBack,
+            modifier =
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .size(36.dp),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                modifier = Modifier.size(20.dp),
+            )
+        }
         Text(
             text = "Settings",
             style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.align(Alignment.Center),
         )
     }
 
