@@ -119,6 +119,8 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
     var sendStatusMessage by remember { mutableStateOf<String?>(null) }
     var loginJoinStatusMessage by remember { mutableStateOf<String?>(null) }
     var isLoginJoinLoading by remember { mutableStateOf(false) }
+    var saveSettingsStatusMessage by remember { mutableStateOf<String?>(null) }
+    var isSavingSettings by remember { mutableStateOf(false) }
     var pendingRegistrationGroup by remember { mutableStateOf<String?>(null) }
     var showCreateGroupDialog by remember { mutableStateOf(false) }
     var createGroupPasswordConfirmation by remember { mutableStateOf("") }
@@ -421,24 +423,37 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                     SettingsContent(
                         onBack = { page = LiveTrackingPage.MAIN },
                         userName = userName,
-                        onUserNameChange = { userName = it },
+                        onUserNameChange = {
+                            userName = it
+                            saveSettingsStatusMessage = null
+                        },
                         notificationEmailInput = notificationEmailInput,
-                        onNotificationEmailInputChange = { notificationEmailInput = it },
+                        onNotificationEmailInputChange = {
+                            notificationEmailInput = it
+                            saveSettingsStatusMessage = null
+                        },
                         notificationEmailAddresses = notificationEmailAddresses,
                         onNotificationEmailAdd = { email ->
                             notificationEmailAddresses = notificationEmailAddresses + email
+                            saveSettingsStatusMessage = null
                         },
                         onNotificationEmailRemove = { email ->
                             notificationEmailAddresses = notificationEmailAddresses - email
+                            saveSettingsStatusMessage = null
                         },
                         alertEmailInput = alertEmailInput,
-                        onAlertEmailInputChange = { alertEmailInput = it },
+                        onAlertEmailInputChange = {
+                            alertEmailInput = it
+                            saveSettingsStatusMessage = null
+                        },
                         alertEmailAddresses = alertEmailAddresses,
                         onAlertEmailAdd = { email ->
                             alertEmailAddresses = alertEmailAddresses + email
+                            saveSettingsStatusMessage = null
                         },
                         onAlertEmailRemove = { email ->
                             alertEmailAddresses = alertEmailAddresses - email
+                            saveSettingsStatusMessage = null
                         },
                         stuckAlarmMinutes = stuckAlarmMinutes,
                         onStuckAlarmMinutesChange = { value ->
@@ -448,9 +463,57 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                                 } else {
                                     value.filter(Char::isDigit)
                                 }
+                            saveSettingsStatusMessage = null
                         },
                         updateIntervalSeconds = updateIntervalSeconds,
-                        onUpdateIntervalSecondsChange = { updateIntervalSeconds = it },
+                        onUpdateIntervalSecondsChange = {
+                            updateIntervalSeconds = it
+                            saveSettingsStatusMessage = null
+                        },
+                        isSavingSettings = isSavingSettings,
+                        saveSettingsStatusMessage = saveSettingsStatusMessage,
+                        onSaveSettings = {
+                            saveSettingsStatusMessage =
+                                validateStartSettings(
+                                    group = group,
+                                    participantPassword = participantPassword,
+                                    followerPassword = followerPassword,
+                                    userName = userName,
+                                )
+                            if (saveSettingsStatusMessage == null) {
+                                isSavingSettings = true
+                                saveSettingsStatusMessage = "Saving settings"
+                                coroutineScope.launch {
+                                    runCatching {
+                                        val result = ArkluzLiveTrackingClient(context).saveSettings(settings)
+                                        result.viewerPassword?.let { followerPassword = it }
+                                        result
+                                    }.onSuccess {
+                                        saveSettingsStatusMessage = "Settings saved"
+                                    }.onFailure { error ->
+                                        saveSettingsStatusMessage =
+                                            "Save failed: ${error.message ?: "unknown error"}"
+                                    }
+                                    isSavingSettings = false
+                                }
+                            }
+                        },
+                        onLogout = {
+                            LiveTrackingService.stop(context)
+                            group = ""
+                            participantPassword = ""
+                            followerPassword = ""
+                            loginJoinStatusMessage = null
+                            headerMessage = null
+                            validationMessage = null
+                            sendStatusMessage = null
+                            saveSettingsStatusMessage = null
+                            deleteTracksStatusMessage = null
+                            pendingRegistrationGroup = null
+                            showCreateGroupDialog = false
+                            createGroupPasswordConfirmation = ""
+                            page = LiveTrackingPage.MAIN
+                        },
                         isDeletingTracks = isDeletingTracks,
                         deleteTracksStatusMessage = deleteTracksStatusMessage,
                         onDeleteRecordedTracks = {
@@ -835,6 +898,10 @@ private fun ColumnScope.SettingsContent(
     onStuckAlarmMinutesChange: (String) -> Unit,
     updateIntervalSeconds: Int,
     onUpdateIntervalSecondsChange: (Int) -> Unit,
+    isSavingSettings: Boolean,
+    saveSettingsStatusMessage: String?,
+    onSaveSettings: () -> Unit,
+    onLogout: () -> Unit,
     isDeletingTracks: Boolean,
     deleteTracksStatusMessage: String?,
     onDeleteRecordedTracks: () -> Unit,
@@ -909,6 +976,28 @@ private fun ColumnScope.SettingsContent(
                 minutes = stuckAlarmMinutes,
                 onMinutesChange = onStuckAlarmMinutesChange,
             )
+            Button(
+                onClick = onSaveSettings,
+                enabled = !isSavingSettings,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (isSavingSettings) "Saving" else "Save")
+            }
+            saveSettingsStatusMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (
+                            message.startsWith("Save failed", ignoreCase = true) ||
+                            message.contains("required", ignoreCase = true)
+                        ) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            }
         }
 
         TrackingPanel(title = "Recorded tracks") {
@@ -937,6 +1026,13 @@ private fun ColumnScope.SettingsContent(
                         },
                 )
             }
+        }
+
+        OutlinedButton(
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Logout")
         }
     }
 }

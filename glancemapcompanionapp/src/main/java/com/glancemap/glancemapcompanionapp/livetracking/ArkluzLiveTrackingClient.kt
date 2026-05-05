@@ -159,6 +159,40 @@ internal class ArkluzLiveTrackingClient(
             )
         }
 
+    suspend fun saveSettings(settings: LiveTrackingSettings): ArkluzServerResult =
+        withContext(Dispatchers.IO) {
+            val urlBuilder =
+                settings.trackingUrl
+                    .trim()
+                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .toHttpUrl()
+                    .newBuilder()
+                    .addQueryParameter("q", "check")
+                    .addQueryParameter("group", settings.group.trim())
+                    .addQueryParameter("pass", settings.participantPassword.trim())
+
+            settings.userName.trim().takeIf { it.isNotBlank() }?.let { user ->
+                urlBuilder.addQueryParameter("user", user)
+            }
+            settings.notificationEmails.trim().takeIf { it.isNotBlank() }?.let { emails ->
+                urlBuilder.addQueryParameter("email", emails)
+            }
+            settings.alertEmails.trim().takeIf { it.isNotBlank() }?.let { emails ->
+                urlBuilder.addQueryParameter("alert", emails)
+            }
+            settings.stuckAlarmMinutes.trim().takeIf { it.isNotBlank() }?.let { alarm ->
+                urlBuilder.addQueryParameter("alarm", alarm)
+            }
+
+            execute(
+                Request
+                    .Builder()
+                    .url(urlBuilder.build())
+                    .get()
+                    .build(),
+            )
+        }
+
     suspend fun sendLocation(
         settings: LiveTrackingSettings,
         location: Location,
