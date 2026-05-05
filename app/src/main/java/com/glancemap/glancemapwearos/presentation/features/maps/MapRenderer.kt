@@ -443,21 +443,7 @@ class MapRenderer(
         }
 
         try {
-            cleanLayerSwap = cleanLayerSwapRequested
-            cleanLayerSwapRequested = false
-            val cleared =
-                clearCurrentLayer(
-                    reason =
-                        if (cleanLayerSwap) {
-                            "clean_theme_reload"
-                        } else {
-                            "map_reload"
-                        },
-                )
-            if (cleanLayerSwap && cleared) {
-                purgeTileCache(reason = "theme_after_layer_clear")
-                forceRedraw()
-            }
+            cleanLayerSwap = consumeCleanLayerSwap()
             if (rebuildTileCacheRequested || desiredCacheId != currentTileCacheId) {
                 recreateTileCache(newCacheId = desiredCacheId)
                 cacheRecreated = true
@@ -510,7 +496,7 @@ class MapRenderer(
                 rebuildTileCacheRequested = true
                 Log.w(TAG, "updateMapLayer: theme is null, cannot render map.")
                 updateReliefOverlayLayer()
-                if (cleared) forceRedraw()
+                forceRedraw()
                 return
             }
 
@@ -565,6 +551,25 @@ class MapRenderer(
                     },
             )
         }
+    }
+
+    private fun consumeCleanLayerSwap(): Boolean {
+        val cleanLayerSwap = cleanLayerSwapRequested
+        cleanLayerSwapRequested = false
+        val cleared =
+            clearCurrentLayer(
+                reason =
+                    if (cleanLayerSwap) {
+                        "clean_theme_reload"
+                    } else {
+                        "map_reload"
+                    },
+            )
+        if (cleanLayerSwap && cleared) {
+            purgeTileCache(reason = "theme_after_layer_clear")
+            forceRedraw()
+        }
+        return cleanLayerSwap
     }
 
     fun invalidateTileCache() {

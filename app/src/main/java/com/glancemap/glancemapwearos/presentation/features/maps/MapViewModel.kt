@@ -335,15 +335,17 @@ class MapViewModel(
             ?: offlineViewportSnapshot?.center
 
     private fun applyLatestZoomBounds(reason: String) {
-        val zoomMin = latestZoomMin ?: return
-        val zoomMax = latestZoomMax ?: return
-        val mapView = mapHolder?.mapView ?: return
-        applyZoomBounds(
-            mapView = mapView,
-            zoomMin = zoomMin,
-            zoomMax = zoomMax,
-            reason = reason,
-        )
+        val zoomMin = latestZoomMin
+        val zoomMax = latestZoomMax
+        val mapView = mapHolder?.mapView
+        if (zoomMin != null && zoomMax != null && mapView != null) {
+            applyZoomBounds(
+                mapView = mapView,
+                zoomMin = zoomMin,
+                zoomMax = zoomMax,
+                reason = reason,
+            )
+        }
     }
 
     private fun applyZoomBounds(
@@ -385,10 +387,12 @@ class MapViewModel(
         val afterMin = position.zoomLevelMin.toInt()
         val afterMax = position.zoomLevelMax.toInt()
         if (beforeMin != afterMin || beforeMax != afterMax || beforeZoom != clampedZoom) {
+            val beforeRange = "$beforeMin..$beforeMax"
+            val afterRange = "$afterMin..$afterMax"
             Log.d(
                 "MapZoom",
                 "applyBounds reason=$reason requested=$zoomMin..$zoomMax effective=$effectiveMin..$effectiveMax " +
-                    "mapViewBefore=$beforeMin..$beforeMax zoom=$beforeZoom mapViewAfter=$afterMin..$afterMax zoom=$clampedZoom",
+                    "mapViewBefore=$beforeRange zoom=$beforeZoom mapViewAfter=$afterRange zoom=$clampedZoom",
             )
         }
     }
