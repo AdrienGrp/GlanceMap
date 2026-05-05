@@ -118,8 +118,8 @@ class MapViewModel(
     private var lastPrewarmedBundledThemeId: String? = null
 
     private var mapHolder: MapHolder? = null
-    private var lastZoomMin: Int? = null
-    private var lastZoomMax: Int? = null
+    private var latestZoomMin: Int? = null
+    private var latestZoomMax: Int? = null
     private var initialMapLoadIndicatorPending: Boolean = true
     private var offlineStartCenterContextKey: String? = null
     private var offlineStartCenterApplied: Boolean = false
@@ -178,15 +178,16 @@ class MapViewModel(
         zoomMin: Int,
         zoomMax: Int,
     ): MapHolder {
+        latestZoomMin = zoomMin
+        latestZoomMax = zoomMax
+
         mapHolder?.let { existing ->
-            if (lastZoomMin != zoomMin) {
-                existing.mapView.setZoomLevelMin(zoomMin.toByte())
-                lastZoomMin = zoomMin
-            }
-            if (lastZoomMax != zoomMax) {
-                existing.mapView.setZoomLevelMax(zoomMax.toByte())
-                lastZoomMax = zoomMax
-            }
+            applyZoomBounds(
+                mapView = existing.mapView,
+                zoomMin = zoomMin,
+                zoomMax = zoomMax,
+                reason = "reuse_holder",
+            )
 
             setMapRenderer(existing.renderer)
             return existing
@@ -201,9 +202,18 @@ class MapViewModel(
                 isFocusable = true
                 isFocusableInTouchMode = true
 
-                setZoomLevelMin(zoomMin.toByte())
-                setZoomLevelMax(zoomMax.toByte())
-                model.mapViewPosition.setZoomLevel(zoomDefault.toByte(), false)
+                applyZoomBounds(
+                    mapView = this,
+                    zoomMin = zoomMin,
+                    zoomMax = zoomMax,
+                    reason = "create_holder",
+                )
+                val normalizedDefault =
+                    zoomDefault.coerceIn(
+                        minOf(zoomMin, zoomMax),
+                        maxOf(zoomMin, zoomMax),
+                    )
+                model.mapViewPosition.setZoomLevel(normalizedDefault.toByte(), false)
 
                 setBuiltInZoomControls(false)
                 mapScaleBar.isVisible = false
@@ -213,8 +223,6 @@ class MapViewModel(
         val holder = MapHolder(mv, renderer)
 
         mapHolder = holder
-        lastZoomMin = zoomMin
-        lastZoomMax = zoomMax
         initialMapLoadIndicatorPending = true
 
         setMapRenderer(renderer)
@@ -230,8 +238,8 @@ class MapViewModel(
         runCatching { mapHolder?.mapView?.destroyAll() }
         mapHolder = null
         mapRenderer = null
-        lastZoomMin = null
-        lastZoomMax = null
+        latestZoomMin = null
+        latestZoomMax = null
         initialMapLoadIndicatorPending = true
         resetOfflineStartCenterTracking()
     }
@@ -325,6 +333,65 @@ class MapViewModel(
             ?.mapViewPosition
             ?.center
             ?: offlineViewportSnapshot?.center
+
+    private fun applyLatestZoomBounds(reason: String) {
+        val zoomMin = latestZoomMin ?: return
+        val zoomMax = latestZoomMax ?: return
+        val mapView = mapHolder?.mapView ?: return
+        applyZoomBounds(
+            mapView = mapView,
+            zoomMin = zoomMin,
+            zoomMax = zoomMax,
+            reason = reason,
+        )
+    }
+
+    private fun applyZoomBounds(
+        mapView: MapView,
+        zoomMin: Int,
+        zoomMax: Int,
+        reason: String,
+    ) {
+        val boundedMin = zoomMin.coerceIn(0, Byte.MAX_VALUE.toInt())
+        val boundedMax = zoomMax.coerceIn(0, Byte.MAX_VALUE.toInt())
+        val effectiveMin = minOf(boundedMin, boundedMax)
+        val effectiveMax = maxOf(boundedMin, boundedMax)
+        val position = mapView.model.mapViewPosition
+        val beforeMin = position.zoomLevelMin.toInt()
+        val beforeMax = position.zoomLevelMax.toInt()
+        val beforeZoom = position.zoomLevel.toInt()
+
+        if (effectiveMin > beforeMax) {
+            if (beforeMax != effectiveMax) {
+                mapView.setZoomLevelMax(effectiveMax.toByte())
+            }
+            if (beforeMin != effectiveMin) {
+                mapView.setZoomLevelMin(effectiveMin.toByte())
+            }
+        } else {
+            if (beforeMin != effectiveMin) {
+                mapView.setZoomLevelMin(effectiveMin.toByte())
+            }
+            if (position.zoomLevelMax.toInt() != effectiveMax) {
+                mapView.setZoomLevelMax(effectiveMax.toByte())
+            }
+        }
+
+        val clampedZoom = beforeZoom.coerceIn(effectiveMin, effectiveMax)
+        if (clampedZoom != beforeZoom) {
+            position.setZoomLevel(clampedZoom.toByte(), false)
+        }
+
+        val afterMin = position.zoomLevelMin.toInt()
+        val afterMax = position.zoomLevelMax.toInt()
+        if (beforeMin != afterMin || beforeMax != afterMax || beforeZoom != clampedZoom) {
+            Log.d(
+                "MapZoom",
+                "applyBounds reason=$reason requested=$zoomMin..$zoomMax effective=$effectiveMin..$effectiveMax " +
+                    "mapViewBefore=$beforeMin..$beforeMax zoom=$beforeZoom mapViewAfter=$afterMin..$afterMax zoom=$clampedZoom",
+            )
+        }
+    }
 
     fun setMapRenderer(renderer: MapRenderer?) {
         mapRenderer = renderer
@@ -573,6 +640,7 @@ class MapViewModel(
 
             val renderer = mapRenderer
             themeApplyResult = applyRendererConfigIfReady()
+            applyLatestZoomBounds(reason = "theme_selection")
             if (awaitVisibleContent &&
                 themeApplyResult.requiresVisibleTileWait &&
                 renderer != null
@@ -726,6 +794,7 @@ class MapViewModel(
                         pendingExternalCacheClear = false
                         renderer.onExternalCachesCleared()
                         renderer.updateMapLayer(selectedMapPath.value)
+                        applyLatestZoomBounds(reason = "external_cache_clear")
                     } else {
                         val tileBaselineVersion =
                             if (showInitialMapLoadIndicator) {
@@ -734,6 +803,7 @@ class MapViewModel(
                                 0L
                             }
                         renderer.updateMapLayer(pendingMapLayerPath)
+                        applyLatestZoomBounds(reason = "map_layer_update")
                         if (showInitialMapLoadIndicator) {
                             renderer.awaitTileCacheUpdateAfter(
                                 baselineVersion = tileBaselineVersion,
