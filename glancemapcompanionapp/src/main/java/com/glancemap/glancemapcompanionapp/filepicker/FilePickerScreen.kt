@@ -16,8 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpCenter
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SpatialTracking
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -525,7 +525,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     modifier = Modifier.size(adaptive.helpIconButtonSize),
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.MyLocation,
+                        imageVector = Icons.Filled.SpatialTracking,
                         contentDescription = "Live tracking",
                         modifier = Modifier.size(adaptive.helpIconSize),
                     )
