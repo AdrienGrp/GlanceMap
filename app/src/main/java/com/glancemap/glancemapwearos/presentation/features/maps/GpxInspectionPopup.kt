@@ -26,7 +26,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -324,12 +328,24 @@ fun GpxInspectionPopupA(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.AddLocation,
-                        contentDescription = "Select point B",
+                        contentDescription = "Add second point B",
                         modifier = Modifier.size(sizing.actionIconSize),
                     )
                     Spacer(Modifier.width(sizing.actionSpacerWidth))
                     Text(
-                        text = "Select B",
+                        text =
+                            buildAnnotatedString {
+                                append("Add 2")
+                                withStyle(
+                                    SpanStyle(
+                                        baselineShift = BaselineShift.Superscript,
+                                        fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                                    ),
+                                ) {
+                                    append("nd")
+                                }
+                                append(" point (B)")
+                            },
                         style = MaterialTheme.typography.labelMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

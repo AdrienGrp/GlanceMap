@@ -122,6 +122,7 @@ class MapRenderer(
     private var rebuildTileCacheRequested: Boolean = false
     private var currentTileCacheId: String = "$CACHE_ID_PREFIX-bootstrap"
     private var skipNextStartupTilePrewarm: Boolean = false
+    private var cleanLayerSwapRequested: Boolean = false
 
     @Volatile private var cacheCleanupInProgress: Boolean = false
     private val tileCacheUpdateCounter = AtomicLong(0L)
@@ -340,8 +341,8 @@ class MapRenderer(
                 destroyHillsRenderConfig()
             }
 
-            // Clear rendered tiles so new theme applies immediately.
-            tileCache.tryPurge()
+            // Clear rendered tiles so the old theme cannot survive the full theme reload.
+            purgeTileCache(reason = "theme_pre_reload")
 
             val newDemSignature = computeDemSignatureOrNull()
             demChanged = newDemSignature != currentDemSignature
@@ -358,6 +359,7 @@ class MapRenderer(
 
             timingStatus = if (demChanged) "full_reload_dem_changed" else "full_reload_theme_changed"
             skipNextStartupTilePrewarm = true
+            cleanLayerSwapRequested = true
             // Older Mapsforge builds showed incomplete viewport rendering when reusing the same
             // MapDataStore across TileRendererLayer theme swaps, so prefer a clean layer rebuild.
             rebuildTileCacheRequested = false
@@ -412,6 +414,7 @@ class MapRenderer(
         var desiredCacheIdForTiming: String? = null
         var cacheRecreated = false
         var warmStartupCache = false
+        var cleanLayerSwap = false
         val newMapSignature = computeMapRendererMapSignature(mapPath)
         val newDemSignature = computeDemSignatureOrNull()
         val desiredCacheId =
@@ -440,7 +443,21 @@ class MapRenderer(
         }
 
         try {
-            val cleared = clearCurrentLayer()
+            cleanLayerSwap = cleanLayerSwapRequested
+            cleanLayerSwapRequested = false
+            val cleared =
+                clearCurrentLayer(
+                    reason =
+                        if (cleanLayerSwap) {
+                            "clean_theme_reload"
+                        } else {
+                            "map_reload"
+                        },
+                )
+            if (cleanLayerSwap && cleared) {
+                purgeTileCache(reason = "theme_after_layer_clear")
+                forceRedraw()
+            }
             if (rebuildTileCacheRequested || desiredCacheId != currentTileCacheId) {
                 recreateTileCache(newCacheId = desiredCacheId)
                 cacheRecreated = true
@@ -454,7 +471,7 @@ class MapRenderer(
                 currentDemSignature = newDemSignature
                 // Explicitly purge cache so disabling a map never leaves stale tiles visible.
                 updateReliefOverlayLayer()
-                tileCache.tryPurge()
+                purgeTileCache(reason = "map_disabled")
                 forceRedraw()
                 return
             }
@@ -468,7 +485,7 @@ class MapRenderer(
                 rebuildTileCacheRequested = true
                 Log.w(TAG, "updateMapLayer: Map file does not exist: $mapPath")
                 updateReliefOverlayLayer()
-                tileCache.tryPurge()
+                purgeTileCache(reason = "missing_map_file")
                 forceRedraw()
                 return
             }
@@ -532,7 +549,7 @@ class MapRenderer(
             currentDemSignature = newDemSignature
             rebuildTileCacheRequested = true
             updateReliefOverlayLayer()
-            tileCache.tryPurge()
+            purgeTileCache(reason = "map_load_error")
             forceRedraw()
         } finally {
             MapHotPathDiagnostics.end(
@@ -544,13 +561,14 @@ class MapRenderer(
                         append(" cacheId=").append(desiredCacheIdForTiming)
                         append(" cacheRecreated=").append(cacheRecreated)
                         append(" warmStartupCache=").append(warmStartupCache)
+                        append(" cleanLayerSwap=").append(cleanLayerSwap)
                     },
             )
         }
     }
 
     fun invalidateTileCache() {
-        tileCache.tryPurge()
+        purgeTileCache(reason = "invalidate")
         forceRedraw()
     }
 
@@ -609,11 +627,12 @@ class MapRenderer(
         lastPublishedReliefOverlayState = null
     }
 
-    private fun clearCurrentLayer(): Boolean {
+    private fun clearCurrentLayer(reason: String = "unspecified"): Boolean {
         var removed = false
         val storeOwnedByCurrentLayer = currentLayer?.mapDataStore === currentStore
 
         currentLayer?.let { layer ->
+            disableLayerTileExpansion(layer, reason)
             removed = mapView.layerManager.layers.remove(layer)
             runCatching { layer.onDestroy() }
                 .onFailure { Log.w(TAG, "clearCurrentLayer: Failed to destroy TileRendererLayer", it) }
@@ -641,6 +660,19 @@ class MapRenderer(
         publishReliefOverlayState(force = true)
 
         return removed
+    }
+
+    private fun disableLayerTileExpansion(
+        layer: TileRendererLayer,
+        reason: String,
+    ) {
+        runCatching {
+            layer.setCacheZoomPlus(0)
+            layer.setCacheZoomMinus(0)
+            layer.setCacheTileMargin(0)
+        }.onFailure { error ->
+            Log.w(TAG, "disableLayerTileExpansion: failed reason=$reason", error)
+        }
     }
 
     private fun forceRedraw() {
@@ -710,6 +742,7 @@ class MapRenderer(
 
     private fun releaseTileRendererLayerForStoreReuse(layer: TileRendererLayer) {
         runCatching {
+            disableLayerTileExpansion(layer, reason = "store_reuse")
             layer.renderThemeFuture?.decrementRefCount()
         }.onFailure { error ->
             Log.w(TAG, "releaseTileRendererLayerForStoreReuse: Failed to release render theme", error)
@@ -838,6 +871,7 @@ class MapRenderer(
         val timingMarker = MapHotPathDiagnostics.begin("mapRenderer.recreateTileCache")
         try {
             runCatching { tileCache.removeObserver(tileCacheObserver) }
+            purgeTileCache(reason = "recreate_before_destroy")
             runCatching { tileCache.destroy() }
                 .onFailure { Log.w(TAG, "recreateTileCache: failed to destroy previous cache", it) }
             currentTileCacheId = newCacheId
@@ -848,6 +882,15 @@ class MapRenderer(
                 marker = timingMarker,
                 detail = "cacheId=$newCacheId",
             )
+        }
+    }
+
+    private fun purgeTileCache(reason: String) {
+        MapHotPathDiagnostics.measure(
+            stage = "mapRenderer.purgeTileCache",
+            detail = "reason=$reason cacheId=$currentTileCacheId",
+        ) {
+            tileCache.tryPurge()
         }
     }
 
