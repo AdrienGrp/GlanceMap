@@ -169,20 +169,27 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
         stuckAlarmMinutes,
         updateIntervalSeconds,
     ) {
+        val currentSettings =
+            SavedLiveTrackingSettings(
+                group = group,
+                participantPassword = participantPassword,
+                followerPassword = followerPassword,
+                userName = userName,
+                notificationEmailAddresses = notificationEmailAddresses,
+                alertEmailAddresses = alertEmailAddresses,
+                stuckAlarmMinutes = stuckAlarmMinutes,
+                updateIntervalSeconds = updateIntervalSeconds,
+            )
         LiveTrackingPreferences.save(
             context = context,
-            settings =
-                SavedLiveTrackingSettings(
-                    group = group,
-                    participantPassword = participantPassword,
-                    followerPassword = followerPassword,
-                    userName = userName,
-                    notificationEmailAddresses = notificationEmailAddresses,
-                    alertEmailAddresses = alertEmailAddresses,
-                    stuckAlarmMinutes = stuckAlarmMinutes,
-                    updateIntervalSeconds = updateIntervalSeconds,
-                ),
+            settings = currentSettings,
         )
+        if (followerPassword.isNotBlank()) {
+            LiveTrackingPreferences.saveGroupSettings(
+                context = context,
+                settings = currentSettings,
+            )
+        }
     }
 
     BoxWithConstraints(
@@ -396,6 +403,13 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                                             createGroupPasswordConfirmation = ""
                                             showCreateGroupDialog = true
                                         } else {
+                                            LiveTrackingPreferences.loadGroupSettings(context, cleanGroup)?.let { profile ->
+                                                userName = profile.userName
+                                                notificationEmailAddresses = profile.notificationEmailAddresses
+                                                alertEmailAddresses = profile.alertEmailAddresses
+                                                stuckAlarmMinutes = profile.stuckAlarmMinutes
+                                                updateIntervalSeconds = profile.updateIntervalSeconds
+                                            }
                                             loginJoinStatusMessage = "Connected to $cleanGroup"
                                         }
                                     }.onFailure { error ->
@@ -436,6 +450,13 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                                         createGroupPasswordConfirmation = ""
                                         "Created + connected"
                                     }.onSuccess { status ->
+                                        LiveTrackingPreferences.loadGroupSettings(context, group.trim())?.let { profile ->
+                                            userName = profile.userName
+                                            notificationEmailAddresses = profile.notificationEmailAddresses
+                                            alertEmailAddresses = profile.alertEmailAddresses
+                                            stuckAlarmMinutes = profile.stuckAlarmMinutes
+                                            updateIntervalSeconds = profile.updateIntervalSeconds
+                                        }
                                         loginJoinStatusMessage = "$status to ${group.trim()}"
                                     }.onFailure { error ->
                                         loginJoinStatusMessage = error.message ?: "Unable to create group"
@@ -530,6 +551,18 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                         },
                         onLogout = {
                             LiveTrackingService.stop(context)
+                            LiveTrackingPreferences.saveGroupSettings(
+                                context = context,
+                                settings =
+                                    SavedLiveTrackingSettings(
+                                        group = group,
+                                        userName = userName,
+                                        notificationEmailAddresses = notificationEmailAddresses,
+                                        alertEmailAddresses = alertEmailAddresses,
+                                        stuckAlarmMinutes = stuckAlarmMinutes,
+                                        updateIntervalSeconds = updateIntervalSeconds,
+                                    ),
+                            )
                             LiveTrackingPreferences.clear(context)
                             group = ""
                             participantPassword = ""

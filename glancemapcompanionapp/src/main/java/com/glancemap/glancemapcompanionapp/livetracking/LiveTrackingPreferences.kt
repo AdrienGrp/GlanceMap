@@ -23,6 +23,7 @@ internal object LiveTrackingPreferences {
     private const val KEY_ALERT_EMAILS = "alert_emails"
     private const val KEY_STUCK_ALARM_MINUTES = "stuck_alarm_minutes"
     private const val KEY_UPDATE_INTERVAL_SECONDS = "update_interval_seconds"
+    private const val GROUP_PROFILE_PREFIX = "group_profile"
 
     fun load(context: Context): SavedLiveTrackingSettings {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -56,13 +57,61 @@ internal object LiveTrackingPreferences {
             .apply()
     }
 
+    fun loadGroupSettings(
+        context: Context,
+        group: String,
+    ): SavedLiveTrackingSettings? {
+        val cleanGroup = group.trim()
+        if (cleanGroup.isBlank()) return null
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val prefix = groupProfilePrefix(cleanGroup)
+        if (!prefs.contains("$prefix.$KEY_USER_NAME")) return null
+        return SavedLiveTrackingSettings(
+            group = cleanGroup,
+            userName = prefs.getString("$prefix.$KEY_USER_NAME", "").orEmpty(),
+            notificationEmailAddresses =
+                prefs.getString("$prefix.$KEY_NOTIFICATION_EMAILS", "").orEmpty().toEmailList(),
+            alertEmailAddresses = prefs.getString("$prefix.$KEY_ALERT_EMAILS", "").orEmpty().toEmailList(),
+            stuckAlarmMinutes =
+                prefs.getString("$prefix.$KEY_STUCK_ALARM_MINUTES", "15").orEmpty().ifBlank { "15" },
+            updateIntervalSeconds = prefs.getInt("$prefix.$KEY_UPDATE_INTERVAL_SECONDS", 60),
+        )
+    }
+
+    fun saveGroupSettings(
+        context: Context,
+        settings: SavedLiveTrackingSettings,
+    ) {
+        val cleanGroup = settings.group.trim()
+        if (cleanGroup.isBlank()) return
+        val prefix = groupProfilePrefix(cleanGroup)
+        context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("$prefix.$KEY_USER_NAME", settings.userName)
+            .putString("$prefix.$KEY_NOTIFICATION_EMAILS", settings.notificationEmailAddresses.joinToString(","))
+            .putString("$prefix.$KEY_ALERT_EMAILS", settings.alertEmailAddresses.joinToString(","))
+            .putString("$prefix.$KEY_STUCK_ALARM_MINUTES", settings.stuckAlarmMinutes)
+            .putInt("$prefix.$KEY_UPDATE_INTERVAL_SECONDS", settings.updateIntervalSeconds)
+            .apply()
+    }
+
     fun clear(context: Context) {
         context
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .clear()
+            .remove(KEY_GROUP)
+            .remove(KEY_PARTICIPANT_PASSWORD)
+            .remove(KEY_FOLLOWER_PASSWORD)
+            .remove(KEY_USER_NAME)
+            .remove(KEY_NOTIFICATION_EMAILS)
+            .remove(KEY_ALERT_EMAILS)
+            .remove(KEY_STUCK_ALARM_MINUTES)
+            .remove(KEY_UPDATE_INTERVAL_SECONDS)
             .apply()
     }
+
+    private fun groupProfilePrefix(group: String): String = "$GROUP_PROFILE_PREFIX.${group.trim().lowercase()}"
 
     private fun String.toEmailList(): List<String> =
         split(",")
