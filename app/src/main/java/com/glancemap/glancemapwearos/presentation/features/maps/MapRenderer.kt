@@ -358,7 +358,7 @@ class MapRenderer(
 
             timingStatus = if (demChanged) "full_reload_dem_changed" else "full_reload_theme_changed"
             skipNextStartupTilePrewarm = true
-            // Mapsforge 0.27.0 showed incomplete viewport rendering when reusing the same
+            // Older Mapsforge builds showed incomplete viewport rendering when reusing the same
             // MapDataStore across TileRendererLayer theme swaps, so prefer a clean layer rebuild.
             rebuildTileCacheRequested = false
             themeApplyResult =

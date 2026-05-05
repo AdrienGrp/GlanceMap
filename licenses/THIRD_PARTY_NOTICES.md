@@ -18,7 +18,7 @@ This document covers open-source software and assets used by the watch app (`app
 | Accompanist | `com.google.accompanist:*` | Apache License 2.0 | https://github.com/google/accompanist |
 | Horologist | `com.google.android.horologist:*` | Apache License 2.0 | https://github.com/google/horologist |
 | AndroidSVG | `com.caverock:androidsvg` | Apache License 2.0 | https://github.com/BigBadaboom/androidsvg |
-| Mapsforge | `org.mapsforge:*` (`mapsforge-map`, `mapsforge-map-android`, `mapsforge-themes`, etc.) | LGPL-3.0-or-later (with Mapsforge stated static-linking/derivative waiver in project README) | https://github.com/mapsforge/mapsforge |
+| Mapsforge | `com.github.mapsforge.mapsforge:*` (`mapsforge-map`, `mapsforge-map-android`, `mapsforge-themes`, etc.) | LGPL-3.0-or-later (with Mapsforge stated static-linking/derivative waiver in project README) | https://github.com/mapsforge/mapsforge |
 | BRouter | Vendored modules `:brouter-core`, `:brouter-codec`, `:brouter-expressions`, `:brouter-mapaccess`, `:brouter-util` from `third_party/brouter/*` | MIT License | https://github.com/abrensch/brouter |
 | kXML2 | `net.sf.kxml:kxml2` | BSD-style / very permissive (per project and POM metadata) | https://kobjects.org/kxml/ |
 | Maki icons (build-time downloaded POI icons) | SVG icon set from Mapbox Maki | CC0 1.0 Universal | https://github.com/mapbox/maki |
