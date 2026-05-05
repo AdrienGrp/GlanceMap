@@ -58,6 +58,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,19 +99,22 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val sessionState by LiveTrackingSessionStore.state.collectAsState()
+    val savedSettings = remember(context) { LiveTrackingPreferences.load(context) }
     var page by remember { mutableStateOf(LiveTrackingPage.MAIN) }
-    var group by remember { mutableStateOf("") }
-    var participantPassword by remember { mutableStateOf("") }
-    var followerPassword by remember { mutableStateOf("") }
-    var userName by remember { mutableStateOf("") }
+    var group by remember { mutableStateOf(savedSettings.group) }
+    var participantPassword by remember { mutableStateOf(savedSettings.participantPassword) }
+    var followerPassword by remember { mutableStateOf(savedSettings.followerPassword) }
+    var userName by remember { mutableStateOf(savedSettings.userName) }
     var notificationEmailInput by remember { mutableStateOf("") }
-    var notificationEmailAddresses by remember { mutableStateOf<List<String>>(emptyList()) }
+    var notificationEmailAddresses by remember {
+        mutableStateOf(savedSettings.notificationEmailAddresses)
+    }
     var alertEmailInput by remember { mutableStateOf("") }
-    var alertEmailAddresses by remember { mutableStateOf<List<String>>(emptyList()) }
-    var stuckAlarmMinutes by remember { mutableStateOf("15") }
+    var alertEmailAddresses by remember { mutableStateOf(savedSettings.alertEmailAddresses) }
+    var stuckAlarmMinutes by remember { mutableStateOf(savedSettings.stuckAlarmMinutes) }
     var comments by remember { mutableStateOf("") }
     var trackingEndpoint by remember { mutableStateOf(ArkluzTrackingEndpoint.PRODUCTION) }
-    var updateIntervalSeconds by remember { mutableStateOf(60) }
+    var updateIntervalSeconds by remember { mutableStateOf(savedSettings.updateIntervalSeconds) }
     var selectedGpxUri by remember { mutableStateOf<Uri?>(null) }
     var selectedGpxName by remember { mutableStateOf("") }
     var hasLocationPermission by remember { mutableStateOf(hasLocationPermission(context)) }
@@ -154,6 +158,32 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                 result[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
                 hasLocationPermission(context)
         }
+
+    LaunchedEffect(
+        group,
+        participantPassword,
+        followerPassword,
+        userName,
+        notificationEmailAddresses,
+        alertEmailAddresses,
+        stuckAlarmMinutes,
+        updateIntervalSeconds,
+    ) {
+        LiveTrackingPreferences.save(
+            context = context,
+            settings =
+                SavedLiveTrackingSettings(
+                    group = group,
+                    participantPassword = participantPassword,
+                    followerPassword = followerPassword,
+                    userName = userName,
+                    notificationEmailAddresses = notificationEmailAddresses,
+                    alertEmailAddresses = alertEmailAddresses,
+                    stuckAlarmMinutes = stuckAlarmMinutes,
+                    updateIntervalSeconds = updateIntervalSeconds,
+                ),
+        )
+    }
 
     BoxWithConstraints(
         modifier =
@@ -500,6 +530,7 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                         },
                         onLogout = {
                             LiveTrackingService.stop(context)
+                            LiveTrackingPreferences.clear(context)
                             group = ""
                             participantPassword = ""
                             followerPassword = ""
@@ -512,6 +543,13 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                             pendingRegistrationGroup = null
                             showCreateGroupDialog = false
                             createGroupPasswordConfirmation = ""
+                            userName = ""
+                            notificationEmailInput = ""
+                            notificationEmailAddresses = emptyList()
+                            alertEmailInput = ""
+                            alertEmailAddresses = emptyList()
+                            stuckAlarmMinutes = "15"
+                            updateIntervalSeconds = 60
                             page = LiveTrackingPage.MAIN
                         },
                         isDeletingTracks = isDeletingTracks,
