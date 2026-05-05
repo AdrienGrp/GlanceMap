@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -77,6 +78,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -854,6 +857,8 @@ private fun ColumnScope.LoginJoinContent(
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
 ) {
+    var isPasswordVisible by remember { mutableStateOf(false) }
+    var isPasswordConfirmationVisible by remember { mutableStateOf(false) }
     val visibleStatusMessage =
         loginJoinStatusMessage
             ?: if (isConnected) {
@@ -882,11 +887,12 @@ private fun ColumnScope.LoginJoinContent(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            PasswordField(
                 value = participantPassword,
                 onValueChange = onParticipantPasswordChange,
                 label = { Text("Password") },
-                singleLine = true,
+                isVisible = isPasswordVisible,
+                onVisibilityChange = { isPasswordVisible = it },
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
@@ -924,11 +930,12 @@ private fun ColumnScope.LoginJoinContent(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("This group does not exist yet. Type the password again to create it.")
-                    OutlinedTextField(
+                    PasswordField(
                         value = createGroupPasswordConfirmation,
                         onValueChange = onCreateGroupPasswordConfirmationChange,
                         label = { Text("Password confirmation") },
-                        singleLine = true,
+                        isVisible = isPasswordConfirmationVisible,
+                        onVisibilityChange = { isPasswordConfirmationVisible = it },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -1106,6 +1113,51 @@ private fun ColumnScope.SettingsContent(
             Text("Logout")
         }
     }
+}
+
+@Composable
+private fun PasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: @Composable () -> Unit,
+    isVisible: Boolean,
+    onVisibilityChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = label,
+        singleLine = true,
+        visualTransformation =
+            if (isVisible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+        keyboardOptions =
+            KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+            ),
+        trailingIcon = {
+            FilledTonalIconButton(
+                onClick = { onVisibilityChange(!isVisible) },
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    imageVector =
+                        if (isVisible) {
+                            Icons.Filled.VisibilityOff
+                        } else {
+                            Icons.Filled.Visibility
+                        },
+                    contentDescription = if (isVisible) "Hide password" else "Show password",
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        },
+        modifier = modifier,
+    )
 }
 
 @Composable
