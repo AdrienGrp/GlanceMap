@@ -1323,17 +1323,20 @@ private fun ScrollbarIndicator(
                 .width(4.dp)
                 .padding(vertical = 2.dp),
     ) {
+        val maxScroll = scrollState.maxValue
+        if (maxScroll <= 0) return@BoxWithConstraints
+
         val viewportHeightPx = constraints.maxHeight.toFloat()
         if (viewportHeightPx <= 0f) return@BoxWithConstraints
 
-        val contentHeightPx = viewportHeightPx + scrollState.maxValue
+        val contentHeightPx = viewportHeightPx + maxScroll
         val minThumbHeightPx = with(density) { 28.dp.toPx() }
         val thumbHeightPx =
             (viewportHeightPx * viewportHeightPx / contentHeightPx)
                 .coerceAtLeast(minThumbHeightPx)
                 .coerceAtMost(viewportHeightPx)
-        val scrollFraction = scrollState.value.toFloat() / scrollState.maxValue.toFloat()
-        val thumbOffsetPx = (viewportHeightPx - thumbHeightPx) * scrollFraction
+        val scrollFraction = scrollState.value.coerceIn(0, maxScroll).toFloat() / maxScroll.toFloat()
+        val thumbOffsetPx = ((viewportHeightPx - thumbHeightPx) * scrollFraction).takeIf { it.isFinite() } ?: 0f
 
         Box(
             modifier =
