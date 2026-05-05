@@ -890,7 +890,7 @@ private fun ColumnScope.SettingsContent(
                 onSelected = onUpdateIntervalSecondsChange,
             )
             EmailAddressInput(
-                label = "Start + alert email",
+                label = "Send tracking notifications & alerts",
                 input = notificationEmailInput,
                 onInputChange = onNotificationEmailInputChange,
                 addresses = notificationEmailAddresses,
@@ -898,7 +898,7 @@ private fun ColumnScope.SettingsContent(
                 onRemove = onNotificationEmailRemove,
             )
             EmailAddressInput(
-                label = "Alert-only email",
+                label = "Also send alerts to",
                 input = alertEmailInput,
                 onInputChange = onAlertEmailInputChange,
                 addresses = alertEmailAddresses,
