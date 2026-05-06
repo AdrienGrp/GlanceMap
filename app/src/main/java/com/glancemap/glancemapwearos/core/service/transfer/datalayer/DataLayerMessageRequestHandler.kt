@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.core.service.transfer.datalayer
 
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.util.Log
@@ -16,6 +17,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
+
+private fun ConnectivityManager.hasWifiTransport(network: Network?): Boolean =
+    network
+        ?.let { getNetworkCapabilities(it) }
+        ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+
+private val ConnectivityManager.hasAvailableWifiNetwork: Boolean
+    @Suppress("DEPRECATION")
+    get() = allNetworks.any { network -> hasWifiTransport(network) }
 
 internal class DataLayerMessageRequestHandler(
     private val service: DataLayerListenerService,
@@ -296,30 +306,17 @@ internal class DataLayerMessageRequestHandler(
     private fun readWifiAvailability(): Pair<Boolean, String> {
         val connectivityManager =
             service.getSystemService(ConnectivityManager::class.java)
-                ?: return false to "connectivity_manager_missing"
-        val active = connectivityManager.activeNetwork
-        val activeCaps = active?.let { connectivityManager.getNetworkCapabilities(it) }
-        if (activeCaps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
-            return true to "active_wifi"
-        }
+        val active = connectivityManager?.activeNetwork
 
-        @Suppress("DEPRECATION")
-        val availableWifi =
-            connectivityManager.allNetworks.any { network ->
-                connectivityManager
-                    .getNetworkCapabilities(network)
-                    ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        val result =
+            when {
+                connectivityManager == null -> false to "connectivity_manager_missing"
+                connectivityManager.hasWifiTransport(active) -> true to "active_wifi"
+                connectivityManager.hasAvailableWifiNetwork -> true to "available_wifi"
+                active == null -> false to "no_active_network"
+                else -> false to "no_wifi_network"
             }
-        return if (availableWifi) {
-            true to "available_wifi"
-        } else {
-            false to
-                if (active == null) {
-                    "no_active_network"
-                } else {
-                    "no_wifi_network"
-                }
-        }
+        return result
     }
 
     private fun handleBatchCheckExists(messageEvent: MessageEvent) {

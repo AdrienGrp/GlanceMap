@@ -78,7 +78,8 @@ internal fun RoutingDownloadDialog(
             when (areaMethod) {
                 RoutingAreaMethod.WATCH_MAP -> selectedRoutingMapCandidate?.bbox.orEmpty()
                 RoutingAreaMethod.TILE_PICKER,
-                RoutingAreaMethod.MANUAL_BBOX -> bboxInput.trim()
+                RoutingAreaMethod.MANUAL_BBOX,
+                -> bboxInput.trim()
             }
         }
     val routingTiles =

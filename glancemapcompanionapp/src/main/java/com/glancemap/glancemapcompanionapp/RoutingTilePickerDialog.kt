@@ -2,12 +2,12 @@
 
 package com.glancemap.glancemapcompanionapp
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -246,5 +246,7 @@ private fun hasUsableInitialRoutingBbox(initialBbox: String): Boolean =
         BRouterTileMath.tileFileNamesForBbox(parsed).size in 1..4
     }.getOrDefault(false)
 
-private fun defaultRoutingPickerBounds(): MapPickerBounds =
-    MapPickerBounds.parseOrNull(DEFAULT_ROUTING_PICKER_BBOX) ?: MapPickerBounds.defaultAround(45.5, 7.5)
+private fun defaultRoutingPickerBounds(): MapPickerBounds {
+    val fallback = MapPickerBounds.defaultAround(45.5, 7.5)
+    return MapPickerBounds.parseOrNull(DEFAULT_ROUTING_PICKER_BBOX) ?: fallback
+}

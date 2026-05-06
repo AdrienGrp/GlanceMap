@@ -108,6 +108,7 @@ internal fun RefugesImportDialog(
     }
     var selectedSource by remember { mutableStateOf(PoiImportSource.OSM) }
     var enrichWithOsm by remember { mutableStateOf(false) }
+
     fun selectSource(source: PoiImportSource) {
         if (selectedSource == source) return
 
