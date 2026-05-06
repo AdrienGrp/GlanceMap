@@ -24,8 +24,8 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
-import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.module.http.HttpRequestUtil
@@ -610,7 +610,7 @@ private class BboxSelectionOverlay(
                 current.scaledTo(latLng)
             } else {
                 current.resizedTo(handle, latLng)
-        }
+            }
         onBoundsChanged(nextBounds)
     }
 
@@ -990,8 +990,10 @@ private fun routingTilesForBounds(
     return result
 }
 
-private fun tileOrigin(coordinate: Double): Int =
-    floor(coordinate / ROUTING_TILE_DEGREES.toDouble()).toInt() * ROUTING_TILE_DEGREES
+private fun tileOrigin(coordinate: Double): Int {
+    val tileIndex = floor(coordinate / ROUTING_TILE_DEGREES.toDouble()).toInt()
+    return tileIndex * ROUTING_TILE_DEGREES
+}
 
 private fun formatTileCoord(
     value: Int,
@@ -1019,11 +1021,9 @@ private fun ensureMapLibreConfigured(context: Context) {
                             .header(
                                 "User-Agent",
                                 "GlanceMapCompanion/1 ($packageName)",
-                            )
-                            .build(),
+                            ).build(),
                     )
-                }
-                .build(),
+                }.build(),
         )
         MapLibreConfiguration.initialized = true
     }

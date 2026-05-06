@@ -133,7 +133,11 @@ internal fun isGeoJsonUri(
     val name = resolveUriDisplayName(context, uri)
     if (isGeoJsonFileName(name)) return true
 
-    val mimeType = context.contentResolver.getType(uri).orEmpty().lowercase()
+    val mimeType =
+        context.contentResolver
+            .getType(uri)
+            .orEmpty()
+            .lowercase()
     return mimeType == "application/geo+json" ||
         mimeType == "application/vnd.geo+json" ||
         (mimeType == "application/json" && name.lowercase().endsWith(".json"))
