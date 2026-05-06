@@ -58,10 +58,12 @@ class HttpTransferServer :
         const val RESULT_HTTP_STALLED_PREFIX = "HTTP_STALLED_RETRY:"
         const val RESULT_HTTP_SLOW_PREFIX = "HTTP_SLOW_RETRY:"
         const val RESULT_HTTP_RECONNECT_TIMEOUT_PREFIX = "HTTP_RECONNECT_TIMEOUT:"
+        const val RESULT_HTTP_NO_FIRST_REQUEST_PREFIX = "HTTP_NO_REQUEST:"
 
         private const val DEFAULT_BUFFER_SIZE = 2 * 1024 * 1024
         private const val MAP_BUFFER_SIZE = 4 * 1024 * 1024
         private const val ACK_TIMEOUT_MS = 45 * 60 * 1000L
+        private const val FIRST_REQUEST_TIMEOUT_MS = 15_000L
 
         private const val SERVER_READY_TIMEOUT_MS = 5_000L
         private const val SERVER_READY_POLL_DELAY_MS = 100L
@@ -200,7 +202,7 @@ class HttpTransferServer :
                 val firstRequestStartMs = SystemClock.elapsedRealtime()
                 var ackBeforeFirstRequest: TransferResult? = null
                 val firstRequestHit =
-                    withTimeoutOrNull(15_000L) {
+                    withTimeoutOrNull(FIRST_REQUEST_TIMEOUT_MS) {
                         select<Boolean> {
                             firstRequest.onAwait {
                                 true
@@ -217,14 +219,23 @@ class HttpTransferServer :
                     }
                 val firstRequestMs = SystemClock.elapsedRealtime() - firstRequestStartMs
                 if (firstRequestHit == null) {
+                    val detail =
+                        "Watch did not connect to phone HTTP server within ${FIRST_REQUEST_TIMEOUT_MS / 1000}s. " +
+                            "Check watch Wi-Fi or phone hotspot."
                     Log.w(
                         TAG,
-                        "Watch did not hit server within 15s file=${metadata.displayFileName} " +
+                        "Watch did not hit server within ${FIRST_REQUEST_TIMEOUT_MS / 1000}s " +
+                            "file=${metadata.displayFileName} " +
                             "node=$targetNodeId ip=$ipAddress port=$port path=$downloadPath",
                     )
                     PhoneTransferDiagnostics.warn(
                         "Http",
-                        "Watch did not hit server within 15s file=${metadata.displayFileName} node=$targetNodeId",
+                        "Watch did not hit server within ${FIRST_REQUEST_TIMEOUT_MS / 1000}s " +
+                            "file=${metadata.displayFileName} node=$targetNodeId",
+                    )
+                    return@withContext TransferResult(
+                        success = false,
+                        message = "$RESULT_HTTP_NO_FIRST_REQUEST_PREFIX detail=$detail",
                     )
                 }
 

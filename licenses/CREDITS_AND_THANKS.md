@@ -1,6 +1,6 @@
 # Credits and Thanks
 
-Last reviewed: 2026-04-29
+Last reviewed: 2026-05-06
 
 This page is the user-friendly credit summary for the main projects and communities used by GlanceMap.
 
@@ -53,11 +53,15 @@ This page is the user-friendly credit summary for the main projects and communit
    - Core offline map rendering stack in the watch app.
    - Project: https://github.com/mapsforge/mapsforge
 
-12. BRouter (Arndt Brenschede and contributors)
+12. MapLibre Native
+   - Native online map picker used by the companion app for area and routing-tile selection.
+   - Project: https://github.com/maplibre/maplibre-native
+
+13. BRouter (Arndt Brenschede and contributors)
    - Offline routing engine used by the watch app, with routing packs downloaded by the companion app.
    - Project: https://github.com/abrensch/brouter
 
-13. Mapbox Maki icons
+14. Mapbox Maki icons
    - Build-time POI icon source.
    - Project: https://github.com/mapbox/maki
 

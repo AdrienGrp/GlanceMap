@@ -131,7 +131,17 @@ internal fun isGeoJsonUri(
     uri: Uri,
 ): Boolean {
     val name = resolveUriDisplayName(context, uri)
-    return name.lowercase().endsWith(".geojson")
+    if (isGeoJsonFileName(name)) return true
+
+    val mimeType = context.contentResolver.getType(uri).orEmpty().lowercase()
+    return mimeType == "application/geo+json" ||
+        mimeType == "application/vnd.geo+json" ||
+        (mimeType == "application/json" && name.lowercase().endsWith(".json"))
+}
+
+internal fun isGeoJsonFileName(fileName: String): Boolean {
+    val lower = fileName.lowercase()
+    return lower.endsWith(".geojson") || lower.endsWith(".geo.json")
 }
 
 internal fun isGpxUri(

@@ -48,7 +48,7 @@ Data may leave your device in the following situations:
 
 ### 1. User-requested downloads from third-party data providers
 
-When you request online POI, routing, elevation, or similar data, the app sends the information needed to fulfill that request to the selected provider, such as a user-selected geographic area (bounding box), requested tile names, or requested files.
+When you request online POI, routing, elevation, map-picker previews, or similar data, the app sends the information needed to fulfill that request to the selected provider, such as a user-selected geographic area (bounding box), requested routing tile names, map display tile coordinates, or requested files.
 
 As with normal internet requests, those providers may also receive standard request metadata such as your IP address, request time, and user-agent or similar connection information.
 
@@ -56,6 +56,7 @@ Providers used by the current app configuration include:
 
 - `refuges.info`
 - `overpass-api.de`
+- `tile.openstreetmap.org`
 - `brouter.de`
 - `download.mapsforge.org`
 

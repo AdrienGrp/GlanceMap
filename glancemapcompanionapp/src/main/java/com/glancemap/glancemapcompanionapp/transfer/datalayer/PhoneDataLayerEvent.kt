@@ -13,6 +13,10 @@ internal sealed interface PhoneDataLayerEvent {
         val payload: ByteArray,
     ) : PhoneDataLayerEvent
 
+    data class WifiStatusResult(
+        val payload: ByteArray,
+    ) : PhoneDataLayerEvent
+
     data class ExistsResult(
         val payload: ByteArray,
     ) : PhoneDataLayerEvent

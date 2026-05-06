@@ -126,6 +126,64 @@ class OsmOverpassPoiImporterSupportTest {
     }
 
     @Test
+    fun `too large overpass message suggests area and category fixes`() {
+        assertTrue(OSM_OVERPASS_TOO_LARGE_MESSAGE.contains("smaller area"))
+        assertTrue(OSM_OVERPASS_TOO_LARGE_MESSAGE.contains("fewer POI categories"))
+    }
+
+    @Test
+    fun `osm count preflight warns before it blocks`() {
+        assertEquals(4_000L, OSM_OVERPASS_PREFLIGHT_WARNING_POI_COUNT)
+        assertEquals(10_000L, OSM_OVERPASS_PREFLIGHT_MAX_POI_COUNT)
+        assertTrue(OSM_OVERPASS_PREFLIGHT_WARNING_POI_COUNT < OSM_OVERPASS_PREFLIGHT_MAX_POI_COUNT)
+    }
+
+    @Test
+    fun `parses overpass count response`() {
+        val body =
+            """
+            {
+              "elements": [
+                {
+                  "type": "count",
+                  "tags": {
+                    "nodes": "320",
+                    "ways": "12",
+                    "relations": "1",
+                    "total": "333"
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val estimate = parseOverpassCountResponse(body)
+
+        assertEquals(320L, estimate.nodes)
+        assertEquals(12L, estimate.ways)
+        assertEquals(1L, estimate.relations)
+        assertEquals(333L, estimate.total)
+    }
+
+    @Test
+    fun `builds overpass clauses from selected osm categories`() {
+        val bbox =
+            BBox(
+                minLon = 6.0,
+                minLat = 45.0,
+                maxLon = 6.8,
+                maxLat = 45.7,
+            )
+        val categories = resolveOsmPoiImportCategories(linkedSetOf("huts", "water"))
+
+        val clauses = buildOverpassSelectionClauses(bbox, categories)
+
+        assertTrue(clauses.contains("""node["tourism"="alpine_hut"](45.0,6.0,45.7,6.8);"""))
+        assertTrue(clauses.contains("""way["amenity"="shelter"](45.0,6.0,45.7,6.8);"""))
+        assertTrue(clauses.contains("""relation["natural"="spring"](45.0,6.0,45.7,6.8);"""))
+    }
+
+    @Test
     fun `default osm categories keep mountain essentials selected`() {
         val defaultIds = defaultOsmPoiCategoryIds()
 

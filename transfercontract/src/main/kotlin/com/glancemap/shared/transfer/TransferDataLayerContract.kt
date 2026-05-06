@@ -12,6 +12,8 @@ object TransferDataLayerContract {
     const val PATH_PREPARE_CHANNEL = "/glancemap/prepare_channel"
     const val PATH_PING = "/glancemap/ping"
     const val PATH_PING_RESULT = "/glancemap/ping_result"
+    const val PATH_CHECK_WIFI_STATUS = "/glancemap/check_wifi_status"
+    const val PATH_CHECK_WIFI_STATUS_RESULT = "/glancemap/check_wifi_status_result"
     const val PATH_DIAGNOSTICS_EMAIL_REQUEST = "/glancemap/diagnostics_email_request"
 
     const val PATH_CHECK_EXISTS = "/glancemap/check_exists"

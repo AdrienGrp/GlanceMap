@@ -48,6 +48,7 @@ internal class PhoneDataLayerRepository(
                     DataLayerPaths.PATH_TRANSFER_STATUS -> PhoneDataLayerEvent.TransferStatus(event.data)
                     DataLayerPaths.PATH_TRANSFER_ACK -> PhoneDataLayerEvent.TransferAck(event.data)
                     DataLayerPaths.PATH_PING_RESULT -> PhoneDataLayerEvent.PingResult(event.data)
+                    DataLayerPaths.PATH_CHECK_WIFI_STATUS_RESULT -> PhoneDataLayerEvent.WifiStatusResult(event.data)
                     DataLayerPaths.PATH_CHECK_EXISTS_RESULT -> PhoneDataLayerEvent.ExistsResult(event.data)
                     DataLayerPaths.PATH_CHECK_EXISTS_BATCH_RESULT -> PhoneDataLayerEvent.BatchExistsResult(event.data)
                     DataLayerPaths.PATH_DELETE_FILE_RESULT -> PhoneDataLayerEvent.DeleteFileResult(event.data)

@@ -305,9 +305,12 @@ internal fun FilePickerQuickGuideDialog(
             listOf(
                 QuickGuidePage(
                     title = "Welcome to GlanceMap Companion App",
+                    intro =
+                        "GlanceMap is a map viewer. It does not provide map data; " +
+                            ".map files must be downloaded from external sources.",
                     lines =
                         listOf(
-                            "Send maps, routes, POI, and GPX files from your phone to the watch.",
+                            "This phone app is necessary to send maps, routes, POI, and GPX files to your watch.",
                             "Once files are on the watch, GlanceMap can work offline without the phone.",
                             "For battery saving, keeping phone and watch connected is still recommended.",
                         ),
@@ -317,7 +320,7 @@ internal fun FilePickerQuickGuideDialog(
                     lines =
                         listOf(
                             "Use 1. Download to get Mapsforge OSM .map, POI, GPX, or routing files.",
-                            "Tap 2. Select file(s) to add .map, .poi, .gpx, or .rd5 files from the phone.",
+                            "Tap 2. Select file(s) to add .map, .poi, .gpx, .rd5, or DEM .hgt files from the phone.",
                         ),
                 ),
                 QuickGuidePage(
@@ -335,7 +338,8 @@ internal fun FilePickerQuickGuideDialog(
                     lines =
                         listOf(
                             "Use POI for Refuges / OSM, Routing for BRouter packs.",
-                            "Choose the area from the watch map, a region, or a manual BBox.",
+                            "Use the map picker to select a POI area, or the tile picker for BRouter routing packs.",
+                            "You can also choose a region or enter a manual BBox.",
                             "BBox format: west,south,east,north. Example: 5.50,45.10,6.50,45.60.",
                             "Use Refresh last import to update the same area later without choosing it again.",
                         ),
@@ -407,6 +411,20 @@ internal fun FilePickerQuickGuideDialog(
                         modifier = Modifier.fillMaxWidth(),
                         style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Start,
+                    )
+                }
+                page.intro?.let { intro ->
+                    Text(
+                        text = intro,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign =
+                            if (isWelcomePage) {
+                                TextAlign.Center
+                            } else {
+                                TextAlign.Start
+                            },
                     )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -534,6 +552,7 @@ private fun quickGuidePageIndicator(
 
 private data class QuickGuidePage(
     val title: String,
+    val intro: String? = null,
     val lines: List<String>,
 )
 
