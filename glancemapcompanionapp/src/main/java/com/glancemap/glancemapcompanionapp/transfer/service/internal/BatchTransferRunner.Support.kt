@@ -42,6 +42,7 @@ internal fun shouldPreferChannelForRemainingBatch(result: TransferResult): Boole
     val msg = result.message.lowercase()
     return isLikelyDifferentSubnetHttpFailure(result.message) ||
         msg.contains("no wi-fi network available") ||
+        msg.contains(HttpTransferServer.RESULT_HTTP_NO_FIRST_REQUEST_PREFIX.lowercase()) ||
         isExplicitPhoneHttpUnreachableFailure(result.message)
 }
 
@@ -188,12 +189,18 @@ internal fun toUserFacingTransferError(result: TransferResult): String {
         normalized.contains(HttpTransferServer.RESULT_HTTP_RECONNECT_TIMEOUT_PREFIX.lowercase()) ->
             "The watch did not reconnect in time."
 
+        normalized.contains(HttpTransferServer.RESULT_HTTP_NO_FIRST_REQUEST_PREFIX.lowercase()) ->
+            "The watch did not connect to the phone HTTP server. Check watch Wi-Fi or phone hotspot."
+
         else ->
             result.message
     }
 }
 
-internal fun isSupportedTransferFileName(fileName: String): Boolean = fileName.endsWith(".gpx", ignoreCase = true) || isMapLikeTransferFile(fileName)
+internal fun isSupportedTransferFileName(fileName: String): Boolean =
+    fileName.endsWith(".gpx", ignoreCase = true) ||
+        isMapLikeTransferFile(fileName) ||
+        isDemTransferFile(fileName)
 
 internal fun isReplaceableTransferFileName(fileName: String): Boolean = fileName.endsWith(".rd5", ignoreCase = true)
 
@@ -201,3 +208,8 @@ internal fun isMapLikeTransferFile(fileName: String): Boolean =
     fileName.endsWith(".map", ignoreCase = true) ||
         fileName.endsWith(".poi", ignoreCase = true) ||
         fileName.endsWith(".rd5", ignoreCase = true)
+
+internal fun isDemTransferFile(fileName: String): Boolean {
+    val lower = fileName.lowercase()
+    return lower.endsWith(".hgt") || lower.endsWith(".hgt.zip")
+}

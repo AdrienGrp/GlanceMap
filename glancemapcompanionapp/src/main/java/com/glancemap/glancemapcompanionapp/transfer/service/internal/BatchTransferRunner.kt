@@ -15,6 +15,8 @@ import com.glancemap.glancemapcompanionapp.transfer.FileExistenceChecker
 import com.glancemap.glancemapcompanionapp.transfer.TransferStrategyFactory
 import com.glancemap.glancemapcompanionapp.transfer.TransferStrategyKind
 import com.glancemap.glancemapcompanionapp.transfer.WatchFileDeleteRequester
+import com.glancemap.glancemapcompanionapp.transfer.WatchWifiStatus
+import com.glancemap.glancemapcompanionapp.transfer.WatchWifiStatusChecker
 import com.glancemap.glancemapcompanionapp.transfer.strategy.ChannelClientStrategy
 import com.glancemap.glancemapcompanionapp.transfer.strategy.HttpTransferServer
 import com.glancemap.glancemapcompanionapp.transfer.strategy.TransferMetadata
@@ -31,6 +33,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
+@Suppress("LongParameterList")
 internal class BatchTransferRunner(
     private val context: Context,
     private val uiState: MutableStateFlow<FileTransferUiState>,
@@ -39,6 +42,7 @@ internal class BatchTransferRunner(
     private val wifiManager: WifiManager,
     private val existenceChecker: FileExistenceChecker,
     private val deleteRequester: WatchFileDeleteRequester,
+    private val wifiStatusChecker: WatchWifiStatusChecker,
     private val ackRegistry: AckRegistry,
     private val uiUpdater: UiProgressUpdater,
     private val cancelTransferOnWatch: suspend (nodeId: String, transferId: String) -> Unit,
@@ -86,7 +90,7 @@ internal class BatchTransferRunner(
         val first = supportedItems.firstOrNull()
 
         if (first == null) {
-            clearSelectedFiles(statusMessage = "No compatible files selected (.gpx, .map, .poi, .rd5).")
+            clearSelectedFiles(statusMessage = "No compatible files selected (.gpx, .map, .poi, .rd5, .hgt).")
             return
         }
 
@@ -223,11 +227,56 @@ internal class BatchTransferRunner(
             uiUpdater.update(0f, "Skipped ${conflicts.size} file(s) already on watch. Transferring ${itemsToTransfer.size}…")
         }
 
-        val selectionContext =
+        var selectionContext =
             strategyFactory.buildSelectionContext(
                 context = context,
                 totalSizesBytes = itemsToTransfer.map { it.size },
             )
+        var watchWifiStatus: WatchWifiStatus? = null
+        val initialTransferPlans =
+            itemsToTransfer.map { item ->
+                PlannedTransfer(
+                    item = item,
+                    strategyKind = strategyFactory.decide(item.size, selectionContext),
+                )
+            }
+
+        if (
+            selectionContext.wifiAvailable &&
+            initialTransferPlans.any { TransferStrategyFactory.usesWifi(it.strategyKind) }
+        ) {
+            uiUpdater.update(0f, "Checking watch Wi-Fi…")
+            watchWifiStatus = wifiStatusChecker.check(targetNode.id)
+            when {
+                watchWifiStatus == null -> {
+                    PhoneTransferDiagnostics.warn(
+                        "Batch",
+                        "Watch Wi-Fi preflight unavailable; keeping HTTP eligible",
+                    )
+                }
+
+                !watchWifiStatus.wifiAvailable -> {
+                    PhoneTransferDiagnostics.warn(
+                        "Batch",
+                        "Watch Wi-Fi unavailable reason=${watchWifiStatus.reason}; disabling HTTP for this batch",
+                    )
+                    selectionContext =
+                        selectionContext.copy(
+                            wifiAvailable = false,
+                            preferSharedHttpForBatch = false,
+                        )
+                    uiUpdater.update(0f, "Watch Wi-Fi is off. Using Bluetooth when possible…")
+                }
+
+                else -> {
+                    PhoneTransferDiagnostics.log(
+                        "Batch",
+                        "Watch Wi-Fi preflight ok reason=${watchWifiStatus.reason}",
+                    )
+                }
+            }
+        }
+
         val transferPlans =
             itemsToTransfer.map { item ->
                 PlannedTransfer(
@@ -271,11 +320,12 @@ internal class BatchTransferRunner(
             if (anyRequiresWifi) wifiLock.acquire()
 
             if (anyRequiresWifi) {
+                if (!selectionContext.wifiAvailable) {
+                    throw IllegalStateException(wifiRequiredMessage(watchWifiStatus))
+                }
                 val ip = TransferUtils.getWifiIpAddress(context)
                 if (ip.isNullOrBlank()) {
-                    throw IllegalStateException(
-                        "Wi-Fi required for this transfer batch. Connect the watch to the same Wi-Fi or to this phone’s hotspot.",
-                    )
+                    throw IllegalStateException(wifiRequiredMessage(watchWifiStatus))
                 }
             }
 
@@ -991,6 +1041,7 @@ internal class BatchTransferRunner(
         if (msg.contains("checksum_mismatch")) return false
         if (msg.contains("unauthorized")) return false
         if (msg.contains(HttpTransferServer.RESULT_HTTP_PAUSED_PREFIX.lowercase())) return false
+        if (msg.contains(HttpTransferServer.RESULT_HTTP_NO_FIRST_REQUEST_PREFIX.lowercase())) return false
         if (msg.contains("cancelled")) return false
 
         return msg.contains(HttpTransferServer.RESULT_HTTP_STALLED_PREFIX.lowercase()) ||
@@ -1048,6 +1099,14 @@ internal class BatchTransferRunner(
         val authority = item.uri.authority.orEmpty()
         return authority == "${context.packageName}.fileprovider"
     }
+
+    private fun wifiRequiredMessage(watchWifiStatus: WatchWifiStatus?): String =
+        if (watchWifiStatus?.wifiAvailable == false) {
+            "Watch Wi-Fi is off. Files over 50 MB require Wi-Fi on the watch, " +
+                "or connect the watch to this phone’s hotspot."
+        } else {
+            "Wi-Fi required for this transfer batch. Connect the watch to the same Wi-Fi or to this phone’s hotspot."
+        }
 
     private companion object {
         const val TAG = "BatchTransferRunner"

@@ -364,6 +364,7 @@ object TransferUtils {
             for (iface in ifaces) {
                 if (!iface.isUp || iface.isLoopback) continue
                 val ifName = iface.name ?: continue
+                if (!isLocalPeerInterfaceName(ifName)) continue
 
                 val addrs = iface.inetAddresses ?: continue
                 for (addr in addrs) {
@@ -448,6 +449,15 @@ object TransferUtils {
     private fun isHotspotInterfaceName(ifName: String): Boolean {
         val normalized = ifName.lowercase(Locale.ROOT)
         return normalized.contains("ap") || normalized.contains("softap")
+    }
+
+    internal fun isLocalPeerInterfaceName(ifName: String): Boolean {
+        val normalized = ifName.lowercase(Locale.ROOT)
+        return isWifiInterfaceName(normalized) ||
+            isHotspotInterfaceName(normalized) ||
+            normalized.contains("rndis") ||
+            normalized.contains("usb") ||
+            normalized.contains("eth")
     }
 
     private fun isPrivateIpv4(ip: String): Boolean {

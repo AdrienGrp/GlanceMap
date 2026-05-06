@@ -7,6 +7,7 @@ activityCompose = "1.13.0"
 coreSplashscreen = "1.2.0"
 playServicesLocation = "21.3.0"
 mapsforge = "0.28.0"
+maplibre = "13.1.0"
 wearCompose = "1.6.1"
 navigationCompose = "2.9.8"
 lifecycleViewmodelCompose = "2.10.0"
@@ -70,6 +71,7 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 mapsforge-map = { module = "com.github.mapsforge.mapsforge:mapsforge-map", version.ref = "mapsforge" }
 mapsforge-map-android = { module = "com.github.mapsforge.mapsforge:mapsforge-map-android", version.ref = "mapsforge" }
 mapsforge-themes = { module = "com.github.mapsforge.mapsforge:mapsforge-themes", version.ref = "mapsforge" }
+maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanist" }
 

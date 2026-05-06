@@ -10,6 +10,8 @@ internal object DataLayerPaths {
     const val PATH_PREPARE_CHANNEL = TransferDataLayerContract.PATH_PREPARE_CHANNEL
     const val PATH_PING = TransferDataLayerContract.PATH_PING
     const val PATH_PING_RESULT = TransferDataLayerContract.PATH_PING_RESULT
+    const val PATH_CHECK_WIFI_STATUS = TransferDataLayerContract.PATH_CHECK_WIFI_STATUS
+    const val PATH_CHECK_WIFI_STATUS_RESULT = TransferDataLayerContract.PATH_CHECK_WIFI_STATUS_RESULT
     const val PATH_DIAGNOSTICS_EMAIL_REQUEST = TransferDataLayerContract.PATH_DIAGNOSTICS_EMAIL_REQUEST
     const val PATH_TRANSFER_ACK = TransferDataLayerContract.PATH_TRANSFER_ACK
     const val PATH_TRANSFER_STATUS = TransferDataLayerContract.PATH_TRANSFER_STATUS

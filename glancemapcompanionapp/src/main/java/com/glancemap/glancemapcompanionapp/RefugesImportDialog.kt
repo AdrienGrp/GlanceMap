@@ -108,6 +108,18 @@ internal fun RefugesImportDialog(
     }
     var selectedSource by remember { mutableStateOf(PoiImportSource.OSM) }
     var enrichWithOsm by remember { mutableStateOf(false) }
+    fun selectSource(source: PoiImportSource) {
+        if (selectedSource == source) return
+
+        selectedSource = source
+        if (source == PoiImportSource.OSM) {
+            enrichWithOsm = false
+        }
+        if (!poiImportProgress.isRunning) {
+            viewModel.resetPoiImportProgress()
+        }
+    }
+
     var selectedOsmCategoryIds by remember {
         mutableStateOf(defaultOsmPoiCategoryIds())
     }
@@ -123,6 +135,7 @@ internal fun RefugesImportDialog(
     var mapMenuExpanded by remember { mutableStateOf(false) }
     var watchMenuExpanded by remember { mutableStateOf(false) }
     var areaMethodMenuExpanded by remember { mutableStateOf(false) }
+    var showBboxMapPicker by remember { mutableStateOf(false) }
     var areaMethod by remember { mutableStateOf(PoiAreaMethod.WATCH_MAP) }
     var lastSuggestedPoiFileName by remember { mutableStateOf("") }
     var selectedWatchMapKey by remember(uiState.selectedWatch?.id) {
@@ -135,6 +148,10 @@ internal fun RefugesImportDialog(
         } else {
             watchInstalledMaps.firstOrNull { it.filePath == selectedWatchMapKey }
         }
+    val mapPickerInitialBbox =
+        bboxInput
+            .trim()
+            .ifBlank { selectedMapCandidate?.bbox.orEmpty() }
     val selectedWatchReachable =
         isSelectedWatchReachable(
             selectedWatch = uiState.selectedWatch,
@@ -170,18 +187,21 @@ internal fun RefugesImportDialog(
         when (areaMethod) {
             PoiAreaMethod.WATCH_MAP -> "Auto from watch map"
             PoiAreaMethod.REFUGES_PRESET -> "Choose refuges.info region"
+            PoiAreaMethod.MAP_PICKER -> "Pick on map"
             PoiAreaMethod.MANUAL_BBOX -> "Enter BBox manually"
         }
     val areaMethodDescription =
         when (areaMethod) {
             PoiAreaMethod.WATCH_MAP -> "Use a .map file on the watch to auto-detect the area (BBox)."
             PoiAreaMethod.REFUGES_PRESET -> "Pick a refuges.info region preset to fill the area automatically."
+            PoiAreaMethod.MAP_PICKER -> "Pan and zoom an online map to choose the import rectangle."
             PoiAreaMethod.MANUAL_BBOX -> "Enter your own area rectangle as west,south,east,north."
         }
     val resolvedImportBbox =
         when (areaMethod) {
             PoiAreaMethod.WATCH_MAP -> selectedMapCandidate?.bbox.orEmpty()
             PoiAreaMethod.REFUGES_PRESET,
+            PoiAreaMethod.MAP_PICKER,
             PoiAreaMethod.MANUAL_BBOX,
             -> bboxInput.trim()
         }
@@ -221,6 +241,23 @@ internal fun RefugesImportDialog(
         if (poiImportProgress.isRunning || poiImportProgress.completed) {
             importStatusBringIntoViewRequester.bringIntoView()
         }
+    }
+
+    if (showBboxMapPicker) {
+        BboxMapPickerDialog(
+            initialBbox = mapPickerInitialBbox,
+            selectedSource = selectedSource,
+            onDismiss = { showBboxMapPicker = false },
+            onConfirm = { pickedBbox ->
+                bboxInput = pickedBbox
+                selectedRegionLabel = "Custom"
+                areaMethod = PoiAreaMethod.MAP_PICKER
+                showBboxMapPicker = false
+                if (!poiImportProgress.isRunning) {
+                    viewModel.resetPoiImportProgress()
+                }
+            },
+        )
     }
 
     AlertDialog(
@@ -375,6 +412,15 @@ internal fun RefugesImportDialog(
                                 },
                             )
                             DropdownMenuItem(
+                                text = { Text("Pick on map") },
+                                onClick = {
+                                    areaMethod = PoiAreaMethod.MAP_PICKER
+                                    mapMenuExpanded = false
+                                    regionMenuExpanded = false
+                                    areaMethodMenuExpanded = false
+                                },
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Enter BBox manually") },
                                 onClick = {
                                     areaMethod = PoiAreaMethod.MANUAL_BBOX
@@ -519,33 +565,76 @@ internal fun RefugesImportDialog(
                                 style = MaterialTheme.typography.bodySmall,
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            OutlinedButton(
-                                onClick = { regionMenuExpanded = true },
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(selectedRegionLabel)
-                            }
-                            DropdownMenu(
-                                expanded = regionMenuExpanded,
-                                onDismissRequest = { regionMenuExpanded = false },
-                            ) {
-                                refugesRegionPresets.forEach { preset ->
-                                    DropdownMenuItem(
-                                        text = { Text(preset.label) },
-                                        onClick = {
-                                            selectedRegionLabel = preset.label
-                                            if (preset.bbox.isNotBlank()) {
-                                                bboxInput = preset.bbox
-                                            }
-                                            regionMenuExpanded = false
-                                        },
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(
+                                    onClick = { regionMenuExpanded = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        selectedRegionLabel,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
+                                }
+                                DropdownMenu(
+                                    expanded = regionMenuExpanded,
+                                    onDismissRequest = { regionMenuExpanded = false },
+                                    modifier = Modifier.heightIn(max = 320.dp),
+                                ) {
+                                    refugesRegionPresets.forEach { preset ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    preset.label,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            },
+                                            onClick = {
+                                                selectedRegionLabel = preset.label
+                                                if (preset.bbox.isNotBlank()) {
+                                                    bboxInput = preset.bbox
+                                                }
+                                                regionMenuExpanded = false
+                                            },
+                                        )
+                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             if (bboxInput.isBlank()) {
                                 Text(
                                     "Select a preset to define area.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            } else {
+                                Text(
+                                    "Area BBox: $bboxInput",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+
+                        PoiAreaMethod.MAP_PICKER -> {
+                            OutlinedButton(
+                                onClick = { showBboxMapPicker = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !isImportingRefuges,
+                            ) {
+                                Text(
+                                    if (bboxInput.isBlank()) {
+                                        "Open map picker"
+                                    } else {
+                                        "Edit area on map"
+                                    },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            if (bboxInput.isBlank()) {
+                                Text(
+                                    "No map area selected yet.",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             } else {
@@ -587,15 +676,14 @@ internal fun RefugesImportDialog(
                         FilterChip(
                             selected = selectedSource == PoiImportSource.OSM,
                             onClick = {
-                                selectedSource = PoiImportSource.OSM
-                                enrichWithOsm = false
+                                selectSource(PoiImportSource.OSM)
                             },
                             label = { Text("OSM") },
                         )
                         FilterChip(
                             selected = selectedSource == PoiImportSource.REFUGES,
                             onClick = {
-                                selectedSource = PoiImportSource.REFUGES
+                                selectSource(PoiImportSource.REFUGES)
                             },
                             label = { Text("Refuges.info") },
                         )

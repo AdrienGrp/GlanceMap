@@ -36,14 +36,17 @@ class OsmOverpassPoiImporter(
         private const val API_ENDPOINT = "https://overpass-api.de/api/interpreter"
         private const val MAX_RESPONSE_BYTES = 8_000_000
         private const val MAX_ERROR_RESPONSE_BYTES = 120_000
+        private const val MAX_COUNT_RESPONSE_BYTES = 48_000
         private const val MAX_STATUS_RESPONSE_BYTES = 24_000
-        private const val MAX_BBOX_AREA_DEGREES = 120.0
-        private const val MAX_LON_SPAN_DEGREES = 20.0
-        private const val MAX_LAT_SPAN_DEGREES = 12.0
+        private const val MAX_BBOX_AREA_DEGREES = 12.0
+        private const val MAX_LON_SPAN_DEGREES = 5.0
+        private const val MAX_LAT_SPAN_DEGREES = 4.0
         private const val CONNECT_TIMEOUT_MS = 20_000
         private const val READ_TIMEOUT_MS = 90_000
+        private const val COUNT_READ_TIMEOUT_MS = 45_000
         private const val STATUS_TIMEOUT_MS = 6_000
         private const val OVERPASS_TIMEOUT_SECONDS = 40
+        private const val OVERPASS_COUNT_TIMEOUT_SECONDS = 25
         private const val OVERPASS_MAXSIZE_BYTES = 64L * 1024L * 1024L
         private const val MAX_REQUEST_ATTEMPTS = 3
         private const val RETRY_BACKOFF_BASE_MS = 1_500L
@@ -82,6 +85,22 @@ class OsmOverpassPoiImporter(
                 )
 
                 reportProgress?.invoke(0, "Preparing OpenStreetMap import…")
+                val estimate =
+                    preflightPoiCount(
+                        bbox = bbox,
+                        selectedCategories = selectedCategories,
+                        reportProgress = reportProgress,
+                    )
+                check(estimate.total != 0L) {
+                    "No OpenStreetMap points found in this area."
+                }
+                require(estimate.total <= OSM_OVERPASS_PREFLIGHT_MAX_POI_COUNT) {
+                    buildPoiCountTooLargeMessage(estimate.total)
+                }
+                reportProgress?.invoke(
+                    8,
+                    buildPoiCountPreflightMessage(estimate.total),
+                )
                 val summary =
                     try {
                         PoiSqliteCodec
@@ -174,7 +193,7 @@ class OsmOverpassPoiImporter(
             "OSM",
             "Plan bbox=${bbox.asRefugesQueryParam()} tileCount=${tiles.size} categories=${selectedCategories.joinToString(",") { it.id }}",
         )
-        val importSegment = ProgressSegment(start = 0.0, end = 92.0)
+        val importSegment = ProgressSegment(start = 8.0, end = 92.0)
         var importedCount = 0
 
         tiles.forEachIndexed { index, tile ->
@@ -211,6 +230,165 @@ class OsmOverpassPoiImporter(
 
         return importedCount
     }
+
+    private suspend fun preflightPoiCount(
+        bbox: BBox,
+        selectedCategories: List<OsmPoiImportCategory>,
+        reportProgress: ((percent: Int, status: String) -> Unit)?,
+    ): OsmOverpassPoiCountEstimate {
+        var lastFailure: Throwable? = null
+        repeat(MAX_REQUEST_ATTEMPTS) { attemptIndex ->
+            currentCoroutineContext().ensureActive()
+            throwIfCancellationRequested()
+            val attempt = attemptIndex + 1
+            try {
+                reportProgress?.invoke(
+                    if (attempt == 1) 2 else 4,
+                    if (attempt == 1) {
+                        "Estimating OpenStreetMap POI count…"
+                    } else {
+                        "Retrying OpenStreetMap POI estimate ($attempt/$MAX_REQUEST_ATTEMPTS)…"
+                    },
+                )
+                return fetchPoiCountOnce(
+                    bbox = bbox,
+                    selectedCategories = selectedCategories,
+                    requestLabel = "count",
+                )
+            } catch (error: Throwable) {
+                lastFailure = error
+                if (error is CancellationException || !shouldRetryRequest(error) || attempt >= MAX_REQUEST_ATTEMPTS) {
+                    throw error
+                }
+                val busyStatus =
+                    if (shouldInspectOverpassStatus(error)) {
+                        fetchOverpassStatusSummary("count")
+                    } else {
+                        null
+                    }
+                delay(resolveRetryDelayMs(attempt, busyStatus))
+            }
+        }
+        error(lastFailure?.localizedMessage ?: "OpenStreetMap POI estimate failed.")
+    }
+
+    private fun fetchPoiCountOnce(
+        bbox: BBox,
+        selectedCategories: List<OsmPoiImportCategory>,
+        requestLabel: String,
+    ): OsmOverpassPoiCountEstimate {
+        throwIfCancellationRequested()
+        val requestStartedAtMs = SystemClock.elapsedRealtime()
+        var completedSuccessfully = false
+        val query = buildOverpassCountQuery(bbox, selectedCategories)
+        val bodyBytes = "data=${encode(query)}".toByteArray(Charsets.UTF_8)
+        val connection = openOverpassPostConnection(readTimeoutMs = COUNT_READ_TIMEOUT_MS)
+        activeConnection = connection
+
+        try {
+            PhoneDownloadDiagnostics.log(
+                "OSM",
+                "count_start bbox=${bbox.asRefugesQueryParam()} bodyBytes=${bodyBytes.size}",
+            )
+            writeOverpassRequestBody(connection, bodyBytes)
+            val code = readOverpassResponseCode(connection, "Timed out waiting for OpenStreetMap POI estimate.")
+            throwIfCancellationRequested()
+            val responseBody = readOverpassResponseBody(connection, code, MAX_COUNT_RESPONSE_BYTES)
+            throwIfOverpassHttpError(code, responseBody)
+
+            val estimate = parseOverpassCountResponse(responseBody)
+            PhoneDownloadDiagnostics.log(
+                "OSM",
+                buildCountCompletedLog(requestLabel, bbox, estimate, requestStartedAtMs),
+            )
+            completedSuccessfully = true
+            return estimate
+        } finally {
+            if (!completedSuccessfully || cancelRequested) {
+                connection.disconnect()
+            }
+            if (activeConnection === connection) {
+                activeConnection = null
+            }
+        }
+    }
+
+    private fun openOverpassPostConnection(readTimeoutMs: Int): HttpURLConnection =
+        (URL(API_ENDPOINT).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            doOutput = true
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = readTimeoutMs
+            setRequestProperty(
+                "Content-Type",
+                "application/x-www-form-urlencoded; charset=UTF-8",
+            )
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("User-Agent", "GlanceMap-Companion")
+            setRequestProperty("Connection", "Keep-Alive")
+        }
+
+    private fun writeOverpassRequestBody(
+        connection: HttpURLConnection,
+        bodyBytes: ByteArray,
+    ) {
+        connection.outputStream.use { out ->
+            out.write(bodyBytes)
+            out.flush()
+        }
+    }
+
+    private fun readOverpassResponseCode(
+        connection: HttpURLConnection,
+        timeoutMessage: String,
+    ): Int =
+        try {
+            connection.responseCode
+        } catch (error: SocketTimeoutException) {
+            if (cancelRequested) throw CancellationException("Cancelled by user")
+            throw OverpassHeaderWaitTimeoutException(timeoutMessage, error)
+        } catch (error: IOException) {
+            if (cancelRequested) throw CancellationException("Cancelled by user")
+            throw error
+        }
+
+    private fun readOverpassResponseBody(
+        connection: HttpURLConnection,
+        code: Int,
+        maxSuccessBytes: Int,
+    ): String =
+        try {
+            if (code in 200..299) {
+                readResponseText(connection.inputStream, maxSuccessBytes)
+            } else {
+                readResponseText(connection.errorStream, MAX_ERROR_RESPONSE_BYTES)
+            }
+        } catch (error: IOException) {
+            if (cancelRequested) throw CancellationException("Cancelled by user")
+            throw error
+        }
+
+    private fun throwIfOverpassHttpError(
+        code: Int,
+        responseBody: String,
+    ) {
+        if (code !in 200..299) {
+            throw OverpassHttpException(
+                summarizeOsmOverpassFailure(code, responseBody),
+                code,
+            )
+        }
+    }
+
+    private fun buildCountCompletedLog(
+        requestLabel: String,
+        bbox: BBox,
+        estimate: OsmOverpassPoiCountEstimate,
+        requestStartedAtMs: Long,
+    ): String =
+        "count_complete label=$requestLabel bbox=${bbox.asRefugesQueryParam()} " +
+            "total=${estimate.total} nodes=${estimate.nodes} ways=${estimate.ways} " +
+            "relations=${estimate.relations} durationMs=${SystemClock.elapsedRealtime() - requestStartedAtMs}"
 
     private suspend fun importTileWithAdaptiveSplit(
         tile: BBox,
@@ -768,33 +946,27 @@ class OsmOverpassPoiImporter(
         bbox: BBox,
         selectedCategories: List<OsmPoiImportCategory>,
     ): String {
-        val b = bbox.asOverpassBbox()
-        val tagValues = linkedMapOf<String, LinkedHashSet<String>>()
-        selectedCategories.forEach { category ->
-            category.tagValues.forEach { (tagKey, values) ->
-                tagValues.getOrPut(tagKey) { linkedSetOf() }.addAll(values)
-            }
-        }
-        val clauses =
-            buildString {
-                tagValues.forEach { (tagKey, values) ->
-                    if (values.isEmpty()) return@forEach
-                    val escapedKey = escapeOverpassLiteral(tagKey)
-                    values.forEach { value ->
-                        val escapedValue = escapeOverpassLiteral(value)
-                        appendLine("""  node["$escapedKey"="$escapedValue"]($b);""")
-                        appendLine("""  way["$escapedKey"="$escapedValue"]($b);""")
-                        appendLine("""  relation["$escapedKey"="$escapedValue"]($b);""")
-                    }
-                    appendLine()
-                }
-            }.trimEnd()
+        val clauses = buildOverpassSelectionClauses(bbox, selectedCategories)
         return """
             [out:json][timeout:$OVERPASS_TIMEOUT_SECONDS][maxsize:$OVERPASS_MAXSIZE_BYTES];
             (
             $clauses
             );
             out center tags qt;
+            """.trimIndent()
+    }
+
+    private fun buildOverpassCountQuery(
+        bbox: BBox,
+        selectedCategories: List<OsmPoiImportCategory>,
+    ): String {
+        val clauses = buildOverpassSelectionClauses(bbox, selectedCategories)
+        return """
+            [out:json][timeout:$OVERPASS_COUNT_TIMEOUT_SECONDS][maxsize:$OVERPASS_MAXSIZE_BYTES];
+            (
+            $clauses
+            );
+            out count;
             """.trimIndent()
     }
 
@@ -913,7 +1085,9 @@ class OsmOverpassPoiImporter(
         return false
     }
 
-    private fun buildAdaptiveSplitFailureMessage(areaSuffix: String): String = "OSM Overpass area is still too large or timing out after smaller requests. Please try again later or use a smaller area.$areaSuffix"
+    private fun buildAdaptiveSplitFailureMessage(areaSuffix: String): String =
+        "OSM Overpass area is still too large or timing out after smaller requests. " +
+            "Please try again later, use a smaller area, or select fewer POI categories.$areaSuffix"
 
     private fun buildTileLabel(
         tileIndex: Int,
@@ -985,6 +1159,20 @@ class OsmOverpassPoiImporter(
             "OpenStreetMap data received… ${formatCount(importedCount)} POI"
         }
 
+    private fun buildPoiCountTooLargeMessage(total: Long): String =
+        "About ${formatCount(total)} POIs found. " +
+            "Too many, choose a smaller area or select fewer POI categories."
+
+    private fun buildPoiCountPreflightMessage(total: Long): String {
+        val sizeLabel =
+            if (total > OSM_OVERPASS_PREFLIGHT_WARNING_POI_COUNT) {
+                "Large import, trying anyway."
+            } else {
+                "Importing now."
+            }
+        return "About ${formatCount(total)} POIs found. $sizeLabel"
+    }
+
     private fun resolveDownloadFraction(
         bytesRead: Long,
         expectedBytes: Long,
@@ -1017,7 +1205,9 @@ class OsmOverpassPoiImporter(
         return String.format(Locale.US, "%.1f MB", mib)
     }
 
-    private fun formatCount(value: Int): String = String.format(Locale.US, "%,d", value)
+    private fun formatCount(value: Int): String = formatCount(value.toLong())
+
+    private fun formatCount(value: Long): String = String.format(Locale.US, "%,d", value)
 
     private fun throwIfCancellationRequested() {
         if (cancelRequested) {
@@ -1027,11 +1217,6 @@ class OsmOverpassPoiImporter(
 
     private fun encode(value: String): String = URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
 
-    private fun escapeOverpassLiteral(value: String): String =
-        value
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-
     private fun overpassStatusEndpoint(): String = API_ENDPOINT.substringBeforeLast('/') + "/status"
 
     private fun summarizeThrowable(error: Throwable): String =
@@ -1039,8 +1224,6 @@ class OsmOverpassPoiImporter(
             ?.trim()
             .orEmpty()
             .ifBlank { error::class.java.simpleName }
-
-    private fun BBox.asOverpassBbox(): String = "$minLat,$minLon,$maxLat,$maxLon"
 
     private fun BBox.asRefugesQueryParam(): String = "$minLon,$minLat,$maxLon,$maxLat"
 

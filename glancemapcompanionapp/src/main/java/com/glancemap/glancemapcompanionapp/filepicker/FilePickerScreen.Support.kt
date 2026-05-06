@@ -45,11 +45,13 @@ internal data class PhoneStoredFilesSummary(
 internal enum class PoiAreaMethod {
     WATCH_MAP,
     REFUGES_PRESET,
+    MAP_PICKER,
     MANUAL_BBOX,
 }
 
 internal enum class RoutingAreaMethod {
     WATCH_MAP,
+    TILE_PICKER,
     MANUAL_BBOX,
 }
 

@@ -224,4 +224,8 @@ org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.7.3
 org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3
 org.jetbrains:annotations:23.0.0
 org.jspecify:jspecify:1.0.0
+org.maplibre.gl:android-sdk-geojson:6.0.1
+org.maplibre.gl:android-sdk-turf:6.0.1
+org.maplibre.gl:android-sdk:13.1.0
+org.maplibre.gl:maplibre-android-gestures:0.0.4
 org.slf4j:slf4j-api:2.0.17

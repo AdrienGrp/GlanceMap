@@ -1,6 +1,7 @@
 package com.glancemap.glancemapcompanionapp.transfer.util
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,5 +46,14 @@ class TransferUtilsLocalIpCandidateTest {
         val hotspotScore = TransferUtils.scoreLocalIpCandidate("ap0", "192.168.43.1")
 
         assertTrue(wifiScore > hotspotScore)
+    }
+
+    @Test
+    fun `local http interface filter rejects cellular style interfaces`() {
+        assertTrue(TransferUtils.isLocalPeerInterfaceName("wlan0"))
+        assertTrue(TransferUtils.isLocalPeerInterfaceName("softap0"))
+        assertTrue(TransferUtils.isLocalPeerInterfaceName("rndis0"))
+        assertFalse(TransferUtils.isLocalPeerInterfaceName("rmnet_data0"))
+        assertFalse(TransferUtils.isLocalPeerInterfaceName("ccmni0"))
     }
 }

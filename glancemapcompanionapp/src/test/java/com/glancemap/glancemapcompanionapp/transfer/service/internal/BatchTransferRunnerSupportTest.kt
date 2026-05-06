@@ -116,9 +116,43 @@ class BatchTransferRunnerSupportTest {
     }
 
     @Test
+    fun `poisons remaining batch when watch never connects to http server`() {
+        val result =
+            TransferResult(
+                success = false,
+                message = "${HttpTransferServer.RESULT_HTTP_NO_FIRST_REQUEST_PREFIX} detail=Watch did not connect",
+            )
+
+        assertTrue(shouldPreferChannelForRemainingBatch(result))
+        assertTrue(
+            shouldFallbackToChannel(
+                strategy = HttpTransferServer(),
+                fileSize = TransferStrategyFactory.CHANNEL_FALLBACK_MAX_BYTES,
+                result = result,
+            ),
+        )
+        assertFalse(
+            shouldFallbackToChannel(
+                strategy = HttpTransferServer(),
+                fileSize = TransferStrategyFactory.CHANNEL_FALLBACK_MAX_BYTES + 1L,
+                result = result,
+            ),
+        )
+    }
+
+    @Test
     fun `routing packs are replaceable transfer targets`() {
         assertTrue(isReplaceableTransferFileName("E5_N45.rd5"))
         assertFalse(isReplaceableTransferFileName("Alps.map"))
         assertFalse(isReplaceableTransferFileName("track.gpx"))
+    }
+
+    @Test
+    fun `supports watch dem tile file names on companion`() {
+        assertTrue(isSupportedTransferFileName("N45E006.hgt"))
+        assertTrue(isSupportedTransferFileName("N45E006.hgt.zip"))
+        assertTrue(isDemTransferFile("s01w002.HGT.ZIP"))
+        assertFalse(isMapLikeTransferFile("N45E006.hgt.zip"))
+        assertFalse(isSupportedTransferFileName("N45E006.zip"))
     }
 }

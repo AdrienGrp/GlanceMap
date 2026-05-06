@@ -161,6 +161,7 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.play.services.wearable)
+    implementation(libs.play.services.location)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.lifecycle.service)
 
@@ -175,6 +176,10 @@ dependencies {
 
     // Gson for JSON serialization
     implementation(libs.gson)
+
+    // Native map picker
+    implementation(libs.maplibre.android)
+    implementation(libs.okhttp)
 
     // Permissions (Critical for requesting POST_NOTIFICATIONS for the Service)
     implementation(libs.accompanist.permissions)

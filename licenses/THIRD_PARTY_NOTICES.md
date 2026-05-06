@@ -1,6 +1,6 @@
 # Third-Party Notices (Open Source)
 
-Last reviewed: 2026-03-20
+Last reviewed: 2026-05-06
 
 This document covers open-source software and assets used by the watch app (`app`) and companion app (`glancemapcompanionapp`).
 
@@ -19,6 +19,7 @@ This document covers open-source software and assets used by the watch app (`app
 | Horologist | `com.google.android.horologist:*` | Apache License 2.0 | https://github.com/google/horologist |
 | AndroidSVG | `com.caverock:androidsvg` | Apache License 2.0 | https://github.com/BigBadaboom/androidsvg |
 | Mapsforge | `com.github.mapsforge.mapsforge:*` (`mapsforge-map`, `mapsforge-map-android`, `mapsforge-themes`, etc.) | LGPL-3.0-or-later (with Mapsforge stated static-linking/derivative waiver in project README) | https://github.com/mapsforge/mapsforge |
+| MapLibre Native Android | `org.maplibre.gl:*` (`android-sdk`, `android-sdk-geojson`, `android-sdk-turf`, `maplibre-android-gestures`) | BSD 2-Clause License | https://github.com/maplibre/maplibre-native |
 | BRouter | Vendored modules `:brouter-core`, `:brouter-codec`, `:brouter-expressions`, `:brouter-mapaccess`, `:brouter-util` from `third_party/brouter/*` | MIT License | https://github.com/abrensch/brouter |
 | kXML2 | `net.sf.kxml:kxml2` | BSD-style / very permissive (per project and POM metadata) | https://kobjects.org/kxml/ |
 | Maki icons (build-time downloaded POI icons) | SVG icon set from Mapbox Maki | CC0 1.0 Universal | https://github.com/mapbox/maki |
@@ -42,4 +43,5 @@ This file helps internal review of transitive dependencies beyond the main famil
 
 - Keep Apache-2.0 attributions and license references available in distributed app documentation.
 - For Mapsforge (LGPL family), keep notices and review obligations for your distribution model.
+- For MapLibre Native (BSD 2-Clause), keep the copyright/license notice available with binary distribution documentation.
 - Re-check upstream license changes when upgrading dependency versions.
