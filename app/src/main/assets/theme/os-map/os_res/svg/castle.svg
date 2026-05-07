@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="580"
+   width="580"
+   version="1.0"
+   id="svg1019"
+   sodipodi:docname="castle.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs1023" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview1021"
+     showgrid="false"
+     inkscape:zoom="1.462069"
+     inkscape:cx="290"
+     inkscape:cy="290"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g1247" />
+  <metadata
+     id="metadata2975">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="g1247"
+     transform="matrix(52.157718,0,0,-52.157718,-22.792046,454.83469)">
+    <path
+       style="fill:#0098e3;fill-opacity:0.78431373;fill-rule:evenodd;stroke:none;stroke-width:50.51610184"
+       d="M 57.796875 26.943359 L 57.796875 488.76172 C 57.796875 497.24842 35.871647 510.68459 19.605469 521.29297 L 19.605469 553.11914 L 564.16992 553.11914 L 564.16992 521.29297 C 547.85321 510.68459 525.97852 497.24842 525.97852 488.76172 L 525.97852 109.6875 L 459.44922 109.6875 L 459.44922 194.55469 L 392.26367 194.55469 L 392.26367 109.6875 L 325.83398 109.6875 L 325.83398 191.72656 L 255.81836 191.72656 L 255.81836 26.943359 L 189.33984 26.943359 L 189.33984 111.10352 L 124.27539 111.10352 L 124.27539 26.943359 L 57.796875 26.943359 z M 161.05078 297.10352 C 194.9976 297.10352 221.16406 316.90473 221.16406 343.7793 L 221.16406 488.76172 L 100.22852 488.76172 L 100.22852 343.7793 C 100.22852 319.68311 128.51841 297.10352 161.05078 297.10352 z "
+       transform="matrix(0.01917262,0,0,-0.01917262,0.43698319,8.7203717)"
+       id="path1249" />
+  </g>
+</svg>

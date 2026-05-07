@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="580"
+   width="580"
+   version="1.0"
+   id="svg18560"
+   sodipodi:docname="tennis.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs18564" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview18562"
+     showgrid="false"
+     inkscape:zoom="0.40689655"
+     inkscape:cx="-568.94068"
+     inkscape:cy="290"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg18560" />
+  <metadata
+     id="metadata2975">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <path
+     id="circle2441"
+     d="m 215.69,469.63 c 1.82,43.56 -48.52,76.87 -87.91,58.27 -40.803,-15.29 -51.951,-74.61 -19.44,-103.65 29.98,-31.65 88.96,-18.78 103.05,22.46 2.84,7.28 4.3,15.11 4.3,22.92 z"
+     inkscape:connector-curvature="0"
+     fill="#2f922e"
+     style="fill:#00adef;fill-opacity:0.78431374" />
+  <path
+     id="path2443"
+     d="M 294.48,101.92 C 249.74,56.181 178.88,26.425 116.24,51.109 64.015,71.318 30.795,130.54 42.787,185.63 c 13.141,66.21 62.953,120.21 120.263,152.91 33.65,18.56 75.46,26.18 111.85,10.97 35.92,12.41 70.21,29.85 100.78,52.5 -1.94,17.46 16.39,26.1 25.97,38.05 31.86,31.51 63.04,63.76 95.33,94.79 15.16,10.07 27.24,-6.03 36.89,-15.69 C 547.12,506 533.63,490.7 522.93,481.69 487.42,446.75 452.97,410.6 416.78,376.42 c -26.47,-3.57 -33.64,-37.88 -47.34,-58.3 -11.19,-23 -24.23,-46.51 -11.71,-71.69 C 364.56,190.99 332,139.55 294.48,101.92 Z m 73.7,264.85 c -19.63,-13.35 -54.78,-23.08 -66.88,-35.09 12.68,-6.83 26.91,-33.08 35.43,-30.27 9.37,22.3 19.86,44.13 31.45,65.36 z"
+     inkscape:connector-curvature="0"
+     fill="#2f922e"
+     style="fill:#0098e3;fill-opacity:0.78431374" />
+</svg>

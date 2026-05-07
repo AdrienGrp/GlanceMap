@@ -1,6 +1,6 @@
 # Compliance Status
 
-Last reviewed: 2026-05-06
+Last reviewed: 2026-05-07
 
 Status legend:
 - `DONE`: implemented and verified.
@@ -114,6 +114,16 @@ Status legend:
      - Keep the original approval message outside the public repository and archive the request/response dates and approved scope privately.
      - Re-review before any commercial distribution model change.
 
+15. OS Map bundled theme non-commercial license review
+   - Status: `DONE`
+   - Evidence:
+     - OS Map V4 day/night snapshots are embedded in `app/src/main/assets/theme/os-map`.
+     - The observed XML header declares CC BY-NC-SA 3.0.
+     - Legend and discussion links are included in the companion app.
+   - Notes:
+     - Keep attribution and share-alike obligations with the project docs.
+     - Re-review before any commercial distribution model change.
+
 ## Public repository and release gate
 
 For a public repository or public app release, resolve all `BLOCKER` items.
@@ -125,5 +135,5 @@ publishes the bundled third-party assets.
 Current gate result:
 - `READY FROM A BUNDLED-ASSET LICENSING STANDPOINT`, with no remaining recorded redistribution blocker for the current theme set.
 - OpenAndroMaps/Elevate permission and source readme/license evidence are no longer blockers based on the project owner's confirmation and the checked-in source fallback readme.
-- OpenHiking, French Kiss, Tiramisu, Hike, Ride & Sight, and Voluntary are no longer blockers based on the project owner's confirmations and the current noncommercial distribution model where relevant.
+- OpenHiking, French Kiss, Tiramisu, Hike, Ride & Sight, Voluntary, and OS Map are no longer blockers based on recorded confirmations where applicable and the current noncommercial distribution model where relevant.
 - Remaining pre-public tasks are operational items in `docs/PUBLIC_REPO_CHECKLIST.md` such as GitHub metadata, Pages enablement, and security reporting.

@@ -1,0 +1,149 @@
+v20200427
+Initial release for v3 maps only
+
+v20200529
+Added v4 map support
+Added option to highlight toll roads (default is not highlighted). Highlight means orange outline and orange dots as you zoom in.
+Added option to set OS style roads names (pathtext) for countires that are left hand traffic or right hand traffic. This is only applicable to dual carriage ways.
+Added drawing of footpaths and bridleways that are on dashed track/service roads.
+Added thicker dashed 1:50k style for airport runways (was using thinner 1:25k for 1:50k before)
+Added defibrillator symbol (non OS symbols)
+Added OS text symbols for: Libraries, Shelters, Cairns, Caves, Adits [Mines, Mines (dis)], Waterfalls (Falls in blue)
+Added library buildings to list of important building, i.e bolder outlines.
+Added place markers for towns/cities (similar to Elevate theme) at low zoom levels (e.g. 5-7).
+Added support for sizing of town/city names based on population density (popcat)
+Changed borders (admin_level) to improve support for non-UK counties by grouping togther Parishes=9/10, Districts=7/8, Counties=5/6, National=2/3/4
+Changed pharmacy amenity symbol to also include chemist shops (non OS symbols).
+Changed order of options, putting least changed options towards bottom of list.
+Changed embankments to draw at a higher level priority to avoid them being overdrawn by water ways and residential areas.
+Changed footbridges to draw at a higher level priority to avoid them being overdrawn by water ways.
+Changed tunnels to use smaller dashes for better match OS map style.
+Changed 1:50k trunk_link and motorway_link roads to use correct/matching outline widths on bridges.
+Changed highway labels at zoom levels 7-12 to use captions instead of pathtext for OS labels
+Changed priorities of several symbols to improve visibility of churches, information and museums at lower zoom levels.
+Changed car parks at lower zoom levels (upto zoom 15) to only show ~|destination|customers|public car parks.
+Changed hill name sizes slightly larger
+Changed (corrected) selection of national hiking routes to only include iwn|nwn, i.e. remove rwn|lwn|uwn.
+Changed (corrected) selection of national cycling routes to only include icn|ncn, i.e. remove rcn|lcn|ucn.
+Changed (corrected) wells so they now get displayed.
+Changed doctors captions from red to black text.
+Changed v3 theme place names to match/harmonise to style used on v4 theme.
+Removed tourism brown dashed ways accidentally left in from donor theme (UK Voluntary)
+Removed access cross hatchings on footpaths accidentally left in from donor theme (UK Voluntary)
+Removed surface dashes on 'white' roads accidentally left in from donor theme (UK Voluntary) - If this is going to be in the theme then I need to think about how to do it in an OS style way...
+
+v20200530
+Fixed validation errors (one was a real issue in V4 theme for railway stations at zoom 13, rest were technical errors but not impacting display of maps).
+
+v20200607
+Split v3 and v4 theme files into separate day and night theme files so they can have different map=background tags, different PDF legends and increase performance.
+Added night mode symbols for transmitters, windmills, wind turbines, lighthouses, ruins/archaeological, battlefields, telephones, helipads, bollards.
+Added night mode PDF legend.
+Added four .lnk files to map the two PDF legends to relevant four theme files.
+Changed priority of cemetery symbol lower than church symbol.
+Changed night mode track core colour to match service/residential roads.
+Changed night mode tunnels to use own night equivalent of day tunnel colours.
+Changed night mode steps to look similar to day time steps and less like a ladder.
+Changed night mode turning circles and passing places to be more visible.
+Changed area ways for residential roads to match residential road outlines for all map themes.
+Changed AED, playground and shooting symbols to remove white outline/background to match other symbols.
+Changed 50k toilet symbol to fix errors in tiny-svg rendering.
+
+v20210103
+Added cycle lanes and cycle tracks with display option "cycle lanes/tracks".
+Added option to hide hiking route diamonds.
+Added option to hide cycling route circles.
+Changed emphasise hiking routes to highlight routes with route label from zoom level 7 to 14, 15 upwards as before.
+Changed emphasise cycling routes to highlight routes with route label from zoom level 7 to 14, 15 upwards as before.
+Changed emphasise hiking routes highlight colours, green for national and yellow for local.
+Changed emphasise cycling routes highlight colours, red for national and blue for local.
+Changed (renamed) option "left/right hand traffic road labels" to "drive on the left/right side" as this option now also affects oneway cycle lanes/tracks.
+
+v20210210
+Added captions for beaches, mud flats and sand banks.
+Added captions for fells.
+Added customer and private parking symbols.
+Added cutlines (in woods/forests)
+Added ditches that are barriers.
+Added earth banks using typical OS slope pattern.
+Added emphasise cycle lanes/tracks options using purple highlight colour.
+Added gullies, rendered as OS cutting pattern.
+Added hedges as a non-os option.
+Added military bunkers (active and dis-used) symbols.
+Added post boxes with red circle for left hand traffic and yellow square for right hand traffic - symbols to match the typical post box shape/colour used in LHT/RHT countries.
+Added public artwork symbol.
+Added town hall as an important building (bolder outline of building).
+Added town hall symbol.
+Changed abandoned/disused railways to render before rivers.
+Changed climbing symbol to be larger.
+Changed embankments for footpaths to be narrower.
+Changed grade1 tracks to be thinner and matching the rest of the tracks.
+Changed many railway/highway tunnels to render as transparent dashed outlines.
+Changed OS 50k cycleways (single black dashes) to appear sooner from Z14.
+Changed piers and walls to render after waterways to avoid being hidden by waterway areas.
+Changed tidalflats that are hidden under water areas to be visible.
+Changed waterways (in a major way), now they are all rendered as casings first and then as cores to avoid blue lines where they join.
+Removed erroneous rendering of "water_park" as water, this was an incorrect understanding of its purpose (thanks John Percy for the hint).
+
+v20210216
+Added "dash unsealed roads" overlay option to give unsealed roads a dashed outline/casing.
+Added "road surface/grade textures" overlay option to give unsealed roads a texture pattern that represents the type of surface, from Z14 onwards.
+Added "emphasise road surface/grade textures" overlay option to highlight roads surfaces at lower zoom levels, from Z12 onwards.
+
+v20231013
+Removed springs and wells from 50k maps, as per OS map's convention.
+Added support for LoMap v4 maps.
+Added options to control what is shown as psuedo public right of way: "accessible footpaths" and "designated footpaths".
+Added mountain bike routes using purple cirlces with options to hide routes, circles or highlight the routes.
+Added option to emphasise public rights of way using colours that align with the UK signage arrows.
+Added permissive footpaths and steps in orange.
+Added tidal footpaths, steps and tracks in light blue.
+Added support for private footpaths in dark red.
+Added naming of pedestrian ways (including sealed footways/paths)
+Added naming of ferry routes.
+Added allotments, ATMs, banks, breakwaters, fire stations, groynes, hunting stands/butts, ice cream vendors, police stations, recycling, sewage works (OAM), water works (OAM).
+Added mountain range support for gullies and saddles (passes betweem mountains).
+Added support for additional types of bridge: cantilever, aqueduct, boardwalk, trestle.
+Added on street parking.
+Added new types of parking (for public, customer and privte): underground parking and covered parking.
+Added hollow circle markers for off-road cycle routes, on road routes remain as solid circle markers.
+Added support for OAM to show covered reservoirs, cuttings, tree rows, os_open_data crags, peninsulas.
+Added support for OAM peak distances to introduce and name mountain peaks in order of importance/size.
+Added support for LoMap v4 maps to represent "public rights of way" using proper OS map symbology for public footpaths/bridleways, byways open to all trafficm restricted byways, other routes.
+Changed for OAM maps to pseudo-represent "public rights of way", i.e. green/pink dashes for public hiking routes, designated footpaths and bridleways (note OAM does not support PROW tags).
+Changed default options for 25k to be feature rich, and 50k to be OS minimal features.
+Changed "public rights of way" to use slightly large dashes to be more visible and closer in style to OS maps.
+Changed buildings in 25k views to merge as you zoom out, avoids clutter of lots of small buildings.
+Changed order of drawing of features that were hidden under water, e.g. sand banks, rocks, tidal mud, etc.
+Changed beaches to be transparent so the coastline shows through as represents a high tide water mark.
+Changed what is included in residential areas to be closer to OS maps.
+Changed garden symbol to be limited to public gardens only.
+Changed contours to be slightly lighter and more in line with OS maps.
+Changed spacing of route markers (diamond and circles) to be spaced slightly further apart.
+Changed sealed footpaths to be shown as solid pedestrian ways.
+Changed tidal mud and inland marsh to render more like OS maps, mud is just brown with no symbols, marsh is just blue marsh symbol.
+Changed mini-roundabouts to be slightly larger to be more visible.
+Changed golf symbol to also include miniature golf courses.
+Changed naming of commons to appear sooner and lower zoom levels.
+Changed preserved railway symbol to also include funicular and narrow_gauge railways.
+Changed embankments to be slightly shorter triangles, reduces self erasure when they overlap or are close together.
+Changed priorities of various symbols to prioritise those that align with OS map conventions first.
+
+v20231218
+Removed residential roads from filled in residential areas at zoom level 12.
+Removed unused categories and tidied up style menu definitions
+Added colour icons to style menus to indicate options by colour groups, green=hiking, orange=cycling, purple=mtb, brown=urban, black=roads, white=non-OS.
+Added option "Show symbols earlier" so you can have less symbol intrusion at Z15 and lower, useful in urban/city areas.
+Added option "Building names earlier" so you can have more building namers appear earlier from Z16 onwards.
+Added option "emphasise all sealed roads too" so you can selectively also highlight ALL roads that are sealed, or disable (if you prefer a less distracting urban view).
+Added footpath names visible from Z16.
+Changed "surface textures" options to also include all steps, footpaths and bridleways.
+Changed option "road surface/grade textures" to "surface textures" to be shorter menu entry.
+Changed option "emphasise road surface/grade textures" to "emphasise surface textures" to be shorter menu entry.
+Changed size of covered reservoir symbol at Z13/Z14 to be smaller.
+Changed unclassified roads to appear from Z12 (was Z13).
+Changed smaller service roads to appear from Z13 (was Z12).
+Changed 50k pylons to be smaller at high zoom levels.
+Changed place name priorities to work better.
+Fixed missing bridges casings at Z13/Z14.
+Fixed symbol/pattern filenames to be have matching cases in both theme and filing system - enables theme to work correctly with OruxMaps.

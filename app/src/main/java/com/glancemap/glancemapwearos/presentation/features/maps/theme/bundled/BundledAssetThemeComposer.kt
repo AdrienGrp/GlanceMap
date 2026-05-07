@@ -46,6 +46,8 @@ class BundledAssetThemeComposer(
     private val themeResourceCacheLock = Any()
     private val appBundleFingerprint: String by lazy(::resolveAppBundleFingerprint)
 
+    private fun String.withoutLeadingBom(): String = removePrefix("\uFEFF")
+
     fun prewarmThemeAssets(themeId: String) {
         val timingMarker = MapHotPathDiagnostics.begin("themeComposer.prewarmThemeAssets")
         var timingStatus = "ok"
@@ -574,6 +576,7 @@ class BundledAssetThemeComposer(
                         .open(themePath)
                         .bufferedReader()
                         .use { it.readText() }
+                        .withoutLeadingBom()
                 val referencedAssetRoots =
                     if (!themeRoot.isNullOrBlank()) {
                         emptySet()

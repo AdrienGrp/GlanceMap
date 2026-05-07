@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="580"
+   width="580"
+   version="1.0"
+   id="svg842"
+   sodipodi:docname="information_office.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs846" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview844"
+     showgrid="false"
+     inkscape:zoom="1.462069"
+     inkscape:cx="290"
+     inkscape:cy="290"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg842" />
+  <metadata
+     id="metadata10">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <path
+     style="fill:#0098e3;fill-opacity:0.78431374;fill-rule:evenodd;stroke:none;stroke-width:50.69551468"
+     d="M 18.822266 21.587891 L 18.822266 565.95508 L 563.90039 565.95508 L 563.90039 21.587891 L 18.822266 21.587891 z M 339.50586 81.947266 C 371.05203 82.443946 397.77253 96.805752 404.16016 122.31836 C 412.67701 154.20598 384.33715 189.64269 338.86328 202.41797 C 294.91025 214.4328 250.90619 197.44923 241.62891 166.27148 C 231.74328 132.20409 262.9222 98.239611 306.92578 86.173828 C 317.93942 83.157476 328.99047 81.781705 339.50586 81.947266 z M 238.8418 251.28906 L 350.98047 251.28906 L 287.8125 403.62891 C 277.82535 427.05024 299.87942 445.45193 328.97852 422.79102 C 341.7538 412.14497 360.91553 423.50186 340.99219 446.87109 C 328.97735 472.37106 267.94103 513.48526 229.61523 512.77539 C 160.77058 512.06439 152.25227 445.45206 166.44727 413.56445 L 238.8418 251.28906 z "
+     id="path2067" />
+</svg>
