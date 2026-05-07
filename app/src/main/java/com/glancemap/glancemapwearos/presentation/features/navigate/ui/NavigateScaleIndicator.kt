@@ -1,9 +1,8 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
+import com.glancemap.glancemapwearos.core.maps.scaleMetersForZoomLevel
 import org.mapsforge.map.android.view.MapView
 import java.util.Locale
-import kotlin.math.cos
-import kotlin.math.pow
 import kotlin.math.roundToInt
 
 internal data class ScaleIndicatorUi(
@@ -96,12 +95,12 @@ internal fun calculateScaleIndicator(
     val centerLat =
         mapView.model.mapViewPosition.center.latitude
             .coerceIn(-85.0, 85.0)
-    val metersPerPixelAtEquator = 156543.03392804097 / 2.0.pow(zoomLevel.toDouble())
-    val metersPerPixel = metersPerPixelAtEquator * cos(Math.toRadians(centerLat))
-    val visibleMeters = metersPerPixel * widthPx.toDouble()
-    if (!visibleMeters.isFinite() || visibleMeters <= 0.0) return null
-
-    val targetMeters = visibleMeters * 0.28
+    val targetMeters =
+        scaleMetersForZoomLevel(
+            zoom = zoomLevel,
+            viewportWidthPx = widthPx.toDouble(),
+            latitudeDegrees = centerLat,
+        )
     val scaleMeters = chooseScaleDistanceMeters(targetMeters = targetMeters, isMetric = isMetric)
     if (!scaleMeters.isFinite() || scaleMeters <= 0.0) return null
 
