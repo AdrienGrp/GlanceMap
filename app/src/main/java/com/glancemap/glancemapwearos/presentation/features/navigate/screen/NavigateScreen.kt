@@ -17,6 +17,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.glancemap.glancemapwearos.core.maps.MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES
+import com.glancemap.glancemapwearos.core.maps.mapZoomLevelsForScaleSettings
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isInteractive
@@ -68,6 +71,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidBitmap
+import kotlin.math.abs
 
 @Composable
 fun NavigateScreen(
@@ -92,6 +96,7 @@ fun NavigateScreen(
         ),
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     val adaptive = rememberWearAdaptiveSpec()
     val screenSize = rememberWearScreenSize()
     val density = LocalDensity.current
@@ -159,9 +164,9 @@ fun NavigateScreen(
         }
 
     // ---- SETTINGS ----
-    val zoomDefault by settingsViewModel.mapZoomDefault.collectAsState()
-    val zoomMin by settingsViewModel.mapZoomMin.collectAsState()
-    val zoomMax by settingsViewModel.mapZoomMax.collectAsState()
+    val zoomDefaultScaleMeters by settingsViewModel.mapZoomDefaultScaleMeters.collectAsState()
+    val zoomMinScaleMeters by settingsViewModel.mapZoomMinScaleMeters.collectAsState()
+    val zoomMaxScaleMeters by settingsViewModel.mapZoomMaxScaleMeters.collectAsState()
     val northIndicatorMode by settingsViewModel.northIndicatorMode.collectAsState()
     val northReferenceMode by settingsViewModel.northReferenceMode.collectAsState(
         initial = SettingsRepository.NORTH_REFERENCE_TRUE,
@@ -207,6 +212,43 @@ fun NavigateScreen(
     val activePoiOverlaySources by poiViewModel.activeOverlaySources.collectAsState()
     val navigateTarget by poiViewModel.navigateTarget.collectAsState()
     val offlinePoiSearchUiState by poiViewModel.offlineSearchUiState.collectAsState()
+
+    val fallbackMapViewportWidthPx =
+        remember(configuration.screenWidthDp, density.density) {
+            with(density) {
+                configuration.screenWidthDp.dp
+                    .toPx()
+                    .toDouble()
+            }
+        }
+    var zoomReferenceLatitude by remember {
+        mutableStateOf(MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES)
+    }
+    var zoomViewportWidthPx by remember { mutableStateOf(0) }
+    val mapZoomLevels =
+        remember(
+            zoomDefaultScaleMeters,
+            zoomMinScaleMeters,
+            zoomMaxScaleMeters,
+            fallbackMapViewportWidthPx,
+            zoomReferenceLatitude,
+            zoomViewportWidthPx,
+        ) {
+            mapZoomLevelsForScaleSettings(
+                defaultScaleMeters = zoomDefaultScaleMeters,
+                minScaleMeters = zoomMinScaleMeters,
+                maxScaleMeters = zoomMaxScaleMeters,
+                viewportWidthPx =
+                    zoomViewportWidthPx
+                        .takeIf { it > 0 }
+                        ?.toDouble()
+                        ?: fallbackMapViewportWidthPx,
+                latitudeDegrees = zoomReferenceLatitude,
+            )
+        }
+    val zoomDefault = mapZoomLevels.default
+    val zoomMin = mapZoomLevels.min
+    val zoomMax = mapZoomLevels.max
 
     // Inspection UI state
     val inspectionUiState by gpxViewModel.inspectionUiState.collectAsState()
@@ -442,6 +484,18 @@ fun NavigateScreen(
 
     LaunchedEffect(mapHolder) {
         mapViewModel.setMapRenderer(mapHolder.renderer)
+    }
+
+    LaunchedEffect(mapHolder, selectedMapPath) {
+        val mapView = mapHolder.mapView
+        val center = mapView.model.mapViewPosition.center
+        val nextLatitude = center.latitude.coerceIn(-85.0, 85.0)
+        if (shouldUpdateZoomReferenceLatitude(zoomReferenceLatitude, nextLatitude)) {
+            zoomReferenceLatitude = nextLatitude
+        }
+        if (mapView.width > 0 && mapView.width != zoomViewportWidthPx) {
+            zoomViewportWidthPx = mapView.width
+        }
     }
 
     LaunchedEffect(mapHolder, northReferenceMode) {
@@ -1007,6 +1061,13 @@ fun NavigateScreen(
         currentZoomLevel = currentZoomLevel,
         onZoomLevelChange = { newZoom -> navigateViewModel.onZoomChanged(newZoom) },
         onViewportChanged = { center, zoomLevel ->
+            val nextLatitude = center.latitude.coerceIn(-85.0, 85.0)
+            if (shouldUpdateZoomReferenceLatitude(zoomReferenceLatitude, nextLatitude)) {
+                zoomReferenceLatitude = nextLatitude
+            }
+            if (mapView.width > 0 && mapView.width != zoomViewportWidthPx) {
+                zoomViewportWidthPx = mapView.width
+            }
             if (offlineMode) {
                 mapViewModel.saveOfflineViewport(
                     selectedMapPath = selectedMapPath,
@@ -1124,3 +1185,12 @@ fun NavigateScreen(
         }
     }
 }
+
+private fun shouldUpdateZoomReferenceLatitude(
+    currentLatitude: Double,
+    nextLatitude: Double,
+): Boolean =
+    !currentLatitude.isFinite() ||
+        abs(currentLatitude - nextLatitude) >= MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES
+
+private const val MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES = 0.25

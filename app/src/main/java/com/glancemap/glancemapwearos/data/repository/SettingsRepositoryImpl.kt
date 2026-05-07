@@ -13,9 +13,14 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
+import com.glancemap.glancemapwearos.core.maps.MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES
+import com.glancemap.glancemapwearos.core.maps.MAP_ZOOM_REPRESENTATIVE_VIEWPORT_WIDTH_PX
+import com.glancemap.glancemapwearos.core.maps.sanitizeMapZoomScaleMeters
+import com.glancemap.glancemapwearos.core.maps.scaleMetersForZoomLevel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlin.math.roundToInt
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -48,6 +53,9 @@ class SettingsRepositoryImpl private constructor(
         val MAP_ZOOM_DEFAULT = intPreferencesKey("map_zoom_default")
         val MAP_ZOOM_MIN = intPreferencesKey("map_zoom_min")
         val MAP_ZOOM_MAX = intPreferencesKey("map_zoom_max")
+        val MAP_ZOOM_DEFAULT_SCALE_METERS = intPreferencesKey("map_zoom_default_scale_meters")
+        val MAP_ZOOM_MIN_SCALE_METERS = intPreferencesKey("map_zoom_min_scale_meters")
+        val MAP_ZOOM_MAX_SCALE_METERS = intPreferencesKey("map_zoom_max_scale_meters")
         val NORTH_INDICATOR_MODE = stringPreferencesKey("north_indicator_mode")
         val NORTH_REFERENCE_MODE = stringPreferencesKey("north_reference_mode")
         val COMPASS_SETTINGS_MODE = stringPreferencesKey("compass_settings_mode")
@@ -210,6 +218,51 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setMapZoomMax(zoom: Int) {
         context.dataStore.edit { it[PrefKeys.MAP_ZOOM_MAX] = zoom }
+    }
+
+    override val mapZoomDefaultScaleMeters: Flow<Int> =
+        context.dataStore.data.map { prefs ->
+            prefs.mapZoomScaleMeters(
+                scaleKey = PrefKeys.MAP_ZOOM_DEFAULT_SCALE_METERS,
+                legacyZoomKey = PrefKeys.MAP_ZOOM_DEFAULT,
+                defaultScaleMeters = SettingsRepository.DEFAULT_MAP_ZOOM_DEFAULT_SCALE_METERS,
+            )
+        }
+
+    override suspend fun setMapZoomDefaultScaleMeters(scaleMeters: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.MAP_ZOOM_DEFAULT_SCALE_METERS] = sanitizeMapZoomScaleMeters(scaleMeters)
+        }
+    }
+
+    override val mapZoomMinScaleMeters: Flow<Int> =
+        context.dataStore.data.map { prefs ->
+            prefs.mapZoomScaleMeters(
+                scaleKey = PrefKeys.MAP_ZOOM_MIN_SCALE_METERS,
+                legacyZoomKey = PrefKeys.MAP_ZOOM_MIN,
+                defaultScaleMeters = SettingsRepository.DEFAULT_MAP_ZOOM_MIN_SCALE_METERS,
+            )
+        }
+
+    override suspend fun setMapZoomMinScaleMeters(scaleMeters: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.MAP_ZOOM_MIN_SCALE_METERS] = sanitizeMapZoomScaleMeters(scaleMeters)
+        }
+    }
+
+    override val mapZoomMaxScaleMeters: Flow<Int> =
+        context.dataStore.data.map { prefs ->
+            prefs.mapZoomScaleMeters(
+                scaleKey = PrefKeys.MAP_ZOOM_MAX_SCALE_METERS,
+                legacyZoomKey = PrefKeys.MAP_ZOOM_MAX,
+                defaultScaleMeters = SettingsRepository.DEFAULT_MAP_ZOOM_MAX_SCALE_METERS,
+            )
+        }
+
+    override suspend fun setMapZoomMaxScaleMeters(scaleMeters: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.MAP_ZOOM_MAX_SCALE_METERS] = sanitizeMapZoomScaleMeters(scaleMeters)
+        }
     }
 
     override val northIndicatorMode: Flow<String> = context.dataStore.data.map { it[PrefKeys.NORTH_INDICATOR_MODE] ?: "ALWAYS" }
@@ -629,6 +682,22 @@ class SettingsRepositoryImpl private constructor(
         debugHelpPrefs.edit().clear().apply()
     }
 
+    private fun Preferences.mapZoomScaleMeters(
+        scaleKey: Preferences.Key<Int>,
+        legacyZoomKey: Preferences.Key<Int>,
+        defaultScaleMeters: Int,
+    ): Int {
+        val storedScaleMeters = this[scaleKey]
+        val legacyZoom = this[legacyZoomKey]
+        val scaleMeters =
+            when {
+                storedScaleMeters != null -> storedScaleMeters
+                legacyZoom != null -> legacyZoomScaleMeters(legacyZoom)
+                else -> defaultScaleMeters
+            }
+        return sanitizeMapZoomScaleMeters(scaleMeters)
+    }
+
     companion object {
         private val allowedTimeFormats =
             setOf(
@@ -715,6 +784,13 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
                 SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
             )
+
+        private fun legacyZoomScaleMeters(zoom: Int): Int =
+            scaleMetersForZoomLevel(
+                zoom = zoom,
+                viewportWidthPx = MAP_ZOOM_REPRESENTATIVE_VIEWPORT_WIDTH_PX,
+                latitudeDegrees = MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES,
+            ).roundToInt()
     }
 
     private fun readCachedNavigationMarkerStyle(): String {

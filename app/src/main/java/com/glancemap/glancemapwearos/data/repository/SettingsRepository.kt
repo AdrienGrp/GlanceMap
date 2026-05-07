@@ -58,6 +58,10 @@ interface SettingsRepository {
         const val POI_POPUP_TIMEOUT_DEFAULT_SECONDS = 5
         const val POI_POPUP_TIMEOUT_MIN_SECONDS = 1
         const val POI_POPUP_TIMEOUT_MAX_SECONDS = 20
+
+        const val DEFAULT_MAP_ZOOM_DEFAULT_SCALE_METERS = 200
+        const val DEFAULT_MAP_ZOOM_MIN_SCALE_METERS = 50_000
+        const val DEFAULT_MAP_ZOOM_MAX_SCALE_METERS = 20
     }
 
     val gpsInterval: Flow<Long>
@@ -119,6 +123,18 @@ interface SettingsRepository {
     val mapZoomMax: Flow<Int>
 
     suspend fun setMapZoomMax(zoom: Int)
+
+    val mapZoomDefaultScaleMeters: Flow<Int>
+
+    suspend fun setMapZoomDefaultScaleMeters(scaleMeters: Int)
+
+    val mapZoomMinScaleMeters: Flow<Int>
+
+    suspend fun setMapZoomMinScaleMeters(scaleMeters: Int)
+
+    val mapZoomMaxScaleMeters: Flow<Int>
+
+    suspend fun setMapZoomMaxScaleMeters(scaleMeters: Int)
 
     val northIndicatorMode: Flow<String>
 
