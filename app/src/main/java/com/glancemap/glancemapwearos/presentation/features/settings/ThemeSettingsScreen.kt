@@ -504,52 +504,61 @@ private fun buildOsMapStyleUi(
     selectedStyleId: String?,
     styles: List<ThemeListItem.Style>,
 ): OsMapStyleUi? {
-    if (selectedThemeId != MapsforgeThemeCatalog.OS_MAP_THEME_ID) return null
-
     val options =
-        styles
-            .mapNotNull { style ->
-                parseOsMapStyleSelection(style.id)?.let { selection ->
-                    selection to style.name.removePrefix("${selection.modeLabel} - ").ifBlank { selection.realStyleId }
+        if (selectedThemeId == MapsforgeThemeCatalog.OS_MAP_THEME_ID) {
+            styles
+                .mapNotNull { style ->
+                    parseOsMapStyleSelection(style.id)?.let { selection ->
+                        val label =
+                            style.name
+                                .removePrefix("${selection.modeLabel} - ")
+                                .ifBlank { selection.realStyleId }
+                        selection to label
+                    }
                 }
-            }
-    if (options.isEmpty()) return null
-
-    val selected =
-        selectedStyleId
-            ?.let(::parseOsMapStyleSelection)
-            ?: options.first().first
-    val selectedVariantLabel =
-        options
-            .firstOrNull { (selection, _) -> selection.realStyleId == selected.realStyleId }
-            ?.second
-            ?: selected.realStyleId
-
-    val hasDay = options.any { (selection, _) -> selection.prefix == OS_MAP_DAY_STYLE_PREFIX }
-    val hasNight = options.any { (selection, _) -> selection.prefix == OS_MAP_NIGHT_STYLE_PREFIX }
-    val modeOptions =
-        buildList {
-            if (hasDay) add("${OS_MAP_DAY_STYLE_PREFIX}${selected.realStyleId}" to "Day")
-            if (hasNight) add("${OS_MAP_NIGHT_STYLE_PREFIX}${selected.realStyleId}" to "Night")
+        } else {
+            emptyList()
         }
 
-    val selectedModeValue = "${selected.prefix}${selected.realStyleId}"
-    val variantOptions =
-        options
-            .asSequence()
-            .filter { (selection, _) -> selection.prefix == selected.prefix }
-            .distinctBy { (selection, _) -> selection.realStyleId }
-            .map { (selection, label) -> "${selected.prefix}${selection.realStyleId}" to label }
-            .toList()
+    return if (options.isEmpty()) {
+        null
+    } else {
+        val selected =
+            selectedStyleId
+                ?.let(::parseOsMapStyleSelection)
+                ?: options.first().first
+        val selectedVariantLabel =
+            options
+                .firstOrNull { (selection, _) -> selection.realStyleId == selected.realStyleId }
+                ?.second
+                ?: selected.realStyleId
 
-    return OsMapStyleUi(
-        selectedModeLabel = selected.modeLabel,
-        selectedModeValue = selectedModeValue,
-        modeOptions = modeOptions,
-        selectedVariantLabel = selectedVariantLabel,
-        selectedVariantValue = selectedModeValue,
-        variantOptions = variantOptions,
-    )
+        val hasDay = options.any { (selection, _) -> selection.prefix == OS_MAP_DAY_STYLE_PREFIX }
+        val hasNight = options.any { (selection, _) -> selection.prefix == OS_MAP_NIGHT_STYLE_PREFIX }
+        val modeOptions =
+            buildList {
+                if (hasDay) add("${OS_MAP_DAY_STYLE_PREFIX}${selected.realStyleId}" to "Day")
+                if (hasNight) add("${OS_MAP_NIGHT_STYLE_PREFIX}${selected.realStyleId}" to "Night")
+            }
+
+        val selectedModeValue = "${selected.prefix}${selected.realStyleId}"
+        val variantOptions =
+            options
+                .asSequence()
+                .filter { (selection, _) -> selection.prefix == selected.prefix }
+                .distinctBy { (selection, _) -> selection.realStyleId }
+                .map { (selection, label) -> "${selected.prefix}${selection.realStyleId}" to label }
+                .toList()
+
+        OsMapStyleUi(
+            selectedModeLabel = selected.modeLabel,
+            selectedModeValue = selectedModeValue,
+            modeOptions = modeOptions,
+            selectedVariantLabel = selectedVariantLabel,
+            selectedVariantValue = selectedModeValue,
+            variantOptions = variantOptions,
+        )
+    }
 }
 
 private fun parseOsMapStyleSelection(styleId: String): OsMapStyleSelection? =
