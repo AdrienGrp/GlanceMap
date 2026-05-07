@@ -33,11 +33,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 
 @Composable
 internal fun RouteToolBusySpinner(
@@ -123,6 +126,7 @@ internal fun RouteToolProgressDialog(
 }
 
 @Composable
+@Suppress("FunctionName")
 internal fun BoxScope.RouteToolInlineProgressBanner(
     visible: Boolean,
     message: String,
@@ -130,6 +134,18 @@ internal fun BoxScope.RouteToolInlineProgressBanner(
     endInset: Dp,
     verticalPadding: Dp = 0.dp,
 ) {
+    val isSmallScreen = rememberWearScreenSize() == WearScreenSize.SMALL
+    val spinnerSize = if (isSmallScreen) 14.dp else 18.dp
+    val horizontalPadding = if (isSmallScreen) 7.dp else 10.dp
+    val contentVerticalPadding = if (isSmallScreen) 4.dp else 6.dp
+    val itemSpacing = if (isSmallScreen) 5.dp else 8.dp
+    val textStyle =
+        if (isSmallScreen) {
+            MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp)
+        } else {
+            MaterialTheme.typography.labelMedium
+        }
+
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(tween(120)),
@@ -151,14 +167,14 @@ internal fun BoxScope.RouteToolInlineProgressBanner(
                         .background(
                             Color.Black.copy(alpha = 0.88f),
                             RoundedCornerShape(15.dp),
-                        ).padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ).padding(horizontal = horizontalPadding, vertical = contentVerticalPadding),
+                horizontalArrangement = Arrangement.spacedBy(itemSpacing),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RouteToolBusySpinner(size = 18.dp)
+                RouteToolBusySpinner(size = spinnerSize)
                 Text(
                     text = message,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = textStyle,
                     textAlign = TextAlign.Start,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
