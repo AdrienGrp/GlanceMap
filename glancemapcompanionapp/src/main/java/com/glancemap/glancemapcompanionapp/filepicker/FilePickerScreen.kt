@@ -88,6 +88,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
             }
         }
     var showCancelDialog by remember { mutableStateOf(false) }
+    var quickGuideMode by remember { mutableStateOf(QuickGuideMode.GENERAL) }
     var showHowToDialog by remember(autoOpenHelpOnFirstLaunch) { mutableStateOf(autoOpenHelpOnFirstLaunch) }
     var showDebugDialog by remember { mutableStateOf(false) }
     var activeHomeArea by remember { mutableStateOf(CompanionHomeArea.HOME) }
@@ -487,7 +488,10 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         onOpenSendToWatch = { activeHomeArea = CompanionHomeArea.SEND_TO_WATCH },
                         onOpenLiveTracking = { activeHomeArea = CompanionHomeArea.LIVE_TRACKING },
                         onOpenMapLegend = { activeHomeArea = CompanionHomeArea.MAP_LEGEND },
-                        onOpenQuickGuide = { showHowToDialog = true },
+                        onOpenQuickGuide = {
+                            quickGuideMode = QuickGuideMode.GENERAL
+                            showHowToDialog = true
+                        },
                         onOpenCreditsLegal = {
                             context.startActivity(PrivacyPolicyActivity.creditsAndLegalIntent(context))
                         },
@@ -509,6 +513,10 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         onShowThemeLegendMenuChange = { showThemeLegendMenu = it },
                         onThemeLegendSelected = { selectedThemeLegend = it },
                         onOpenLink = { openCompanionUrl(context, it) },
+                        onOpenHelp = {
+                            quickGuideMode = QuickGuideMode.MAP_LEGEND
+                            showHowToDialog = true
+                        },
                         onBack = { activeHomeArea = CompanionHomeArea.HOME },
                     )
                 }
@@ -570,7 +578,10 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                             modifier = Modifier.weight(1f),
                         )
                         FilledTonalIconButton(
-                            onClick = { showHowToDialog = true },
+                            onClick = {
+                                quickGuideMode = QuickGuideMode.TRANSFER
+                                showHowToDialog = true
+                            },
                             modifier = Modifier.size(adaptive.helpIconButtonSize),
                         ) {
                             Icon(
@@ -805,6 +816,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
             if (showHowToDialog) {
                 FilePickerQuickGuideDialog(
                     adaptive = adaptive,
+                    mode = quickGuideMode,
                     onDismiss = { showHowToDialog = false },
                 )
             }
@@ -982,6 +994,19 @@ private fun CompanionHomeScreen(
             description = "Privacy, licences and acknowledgements",
             onClick = onOpenCreditsLegal,
         )
+
+        SectionCard(
+            title = "Contributions",
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text =
+                    "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, " +
+                        "OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -1034,6 +1059,7 @@ private fun CompanionMapLegendScreen(
     onShowThemeLegendMenuChange: (Boolean) -> Unit,
     onThemeLegendSelected: (ThemeLegendSource) -> Unit,
     onOpenLink: (String) -> Unit,
+    onOpenHelp: () -> Unit,
     onBack: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
@@ -1073,7 +1099,16 @@ private fun CompanionMapLegendScreen(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.size(adaptive.helpIconButtonSize))
+            FilledTonalIconButton(
+                onClick = onOpenHelp,
+                modifier = Modifier.size(adaptive.helpIconButtonSize),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.HelpCenter,
+                    contentDescription = "Help",
+                    modifier = Modifier.size(adaptive.helpIconSize),
+                )
+            }
         }
 
         Column(

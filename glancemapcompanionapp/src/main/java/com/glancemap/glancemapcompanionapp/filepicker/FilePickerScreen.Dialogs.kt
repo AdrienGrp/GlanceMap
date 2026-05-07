@@ -48,6 +48,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+internal enum class QuickGuideMode {
+    GENERAL,
+    TRANSFER,
+    MAP_LEGEND,
+}
+
 @Composable
 internal fun DebugCaptureDialog(
     context: Context,
@@ -298,67 +304,89 @@ internal fun ManagePhoneFilesDialog(
 @Composable
 internal fun FilePickerQuickGuideDialog(
     adaptive: CompanionAdaptiveSpec,
+    mode: QuickGuideMode,
     onDismiss: () -> Unit,
 ) {
     val pages =
-        remember {
-            listOf(
-                QuickGuidePage(
-                    title = "Welcome to GlanceMap Companion App",
-                    intro =
-                        "GlanceMap is a map viewer. It does not provide map data; " +
-                            ".map files must be downloaded from external sources.",
-                    lines =
-                        listOf(
-                            "This phone app is necessary to send maps, routes, POI, and GPX files to your watch.",
-                            "Once files are on the watch, GlanceMap can work offline without the phone.",
-                            "For battery saving, keeping phone and watch connected is still recommended.",
+        remember(mode) {
+            when (mode) {
+                QuickGuideMode.GENERAL ->
+                    listOf(
+                        QuickGuidePage(
+                            title = "Welcome to GlanceMap Companion App",
+                            intro =
+                                "GlanceMap is a map viewer. It does not provide map data; " +
+                                    ".map files must be downloaded from external sources.",
+                            lines =
+                                listOf(
+                                    "This phone app is necessary to send maps, routes, POI, and GPX files to your watch.",
+                                    "Once files are on the watch, GlanceMap can work offline without the phone.",
+                                    "For battery saving, keeping phone and watch connected is still recommended.",
+                                ),
                         ),
-                ),
-                QuickGuidePage(
-                    title = "Get files ready",
-                    lines =
-                        listOf(
-                            "Use 1. Download to get Mapsforge OSM .map, POI, GPX, or routing files.",
-                            "Tap 2. Select file(s) to add .map, .poi, .gpx, .rd5, or DEM .hgt files from the phone.",
+                    )
+
+                QuickGuideMode.TRANSFER ->
+                    listOf(
+                        QuickGuidePage(
+                            title = "Get files ready",
+                            lines =
+                                listOf(
+                                    "Use 1. Download to get Mapsforge OSM .map, POI, GPX, or routing files.",
+                                    "Tap 2. Select file(s) to add .map, .poi, .gpx, .rd5, or DEM .hgt files from the phone.",
+                                ),
                         ),
-                ),
-                QuickGuidePage(
-                    title = "Prepare the watch",
-                    lines =
-                        listOf(
-                            "Open GlanceMap on the watch and keep it near the phone.",
-                            "For large transfers, charge the watch and use the same Wi-Fi or phone hotspot.",
-                            STAY_OPEN_GUIDE_LINE,
-                            "Without Wi-Fi, Bluetooth can send files up to 50 MB.",
+                        QuickGuidePage(
+                            title = "Prepare the watch",
+                            lines =
+                                listOf(
+                                    "Open GlanceMap on the watch and keep it near the phone.",
+                                    "For large transfers, charge the watch and use the same Wi-Fi or phone hotspot.",
+                                    STAY_OPEN_GUIDE_LINE,
+                                    "Without Wi-Fi, Bluetooth can send files up to 50 MB.",
+                                ),
                         ),
-                ),
-                QuickGuidePage(
-                    title = "POI & routing areas",
-                    lines =
-                        listOf(
-                            "Use POI for Refuges / OSM, Routing for BRouter packs.",
-                            "Use the map picker to select a POI area, or the tile picker for BRouter routing packs.",
-                            "You can also choose a region or enter a manual BBox.",
-                            "BBox format: west,south,east,north. Example: 5.50,45.10,6.50,45.60.",
-                            "Use Refresh last import to update the same area later without choosing it again.",
+                        QuickGuidePage(
+                            title = "POI & routing areas",
+                            lines =
+                                listOf(
+                                    "Use POI for Refuges / OSM, Routing for BRouter packs.",
+                                    "Use the map picker to select a POI area, or the tile picker for BRouter routing packs.",
+                                    "You can also choose a region or enter a manual BBox.",
+                                    "BBox format: west,south,east,north. Example: 5.50,45.10,6.50,45.60.",
+                                    "Use Refresh last import to update the same area later without choosing it again.",
+                                ),
                         ),
-                ),
-                QuickGuidePage(
-                    title = "Send",
-                    lines =
-                        listOf(
-                            "Tap Send and keep phone and watch close until it finishes.",
-                            "If it stops, send the same file again; it usually resumes " +
-                                "from the partial file already on the watch.",
-                            "Open History to see each transfer status.",
+                        QuickGuidePage(
+                            title = "Send",
+                            lines =
+                                listOf(
+                                    "Tap Send and keep phone and watch close until it finishes.",
+                                    "If it stops, send the same file again; it usually resumes " +
+                                        "from the partial file already on the watch.",
+                                    "Open History to see each transfer status.",
+                                ),
                         ),
-                ),
-            )
+                    )
+
+                QuickGuideMode.MAP_LEGEND ->
+                    listOf(
+                        QuickGuidePage(
+                            title = "Map Legend",
+                            intro = "Use this area to open reference material for the map themes used by GlanceMap.",
+                            lines =
+                                listOf(
+                                    "Select the theme you use on the watch.",
+                                    "Open the legend PDF or reference page to understand symbols, colors, and paths.",
+                                    "These links are external references and may open in your browser.",
+                                ),
+                        ),
+                    )
+            }
         }
     var pageIndex by rememberSaveable { mutableStateOf(0) }
     val page = pages[pageIndex]
-    val isWelcomePage = pageIndex == 0
+    val isWelcomePage = mode == QuickGuideMode.GENERAL
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -389,7 +417,7 @@ internal fun FilePickerQuickGuideDialog(
                     ) {
                         Text("Quick guide")
                         Text(
-                            "Step $pageIndex of ${pages.lastIndex}",
+                            "Step ${pageIndex + 1} of ${pages.size}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -433,10 +461,12 @@ internal fun FilePickerQuickGuideDialog(
                     }
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                quickGuidePageIndicator(
-                    pageCount = pages.size,
-                    selectedPage = pageIndex,
-                )
+                if (pages.size > 1) {
+                    quickGuidePageIndicator(
+                        pageCount = pages.size,
+                        selectedPage = pageIndex,
+                    )
+                }
             }
         },
         dismissButton = {
@@ -446,11 +476,13 @@ internal fun FilePickerQuickGuideDialog(
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(
-                    onClick = { pageIndex -= 1 },
-                    enabled = pageIndex > 0,
-                ) {
-                    Text("Back")
+                if (pages.size > 1) {
+                    TextButton(
+                        onClick = { pageIndex -= 1 },
+                        enabled = pageIndex > 0,
+                    ) {
+                        Text("Back")
+                    }
                 }
                 Button(
                     onClick = {
