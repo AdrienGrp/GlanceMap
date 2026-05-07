@@ -9,7 +9,9 @@ private const val OSM_OVERPASS_TILE_MAX_AREA_DEGREES = 3.0
 private const val OSM_OVERPASS_MIN_SUBDIVIDE_LON_SPAN_DEGREES = 0.10
 private const val OSM_OVERPASS_MIN_SUBDIVIDE_LAT_SPAN_DEGREES = 0.10
 internal const val OSM_OVERPASS_TOO_LARGE_MESSAGE =
-    "OSM Overpass response is too large. Please use a smaller area."
+    "OSM Overpass response is too large. Please use a smaller area or select fewer POI categories."
+internal const val OSM_OVERPASS_PREFLIGHT_WARNING_POI_COUNT = 4_000L
+internal const val OSM_OVERPASS_PREFLIGHT_MAX_POI_COUNT = 10_000L
 private val HTML_TITLE_REGEX = Regex("(?is)<title[^>]*>(.*?)</title>")
 private val OVERPASS_RATE_LIMIT_REGEX = Regex("""Rate limit:\s*(\d+)""", RegexOption.IGNORE_CASE)
 private val OVERPASS_SLOTS_AVAILABLE_REGEX =
@@ -17,6 +19,69 @@ private val OVERPASS_SLOTS_AVAILABLE_REGEX =
 private val OVERPASS_SLOT_WAIT_SECONDS_REGEX =
     Regex("""slot available after.*?(\d+)\s+seconds?""", RegexOption.IGNORE_CASE)
 private val OVERPASS_IN_SECONDS_REGEX = Regex("""in\s+(\d+)\s+seconds?""", RegexOption.IGNORE_CASE)
+private val OVERPASS_COUNT_TYPE_REGEX = Regex(""""type"\s*:\s*"count"""", RegexOption.IGNORE_CASE)
+private val OVERPASS_COUNT_TAG_REGEX =
+    Regex(""""(nodes|ways|relations|total)"\s*:\s*"?(\d+)"?""", RegexOption.IGNORE_CASE)
+
+internal data class OsmOverpassPoiCountEstimate(
+    val nodes: Long,
+    val ways: Long,
+    val relations: Long,
+    val total: Long,
+)
+
+internal fun buildOverpassSelectionClauses(
+    bbox: BBox,
+    selectedCategories: List<OsmPoiImportCategory>,
+): String {
+    val b = "${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon}"
+    val tagValues = linkedMapOf<String, LinkedHashSet<String>>()
+    selectedCategories.forEach { category ->
+        category.tagValues.forEach { (tagKey, values) ->
+            tagValues.getOrPut(tagKey) { linkedSetOf() }.addAll(values)
+        }
+    }
+    return buildString {
+        tagValues.forEach { (tagKey, values) ->
+            if (values.isEmpty()) return@forEach
+            val escapedKey = escapeOverpassLiteral(tagKey)
+            values.forEach { value ->
+                val escapedValue = escapeOverpassLiteral(value)
+                appendLine("""  node["$escapedKey"="$escapedValue"]($b);""")
+                appendLine("""  way["$escapedKey"="$escapedValue"]($b);""")
+                appendLine("""  relation["$escapedKey"="$escapedValue"]($b);""")
+            }
+            appendLine()
+        }
+    }.trimEnd()
+}
+
+internal fun parseOverpassCountResponse(body: String): OsmOverpassPoiCountEstimate {
+    require(OVERPASS_COUNT_TYPE_REGEX.containsMatchIn(body)) {
+        "Invalid Overpass count response."
+    }
+    val counts =
+        OVERPASS_COUNT_TAG_REGEX
+            .findAll(body)
+            .associate { match ->
+                match.groupValues[1].lowercase() to (match.groupValues[2].toLongOrNull() ?: -1L)
+            }
+    val nodes = counts["nodes"] ?: -1L
+    val ways = counts["ways"] ?: -1L
+    val relations = counts["relations"] ?: -1L
+    val total = counts["total"].takeIf { it != null && it >= 0L } ?: (nodes + ways + relations)
+    return OsmOverpassPoiCountEstimate(
+        nodes = nodes.coerceAtLeast(0L),
+        ways = ways.coerceAtLeast(0L),
+        relations = relations.coerceAtLeast(0L),
+        total = total.coerceAtLeast(0L),
+    )
+}
+
+internal fun escapeOverpassLiteral(value: String): String =
+    value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
 
 internal fun splitBboxForOverpass(
     bbox: BBox,

@@ -17,21 +17,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.maps.mapZoomScaleStepsMeters
+import com.glancemap.glancemapwearos.core.maps.nearestMetricScaleStepIndex
+import com.glancemap.glancemapwearos.core.maps.sanitizeMapZoomScaleMeters
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
 import java.util.Locale
-import kotlin.math.cos
-import kotlin.math.pow
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
@@ -41,22 +40,11 @@ fun MapZoomSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val crownZoomEnabled by viewModel.crownZoomEnabled.collectAsState()
     val crownZoomInverted by viewModel.crownZoomInverted.collectAsState()
-    val zoomDefault by viewModel.mapZoomDefault.collectAsState()
-    val zoomMin by viewModel.mapZoomMin.collectAsState()
-    val zoomMax by viewModel.mapZoomMax.collectAsState()
+    val zoomDefaultScaleMeters by viewModel.mapZoomDefaultScaleMeters.collectAsState()
+    val zoomMinScaleMeters by viewModel.mapZoomMinScaleMeters.collectAsState()
+    val zoomMaxScaleMeters by viewModel.mapZoomMaxScaleMeters.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
     var showCrownDirectionPicker by remember { mutableStateOf(false) }
-
-    val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
-    val approximateViewportWidthPx =
-        remember(configuration.screenWidthDp, density.density) {
-            with(density) {
-                configuration.screenWidthDp.dp
-                    .toPx()
-                    .toDouble()
-            }
-        }
 
     val listState = rememberScalingLazyListState()
 
@@ -94,30 +82,27 @@ fun MapZoomSettingsScreen(
                 }
             }
             item {
-                ZoomSetting(
-                    label = "Default zoom",
-                    value = zoomDefault,
+                ScaleDistanceSetting(
+                    label = "Default scale",
+                    value = zoomDefaultScaleMeters,
                     isMetric = isMetric,
-                    approximateViewportWidthPx = approximateViewportWidthPx,
-                    onValueChange = viewModel::setMapZoomDefault,
+                    onValueChange = viewModel::setMapZoomDefaultScaleMeters,
                 )
             }
             item {
-                ZoomSetting(
-                    label = "Min zoom",
-                    value = zoomMin,
+                ScaleDistanceSetting(
+                    label = "Farthest out",
+                    value = zoomMinScaleMeters,
                     isMetric = isMetric,
-                    approximateViewportWidthPx = approximateViewportWidthPx,
-                    onValueChange = viewModel::setMapZoomMin,
+                    onValueChange = viewModel::setMapZoomMinScaleMeters,
                 )
             }
             item {
-                ZoomSetting(
-                    label = "Max zoom",
-                    value = zoomMax,
+                ScaleDistanceSetting(
+                    label = "Closest in",
+                    value = zoomMaxScaleMeters,
                     isMetric = isMetric,
-                    approximateViewportWidthPx = approximateViewportWidthPx,
-                    onValueChange = viewModel::setMapZoomMax,
+                    onValueChange = viewModel::setMapZoomMaxScaleMeters,
                 )
             }
         }
@@ -138,19 +123,25 @@ fun MapZoomSettingsScreen(
 }
 
 @Composable
-private fun ZoomSetting(
+@Suppress("FunctionNaming")
+private fun ScaleDistanceSetting(
     label: String,
     value: Int,
     isMetric: Boolean,
-    approximateViewportWidthPx: Double,
     onValueChange: (Int) -> Unit,
 ) {
-    var internalValue by remember(value) { mutableStateOf(value.toFloat()) }
-    val zoomLevel = internalValue.toInt()
-    val approxScaleText =
-        remember(zoomLevel, isMetric, approximateViewportWidthPx) {
-            val approxMeters = approximateScaleMetersForZoom(zoomLevel, approximateViewportWidthPx)
-            "~${formatScaleDistance(approxMeters, isMetric)}"
+    val sanitizedValue = sanitizeMapZoomScaleMeters(value)
+    var internalValue by remember(sanitizedValue) {
+        mutableStateOf(nearestMetricScaleStepIndex(sanitizedValue).toFloat())
+    }
+    val selectedIndex =
+        internalValue
+            .roundToInt()
+            .coerceIn(0, mapZoomScaleStepsMeters.lastIndex)
+    val selectedScaleMeters = mapZoomScaleStepsMeters[selectedIndex]
+    val scaleText =
+        remember(selectedScaleMeters, isMetric) {
+            formatScaleDistance(selectedScaleMeters.toDouble(), isMetric)
         }
 
     Column(
@@ -158,7 +149,7 @@ private fun ZoomSetting(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
-            "$label: $approxScaleText",
+            "$label: $scaleText",
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -166,46 +157,21 @@ private fun ZoomSetting(
         Slider(
             value = internalValue,
             onValueChange = {
-                internalValue = it
-                onValueChange(it.toInt())
+                val nextIndex =
+                    it
+                        .roundToInt()
+                        .coerceIn(0, mapZoomScaleStepsMeters.lastIndex)
+                internalValue = nextIndex.toFloat()
+                onValueChange(mapZoomScaleStepsMeters[nextIndex])
             },
-            valueRange = 1f..20f,
-            steps = 18,
+            valueRange = 0f..mapZoomScaleStepsMeters.lastIndex.toFloat(),
+            steps = (mapZoomScaleStepsMeters.size - 2).coerceAtLeast(0),
             increaseIcon = { Icon(Icons.Filled.Add, contentDescription = "Increase") },
             decreaseIcon = { Icon(Icons.Filled.Remove, contentDescription = "Decrease") },
             modifier = Modifier.fillMaxWidth(),
         )
     }
 }
-
-private val MetricScaleStepsMeters =
-    doubleArrayOf(
-        5.0,
-        10.0,
-        20.0,
-        25.0,
-        50.0,
-        100.0,
-        200.0,
-        250.0,
-        500.0,
-        1000.0,
-        2000.0,
-        2500.0,
-        5000.0,
-        10000.0,
-        20000.0,
-        25000.0,
-        50000.0,
-        100000.0,
-        200000.0,
-        250000.0,
-        500000.0,
-        1000000.0,
-        2000000.0,
-        2500000.0,
-        5000000.0,
-    )
 
 private val ImperialScaleStepsFeet =
     doubleArrayOf(
@@ -250,19 +216,6 @@ private val ImperialScaleStepsMiles =
         5000.0,
     )
 
-private fun approximateScaleMetersForZoom(
-    zoom: Int,
-    viewportWidthPx: Double,
-): Double {
-    val clampedZoom = zoom.coerceIn(1, 20)
-    val metersPerPixelAtEquator = 156543.03392 / (2.0.pow(clampedZoom.toDouble()))
-    val representativeLatitudeFactor = cos(Math.toRadians(45.0))
-    val metersPerPixel = metersPerPixelAtEquator * representativeLatitudeFactor
-    val usableWidthPx = viewportWidthPx.takeIf { it.isFinite() && it > 0.0 } ?: 320.0
-    val targetScaleMeters = metersPerPixel * usableWidthPx * 0.28
-    return targetScaleMeters.coerceAtLeast(5.0)
-}
-
 private fun formatScaleDistance(
     meters: Double,
     isMetric: Boolean,
@@ -301,7 +254,7 @@ private fun chooseScaleDistanceMeters(
     if (targetMeters <= 0.0 || !targetMeters.isFinite()) return 0.0
 
     if (isMetric) {
-        return pickLargestNotExceeding(MetricScaleStepsMeters, targetMeters)
+        return pickLargestNotExceeding(mapZoomScaleStepsMeters, targetMeters)
     }
 
     val targetFeet = targetMeters * 3.28084
@@ -322,6 +275,18 @@ private fun pickLargestNotExceeding(
     var candidate = steps.firstOrNull() ?: target
     for (step in steps) {
         if (step <= target) candidate = step else break
+    }
+    return candidate
+}
+
+private fun pickLargestNotExceeding(
+    steps: List<Int>,
+    target: Double,
+): Double {
+    var candidate = steps.firstOrNull()?.toDouble() ?: target
+    for (step in steps) {
+        val stepMeters = step.toDouble()
+        if (stepMeters <= target) candidate = stepMeters else break
     }
     return candidate
 }

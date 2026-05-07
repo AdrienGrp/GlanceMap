@@ -67,5 +67,6 @@ When structure or behavior changes:
 1. Update relevant file-level comments (if needed).
 2. Update architecture docs in `docs/architecture/`.
 3. Update root `README.md` if setup or module responsibilities changed.
+4. If adding or upgrading third-party dependencies, update `licenses/THIRD_PARTY_NOTICES.md` and `licenses/RUNTIME_DEPENDENCIES_RESOLVED.txt`.
 
 Before making the repository public, follow `docs/PUBLIC_REPO_CHECKLIST.md`.

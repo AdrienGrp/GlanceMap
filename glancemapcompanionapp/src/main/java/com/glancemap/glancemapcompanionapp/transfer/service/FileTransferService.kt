@@ -18,6 +18,7 @@ import com.glancemap.glancemapcompanionapp.transfer.FileExistenceChecker
 import com.glancemap.glancemapcompanionapp.transfer.TransferStrategyFactory
 import com.glancemap.glancemapcompanionapp.transfer.WatchFileDeleteRequester
 import com.glancemap.glancemapcompanionapp.transfer.WatchInstalledMapsRequester
+import com.glancemap.glancemapcompanionapp.transfer.WatchWifiStatusChecker
 import com.glancemap.glancemapcompanionapp.transfer.datalayer.PhoneDataLayerEvent
 import com.glancemap.glancemapcompanionapp.transfer.datalayer.PhoneDataLayerRepository
 import com.glancemap.glancemapcompanionapp.transfer.service.internal.AckRegistry
@@ -49,6 +50,7 @@ class FileTransferService : LifecycleService() {
     private lateinit var notificationHelper: NotificationHelper
     private lateinit var existenceChecker: FileExistenceChecker
     private lateinit var deleteRequester: WatchFileDeleteRequester
+    private lateinit var wifiStatusChecker: WatchWifiStatusChecker
     private lateinit var installedMapsRequester: WatchInstalledMapsRequester
 
     private val powerManager by lazy { getSystemService(POWER_SERVICE) as PowerManager }
@@ -78,18 +80,7 @@ class FileTransferService : LifecycleService() {
 
         notificationHelper = NotificationHelper(this).apply { createNotificationChannel() }
         dataLayerRepository = PhoneDataLayerRepository(this)
-        existenceChecker =
-            FileExistenceChecker { nodeId, path, payload ->
-                dataLayerRepository.sendMessage(nodeId, path, payload)
-            }
-        deleteRequester =
-            WatchFileDeleteRequester { nodeId, path, payload ->
-                dataLayerRepository.sendMessage(nodeId, path, payload)
-            }
-        installedMapsRequester =
-            WatchInstalledMapsRequester { nodeId, path, payload ->
-                dataLayerRepository.sendMessage(nodeId, path, payload)
-            }
+        configureTransferRequesters()
 
         ackRegistry = AckRegistry()
         historyStore = HistoryStore(this, _uiState)
@@ -104,6 +95,7 @@ class FileTransferService : LifecycleService() {
                 wifiManager = wifiManager,
                 existenceChecker = existenceChecker,
                 deleteRequester = deleteRequester,
+                wifiStatusChecker = wifiStatusChecker,
                 ackRegistry = ackRegistry,
                 uiUpdater = uiUpdater,
                 cancelTransferOnWatch = { nodeId, transferId ->
@@ -133,6 +125,25 @@ class FileTransferService : LifecycleService() {
 
         historyStore.load()
         observeDataLayer()
+    }
+
+    private fun configureTransferRequesters() {
+        existenceChecker =
+            FileExistenceChecker { nodeId, path, payload ->
+                dataLayerRepository.sendMessage(nodeId, path, payload)
+            }
+        deleteRequester =
+            WatchFileDeleteRequester { nodeId, path, payload ->
+                dataLayerRepository.sendMessage(nodeId, path, payload)
+            }
+        wifiStatusChecker =
+            WatchWifiStatusChecker { nodeId, path, payload ->
+                dataLayerRepository.sendMessage(nodeId, path, payload)
+            }
+        installedMapsRequester =
+            WatchInstalledMapsRequester { nodeId, path, payload ->
+                dataLayerRepository.sendMessage(nodeId, path, payload)
+            }
     }
 
     override fun onDestroy() {
@@ -535,6 +546,8 @@ class FileTransferService : LifecycleService() {
                                 ackRegistry.handleAck(event.payload)
                             }
                             is PhoneDataLayerEvent.PingResult -> existenceChecker.handlePingResult(event.payload)
+                            is PhoneDataLayerEvent.WifiStatusResult ->
+                                wifiStatusChecker.handleWifiStatusResult(event.payload)
                             is PhoneDataLayerEvent.ExistsResult -> existenceChecker.handleExistsResult(event.payload)
                             is PhoneDataLayerEvent.BatchExistsResult -> existenceChecker.handleBatchExistsResult(event.payload)
                             is PhoneDataLayerEvent.DeleteFileResult -> deleteRequester.handleDeleteResult(event.payload)

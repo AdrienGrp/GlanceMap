@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package com.glancemap.glancemapwearos.presentation.features.maps
 
 import androidx.compose.foundation.background
@@ -26,9 +28,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
@@ -61,6 +70,12 @@ private data class InspectionPopupSizing(
     val surfaceContentSpacing: Dp,
     val handleBottomPadding: Dp,
     val showEtaInline: Boolean,
+    val tableWidthScale: Float = 1f,
+    val headerTextSize: TextUnit? = null,
+    val labelTextSize: TextUnit? = null,
+    val valueTextSize: TextUnit? = null,
+    val etaTextSize: TextUnit? = null,
+    val buttonTextSize: TextUnit? = null,
 )
 
 @Composable
@@ -155,7 +170,7 @@ private fun rememberInspectionPopupSizing(): InspectionPopupSizing {
             if (adaptive.isRound) {
                 InspectionPopupSizing(
                     tableRowSpacing = 4.dp,
-                    compactRowSpacing = 3.dp,
+                    compactRowSpacing = 2.dp,
                     labelEndPadding = 1.dp,
                     actionSpacerHeight = 0.dp,
                     actionIconSize = 14.dp,
@@ -169,7 +184,13 @@ private fun rememberInspectionPopupSizing(): InspectionPopupSizing {
                     surfaceBottomPadding = 3.dp,
                     surfaceContentSpacing = 2.dp,
                     handleBottomPadding = 1.dp,
-                    showEtaInline = false,
+                    showEtaInline = true,
+                    tableWidthScale = 1f,
+                    headerTextSize = 7.sp,
+                    labelTextSize = 8.sp,
+                    valueTextSize = 9.sp,
+                    etaTextSize = 8.sp,
+                    buttonTextSize = 10.sp,
                 )
             } else {
                 InspectionPopupSizing(
@@ -269,13 +290,14 @@ fun GpxInspectionPopupA(
             SwipeHandleHint(sizing)
 
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val tableWidth = maxWidth * tableWidthMultiplier
+                val tableWidth = maxWidth * tableWidthMultiplier * sizing.tableWidthScale
                 Column {
                     Box(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(tableScrollState),
+                        contentAlignment = Alignment.Center,
                     ) {
                         MetricTableCompact(
                             modifier = Modifier.width(tableWidth),
@@ -300,6 +322,10 @@ fun GpxInspectionPopupA(
                             row2Down = downToEnd.first,
                             row1Eta = etaFromStart,
                             row2Eta = etaToEnd,
+                            headerTextSize = sizing.headerTextSize,
+                            labelTextSize = sizing.labelTextSize,
+                            valueTextSize = sizing.valueTextSize,
+                            etaTextSize = sizing.etaTextSize,
                         )
                     }
                     HorizontalScrollHintBar(
@@ -324,13 +350,29 @@ fun GpxInspectionPopupA(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.AddLocation,
-                        contentDescription = "Select point B",
+                        contentDescription = "Add second point B",
                         modifier = Modifier.size(sizing.actionIconSize),
                     )
                     Spacer(Modifier.width(sizing.actionSpacerWidth))
                     Text(
-                        text = "Select B",
-                        style = MaterialTheme.typography.labelMedium,
+                        text =
+                            buildAnnotatedString {
+                                append("Add 2")
+                                withStyle(
+                                    SpanStyle(
+                                        baselineShift = BaselineShift.Superscript,
+                                        fontSize =
+                                            sizing.buttonTextSize
+                                                ?: MaterialTheme.typography.labelSmall.fontSize,
+                                    ),
+                                ) {
+                                    append("nd")
+                                }
+                                append(" point (B)")
+                            },
+                        style =
+                            MaterialTheme.typography.labelMedium
+                                .withSize(sizing.buttonTextSize),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -437,13 +479,14 @@ fun GpxInspectionPopupAB(
             SwipeHandleHint(sizing)
 
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val tableWidth = maxWidth * tableWidthMultiplier
+                val tableWidth = maxWidth * tableWidthMultiplier * sizing.tableWidthScale
                 Column {
                     Box(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(tableScrollState),
+                        contentAlignment = Alignment.Center,
                     ) {
                         MetricTableCompact(
                             modifier = Modifier.width(tableWidth),
@@ -470,6 +513,10 @@ fun GpxInspectionPopupAB(
                             row1Eta = sToAEta,
                             row2Eta = aToBEta,
                             row3Eta = bToEEta,
+                            headerTextSize = sizing.headerTextSize,
+                            labelTextSize = sizing.labelTextSize,
+                            valueTextSize = sizing.valueTextSize,
+                            etaTextSize = sizing.etaTextSize,
                         )
                     }
                     HorizontalScrollHintBar(
@@ -483,6 +530,7 @@ fun GpxInspectionPopupAB(
 }
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 private fun MetricTableCompact(
     modifier: Modifier = Modifier,
     row1Label: String,
@@ -511,6 +559,10 @@ private fun MetricTableCompact(
     row1Eta: String = "",
     row2Eta: String = "",
     row3Eta: String = "",
+    headerTextSize: TextUnit? = null,
+    labelTextSize: TextUnit? = null,
+    valueTextSize: TextUnit? = null,
+    etaTextSize: TextUnit? = null,
 ) {
     val headerColor = Color.White.copy(alpha = 0.70f)
     val dividerColor = Color.White.copy(alpha = 0.10f)
@@ -531,24 +583,28 @@ private fun MetricTableCompact(
                 text = "",
                 color = headerColor,
                 alignEnd = false,
+                fontSize = headerTextSize,
             )
             HeaderCellOneLine(
                 modifier = Modifier.weight(metricW),
                 text = "Dist $distUnit",
                 color = headerColor,
                 alignEnd = true,
+                fontSize = headerTextSize,
             )
             HeaderCellOneLine(
                 modifier = Modifier.weight(metricW),
                 text = "↑ $upUnit",
                 color = headerColor,
                 alignEnd = true,
+                fontSize = headerTextSize,
             )
             HeaderCellOneLine(
                 modifier = Modifier.weight(metricW),
                 text = "↓ $downUnit",
                 color = headerColor,
                 alignEnd = true,
+                fontSize = headerTextSize,
             )
             if (hasInlineEta) {
                 HeaderCellOneLine(
@@ -556,6 +612,7 @@ private fun MetricTableCompact(
                     text = etaHeader.orEmpty(),
                     color = headerColor,
                     alignEnd = true,
+                    fontSize = headerTextSize,
                 )
             }
         }
@@ -569,16 +626,17 @@ private fun MetricTableCompact(
                 compact = compact,
                 endPadding = labelEndPadding,
                 alignEnd = labelAlignEnd,
+                fontSize = labelTextSize,
             )
-            ValueCell(Modifier.weight(metricW), row1Dist, compact = compact)
-            ValueCell(Modifier.weight(metricW), row1Up, compact = compact)
-            ValueCell(Modifier.weight(metricW), row1Down, compact = compact)
+            ValueCell(Modifier.weight(metricW), row1Dist, compact = compact, fontSize = valueTextSize)
+            ValueCell(Modifier.weight(metricW), row1Up, compact = compact, fontSize = valueTextSize)
+            ValueCell(Modifier.weight(metricW), row1Down, compact = compact, fontSize = valueTextSize)
             if (hasInlineEta) {
-                ValueCell(Modifier.weight(metricW), row1Eta, compact = compact)
+                ValueCell(Modifier.weight(metricW), row1Eta, compact = compact, fontSize = valueTextSize)
             }
         }
         if (!hasInlineEta && etaHeader != null) {
-            EtaSecondaryLine(text = "$etaHeader $row1Eta", compact = compact)
+            EtaSecondaryLine(text = "$etaHeader $row1Eta", compact = compact, fontSize = etaTextSize)
         }
 
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -588,16 +646,17 @@ private fun MetricTableCompact(
                 compact = compact,
                 endPadding = labelEndPadding,
                 alignEnd = labelAlignEnd,
+                fontSize = labelTextSize,
             )
-            ValueCell(Modifier.weight(metricW), row2Dist, compact = compact)
-            ValueCell(Modifier.weight(metricW), row2Up, compact = compact)
-            ValueCell(Modifier.weight(metricW), row2Down, compact = compact)
+            ValueCell(Modifier.weight(metricW), row2Dist, compact = compact, fontSize = valueTextSize)
+            ValueCell(Modifier.weight(metricW), row2Up, compact = compact, fontSize = valueTextSize)
+            ValueCell(Modifier.weight(metricW), row2Down, compact = compact, fontSize = valueTextSize)
             if (hasInlineEta) {
-                ValueCell(Modifier.weight(metricW), row2Eta, compact = compact)
+                ValueCell(Modifier.weight(metricW), row2Eta, compact = compact, fontSize = valueTextSize)
             }
         }
         if (!hasInlineEta && etaHeader != null) {
-            EtaSecondaryLine(text = "$etaHeader $row2Eta", compact = compact)
+            EtaSecondaryLine(text = "$etaHeader $row2Eta", compact = compact, fontSize = etaTextSize)
         }
 
         if (row3Label != null) {
@@ -608,16 +667,17 @@ private fun MetricTableCompact(
                     compact = compact,
                     endPadding = labelEndPadding,
                     alignEnd = labelAlignEnd,
+                    fontSize = labelTextSize,
                 )
-                ValueCell(Modifier.weight(metricW), row3Dist, compact = compact)
-                ValueCell(Modifier.weight(metricW), row3Up, compact = compact)
-                ValueCell(Modifier.weight(metricW), row3Down, compact = compact)
+                ValueCell(Modifier.weight(metricW), row3Dist, compact = compact, fontSize = valueTextSize)
+                ValueCell(Modifier.weight(metricW), row3Up, compact = compact, fontSize = valueTextSize)
+                ValueCell(Modifier.weight(metricW), row3Down, compact = compact, fontSize = valueTextSize)
                 if (hasInlineEta) {
-                    ValueCell(Modifier.weight(metricW), row3Eta, compact = compact)
+                    ValueCell(Modifier.weight(metricW), row3Eta, compact = compact, fontSize = valueTextSize)
                 }
             }
             if (!hasInlineEta && etaHeader != null) {
-                EtaSecondaryLine(text = "$etaHeader $row3Eta", compact = compact)
+                EtaSecondaryLine(text = "$etaHeader $row3Eta", compact = compact, fontSize = etaTextSize)
             }
         }
     }
@@ -627,11 +687,13 @@ private fun MetricTableCompact(
 private fun EtaSecondaryLine(
     text: String,
     compact: Boolean,
+    fontSize: TextUnit? = null,
 ) {
+    val baseStyle = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall
     Text(
         modifier = Modifier.fillMaxWidth(),
         text = text,
-        style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall,
+        style = baseStyle.withSize(fontSize),
         color = Color.White.copy(alpha = 0.84f),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -690,11 +752,12 @@ private fun HeaderCellOneLine(
     text: String,
     color: Color,
     alignEnd: Boolean,
+    fontSize: TextUnit? = null,
 ) {
     Text(
         modifier = modifier,
         text = text,
-        style = MaterialTheme.typography.labelSmall,
+        style = MaterialTheme.typography.labelSmall.withSize(fontSize),
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Clip,
@@ -708,17 +771,20 @@ private fun HeaderCellOneLine(
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun LabelCell(
     modifier: Modifier,
     text: String,
     compact: Boolean = false,
     endPadding: Dp = 6.dp,
     alignEnd: Boolean = true,
+    fontSize: TextUnit? = null,
 ) {
+    val baseStyle = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium
     Text(
         modifier = modifier.padding(end = endPadding),
         text = text,
-        style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
+        style = baseStyle.withSize(fontSize),
         color = Color.White,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -736,17 +802,21 @@ private fun ValueCell(
     modifier: Modifier,
     text: String,
     compact: Boolean = false,
+    fontSize: TextUnit? = null,
 ) {
+    val baseStyle = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium
     Text(
         modifier = modifier,
         text = text,
-        style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+        style = baseStyle.withSize(fontSize),
         color = Color.White,
         maxLines = 1,
         overflow = TextOverflow.Clip,
         textAlign = androidx.compose.ui.text.style.TextAlign.End,
     )
 }
+
+private fun TextStyle.withSize(size: TextUnit?): TextStyle = if (size == null) this else copy(fontSize = size)
 
 @Composable
 private fun DividerLine(color: Color) {

@@ -1,6 +1,6 @@
 # Service Terms and API Usage
 
-Last reviewed: 2026-04-29
+Last reviewed: 2026-05-06
 
 This document captures non-library legal/usage constraints for external services and providers referenced by the app/build pipeline.
 
@@ -87,15 +87,20 @@ Term notes:
 
 Used for:
 - OSM attribution in app.
+- Companion map picker background raster tiles:
+  - `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
 - OSM POI enrichment via Overpass API endpoint:
   - `https://overpass-api.de/api/interpreter`
 
 References:
 - OSM copyright and attribution: https://www.openstreetmap.org/copyright
+- OSM tile usage policy: https://operations.osmfoundation.org/policies/tiles/
 - ODbL: https://opendatacommons.org/licenses/odbl/1-0/
 - Overpass API documentation: https://wiki.openstreetmap.org/wiki/Overpass_API
 
 Usage policy note:
+- OSM tile usage must remain normal interactive viewing only. Do not add tile prefetching, bulk download, or offline tile caching features against `tile.openstreetmap.org`.
+- OSM tiles require visible attribution, the official HTTPS tile URL, a clear app User-Agent, and HTTP caching behavior that respects server cache headers.
 - Overpass public-instance guidance indicates conservative safe usage around:
   - less than 10,000 queries/day
   - less than 1 GB downloaded/day

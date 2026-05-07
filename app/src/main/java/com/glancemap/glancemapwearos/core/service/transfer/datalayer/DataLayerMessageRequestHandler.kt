@@ -1,5 +1,8 @@
 package com.glancemap.glancemapwearos.core.service.transfer.datalayer
 
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.util.Log
 import com.glancemap.glancemapwearos.core.service.DataLayerListenerService
@@ -14,6 +17,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
+
+private fun ConnectivityManager.hasWifiTransport(network: Network?): Boolean =
+    network
+        ?.let { getNetworkCapabilities(it) }
+        ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+
+private val ConnectivityManager.hasAvailableWifiNetwork: Boolean
+    @Suppress("DEPRECATION")
+    get() = allNetworks.any { network -> hasWifiTransport(network) }
 
 internal class DataLayerMessageRequestHandler(
     private val service: DataLayerListenerService,
@@ -65,6 +77,11 @@ internal class DataLayerMessageRequestHandler(
 
             TransferConstants.PATH_PING -> {
                 handlePingRequest(messageEvent)
+                return
+            }
+
+            TransferConstants.PATH_CHECK_WIFI_STATUS -> {
+                handleWifiStatusRequest(messageEvent)
                 return
             }
 
@@ -241,6 +258,65 @@ internal class DataLayerMessageRequestHandler(
                 TransferDiagnostics.warn("MsgReq", "Ping reply send failed id=$requestId")
             }
         }
+    }
+
+    private fun handleWifiStatusRequest(messageEvent: MessageEvent) {
+        val sourceNodeId = messageEvent.sourceNodeId
+        val payload = runCatching { JSONObject(String(messageEvent.data, Charsets.UTF_8)) }.getOrNull()
+        if (payload == null) {
+            Log.w(TAG, "Invalid JSON Wi-Fi status request")
+            TransferDiagnostics.warn("MsgReq", "Invalid Wi-Fi status request JSON from node=$sourceNodeId")
+            return
+        }
+
+        val requestId = payload.optString("id", "")
+        if (requestId.isBlank()) {
+            Log.w(TAG, "Missing request id in Wi-Fi status request: $payload")
+            TransferDiagnostics.warn("MsgReq", "Missing Wi-Fi status request id from node=$sourceNodeId")
+            return
+        }
+
+        val (wifiAvailable, reason) = readWifiAvailability()
+        TransferDiagnostics.log(
+            "MsgReq",
+            "Wi-Fi status request id=$requestId wifiAvailable=$wifiAvailable reason=$reason",
+        )
+
+        appScope.launch(Dispatchers.IO) {
+            val reply =
+                JSONObject()
+                    .put("id", requestId)
+                    .put("wifiAvailable", wifiAvailable)
+                    .put("reason", reason)
+
+            runCatching {
+                sendMessage(
+                    sourceNodeId,
+                    TransferConstants.PATH_CHECK_WIFI_STATUS_RESULT,
+                    reply.toString().toByteArray(Charsets.UTF_8),
+                )
+                TransferDiagnostics.log("MsgReq", "Wi-Fi status reply id=$requestId to node=$sourceNodeId")
+            }.onFailure {
+                Log.d(TAG, "Wi-Fi status reply send failed: ${it.message}")
+                TransferDiagnostics.warn("MsgReq", "Wi-Fi status reply send failed id=$requestId")
+            }
+        }
+    }
+
+    private fun readWifiAvailability(): Pair<Boolean, String> {
+        val connectivityManager =
+            service.getSystemService(ConnectivityManager::class.java)
+        val active = connectivityManager?.activeNetwork
+
+        val result =
+            when {
+                connectivityManager == null -> false to "connectivity_manager_missing"
+                connectivityManager.hasWifiTransport(active) -> true to "active_wifi"
+                connectivityManager.hasAvailableWifiNetwork -> true to "available_wifi"
+                active == null -> false to "no_active_network"
+                else -> false to "no_wifi_network"
+            }
+        return result
     }
 
     private fun handleBatchCheckExists(messageEvent: MessageEvent) {

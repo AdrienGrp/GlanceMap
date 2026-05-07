@@ -54,6 +54,7 @@ internal fun RoutingDownloadDialog(
     var mapMenuExpanded by remember { mutableStateOf(false) }
     var watchMenuExpanded by remember { mutableStateOf(false) }
     var areaMethodMenuExpanded by remember { mutableStateOf(false) }
+    var showRoutingTilePicker by remember { mutableStateOf(false) }
     var areaMethod by remember { mutableStateOf(RoutingAreaMethod.WATCH_MAP) }
     var selectedWatchMapKey by remember(uiState.selectedWatch?.id) {
         mutableStateOf(watchInstalledMaps.firstOrNull()?.filePath.orEmpty())
@@ -68,11 +69,17 @@ internal fun RoutingDownloadDialog(
                     ?: watchInstalledMaps.firstOrNull()
             }
         }
+    val routingTilePickerInitialBbox =
+        bboxInput
+            .trim()
+            .ifBlank { selectedRoutingMapCandidate?.bbox.orEmpty() }
     val resolvedRoutingBbox =
         remember(areaMethod, bboxInput, selectedRoutingMapCandidate) {
             when (areaMethod) {
                 RoutingAreaMethod.WATCH_MAP -> selectedRoutingMapCandidate?.bbox.orEmpty()
-                RoutingAreaMethod.MANUAL_BBOX -> bboxInput.trim()
+                RoutingAreaMethod.TILE_PICKER,
+                RoutingAreaMethod.MANUAL_BBOX,
+                -> bboxInput.trim()
             }
         }
     val routingTiles =
@@ -98,11 +105,13 @@ internal fun RoutingDownloadDialog(
     val routingAreaMethodLabel =
         when (areaMethod) {
             RoutingAreaMethod.WATCH_MAP -> "Auto from watch map"
+            RoutingAreaMethod.TILE_PICKER -> "Pick routing tiles"
             RoutingAreaMethod.MANUAL_BBOX -> "Enter BBox manually"
         }
     val routingAreaMethodDescription =
         when (areaMethod) {
             RoutingAreaMethod.WATCH_MAP -> "Use the bbox of a .map already present on the watch."
+            RoutingAreaMethod.TILE_PICKER -> "Tap fixed 5° BRouter tiles on a map."
             RoutingAreaMethod.MANUAL_BBOX -> "Enter west,south,east,north manually."
         }
     val routingWatchIsSelected = uiState.selectedWatch != null
@@ -145,6 +154,21 @@ internal fun RoutingDownloadDialog(
         }
     }
 
+    if (showRoutingTilePicker) {
+        RoutingTilePickerDialog(
+            initialBbox = routingTilePickerInitialBbox,
+            onDismiss = { showRoutingTilePicker = false },
+            onConfirm = { pickedBbox ->
+                bboxInput = pickedBbox
+                areaMethod = RoutingAreaMethod.TILE_PICKER
+                showRoutingTilePicker = false
+                if (!routingDownloadProgress.isRunning) {
+                    viewModel.resetRoutingDownloadProgress()
+                }
+            },
+        )
+    }
+
     AlertDialog(
         onDismissRequest = {
             if (!isDownloadingRouting) onDismiss()
@@ -166,7 +190,8 @@ internal fun RoutingDownloadDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        "BRouter routing packs (.rd5) are downloaded on the phone, then added to section 2 so you can decide if you want to send them.",
+                        "BRouter routing packs (.rd5) are downloaded on the phone, " +
+                            "then added to section 2 so you can decide if you want to send them.",
                         style = MaterialTheme.typography.bodySmall,
                     )
 
@@ -245,7 +270,8 @@ internal fun RoutingDownloadDialog(
                     }
                     if (uiState.selectedWatch != null && !selectedWatchReachable) {
                         Text(
-                            "${selectedWatchDisconnectedStatusMessage()} You can also switch to manual BBox.",
+                            "${selectedWatchDisconnectedStatusMessage()} " +
+                                "You can also switch to tile picker or manual BBox.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
@@ -286,9 +312,18 @@ internal fun RoutingDownloadDialog(
                                 enabled = selectedWatchReachable,
                             )
                             DropdownMenuItem(
+                                text = { Text("Pick routing tiles") },
+                                onClick = {
+                                    areaMethod = RoutingAreaMethod.TILE_PICKER
+                                    mapMenuExpanded = false
+                                    areaMethodMenuExpanded = false
+                                },
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Enter BBox manually") },
                                 onClick = {
                                     areaMethod = RoutingAreaMethod.MANUAL_BBOX
+                                    mapMenuExpanded = false
                                     areaMethodMenuExpanded = false
                                 },
                             )
@@ -353,7 +388,8 @@ internal fun RoutingDownloadDialog(
                             when {
                                 uiState.selectedWatch != null && !selectedWatchReachable -> {
                                     Text(
-                                        "${selectedWatchDisconnectedStatusMessage()} Use manual BBox while the watch is disconnected.",
+                                        "${selectedWatchDisconnectedStatusMessage()} " +
+                                            "Use tile picker or manual BBox while the watch is disconnected.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.error,
                                     )
@@ -397,9 +433,39 @@ internal fun RoutingDownloadDialog(
                             }
                         }
 
+                        RoutingAreaMethod.TILE_PICKER -> {
+                            OutlinedButton(
+                                onClick = { showRoutingTilePicker = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !isDownloadingRouting,
+                            ) {
+                                Text(
+                                    if (bboxInput.isBlank()) {
+                                        "Open tile picker"
+                                    } else {
+                                        "Edit routing tiles"
+                                    },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            if (bboxInput.isBlank()) {
+                                Text(
+                                    "No routing tiles selected yet.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            } else {
+                                Text(
+                                    "Tile bbox: $bboxInput",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+
                         RoutingAreaMethod.MANUAL_BBOX -> {
                             Text(
-                                "Enter BBox (rectangle) as west,south,east,north (minLon,minLat,maxLon,maxLat). Example: 1.40,42.43,1.79,42.66",
+                                "Enter BBox (rectangle) as west,south,east,north " +
+                                    "(minLon,minLat,maxLon,maxLat). Example: 1.40,42.43,1.79,42.66",
                                 style = MaterialTheme.typography.bodySmall,
                             )
                             OutlinedTextField(
@@ -486,7 +552,8 @@ internal fun RoutingDownloadDialog(
                             }
                             if (routingCompletedSuccessfully) {
                                 Text(
-                                    "Download complete. You can save the routing file(s) on phone or send them to the watch.",
+                                    "Download complete. You can save the routing file(s) " +
+                                        "on phone or send them to the watch.",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }

@@ -154,6 +154,45 @@ class SettingsViewModel(
             settingsRepository.setMapZoomMax(zoom)
         }
 
+    val mapZoomDefaultScaleMeters: StateFlow<Int> =
+        settingsRepository.mapZoomDefaultScaleMeters
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_MAP_ZOOM_DEFAULT_SCALE_METERS,
+            )
+
+    fun setMapZoomDefaultScaleMeters(scaleMeters: Int) =
+        viewModelScope.launch {
+            settingsRepository.setMapZoomDefaultScaleMeters(scaleMeters)
+        }
+
+    val mapZoomMinScaleMeters: StateFlow<Int> =
+        settingsRepository.mapZoomMinScaleMeters
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_MAP_ZOOM_MIN_SCALE_METERS,
+            )
+
+    fun setMapZoomMinScaleMeters(scaleMeters: Int) =
+        viewModelScope.launch {
+            settingsRepository.setMapZoomMinScaleMeters(scaleMeters)
+        }
+
+    val mapZoomMaxScaleMeters: StateFlow<Int> =
+        settingsRepository.mapZoomMaxScaleMeters
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_MAP_ZOOM_MAX_SCALE_METERS,
+            )
+
+    fun setMapZoomMaxScaleMeters(scaleMeters: Int) =
+        viewModelScope.launch {
+            settingsRepository.setMapZoomMaxScaleMeters(scaleMeters)
+        }
+
     val northIndicatorMode: StateFlow<String> =
         settingsRepository.northIndicatorMode
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ALWAYS")
