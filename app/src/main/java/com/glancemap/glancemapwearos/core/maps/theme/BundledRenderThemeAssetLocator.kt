@@ -55,6 +55,16 @@ object BundledRenderThemeAssetLocator {
                     generatedRoot = "theme/voluntary",
                     xmlFileName = "Voluntary V5.xml",
                 ),
+            MapsforgeThemeCatalog.OS_MAP_DAY_THEME_ID to
+                ThemeSpec(
+                    generatedRoot = "theme/os-map",
+                    xmlFileName = "OS Map V4 Day.xml",
+                ),
+            MapsforgeThemeCatalog.OS_MAP_NIGHT_THEME_ID to
+                ThemeSpec(
+                    generatedRoot = "theme/os-map",
+                    xmlFileName = "OS Map V4 Night.xml",
+                ),
         )
 
     fun isThemeAvailable(
@@ -113,6 +123,8 @@ object BundledRenderThemeAssetLocator {
             MapsforgeThemeCatalog.TIRAMISU_THEME_ID -> MapsforgeThemeCatalog.TIRAMISU_THEME_ID
             MapsforgeThemeCatalog.HIKE_RIDE_SIGHT_THEME_ID -> MapsforgeThemeCatalog.HIKE_RIDE_SIGHT_THEME_ID
             MapsforgeThemeCatalog.VOLUNTARY_THEME_ID -> MapsforgeThemeCatalog.VOLUNTARY_THEME_ID
+            MapsforgeThemeCatalog.OS_MAP_DAY_THEME_ID -> MapsforgeThemeCatalog.OS_MAP_DAY_THEME_ID
+            MapsforgeThemeCatalog.OS_MAP_NIGHT_THEME_ID -> MapsforgeThemeCatalog.OS_MAP_NIGHT_THEME_ID
             else -> null
         }
 

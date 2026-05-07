@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="580"
+   width="580"
+   version="1.0"
+   id="svg4861"
+   sodipodi:docname="telephone-emergency.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs4865" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview4863"
+     showgrid="false"
+     inkscape:zoom="0.40689655"
+     inkscape:cx="290"
+     inkscape:cy="290"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg4861" />
+  <metadata
+     id="metadata2975">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <path
+     inkscape:connector-curvature="0"
+     id="path3138"
+     style="fill:#ed1c24;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:64.1985321"
+     d="M 145.39676,394.33835 C 152.587,282.88969 253.2503,164.2508 319.75998,122.97114 c 4.4939,45.77356 18.87437,61.11701 41.27966,72.73694 12.64714,6.29146 44.10444,11.68414 53.09224,2.76054 l 91.6755,-91.6755 c 8.0248,-13.481703 12.5829,-30.558513 0,-49.497073 -29.724,-43.14142 -79.9914,-66.4454897 -173.46449,-16.17803 C 210.10888,106.79312 36.644445,326.99409 84.279755,504.95243 c 6.29146,25.16582 38.583315,53.92681 67.408465,60.15401 43.14141,9.052 86.21863,-11.6199 97.00398,-25.03742 l 27.92637,-89.94214 c 0.89878,-10.78536 -8.08902,-42.24264 -33.25485,-53.02799 -36.84995,-15.27925 -61.1812,-13.54589 -97.96696,-2.76054" />
+</svg>

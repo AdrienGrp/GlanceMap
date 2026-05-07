@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="580"
+   width="580"
+   version="1.0"
+   id="svg4521"
+   sodipodi:docname="hunting_stand.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs4525" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview4523"
+     showgrid="false"
+     inkscape:zoom="0.73103448"
+     inkscape:cx="536.57814"
+     inkscape:cy="453.57857"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg4521" />
+  <metadata
+     id="metadata10">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <path
+     id="path4557"
+     style="opacity:1;fill:#0098e3;fill-opacity:0.78431373;stroke:none;stroke-width:2.06735802;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     d="M 401.56712,183.00818 H 291.75055 181.93398 c 1.15545,-17.63536 0.38261,-52.90682 0.38261,-52.90682 z m -219.63314,0 H 402.16982 V 293.12611 H 181.93398 Z" />
+  <rect
+     style="opacity:1;fill:#0098e3;fill-opacity:0.78431373;stroke:none;stroke-width:4.05424786;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     id="rect4560"
+     width="294.28506"
+     height="47.877357"
+     x="152.77478"
+     y="6.8723526"
+     transform="matrix(0.97149424,0.23706318,0,1,0,0)" />
+  <path
+     style="opacity:1;fill:#0098e3;fill-opacity:0.78431373;stroke:none;stroke-width:3.93826747;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     d="m 147.73633,324.14648 v 36.9336 h 35.47656 l -30.00586,171.16211 h 54.7168 l 30.00586,-171.16211 h 108.23437 l 30.01563,171.21289 h 54.71679 L 400.88281,361.08008 h 32.75 v -36.9336 z"
+     id="rect4566" />
+</svg>

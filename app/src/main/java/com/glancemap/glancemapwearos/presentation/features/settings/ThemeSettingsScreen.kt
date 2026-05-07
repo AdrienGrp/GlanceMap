@@ -1,9 +1,12 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
@@ -117,6 +120,24 @@ private data class OverlayGroupUi(
     val overlays: List<ThemeListItem.Overlay>,
 )
 
+private const val OS_MAP_DAY_STYLE_PREFIX = "__OS_MAP_DAY__:"
+private const val OS_MAP_NIGHT_STYLE_PREFIX = "__OS_MAP_NIGHT__:"
+
+private data class OsMapStyleSelection(
+    val modeLabel: String,
+    val prefix: String,
+    val realStyleId: String,
+)
+
+private data class OsMapStyleUi(
+    val selectedModeLabel: String,
+    val selectedModeValue: String,
+    val modeOptions: List<Pair<String, String>>,
+    val selectedVariantLabel: String,
+    val selectedVariantValue: String,
+    val variantOptions: List<Pair<String, String>>,
+)
+
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun ThemeSettingsScreen(
@@ -139,6 +160,8 @@ fun ThemeSettingsScreen(
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
     var showThemePicker by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
+    var showOsMapModePicker by remember { mutableStateOf(false) }
+    var showOsMapVariantPicker by remember { mutableStateOf(false) }
 
     val selectedStyle =
         themeItems
@@ -167,6 +190,14 @@ fun ThemeSettingsScreen(
     val stylePickerOptions =
         remember(styleOptions) {
             styleOptions.map { option -> option.id to option.name.ifBlank { option.id } }
+        }
+    val osMapStyleUi =
+        remember(selectedThemeId, selectedStyleId, styleOptions) {
+            buildOsMapStyleUi(
+                selectedThemeId = selectedThemeId,
+                selectedStyleId = selectedStyleId,
+                styles = styleOptions,
+            )
         }
 
     val bundledThemeSelected = MapsforgeThemeCatalog.isBundledAssetTheme(selectedThemeId)
@@ -262,13 +293,41 @@ fun ThemeSettingsScreen(
             }
 
             if (nightModeToggle?.enabled != true && styleSelectionAvailable) {
-                item {
-                    SettingsPickerChip(
-                        label = "Style",
-                        secondaryLabel = selectedStyle?.name?.ifBlank { selectedStyle.id } ?: "-",
-                        iconImageVector = Icons.Filled.UnfoldMore,
-                        onClick = { showStylePicker = true },
-                    )
+                if (osMapStyleUi != null) {
+                    item {
+                        SettingsPickerChip(
+                            label = "Mode",
+                            secondaryLabel = osMapStyleUi.selectedModeLabel,
+                            iconImageVector = Icons.Filled.UnfoldMore,
+                            onClick = { showOsMapModePicker = true },
+                        )
+                    }
+                    item {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.22f)),
+                        )
+                    }
+                    item {
+                        SettingsPickerChip(
+                            label = "Map style",
+                            secondaryLabel = osMapStyleUi.selectedVariantLabel,
+                            iconImageVector = Icons.Filled.UnfoldMore,
+                            onClick = { showOsMapVariantPicker = true },
+                        )
+                    }
+                } else {
+                    item {
+                        SettingsPickerChip(
+                            label = "Style",
+                            secondaryLabel = selectedStyle?.name?.ifBlank { selectedStyle.id } ?: "-",
+                            iconImageVector = Icons.Filled.UnfoldMore,
+                            onClick = { showStylePicker = true },
+                        )
+                    }
                 }
             }
 
@@ -343,11 +402,29 @@ fun ThemeSettingsScreen(
     val selectedStyleValue = selectedStyleId ?: styleOptions.firstOrNull()?.id
     if (selectedStyleValue != null && styleSelectionAvailable && stylePickerOptions.isNotEmpty()) {
         OptionPickerDialog(
-            visible = showStylePicker,
+            visible = showStylePicker && osMapStyleUi == null,
             title = "Theme style",
             selectedValue = selectedStyleValue,
             options = stylePickerOptions,
             onDismiss = { showStylePicker = false },
+            onSelect = { selected -> themeViewModel.setMapStyle(selected) },
+        )
+    }
+    if (osMapStyleUi != null) {
+        OptionPickerDialog(
+            visible = showOsMapModePicker,
+            title = "OS Map mode",
+            selectedValue = osMapStyleUi.selectedModeValue,
+            options = osMapStyleUi.modeOptions,
+            onDismiss = { showOsMapModePicker = false },
+            onSelect = { selected -> themeViewModel.setMapStyle(selected) },
+        )
+        OptionPickerDialog(
+            visible = showOsMapVariantPicker,
+            title = "OS Map style",
+            selectedValue = osMapStyleUi.selectedVariantValue,
+            options = osMapStyleUi.variantOptions,
+            onDismiss = { showOsMapVariantPicker = false },
             onSelect = { selected -> themeViewModel.setMapStyle(selected) },
         )
     }
@@ -421,3 +498,73 @@ private fun hasMeaningfulStyleSelection(styles: List<ThemeListItem.Style>): Bool
         }
     return nonDefaultStyleCount > 1
 }
+
+private fun buildOsMapStyleUi(
+    selectedThemeId: String?,
+    selectedStyleId: String?,
+    styles: List<ThemeListItem.Style>,
+): OsMapStyleUi? {
+    if (selectedThemeId != MapsforgeThemeCatalog.OS_MAP_THEME_ID) return null
+
+    val options =
+        styles
+            .mapNotNull { style ->
+                parseOsMapStyleSelection(style.id)?.let { selection ->
+                    selection to style.name.removePrefix("${selection.modeLabel} - ").ifBlank { selection.realStyleId }
+                }
+            }
+    if (options.isEmpty()) return null
+
+    val selected =
+        selectedStyleId
+            ?.let(::parseOsMapStyleSelection)
+            ?: options.first().first
+    val selectedVariantLabel =
+        options
+            .firstOrNull { (selection, _) -> selection.realStyleId == selected.realStyleId }
+            ?.second
+            ?: selected.realStyleId
+
+    val hasDay = options.any { (selection, _) -> selection.prefix == OS_MAP_DAY_STYLE_PREFIX }
+    val hasNight = options.any { (selection, _) -> selection.prefix == OS_MAP_NIGHT_STYLE_PREFIX }
+    val modeOptions =
+        buildList {
+            if (hasDay) add("${OS_MAP_DAY_STYLE_PREFIX}${selected.realStyleId}" to "Day")
+            if (hasNight) add("${OS_MAP_NIGHT_STYLE_PREFIX}${selected.realStyleId}" to "Night")
+        }
+
+    val selectedModeValue = "${selected.prefix}${selected.realStyleId}"
+    val variantOptions =
+        options
+            .asSequence()
+            .filter { (selection, _) -> selection.prefix == selected.prefix }
+            .distinctBy { (selection, _) -> selection.realStyleId }
+            .map { (selection, label) -> "${selected.prefix}${selection.realStyleId}" to label }
+            .toList()
+
+    return OsMapStyleUi(
+        selectedModeLabel = selected.modeLabel,
+        selectedModeValue = selectedModeValue,
+        modeOptions = modeOptions,
+        selectedVariantLabel = selectedVariantLabel,
+        selectedVariantValue = selectedModeValue,
+        variantOptions = variantOptions,
+    )
+}
+
+private fun parseOsMapStyleSelection(styleId: String): OsMapStyleSelection? =
+    when {
+        styleId.startsWith(OS_MAP_DAY_STYLE_PREFIX) ->
+            OsMapStyleSelection(
+                modeLabel = "Day",
+                prefix = OS_MAP_DAY_STYLE_PREFIX,
+                realStyleId = styleId.removePrefix(OS_MAP_DAY_STYLE_PREFIX),
+            )
+        styleId.startsWith(OS_MAP_NIGHT_STYLE_PREFIX) ->
+            OsMapStyleSelection(
+                modeLabel = "Night",
+                prefix = OS_MAP_NIGHT_STYLE_PREFIX,
+                realStyleId = styleId.removePrefix(OS_MAP_NIGHT_STYLE_PREFIX),
+            )
+        else -> null
+    }?.takeIf { it.realStyleId.isNotBlank() }

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="580"
+   width="580"
+   version="1.0"
+   id="svg6945"
+   sodipodi:docname="tower_communications-night.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs6949" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview6947"
+     showgrid="false"
+     inkscape:zoom="0.8137931"
+     inkscape:cx="91.572942"
+     inkscape:cy="281.40965"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg6945" />
+  <metadata
+     id="metadata10">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <path
+     style="fill:#a1a1a1;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:61.69943237"
+     d="M 396.09766 36.242188 L 296.08203 49.568359 L 288.86328 97.386719 L 238.94922 103.98828 L 230.61914 67.892578 L 56.255859 94.609375 L 203.9043 99.607422 L 211.12305 134.5293 L 294.97266 126.19922 L 216.67578 548.7793 L 386.5957 548.7793 L 302.25195 107.38086 L 307.1875 74.556641 L 368.27148 67.892578 L 378.26562 102.87695 L 536.03125 64.5625 L 406.0918 67.892578 L 396.09766 36.242188 z M 301.12109 282.39844 L 340.97852 508.95898 L 261.14062 508.95898 L 301.12109 282.39844 z "
+     id="path4423" />
+</svg>

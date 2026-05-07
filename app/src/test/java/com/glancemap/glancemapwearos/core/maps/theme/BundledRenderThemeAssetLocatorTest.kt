@@ -28,6 +28,18 @@ class BundledRenderThemeAssetLocatorTest {
             MapsforgeThemeCatalog.HIKE_RIDE_SIGHT_THEME_ID,
             BundledRenderThemeAssetLocator.resolveKnownThemeIdOrNull(MapsforgeThemeCatalog.HIKE_RIDE_SIGHT_THEME_ID),
         )
+        assertEquals(
+            MapsforgeThemeCatalog.VOLUNTARY_THEME_ID,
+            BundledRenderThemeAssetLocator.resolveKnownThemeIdOrNull(MapsforgeThemeCatalog.VOLUNTARY_THEME_ID),
+        )
+        assertEquals(
+            MapsforgeThemeCatalog.OS_MAP_DAY_THEME_ID,
+            BundledRenderThemeAssetLocator.resolveKnownThemeIdOrNull(MapsforgeThemeCatalog.OS_MAP_DAY_THEME_ID),
+        )
+        assertEquals(
+            MapsforgeThemeCatalog.OS_MAP_NIGHT_THEME_ID,
+            BundledRenderThemeAssetLocator.resolveKnownThemeIdOrNull(MapsforgeThemeCatalog.OS_MAP_NIGHT_THEME_ID),
+        )
     }
 
     @Test
@@ -37,6 +49,7 @@ class BundledRenderThemeAssetLocatorTest {
             BundledRenderThemeAssetLocator.resolveKnownThemeIdOrNull(""),
         )
         assertNull(BundledRenderThemeAssetLocator.resolveKnownThemeIdOrNull("mapsforge"))
+        assertNull(BundledRenderThemeAssetLocator.resolveKnownThemeIdOrNull(MapsforgeThemeCatalog.OS_MAP_THEME_ID))
         assertNull(BundledRenderThemeAssetLocator.resolveKnownThemeIdOrNull("frenchkiss-legacy"))
     }
 }
