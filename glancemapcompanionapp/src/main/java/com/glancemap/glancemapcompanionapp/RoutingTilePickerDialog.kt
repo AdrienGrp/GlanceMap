@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -45,6 +46,16 @@ internal fun RoutingTilePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
+    val context = LocalContext.current
+    val nativeMapPickerAvailable = remember(context) { context.hasNativeMapPickerGraphicsSupport() }
+    if (!nativeMapPickerAvailable) {
+        NativeMapPickerUnavailableDialog(
+            title = "Routing picker unavailable",
+            onDismiss = onDismiss,
+        )
+        return
+    }
+
     val initialPickerBbox = remember(initialBbox) { resolveInitialRoutingPickerBbox(initialBbox) }
     val hasUsableInitialBbox = remember(initialBbox) { hasUsableInitialRoutingBbox(initialBbox) }
     var centerOnLocation by remember(initialBbox) { mutableStateOf(!hasUsableInitialBbox) }
