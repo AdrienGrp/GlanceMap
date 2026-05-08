@@ -193,6 +193,10 @@ internal class FusedOrientationProviderAdapter(
 
     @Volatile private var lastFusedSampleLogAtElapsedMs = 0L
 
+    @Volatile private var consecutiveUnusableFusedSamples = 0
+
+    @Volatile private var firstUnusableFusedSampleAtElapsedMs = 0L
+
     @Volatile private var fusedSampleFreshnessGeneration = 0L
 
     @Volatile private var recalibrationBoostUntilElapsedMs = 0L
@@ -284,6 +288,7 @@ internal class FusedOrientationProviderAdapter(
         awaitingFirstOrientationSample = false
         clearRestartHeadingConfirmationState()
         lastFusedSampleLogAtElapsedMs = 0L
+        resetUnusableFusedSampleState()
         publishNorthReferenceStatus()
     }
 
@@ -387,6 +392,7 @@ internal class FusedOrientationProviderAdapter(
         pendingRestartHeadingAtElapsedMs = 0L
         pendingRestartHeadingSampleCount = 0
         lastFusedSampleLogAtElapsedMs = 0L
+        resetUnusableFusedSampleState()
 
         val samplingPeriodMicros = currentSamplingPeriodMicros()
         val usingBoost = isRecalibrationBoostActive()
@@ -455,6 +461,35 @@ internal class FusedOrientationProviderAdapter(
             conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
             mappedAccuracy = mappedAccuracy,
         )
+
+        if (!isUsableGoogleFusedHeadingError(headingErrorDeg)) {
+            publishUnusableFusedSampleState(
+                headingErrorDeg = headingErrorDeg,
+                conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
+            )
+            val unusableUpdate =
+                computeFusedUnusableHeadingUpdate(
+                    nowElapsedMs = now,
+                    consecutiveUnusableSamples = consecutiveUnusableFusedSamples,
+                    firstUnusableSampleAtElapsedMs = firstUnusableFusedSampleAtElapsedMs,
+                    minSamples = FUSED_UNUSABLE_HEADING_FALLBACK_MIN_SAMPLES,
+                    minDurationMs = FUSED_UNUSABLE_HEADING_FALLBACK_MIN_DURATION_MS,
+                )
+            consecutiveUnusableFusedSamples = unusableUpdate.state.consecutiveSamples
+            firstUnusableFusedSampleAtElapsedMs = unusableUpdate.state.firstSampleAtElapsedMs
+            if (unusableUpdate.shouldFallback) {
+                logDiagnostics(
+                    "google_fused unusable_heading fallback " +
+                        "samples=${unusableUpdate.state.consecutiveSamples} " +
+                        "durationMs=${unusableUpdate.durationMs} " +
+                        "errorDeg=${headingErrorDeg.formatOrNA(1)} " +
+                        "conservativeErrorDeg=${conservativeHeadingErrorDeg.formatOrNA(1)}",
+                )
+                startFallbackProvider(reason = "unusable_heading")
+            }
+            return
+        }
+        resetUnusableFusedSampleState()
 
         if (awaitingRestartHeadingConfirmation) {
             val timeoutMs = restartHeadingConfirmationTimeoutMs()
@@ -750,6 +785,11 @@ internal class FusedOrientationProviderAdapter(
         pendingRestartHeadingSampleCount = 0
     }
 
+    private fun resetUnusableFusedSampleState() {
+        consecutiveUnusableFusedSamples = 0
+        firstUnusableFusedSampleAtElapsedMs = 0L
+    }
+
     private fun restartHeadingConfirmationTimeoutMs(): Long =
         if (lowPowerMode && !isRecalibrationBoostActive()) {
             FUSED_RESTART_CONFIRM_TIMEOUT_LOW_POWER_MS
@@ -852,6 +892,17 @@ internal class FusedOrientationProviderAdapter(
         updateHeadingSourceState(HeadingSource.FUSED_ORIENTATION)
     }
 
+    private fun publishUnusableFusedSampleState(
+        headingErrorDeg: Float,
+        conservativeHeadingErrorDeg: Float,
+    ) {
+        _accuracy.value = SensorManager.SENSOR_STATUS_UNRELIABLE
+        _headingErrorDeg.value = headingErrorDeg.takeIf { it.isFinite() && it >= 0f }
+        _conservativeHeadingErrorDeg.value =
+            conservativeHeadingErrorDeg.takeIf { it.isFinite() && it >= 0f }
+        _headingSampleStale.value = _headingSampleElapsedRealtimeMs.value != null
+    }
+
     private fun logFusedSample(
         nowElapsedMs: Long,
         displayHeading: Float,
@@ -882,11 +933,15 @@ internal fun shouldUseFusedBootstrapHeading(
     bootstrapRenderState: CompassRenderState,
     nowElapsedMs: Long,
 ): Boolean {
+    val hasUsableFusedAccuracy =
+        fusedRenderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE
     val hasFreshFusedHeading =
         fusedRenderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
             fusedRenderState.headingSampleElapsedRealtimeMs != null &&
-            !fusedRenderState.headingSampleStale
+            !fusedRenderState.headingSampleStale &&
+            hasUsableFusedAccuracy
     val hasRecentCachedFusedHeading =
+        hasUsableFusedAccuracy &&
         hasRecentGoogleFusedCachedHeading(
             renderState = fusedRenderState,
             nowElapsedMs = nowElapsedMs,
@@ -915,6 +970,46 @@ internal fun bootstrapFusedRenderState(
         magneticInterference = bootstrapRenderState.magneticInterference,
     )
 
+internal data class FusedUnusableHeadingState(
+    val consecutiveSamples: Int,
+    val firstSampleAtElapsedMs: Long,
+)
+
+internal data class FusedUnusableHeadingUpdate(
+    val state: FusedUnusableHeadingState,
+    val durationMs: Long,
+    val shouldFallback: Boolean,
+)
+
+internal fun isUsableGoogleFusedHeadingError(headingErrorDeg: Float): Boolean =
+    headingAccuracyFromUncertainty(headingErrorDeg) != SensorManager.SENSOR_STATUS_UNRELIABLE
+
+internal fun computeFusedUnusableHeadingUpdate(
+    nowElapsedMs: Long,
+    consecutiveUnusableSamples: Int,
+    firstUnusableSampleAtElapsedMs: Long,
+    minSamples: Int,
+    minDurationMs: Long,
+): FusedUnusableHeadingUpdate {
+    val nextFirstSampleAtElapsedMs =
+        if (consecutiveUnusableSamples <= 0 || firstUnusableSampleAtElapsedMs <= 0L) {
+            nowElapsedMs
+        } else {
+            firstUnusableSampleAtElapsedMs
+        }
+    val nextConsecutiveSamples = consecutiveUnusableSamples + 1
+    val durationMs = (nowElapsedMs - nextFirstSampleAtElapsedMs).coerceAtLeast(0L)
+    return FusedUnusableHeadingUpdate(
+        state =
+            FusedUnusableHeadingState(
+                consecutiveSamples = nextConsecutiveSamples,
+                firstSampleAtElapsedMs = nextFirstSampleAtElapsedMs,
+            ),
+        durationMs = durationMs,
+        shouldFallback = nextConsecutiveSamples >= minSamples && durationMs >= minDurationMs,
+    )
+}
+
 private const val FUSED_ORIENTATION_THREAD_NAME = "FusedOrientationThread"
 private const val FUSED_ORIENTATION_SETTLE_WINDOW_MS = 250L
 private const val FUSED_ORIENTATION_HIGH_POWER_SAMPLING_MICROS = 20_000L // 50 Hz
@@ -923,6 +1018,8 @@ private const val FUSED_INVALID_HEADING_ERROR_DEG = 180f
 private const val FUSED_ORIENTATION_SAMPLE_STALE_MS = 1_500L
 private const val FUSED_RECALIBRATION_HIGH_POWER_WINDOW_MS = 6_000L
 private const val FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS = 5_000L
+private const val FUSED_UNUSABLE_HEADING_FALLBACK_MIN_SAMPLES = 5
+private const val FUSED_UNUSABLE_HEADING_FALLBACK_MIN_DURATION_MS = 1_200L
 private const val FUSED_RESTART_CONFIRM_TIMEOUT_HIGH_POWER_MS = 160L
 private const val FUSED_RESTART_CONFIRM_TIMEOUT_LOW_POWER_MS = 350L
 private const val FUSED_RESTART_STABLE_DELTA_DEG = 15f
@@ -989,8 +1086,13 @@ internal fun resolveFusedRestartHeadingDecision(
         headingErrorDeg.isFinite() &&
             headingErrorDeg in 0f..FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG
     val hasTrustedHeadingError = hasTrustedConservativeError || hasTrustedLiveError
+    val hasUsableHeadingError = isUsableGoogleFusedHeadingError(headingErrorDeg)
     val hasEnoughStableSamples = sampleCount >= FUSED_RESTART_MIN_CONFIRM_SAMPLES
-    if (stableWithPending && (hasTrustedHeadingError || hasEnoughStableSamples || pendingAgeMs >= timeoutMs)) {
+    if (
+        stableWithPending &&
+        hasUsableHeadingError &&
+        (hasTrustedHeadingError || hasEnoughStableSamples || pendingAgeMs >= timeoutMs)
+    ) {
         return FusedRestartHeadingDecision(
             action = FusedRestartHeadingAction.CONFIRM,
             nextPendingHeadingDeg = null,
