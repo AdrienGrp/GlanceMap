@@ -5,6 +5,7 @@ This file documents intent for important compass constants.
 Source constants file:
 
 - `app/src/main/java/com/glancemap/glancemapwearos/domain/sensors/CompassManager.kt`
+- `app/src/main/java/com/glancemap/glancemapwearos/domain/sensors/FusedOrientationProviderAdapter.kt`
 
 ## How To Use This File
 
@@ -26,6 +27,8 @@ Source constants file:
 | `HEADING_NOISE_POOR_DEG` | `8.8 deg` | Low-quality noise bound | Flags unstable heading sooner | Neutral |
 | `ADAPTIVE_RATE_HIGH_TURN_RATE_DEG_PER_SEC` | `30 deg/s` | Trigger to stay/return to high sensor rate | Better behavior while turning | Higher sensor cost while active |
 | `ADAPTIVE_RATE_STABLE_TO_LOW_MS` | `4000 ms` | Time in stable state before dropping to low rate | Can slightly delay low-power transition | Reduces sustained sensor drain once stable |
+| `FUSED_UNUSABLE_HEADING_FALLBACK_MIN_SAMPLES` | `5 samples` | Require repeated unusable Google fused uncertainty before fallback | Avoids publishing streams that report `180 deg` heading uncertainty | May keep SensorManager fallback active when Google fused is unusable |
+| `FUSED_UNUSABLE_HEADING_FALLBACK_MIN_DURATION_MS` | `1200 ms` | Require unusable Google fused state to persist before fallback | Filters startup blips while catching sustained bad fused streams on SM-L505F | Neutral unless fallback stays active |
 | `MAG_FIELD_MIN_VALID_UT` | `15 uT` | Lower bound for plausible magnetic field | Detects abnormal environment | Neutral |
 | `MAG_FIELD_MAX_VALID_UT` | `85 uT` | Upper bound for plausible magnetic field | Detects interference/saturation | Neutral |
 | `MAG_FIELD_SPIKE_THRESHOLD_UT` | `18 uT` | Spike detector for sudden interference | Captures abrupt disturbances | Neutral |
