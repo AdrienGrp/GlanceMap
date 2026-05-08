@@ -942,11 +942,11 @@ internal fun shouldUseFusedBootstrapHeading(
             hasUsableFusedAccuracy
     val hasRecentCachedFusedHeading =
         hasUsableFusedAccuracy &&
-        hasRecentGoogleFusedCachedHeading(
-            renderState = fusedRenderState,
-            nowElapsedMs = nowElapsedMs,
-            maxAgeMs = FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS,
-        )
+            hasRecentGoogleFusedCachedHeading(
+                renderState = fusedRenderState,
+                nowElapsedMs = nowElapsedMs,
+                maxAgeMs = FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS,
+            )
     val hasUsableBootstrapHeading =
         bootstrapRenderState.headingSource != HeadingSource.NONE &&
             bootstrapRenderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE &&
@@ -981,8 +981,11 @@ internal data class FusedUnusableHeadingUpdate(
     val shouldFallback: Boolean,
 )
 
-internal fun isUsableGoogleFusedHeadingError(headingErrorDeg: Float): Boolean =
-    headingAccuracyFromUncertainty(headingErrorDeg) != SensorManager.SENSOR_STATUS_UNRELIABLE
+internal fun isUsableGoogleFusedHeadingError(
+    headingErrorDeg: Float,
+): Boolean =
+    headingAccuracyFromUncertainty(headingErrorDeg) !=
+        SensorManager.SENSOR_STATUS_UNRELIABLE
 
 internal fun computeFusedUnusableHeadingUpdate(
     nowElapsedMs: Long,
@@ -1088,11 +1091,9 @@ internal fun resolveFusedRestartHeadingDecision(
     val hasTrustedHeadingError = hasTrustedConservativeError || hasTrustedLiveError
     val hasUsableHeadingError = isUsableGoogleFusedHeadingError(headingErrorDeg)
     val hasEnoughStableSamples = sampleCount >= FUSED_RESTART_MIN_CONFIRM_SAMPLES
-    if (
-        stableWithPending &&
-        hasUsableHeadingError &&
-        (hasTrustedHeadingError || hasEnoughStableSamples || pendingAgeMs >= timeoutMs)
-    ) {
+    val hasStableConfirmationBudget =
+        hasTrustedHeadingError || hasEnoughStableSamples || pendingAgeMs >= timeoutMs
+    if (stableWithPending && hasUsableHeadingError && hasStableConfirmationBudget) {
         return FusedRestartHeadingDecision(
             action = FusedRestartHeadingAction.CONFIRM,
             nextPendingHeadingDeg = null,
