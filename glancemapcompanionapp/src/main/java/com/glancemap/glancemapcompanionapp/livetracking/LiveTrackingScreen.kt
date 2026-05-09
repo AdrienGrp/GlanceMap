@@ -812,7 +812,7 @@ private fun ColumnScope.MainTrackingContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
-        TrackingPanel(title = "Today's planned route") {
+        TrackingPanel(title = "Planned route") {
             OutlinedButton(
                 onClick = onPickGpx,
                 modifier = Modifier.fillMaxWidth(),
@@ -834,7 +834,7 @@ private fun ColumnScope.MainTrackingContent(
             )
         }
 
-        TrackingPanel(title = "Comments to send in today's notification email") {
+        TrackingPanel(title = "Comments to send in notification email") {
             OutlinedTextField(
                 value = comments,
                 onValueChange = onCommentsChange,
