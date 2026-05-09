@@ -1494,6 +1494,17 @@ private fun ColumnScope.AboutContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
+        TrackingPanel(title = "Track links") {
+            Text(
+                text =
+                    "Group view opens the shared group map. It is useful when several participants use the " +
+                        "same group, for example during an orienteering event where everyone follows their " +
+                        "own route. The selected participant is highlighted with a position popup.\n\n" +
+                        "User view opens only your participant track.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+
         TrackingPanel(title = "Privacy policy") {
             Text(
                 text =
@@ -1517,12 +1528,6 @@ private fun ColumnScope.AboutContent(
                         "these terms.",
                 style = MaterialTheme.typography.bodySmall,
             )
-            OutlinedButton(
-                onClick = { openUrl(context = context, url = ArkluzTrackingEndpoint.PRODUCTION.url) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Open arkluz.com/trk")
-            }
             OutlinedButton(
                 onClick = { openUrl(context = context, url = "https://arkluz.com/trk?contact") },
                 modifier = Modifier.fillMaxWidth(),
