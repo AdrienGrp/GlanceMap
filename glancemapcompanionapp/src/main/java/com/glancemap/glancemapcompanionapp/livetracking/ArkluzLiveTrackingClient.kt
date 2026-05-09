@@ -159,6 +159,38 @@ internal class ArkluzLiveTrackingClient(
             )
         }
 
+    suspend fun downloadRecordedGpx(
+        settings: LiveTrackingSettings,
+        userOnly: Boolean,
+        outputUri: Uri,
+    ): ArkluzServerResult =
+        withContext(Dispatchers.IO) {
+            val urlBuilder =
+                settings.trackingUrl
+                    .trim()
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
+                    .toHttpUrl()
+                    .newBuilder()
+                    .addQueryParameter("q", "gpx")
+                    .addQueryParameter("day", todayForArkluz())
+                    .addQueryParameter("group", settings.group.trim())
+                    .addQueryParameter("p", settings.followerPassword.trim())
+
+            if (userOnly) {
+                urlBuilder.addQueryParameter("user", settings.userName.trim())
+            }
+
+            executeGpxDownload(
+                request =
+                    Request
+                        .Builder()
+                        .url(urlBuilder.build())
+                        .get()
+                        .build(),
+                outputUri = outputUri,
+            )
+        }
+
     suspend fun saveSettings(settings: LiveTrackingSettings): ArkluzServerResult =
         withContext(Dispatchers.IO) {
             val urlBuilder =
@@ -264,6 +296,33 @@ internal class ArkluzLiveTrackingClient(
         }
     }
 
+    private fun executeGpxDownload(
+        request: Request,
+        outputUri: Uri,
+    ): ArkluzServerResult {
+        httpClient.newCall(request).execute().use { response ->
+            val body = response.body
+            val contentType = body.contentType()?.toString().orEmpty()
+            if (!response.isSuccessful) {
+                val detail = body.string().toReadableServerMessage().ifBlank { "HTTP ${response.code}" }
+                throw IllegalStateException("Server returned $detail")
+            }
+            if (!contentType.contains("gpx", ignoreCase = true)) {
+                val serverMessage = body.string().toReadableServerMessage()
+                if (serverMessage.isArkluzError()) {
+                    throw IllegalStateException(serverMessage)
+                }
+                throw IllegalStateException(serverMessage.ifBlank { "Server did not return a GPX file" })
+            }
+
+            appContext.contentResolver.openOutputStream(outputUri, "wt").use { output ->
+                requireNotNull(output) { "Unable to open destination file" }
+                body.byteStream().use { input -> input.copyTo(output) }
+            }
+            return ArkluzServerResult("Recorded GPX downloaded")
+        }
+    }
+
     private fun copyToTempFile(
         uri: Uri,
         displayName: String,
@@ -288,6 +347,8 @@ internal class ArkluzLiveTrackingClient(
 
     private fun gsmSignalPercent(): Int = -1
 }
+
+private fun todayForArkluz(): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
 
 data class ArkluzServerResult(
     val message: String,

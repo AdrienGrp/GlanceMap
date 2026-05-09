@@ -91,7 +91,9 @@ import androidx.core.content.ContextCompat
 import com.glancemap.glancemapcompanionapp.resolveUriDisplayName
 import kotlinx.coroutines.launch
 import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 
 private enum class LiveTrackingPage {
@@ -103,6 +105,11 @@ private enum class LiveTrackingPage {
 private enum class EmailPickerTarget {
     NOTIFICATION,
     ALERT,
+}
+
+private enum class RecordedTrackDownloadTarget {
+    USER,
+    GROUP,
 }
 
 @Composable
@@ -145,6 +152,9 @@ fun LiveTrackingScreen(
     var isSendingPlan by remember { mutableStateOf(false) }
     var deleteTracksStatusMessage by remember { mutableStateOf<String?>(null) }
     var isDeletingTracks by remember { mutableStateOf(false) }
+    var recordedTrackDownloadStatusMessage by remember { mutableStateOf<String?>(null) }
+    var isDownloadingRecordedTrack by remember { mutableStateOf(false) }
+    var pendingRecordedTrackDownloadTarget by remember { mutableStateOf<RecordedTrackDownloadTarget?>(null) }
     var planSent by remember { mutableStateOf(false) }
     var emailPickerTarget by remember { mutableStateOf<EmailPickerTarget?>(null) }
 
@@ -163,6 +173,47 @@ fun LiveTrackingScreen(
             selectedGpxName = resolveUriDisplayName(context, uri).ifBlank { "Selected GPX" }
             planSent = false
             sendStatusMessage = null
+        }
+    val recordedTrackSavePicker =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/gpx+xml"),
+        ) { uri ->
+            val target = pendingRecordedTrackDownloadTarget
+            pendingRecordedTrackDownloadTarget = null
+            if (uri == null || target == null) return@rememberLauncherForActivityResult
+
+            isDownloadingRecordedTrack = true
+            recordedTrackDownloadStatusMessage = "Downloading recorded GPX"
+            val downloadSettings =
+                LiveTrackingSettings(
+                    trackingUrl = trackingEndpoint.url,
+                    updateIntervalSeconds = updateIntervalSeconds,
+                    group = group,
+                    participantPassword = participantPassword,
+                    followerPassword = followerPassword,
+                    userName = userName,
+                    notificationEmails = "",
+                    alertEmails = "",
+                    stuckAlarmMinutes = stuckAlarmMinutes,
+                    comments = "",
+                    gpxUri = null,
+                    gpxName = "",
+                )
+            coroutineScope.launch {
+                runCatching {
+                    ArkluzLiveTrackingClient(context).downloadRecordedGpx(
+                        settings = downloadSettings,
+                        userOnly = target == RecordedTrackDownloadTarget.USER,
+                        outputUri = uri,
+                    )
+                }.onSuccess { result ->
+                    recordedTrackDownloadStatusMessage = result.message
+                }.onFailure { error ->
+                    recordedTrackDownloadStatusMessage =
+                        "Download failed: ${error.message ?: "unknown error"}"
+                }
+                isDownloadingRecordedTrack = false
+            }
         }
     val contactEmailPicker =
         rememberLauncherForActivityResult(
@@ -431,6 +482,46 @@ fun LiveTrackingScreen(
                         userName = userName,
                         groupTrackUrl = groupTrackUrl,
                         userTrackUrl = userTrackUrl,
+                        recordedTrackDownloadStatusMessage = recordedTrackDownloadStatusMessage,
+                        isDownloadingRecordedTrack = isDownloadingRecordedTrack,
+                        onDownloadUserTrack = {
+                            recordedTrackDownloadStatusMessage =
+                                validateRecordedTrackDownloadSettings(
+                                    group = group,
+                                    followerPassword = followerPassword,
+                                    userName = userName,
+                                    userOnly = true,
+                                )
+                            if (recordedTrackDownloadStatusMessage == null) {
+                                pendingRecordedTrackDownloadTarget = RecordedTrackDownloadTarget.USER
+                                recordedTrackSavePicker.launch(
+                                    recordedTrackDownloadFilename(
+                                        group = group,
+                                        userName = userName,
+                                        target = RecordedTrackDownloadTarget.USER,
+                                    ),
+                                )
+                            }
+                        },
+                        onDownloadGroupTrack = {
+                            recordedTrackDownloadStatusMessage =
+                                validateRecordedTrackDownloadSettings(
+                                    group = group,
+                                    followerPassword = followerPassword,
+                                    userName = userName,
+                                    userOnly = false,
+                                )
+                            if (recordedTrackDownloadStatusMessage == null) {
+                                pendingRecordedTrackDownloadTarget = RecordedTrackDownloadTarget.GROUP
+                                recordedTrackSavePicker.launch(
+                                    recordedTrackDownloadFilename(
+                                        group = group,
+                                        userName = userName,
+                                        target = RecordedTrackDownloadTarget.GROUP,
+                                    ),
+                                )
+                            }
+                        },
                         scrollState = scrollState,
                         contentSpacing = contentSpacing,
                         isCompactLayout = compact,
@@ -749,6 +840,10 @@ private fun ColumnScope.MainTrackingContent(
     userName: String,
     groupTrackUrl: String,
     userTrackUrl: String,
+    recordedTrackDownloadStatusMessage: String?,
+    isDownloadingRecordedTrack: Boolean,
+    onDownloadUserTrack: () -> Unit,
+    onDownloadGroupTrack: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
     isCompactLayout: Boolean,
@@ -902,6 +997,45 @@ private fun ColumnScope.MainTrackingContent(
                 onView = { openUrl(context, groupTrackUrl) },
                 onShare = { shareUrl(context, groupTrackUrl) },
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onDownloadUserTrack,
+                    enabled = !isDownloadingRecordedTrack,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = if (isDownloadingRecordedTrack) "Downloading" else "Download my GPX",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                OutlinedButton(
+                    onClick = onDownloadGroupTrack,
+                    enabled = !isDownloadingRecordedTrack,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = if (isDownloadingRecordedTrack) "Downloading" else "Download group GPX",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            recordedTrackDownloadStatusMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (message.startsWith("Download failed", ignoreCase = true)) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            }
         }
     }
 
@@ -1559,6 +1693,19 @@ private fun validateStartSettings(
         else -> null
     }
 
+private fun validateRecordedTrackDownloadSettings(
+    group: String,
+    followerPassword: String,
+    userName: String,
+    userOnly: Boolean,
+): String? =
+    when {
+        group.isBlank() -> "Private group is required."
+        followerPassword.isBlank() -> "Login / Join first."
+        userOnly && userName.isBlank() -> "Participant name is required."
+        else -> null
+    }
+
 private fun validatePendingEmailInputs(
     notificationEmailInput: String,
     alertEmailInput: String,
@@ -1603,6 +1750,26 @@ private fun emailAddressesForRequest(
 }
 
 private fun String.normalizedEmailInput(): String = trim().trimEnd(',', ';').lowercase()
+
+private fun recordedTrackDownloadFilename(
+    group: String,
+    userName: String,
+    target: RecordedTrackDownloadTarget,
+): String {
+    val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+    val rawName =
+        when (target) {
+            RecordedTrackDownloadTarget.USER -> userName.ifBlank { "user" }
+            RecordedTrackDownloadTarget.GROUP -> group.ifBlank { "group" }
+        }
+    val safeName =
+        rawName
+            .trim()
+            .replace(Regex("[^A-Za-z0-9._-]+"), "-")
+            .trim('-')
+            .ifBlank { target.name.lowercase() }
+    return "$day-$safeName.gpx"
+}
 
 private fun hasLocationPermission(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
