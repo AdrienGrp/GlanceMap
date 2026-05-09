@@ -1111,6 +1111,13 @@ private fun ColumnScope.SettingsContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
+        OutlinedButton(
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Logout")
+        }
+
         TrackingPanel(title = "Participant") {
             OutlinedTextField(
                 value = userName,
@@ -1206,13 +1213,6 @@ private fun ColumnScope.SettingsContent(
                         },
                 )
             }
-        }
-
-        OutlinedButton(
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Logout")
         }
     }
 }
