@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.ViewComfyAlt
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
@@ -314,16 +315,18 @@ internal fun FilePickerQuickGuideDialog(
                 QuickGuideMode.GENERAL ->
                     listOf(
                         QuickGuidePage(
-                            title = "Welcome to GlanceMap Companion App",
+                            title = "Welcome to GlanceMap Companion",
                             intro =
-                                "GlanceMap is a map viewer. It does not provide map data; " +
-                                    ".map files must be downloaded from external sources.",
+                                "Use this phone app to prepare and send maps, routes, POI, GPX files, " +
+                                    "and routing data to your watch.",
                             lines =
                                 listOf(
-                                    "This phone app is necessary to send maps, routes, POI, and GPX files to your watch.",
-                                    "Once files are on the watch, GlanceMap can work offline without the phone.",
-                                    "For battery saving, keeping phone and watch connected is still recommended.",
-                                    "Tap the book icon in the top-right corner of each main area to open its quick guide again.",
+                                    QUICK_GUIDE_MENU_HEADER_LINE,
+                                    "Send to Watch: transfers files to the watch.",
+                                    "Live Tracking: shares your phone GPS location.",
+                                    "Map Legend opens theme references.",
+                                    "Credits & Legal contains privacy, licences, and acknowledgements.",
+                                    QUICK_GUIDE_BOOK_ICON_LINE,
                                 ),
                         ),
                     )
@@ -525,14 +528,35 @@ internal fun FilePickerQuickGuideDialog(
 
 @Composable
 private fun quickGuideLineText(line: String) {
-    if (line == STAY_OPEN_GUIDE_LINE) {
-        stayOpenGuideLineText()
-    } else {
-        Text(
-            text = "• $line",
-            style = MaterialTheme.typography.bodyMedium,
-        )
+    when (line) {
+        STAY_OPEN_GUIDE_LINE -> stayOpenGuideLineText()
+        QUICK_GUIDE_BOOK_ICON_LINE -> quickGuideBookIconLineText()
+        QUICK_GUIDE_MENU_HEADER_LINE ->
+            Text(
+                text = "Menu from the home screen:",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+        else ->
+            Text(
+                text = "• $line",
+                style = MaterialTheme.typography.bodyMedium,
+            )
     }
+}
+
+@Composable
+private fun quickGuideBookIconLineText() {
+    Text(
+        text =
+            buildAnnotatedString {
+                append("Tap the ")
+                appendInlineContent(GUIDE_BOOK_ICON_ID, "[book]")
+                append(" book icon in the top-right corner of each area to open its quick guide again.")
+            },
+        inlineContent = bookGuideInlineContent(),
+        style = MaterialTheme.typography.bodyMedium,
+    )
 }
 
 @Composable
@@ -555,6 +579,11 @@ private fun stayOpenGuideInlineContent(): Map<String, InlineTextContent> =
     mapOf(
         GUIDE_TOOLS_ICON_ID to guideInlineIcon(Icons.Filled.ViewComfyAlt, "Tools"),
         GUIDE_STAY_ICON_ID to guideInlineIcon(Icons.Filled.Visibility, "Stay"),
+    )
+
+private fun bookGuideInlineContent(): Map<String, InlineTextContent> =
+    mapOf(
+        GUIDE_BOOK_ICON_ID to guideInlineIcon(Icons.AutoMirrored.Filled.MenuBook, "Quick Guide"),
     )
 
 private fun guideInlineIcon(
@@ -613,7 +642,10 @@ private data class QuickGuidePage(
 
 private const val GUIDE_TOOLS_ICON_ID = "guide_tools_icon"
 private const val GUIDE_STAY_ICON_ID = "guide_stay_icon"
+private const val GUIDE_BOOK_ICON_ID = "guide_book_icon"
 private const val STAY_OPEN_GUIDE_LINE = "__stay_open_guide_line__"
+private const val QUICK_GUIDE_MENU_HEADER_LINE = "__quick_guide_menu_header_line__"
+private const val QUICK_GUIDE_BOOK_ICON_LINE = "__quick_guide_book_icon_line__"
 
 @Composable
 internal fun CancelTransferDialog(
