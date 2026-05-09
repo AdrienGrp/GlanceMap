@@ -307,6 +307,7 @@ private fun String.toReadableServerMessage(): String =
         .map { it.trim() }
         .filter { it.isNotBlank() }
         .joinToString(separator = "\n")
+        .replace(Regex("\\s*Go back\\.?\\s*$", RegexOption.IGNORE_CASE), "")
         .trim()
 
 private fun String.isArkluzError(): Boolean {
