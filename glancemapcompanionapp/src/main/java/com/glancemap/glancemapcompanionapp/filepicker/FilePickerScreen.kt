@@ -17,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpCenter
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.SendToMobile
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Gavel
@@ -896,6 +895,7 @@ private fun CompanionHomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Spacer(modifier = Modifier.size(adaptive.helpIconButtonSize))
             Text(
                 text = "GlanceMap Companion",
                 style =
@@ -907,8 +907,18 @@ private fun CompanionHomeScreen(
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f),
             )
+            FilledTonalIconButton(
+                onClick = onOpenQuickGuide,
+                modifier = Modifier.size(adaptive.helpIconButtonSize),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.HelpCenter,
+                    contentDescription = "Quick Guide",
+                    modifier = Modifier.size(adaptive.helpIconSize),
+                )
+            }
         }
 
         Box(
@@ -964,12 +974,6 @@ private fun CompanionHomeScreen(
                     title = "Map Legend",
                     description = "Open theme legends and reference pages",
                     onClick = onOpenMapLegend,
-                )
-                HomeActionButton(
-                    icon = Icons.AutoMirrored.Filled.MenuBook,
-                    title = "Quick Guide",
-                    description = "Review the companion app workflow",
-                    onClick = onOpenQuickGuide,
                 )
                 HomeActionButton(
                     icon = Icons.Filled.Gavel,
