@@ -421,6 +421,7 @@ internal fun FilePickerQuickGuideDialog(
     var pageIndex by rememberSaveable { mutableStateOf(0) }
     val page = pages[pageIndex]
     val isWelcomePage = mode == QuickGuideMode.GENERAL
+    val dialogTitle = quickGuideDialogTitle(mode)
     val bodyScrollState = rememberScrollState()
     LaunchedEffect(mode, pageIndex) {
         bodyScrollState.scrollTo(0)
@@ -453,12 +454,14 @@ internal fun FilePickerQuickGuideDialog(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Text("Quick guide")
-                        Text(
-                            "Step ${pageIndex + 1} of ${pages.size}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Text(dialogTitle)
+                        if (pages.size > 1) {
+                            Text(
+                                "Step ${pageIndex + 1} of ${pages.size}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -673,6 +676,14 @@ private data class QuickGuidePage(
     val intro: String? = null,
     val lines: List<String>,
 )
+
+private fun quickGuideDialogTitle(mode: QuickGuideMode): String =
+    when (mode) {
+        QuickGuideMode.GENERAL -> "Quick guide"
+        QuickGuideMode.TRANSFER -> "Send to Watch Guide"
+        QuickGuideMode.LIVE_TRACKING -> "Live Tracking Guide"
+        QuickGuideMode.MAP_LEGEND -> "Map Legend Guide"
+    }
 
 private const val GUIDE_TOOLS_ICON_ID = "guide_tools_icon"
 private const val GUIDE_STAY_ICON_ID = "guide_stay_icon"

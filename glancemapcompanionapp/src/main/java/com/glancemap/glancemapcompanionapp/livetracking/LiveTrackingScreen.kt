@@ -42,6 +42,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContactMail
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
@@ -107,7 +108,10 @@ private enum class EmailPickerTarget {
 }
 
 @Composable
-fun LiveTrackingScreen(onBack: () -> Unit) {
+fun LiveTrackingScreen(
+    onBack: () -> Unit,
+    onOpenQuickGuide: () -> Unit,
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val sessionState by LiveTrackingSessionStore.state.collectAsState()
@@ -341,6 +345,7 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                             }
                         },
                         onOpenAbout = { page = LiveTrackingPage.ABOUT },
+                        onOpenGuide = onOpenQuickGuide,
                         isConnected = isConnected,
                         group = group,
                         headerMessage = headerMessage,
@@ -731,6 +736,7 @@ private fun ColumnScope.MainTrackingContent(
     onOpenLogin: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenGuide: () -> Unit,
     isConnected: Boolean,
     group: String,
     headerMessage: String?,
@@ -793,8 +799,18 @@ private fun ColumnScope.MainTrackingContent(
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    imageVector = Icons.Filled.Info,
                     contentDescription = "About / FAQ",
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            FilledTonalIconButton(
+                onClick = onOpenGuide,
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    contentDescription = "Live Tracking Guide",
                     modifier = Modifier.size(20.dp),
                 )
             }

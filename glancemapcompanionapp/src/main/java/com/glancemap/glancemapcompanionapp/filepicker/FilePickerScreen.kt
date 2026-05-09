@@ -522,6 +522,10 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 CompanionHomeArea.LIVE_TRACKING -> {
                     LiveTrackingScreen(
                         onBack = { activeHomeArea = CompanionHomeArea.HOME },
+                        onOpenQuickGuide = {
+                            quickGuideMode = QuickGuideMode.LIVE_TRACKING
+                            showHowToDialog = true
+                        },
                     )
                 }
 
