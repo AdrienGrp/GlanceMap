@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
@@ -27,6 +29,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -419,6 +422,9 @@ internal fun FilePickerQuickGuideDialog(
     val page = pages[pageIndex]
     val isWelcomePage = mode == QuickGuideMode.GENERAL
     val bodyScrollState = rememberScrollState()
+    LaunchedEffect(mode, pageIndex) {
+        bodyScrollState.scrollTo(0)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -465,41 +471,55 @@ internal fun FilePickerQuickGuideDialog(
                         .heightIn(max = adaptive.quickGuideDialogMaxHeight),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Column(
+                Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .weight(1f, fill = false)
-                            .verticalScroll(bodyScrollState),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                            .weight(1f, fill = false),
                 ) {
-                    if (!isWelcomePage) {
-                        Text(
-                            text = page.title,
-                            modifier = Modifier.fillMaxWidth(),
-                            style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Start,
-                        )
-                    }
-                    page.intro?.let { intro ->
-                        Text(
-                            text = intro,
-                            modifier = Modifier.fillMaxWidth(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign =
-                                if (isWelcomePage) {
-                                    TextAlign.Center
-                                } else {
-                                    TextAlign.Start
-                                },
-                        )
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        page.lines.forEach { line ->
-                            quickGuideLineText(line = line)
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(end = 10.dp)
+                                .verticalScroll(bodyScrollState),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (!isWelcomePage) {
+                            Text(
+                                text = page.title,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Start,
+                            )
+                        }
+                        page.intro?.let { intro ->
+                            Text(
+                                text = intro,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign =
+                                    if (isWelcomePage) {
+                                        TextAlign.Center
+                                    } else {
+                                        TextAlign.Start
+                                    },
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            page.lines.forEach { line ->
+                                quickGuideLineText(line = line)
+                            }
                         }
                     }
+                    PageScrollbar(
+                        scrollState = bodyScrollState,
+                        modifier =
+                            Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight(),
+                    )
                 }
                 if (pages.size > 1) {
                     quickGuidePageIndicator(
