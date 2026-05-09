@@ -358,10 +358,9 @@ internal fun FilePickerQuickGuideDialog(
                             lines =
                                 listOf(
                                     "For POI and routing downloads, first choose the area you need.",
-                                    "POI downloads refuges or OSM points of interest.",
+                                    "POI downloads OSM points of interest.",
                                     "Routing downloads BRouter tiles for offline route calculation.",
-                                    "Choose an area on the map, pick a region, or enter a manual BBox.",
-                                    "BBox example: 5.50,45.10,6.50,45.60.",
+                                    "You can choose an area on the map, pick a region.",
                                     "Refresh last import repeats the previous area.",
                                 ),
                         ),
