@@ -335,7 +335,7 @@ class LiveTrackingService : Service() {
                 trackingUrl =
                     getStringExtra(EXTRA_TRACKING_URL)
                         .orEmpty()
-                        .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url },
+                        .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url },
                 updateIntervalSeconds =
                     getIntExtra(
                         EXTRA_UPDATE_INTERVAL_SECONDS,

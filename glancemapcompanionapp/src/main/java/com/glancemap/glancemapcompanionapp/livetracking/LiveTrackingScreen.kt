@@ -116,7 +116,7 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
     var alertEmailAddresses by remember { mutableStateOf(savedSettings.alertEmailAddresses) }
     var stuckAlarmMinutes by remember { mutableStateOf(savedSettings.stuckAlarmMinutes) }
     var comments by remember { mutableStateOf("") }
-    var trackingEndpoint by remember { mutableStateOf(ArkluzTrackingEndpoint.PRODUCTION) }
+    var trackingEndpoint by remember { mutableStateOf(ArkluzTrackingEndpoint.DEVELOPMENT) }
     var updateIntervalSeconds by remember { mutableStateOf(savedSettings.updateIntervalSeconds) }
     var selectedGpxUri by remember { mutableStateOf<Uri?>(null) }
     var selectedGpxName by remember { mutableStateOf("") }
@@ -212,7 +212,9 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                 followerPassword,
                 userName,
                 notificationEmailAddresses,
+                notificationEmailInput,
                 alertEmailAddresses,
+                alertEmailInput,
                 stuckAlarmMinutes,
                 comments,
                 selectedGpxUri,
@@ -228,8 +230,16 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                     participantPassword = participantPassword,
                     followerPassword = followerPassword,
                     userName = userName,
-                    notificationEmails = notificationEmailAddresses.joinToString(","),
-                    alertEmails = alertEmailAddresses.joinToString(","),
+                    notificationEmails =
+                        emailAddressesForRequest(
+                            addresses = notificationEmailAddresses,
+                            pendingInput = notificationEmailInput,
+                        ),
+                    alertEmails =
+                        emailAddressesForRequest(
+                            addresses = alertEmailAddresses,
+                            pendingInput = alertEmailInput,
+                        ),
                     stuckAlarmMinutes = stuckAlarmMinutes,
                     comments = if (planSent) "" else comments,
                     gpxUri = if (planSent) null else selectedGpxUri,
@@ -300,6 +310,10 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                                     participantPassword = participantPassword,
                                     followerPassword = followerPassword,
                                 )
+                                    ?: validatePendingEmailInputs(
+                                        notificationEmailInput = notificationEmailInput,
+                                        alertEmailInput = alertEmailInput,
+                                    )
                             if (validationMessage != null) return@MainTrackingContent
                             isSendingPlan = true
                             sendStatusMessage = "Checking group"
@@ -333,6 +347,10 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                                     followerPassword = followerPassword,
                                     userName = userName,
                                 )
+                                    ?: validatePendingEmailInputs(
+                                        notificationEmailInput = notificationEmailInput,
+                                        alertEmailInput = alertEmailInput,
+                                    )
                             if (!canStart) return@MainTrackingContent
                             if (!hasLocationPermission) {
                                 locationPermissionLauncher.launch(
@@ -534,6 +552,10 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                                     followerPassword = followerPassword,
                                     userName = userName,
                                 )
+                                    ?: validatePendingEmailInputs(
+                                        notificationEmailInput = notificationEmailInput,
+                                        alertEmailInput = alertEmailInput,
+                                    )
                             if (saveSettingsStatusMessage == null) {
                                 isSavingSettings = true
                                 saveSettingsStatusMessage = "Saving settings"
@@ -1489,6 +1511,51 @@ private fun validateStartSettings(
         userName.isBlank() -> "Participant name is required."
         else -> null
     }
+
+private fun validatePendingEmailInputs(
+    notificationEmailInput: String,
+    alertEmailInput: String,
+): String? =
+    validatePendingEmailInput(
+        input = notificationEmailInput,
+        label = "tracking notification email",
+    )
+        ?: validatePendingEmailInput(
+            input = alertEmailInput,
+            label = "alert email",
+        )
+
+private fun validatePendingEmailInput(
+    input: String,
+    label: String,
+): String? {
+    val email = input.normalizedEmailInput()
+    return when {
+        email.isBlank() -> null
+        Patterns.EMAIL_ADDRESS.matcher(email).matches() -> null
+        else -> "Enter a valid $label address."
+    }
+}
+
+private fun emailAddressesForRequest(
+    addresses: List<String>,
+    pendingInput: String,
+): String {
+    val pendingEmail = pendingInput.normalizedEmailInput()
+    val allAddresses =
+        if (
+            pendingEmail.isNotBlank() &&
+            Patterns.EMAIL_ADDRESS.matcher(pendingEmail).matches() &&
+            addresses.none { it.equals(pendingEmail, ignoreCase = true) }
+        ) {
+            addresses + pendingEmail
+        } else {
+            addresses
+        }
+    return allAddresses.joinToString(",")
+}
+
+private fun String.normalizedEmailInput(): String = trim().trimEnd(',', ';').lowercase()
 
 private fun hasLocationPermission(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==

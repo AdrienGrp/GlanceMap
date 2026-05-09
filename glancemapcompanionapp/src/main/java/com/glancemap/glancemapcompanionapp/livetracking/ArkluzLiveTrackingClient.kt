@@ -16,7 +16,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 data class LiveTrackingSettings(
-    val trackingUrl: String = ArkluzTrackingEndpoint.PRODUCTION.url,
+    val trackingUrl: String = ArkluzTrackingEndpoint.DEVELOPMENT.url,
     val updateIntervalSeconds: Int = 60,
     val group: String,
     val participantPassword: String,
@@ -82,7 +82,7 @@ internal class ArkluzLiveTrackingClient(
                 execute(
                     Request
                         .Builder()
-                        .url(settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url })
+                        .url(settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url })
                         .post(body)
                         .build(),
                 )
@@ -97,7 +97,7 @@ internal class ArkluzLiveTrackingClient(
             val url =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "register")
@@ -120,7 +120,7 @@ internal class ArkluzLiveTrackingClient(
             val url =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "check")
@@ -142,7 +142,7 @@ internal class ArkluzLiveTrackingClient(
             val url =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "cleanup")
@@ -164,7 +164,7 @@ internal class ArkluzLiveTrackingClient(
             val urlBuilder =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "check")
@@ -203,7 +203,7 @@ internal class ArkluzLiveTrackingClient(
             val urlBuilder =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("lat", location.latitude.toString())
@@ -231,10 +231,10 @@ internal class ArkluzLiveTrackingClient(
                 urlBuilder.addQueryParameter("alarm", alarm)
             }
             if (start) {
-                urlBuilder.addQueryParameter("start", "1")
+                urlBuilder.addEncodedQueryParameter("start", null)
             }
             if (stop) {
-                urlBuilder.addQueryParameter("stop", "1")
+                urlBuilder.addEncodedQueryParameter("stop", null)
             }
 
             execute(
