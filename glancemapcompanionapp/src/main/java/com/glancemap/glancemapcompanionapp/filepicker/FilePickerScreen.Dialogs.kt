@@ -6,12 +6,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.ViewComfyAlt
@@ -416,6 +418,7 @@ internal fun FilePickerQuickGuideDialog(
     var pageIndex by rememberSaveable { mutableStateOf(0) }
     val page = pages[pageIndex]
     val isWelcomePage = mode == QuickGuideMode.GENERAL
+    val bodyScrollState = rememberScrollState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -459,37 +462,45 @@ internal fun FilePickerQuickGuideDialog(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(if (adaptive.isCompactScreen) 360.dp else 400.dp),
+                        .heightIn(max = adaptive.quickGuideDialogMaxHeight),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                if (!isWelcomePage) {
-                    Text(
-                        text = page.title,
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Start,
-                    )
-                }
-                page.intro?.let { intro ->
-                    Text(
-                        text = intro,
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign =
-                            if (isWelcomePage) {
-                                TextAlign.Center
-                            } else {
-                                TextAlign.Start
-                            },
-                    )
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    page.lines.forEach { line ->
-                        quickGuideLineText(line = line)
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(bodyScrollState),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (!isWelcomePage) {
+                        Text(
+                            text = page.title,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Start,
+                        )
+                    }
+                    page.intro?.let { intro ->
+                        Text(
+                            text = intro,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign =
+                                if (isWelcomePage) {
+                                    TextAlign.Center
+                                } else {
+                                    TextAlign.Start
+                                },
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        page.lines.forEach { line ->
+                            quickGuideLineText(line = line)
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.weight(1f))
                 if (pages.size > 1) {
                     quickGuidePageIndicator(
                         pageCount = pages.size,
