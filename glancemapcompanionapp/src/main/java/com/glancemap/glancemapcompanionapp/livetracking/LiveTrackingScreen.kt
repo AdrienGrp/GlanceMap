@@ -333,8 +333,12 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                         onBack = onBack,
                         onOpenLogin = { page = LiveTrackingPage.LOGIN },
                         onOpenSettings = {
-                            page = LiveTrackingPage.SETTINGS
-                            headerMessage = null
+                            if (isConnected) {
+                                page = LiveTrackingPage.SETTINGS
+                                headerMessage = null
+                            } else {
+                                headerMessage = "Login / Join first to open settings."
+                            }
                         },
                         onOpenAbout = { page = LiveTrackingPage.ABOUT },
                         isConnected = isConnected,
