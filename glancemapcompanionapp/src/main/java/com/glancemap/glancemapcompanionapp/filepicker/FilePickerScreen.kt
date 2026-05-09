@@ -967,7 +967,7 @@ private fun CompanionHomeScreen(
                 HomeActionButton(
                     icon = Icons.Filled.SpatialTracking,
                     title = "Live Tracking",
-                    description = "Share phone GPS updates through Arkluz",
+                    description = "Share your GPS location",
                     onClick = onOpenLiveTracking,
                 )
                 HomeActionButton(
