@@ -390,7 +390,7 @@ internal fun FilePickerQuickGuideDialog(
                 QuickGuideMode.LIVE_TRACKING ->
                     listOf(
                         QuickGuidePage(
-                            title = "Live Tracking",
+                            title = "Get started",
                             intro =
                                 "Live Tracking is provided by Arkluz. GlanceMap acts as the phone interface " +
                                     "to configure it, start/stop tracking, and open/share the track links.",
@@ -401,6 +401,44 @@ internal fun FilePickerQuickGuideDialog(
                                     "Start tracking to begin sending GPS positions from the phone.",
                                     "While tracking is running, use Send to upload a selected GPX or comment.",
                                     "Use View & share tracks to open or share your participant track or the group view.",
+                                ),
+                        ),
+                        QuickGuidePage(
+                            title = "Track links",
+                            lines =
+                                listOf(
+                                    "User view opens only your participant track.",
+                                    "Group view opens the shared group map.",
+                                    "Group view is useful when several participants use the same group, for example during an orienteering event.",
+                                    "The selected participant is highlighted with a position popup.",
+                                ),
+                        ),
+                        QuickGuidePage(
+                            title = "Privacy policy",
+                            lines =
+                                listOf(
+                                    "Tracks and positions are automatically deleted after 7 days.",
+                                    "Email addresses are only used to send notification emails when tracking starts or unexpectedly stops.",
+                                    "Email addresses are not stored.",
+                                    "No data is processed, stored, or shared for any other purpose.",
+                                ),
+                        ),
+                        QuickGuidePage(
+                            title = "Disclaimer",
+                            lines =
+                                listOf(
+                                    "This non-commercial service is provided as-is to help locate participants during sporting activities.",
+                                    "Use it at your own risk; neither the developer nor the hosting provider OVH assumes liability for damages arising from its use.",
+                                    "It does not replace emergency or professional safety measures.",
+                                    "If you need urgent assistance, contact appropriate emergency services.",
+                                ),
+                        ),
+                        QuickGuidePage(
+                            title = "Contact & contributions",
+                            lines =
+                                listOf(
+                                    "Contact: https://arkluz.com/trk?contact",
+                                    "Contributions: Jérôme Seydoux.",
                                 ),
                         ),
                     )

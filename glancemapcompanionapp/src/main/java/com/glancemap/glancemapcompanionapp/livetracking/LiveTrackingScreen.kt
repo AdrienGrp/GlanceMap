@@ -42,7 +42,6 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContactMail
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
@@ -99,7 +98,6 @@ private enum class LiveTrackingPage {
     MAIN,
     LOGIN,
     SETTINGS,
-    ABOUT,
 }
 
 private enum class EmailPickerTarget {
@@ -347,7 +345,6 @@ fun LiveTrackingScreen(
                                 headerMessage = "Login / Join first to open settings."
                             }
                         },
-                        onOpenAbout = { page = LiveTrackingPage.ABOUT },
                         onOpenGuide = onOpenQuickGuide,
                         isConnected = isConnected,
                         group = group,
@@ -721,14 +718,6 @@ fun LiveTrackingScreen(
                         contentSpacing = contentSpacing,
                     )
                 }
-
-                LiveTrackingPage.ABOUT -> {
-                    AboutContent(
-                        onBack = { page = LiveTrackingPage.MAIN },
-                        scrollState = scrollState,
-                        contentSpacing = contentSpacing,
-                    )
-                }
             }
         }
     }
@@ -739,7 +728,6 @@ private fun ColumnScope.MainTrackingContent(
     onBack: () -> Unit,
     onOpenLogin: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenAbout: () -> Unit,
     onOpenGuide: () -> Unit,
     isConnected: Boolean,
     group: String,
@@ -777,16 +765,6 @@ private fun ColumnScope.MainTrackingContent(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            FilledTonalIconButton(
-                onClick = onOpenAbout,
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Info,
-                    contentDescription = "About / FAQ",
-                    modifier = Modifier.size(20.dp),
-                )
-            }
             FilledTonalIconButton(
                 onClick = onOpenGuide,
                 modifier = Modifier.size(36.dp),
@@ -1518,86 +1496,6 @@ private fun formatUpdateInterval(seconds: Int): String {
         "$minutes min"
     } else {
         "$minutes min $remainingSeconds sec"
-    }
-}
-
-@Composable
-private fun ColumnScope.AboutContent(
-    onBack: () -> Unit,
-    scrollState: androidx.compose.foundation.ScrollState,
-    contentSpacing: androidx.compose.ui.unit.Dp,
-) {
-    val context = LocalContext.current
-
-    HeaderRow(onBack = onBack) {
-        Text(
-            text = "About / FAQ",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.weight(1f),
-        )
-    }
-
-    ScrollableScreenContent(
-        scrollState = scrollState,
-        contentSpacing = contentSpacing,
-    ) {
-        TrackingPanel(title = "Service") {
-            Text(
-                text =
-                    "Live Tracking is provided by Arkluz. GlanceMap acts as the phone interface to configure " +
-                        "it, start/stop tracking, and open/share the track links.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-
-        TrackingPanel(title = "Track links") {
-            Text(
-                text =
-                    "Group view opens the shared group map. It is useful when several participants use the " +
-                        "same group, for example during an orienteering event where everyone follows their " +
-                        "own route. The selected participant is highlighted with a position popup.\n\n" +
-                        "User view opens only your participant track.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-
-        TrackingPanel(title = "Privacy policy") {
-            Text(
-                text =
-                    "Tracks and positions are automatically deleted after 7 days. Email addresses are only used " +
-                        "to send a notification email when tracking starts or unexpectedly stops, and they are " +
-                        "not stored. No data is processed, stored or shared, for any other purpose.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-
-        TrackingPanel(title = "Disclaimer") {
-            Text(
-                text =
-                    "This service is provided as a non-commercial, home-grown tool to assist in locating " +
-                        "participants during sporting activities. It is offered \"as is\" without any guarantees " +
-                        "or warranties. Use of this service is at your own risk; neither the developer nor the " +
-                        "hosting provider (OVH) assumes liability for any direct, indirect, incidental, or " +
-                        "consequential damages arising out of its use. This service does not replace emergency " +
-                        "or professional safety measures. If you need urgent assistance, please contact " +
-                        "appropriate emergency services. By using this service, you acknowledge and accept " +
-                        "these terms.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            OutlinedButton(
-                onClick = { openUrl(context = context, url = "https://arkluz.com/trk?contact") },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Contact")
-            }
-        }
-
-        TrackingPanel(title = "Contributions") {
-            Text(
-                text = "Jérôme Seydoux",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
     }
 }
 
