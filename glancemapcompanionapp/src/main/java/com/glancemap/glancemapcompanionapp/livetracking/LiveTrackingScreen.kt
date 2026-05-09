@@ -250,11 +250,11 @@ fun LiveTrackingScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(12.dp),
+                .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        val compact = maxWidth < 420.dp
-        val contentSpacing = if (compact) 8.dp else 10.dp
+        val compact = maxWidth < 420.dp || maxHeight < 760.dp
+        val contentPadding = if (compact) 6.dp else 12.dp
+        val contentSpacing = if (compact) 6.dp else 10.dp
         val scrollState = rememberScrollState()
         val settings =
             remember(
@@ -328,7 +328,10 @@ fun LiveTrackingScreen(
                 userName.isNotBlank()
 
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding),
             verticalArrangement = Arrangement.spacedBy(contentSpacing),
         ) {
             when (page) {
@@ -433,6 +436,7 @@ fun LiveTrackingScreen(
                         userTrackUrl = userTrackUrl,
                         scrollState = scrollState,
                         contentSpacing = contentSpacing,
+                        isCompactLayout = compact,
                     )
                 }
 
@@ -759,6 +763,7 @@ private fun ColumnScope.MainTrackingContent(
     userTrackUrl: String,
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
+    isCompactLayout: Boolean,
 ) {
     val context = LocalContext.current
 
@@ -827,7 +832,7 @@ private fun ColumnScope.MainTrackingContent(
                 onValueChange = onCommentsChange,
                 label = { Text("Comments") },
                 placeholder = { Text("Estimated time of arrival") },
-                minLines = 4,
+                minLines = if (isCompactLayout) 2 else 4,
                 modifier = Modifier.fillMaxWidth(),
             )
             if (showSendPlan) {
@@ -927,7 +932,11 @@ private fun ColumnScope.MainTrackingContent(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Button(onClick = onOpenLogin, modifier = Modifier.weight(1f)) {
-            Text(if (isConnected) group.ifBlank { "Connected" } else "Login / Join")
+            Text(
+                text = if (isConnected) group.ifBlank { "Connected" } else "Login / Join",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         OutlinedButton(
             onClick = onOpenSettings,
@@ -947,6 +956,8 @@ private fun ColumnScope.MainTrackingContent(
             Spacer(modifier = Modifier.size(6.dp))
             Text(
                 text = "Settings",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 color =
                     if (isConnected) {
                         MaterialTheme.colorScheme.primary
