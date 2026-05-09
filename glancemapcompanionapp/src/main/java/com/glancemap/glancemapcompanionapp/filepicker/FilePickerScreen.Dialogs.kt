@@ -335,7 +335,12 @@ internal fun FilePickerQuickGuideDialog(
                             lines =
                                 listOf(
                                     "Use 1. Download to get Mapsforge OSM .map, POI, GPX, or routing files.",
-                                    "Tap 2. Select file(s) to add .map, .poi, .gpx, .rd5, or DEM .hgt files from the phone.",
+                                    "Tap 2. Select file(s) to add files from the phone:",
+                                    ".map = offline map",
+                                    ".poi = points of interest",
+                                    ".gpx = route/track",
+                                    ".rd5 = offline routing tile",
+                                    ".hgt = elevation data for hill shading / slope",
                                 ),
                         ),
                         QuickGuidePage(
@@ -448,7 +453,7 @@ internal fun FilePickerQuickGuideDialog(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(if (adaptive.isCompactScreen) 220.dp else 260.dp),
+                        .height(if (adaptive.isCompactScreen) 300.dp else 340.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (!isWelcomePage) {
