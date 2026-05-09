@@ -839,6 +839,7 @@ private fun ColumnScope.MainTrackingContent(
                 value = comments,
                 onValueChange = onCommentsChange,
                 label = { Text("Comments") },
+                placeholder = { Text("Estimated time of arrival") },
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth(),
             )
