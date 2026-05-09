@@ -890,9 +890,7 @@ private fun CompanionHomeScreen(
     Column(
         modifier =
             Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(adaptive.sectionGap),
+                .fillMaxSize(),
     ) {
         Row(
             modifier =
@@ -942,70 +940,86 @@ private fun CompanionHomeScreen(
             Spacer(modifier = Modifier.size(adaptive.helpIconButtonSize))
         }
 
-        Button(
-            onClick = onOpenSendToWatch,
+        Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 72.dp),
+                    .weight(1f),
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.SendToMobile,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(modifier = Modifier.width(10.dp))
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(adaptive.sectionGap),
             ) {
-                Text(
-                    text = "Send to Watch",
-                    style = MaterialTheme.typography.titleMedium,
+                Button(
+                    onClick = onOpenSendToWatch,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 72.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.SendToMobile,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = "Send to Watch",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "Maps, GPX, POI and routing files",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+
+                HomeActionButton(
+                    icon = Icons.Filled.SpatialTracking,
+                    title = "Live Tracking",
+                    description = "Share phone GPS updates through Arkluz",
+                    onClick = onOpenLiveTracking,
                 )
-                Text(
-                    text = "Maps, GPX, POI and routing files",
-                    style = MaterialTheme.typography.bodySmall,
+                HomeActionButton(
+                    icon = Icons.Filled.Map,
+                    title = "Map Legend",
+                    description = "Open theme legends and reference pages",
+                    onClick = onOpenMapLegend,
                 )
+                HomeActionButton(
+                    icon = Icons.AutoMirrored.Filled.MenuBook,
+                    title = "Quick Guide",
+                    description = "Review the companion app workflow",
+                    onClick = onOpenQuickGuide,
+                )
+                HomeActionButton(
+                    icon = Icons.Filled.Gavel,
+                    title = "Credits & Legal",
+                    description = "Privacy, licences and acknowledgements",
+                    onClick = onOpenCreditsLegal,
+                )
+
+                SectionCard(
+                    title = "Contributions",
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text =
+                            "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, " +
+                                "OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-        }
-
-        HomeActionButton(
-            icon = Icons.Filled.SpatialTracking,
-            title = "Live Tracking",
-            description = "Share phone GPS updates through Arkluz",
-            onClick = onOpenLiveTracking,
-        )
-        HomeActionButton(
-            icon = Icons.Filled.Map,
-            title = "Map Legend",
-            description = "Open theme legends and reference pages",
-            onClick = onOpenMapLegend,
-        )
-        HomeActionButton(
-            icon = Icons.AutoMirrored.Filled.MenuBook,
-            title = "Quick Guide",
-            description = "Review the companion app workflow",
-            onClick = onOpenQuickGuide,
-        )
-        HomeActionButton(
-            icon = Icons.Filled.Gavel,
-            title = "Credits & Legal",
-            description = "Privacy, licences and acknowledgements",
-            onClick = onOpenCreditsLegal,
-        )
-
-        SectionCard(
-            title = "Contributions",
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text =
-                    "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, " +
-                        "OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
