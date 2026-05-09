@@ -805,7 +805,11 @@ fun NavigateScreen(
                 poiViewModel.clearOfflinePoiSearch()
             }
             shortcutTrayExpanded -> shortcutTrayExpanded = false
-            else -> Unit
+            else -> {
+                // Samsung Galaxy Watch can route the physical Back button here when users set it
+                // to "Go to previous screen"; make it a hardware shortcut to the existing menu.
+                onMenuClick()
+            }
         }
     }
 
