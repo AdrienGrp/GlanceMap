@@ -1,10 +1,12 @@
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.ContactsContract
 import android.util.Patterns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpCenter
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContactMail
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
@@ -53,6 +56,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -97,6 +101,11 @@ private enum class LiveTrackingPage {
     ABOUT,
 }
 
+private enum class EmailPickerTarget {
+    NOTIFICATION,
+    ALERT,
+}
+
 @Composable
 fun LiveTrackingScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -135,6 +144,7 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
     var deleteTracksStatusMessage by remember { mutableStateOf<String?>(null) }
     var isDeletingTracks by remember { mutableStateOf(false) }
     var planSent by remember { mutableStateOf(false) }
+    var emailPickerTarget by remember { mutableStateOf<EmailPickerTarget?>(null) }
 
     val gpxPicker =
         rememberLauncherForActivityResult(
@@ -151,6 +161,43 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
             selectedGpxName = resolveUriDisplayName(context, uri).ifBlank { "Selected GPX" }
             planSent = false
             sendStatusMessage = null
+        }
+    val contactEmailPicker =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            val target = emailPickerTarget
+            emailPickerTarget = null
+            if (result.resultCode != Activity.RESULT_OK || target == null) return@rememberLauncherForActivityResult
+            val email =
+                result.data
+                    ?.data
+                    ?.let { uri -> resolveSelectedContactEmail(context, uri) }
+            if (email.isNullOrBlank()) {
+                saveSettingsStatusMessage = "No email address selected"
+                return@rememberLauncherForActivityResult
+            }
+            when (target) {
+                EmailPickerTarget.NOTIFICATION -> {
+                    if (notificationEmailAddresses.any { it.equals(email, ignoreCase = true) }) {
+                        saveSettingsStatusMessage = "Email already added"
+                    } else {
+                        notificationEmailAddresses = notificationEmailAddresses + email
+                        notificationEmailInput = ""
+                        saveSettingsStatusMessage = null
+                    }
+                }
+
+                EmailPickerTarget.ALERT -> {
+                    if (alertEmailAddresses.any { it.equals(email, ignoreCase = true) }) {
+                        saveSettingsStatusMessage = "Email already added"
+                    } else {
+                        alertEmailAddresses = alertEmailAddresses + email
+                        alertEmailInput = ""
+                        saveSettingsStatusMessage = null
+                    }
+                }
+            }
         }
     val locationPermissionLauncher =
         rememberLauncherForActivityResult(
@@ -520,6 +567,15 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                             notificationEmailAddresses = notificationEmailAddresses - email
                             saveSettingsStatusMessage = null
                         },
+                        onPickNotificationEmailFromContacts = {
+                            emailPickerTarget = EmailPickerTarget.NOTIFICATION
+                            runCatching {
+                                contactEmailPicker.launch(contactEmailPickerIntent())
+                            }.onFailure {
+                                emailPickerTarget = null
+                                saveSettingsStatusMessage = "No contacts app found"
+                            }
+                        },
                         alertEmailInput = alertEmailInput,
                         onAlertEmailInputChange = {
                             alertEmailInput = it
@@ -533,6 +589,15 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                         onAlertEmailRemove = { email ->
                             alertEmailAddresses = alertEmailAddresses - email
                             saveSettingsStatusMessage = null
+                        },
+                        onPickAlertEmailFromContacts = {
+                            emailPickerTarget = EmailPickerTarget.ALERT
+                            runCatching {
+                                contactEmailPicker.launch(contactEmailPickerIntent())
+                            }.onFailure {
+                                emailPickerTarget = null
+                                saveSettingsStatusMessage = "No contacts app found"
+                            }
                         },
                         stuckAlarmMinutes = stuckAlarmMinutes,
                         onStuckAlarmMinutesChange = { value ->
@@ -999,11 +1064,13 @@ private fun ColumnScope.SettingsContent(
     notificationEmailAddresses: List<String>,
     onNotificationEmailAdd: (String) -> Unit,
     onNotificationEmailRemove: (String) -> Unit,
+    onPickNotificationEmailFromContacts: () -> Unit,
     alertEmailInput: String,
     onAlertEmailInputChange: (String) -> Unit,
     alertEmailAddresses: List<String>,
     onAlertEmailAdd: (String) -> Unit,
     onAlertEmailRemove: (String) -> Unit,
+    onPickAlertEmailFromContacts: () -> Unit,
     stuckAlarmMinutes: String,
     onStuckAlarmMinutesChange: (String) -> Unit,
     updateIntervalSeconds: Int,
@@ -1073,6 +1140,7 @@ private fun ColumnScope.SettingsContent(
                 addresses = notificationEmailAddresses,
                 onAdd = onNotificationEmailAdd,
                 onRemove = onNotificationEmailRemove,
+                onPickFromContacts = onPickNotificationEmailFromContacts,
             )
             EmailAddressInput(
                 label = "Also send alerts to",
@@ -1081,6 +1149,7 @@ private fun ColumnScope.SettingsContent(
                 addresses = alertEmailAddresses,
                 onAdd = onAlertEmailAdd,
                 onRemove = onAlertEmailRemove,
+                onPickFromContacts = onPickAlertEmailFromContacts,
             )
             NoMovementAlertInput(
                 minutes = stuckAlarmMinutes,
@@ -1258,6 +1327,7 @@ private fun EmailAddressInput(
     addresses: List<String>,
     onAdd: (String) -> Unit,
     onRemove: (String) -> Unit,
+    onPickFromContacts: () -> Unit,
 ) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -1290,6 +1360,14 @@ private fun EmailAddressInput(
                 errorMessage = null
             },
             label = { Text(label) },
+            trailingIcon = {
+                IconButton(onClick = onPickFromContacts) {
+                    Icon(
+                        imageVector = Icons.Filled.ContactMail,
+                        contentDescription = "Pick email from contacts",
+                    )
+                }
+            },
             supportingText = errorMessage?.let { message -> { Text(message) } },
             isError = errorMessage != null,
             singleLine = true,
@@ -1776,6 +1854,32 @@ private fun openUrl(
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 }
+
+private fun contactEmailPickerIntent(): Intent =
+    Intent(
+        Intent.ACTION_PICK,
+        ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+    )
+
+private fun resolveSelectedContactEmail(
+    context: Context,
+    uri: Uri,
+): String? =
+    context.contentResolver
+        .query(
+            uri,
+            arrayOf(ContactsContract.CommonDataKinds.Email.ADDRESS),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            cursor
+                .getString(0)
+                ?.trim()
+                ?.lowercase()
+                ?.takeIf { Patterns.EMAIL_ADDRESS.matcher(it).matches() }
+        }
 
 private fun shareUrl(
     context: Context,
