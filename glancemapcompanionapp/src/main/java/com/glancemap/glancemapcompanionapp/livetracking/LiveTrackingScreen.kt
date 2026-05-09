@@ -1144,7 +1144,7 @@ private fun ColumnScope.SettingsContent(
                 onPickFromContacts = onPickNotificationEmailFromContacts,
             )
             EmailAddressInput(
-                label = "Also send alerts to",
+                label = "Send only alerts to",
                 input = alertEmailInput,
                 onInputChange = onAlertEmailInputChange,
                 addresses = alertEmailAddresses,
