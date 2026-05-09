@@ -391,7 +391,9 @@ internal fun FilePickerQuickGuideDialog(
                     listOf(
                         QuickGuidePage(
                             title = "Live Tracking",
-                            intro = "Use Live Tracking to share your phone GPS location through Arkluz.",
+                            intro =
+                                "Live Tracking is provided by Arkluz. GlanceMap acts as the phone interface " +
+                                    "to configure it, start/stop tracking, and open/share the track links.",
                             lines =
                                 listOf(
                                     "Login or join a group before opening settings or starting a session.",
@@ -422,6 +424,13 @@ internal fun FilePickerQuickGuideDialog(
     val page = pages[pageIndex]
     val isWelcomePage = mode == QuickGuideMode.GENERAL
     val dialogTitle = quickGuideDialogTitle(mode)
+    val showBodyTitle = !isWelcomePage && pages.size > 1
+    val titleHeight =
+        when {
+            isWelcomePage -> 72.dp
+            pages.size > 1 -> 72.dp
+            else -> 48.dp
+        }
     val bodyScrollState = rememberScrollState()
     LaunchedEffect(mode, pageIndex) {
         bodyScrollState.scrollTo(0)
@@ -434,7 +443,7 @@ internal fun FilePickerQuickGuideDialog(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(72.dp),
+                        .height(titleHeight),
                 contentAlignment =
                     if (isWelcomePage) {
                         Alignment.TopCenter
@@ -488,7 +497,7 @@ internal fun FilePickerQuickGuideDialog(
                                 .verticalScroll(bodyScrollState),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        if (!isWelcomePage) {
+                        if (showBodyTitle) {
                             Text(
                                 text = page.title,
                                 modifier = Modifier.fillMaxWidth(),

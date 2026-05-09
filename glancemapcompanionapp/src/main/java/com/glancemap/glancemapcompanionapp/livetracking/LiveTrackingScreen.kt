@@ -1541,6 +1541,15 @@ private fun ColumnScope.AboutContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
+        TrackingPanel(title = "Service") {
+            Text(
+                text =
+                    "Live Tracking is provided by Arkluz. GlanceMap acts as the phone interface to configure " +
+                        "it, start/stop tracking, and open/share the track links.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+
         TrackingPanel(title = "Track links") {
             Text(
                 text =
