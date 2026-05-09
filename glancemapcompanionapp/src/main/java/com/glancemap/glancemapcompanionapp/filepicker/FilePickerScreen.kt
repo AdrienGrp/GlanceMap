@@ -1006,19 +1006,6 @@ private fun CompanionHomeScreen(
                     description = "Privacy, licences and acknowledgements",
                     onClick = onOpenCreditsLegal,
                 )
-
-                SectionCard(
-                    title = "Contributions",
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        text =
-                            "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, " +
-                                "OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
         }
     }
