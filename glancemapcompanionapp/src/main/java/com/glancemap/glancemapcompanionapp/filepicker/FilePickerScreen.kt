@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpCenter
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.SendToMobile
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Gavel
@@ -582,8 +583,8 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                             modifier = Modifier.size(adaptive.helpIconButtonSize),
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.HelpCenter,
-                                contentDescription = "Help",
+                                imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                                contentDescription = "Quick Guide",
                                 modifier = Modifier.size(adaptive.helpIconSize),
                             )
                         }
@@ -914,7 +915,7 @@ private fun CompanionHomeScreen(
                 modifier = Modifier.size(adaptive.helpIconButtonSize),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.HelpCenter,
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = "Quick Guide",
                     modifier = Modifier.size(adaptive.helpIconSize),
                 )
