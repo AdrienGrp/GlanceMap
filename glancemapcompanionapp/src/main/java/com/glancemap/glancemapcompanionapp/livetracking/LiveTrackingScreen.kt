@@ -38,7 +38,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.HelpCenter
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContactMail
 import androidx.compose.material.icons.filled.Delete
@@ -789,7 +789,7 @@ private fun ColumnScope.MainTrackingContent(
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.HelpCenter,
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = "About / FAQ",
                     modifier = Modifier.size(20.dp),
                 )
