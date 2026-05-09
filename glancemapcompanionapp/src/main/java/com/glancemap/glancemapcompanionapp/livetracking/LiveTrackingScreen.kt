@@ -267,7 +267,9 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                 )
             }
         val isConnected = followerPassword.isNotBlank()
-        val canSendPlan = (selectedGpxUri != null || comments.isNotBlank()) && isConnected
+        val hasPlanContent = selectedGpxUri != null || comments.isNotBlank()
+        val showSendPlan = sessionState.isTracking && hasPlanContent
+        val canSendPlan = showSendPlan && isConnected
         val canStart =
             group.isNotBlank() &&
                 participantPassword.isNotBlank() &&
@@ -301,9 +303,14 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
                         onPickGpx = {
                             gpxPicker.launch(arrayOf("application/gpx+xml", "text/xml", "*/*"))
                         },
+                        showSendPlan = showSendPlan,
                         canSendPlan = canSendPlan,
                         isSendingPlan = isSendingPlan,
                         onSendPlan = {
+                            if (!sessionState.isTracking) {
+                                sendStatusMessage = "Start live tracking before sending a route or comment."
+                                return@MainTrackingContent
+                            }
                             validationMessage =
                                 validateAccountSettings(
                                     group = group,
@@ -662,6 +669,7 @@ private fun ColumnScope.MainTrackingContent(
     comments: String,
     onCommentsChange: (String) -> Unit,
     onPickGpx: () -> Unit,
+    showSendPlan: Boolean,
     canSendPlan: Boolean,
     isSendingPlan: Boolean,
     onSendPlan: () -> Unit,
@@ -769,12 +777,14 @@ private fun ColumnScope.MainTrackingContent(
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Button(
-                onClick = onSendPlan,
-                enabled = canSendPlan && !isSendingPlan,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (isSendingPlan) "Sending" else "Send")
+            if (showSendPlan) {
+                Button(
+                    onClick = onSendPlan,
+                    enabled = canSendPlan && !isSendingPlan,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (isSendingPlan) "Sending" else "Send")
+                }
             }
             sendStatusMessage?.let { message ->
                 Text(

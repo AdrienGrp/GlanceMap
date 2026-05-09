@@ -209,8 +209,9 @@ internal class ArkluzLiveTrackingClient(
                     .addQueryParameter("lat", location.latitude.toString())
                     .addQueryParameter("lon", location.longitude.toString())
                     .addQueryParameter("acc", location.accuracy.toString())
-                    .addQueryParameter("time", location.time.toString())
+                    .addQueryParameter("time", (location.time / 1000L).toString())
                     .addQueryParameter("battery", batteryPercent().toString())
+                    .addQueryParameter("gsm_signal", gsmSignalPercent().toString())
                     .addQueryParameter("group", settings.group.trim())
                     .addQueryParameter("pass", settings.participantPassword.trim())
                     .addQueryParameter("user", settings.userName.trim())
@@ -284,6 +285,8 @@ internal class ArkluzLiveTrackingClient(
         val batteryManager = appContext.getSystemService(BatteryManager::class.java)
         return batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
     }
+
+    private fun gsmSignalPercent(): Int = -1
 }
 
 data class ArkluzServerResult(

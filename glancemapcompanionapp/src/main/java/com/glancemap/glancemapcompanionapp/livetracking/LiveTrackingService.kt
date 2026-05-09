@@ -117,20 +117,6 @@ class LiveTrackingService : Service() {
                     }.isSuccess
             if (!groupReady) return@launch
 
-            if (settings.gpxUri != null || settings.comments.isNotBlank()) {
-                LiveTrackingSessionStore.setStatus("Uploading planned route")
-                updateNotification("Uploading planned route")
-                runCatching { arkluzClient.uploadPlannedRoute(settings) }
-                    .onSuccess { result ->
-                        val message = result.message.takeIf { it.isNotBlank() } ?: "Planned route sent"
-                        LiveTrackingSessionStore.setStatus(message)
-                        updateNotification(message)
-                    }.onFailure { error ->
-                        LiveTrackingSessionStore.setError(
-                            "Planned route send failed: ${error.message ?: "unknown error"}",
-                        )
-                    }
-            }
             runCatching {
                 LiveTrackingSessionStore.setStatus("Waiting for GPS fix")
                 updateNotification("Waiting for GPS fix")
