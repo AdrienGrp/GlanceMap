@@ -919,7 +919,7 @@ private fun ColumnScope.MainTrackingContent(
             }
         }
 
-        TrackingPanel(title = "Today's tracks") {
+        TrackingPanel(title = "View & share tracks") {
             TrackLinkRow(
                 label = "Group",
                 url = groupTrackUrl,
