@@ -765,35 +765,13 @@ private fun ColumnScope.MainTrackingContent(
     HeaderRow(
         onBack = onBack,
         actions = {
-            Button(onClick = onOpenLogin, modifier = Modifier.weight(1f)) {
-                Text(if (isConnected) group.ifBlank { "Connected" } else "Login / Join")
-            }
-            OutlinedButton(
-                onClick = onOpenSettings,
+            Text(
+                text = "Live Tracking",
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Settings,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint =
-                        if (isConnected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-                Spacer(modifier = Modifier.size(6.dp))
-                Text(
-                    text = "Settings",
-                    color =
-                        if (isConnected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
+            )
             FilledTonalIconButton(
                 onClick = onOpenAbout,
                 modifier = Modifier.size(36.dp),
@@ -816,17 +794,6 @@ private fun ColumnScope.MainTrackingContent(
             }
         },
     )
-    headerMessage?.let { message ->
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 44.dp),
-        )
-    }
 
     ScrollableScreenContent(
         scrollState = scrollState,
@@ -953,6 +920,49 @@ private fun ColumnScope.MainTrackingContent(
                 onShare = { shareUrl(context, groupTrackUrl) },
             )
         }
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button(onClick = onOpenLogin, modifier = Modifier.weight(1f)) {
+            Text(if (isConnected) group.ifBlank { "Connected" } else "Login / Join")
+        }
+        OutlinedButton(
+            onClick = onOpenSettings,
+            modifier = Modifier.weight(1f),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Settings,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint =
+                    if (isConnected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+            Spacer(modifier = Modifier.size(6.dp))
+            Text(
+                text = "Settings",
+                color =
+                    if (isConnected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+        }
+    }
+    headerMessage?.let { message ->
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
