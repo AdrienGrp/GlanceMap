@@ -157,10 +157,6 @@ private fun CreditsAndLegalScreen(
 @Composable
 private fun CreditsAndLegalIntro(versionLabel: String) {
     Text(
-        text = "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
-        style = MaterialTheme.typography.bodyMedium,
-    )
-    Text(
         text = versionLabel,
         style = MaterialTheme.typography.bodySmall,
     )

@@ -35,33 +35,36 @@ This page is the user-friendly credit summary for the main projects and communit
    - Website: https://voluntary.nichesite.org/
    - Credits: https://voluntary.nichesite.org/credits.html
 
-8. OpenStreetMap contributors
+8. OS Map theme
+   - Additional bundled Mapsforge theme.
+
+9. OpenStreetMap contributors
    - Map data attribution:
    - `Map data (c) OpenStreetMap contributors`
    - Copyright/licensing page: https://www.openstreetmap.org/copyright
 
-9. Refuges.info
+10. Refuges.info
    - Refuge and mountain POI data imports in the companion app.
    - Attribution: `© Les contributeurs de Refuges.info`
    - Website: https://www.refuges.info/
 
-10. Overpass API / OpenStreetMap community
+11. Overpass API / OpenStreetMap community
    - OSM POI enrichment for some imports.
    - API endpoint used: https://overpass-api.de/api/interpreter
 
-11. Mapsforge project
+12. Mapsforge project
    - Core offline map rendering stack in the watch app.
    - Project: https://github.com/mapsforge/mapsforge
 
-12. MapLibre Native
+13. MapLibre Native
    - Native online map picker used by the companion app for area and routing-tile selection.
    - Project: https://github.com/maplibre/maplibre-native
 
-13. BRouter (Arndt Brenschede and contributors)
+14. BRouter (Arndt Brenschede and contributors)
    - Offline routing engine used by the watch app, with routing packs downloaded by the companion app.
    - Project: https://github.com/abrensch/brouter
 
-14. Mapbox Maki icons
+15. Mapbox Maki icons
    - Build-time POI icon source.
    - Project: https://github.com/mapbox/maki
 
