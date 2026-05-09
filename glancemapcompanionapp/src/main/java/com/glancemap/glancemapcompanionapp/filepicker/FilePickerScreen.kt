@@ -483,8 +483,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 CompanionHomeArea.HOME -> {
                     CompanionHomeScreen(
                         adaptive = adaptive,
-                        debugCaptureActive = debugCaptureState.active,
-                        onOpenDebug = { showDebugDialog = true },
                         onOpenSendToWatch = { activeHomeArea = CompanionHomeArea.SEND_TO_WATCH },
                         onOpenLiveTracking = { activeHomeArea = CompanionHomeArea.LIVE_TRACKING },
                         onOpenMapLegend = { activeHomeArea = CompanionHomeArea.MAP_LEGEND },
@@ -877,8 +875,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
 @Composable
 private fun CompanionHomeScreen(
     adaptive: CompanionAdaptiveSpec,
-    debugCaptureActive: Boolean,
-    onOpenDebug: () -> Unit,
     onOpenSendToWatch: () -> Unit,
     onOpenLiveTracking: () -> Unit,
     onOpenMapLegend: () -> Unit,
@@ -900,30 +896,6 @@ private fun CompanionHomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            FilledTonalIconButton(
-                onClick = onOpenDebug,
-                modifier = Modifier.size(adaptive.helpIconButtonSize),
-                colors =
-                    IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor =
-                            if (debugCaptureActive) {
-                                MaterialTheme.colorScheme.errorContainer
-                            } else {
-                                MaterialTheme.colorScheme.secondaryContainer
-                            },
-                    ),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.BugReport,
-                    contentDescription =
-                        if (debugCaptureActive) {
-                            "Stop phone debug capture"
-                        } else {
-                            "Start phone debug capture"
-                        },
-                    modifier = Modifier.size(adaptive.helpIconSize),
-                )
-            }
             Text(
                 text = "GlanceMap Companion",
                 style =
@@ -935,9 +907,8 @@ private fun CompanionHomeScreen(
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(modifier = Modifier.size(adaptive.helpIconButtonSize))
         }
 
         Box(
