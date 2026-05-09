@@ -51,6 +51,7 @@ import kotlinx.coroutines.withContext
 internal enum class QuickGuideMode {
     GENERAL,
     TRANSFER,
+    LIVE_TRACKING,
     MAP_LEGEND,
 }
 
@@ -322,6 +323,7 @@ internal fun FilePickerQuickGuideDialog(
                                     "This phone app is necessary to send maps, routes, POI, and GPX files to your watch.",
                                     "Once files are on the watch, GlanceMap can work offline without the phone.",
                                     "For battery saving, keeping phone and watch connected is still recommended.",
+                                    "Tap the book icon in the top-right corner of each main area to open its quick guide again.",
                                 ),
                         ),
                     )
@@ -365,6 +367,22 @@ internal fun FilePickerQuickGuideDialog(
                                     "If it stops, send the same file again; it usually resumes " +
                                         "from the partial file already on the watch.",
                                     "Open History to see each transfer status.",
+                                ),
+                        ),
+                    )
+
+                QuickGuideMode.LIVE_TRACKING ->
+                    listOf(
+                        QuickGuidePage(
+                            title = "Live Tracking",
+                            intro = "Use Live Tracking to share your phone GPS location through Arkluz.",
+                            lines =
+                                listOf(
+                                    "Login or join a group before opening settings or starting a session.",
+                                    "Choose a participant name, GPS update frequency, alert emails, and no-movement alert settings.",
+                                    "Start tracking to begin sending GPS positions from the phone.",
+                                    "While tracking is running, use Send to upload a selected GPX or comment.",
+                                    "Use View & share tracks to open or share your participant track or the group view.",
                                 ),
                         ),
                     )

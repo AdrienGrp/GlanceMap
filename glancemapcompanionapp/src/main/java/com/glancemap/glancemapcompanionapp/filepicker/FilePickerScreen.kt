@@ -16,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.HelpCenter
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.SendToMobile
 import androidx.compose.material.icons.filled.BugReport
@@ -350,6 +349,30 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
         viewModel.loadRefugesDefaults(context)
         if (!autoOpenHelpOnFirstLaunch) {
             requestMissingPermissions()
+        }
+    }
+
+    LaunchedEffect(activeHomeArea) {
+        when (activeHomeArea) {
+            CompanionHomeArea.SEND_TO_WATCH -> {
+                if (shouldAutoOpenSendToWatchGuide(context)) {
+                    markSendToWatchGuideShown(context)
+                    quickGuideMode = QuickGuideMode.TRANSFER
+                    showHowToDialog = true
+                }
+            }
+
+            CompanionHomeArea.LIVE_TRACKING -> {
+                if (shouldAutoOpenLiveTrackingGuide(context)) {
+                    markLiveTrackingGuideShown(context)
+                    quickGuideMode = QuickGuideMode.LIVE_TRACKING
+                    showHowToDialog = true
+                }
+            }
+
+            CompanionHomeArea.HOME,
+            CompanionHomeArea.MAP_LEGEND,
+            -> Unit
         }
     }
 
@@ -1081,8 +1104,8 @@ private fun CompanionMapLegendScreen(
                 modifier = Modifier.size(adaptive.helpIconButtonSize),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.HelpCenter,
-                    contentDescription = "Help",
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    contentDescription = "Quick Guide",
                     modifier = Modifier.size(adaptive.helpIconSize),
                 )
             }
