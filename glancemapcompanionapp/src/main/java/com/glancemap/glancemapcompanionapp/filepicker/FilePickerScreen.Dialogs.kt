@@ -357,11 +357,12 @@ internal fun FilePickerQuickGuideDialog(
                             title = "POI & routing areas",
                             lines =
                                 listOf(
-                                    "Use POI for Refuges / OSM, Routing for BRouter packs.",
-                                    "Use the map picker to select a POI area, or the tile picker for BRouter routing packs.",
-                                    "You can also choose a region or enter a manual BBox.",
-                                    "BBox format: west,south,east,north. Example: 5.50,45.10,6.50,45.60.",
-                                    "Use Refresh last import to update the same area later without choosing it again.",
+                                    "For POI and routing downloads, first choose the area you need.",
+                                    "POI downloads refuges or OSM points of interest.",
+                                    "Routing downloads BRouter tiles for offline route calculation.",
+                                    "Choose an area on the map, pick a region, or enter a manual BBox.",
+                                    "BBox example: 5.50,45.10,6.50,45.60.",
+                                    "Refresh last import repeats the previous area.",
                                 ),
                         ),
                         QuickGuidePage(
@@ -371,7 +372,7 @@ internal fun FilePickerQuickGuideDialog(
                                     "Tap Send and keep phone and watch close until it finishes.",
                                     "If it stops, send the same file again; it usually resumes " +
                                         "from the partial file already on the watch.",
-                                    "Open History to see each transfer status.",
+                                    "History shows each transfer status.",
                                 ),
                         ),
                     )
