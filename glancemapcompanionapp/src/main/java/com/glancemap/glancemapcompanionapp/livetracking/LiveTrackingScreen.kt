@@ -315,8 +315,8 @@ fun LiveTrackingScreen(onBack: () -> Unit) {
             }
         val isConnected = followerPassword.isNotBlank()
         val hasPlanContent = selectedGpxUri != null || comments.isNotBlank()
-        val showSendPlan = sessionState.isTracking && hasPlanContent
-        val canSendPlan = showSendPlan && isConnected
+        val showSendPlan = sessionState.isTracking
+        val canSendPlan = showSendPlan && hasPlanContent && isConnected
         val canStart =
             group.isNotBlank() &&
                 participantPassword.isNotBlank() &&
