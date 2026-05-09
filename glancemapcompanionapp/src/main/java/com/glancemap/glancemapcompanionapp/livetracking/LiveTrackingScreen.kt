@@ -1201,6 +1201,11 @@ private fun ColumnScope.SettingsContent(
                 Spacer(modifier = Modifier.size(6.dp))
                 Text(if (isDeletingTracks) "Deleting" else "Delete recorded tracks")
             }
+            Text(
+                text = "Tracks are automatically deleted from the server every 7 days.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             deleteTracksStatusMessage?.let { message ->
                 Text(
                     text = message,
