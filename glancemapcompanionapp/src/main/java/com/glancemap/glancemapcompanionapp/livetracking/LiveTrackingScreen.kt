@@ -921,16 +921,16 @@ private fun ColumnScope.MainTrackingContent(
 
         TrackingPanel(title = "View & share tracks") {
             TrackLinkRow(
-                label = "Group",
-                url = groupTrackUrl,
-                onView = { openUrl(context, groupTrackUrl) },
-                onShare = { shareUrl(context, groupTrackUrl) },
-            )
-            TrackLinkRow(
                 label = userName.trim().ifBlank { "Participant" },
                 url = userTrackUrl,
                 onView = { openUrl(context, userTrackUrl) },
                 onShare = { shareUrl(context, userTrackUrl) },
+            )
+            TrackLinkRow(
+                label = "Group",
+                url = groupTrackUrl,
+                onView = { openUrl(context, groupTrackUrl) },
+                onShare = { shareUrl(context, groupTrackUrl) },
             )
         }
     }
