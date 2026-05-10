@@ -130,6 +130,7 @@ fun LiveTrackingScreen(
     val sessionState by LiveTrackingSessionStore.state.collectAsState()
     val savedSettings = remember(context) { LiveTrackingPreferences.load(context) }
     var page by remember { mutableStateOf(LiveTrackingPage.MAIN) }
+    var loginReturnPage by remember { mutableStateOf(LiveTrackingPage.MAIN) }
     var group by remember { mutableStateOf(savedSettings.group) }
     var participantPassword by remember { mutableStateOf(savedSettings.participantPassword) }
     var followerPassword by remember { mutableStateOf(savedSettings.followerPassword) }
@@ -462,6 +463,10 @@ fun LiveTrackingScreen(
             requestLeaveSettings()
         }
 
+        BackHandler(enabled = page == LiveTrackingPage.LOGIN) {
+            page = loginReturnPage
+        }
+
         Column(
             modifier =
                 Modifier
@@ -473,7 +478,10 @@ fun LiveTrackingScreen(
                 LiveTrackingPage.MAIN -> {
                     MainTrackingContent(
                         onBack = onBack,
-                        onOpenLogin = { page = LiveTrackingPage.LOGIN },
+                        onOpenLogin = {
+                            loginReturnPage = page
+                            page = LiveTrackingPage.LOGIN
+                        },
                         onOpenSettings = {
                             if (isConnected) {
                                 settingsSnapshot = currentSettingsSnapshot()
@@ -641,7 +649,7 @@ fun LiveTrackingScreen(
 
                 LiveTrackingPage.LOGIN -> {
                     LoginJoinContent(
-                        onBack = { page = LiveTrackingPage.MAIN },
+                        onBack = { page = loginReturnPage },
                         group = group,
                         onGroupChange = {
                             group = it
