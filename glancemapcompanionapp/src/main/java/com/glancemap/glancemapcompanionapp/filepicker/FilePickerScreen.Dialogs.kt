@@ -502,7 +502,7 @@ internal fun FilePickerQuickGuideDialog(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(dialogTitle)
-                        if (pages.size > 1) {
+                        if (pages.size > 1 && mode != QuickGuideMode.LIVE_TRACKING) {
                             Text(
                                 "Step ${pageIndex + 1} of ${pages.size}",
                                 style = MaterialTheme.typography.labelSmall,
