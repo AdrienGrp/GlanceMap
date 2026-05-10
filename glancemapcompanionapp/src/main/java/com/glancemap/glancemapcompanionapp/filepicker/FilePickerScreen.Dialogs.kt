@@ -471,7 +471,7 @@ internal fun FilePickerQuickGuideDialog(
         }
     val bodyMaxHeight =
         if (isWelcomePage) {
-            320.dp
+            adaptive.quickGuideDialogMaxHeight.coerceAtMost(420.dp)
         } else {
             adaptive.quickGuideDialogMaxHeight
         }
@@ -537,7 +537,7 @@ internal fun FilePickerQuickGuideDialog(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(end = if (isWelcomePage) 0.dp else 10.dp)
+                                .padding(end = 10.dp)
                                 .verticalScroll(bodyScrollState),
                         verticalArrangement = Arrangement.spacedBy(if (isWelcomePage) 10.dp else 12.dp),
                     ) {
@@ -569,15 +569,13 @@ internal fun FilePickerQuickGuideDialog(
                             }
                         }
                     }
-                    if (!isWelcomePage) {
-                        PageScrollbar(
-                            scrollState = bodyScrollState,
-                            modifier =
-                                Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .fillMaxHeight(),
-                        )
-                    }
+                    PageScrollbar(
+                        scrollState = bodyScrollState,
+                        modifier =
+                            Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight(),
+                    )
                 }
                 if (pages.size > 1) {
                     quickGuidePageIndicator(
