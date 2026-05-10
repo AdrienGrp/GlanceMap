@@ -326,11 +326,11 @@ internal fun FilePickerQuickGuideDialog(
                                     "and routing data to your watch.",
                             lines =
                                 listOf(
-                                    QUICK_GUIDE_MENU_HEADER_LINE,
-                                    "Send to Watch: transfers files to the watch.",
-                                    "Live Tracking: shares your phone GPS location.",
-                                    "Map Legend opens theme references.",
-                                    "Credits & Legal contains privacy, licences, and acknowledgements.",
+                                    "GlanceMap does not own maps; download them from external sources, " +
+                                        "then send them to the watch.",
+                                    "Once files are on the watch, GlanceMap can work offline without the phone.",
+                                    "During navigation, keeping phone and watch connected is recommended for " +
+                                        "battery saving.",
                                     QUICK_GUIDE_BOOK_ICON_LINE,
                                 ),
                         ),
@@ -615,12 +615,6 @@ private fun quickGuideLineText(line: String) {
     when (line) {
         STAY_OPEN_GUIDE_LINE -> stayOpenGuideLineText()
         QUICK_GUIDE_BOOK_ICON_LINE -> quickGuideBookIconLineText()
-        QUICK_GUIDE_MENU_HEADER_LINE ->
-            Text(
-                text = "Menu from the home screen:",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-
         else ->
             Text(
                 text = "• $line",
@@ -736,7 +730,6 @@ private const val GUIDE_TOOLS_ICON_ID = "guide_tools_icon"
 private const val GUIDE_STAY_ICON_ID = "guide_stay_icon"
 private const val GUIDE_BOOK_ICON_ID = "guide_book_icon"
 private const val STAY_OPEN_GUIDE_LINE = "__stay_open_guide_line__"
-private const val QUICK_GUIDE_MENU_HEADER_LINE = "__quick_guide_menu_header_line__"
 private const val QUICK_GUIDE_BOOK_ICON_LINE = "__quick_guide_book_icon_line__"
 
 @Composable
