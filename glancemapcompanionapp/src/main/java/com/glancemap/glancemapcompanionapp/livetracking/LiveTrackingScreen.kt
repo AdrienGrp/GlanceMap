@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.ContactsContract
 import android.util.Patterns
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -62,6 +64,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -146,6 +149,8 @@ fun LiveTrackingScreen(
     var isLoginJoinLoading by remember { mutableStateOf(false) }
     var saveSettingsStatusMessage by remember { mutableStateOf<String?>(null) }
     var isSavingSettings by remember { mutableStateOf(false) }
+    var settingsSnapshot by remember { mutableStateOf<SavedLiveTrackingSettings?>(null) }
+    var showUnsavedSettingsDialog by remember { mutableStateOf(false) }
     var pendingRegistrationGroup by remember { mutableStateOf<String?>(null) }
     var showCreateGroupDialog by remember { mutableStateOf(false) }
     var createGroupPasswordConfirmation by remember { mutableStateOf("") }
@@ -376,6 +381,74 @@ fun LiveTrackingScreen(
                 followerPassword.isNotBlank() &&
                 userName.isNotBlank()
 
+        fun currentSettingsSnapshot(): SavedLiveTrackingSettings =
+            editableSettingsSnapshot(
+                group = group,
+                userName = userName,
+                notificationEmailAddresses = notificationEmailAddresses,
+                alertEmailAddresses = alertEmailAddresses,
+                stuckAlarmMinutes = stuckAlarmMinutes,
+                updateIntervalSeconds = updateIntervalSeconds,
+            )
+
+        fun applySettingsSnapshot(snapshot: SavedLiveTrackingSettings) {
+            userName = snapshot.userName
+            notificationEmailInput = ""
+            notificationEmailAddresses = snapshot.notificationEmailAddresses
+            alertEmailInput = ""
+            alertEmailAddresses = snapshot.alertEmailAddresses
+            stuckAlarmMinutes = snapshot.stuckAlarmMinutes
+            updateIntervalSeconds = snapshot.updateIntervalSeconds
+            saveSettingsStatusMessage = null
+        }
+
+        fun saveSettings(exitAfterSave: Boolean = false) {
+            saveSettingsStatusMessage =
+                validateStartSettings(
+                    group = group,
+                    participantPassword = participantPassword,
+                    followerPassword = followerPassword,
+                    userName = userName,
+                )
+                    ?: validatePendingEmailInputs(
+                        notificationEmailInput = notificationEmailInput,
+                        alertEmailInput = alertEmailInput,
+                    )
+            if (saveSettingsStatusMessage == null) {
+                isSavingSettings = true
+                saveSettingsStatusMessage = "Saving settings"
+                coroutineScope.launch {
+                    runCatching {
+                        val result = ArkluzLiveTrackingClient(context).saveSettings(settings)
+                        result.viewerPassword?.let { followerPassword = it }
+                        result
+                    }.onSuccess {
+                        settingsSnapshot = currentSettingsSnapshot()
+                        saveSettingsStatusMessage = "Settings saved"
+                        if (exitAfterSave) {
+                            page = LiveTrackingPage.MAIN
+                        }
+                    }.onFailure { error ->
+                        saveSettingsStatusMessage =
+                            "Save failed: ${error.message ?: "unknown error"}"
+                    }
+                    isSavingSettings = false
+                }
+            }
+        }
+
+        fun requestLeaveSettings() {
+            if (settingsSnapshot?.let { it != currentSettingsSnapshot() } == true) {
+                showUnsavedSettingsDialog = true
+            } else {
+                page = LiveTrackingPage.MAIN
+            }
+        }
+
+        BackHandler(enabled = page == LiveTrackingPage.SETTINGS) {
+            requestLeaveSettings()
+        }
+
         Column(
             modifier =
                 Modifier
@@ -390,6 +463,7 @@ fun LiveTrackingScreen(
                         onOpenLogin = { page = LiveTrackingPage.LOGIN },
                         onOpenSettings = {
                             if (isConnected) {
+                                settingsSnapshot = currentSettingsSnapshot()
                                 page = LiveTrackingPage.SETTINGS
                                 headerMessage = null
                             } else {
@@ -707,7 +781,7 @@ fun LiveTrackingScreen(
 
                 LiveTrackingPage.SETTINGS -> {
                     SettingsContent(
-                        onBack = { page = LiveTrackingPage.MAIN },
+                        onBack = { requestLeaveSettings() },
                         userName = userName,
                         onUserNameChange = {
                             userName = it
@@ -776,41 +850,46 @@ fun LiveTrackingScreen(
                         },
                         isSavingSettings = isSavingSettings,
                         saveSettingsStatusMessage = saveSettingsStatusMessage,
-                        onSaveSettings = {
-                            saveSettingsStatusMessage =
-                                validateStartSettings(
-                                    group = group,
-                                    participantPassword = participantPassword,
-                                    followerPassword = followerPassword,
-                                    userName = userName,
-                                )
-                                    ?: validatePendingEmailInputs(
-                                        notificationEmailInput = notificationEmailInput,
-                                        alertEmailInput = alertEmailInput,
-                                    )
-                            if (saveSettingsStatusMessage == null) {
-                                isSavingSettings = true
-                                saveSettingsStatusMessage = "Saving settings"
-                                coroutineScope.launch {
-                                    runCatching {
-                                        val result = ArkluzLiveTrackingClient(context).saveSettings(settings)
-                                        result.viewerPassword?.let { followerPassword = it }
-                                        result
-                                    }.onSuccess {
-                                        saveSettingsStatusMessage = "Settings saved"
-                                    }.onFailure { error ->
-                                        saveSettingsStatusMessage =
-                                            "Save failed: ${error.message ?: "unknown error"}"
-                                    }
-                                    isSavingSettings = false
-                                }
-                            }
-                        },
+                        onSaveSettings = { saveSettings() },
                         scrollState = scrollState,
                         contentSpacing = contentSpacing,
                     )
                 }
             }
+        }
+        if (showUnsavedSettingsDialog) {
+            AlertDialog(
+                onDismissRequest = { showUnsavedSettingsDialog = false },
+                title = { Text("Save settings?") },
+                text = { Text("You have unsaved changes. Save them before leaving settings?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showUnsavedSettingsDialog = false
+                            saveSettings(exitAfterSave = true)
+                        },
+                        enabled = !isSavingSettings,
+                    ) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { showUnsavedSettingsDialog = false }) {
+                            Text("Cancel")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                settingsSnapshot?.let(::applySettingsSnapshot)
+                                showUnsavedSettingsDialog = false
+                                page = LiveTrackingPage.MAIN
+                            },
+                        ) {
+                            Text("Discard")
+                        }
+                    }
+                },
+            )
         }
     }
 }
@@ -1303,6 +1382,29 @@ private fun ColumnScope.SettingsContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
+        Button(
+            onClick = onSaveSettings,
+            enabled = !isSavingSettings,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (isSavingSettings) "Saving" else "Save")
+        }
+        saveSettingsStatusMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color =
+                    if (
+                        message.startsWith("Save failed", ignoreCase = true) ||
+                        message.contains("required", ignoreCase = true)
+                    ) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+        }
+
         TrackingPanel(title = "Participant") {
             OutlinedTextField(
                 value = userName,
@@ -1348,28 +1450,6 @@ private fun ColumnScope.SettingsContent(
                 minutes = stuckAlarmMinutes,
                 onMinutesChange = onStuckAlarmMinutesChange,
             )
-            Button(
-                onClick = onSaveSettings,
-                enabled = !isSavingSettings,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (isSavingSettings) "Saving" else "Save")
-            }
-            saveSettingsStatusMessage?.let { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color =
-                        if (
-                            message.startsWith("Save failed", ignoreCase = true) ||
-                            message.contains("required", ignoreCase = true)
-                        ) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
         }
     }
 }
@@ -1770,6 +1850,23 @@ private fun recordedTrackDownloadFilename(
     return "$day-$safeName.gpx"
 }
 
+private fun editableSettingsSnapshot(
+    group: String,
+    userName: String,
+    notificationEmailAddresses: List<String>,
+    alertEmailAddresses: List<String>,
+    stuckAlarmMinutes: String,
+    updateIntervalSeconds: Int,
+): SavedLiveTrackingSettings =
+    SavedLiveTrackingSettings(
+        group = group,
+        userName = userName,
+        notificationEmailAddresses = notificationEmailAddresses,
+        alertEmailAddresses = alertEmailAddresses,
+        stuckAlarmMinutes = stuckAlarmMinutes,
+        updateIntervalSeconds = updateIntervalSeconds,
+    )
+
 private fun hasLocationPermission(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED ||
@@ -1922,7 +2019,7 @@ private fun TrackLinkRow(
             modifier = Modifier.size(36.dp),
         ) {
             Icon(
-                imageVector = Icons.Filled.Visibility,
+                imageVector = Icons.Filled.TravelExplore,
                 contentDescription = "View $label track",
                 modifier = Modifier.size(18.dp),
             )
