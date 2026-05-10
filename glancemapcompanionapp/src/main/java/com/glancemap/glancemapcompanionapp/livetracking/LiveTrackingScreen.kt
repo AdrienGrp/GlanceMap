@@ -92,6 +92,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.glancemap.glancemapcompanionapp.companionAdaptiveSpec
 import com.glancemap.glancemapcompanionapp.resolveUriDisplayName
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -122,6 +123,7 @@ fun LiveTrackingScreen(
     onOpenQuickGuide: () -> Unit,
 ) {
     val context = LocalContext.current
+    val fontScale = LocalDensity.current.fontScale
     val coroutineScope = rememberCoroutineScope()
     val sessionState by LiveTrackingSessionStore.state.collectAsState()
     val savedSettings = remember(context) { LiveTrackingPreferences.load(context) }
@@ -307,9 +309,17 @@ fun LiveTrackingScreen(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        val compact = maxWidth < 420.dp || maxHeight < 760.dp
-        val contentPadding = if (compact) 6.dp else 12.dp
-        val contentSpacing = if (compact) 6.dp else 10.dp
+        val adaptive =
+            remember(maxWidth, maxHeight, fontScale) {
+                companionAdaptiveSpec(
+                    windowWidth = maxWidth,
+                    windowHeight = maxHeight,
+                    fontScale = fontScale,
+                )
+            }
+        val compactLayout = adaptive.useCompactPageLayout
+        val contentPadding = if (compactLayout) 6.dp else 12.dp
+        val contentSpacing = if (compactLayout) 6.dp else 10.dp
         val scrollState = rememberScrollState()
         val settings =
             remember(
@@ -621,7 +631,8 @@ fun LiveTrackingScreen(
                         },
                         scrollState = scrollState,
                         contentSpacing = contentSpacing,
-                        isCompactLayout = compact,
+                        isCompactLayout = compactLayout,
+                        isCompactScreen = adaptive.isCompactScreen,
                     )
                 }
 
@@ -931,6 +942,7 @@ private fun ColumnScope.MainTrackingContent(
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
     isCompactLayout: Boolean,
+    isCompactScreen: Boolean,
 ) {
     val context = LocalContext.current
 
@@ -940,7 +952,7 @@ private fun ColumnScope.MainTrackingContent(
             Text(
                 text = "Live Tracking",
                 style =
-                    if (isCompactLayout) {
+                    if (isCompactScreen) {
                         MaterialTheme.typography.titleSmall
                     } else {
                         MaterialTheme.typography.headlineSmall
