@@ -484,6 +484,28 @@ fun LiveTrackingScreen(
                         userTrackUrl = userTrackUrl,
                         recordedTrackDownloadStatusMessage = recordedTrackDownloadStatusMessage,
                         isDownloadingRecordedTrack = isDownloadingRecordedTrack,
+                        isDeletingTracks = isDeletingTracks,
+                        deleteTracksStatusMessage = deleteTracksStatusMessage,
+                        onDeleteRecordedTracks = {
+                            deleteTracksStatusMessage = validatePlanSettings(group, participantPassword)
+                            if (deleteTracksStatusMessage == null) {
+                                isDeletingTracks = true
+                                deleteTracksStatusMessage = "Deleting recorded tracks"
+                                coroutineScope.launch {
+                                    runCatching {
+                                        ArkluzLiveTrackingClient(context).deleteRecordedTracks(settings)
+                                    }.onSuccess { result ->
+                                        deleteTracksStatusMessage =
+                                            result.message.takeUnless { it == "Server accepted request" }
+                                                ?: "Recorded tracks deleted"
+                                    }.onFailure { error ->
+                                        deleteTracksStatusMessage =
+                                            "Delete failed: ${error.message ?: "unknown error"}"
+                                    }
+                                    isDeletingTracks = false
+                                }
+                            }
+                        },
                         onDownloadUserTrack = {
                             recordedTrackDownloadStatusMessage =
                                 validateRecordedTrackDownloadSettings(
@@ -641,6 +663,43 @@ fun LiveTrackingScreen(
                                 }
                             }
                         },
+                        onLogout = {
+                            LiveTrackingService.stop(context)
+                            LiveTrackingPreferences.saveGroupSettings(
+                                context = context,
+                                settings =
+                                    SavedLiveTrackingSettings(
+                                        group = group,
+                                        userName = userName,
+                                        notificationEmailAddresses = notificationEmailAddresses,
+                                        alertEmailAddresses = alertEmailAddresses,
+                                        stuckAlarmMinutes = stuckAlarmMinutes,
+                                        updateIntervalSeconds = updateIntervalSeconds,
+                                    ),
+                            )
+                            LiveTrackingPreferences.clear(context)
+                            group = ""
+                            participantPassword = ""
+                            followerPassword = ""
+                            loginJoinStatusMessage = null
+                            headerMessage = null
+                            validationMessage = null
+                            sendStatusMessage = null
+                            saveSettingsStatusMessage = null
+                            deleteTracksStatusMessage = null
+                            recordedTrackDownloadStatusMessage = null
+                            pendingRegistrationGroup = null
+                            showCreateGroupDialog = false
+                            createGroupPasswordConfirmation = ""
+                            userName = ""
+                            notificationEmailInput = ""
+                            notificationEmailAddresses = emptyList()
+                            alertEmailInput = ""
+                            alertEmailAddresses = emptyList()
+                            stuckAlarmMinutes = "15"
+                            updateIntervalSeconds = 60
+                            page = LiveTrackingPage.MAIN
+                        },
                         scrollState = scrollState,
                         contentSpacing = contentSpacing,
                     )
@@ -747,64 +806,6 @@ fun LiveTrackingScreen(
                                 }
                             }
                         },
-                        onLogout = {
-                            LiveTrackingService.stop(context)
-                            LiveTrackingPreferences.saveGroupSettings(
-                                context = context,
-                                settings =
-                                    SavedLiveTrackingSettings(
-                                        group = group,
-                                        userName = userName,
-                                        notificationEmailAddresses = notificationEmailAddresses,
-                                        alertEmailAddresses = alertEmailAddresses,
-                                        stuckAlarmMinutes = stuckAlarmMinutes,
-                                        updateIntervalSeconds = updateIntervalSeconds,
-                                    ),
-                            )
-                            LiveTrackingPreferences.clear(context)
-                            group = ""
-                            participantPassword = ""
-                            followerPassword = ""
-                            loginJoinStatusMessage = null
-                            headerMessage = null
-                            validationMessage = null
-                            sendStatusMessage = null
-                            saveSettingsStatusMessage = null
-                            deleteTracksStatusMessage = null
-                            pendingRegistrationGroup = null
-                            showCreateGroupDialog = false
-                            createGroupPasswordConfirmation = ""
-                            userName = ""
-                            notificationEmailInput = ""
-                            notificationEmailAddresses = emptyList()
-                            alertEmailInput = ""
-                            alertEmailAddresses = emptyList()
-                            stuckAlarmMinutes = "15"
-                            updateIntervalSeconds = 60
-                            page = LiveTrackingPage.MAIN
-                        },
-                        isDeletingTracks = isDeletingTracks,
-                        deleteTracksStatusMessage = deleteTracksStatusMessage,
-                        onDeleteRecordedTracks = {
-                            deleteTracksStatusMessage = validatePlanSettings(group, participantPassword)
-                            if (deleteTracksStatusMessage == null) {
-                                isDeletingTracks = true
-                                deleteTracksStatusMessage = "Deleting recorded tracks"
-                                coroutineScope.launch {
-                                    runCatching {
-                                        ArkluzLiveTrackingClient(context).deleteRecordedTracks(settings)
-                                    }.onSuccess { result ->
-                                        deleteTracksStatusMessage =
-                                            result.message.takeUnless { it == "Server accepted request" }
-                                                ?: "Recorded tracks deleted"
-                                    }.onFailure { error ->
-                                        deleteTracksStatusMessage =
-                                            "Delete failed: ${error.message ?: "unknown error"}"
-                                    }
-                                    isDeletingTracks = false
-                                }
-                            }
-                        },
                         scrollState = scrollState,
                         contentSpacing = contentSpacing,
                     )
@@ -842,6 +843,9 @@ private fun ColumnScope.MainTrackingContent(
     userTrackUrl: String,
     recordedTrackDownloadStatusMessage: String?,
     isDownloadingRecordedTrack: Boolean,
+    isDeletingTracks: Boolean,
+    deleteTracksStatusMessage: String?,
+    onDeleteRecordedTracks: () -> Unit,
     onDownloadUserTrack: () -> Unit,
     onDownloadGroupTrack: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
@@ -1036,6 +1040,36 @@ private fun ColumnScope.MainTrackingContent(
                         },
                 )
             }
+            OutlinedButton(
+                onClick = onDeleteRecordedTracks,
+                enabled = !isDeletingTracks,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.size(6.dp))
+                Text(if (isDeletingTracks) "Deleting" else "Delete recorded tracks")
+            }
+            Text(
+                text = "Tracks are automatically deleted from the server every 7 days.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            deleteTracksStatusMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (message.startsWith("Delete failed", ignoreCase = true)) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            }
         }
     }
 
@@ -1105,6 +1139,7 @@ private fun ColumnScope.LoginJoinContent(
     onCreateGroupPasswordConfirmationChange: (String) -> Unit,
     onDismissCreateGroupDialog: () -> Unit,
     onConfirmCreateGroup: () -> Unit,
+    onLogout: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
 ) {
@@ -1172,6 +1207,14 @@ private fun ColumnScope.LoginJoinContent(
                 )
             }
         }
+        if (isConnected) {
+            OutlinedButton(
+                onClick = onLogout,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Logout")
+            }
+        }
     }
 
     if (showCreateGroupDialog) {
@@ -1232,10 +1275,6 @@ private fun ColumnScope.SettingsContent(
     isSavingSettings: Boolean,
     saveSettingsStatusMessage: String?,
     onSaveSettings: () -> Unit,
-    onLogout: () -> Unit,
-    isDeletingTracks: Boolean,
-    deleteTracksStatusMessage: String?,
-    onDeleteRecordedTracks: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
 ) {
@@ -1264,13 +1303,6 @@ private fun ColumnScope.SettingsContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
-        OutlinedButton(
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Logout")
-        }
-
         TrackingPanel(title = "Participant") {
             OutlinedTextField(
                 value = userName,
@@ -1332,39 +1364,6 @@ private fun ColumnScope.SettingsContent(
                             message.startsWith("Save failed", ignoreCase = true) ||
                             message.contains("required", ignoreCase = true)
                         ) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
-        }
-
-        TrackingPanel(title = "Recorded tracks") {
-            OutlinedButton(
-                onClick = onDeleteRecordedTracks,
-                enabled = !isDeletingTracks,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.size(6.dp))
-                Text(if (isDeletingTracks) "Deleting" else "Delete recorded tracks")
-            }
-            Text(
-                text = "Tracks are automatically deleted from the server every 7 days.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            deleteTracksStatusMessage?.let { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color =
-                        if (message.startsWith("Delete failed", ignoreCase = true)) {
                             MaterialTheme.colorScheme.error
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
