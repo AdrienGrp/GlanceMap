@@ -87,6 +87,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -938,7 +939,13 @@ private fun ColumnScope.MainTrackingContent(
         actions = {
             Text(
                 text = "Live Tracking",
-                style = MaterialTheme.typography.titleMedium,
+                style =
+                    if (isCompactLayout) {
+                        MaterialTheme.typography.titleSmall
+                    } else {
+                        MaterialTheme.typography.headlineSmall
+                    },
+                textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
