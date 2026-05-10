@@ -465,9 +465,15 @@ internal fun FilePickerQuickGuideDialog(
     val showBodyTitle = !isWelcomePage && pages.size > 1
     val titleHeight =
         when {
-            isWelcomePage -> 72.dp
+            isWelcomePage -> 44.dp
             pages.size > 1 -> 72.dp
             else -> 48.dp
+        }
+    val bodyMaxHeight =
+        if (isWelcomePage) {
+            320.dp
+        } else {
+            adaptive.quickGuideDialogMaxHeight
         }
     val bodyScrollState = rememberScrollState()
     LaunchedEffect(mode, pageIndex) {
@@ -518,8 +524,8 @@ internal fun FilePickerQuickGuideDialog(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(max = adaptive.quickGuideDialogMaxHeight),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .heightIn(max = bodyMaxHeight),
+                verticalArrangement = Arrangement.spacedBy(if (isWelcomePage) 8.dp else 12.dp),
             ) {
                 Box(
                     modifier =
@@ -531,9 +537,9 @@ internal fun FilePickerQuickGuideDialog(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(end = 10.dp)
+                                .padding(end = if (isWelcomePage) 0.dp else 10.dp)
                                 .verticalScroll(bodyScrollState),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (isWelcomePage) 10.dp else 12.dp),
                     ) {
                         if (showBodyTitle) {
                             Text(
@@ -563,13 +569,15 @@ internal fun FilePickerQuickGuideDialog(
                             }
                         }
                     }
-                    PageScrollbar(
-                        scrollState = bodyScrollState,
-                        modifier =
-                            Modifier
-                                .align(Alignment.CenterEnd)
-                                .fillMaxHeight(),
-                    )
+                    if (!isWelcomePage) {
+                        PageScrollbar(
+                            scrollState = bodyScrollState,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .fillMaxHeight(),
+                        )
+                    }
                 }
                 if (pages.size > 1) {
                     quickGuidePageIndicator(

@@ -82,9 +82,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
 
     val autoOpenHelpOnFirstLaunch =
         remember(context) {
-            shouldAutoOpenHelpOnFirstLaunch(context).also { shouldShow ->
-                if (shouldShow) markHelpShown(context)
-            }
+            shouldAutoOpenHelpOnFirstLaunch(context)
         }
     var showCancelDialog by remember { mutableStateOf(false) }
     var quickGuideMode by remember { mutableStateOf(QuickGuideMode.GENERAL) }
@@ -842,7 +840,12 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 FilePickerQuickGuideDialog(
                     adaptive = adaptive,
                     mode = quickGuideMode,
-                    onDismiss = { showHowToDialog = false },
+                    onDismiss = {
+                        if (autoOpenHelpOnFirstLaunch && quickGuideMode == QuickGuideMode.GENERAL) {
+                            markHelpShown(context)
+                        }
+                        showHowToDialog = false
+                    },
                 )
             }
 
