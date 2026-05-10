@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -92,6 +93,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.glancemap.glancemapcompanionapp.CompanionAdaptiveSpec
 import com.glancemap.glancemapcompanionapp.companionAdaptiveSpec
 import com.glancemap.glancemapcompanionapp.resolveUriDisplayName
 import kotlinx.coroutines.launch
@@ -633,6 +635,7 @@ fun LiveTrackingScreen(
                         contentSpacing = contentSpacing,
                         isCompactLayout = compactLayout,
                         isCompactScreen = adaptive.isCompactScreen,
+                        adaptive = adaptive,
                     )
                 }
 
@@ -943,37 +946,53 @@ private fun ColumnScope.MainTrackingContent(
     contentSpacing: androidx.compose.ui.unit.Dp,
     isCompactLayout: Boolean,
     isCompactScreen: Boolean,
+    adaptive: CompanionAdaptiveSpec,
 ) {
     val context = LocalContext.current
 
-    HeaderRow(
-        onBack = onBack,
-        actions = {
-            Text(
-                text = "Live Tracking",
-                style =
-                    if (isCompactScreen) {
-                        MaterialTheme.typography.titleSmall
-                    } else {
-                        MaterialTheme.typography.headlineSmall
-                    },
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = adaptive.helpIconButtonSize),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FilledTonalIconButton(
+            onClick = onBack,
+            modifier = Modifier.size(adaptive.helpIconButtonSize),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back to home",
+                modifier = Modifier.size(adaptive.helpIconSize),
             )
-            FilledTonalIconButton(
-                onClick = onOpenGuide,
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
-                    contentDescription = "Live Tracking Guide",
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        },
-    )
+        }
+        Spacer(modifier = Modifier.size(adaptive.helpIconButtonSize))
+        Text(
+            text = "Live Tracking",
+            style =
+                if (isCompactScreen) {
+                    MaterialTheme.typography.titleSmall
+                } else {
+                    MaterialTheme.typography.headlineSmall
+                },
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        FilledTonalIconButton(
+            onClick = onOpenGuide,
+            modifier = Modifier.size(adaptive.helpIconButtonSize),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                contentDescription = "Live Tracking Guide",
+                modifier = Modifier.size(adaptive.helpIconSize),
+            )
+        }
+    }
 
     ScrollableScreenContent(
         scrollState = scrollState,
