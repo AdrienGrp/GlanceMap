@@ -28,6 +28,7 @@ data class LiveTrackingSettings(
     val comments: String,
     val gpxUri: Uri?,
     val gpxName: String,
+    val suppressStartNotificationEmail: Boolean = false,
 )
 
 enum class ArkluzTrackingEndpoint(
@@ -254,8 +255,10 @@ internal class ArkluzLiveTrackingClient(
             if (location.hasSpeed()) {
                 urlBuilder.addQueryParameter("speed", location.speed.toString())
             }
-            settings.notificationEmails.trim().takeIf { it.isNotBlank() }?.let { emails ->
-                urlBuilder.addQueryParameter("email", emails)
+            if (!(start && settings.suppressStartNotificationEmail)) {
+                settings.notificationEmails.trim().takeIf { it.isNotBlank() }?.let { emails ->
+                    urlBuilder.addQueryParameter("email", emails)
+                }
             }
             settings.alertEmails.trim().takeIf { it.isNotBlank() }?.let { emails ->
                 urlBuilder.addQueryParameter("alert", emails)

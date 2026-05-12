@@ -286,15 +286,18 @@ private fun EmailAddressInput(
     onPickFromContacts: () -> Unit,
 ) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val email = input.trim().trimEnd(',', ';').lowercase()
+    val isEmailValid = email.isNotBlank() && Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    val isDuplicate = addresses.any { it.equals(email, ignoreCase = true) }
+    val canAddEmail = isEmailValid && !isDuplicate
 
     fun submitEmail(): Boolean {
-        val email = input.trim().trimEnd(',', ';').lowercase()
         if (email.isBlank()) return false
-        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        if (!isEmailValid) {
             errorMessage = "Enter a valid email address"
             return true
         }
-        if (addresses.any { it.equals(email, ignoreCase = true) }) {
+        if (isDuplicate) {
             errorMessage = "Email already added"
             return true
         }
@@ -309,41 +312,57 @@ private fun EmailAddressInput(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        OutlinedTextField(
-            value = input,
-            onValueChange = {
-                onInputChange(it)
-                errorMessage = null
-            },
-            label = { Text(label) },
-            trailingIcon = {
-                IconButton(onClick = onPickFromContacts) {
-                    Icon(
-                        imageVector = Icons.Filled.ContactMail,
-                        contentDescription = "Pick email from contacts",
-                    )
-                }
-            },
-            supportingText = errorMessage?.let { message -> { Text(message) } },
-            isError = errorMessage != null,
-            singleLine = true,
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Done,
-                ),
-            keyboardActions = KeyboardActions(onDone = { submitEmail() }),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .onPreviewKeyEvent { event ->
-                        when {
-                            event.key != Key.Enter -> false
-                            event.type == KeyEventType.KeyDown -> submitEmail()
-                            else -> true
-                        }
-                    },
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = {
+                    onInputChange(it)
+                    errorMessage = null
+                },
+                placeholder = { Text("email@example.com") },
+                trailingIcon = {
+                    IconButton(onClick = onPickFromContacts) {
+                        Icon(
+                            imageVector = Icons.Filled.ContactMail,
+                            contentDescription = "Pick email from contacts",
+                        )
+                    }
+                },
+                supportingText = errorMessage?.let { message -> { Text(message) } },
+                isError = errorMessage != null,
+                singleLine = true,
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Done,
+                    ),
+                keyboardActions = KeyboardActions(onDone = { submitEmail() }),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .onPreviewKeyEvent { event ->
+                            when {
+                                event.key != Key.Enter -> false
+                                event.type == KeyEventType.KeyDown -> submitEmail()
+                                else -> true
+                            }
+                        },
+            )
+            Button(
+                onClick = { submitEmail() },
+                enabled = canAddEmail,
+            ) {
+                Text("Add")
+            }
+        }
         if (addresses.isNotEmpty()) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),

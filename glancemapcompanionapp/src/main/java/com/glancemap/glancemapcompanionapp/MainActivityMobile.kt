@@ -7,10 +7,14 @@ import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.glancemap.glancemapcompanionapp.filepicker.FilePickerScreen
 import com.glancemap.glancemapcompanionapp.ui.theme.GlanceMapTheme
@@ -26,39 +30,44 @@ class MainActivityMobile : ComponentActivity() {
 
         setContent {
             GlanceMapTheme {
-                val vm: FileTransferViewModel = viewModel()
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    val vm: FileTransferViewModel = viewModel()
 
-                LaunchedEffect(incomingIntentToken) {
-                    val uris = incomingUris
-                    if (uris.isEmpty()) return@LaunchedEffect
+                    LaunchedEffect(incomingIntentToken) {
+                        val uris = incomingUris
+                        if (uris.isEmpty()) return@LaunchedEffect
 
-                    uris.forEach { uri ->
-                        try {
-                            val takeFlags = (
-                                intent.flags and
-                                    (
-                                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-                                    )
-                            )
-                            if (takeFlags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0) {
-                                contentResolver.takePersistableUriPermission(
-                                    uri,
-                                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                        uris.forEach { uri ->
+                            try {
+                                val takeFlags = (
+                                    intent.flags and
+                                        (
+                                            Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                                        )
                                 )
+                                if (takeFlags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0) {
+                                    contentResolver.takePersistableUriPermission(
+                                        uri,
+                                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                    )
+                                }
+                            } catch (_: Exception) {
+                                // Ignore providers that do not expose persistable permissions.
                             }
-                        } catch (_: Exception) {
-                            // Ignore providers that do not expose persistable permissions.
                         }
+
+                        vm.loadFilesFromUris(this@MainActivityMobile, uris)
                     }
 
-                    vm.loadFilesFromUris(this@MainActivityMobile, uris)
+                    FilePickerScreen(
+                        viewModel = vm,
+                        openSendToWatchToken = incomingIntentToken,
+                    )
                 }
-
-                FilePickerScreen(
-                    viewModel = vm,
-                    openSendToWatchToken = incomingIntentToken,
-                )
             }
         }
     }

@@ -66,6 +66,12 @@ fun FilePickerScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val uiState by viewModel.uiState.collectAsState()
+    val lastTransferGpx =
+        remember(uiState.selectedFileUris, uiState.selectedFileDisplayNames) {
+            uiState.selectedFileUris
+                .zip(uiState.selectedFileDisplayNames)
+                .lastOrNull { (_, name) -> name.endsWith(".gpx", ignoreCase = true) }
+        }
     val isImportingRefuges by viewModel.isImportingRefuges.collectAsState()
     val poiImportProgress by viewModel.poiImportProgress.collectAsState()
     val isDownloadingRouting by viewModel.isDownloadingRouting.collectAsState()
@@ -541,6 +547,8 @@ fun FilePickerScreen(
                             quickGuideMode = QuickGuideMode.LIVE_TRACKING
                             showHowToDialog = true
                         },
+                        lastTransferGpxUri = lastTransferGpx?.first,
+                        lastTransferGpxName = lastTransferGpx?.second.orEmpty(),
                     )
                 }
 

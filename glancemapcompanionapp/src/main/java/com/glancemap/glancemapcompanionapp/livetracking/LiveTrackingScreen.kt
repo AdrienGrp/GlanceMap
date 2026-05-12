@@ -58,6 +58,8 @@ internal enum class RecordedTrackDownloadTarget {
 fun LiveTrackingScreen(
     onBack: () -> Unit,
     onOpenQuickGuide: () -> Unit,
+    lastTransferGpxUri: Uri? = null,
+    lastTransferGpxName: String = "",
 ) {
     val context = LocalContext.current
     val fontScale = LocalDensity.current.fontScale
@@ -96,6 +98,7 @@ fun LiveTrackingScreen(
     var showCreateGroupDialog by remember { mutableStateOf(false) }
     var createGroupPasswordConfirmation by remember { mutableStateOf("") }
     var isSendingPlan by remember { mutableStateOf(false) }
+    var isStartingSession by remember { mutableStateOf(false) }
     var deleteTracksStatusMessage by remember { mutableStateOf<String?>(null) }
     var isDeletingTracks by remember { mutableStateOf(false) }
     var recordedTrackDownloadStatusMessage by remember { mutableStateOf<String?>(null) }
@@ -103,6 +106,17 @@ fun LiveTrackingScreen(
     var pendingRecordedTrackDownloadTarget by remember { mutableStateOf<RecordedTrackDownloadTarget?>(null) }
     var planSent by remember { mutableStateOf(false) }
     var emailPickerTarget by remember { mutableStateOf<EmailPickerTarget?>(null) }
+    var showUseLastTransferGpxDialog by remember { mutableStateOf(false) }
+
+    fun selectPlannedGpx(
+        uri: Uri,
+        name: String,
+    ) {
+        selectedGpxUri = uri
+        selectedGpxName = name.ifBlank { resolveUriDisplayName(context, uri).ifBlank { "Selected GPX" } }
+        planSent = false
+        sendStatusMessage = null
+    }
 
     val gpxPicker =
         rememberLauncherForActivityResult(
@@ -115,10 +129,10 @@ fun LiveTrackingScreen(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 )
             }
-            selectedGpxUri = uri
-            selectedGpxName = resolveUriDisplayName(context, uri).ifBlank { "Selected GPX" }
-            planSent = false
-            sendStatusMessage = null
+            selectPlannedGpx(
+                uri = uri,
+                name = resolveUriDisplayName(context, uri),
+            )
         }
     val recordedTrackSavePicker =
         rememberLauncherForActivityResult(
@@ -438,7 +452,14 @@ fun LiveTrackingScreen(
                             sendStatusMessage = null
                         },
                         onPickGpx = {
-                            gpxPicker.launch(arrayOf("application/gpx+xml", "text/xml", "*/*"))
+                            if (
+                                lastTransferGpxUri != null &&
+                                selectedGpxUri?.toString() != lastTransferGpxUri.toString()
+                            ) {
+                                showUseLastTransferGpxDialog = true
+                            } else {
+                                gpxPicker.launch(arrayOf("application/gpx+xml", "text/xml", "*/*"))
+                            }
                         },
                         showSendPlan = showSendPlan,
                         canSendPlan = canSendPlan,
@@ -481,6 +502,7 @@ fun LiveTrackingScreen(
                         },
                         sessionState = sessionState,
                         updateIntervalSeconds = updateIntervalSeconds,
+                        isStartingSession = isStartingSession,
                         validationMessage = validationMessage,
                         sendStatusMessage = sendStatusMessage,
                         onStart = {
@@ -495,6 +517,7 @@ fun LiveTrackingScreen(
                                         notificationEmailInput = notificationEmailInput,
                                         alertEmailInput = alertEmailInput,
                                     )
+                            if (validationMessage != null) return@MainTrackingContent
                             if (!canStart) return@MainTrackingContent
                             if (!hasLocationPermission) {
                                 locationPermissionLauncher.launch(
@@ -506,7 +529,35 @@ fun LiveTrackingScreen(
                                 return@MainTrackingContent
                             }
                             validationMessage = null
-                            LiveTrackingService.start(context = context, settings = settings)
+                            sendStatusMessage = null
+                            if (hasPlanContent && !planSent) {
+                                isStartingSession = true
+                                isSendingPlan = true
+                                sendStatusMessage = "Sending planned route"
+                                coroutineScope.launch {
+                                    runCatching {
+                                        val client = ArkluzLiveTrackingClient(context)
+                                        client
+                                            .registerOrJoinGroup(settings)
+                                            .viewerPassword
+                                            ?.let { followerPassword = it }
+                                        client.uploadPlannedRoute(settings)
+                                    }.onSuccess { result ->
+                                        planSent = true
+                                        sendStatusMessage = result.message.ifBlank { "Sent" }
+                                        LiveTrackingService.start(
+                                            context = context,
+                                            settings = settings.copy(suppressStartNotificationEmail = true),
+                                        )
+                                    }.onFailure { error ->
+                                        sendStatusMessage = "Send failed: ${error.message ?: "unknown error"}"
+                                    }
+                                    isSendingPlan = false
+                                    isStartingSession = false
+                                }
+                            } else {
+                                LiveTrackingService.start(context = context, settings = settings)
+                            }
                         },
                         onStop = { LiveTrackingService.stop(context) },
                         userName = userName,
@@ -551,25 +602,6 @@ fun LiveTrackingScreen(
                                         group = group,
                                         userName = userName,
                                         target = RecordedTrackDownloadTarget.USER,
-                                    ),
-                                )
-                            }
-                        },
-                        onDownloadGroupTrack = {
-                            recordedTrackDownloadStatusMessage =
-                                validateRecordedTrackDownloadSettings(
-                                    group = group,
-                                    followerPassword = followerPassword,
-                                    userName = userName,
-                                    userOnly = false,
-                                )
-                            if (recordedTrackDownloadStatusMessage == null) {
-                                pendingRecordedTrackDownloadTarget = RecordedTrackDownloadTarget.GROUP
-                                recordedTrackSavePicker.launch(
-                                    recordedTrackDownloadFilename(
-                                        group = group,
-                                        userName = userName,
-                                        target = RecordedTrackDownloadTarget.GROUP,
                                     ),
                                 )
                             }
@@ -816,6 +848,46 @@ fun LiveTrackingScreen(
                     )
                 }
             }
+        }
+        if (showUseLastTransferGpxDialog && lastTransferGpxUri != null) {
+            AlertDialog(
+                onDismissRequest = { showUseLastTransferGpxDialog = false },
+                title = { Text("Use selected GPX?") },
+                text = {
+                    Text(
+                        lastTransferGpxName
+                            .ifBlank { "The last GPX selected in Send to Watch" },
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showUseLastTransferGpxDialog = false
+                            selectPlannedGpx(
+                                uri = lastTransferGpxUri,
+                                name = lastTransferGpxName,
+                            )
+                        },
+                    ) {
+                        Text("Use this GPX")
+                    }
+                },
+                dismissButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { showUseLastTransferGpxDialog = false }) {
+                            Text("Cancel")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                showUseLastTransferGpxDialog = false
+                                gpxPicker.launch(arrayOf("application/gpx+xml", "text/xml", "*/*"))
+                            },
+                        ) {
+                            Text("Choose another")
+                        }
+                    }
+                },
+            )
         }
         if (showUnsavedSettingsDialog) {
             AlertDialog(

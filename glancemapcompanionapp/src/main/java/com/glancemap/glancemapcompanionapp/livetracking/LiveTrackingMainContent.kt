@@ -53,6 +53,7 @@ internal fun ColumnScope.MainTrackingContent(
     onSendPlan: () -> Unit,
     sessionState: LiveTrackingUiState,
     updateIntervalSeconds: Int,
+    isStartingSession: Boolean,
     validationMessage: String?,
     sendStatusMessage: String?,
     onStart: () -> Unit,
@@ -66,7 +67,6 @@ internal fun ColumnScope.MainTrackingContent(
     deleteTracksStatusMessage: String?,
     onDeleteRecordedTracks: () -> Unit,
     onDownloadUserTrack: () -> Unit,
-    onDownloadGroupTrack: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
     contentSpacing: androidx.compose.ui.unit.Dp,
     isCompactLayout: Boolean,
@@ -184,7 +184,7 @@ internal fun ColumnScope.MainTrackingContent(
             ) {
                 Button(
                     onClick = onStart,
-                    enabled = !sessionState.isTracking,
+                    enabled = !sessionState.isTracking && !isStartingSession,
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(
@@ -193,7 +193,7 @@ internal fun ColumnScope.MainTrackingContent(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.size(6.dp))
-                    Text("Start")
+                    Text(if (isStartingSession) "Starting" else "Start")
                 }
                 OutlinedButton(
                     onClick = onStop,
@@ -243,32 +243,16 @@ internal fun ColumnScope.MainTrackingContent(
                 onView = { openUrl(context, groupTrackUrl) },
                 onShare = { shareUrl(context, groupTrackUrl) },
             )
-            Row(
+            OutlinedButton(
+                onClick = onDownloadUserTrack,
+                enabled = !isDownloadingRecordedTrack,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedButton(
-                    onClick = onDownloadUserTrack,
-                    enabled = !isDownloadingRecordedTrack,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        text = if (isDownloadingRecordedTrack) "Downloading" else "Download my GPX",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                OutlinedButton(
-                    onClick = onDownloadGroupTrack,
-                    enabled = !isDownloadingRecordedTrack,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        text = if (isDownloadingRecordedTrack) "Downloading" else "Download group GPX",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                Text(
+                    text = if (isDownloadingRecordedTrack) "Downloading" else "Download my GPX",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             recordedTrackDownloadStatusMessage?.let { message ->
                 Text(
@@ -378,11 +362,9 @@ private fun TrackLinkRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = label, style = MaterialTheme.typography.labelMedium)
             Text(
-                text = url,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

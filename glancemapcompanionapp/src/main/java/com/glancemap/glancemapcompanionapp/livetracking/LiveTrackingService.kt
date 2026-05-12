@@ -341,6 +341,7 @@ class LiveTrackingService : Service() {
         private const val EXTRA_COMMENTS = "comments"
         private const val EXTRA_GPX_URI = "gpx_uri"
         private const val EXTRA_GPX_NAME = "gpx_name"
+        private const val EXTRA_SUPPRESS_START_NOTIFICATION_EMAIL = "suppress_start_notification_email"
 
         fun start(
             context: Context,
@@ -360,6 +361,10 @@ class LiveTrackingService : Service() {
                     .putExtra(EXTRA_COMMENTS, settings.comments)
                     .putExtra(EXTRA_GPX_URI, settings.gpxUri?.toString())
                     .putExtra(EXTRA_GPX_NAME, settings.gpxName)
+                    .putExtra(
+                        EXTRA_SUPPRESS_START_NOTIFICATION_EMAIL,
+                        settings.suppressStartNotificationEmail,
+                    )
             ContextCompat.startForegroundService(context, intent)
         }
 
@@ -395,6 +400,8 @@ class LiveTrackingService : Service() {
                 comments = getStringExtra(EXTRA_COMMENTS).orEmpty(),
                 gpxUri = gpxUri,
                 gpxName = getStringExtra(EXTRA_GPX_NAME).orEmpty(),
+                suppressStartNotificationEmail =
+                    getBooleanExtra(EXTRA_SUPPRESS_START_NOTIFICATION_EMAIL, false),
             )
         }
     }

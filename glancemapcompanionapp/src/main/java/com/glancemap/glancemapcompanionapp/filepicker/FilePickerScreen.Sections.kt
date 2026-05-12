@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -628,7 +629,7 @@ internal fun FilePickerHistorySection(
                     },
                 colors =
                     CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp),
                     ),
             ) {
                 if (uiState.history.isEmpty()) {

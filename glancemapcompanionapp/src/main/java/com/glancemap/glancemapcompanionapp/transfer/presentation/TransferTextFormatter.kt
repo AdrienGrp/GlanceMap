@@ -121,6 +121,7 @@ internal object TransferTextFormatter {
         return when {
             combined.contains("cancelling") || combined.contains("stopping current transfer") -> "Stopping…"
             combined.contains("validating checksum") ||
+                combined.contains("checksum:") ||
                 combined.contains("verifying") ||
                 combined.contains("checking partial file") ||
                 combined.contains("repairing partial file") ||
@@ -159,6 +160,7 @@ internal object TransferTextFormatter {
             .lastOrNull {
                 it.startsWith("HTTP:", ignoreCase = true) ||
                     it.startsWith("Channel:", ignoreCase = true) ||
-                    it.startsWith("Message:", ignoreCase = true)
+                    it.startsWith("Message:", ignoreCase = true) ||
+                    it.startsWith("Checksum:", ignoreCase = true)
             }
 }
