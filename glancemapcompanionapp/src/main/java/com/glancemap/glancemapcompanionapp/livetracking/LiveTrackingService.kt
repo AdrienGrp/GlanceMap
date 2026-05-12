@@ -39,6 +39,7 @@ class LiveTrackingService : Service() {
     private var settings: LiveTrackingSettings? = null
     private var lastLocation: Location? = null
     private var sentStart = false
+    private var isPaused = false
 
     private val locationCallback =
         object : LocationCallback() {
@@ -63,9 +64,21 @@ class LiveTrackingService : Service() {
         flags: Int,
         startId: Int,
     ): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopTracking()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_PAUSE -> {
+                pauseTracking()
+                return START_STICKY
+            }
+
+            ACTION_RESUME -> {
+                resumeTracking()
+                return START_STICKY
+            }
+
+            ACTION_STOP -> {
+                stopTracking()
+                return START_NOT_STICKY
+            }
         }
 
         val parsedSettings = intent?.toLiveTrackingSettings()
@@ -77,6 +90,7 @@ class LiveTrackingService : Service() {
 
         settings = parsedSettings
         sentStart = false
+        isPaused = false
         LiveTrackingSessionStore.setStarting()
         startForegroundNotification("Starting live tracking")
         startTracking(parsedSettings)
@@ -145,6 +159,7 @@ class LiveTrackingService : Service() {
         stop: Boolean,
     ) {
         val activeSettings = settings ?: return
+        if (isPaused && !stop) return
         runCatching {
             arkluzClient.sendLocation(
                 settings = activeSettings,
@@ -171,6 +186,8 @@ class LiveTrackingService : Service() {
 
     private fun startLocationUpdates() {
         if (!hasLocationPermission()) return
+        runCatching { locationClient.removeLocationUpdates(locationCallback) }
+        isPaused = false
         val request =
             LocationRequest
                 .Builder(Priority.PRIORITY_HIGH_ACCURACY, updateIntervalMs())
@@ -180,6 +197,32 @@ class LiveTrackingService : Service() {
         locationClient.requestLocationUpdates(request, locationCallback, mainLooper)
     }
 
+    private fun pauseTracking() {
+        if (settings == null || isPaused) return
+        runCatching { locationClient.removeLocationUpdates(locationCallback) }
+        isPaused = true
+        LiveTrackingSessionStore.setStatus("Paused")
+        updateNotification("Live tracking paused")
+    }
+
+    private fun resumeTracking() {
+        if (settings == null) return
+        if (!isPaused) return
+        if (!hasLocationPermission()) {
+            LiveTrackingSessionStore.setStopped("Location permission is required")
+            updateNotification("Location permission is required")
+            stopSelf()
+            return
+        }
+        isPaused = false
+        LiveTrackingSessionStore.setStatus("Waiting for GPS fix")
+        updateNotification("Waiting for GPS fix")
+        startLocationUpdates()
+        serviceScope.launch {
+            sendLastKnownLocationIfAvailable()
+        }
+    }
+
     private fun updateIntervalMs(): Long =
         (settings?.updateIntervalSeconds ?: DEFAULT_UPDATE_INTERVAL_SECONDS)
             .coerceIn(MIN_UPDATE_INTERVAL_SECONDS, MAX_UPDATE_INTERVAL_SECONDS)
@@ -187,6 +230,7 @@ class LiveTrackingService : Service() {
 
     private fun stopTracking() {
         runCatching { locationClient.removeLocationUpdates(locationCallback) }
+        isPaused = false
         serviceScope.launch {
             val location = lastLocation
             if (location != null) {
@@ -233,6 +277,15 @@ class LiveTrackingService : Service() {
                 Intent(this, LiveTrackingService::class.java).setAction(ACTION_STOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
+        val pauseResumeIntent =
+            PendingIntent.getService(
+                this,
+                if (isPaused) REQ_RESUME else REQ_PAUSE,
+                Intent(this, LiveTrackingService::class.java)
+                    .setAction(if (isPaused) ACTION_RESUME else ACTION_PAUSE),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        val pauseResumeLabel = if (isPaused) "Start" else "Pause"
         return NotificationCompat
             .Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher_companionapp_foreground)
@@ -244,6 +297,7 @@ class LiveTrackingService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOnlyAlertOnce(true)
             .setContentIntent(openIntent)
+            .addAction(0, pauseResumeLabel, pauseResumeIntent)
             .addAction(0, "Stop live tracking", stopIntent)
     }
 
@@ -266,10 +320,14 @@ class LiveTrackingService : Service() {
         private const val NOTIFICATION_ID = 42
         private const val REQ_OPEN_APP = 4201
         private const val REQ_STOP = 4202
+        private const val REQ_PAUSE = 4203
+        private const val REQ_RESUME = 4204
         private const val DEFAULT_UPDATE_INTERVAL_SECONDS = 60
         private const val MIN_UPDATE_INTERVAL_SECONDS = 15
         private const val MAX_UPDATE_INTERVAL_SECONDS = 600
         private const val ACTION_STOP = "com.glancemap.glancemapcompanionapp.livetracking.STOP"
+        private const val ACTION_PAUSE = "com.glancemap.glancemapcompanionapp.livetracking.PAUSE"
+        private const val ACTION_RESUME = "com.glancemap.glancemapcompanionapp.livetracking.RESUME"
 
         private const val EXTRA_GROUP = "group"
         private const val EXTRA_TRACKING_URL = "tracking_url"
