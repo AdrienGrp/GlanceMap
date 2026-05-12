@@ -55,7 +55,10 @@ class MainActivityMobile : ComponentActivity() {
                     vm.loadFilesFromUris(this@MainActivityMobile, uris)
                 }
 
-                FilePickerScreen(viewModel = vm)
+                FilePickerScreen(
+                    viewModel = vm,
+                    openSendToWatchToken = incomingIntentToken,
+                )
             }
         }
     }

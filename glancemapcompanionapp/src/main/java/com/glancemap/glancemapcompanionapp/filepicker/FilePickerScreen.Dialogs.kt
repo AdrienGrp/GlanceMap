@@ -1,7 +1,10 @@
 package com.glancemap.glancemapcompanionapp.filepicker
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,10 +41,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.glancemap.glancemapcompanionapp.CompanionAdaptiveSpec
@@ -438,6 +443,7 @@ internal fun FilePickerQuickGuideDialog(
                             lines =
                                 listOf(
                                     "Contact: https://arkluz.com/trk?contact",
+                                    "API: https://arkluz.com/dev/trk?api",
                                     "Contributions: Jérôme Seydoux.",
                                 ),
                         ),
@@ -465,13 +471,13 @@ internal fun FilePickerQuickGuideDialog(
     val showBodyTitle = !isWelcomePage && pages.size > 1
     val titleHeight =
         when {
-            isWelcomePage -> 44.dp
+            isWelcomePage -> 72.dp
             pages.size > 1 -> 72.dp
             else -> 48.dp
         }
     val bodyMaxHeight =
         if (isWelcomePage) {
-            adaptive.quickGuideDialogMaxHeight.coerceAtMost(420.dp)
+            adaptive.quickGuideDialogMaxHeight.coerceAtMost(360.dp)
         } else {
             adaptive.quickGuideDialogMaxHeight
         }
@@ -490,7 +496,7 @@ internal fun FilePickerQuickGuideDialog(
                         .height(titleHeight),
                 contentAlignment =
                     if (isWelcomePage) {
-                        Alignment.TopCenter
+                        Alignment.Center
                     } else {
                         Alignment.TopStart
                     },
@@ -621,12 +627,36 @@ private fun quickGuideLineText(line: String) {
     when (line) {
         STAY_OPEN_GUIDE_LINE -> stayOpenGuideLineText()
         QUICK_GUIDE_BOOK_ICON_LINE -> quickGuideBookIconLineText()
-        else ->
-            Text(
-                text = "• $line",
-                style = MaterialTheme.typography.bodyMedium,
-            )
+        else -> quickGuidePlainLineText(line = line)
     }
+}
+
+@Composable
+private fun quickGuidePlainLineText(line: String) {
+    val context = LocalContext.current
+    val url = QUICK_GUIDE_URL_PATTERN.find(line)?.value
+
+    Text(
+        text = "• $line",
+        modifier =
+            if (url == null) {
+                Modifier
+            } else {
+                Modifier.clickable { openQuickGuideUrl(context, url) }
+            },
+        style =
+            if (url == null) {
+                MaterialTheme.typography.bodyMedium
+            } else {
+                MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.Underline)
+            },
+        color =
+            if (url == null) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
+    )
 }
 
 @Composable
@@ -641,6 +671,17 @@ private fun quickGuideBookIconLineText() {
         inlineContent = bookGuideInlineContent(),
         style = MaterialTheme.typography.bodyMedium,
     )
+}
+
+private val QUICK_GUIDE_URL_PATTERN = Regex("""https?://\S+""")
+
+private fun openQuickGuideUrl(
+    context: Context,
+    url: String,
+) {
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
 }
 
 @Composable

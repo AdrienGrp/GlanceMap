@@ -641,6 +641,7 @@ fun LiveTrackingScreen(
                                                 updateIntervalSeconds = profile.updateIntervalSeconds
                                             }
                                             loginJoinStatusMessage = "Connected to $cleanGroup"
+                                            headerMessage = null
                                         }
                                     }.onFailure { error ->
                                         loginJoinStatusMessage = error.message ?: "Unable to connect"
@@ -688,6 +689,7 @@ fun LiveTrackingScreen(
                                             updateIntervalSeconds = profile.updateIntervalSeconds
                                         }
                                         loginJoinStatusMessage = "$status to ${group.trim()}"
+                                        headerMessage = null
                                     }.onFailure { error ->
                                         loginJoinStatusMessage = error.message ?: "Unable to create group"
                                     }

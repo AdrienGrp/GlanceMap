@@ -58,7 +58,10 @@ private enum class CompanionHomeArea {
 }
 
 @Composable
-fun FilePickerScreen(viewModel: FileTransferViewModel) {
+fun FilePickerScreen(
+    viewModel: FileTransferViewModel,
+    openSendToWatchToken: Long = 0L,
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -88,7 +91,15 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
     var quickGuideMode by remember { mutableStateOf(QuickGuideMode.GENERAL) }
     var showHowToDialog by remember(autoOpenHelpOnFirstLaunch) { mutableStateOf(autoOpenHelpOnFirstLaunch) }
     var showDebugDialog by remember { mutableStateOf(false) }
-    var activeHomeArea by remember { mutableStateOf(CompanionHomeArea.HOME) }
+    var activeHomeArea by remember {
+        mutableStateOf(
+            if (openSendToWatchToken != 0L) {
+                CompanionHomeArea.SEND_TO_WATCH
+            } else {
+                CompanionHomeArea.HOME
+            },
+        )
+    }
     var showRefugesDialog by remember { mutableStateOf(false) }
     var showRoutingMenu by remember { mutableStateOf(false) }
     var showThemeLegendMenu by remember { mutableStateOf(false) }
@@ -106,6 +117,12 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
 
     BackHandler(enabled = activeHomeArea != CompanionHomeArea.HOME) {
         activeHomeArea = CompanionHomeArea.HOME
+    }
+
+    LaunchedEffect(openSendToWatchToken) {
+        if (openSendToWatchToken != 0L) {
+            activeHomeArea = CompanionHomeArea.SEND_TO_WATCH
+        }
     }
 
     val mapDownloadSources =
