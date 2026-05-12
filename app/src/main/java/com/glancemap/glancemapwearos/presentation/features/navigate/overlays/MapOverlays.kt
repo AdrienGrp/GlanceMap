@@ -38,6 +38,7 @@ import org.mapsforge.map.model.common.Observer
 
 @Composable
 @OptIn(FlowPreview::class)
+@Suppress("FunctionNaming", "LongMethod", "LongParameterList")
 internal fun MapOverlays(
     mapHolder: MapHolder,
     activeGpxDetails: List<GpxTrackDetails>,
@@ -544,6 +545,7 @@ private fun PoiOverlayEffect(
 }
 
 @Composable
+@Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 private fun GpxAndInspectionOverlayEffect(
     mapView: MapView,
     activeGpxDetails: List<GpxTrackDetails>,

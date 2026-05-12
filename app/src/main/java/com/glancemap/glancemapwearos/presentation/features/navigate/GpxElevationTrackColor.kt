@@ -72,24 +72,44 @@ internal fun classifyElevationSegment(
     from: TrackPoint,
     to: TrackPoint,
 ): GpxElevationSegmentType {
-    val fromElevation = from.elevation ?: return GpxElevationSegmentType.FLAT
-    val toElevation = to.elevation ?: return GpxElevationSegmentType.FLAT
-    val distanceMeters =
-        haversineMeters(
-            lat1 = from.latLong.latitude,
-            lon1 = from.latLong.longitude,
-            lat2 = to.latLong.latitude,
-            lon2 = to.latLong.longitude,
-        ).coerceAtLeast(0.0)
-    if (distanceMeters <= 0.0) return GpxElevationSegmentType.FLAT
-
-    val gradePercent = ((toElevation - fromElevation) / distanceMeters) * 100.0
+    val gradePercent =
+        elevationGradePercent(
+            from = from,
+            to = to,
+        )
     return when {
+        gradePercent == null -> GpxElevationSegmentType.FLAT
         gradePercent >= 8.0 -> GpxElevationSegmentType.CLIMB
         gradePercent >= 2.0 -> GpxElevationSegmentType.UPHILL
         gradePercent <= -8.0 -> GpxElevationSegmentType.DESCENT
         gradePercent <= -2.0 -> GpxElevationSegmentType.DOWNHILL
         else -> GpxElevationSegmentType.FLAT
+    }
+}
+
+private fun elevationGradePercent(
+    from: TrackPoint,
+    to: TrackPoint,
+): Double? {
+    val fromElevation = from.elevation
+    val toElevation = to.elevation
+
+    return when {
+        fromElevation == null || toElevation == null -> null
+        else -> {
+            val distanceMeters =
+                haversineMeters(
+                    lat1 = from.latLong.latitude,
+                    lon1 = from.latLong.longitude,
+                    lat2 = to.latLong.latitude,
+                    lon2 = to.latLong.longitude,
+                ).coerceAtLeast(0.0)
+            if (distanceMeters > 0.0) {
+                ((toElevation - fromElevation) / distanceMeters) * 100.0
+            } else {
+                null
+            }
+        }
     }
 }
 

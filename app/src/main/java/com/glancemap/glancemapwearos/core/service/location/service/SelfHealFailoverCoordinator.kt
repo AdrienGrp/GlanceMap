@@ -12,6 +12,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@Suppress("LongParameterList")
 internal class SelfHealFailoverCoordinator(
     private val serviceScope: CoroutineScope,
     private val isServiceActive: () -> Boolean,
@@ -25,6 +26,7 @@ internal class SelfHealFailoverCoordinator(
     private val hasCoarsePermission: () -> Boolean,
     private val watchGpsOnly: () -> Boolean,
     private val passiveLocationExperiment: () -> Boolean,
+    private val phoneConnected: () -> Boolean?,
     private val lastAnyAcceptedFixAtElapsedMs: () -> Long,
     private val lastCallbackAcceptedFixAtElapsedMs: () -> Long,
     private val lastRequestAppliedAtElapsedMs: () -> Long,
@@ -42,6 +44,12 @@ internal class SelfHealFailoverCoordinator(
     private var selfHealJob: Job? = null
 
     fun isAutoFusedFallbackToWatchGps(): Boolean = autoFusedFallbackToWatchGps
+
+    fun onPhoneConnectionStateChecked(phoneConnected: Boolean) {
+        if (phoneConnected && autoFusedFallbackToWatchGps) {
+            lastAutoFusedRecoveryProbeAtElapsedMs = 0L
+        }
+    }
 
     fun currentLocationSourceMode(): LocationSourceMode =
         if (watchGpsOnly() || autoFusedFallbackToWatchGps) {
@@ -319,6 +327,10 @@ internal class SelfHealFailoverCoordinator(
         nowElapsedMs: Long,
     ) {
         if (callbackOrigin != LocationSourceMode.WATCH_GPS) return
+        if (shouldStayOnWatchGpsForDisconnectedPhone()) {
+            autoFusedWatchGpsRecoveryStreak = 0
+            return
+        }
 
         val ageMs = LocationFixPolicy.locationAgeMs(acceptedLocation, nowElapsedMs)
         val isFresh = ageMs != Long.MAX_VALUE && ageMs <= strictFreshMaxAgeMs()
@@ -374,6 +386,12 @@ internal class SelfHealFailoverCoordinator(
                 Long.MAX_VALUE
             }
         if (sinceLastProbeMs < AUTO_FUSED_RECOVERY_PROBE_COOLDOWN_MS) return false
+
+        if (phoneConnected() == false) {
+            lastAutoFusedRecoveryProbeAtElapsedMs = nowElapsedMs
+            requestLocationUpdateIfNeeded()
+            return true
+        }
 
         clearAutoFusedFailoverStateInternal(reason = "auto_recovery_probe")
         lastAutoFusedRecoveryProbeAtElapsedMs = nowElapsedMs
@@ -456,6 +474,8 @@ internal class SelfHealFailoverCoordinator(
             telemetry.logAutoFusedFallbackCleared(reason = reason)
         }
     }
+
+    private fun shouldStayOnWatchGpsForDisconnectedPhone(): Boolean = phoneConnected() == false
 }
 
 internal enum class AutoFusedNoFixRecoveryAction {
