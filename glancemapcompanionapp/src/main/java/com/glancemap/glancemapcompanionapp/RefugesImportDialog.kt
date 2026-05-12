@@ -16,6 +16,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -680,6 +681,7 @@ internal fun RefugesImportDialog(
                                 selectSource(PoiImportSource.OSM)
                             },
                             label = { Text("OSM") },
+                            colors = companionFilterChipColors(),
                         )
                         FilterChip(
                             selected = selectedSource == PoiImportSource.REFUGES,
@@ -687,6 +689,7 @@ internal fun RefugesImportDialog(
                                 selectSource(PoiImportSource.REFUGES)
                             },
                             label = { Text("Refuges.info") },
+                            colors = companionFilterChipColors(),
                         )
                     }
                     if (selectedSource == PoiImportSource.REFUGES) {
@@ -970,6 +973,7 @@ internal fun RefugesTypePresetChips(
                 selected = selectedIds == preset.typeIds,
                 onClick = { onPresetSelected(preset.typeIds) },
                 label = { Text(preset.label) },
+                colors = companionFilterChipColors(),
             )
         }
     }
@@ -1050,10 +1054,21 @@ internal fun OsmPoiCategoryPresetChips(
                 selected = selectedIds == preset.categoryIds,
                 onClick = { onPresetSelected(preset.categoryIds) },
                 label = { Text(preset.label) },
+                colors = companionFilterChipColors(),
             )
         }
     }
 }
+
+@Composable
+private fun companionFilterChipColors() =
+    FilterChipDefaults.filterChipColors(
+        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        containerColor = MaterialTheme.colorScheme.surface,
+        labelColor = MaterialTheme.colorScheme.onSurface,
+    )
 
 @Composable
 internal fun OsmPoiCategorySelectionGroup(

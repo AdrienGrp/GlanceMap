@@ -581,6 +581,7 @@ fun FilePickerScreen(
                         FilledTonalIconButton(
                             onClick = { activeHomeArea = CompanionHomeArea.HOME },
                             modifier = Modifier.size(adaptive.helpIconButtonSize),
+                            colors = companionTonalIconButtonColors(),
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -597,7 +598,13 @@ fun FilePickerScreen(
                                         if (debugCaptureState.active) {
                                             MaterialTheme.colorScheme.errorContainer
                                         } else {
-                                            MaterialTheme.colorScheme.secondaryContainer
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        },
+                                    contentColor =
+                                        if (debugCaptureState.active) {
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
                                         },
                                 ),
                         ) {
@@ -631,6 +638,7 @@ fun FilePickerScreen(
                                 showHowToDialog = true
                             },
                             modifier = Modifier.size(adaptive.helpIconButtonSize),
+                            colors = companionTonalIconButtonColors(),
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.MenuBook,
@@ -968,6 +976,7 @@ private fun CompanionHomeScreen(
             FilledTonalIconButton(
                 onClick = onOpenQuickGuide,
                 modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors = companionTonalIconButtonColors(),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.MenuBook,
@@ -1083,6 +1092,13 @@ private fun HomeActionButton(
 }
 
 @Composable
+private fun companionTonalIconButtonColors() =
+    IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    )
+
+@Composable
 private fun CompanionMapLegendScreen(
     adaptive: CompanionAdaptiveSpec,
     selectedThemeLegend: ThemeLegendSource,
@@ -1111,6 +1127,7 @@ private fun CompanionMapLegendScreen(
             FilledTonalIconButton(
                 onClick = onBack,
                 modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors = companionTonalIconButtonColors(),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -1134,6 +1151,7 @@ private fun CompanionMapLegendScreen(
             FilledTonalIconButton(
                 onClick = onOpenHelp,
                 modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors = companionTonalIconButtonColors(),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.MenuBook,

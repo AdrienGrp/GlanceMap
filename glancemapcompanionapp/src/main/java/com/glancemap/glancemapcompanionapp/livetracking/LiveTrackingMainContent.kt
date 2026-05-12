@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -86,6 +87,7 @@ internal fun ColumnScope.MainTrackingContent(
         FilledTonalIconButton(
             onClick = onBack,
             modifier = Modifier.size(adaptive.helpIconButtonSize),
+            colors = companionTonalIconButtonColors(),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -110,6 +112,7 @@ internal fun ColumnScope.MainTrackingContent(
         FilledTonalIconButton(
             onClick = onOpenGuide,
             modifier = Modifier.size(adaptive.helpIconButtonSize),
+            colors = companionTonalIconButtonColors(),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.MenuBook,
@@ -373,6 +376,7 @@ private fun TrackLinkRow(
             onClick = onView,
             enabled = url.isNotBlank(),
             modifier = Modifier.size(36.dp),
+            colors = companionTonalIconButtonColors(),
         ) {
             Icon(
                 imageVector = Icons.Filled.TravelExplore,
@@ -384,6 +388,7 @@ private fun TrackLinkRow(
             onClick = onShare,
             enabled = url.isNotBlank(),
             modifier = Modifier.size(36.dp),
+            colors = companionTonalIconButtonColors(),
         ) {
             Icon(
                 imageVector = Icons.Filled.Share,
@@ -393,3 +398,10 @@ private fun TrackLinkRow(
         }
     }
 }
+
+@Composable
+private fun companionTonalIconButtonColors() =
+    IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    )

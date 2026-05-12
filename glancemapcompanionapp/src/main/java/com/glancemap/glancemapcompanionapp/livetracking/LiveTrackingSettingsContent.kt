@@ -23,6 +23,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -82,6 +83,7 @@ internal fun ColumnScope.SettingsContent(
                 Modifier
                     .align(Alignment.CenterStart)
                     .size(36.dp),
+            colors = companionTonalIconButtonColors(),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -173,6 +175,13 @@ internal fun ColumnScope.SettingsContent(
 }
 
 @Composable
+private fun companionTonalIconButtonColors() =
+    IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    )
+
+@Composable
 internal fun PasswordField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -200,6 +209,7 @@ internal fun PasswordField(
             FilledTonalIconButton(
                 onClick = { onVisibilityChange(!isVisible) },
                 modifier = Modifier.size(36.dp),
+                colors = companionTonalIconButtonColors(),
             ) {
                 Icon(
                     imageVector =

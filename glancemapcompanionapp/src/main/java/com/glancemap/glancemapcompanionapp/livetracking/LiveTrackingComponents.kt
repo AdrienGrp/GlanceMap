@@ -24,6 +24,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
@@ -48,6 +49,11 @@ internal fun HeaderRow(
         FilledTonalIconButton(
             onClick = onBack,
             modifier = Modifier.size(36.dp),
+            colors =
+                IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,

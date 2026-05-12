@@ -24,10 +24,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -75,18 +77,23 @@ class PrivacyPolicyActivity : ComponentActivity() {
 
         setContent {
             GlanceMapTheme {
-                if (document == null) {
-                    CreditsAndLegalScreen(
-                        onBack = ::finish,
-                        onOpenDocument = { selected ->
-                            startActivity(documentIntent(this, selected))
-                        },
-                    )
-                } else {
-                    LegalDocumentScreen(
-                        document = document,
-                        onBack = ::finish,
-                    )
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    if (document == null) {
+                        CreditsAndLegalScreen(
+                            onBack = ::finish,
+                            onOpenDocument = { selected ->
+                                startActivity(documentIntent(this, selected))
+                            },
+                        )
+                    } else {
+                        LegalDocumentScreen(
+                            document = document,
+                            onBack = ::finish,
+                        )
+                    }
                 }
             }
         }
@@ -112,7 +119,10 @@ private fun CreditsAndLegalScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IconButton(onClick = onBack) {
+            FilledTonalIconButton(
+                onClick = onBack,
+                colors = companionTonalIconButtonColors(),
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
@@ -188,7 +198,10 @@ private fun LegalDocumentScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IconButton(onClick = onBack) {
+            FilledTonalIconButton(
+                onClick = onBack,
+                colors = companionTonalIconButtonColors(),
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
@@ -282,6 +295,13 @@ private fun openPrivacyContactEmail(context: Context) {
         throw ActivityNotFoundException("No email app available")
     }
 }
+
+@Composable
+private fun companionTonalIconButtonColors() =
+    IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    )
 
 private data class LegalDocument(
     val buttonLabel: String,

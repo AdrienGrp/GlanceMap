@@ -66,6 +66,7 @@ fun LiveTrackingScreen(
     val coroutineScope = rememberCoroutineScope()
     val sessionState by LiveTrackingSessionStore.state.collectAsState()
     val savedSettings = remember(context) { LiveTrackingPreferences.load(context) }
+    val savedDraft = remember(context) { LiveTrackingPreferences.loadDraft(context) }
     var page by remember { mutableStateOf(LiveTrackingPage.MAIN) }
     var loginReturnPage by remember { mutableStateOf(LiveTrackingPage.MAIN) }
     var group by remember { mutableStateOf(savedSettings.group) }
@@ -79,11 +80,13 @@ fun LiveTrackingScreen(
     var alertEmailInput by remember { mutableStateOf("") }
     var alertEmailAddresses by remember { mutableStateOf(savedSettings.alertEmailAddresses) }
     var stuckAlarmMinutes by remember { mutableStateOf(savedSettings.stuckAlarmMinutes) }
-    var comments by remember { mutableStateOf("") }
+    var comments by remember { mutableStateOf(savedDraft.comments) }
     var trackingEndpoint by remember { mutableStateOf(ArkluzTrackingEndpoint.DEVELOPMENT) }
     var updateIntervalSeconds by remember { mutableStateOf(savedSettings.updateIntervalSeconds) }
-    var selectedGpxUri by remember { mutableStateOf<Uri?>(null) }
-    var selectedGpxName by remember { mutableStateOf("") }
+    var selectedGpxUri by remember {
+        mutableStateOf(savedDraft.gpxUri.takeIf(String::isNotBlank)?.let(Uri::parse))
+    }
+    var selectedGpxName by remember { mutableStateOf(savedDraft.gpxName) }
     var hasLocationPermission by remember { mutableStateOf(hasLocationPermission(context)) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
     var headerMessage by remember { mutableStateOf<String?>(null) }
@@ -108,14 +111,35 @@ fun LiveTrackingScreen(
     var emailPickerTarget by remember { mutableStateOf<EmailPickerTarget?>(null) }
     var showUseLastTransferGpxDialog by remember { mutableStateOf(false) }
 
+    fun savePlannedDraft(
+        draftComments: String = comments,
+        draftGpxUri: Uri? = selectedGpxUri,
+        draftGpxName: String = selectedGpxName,
+    ) {
+        LiveTrackingPreferences.saveDraft(
+            context = context,
+            draft =
+                SavedLiveTrackingDraft(
+                    comments = draftComments,
+                    gpxUri = draftGpxUri?.toString().orEmpty(),
+                    gpxName = draftGpxName,
+                ),
+        )
+    }
+
     fun selectPlannedGpx(
         uri: Uri,
         name: String,
     ) {
+        val cleanName = name.ifBlank { resolveUriDisplayName(context, uri).ifBlank { "Selected GPX" } }
         selectedGpxUri = uri
-        selectedGpxName = name.ifBlank { resolveUriDisplayName(context, uri).ifBlank { "Selected GPX" } }
+        selectedGpxName = cleanName
         planSent = false
         sendStatusMessage = null
+        savePlannedDraft(
+            draftGpxUri = uri,
+            draftGpxName = cleanName,
+        )
     }
 
     val gpxPicker =
@@ -450,6 +474,7 @@ fun LiveTrackingScreen(
                             comments = it
                             planSent = false
                             sendStatusMessage = null
+                            savePlannedDraft(draftComments = it)
                         },
                         onPickGpx = {
                             if (
@@ -547,7 +572,7 @@ fun LiveTrackingScreen(
                                         sendStatusMessage = result.message.ifBlank { "Sent" }
                                         LiveTrackingService.start(
                                             context = context,
-                                            settings = settings.copy(suppressStartNotificationEmail = true),
+                                            settings = settings,
                                         )
                                     }.onFailure { error ->
                                         sendStatusMessage = "Send failed: ${error.message ?: "unknown error"}"
@@ -764,6 +789,10 @@ fun LiveTrackingScreen(
                             alertEmailAddresses = emptyList()
                             stuckAlarmMinutes = "15"
                             updateIntervalSeconds = 60
+                            comments = ""
+                            selectedGpxUri = null
+                            selectedGpxName = ""
+                            planSent = false
                             page = LiveTrackingPage.MAIN
                         },
                         scrollState = scrollState,

@@ -13,6 +13,12 @@ internal data class SavedLiveTrackingSettings(
     val updateIntervalSeconds: Int = 60,
 )
 
+internal data class SavedLiveTrackingDraft(
+    val comments: String = "",
+    val gpxUri: String = "",
+    val gpxName: String = "",
+)
+
 internal object LiveTrackingPreferences {
     private const val PREFS_NAME = "arkluz_live_tracking"
     private const val KEY_GROUP = "group"
@@ -23,6 +29,9 @@ internal object LiveTrackingPreferences {
     private const val KEY_ALERT_EMAILS = "alert_emails"
     private const val KEY_STUCK_ALARM_MINUTES = "stuck_alarm_minutes"
     private const val KEY_UPDATE_INTERVAL_SECONDS = "update_interval_seconds"
+    private const val KEY_DRAFT_COMMENTS = "draft_comments"
+    private const val KEY_DRAFT_GPX_URI = "draft_gpx_uri"
+    private const val KEY_DRAFT_GPX_NAME = "draft_gpx_name"
     private const val GROUP_PROFILE_PREFIX = "group_profile"
 
     fun load(context: Context): SavedLiveTrackingSettings {
@@ -54,6 +63,28 @@ internal object LiveTrackingPreferences {
             .putString(KEY_ALERT_EMAILS, settings.alertEmailAddresses.joinToString(","))
             .putString(KEY_STUCK_ALARM_MINUTES, settings.stuckAlarmMinutes)
             .putInt(KEY_UPDATE_INTERVAL_SECONDS, settings.updateIntervalSeconds)
+            .apply()
+    }
+
+    fun loadDraft(context: Context): SavedLiveTrackingDraft {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return SavedLiveTrackingDraft(
+            comments = prefs.getString(KEY_DRAFT_COMMENTS, "").orEmpty(),
+            gpxUri = prefs.getString(KEY_DRAFT_GPX_URI, "").orEmpty(),
+            gpxName = prefs.getString(KEY_DRAFT_GPX_NAME, "").orEmpty(),
+        )
+    }
+
+    fun saveDraft(
+        context: Context,
+        draft: SavedLiveTrackingDraft,
+    ) {
+        context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_DRAFT_COMMENTS, draft.comments)
+            .putString(KEY_DRAFT_GPX_URI, draft.gpxUri)
+            .putString(KEY_DRAFT_GPX_NAME, draft.gpxName)
             .apply()
     }
 
@@ -108,6 +139,9 @@ internal object LiveTrackingPreferences {
             .remove(KEY_ALERT_EMAILS)
             .remove(KEY_STUCK_ALARM_MINUTES)
             .remove(KEY_UPDATE_INTERVAL_SECONDS)
+            .remove(KEY_DRAFT_COMMENTS)
+            .remove(KEY_DRAFT_GPX_URI)
+            .remove(KEY_DRAFT_GPX_NAME)
             .apply()
     }
 
