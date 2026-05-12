@@ -183,7 +183,7 @@ class MainActivity : ComponentActivity() {
 
                         composable(WatchRoutes.MAIN_MENU) {
                             DismissableScreen(
-                                onDismiss = { navController.popBackStack() },
+                                onDismiss = { finishAndRemoveTask() },
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                                 rightEdgeGestureWidthOverride = 8.dp,
                             ) {
