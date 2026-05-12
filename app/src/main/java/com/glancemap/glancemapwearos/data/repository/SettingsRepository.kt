@@ -49,6 +49,9 @@ interface SettingsRepository {
         const val DEFAULT_GPX_TRACK_OPACITY_PERCENT = 70
         const val MIN_GPX_TRACK_OPACITY_PERCENT = 10
         const val MAX_GPX_TRACK_OPACITY_PERCENT = 100
+        const val GPX_TRACK_COLOR_MODE_SOLID = "SOLID"
+        const val GPX_TRACK_COLOR_MODE_ELEVATION = "ELEVATION"
+        const val DEFAULT_GPX_TRACK_COLOR_MODE = GPX_TRACK_COLOR_MODE_SOLID
 
         const val POI_ICON_SIZE_SMALL_PX = 18
         const val POI_ICON_SIZE_DEFAULT_PX = 22
@@ -192,6 +195,10 @@ interface SettingsRepository {
     val gpxTrackColor: Flow<Int>
 
     suspend fun setGpxTrackColor(color: Int)
+
+    val gpxTrackColorMode: Flow<String>
+
+    suspend fun setGpxTrackColorMode(mode: String)
 
     val gpxTrackWidth: Flow<Float>
 

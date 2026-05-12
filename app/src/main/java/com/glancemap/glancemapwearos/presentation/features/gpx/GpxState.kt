@@ -32,6 +32,8 @@ data class TrackPoint(
 data class GpxTrackDetails(
     val id: String,
     val points: List<LatLong>,
+    val trackPoints: List<TrackPoint> =
+        points.map { TrackPoint(latLong = it, elevation = null) },
     val title: String?,
     val distance: Double,
     val elevationGain: Double,

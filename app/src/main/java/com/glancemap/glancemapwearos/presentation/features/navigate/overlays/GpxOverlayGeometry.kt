@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
+import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.util.MercatorProjection
 import kotlin.math.max
@@ -8,11 +9,11 @@ import kotlin.math.min
 
 internal data class TrackLodLevels(
     val sourceSignature: Long,
-    val low: List<LatLong>,
-    val medium: List<LatLong>,
-    val full: List<LatLong>,
+    val low: List<TrackPoint>,
+    val medium: List<TrackPoint>,
+    val full: List<TrackPoint>,
 ) {
-    fun pointsForZoom(zoom: Int): List<LatLong> =
+    fun pointsForZoom(zoom: Int): List<TrackPoint> =
         when {
             zoom >= 16 -> full
             zoom >= 14 -> medium
@@ -32,7 +33,7 @@ internal fun zoomBucketFor(zoom: Int): Int =
         else -> 1
     }
 
-internal fun buildTrackLodLevels(points: List<LatLong>): TrackLodLevels {
+internal fun buildTrackLodLevels(points: List<TrackPoint>): TrackLodLevels {
     val signature = latLongListSignature(points)
     if (points.size <= 64) {
         return TrackLodLevels(
@@ -53,12 +54,16 @@ internal fun buildTrackLodLevels(points: List<LatLong>): TrackLodLevels {
     )
 }
 
-private fun latLongListSignature(points: List<LatLong>): Long {
+internal fun List<TrackPoint>.latLongs(): List<LatLong> = map { it.latLong }
+
+private fun latLongListSignature(points: List<TrackPoint>): Long {
     var h = 1_469_598_103_934_665_603L
     val prime = 1_099_511_628_211L
-    points.forEach { ll ->
+    points.forEach { point ->
+        val ll = point.latLong
         h = (h xor ll.latitude.toBits()) * prime
         h = (h xor ll.longitude.toBits()) * prime
+        h = (h xor (point.elevation?.toBits() ?: 0L)) * prime
     }
     return h
 }
@@ -77,9 +82,9 @@ internal fun hasSameLatLongs(
 }
 
 private fun simplifyTrackRdpMeters(
-    points: List<LatLong>,
+    points: List<TrackPoint>,
     toleranceMeters: Double,
-): List<LatLong> {
+): List<TrackPoint> {
     if (points.size <= 2) return points
 
     val xy = toLocalMeters(points)
@@ -117,20 +122,21 @@ private fun simplifyTrackRdpMeters(
         }
     }
 
-    val out = ArrayList<LatLong>(points.size)
+    val out = ArrayList<TrackPoint>(points.size)
     for (i in points.indices) {
         if (keep[i]) out.add(points[i])
     }
     return if (out.size >= 2) out else listOf(points.first(), points.last())
 }
 
-private fun toLocalMeters(points: List<LatLong>): List<XY> {
+private fun toLocalMeters(points: List<TrackPoint>): List<XY> {
     val r = 6_371_000.0
-    val lat0 = Math.toRadians(points.first().latitude)
-    val lon0 = Math.toRadians(points.first().longitude)
+    val lat0 = Math.toRadians(points.first().latLong.latitude)
+    val lon0 = Math.toRadians(points.first().latLong.longitude)
     val cosLat0 = kotlin.math.cos(lat0)
 
-    return points.map { ll ->
+    return points.map { point ->
+        val ll = point.latLong
         val lat = Math.toRadians(ll.latitude)
         val lon = Math.toRadians(ll.longitude)
         XY(
