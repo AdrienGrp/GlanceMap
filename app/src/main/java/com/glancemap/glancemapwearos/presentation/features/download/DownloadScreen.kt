@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
@@ -92,6 +93,7 @@ fun DownloadScreen(
     var bundlePendingDelete by remember { mutableStateOf<OamInstalledBundle?>(null) }
     var showOamInfoDialog by remember { mutableStateOf(false) }
     var deleteMode by remember { mutableStateOf(false) }
+    var refreshMode by remember { mutableStateOf(false) }
     var showAreaSearchDialog by remember { mutableStateOf(false) }
     val infoPrefs =
         remember(context) {
@@ -271,6 +273,11 @@ fun DownloadScreen(
         onContinue = viewModel::continueDownloadWithoutWifi,
         onDismiss = viewModel::dismissNetworkWarning,
     )
+    RefreshBundleDialog(
+        check = uiState.refreshPrompt,
+        onConfirm = viewModel::confirmRefreshBundle,
+        onDismiss = viewModel::dismissRefreshPrompt,
+    )
     AreaSearchDialog(
         visible = showAreaSearchDialog,
         initialQuery = areaSearchQuery,
@@ -289,7 +296,9 @@ fun DownloadScreen(
         ) {
             DownloadHeader(
                 isDownloading = uiState.isDownloading,
+                isCheckingUpdates = uiState.isCheckingUpdates,
                 hasInstalledBundles = uiState.installedBundles.isNotEmpty(),
+                refreshMode = refreshMode,
                 deleteMode = deleteMode,
                 topPadding = headerTopSafePadding,
                 bottomPadding = headerBottomPadding,
@@ -297,8 +306,17 @@ fun DownloadScreen(
                 actionIconSize = headerActionIconSize,
                 actionSpacing = headerActionSpacing,
                 onInfoClick = { showOamInfoDialog = true },
+                onRefreshModeClick = {
+                    refreshMode = !refreshMode
+                    if (refreshMode) {
+                        deleteMode = false
+                    }
+                },
                 onDeleteModeClick = {
                     deleteMode = !deleteMode
+                    if (deleteMode) {
+                        refreshMode = false
+                    }
                 },
             )
 
@@ -414,6 +432,22 @@ fun DownloadScreen(
                             )
                         }
                     } else {
+                        if (refreshMode) {
+                            item {
+                                Text(
+                                    text =
+                                        if (uiState.isCheckingUpdates) {
+                                            "Checking bundle"
+                                        } else {
+                                            "Tap a bundle to check updates"
+                                        },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
                         if (deleteMode) {
                             item {
                                 Text(
@@ -429,7 +463,13 @@ fun DownloadScreen(
                             item {
                                 InstalledBundleRow(
                                     bundle = bundle,
+                                    refreshMode = refreshMode,
                                     deleteMode = deleteMode,
+                                    onRefresh = {
+                                        if (!uiState.isDownloading && refreshMode) {
+                                            viewModel.checkBundleForRefresh(bundle)
+                                        }
+                                    },
                                     onDelete = {
                                         if (!uiState.isDownloading && deleteMode) {
                                             bundlePendingDelete = bundle
@@ -440,6 +480,16 @@ fun DownloadScreen(
                         }
                     }
 
+                    if (!uiState.isDownloading) {
+                        uiState.statusMessage?.let { message ->
+                            item {
+                                StatusText(
+                                    text = message,
+                                    error = false,
+                                )
+                            }
+                        }
+                    }
                     uiState.errorMessage?.let { message ->
                         item {
                             StatusText(
@@ -502,7 +552,9 @@ fun DownloadScreen(
 @Composable
 private fun DownloadHeader(
     isDownloading: Boolean,
+    isCheckingUpdates: Boolean,
     hasInstalledBundles: Boolean,
+    refreshMode: Boolean,
     deleteMode: Boolean,
     topPadding: Dp,
     bottomPadding: Dp,
@@ -510,6 +562,7 @@ private fun DownloadHeader(
     actionIconSize: Dp,
     actionSpacing: Dp,
     onInfoClick: () -> Unit,
+    onRefreshModeClick: () -> Unit,
     onDeleteModeClick: () -> Unit,
 ) {
     Box(
@@ -540,6 +593,15 @@ private fun DownloadHeader(
                     buttonSize = actionButtonSize,
                     iconSize = actionIconSize,
                     onClick = onInfoClick,
+                )
+                HeaderActionButton(
+                    icon = Icons.Filled.Refresh,
+                    contentDescription = if (refreshMode) "Exit refresh mode" else "Enter refresh mode",
+                    buttonSize = actionButtonSize,
+                    iconSize = actionIconSize,
+                    enabled = hasInstalledBundles && !isDownloading && !isCheckingUpdates,
+                    selected = refreshMode,
+                    onClick = onRefreshModeClick,
                 )
                 HeaderActionButton(
                     icon = Icons.Filled.Delete,
@@ -686,15 +748,27 @@ private fun DownloadProgress(uiState: DownloadUiState) {
 @Composable
 private fun InstalledBundleRow(
     bundle: OamInstalledBundle,
+    refreshMode: Boolean,
     deleteMode: Boolean,
+    onRefresh: () -> Unit,
     onDelete: () -> Unit,
 ) {
     DownloadChip(
         label = bundle.areaLabel,
         secondaryLabel = installedBundleSubtitle(bundle),
-        icon = if (deleteMode) Icons.Filled.Delete else Icons.Filled.Check,
-        selected = !deleteMode,
-        onClick = if (deleteMode) onDelete else ({}),
+        icon =
+            when {
+                refreshMode -> Icons.Filled.Refresh
+                deleteMode -> Icons.Filled.Delete
+                else -> Icons.Filled.Check
+            },
+        selected = !deleteMode && !refreshMode,
+        onClick =
+            when {
+                refreshMode -> onRefresh
+                deleteMode -> onDelete
+                else -> ({})
+            },
     )
 }
 

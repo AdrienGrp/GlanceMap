@@ -3,6 +3,8 @@ package com.glancemap.glancemapwearos.presentation.features.download
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 
 class OamBundleStore(
     context: Context,
@@ -36,6 +38,7 @@ class OamBundleStore(
                                 .getString(key(areaId, "routing_downloaded"), null)
                                 .toRoutingFileNames(),
                         installedAtMillis = prefs.getLong(key(areaId, "installed_at"), 0L),
+                        remoteFiles = prefs.getString(key(areaId, "remote_files"), null).toRemoteFileMetadata(),
                     )
                 }.sortedBy { it.areaLabel.lowercase() }
         }
@@ -55,6 +58,7 @@ class OamBundleStore(
                     key(bundle.areaId, "routing_downloaded"),
                     bundle.downloadedRoutingFileNames.joinToString("\n"),
                 ).putLong(key(bundle.areaId, "installed_at"), bundle.installedAtMillis)
+                .putString(key(bundle.areaId, "remote_files"), bundle.remoteFiles.toJson())
                 .apply()
         }
 
@@ -71,6 +75,7 @@ class OamBundleStore(
                 .remove(key(areaId, "routing"))
                 .remove(key(areaId, "routing_downloaded"))
                 .remove(key(areaId, "installed_at"))
+                .remove(key(areaId, "remote_files"))
                 .apply()
         }
 
@@ -92,3 +97,52 @@ private fun String?.toRoutingFileNames(): List<String> =
         ?.distinct()
         ?.toList()
         .orEmpty()
+
+private fun String?.toRemoteFileMetadata(): List<OamRemoteFileMetadata> =
+    runCatching {
+        if (isNullOrBlank()) return@runCatching emptyList()
+        val array = JSONArray(this)
+        buildList {
+            for (index in 0 until array.length()) {
+                array.optJSONObject(index)?.toRemoteFileMetadata()?.let(::add)
+            }
+        }
+    }.getOrDefault(emptyList())
+
+private fun JSONObject.toRemoteFileMetadata(): OamRemoteFileMetadata? {
+    val url = optString("url").takeIf { it.isNotBlank() }
+    val fileName = optString("fileName").takeIf { it.isNotBlank() }
+    return if (url == null || fileName == null) {
+        null
+    } else {
+        OamRemoteFileMetadata(
+            url = url,
+            fileName = fileName,
+            entityTag = optString("entityTag").takeIf { it.isNotBlank() },
+            lastModifiedMillis = optLongOrNull("lastModifiedMillis"),
+            contentLengthBytes = optLongOrNull("contentLengthBytes"),
+        )
+    }
+}
+
+private fun List<OamRemoteFileMetadata>.toJson(): String {
+    val array = JSONArray()
+    forEach { file ->
+        array.put(
+            JSONObject()
+                .put("url", file.url)
+                .put("fileName", file.fileName)
+                .put("entityTag", file.entityTag)
+                .put("lastModifiedMillis", file.lastModifiedMillis)
+                .put("contentLengthBytes", file.contentLengthBytes),
+        )
+    }
+    return array.toString()
+}
+
+private fun JSONObject.optLongOrNull(name: String): Long? =
+    if (has(name) && !isNull(name)) {
+        optLong(name).takeIf { it >= 0L }
+    } else {
+        null
+    }

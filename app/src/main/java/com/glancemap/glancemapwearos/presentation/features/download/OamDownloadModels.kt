@@ -63,6 +63,29 @@ data class OamInstalledBundle(
     val routingFileNames: List<String> = emptyList(),
     val downloadedRoutingFileNames: List<String> = emptyList(),
     val installedAtMillis: Long,
+    val remoteFiles: List<OamRemoteFileMetadata> = emptyList(),
+)
+
+data class OamRemoteFileMetadata(
+    val url: String,
+    val fileName: String,
+    val entityTag: String?,
+    val lastModifiedMillis: Long?,
+    val contentLengthBytes: Long?,
+)
+
+enum class OamBundleUpdateStatus {
+    UPDATE_AVAILABLE,
+    UP_TO_DATE,
+    UNKNOWN,
+}
+
+data class OamBundleUpdateCheck(
+    val bundle: OamInstalledBundle,
+    val status: OamBundleUpdateStatus,
+    val checkedFileCount: Int,
+    val changedFileNames: List<String> = emptyList(),
+    val unknownFileNames: List<String> = emptyList(),
 )
 
 object OamDownloadCatalog {

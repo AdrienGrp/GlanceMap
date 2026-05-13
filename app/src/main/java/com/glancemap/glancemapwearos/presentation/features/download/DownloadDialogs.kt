@@ -200,3 +200,91 @@ internal fun DownloadNetworkWarningDialog(
         },
     )
 }
+
+@Composable
+internal fun RefreshBundleDialog(
+    check: OamBundleUpdateCheck?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (check == null) return
+
+    val updateAvailable = check.status == OamBundleUpdateStatus.UPDATE_AVAILABLE
+    val upToDate = check.status == OamBundleUpdateStatus.UP_TO_DATE
+    AlertDialog(
+        visible = true,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text =
+                    when {
+                        updateAvailable -> "Update available"
+                        upToDate -> "Already up to date"
+                        else -> "Refresh bundle?"
+                    },
+                textAlign = TextAlign.Center,
+            )
+        },
+        text = {
+            Text(
+                text = refreshBundleDialogText(check),
+                textAlign = TextAlign.Center,
+            )
+        },
+        confirmButton = {
+            Button(onClick = if (upToDate) onDismiss else onConfirm) {
+                Text(if (upToDate) "OK" else "Refresh")
+            }
+        },
+        dismissButton = {
+            if (!upToDate) {
+                Button(
+                    onClick = onDismiss,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White,
+                        ),
+                ) {
+                    Text("Cancel")
+                }
+            }
+        },
+    )
+}
+
+private fun refreshBundleDialogText(check: OamBundleUpdateCheck): String =
+    when (check.status) {
+        OamBundleUpdateStatus.UPDATE_AVAILABLE ->
+            buildString {
+                append(check.bundle.areaLabel)
+                append(" has newer files available.")
+                if (check.changedFileNames.isNotEmpty()) {
+                    append("\n\nChanged: ")
+                    append(check.changedFileNames.take(MAX_DIALOG_FILE_NAMES).joinToString(", "))
+                    if (check.changedFileNames.size > MAX_DIALOG_FILE_NAMES) {
+                        append(" +")
+                        append(check.changedFileNames.size - MAX_DIALOG_FILE_NAMES)
+                    }
+                }
+                append("\n\nExisting files will be replaced after the download completes.")
+            }
+        OamBundleUpdateStatus.UNKNOWN ->
+            buildString {
+                append("Could not verify every remote file for ")
+                append(check.bundle.areaLabel)
+                append(".")
+                if (check.unknownFileNames.isNotEmpty()) {
+                    append("\n\nUnknown: ")
+                    append(check.unknownFileNames.take(MAX_DIALOG_FILE_NAMES).joinToString(", "))
+                    if (check.unknownFileNames.size > MAX_DIALOG_FILE_NAMES) {
+                        append(" +")
+                        append(check.unknownFileNames.size - MAX_DIALOG_FILE_NAMES)
+                    }
+                }
+                append("\n\nRefresh anyway?")
+            }
+        OamBundleUpdateStatus.UP_TO_DATE -> "${check.bundle.areaLabel} is already up to date."
+    }
+
+private const val MAX_DIALOG_FILE_NAMES = 3
