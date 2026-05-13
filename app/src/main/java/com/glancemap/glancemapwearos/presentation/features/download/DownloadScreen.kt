@@ -11,7 +11,6 @@
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,19 +22,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
@@ -47,26 +40,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
-import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.IconButton
@@ -334,105 +319,20 @@ fun DownloadScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (showAreaPicker) {
-                    item {
-                        DownloadChip(
-                            label = "Done",
-                            secondaryLabel =
-                                if (areaSearchQueryNormalized.isBlank()) {
-                                    selectedAreaLabel
-                                } else {
-                                    "${visiblePickerAreas.size} result(s)"
-                                },
-                            icon = Icons.Filled.Check,
-                            onClick = { onAreaPickerOpenChange(false) },
-                        )
-                    }
-
-                    item {
-                        DownloadChip(
-                            label =
-                                if (areaSearchQueryNormalized.isBlank()) {
-                                    "Search area"
-                                } else {
-                                    "Search: $areaSearchQueryNormalized"
-                                },
-                            secondaryLabel =
-                                if (areaSearchQueryNormalized.isBlank()) {
-                                    "Type to filter"
-                                } else {
-                                    "Tap to edit"
-                                },
-                            icon = Icons.Filled.Search,
-                            onClick = { showAreaSearchDialog = true },
-                        )
-                    }
-
-                    if (areaSearchQueryNormalized.isNotBlank()) {
-                        item {
-                            DownloadChip(
-                                label = "Clear search",
-                                secondaryLabel = "${visiblePickerAreas.size} area(s)",
-                                icon = Icons.Filled.Close,
-                                onClick = { onAreaSearchQueryChange("") },
-                            )
-                        }
-                    } else if (selectedAreaFolder == null) {
-                        areaFolders.forEach { (folder, folderAreas) ->
-                            val selectedCount = folderAreas.count { it.id in uiState.selectedAreaIds }
-                            item {
-                                DownloadChip(
-                                    label = folder,
-                                    secondaryLabel =
-                                        buildString {
-                                            append(folderAreas.size).append(" area(s)")
-                                            if (selectedCount > 0) {
-                                                append(" - ").append(selectedCount).append(" selected")
-                                            }
-                                        },
-                                    icon = Icons.Filled.Folder,
-                                    selected = selectedCount > 0,
-                                    onClick = { onSelectedAreaFolderChange(folder) },
-                                )
-                            }
-                        }
-                    } else {
-                        item {
-                            DownloadChip(
-                                label = "All regions",
-                                secondaryLabel = selectedAreaFolder.orEmpty(),
-                                icon = Icons.AutoMirrored.Filled.ArrowBack,
-                                onClick = { onSelectedAreaFolderChange(null) },
-                            )
-                        }
-                    }
-
-                    if (areaSearchQueryNormalized.isNotBlank() || selectedAreaFolder != null) {
-                        if (visiblePickerAreas.isEmpty()) {
-                            item {
-                                Text(
-                                    text = "No area found",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.82f),
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                        }
-                        visiblePickerAreas.forEach { area ->
-                            val selected = area.id in uiState.selectedAreaIds
-                            item {
-                                DownloadChip(
-                                    label = area.region,
-                                    secondaryLabel = area.areaSizeLabel(uiState.selection),
-                                    icon = if (selected) Icons.Filled.Check else Icons.Filled.Map,
-                                    selected = selected,
-                                    onClick = {
-                                        viewModel.toggleArea(area.id)
-                                    },
-                                )
-                            }
-                        }
-                    }
+                    downloadAreaPickerItems(
+                        areaSearchQueryNormalized = areaSearchQueryNormalized,
+                        selectedAreaLabel = selectedAreaLabel,
+                        visiblePickerAreas = visiblePickerAreas,
+                        areaFolders = areaFolders,
+                        selectedAreaFolder = selectedAreaFolder,
+                        selectedAreaIds = uiState.selectedAreaIds,
+                        selection = uiState.selection,
+                        onDone = { onAreaPickerOpenChange(false) },
+                        onOpenSearch = { showAreaSearchDialog = true },
+                        onClearSearch = { onAreaSearchQueryChange("") },
+                        onSelectedAreaFolderChange = onSelectedAreaFolderChange,
+                        onToggleArea = viewModel::toggleArea,
+                    )
                 } else {
                     item {
                         DownloadChip(
@@ -739,169 +639,6 @@ private fun DownloadActionButton(
 }
 
 @Composable
-private fun AreaSearchDialog(
-    visible: Boolean,
-    initialQuery: String,
-    onDismiss: () -> Unit,
-    onApply: (String) -> Unit,
-) {
-    if (!visible) return
-
-    val adaptive = rememberWearAdaptiveSpec()
-    var draftQuery by remember(visible, initialQuery) { mutableStateOf(initialQuery) }
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    LaunchedEffect(visible) {
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth(0.86f)
-                    .background(
-                        Color.Black,
-                        RoundedCornerShape(adaptive.dialogCornerRadius),
-                    ).padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding,
-                    ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = "Search area",
-                style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center,
-            )
-
-            BasicTextField(
-                value = draftQuery,
-                onValueChange = { draftQuery = it.take(32) },
-                singleLine = true,
-                textStyle =
-                    TextStyle(
-                        color = Color.White,
-                        textAlign = TextAlign.Center,
-                    ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .background(
-                            Color(0xFF1F1F1F),
-                            RoundedCornerShape(12.dp),
-                        ).padding(horizontal = 12.dp, vertical = 10.dp),
-                decorationBox = { innerTextField ->
-                    if (draftQuery.isBlank()) {
-                        Text(
-                            text = "France, Alps...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.45f),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    innerTextField()
-                },
-            )
-
-            Button(
-                onClick = { onApply(draftQuery) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Apply")
-            }
-
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f),
-                        contentColor = Color.White,
-                    ),
-            ) {
-                Text("Cancel")
-            }
-        }
-    }
-}
-
-@Composable
-private fun OamAttributionDialog(
-    visible: Boolean,
-    onDismiss: () -> Unit,
-) {
-    if (!visible) return
-
-    AlertDialog(
-        visible = visible,
-        onDismissRequest = onDismiss,
-        title = { Text("OpenAndroMaps") },
-        text = {
-            Text(
-                text =
-                    "Thanks to OpenAndroMaps for providing free offline maps and POIs.\n\n" +
-                        "Large map files can take a long time to download. Keep the watch on its charger.\n\n" +
-                        "https://www.openandromaps.org",
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = {
-            Button(onClick = onDismiss) {
-                Text("OK")
-            }
-        },
-    )
-}
-
-@Composable
-private fun DownloadNetworkWarningDialog(
-    message: String?,
-    onContinue: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    if (message == null) return
-
-    AlertDialog(
-        visible = true,
-        onDismissRequest = onDismiss,
-        title = { Text("Wi-Fi recommended") },
-        text = {
-            Text(
-                text = message,
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = {
-            Button(onClick = onContinue) {
-                Text("Continue")
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = onDismiss,
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f),
-                        contentColor = Color.White,
-                    ),
-            ) {
-                Text("Cancel")
-            }
-        },
-    )
-}
-
-@Composable
 private fun DownloadSummary(
     areas: List<OamDownloadArea>,
     selection: OamDownloadSelection,
@@ -984,7 +721,7 @@ private fun List<OamDownloadArea>.estimatedSizeLabel(
     selection: OamDownloadSelection,
 ): String = estimatedBytes(selection).toSizeLabel(selection)
 
-private fun OamDownloadArea.areaSizeLabel(
+internal fun OamDownloadArea.areaSizeLabel(
     selection: OamDownloadSelection,
 ): String = "$continent - ${estimatedBytes(selection).toSizeLabel(selection)}"
 
@@ -1053,7 +790,7 @@ private fun StatusText(
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
-private fun DownloadChip(
+internal fun DownloadChip(
     label: String,
     secondaryLabel: String,
     icon: ImageVector,
