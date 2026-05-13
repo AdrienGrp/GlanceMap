@@ -233,10 +233,16 @@ class MainActivity : ComponentActivity() {
 
                         composable(WatchRoutes.DOWNLOAD) {
                             var isDownloadAreaPickerOpen by remember { mutableStateOf(false) }
+                            var downloadAreaFolder by remember { mutableStateOf<String?>(null) }
+                            var downloadAreaSearchQuery by remember { mutableStateOf("") }
                             DismissableScreen(
                                 onDismiss = {
                                     if (isDownloadAreaPickerOpen) {
-                                        isDownloadAreaPickerOpen = false
+                                        when {
+                                            downloadAreaSearchQuery.isNotBlank() -> downloadAreaSearchQuery = ""
+                                            downloadAreaFolder != null -> downloadAreaFolder = null
+                                            else -> isDownloadAreaPickerOpen = false
+                                        }
                                     } else {
                                         navController.popBackStack()
                                     }
@@ -247,6 +253,10 @@ class MainActivity : ComponentActivity() {
                                     viewModel = appContainer.downloadViewModel,
                                     areaPickerOpen = isDownloadAreaPickerOpen,
                                     onAreaPickerOpenChange = { isDownloadAreaPickerOpen = it },
+                                    selectedAreaFolder = downloadAreaFolder,
+                                    onSelectedAreaFolderChange = { downloadAreaFolder = it },
+                                    areaSearchQuery = downloadAreaSearchQuery,
+                                    onAreaSearchQueryChange = { downloadAreaSearchQuery = it },
                                     onLibraryChanged = {
                                         appContainer.mapViewModel.loadMapFiles()
                                         appContainer.mapViewModel.loadRoutingPackFiles()

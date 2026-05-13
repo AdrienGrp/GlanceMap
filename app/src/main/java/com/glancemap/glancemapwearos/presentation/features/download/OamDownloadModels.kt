@@ -28,7 +28,7 @@ enum class OamBundleChoice(
 data class OamDownloadSelection(
     val includeMap: Boolean = true,
     val includePoi: Boolean = true,
-    val includeRouting: Boolean = false,
+    val includeRouting: Boolean = true,
 ) {
     val canDownload: Boolean
         get() = includeMap || includePoi || includeRouting

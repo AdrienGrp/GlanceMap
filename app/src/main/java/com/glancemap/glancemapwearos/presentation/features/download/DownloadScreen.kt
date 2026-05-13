@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -77,6 +78,10 @@ fun DownloadScreen(
     viewModel: DownloadViewModel,
     areaPickerOpen: Boolean,
     onAreaPickerOpenChange: (Boolean) -> Unit,
+    selectedAreaFolder: String?,
+    onSelectedAreaFolderChange: (String?) -> Unit,
+    areaSearchQuery: String,
+    onAreaSearchQueryChange: (String) -> Unit,
     onLibraryChanged: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
 ) {
@@ -88,8 +93,6 @@ fun DownloadScreen(
     var bundlePendingDelete by remember { mutableStateOf<OamInstalledBundle?>(null) }
     var showOamInfoDialog by remember { mutableStateOf(false) }
     var deleteMode by remember { mutableStateOf(false) }
-    var selectedAreaFolder by remember { mutableStateOf<String?>(null) }
-    var areaSearchQuery by remember { mutableStateOf("") }
     var showAreaSearchDialog by remember { mutableStateOf(false) }
     val infoPrefs =
         remember(context) {
@@ -101,6 +104,30 @@ fun DownloadScreen(
         selectedAreas.estimatedSizeLabel(uiState.selection)
     val selectedAreaLabel = selectedAreas.selectedAreaLabel()
     val selectedAreaSecondaryLabel = selectedAreas.selectedAreaSecondaryLabel()
+    val listHorizontalPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 16.dp
+            WearScreenSize.MEDIUM -> 14.dp
+            WearScreenSize.SMALL -> 12.dp
+        }
+    val listTopPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 6.dp
+            WearScreenSize.MEDIUM -> 5.dp
+            WearScreenSize.SMALL -> 4.dp
+        }
+    val listBottomPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 8.dp
+            WearScreenSize.MEDIUM -> 7.dp
+            WearScreenSize.SMALL -> 6.dp
+        }
+    val rowSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 8.dp
+            WearScreenSize.MEDIUM -> 7.dp
+            WearScreenSize.SMALL -> 5.dp
+        }
     val areaFolders =
         remember(uiState.areas) {
             uiState.areas
@@ -153,6 +180,54 @@ fun DownloadScreen(
             WearScreenSize.SMALL -> 2.dp
         }
     val headerTopSafePadding = headerTopPadding + adaptive.headerTopSafeInset
+    val actionButtonHeight =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 44.dp
+            WearScreenSize.MEDIUM -> 42.dp
+            WearScreenSize.SMALL -> 38.dp
+        }
+    val actionButtonIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 18.dp
+            WearScreenSize.MEDIUM -> 17.dp
+            WearScreenSize.SMALL -> 16.dp
+        }
+    val settingsBottomPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 5.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
+    val settingsButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 28.dp
+            WearScreenSize.MEDIUM -> 26.dp
+            WearScreenSize.SMALL -> 24.dp
+        }
+    val settingsIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 15.dp
+            WearScreenSize.MEDIUM -> 14.dp
+            WearScreenSize.SMALL -> 13.dp
+        }
+    val footerTextSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 9.sp
+            WearScreenSize.MEDIUM -> 8.sp
+            WearScreenSize.SMALL -> 7.sp
+        }
+    val footerLineHeight =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 9.sp
+            WearScreenSize.SMALL -> 8.sp
+        }
+    val footerHorizontalPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 34.dp
+            WearScreenSize.MEDIUM -> 32.dp
+            WearScreenSize.SMALL -> 30.dp
+        }
 
     LaunchedEffect(uiState.lastLibraryChangedAtMillis) {
         if (uiState.lastLibraryChangedAtMillis > 0L) {
@@ -166,8 +241,8 @@ fun DownloadScreen(
     }
     LaunchedEffect(showAreaPicker) {
         if (!showAreaPicker) {
-            selectedAreaFolder = null
-            areaSearchQuery = ""
+            onSelectedAreaFolderChange(null)
+            onAreaSearchQueryChange("")
             showAreaSearchDialog = false
         }
     }
@@ -178,8 +253,8 @@ fun DownloadScreen(
     }
     BackHandler(enabled = showAreaPicker) {
         when {
-            areaSearchQuery.isNotBlank() -> areaSearchQuery = ""
-            selectedAreaFolder != null -> selectedAreaFolder = null
+            areaSearchQuery.isNotBlank() -> onAreaSearchQueryChange("")
+            selectedAreaFolder != null -> onSelectedAreaFolderChange(null)
             else -> onAreaPickerOpenChange(false)
         }
     }
@@ -203,8 +278,8 @@ fun DownloadScreen(
         initialQuery = areaSearchQuery,
         onDismiss = { showAreaSearchDialog = false },
         onApply = { query ->
-            areaSearchQuery = query.trim()
-            selectedAreaFolder = null
+            onAreaSearchQueryChange(query.trim())
+            onSelectedAreaFolderChange(null)
             showAreaSearchDialog = false
         },
     )
@@ -237,12 +312,12 @@ fun DownloadScreen(
                 state = listState,
                 contentPadding =
                     PaddingValues(
-                        start = 18.dp,
-                        end = 18.dp,
-                        top = 4.dp,
-                        bottom = 20.dp,
+                        start = listHorizontalPadding,
+                        end = listHorizontalPadding,
+                        top = listTopPadding,
+                        bottom = listBottomPadding,
                     ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(rowSpacing),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (showAreaPicker) {
@@ -270,7 +345,7 @@ fun DownloadScreen(
                                 },
                             secondaryLabel =
                                 if (areaSearchQueryNormalized.isBlank()) {
-                                    "Type to filter regions"
+                                    "Type to filter"
                                 } else {
                                     "Tap to edit"
                                 },
@@ -285,7 +360,7 @@ fun DownloadScreen(
                                 label = "Clear search",
                                 secondaryLabel = "${visiblePickerAreas.size} area(s)",
                                 icon = Icons.Filled.Close,
-                                onClick = { areaSearchQuery = "" },
+                                onClick = { onAreaSearchQueryChange("") },
                             )
                         }
                     } else if (selectedAreaFolder == null) {
@@ -300,10 +375,10 @@ fun DownloadScreen(
                                             if (selectedCount > 0) {
                                                 append(" - ").append(selectedCount).append(" selected")
                                             }
-                                        },
+                                    },
                                     icon = Icons.Filled.Folder,
                                     selected = selectedCount > 0,
-                                    onClick = { selectedAreaFolder = folder },
+                                    onClick = { onSelectedAreaFolderChange(folder) },
                                 )
                             }
                         }
@@ -313,7 +388,7 @@ fun DownloadScreen(
                                 label = "All regions",
                                 secondaryLabel = selectedAreaFolder.orEmpty(),
                                 icon = Icons.AutoMirrored.Filled.ArrowBack,
-                                onClick = { selectedAreaFolder = null },
+                                onClick = { onSelectedAreaFolderChange(null) },
                             )
                         }
                     }
@@ -376,6 +451,8 @@ fun DownloadScreen(
                                 label = "Pause",
                                 icon = Icons.Filled.Pause,
                                 enabled = true,
+                                height = actionButtonHeight,
+                                iconSize = actionButtonIconSize,
                                 onClick = viewModel::pauseDownload,
                             )
                         }
@@ -386,6 +463,8 @@ fun DownloadScreen(
                                 enabled = true,
                                 containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                height = actionButtonHeight,
+                                iconSize = actionButtonIconSize,
                                 onClick = viewModel::cancelDownload,
                             )
                         }
@@ -395,6 +474,8 @@ fun DownloadScreen(
                                 label = if (uiState.isPausedDownload) "Resume" else "Download",
                                 icon = Icons.Filled.Download,
                                 enabled = uiState.selection.canDownload && selectedAreas.isNotEmpty(),
+                                height = actionButtonHeight,
+                                iconSize = actionButtonIconSize,
                                 onClick = viewModel::downloadSelectedBundle,
                             )
                         }
@@ -467,7 +548,7 @@ fun DownloadScreen(
 
             Text(
                 text = "Bundle: ${uiState.selection.compactLabel()}",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = footerTextSize, lineHeight = footerLineHeight),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -475,14 +556,14 @@ fun DownloadScreen(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 2.dp),
+                        .padding(horizontal = footerHorizontalPadding, vertical = 1.dp),
             )
 
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 4.dp),
+                        .padding(bottom = settingsBottomPadding),
             ) {
                 IconButton(
                     onClick = onOpenSettings,
@@ -490,7 +571,7 @@ fun DownloadScreen(
                     modifier =
                         Modifier
                             .align(Alignment.Center)
-                            .size(22.dp),
+                            .size(settingsButtonSize),
                     colors =
                         IconButtonDefaults.iconButtonColors(
                             containerColor = Color.Black.copy(alpha = 0.8f),
@@ -502,7 +583,7 @@ fun DownloadScreen(
                     Material3Icon(
                         imageVector = Icons.Filled.Settings,
                         contentDescription = "Download settings",
-                        modifier = Modifier.size(15.dp),
+                        modifier = Modifier.size(settingsIconSize),
                     )
                 }
             }
@@ -613,6 +694,8 @@ private fun DownloadActionButton(
     label: String,
     icon: ImageVector,
     enabled: Boolean,
+    height: Dp,
+    iconSize: Dp,
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary,
     onClick: () -> Unit,
@@ -623,7 +706,7 @@ private fun DownloadActionButton(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(44.dp),
+                .height(height),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
         colors =
             ButtonDefaults.buttonColors(
@@ -636,7 +719,7 @@ private fun DownloadActionButton(
         Material3Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(iconSize),
         )
         Spacer(Modifier.size(ButtonDefaults.IconSpacing))
         Text(

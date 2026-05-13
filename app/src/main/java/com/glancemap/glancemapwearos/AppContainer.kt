@@ -11,6 +11,7 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.SyncManager
 import com.glancemap.glancemapwearos.presentation.features.download.DownloadViewModel
 import com.glancemap.glancemapwearos.presentation.features.download.OamBundleDownloader
+import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadNotificationController
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
@@ -110,6 +111,7 @@ class DefaultAppContainer(
                     mapRepository = mapRepository,
                     poiRepository = poiRepository,
                 ),
+            notificationController = OamDownloadNotificationController(applicationContext),
         )
     }
 

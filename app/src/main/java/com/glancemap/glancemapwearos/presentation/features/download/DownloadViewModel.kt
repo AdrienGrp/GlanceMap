@@ -34,6 +34,7 @@ data class DownloadUiState(
 
 class DownloadViewModel(
     private val downloader: OamBundleDownloader,
+    private val notificationController: OamDownloadNotificationController,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DownloadUiState())
     val uiState: StateFlow<DownloadUiState> = _uiState.asStateFlow()
@@ -125,6 +126,12 @@ class DownloadViewModel(
         stopRequest = null
         downloadJob =
             viewModelScope.launch {
+                notificationController.showProgress(
+                    title = "Downloading maps",
+                    detail = "${areas.size} area(s)",
+                    bytesDone = 0L,
+                    totalBytes = null,
+                )
                 _uiState.update {
                     it.copy(
                         isDownloading = true,
@@ -140,10 +147,17 @@ class DownloadViewModel(
                 try {
                     areas.forEachIndexed { index, area ->
                         downloader.downloadBundle(area, selection) { progress ->
+                            val detail = "${index + 1}/${areas.size} ${area.region} - ${progress.detail}"
+                            notificationController.showProgress(
+                                title = "Downloading offline bundle",
+                                detail = detail,
+                                bytesDone = progress.bytesDone,
+                                totalBytes = progress.totalBytes,
+                            )
                             _uiState.update {
                                 it.copy(
                                     phase = progress.phase,
-                                    detail = "${index + 1}/${areas.size} ${area.region} - ${progress.detail}",
+                                    detail = detail,
                                     bytesDone = progress.bytesDone,
                                     totalBytes = progress.totalBytes,
                                     statusMessage = progress.phase.lowercase().replaceFirstChar { char -> char.uppercase() },
@@ -167,10 +181,22 @@ class DownloadViewModel(
                             lastLibraryChangedAtMillis = System.currentTimeMillis(),
                         )
                     }
+                    notificationController.showComplete(
+                        if (areas.size == 1) {
+                            "${areas.first().region} installed"
+                        } else {
+                            "${areas.size} bundles installed"
+                        },
+                    )
                 } catch (cancelled: CancellationException) {
                     val request = stopRequest ?: DownloadStopRequest.PAUSE
                     if (request == DownloadStopRequest.CANCEL) {
                         downloader.deletePartialDownloads(areas, selection)
+                    }
+                    if (request == DownloadStopRequest.CANCEL) {
+                        notificationController.clear()
+                    } else {
+                        notificationController.showPaused("${areas.size} area(s)")
                     }
                     _uiState.update {
                         if (request == DownloadStopRequest.CANCEL) {
@@ -205,6 +231,7 @@ class DownloadViewModel(
                             errorMessage = error.message ?: "Download failed",
                         )
                     }
+                    notificationController.showError(error.message ?: "Download failed")
                 } finally {
                     downloadJob = null
                     stopRequest = null

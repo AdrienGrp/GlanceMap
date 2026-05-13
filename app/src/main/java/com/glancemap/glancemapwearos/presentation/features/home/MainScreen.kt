@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -127,49 +128,43 @@ fun MainScreen(
             WearScreenSize.MEDIUM -> 24.dp
             WearScreenSize.SMALL -> 22.dp
         }
+    val leftRailIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 20.dp
+            WearScreenSize.MEDIUM -> 19.dp
+            WearScreenSize.SMALL -> 18.dp
+        }
     val navigateIconEdgePadding =
         when (screenSize) {
             WearScreenSize.LARGE -> 10.dp
             WearScreenSize.MEDIUM -> 8.dp
             WearScreenSize.SMALL -> 8.dp
         }
-    val modeToggleButtonSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 26.dp
-            WearScreenSize.MEDIUM -> 24.dp
-            WearScreenSize.SMALL -> 22.dp
-        }
-    val modeToggleIconSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 16.dp
-            WearScreenSize.MEDIUM -> 15.dp
-            WearScreenSize.SMALL -> 14.dp
-        }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val compactScreen = adaptive.isRound && minOf(maxWidth, maxHeight) < 200.dp
         val centerButtonHeight =
             when (screenSize) {
-                WearScreenSize.LARGE -> 40.dp
-                WearScreenSize.MEDIUM -> 38.dp
-                WearScreenSize.SMALL -> if (compactScreen) 33.dp else 36.dp
+                WearScreenSize.LARGE -> 46.dp
+                WearScreenSize.MEDIUM -> 44.dp
+                WearScreenSize.SMALL -> if (compactScreen) 40.dp else 42.dp
             }
         val centerButtonIconSize =
             when (screenSize) {
-                WearScreenSize.LARGE -> 17.dp
-                WearScreenSize.MEDIUM -> 16.dp
-                WearScreenSize.SMALL -> if (compactScreen) 14.dp else 15.dp
+                WearScreenSize.LARGE -> 19.dp
+                WearScreenSize.MEDIUM -> 18.dp
+                WearScreenSize.SMALL -> if (compactScreen) 16.dp else 17.dp
             }
-        val centerVerticalSpacing = if (compactScreen) 3.dp else verticalSpacing
+        val centerVerticalSpacing = if (compactScreen) 5.dp else verticalSpacing
         val contentHorizontalPadding = if (compactScreen) 0.dp else horizontalPadding
         val centerSideGap = if (compactScreen) 6.dp else 8.dp
-        val leftReservedWidth = modeToggleButtonSize + navigateIconEdgePadding + centerSideGap
+        val leftReservedWidth = navigateIconButtonSize + navigateIconEdgePadding + centerSideGap
         val rightReservedWidth = navigateIconButtonSize + navigateIconEdgePadding + centerSideGap
         val centerAvailableWidth = (maxWidth - leftReservedWidth - rightReservedWidth).coerceAtLeast(84.dp)
         val centerButtonWidth =
             if (adaptive.isRound) {
                 if (compactScreen) {
-                    centerAvailableWidth.coerceIn(86.dp, baseButtonWidth)
+                    centerAvailableWidth.coerceIn(88.dp, baseButtonWidth)
                 } else {
                     baseButtonWidth
                 }
@@ -179,7 +174,7 @@ fun MainScreen(
             }
         val centerColumnOffset =
             if (adaptive.isRound && compactScreen) {
-                (modeToggleButtonSize - navigateIconButtonSize) / 3
+                0.dp
             } else {
                 0.dp
             }
@@ -222,42 +217,25 @@ fun MainScreen(
                     compact = compactScreen,
                     onClick = { navController.navigate(WatchRoutes.MAPS) },
                 )
-                HomeActionButton(
-                    label = "Download",
-                    icon = Icons.Filled.Download,
-                    width = centerButtonWidth,
-                    height = centerButtonHeight,
-                    iconSize = centerButtonIconSize,
-                    compact = compactScreen,
-                    showLabel = false,
-                    onClick = { navController.navigate(WatchRoutes.DOWNLOAD) },
-                )
             }
 
-            IconButton(
-                onClick = {
-                    val nextOfflineMode = !offlineMode
-                    settingsViewModel?.setOfflineMode(nextOfflineMode)
-                    gpsStatusMessage = if (nextOfflineMode) "GPS deactivated" else "GPS activated"
-                },
+            LeftHomeRail(
+                offlineMode = offlineMode,
+                buttonWidth = navigateIconButtonSize,
+                buttonHeight = navigateIconButtonHeight,
+                iconSize = leftRailIconSize,
                 modifier =
                     Modifier
                         .align(Alignment.CenterStart)
                         .offset(y = centerRowYOffset)
-                        .padding(start = navigateIconEdgePadding)
-                        .size(modeToggleButtonSize),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = if (offlineMode) Color(0xFF222222) else MaterialTheme.colorScheme.primary,
-                        contentColor = if (offlineMode) Color(0xFFE53935) else MaterialTheme.colorScheme.onPrimary,
-                    ),
-            ) {
-                Icon(
-                    imageVector = if (offlineMode) Icons.Filled.LocationDisabled else Icons.Filled.MyLocation,
-                    contentDescription = if (offlineMode) "Offline mode" else "Online mode",
-                    modifier = Modifier.size(modeToggleIconSize),
-                )
-            }
+                        .padding(start = navigateIconEdgePadding),
+                onGpsClick = {
+                    val nextOfflineMode = !offlineMode
+                    settingsViewModel?.setOfflineMode(nextOfflineMode)
+                    gpsStatusMessage = if (nextOfflineMode) "GPS deactivated" else "GPS activated"
+                },
+                onDownloadClick = { navController.navigate(WatchRoutes.DOWNLOAD) },
+            )
 
             IconButton(
                 onClick = { navController.navigate(WatchRoutes.NAVIGATE) },
@@ -333,6 +311,73 @@ private fun GpsStatusOverlay(
 }
 
 @Composable
+private fun LeftHomeRail(
+    offlineMode: Boolean,
+    buttonWidth: Dp,
+    buttonHeight: Dp,
+    iconSize: Dp,
+    modifier: Modifier = Modifier,
+    onGpsClick: () -> Unit,
+    onDownloadClick: () -> Unit,
+) {
+    Column(
+        modifier =
+            modifier
+                .width(buttonWidth)
+                .height(buttonHeight)
+                .background(
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(percent = 50),
+                ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        IconButton(
+            onClick = onGpsClick,
+            modifier =
+                Modifier
+                    .width(buttonWidth)
+                    .height(buttonHeight / 2),
+            colors =
+                IconButtonDefaults.iconButtonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = if (offlineMode) Color(0xFFE53935) else MaterialTheme.colorScheme.onPrimary,
+                ),
+        ) {
+            Icon(
+                imageVector = if (offlineMode) Icons.Filled.LocationDisabled else Icons.Filled.MyLocation,
+                contentDescription = if (offlineMode) "Offline mode" else "Online mode",
+                modifier = Modifier.size(iconSize),
+            )
+        }
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth(0.52f)
+                    .height(1.dp)
+                    .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.22f)),
+        )
+        IconButton(
+            onClick = onDownloadClick,
+            modifier =
+                Modifier
+                    .width(buttonWidth)
+                    .height((buttonHeight / 2) - 1.dp),
+            colors =
+                IconButtonDefaults.iconButtonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Download,
+                contentDescription = "Download",
+                modifier = Modifier.size(iconSize),
+            )
+        }
+    }
+}
+
+@Composable
 private fun HomeActionButton(
     label: String,
     icon: ImageVector,
@@ -350,18 +395,18 @@ private fun HomeActionButton(
                 .width(width)
                 .height(height),
         contentPadding =
-            if (compact) {
-                PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-            } else {
-                ButtonDefaults.ContentPadding
+            when {
+                !showLabel -> PaddingValues(0.dp)
+                compact -> PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                else -> ButtonDefaults.ContentPadding
             },
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            modifier = Modifier.size(iconSize),
-        )
         if (showLabel) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                modifier = Modifier.size(iconSize),
+            )
             Spacer(Modifier.size(if (compact) 4.dp else ButtonDefaults.IconSpacing))
             Text(
                 text = label,
@@ -369,6 +414,17 @@ private fun HomeActionButton(
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
             )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    modifier = Modifier.size(iconSize),
+                )
+            }
         }
     }
 }

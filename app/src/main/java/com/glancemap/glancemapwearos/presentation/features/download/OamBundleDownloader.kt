@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
+import java.io.BufferedInputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.Collections
@@ -94,8 +95,9 @@ class OamBundleDownloader(
                     fileName = "${area.id}.map.zip",
                     label = "Map",
                     progressDetail = "Map zip",
-                    bufferSize = 1024 * 1024,
+                    bufferSize = OAM_ZIP_DOWNLOAD_BUFFER_SIZE,
                     progressStepBytes = 2L * 1024 * 1024,
+                    fsync = false,
                     onProgress = onProgress,
                 )
             mapFileName =
@@ -126,8 +128,9 @@ class OamBundleDownloader(
                     fileName = "${area.id}.poi.zip",
                     label = "POI",
                     progressDetail = "POI zip",
-                    bufferSize = 1024 * 1024,
+                    bufferSize = OAM_ZIP_DOWNLOAD_BUFFER_SIZE,
                     progressStepBytes = 2L * 1024 * 1024,
+                    fsync = false,
                     onProgress = onProgress,
                 )
             poiFileName =
@@ -151,14 +154,7 @@ class OamBundleDownloader(
         var downloadedRoutingFileNames = existingBundle?.downloadedRoutingFileNames.orEmpty()
         val routingFileNames =
             if (selection.includeRouting) {
-                val mapFile =
-                    mapFileForRouting(area = area, mapFileName = mapFileName)
-                        ?: throw IOException("Routing needs the map in this bundle or an installed map for ${area.region}.")
-                val requiredSegments =
-                    RoutingCoverageUtils
-                        .requiredSegmentNamesForMapFile(mapFile)
-                        ?.sorted()
-                        ?: throw IOException("Cannot read map bounds for routing.")
+                val requiredSegments = routingSegmentNamesForArea(area = area, mapFileName = mapFileName)
                 val segmentResults =
                     requiredSegments.map { fileName ->
                         downloadRoutingSegment(
@@ -238,15 +234,26 @@ class OamBundleDownloader(
         area: OamDownloadArea,
         installedBundles: List<OamInstalledBundle>,
     ): Set<String> =
-        mapFileForRouting(
+        routingSegmentNamesForArea(
             area = area,
             mapFileName =
                 installedBundles
                     .firstOrNull { it.areaId == area.id }
                     ?.mapFileName,
-        )?.let { mapFile ->
-            RoutingCoverageUtils.requiredSegmentNamesForMapFile(mapFile)
-        }.orEmpty()
+        ).toSet()
+
+    private suspend fun routingSegmentNamesForArea(
+        area: OamDownloadArea,
+        mapFileName: String?,
+    ): List<String> {
+        val mapFile =
+            mapFileForRouting(area = area, mapFileName = mapFileName)
+                ?: throw IOException("Routing needs the map in this bundle or an installed map for ${area.region}.")
+        return RoutingCoverageUtils
+            .requiredSegmentNamesForMapFile(mapFile)
+            ?.sorted()
+            ?: throw IOException("Cannot read map bounds for routing.")
+    }
 
     private suspend fun mapFileForRouting(
         area: OamDownloadArea,
@@ -287,6 +294,7 @@ class OamBundleDownloader(
             progressDetail = safeName,
             bufferSize = 512 * 1024,
             progressStepBytes = 1L * 1024 * 1024,
+            fsync = true,
             onProgress = onProgress,
         )
         return RoutingSegmentDownloadResult(fileName = safeName, downloaded = true)
@@ -300,6 +308,7 @@ class OamBundleDownloader(
         progressDetail: String,
         bufferSize: Int,
         progressStepBytes: Long,
+        fsync: Boolean,
         onProgress: (OamDownloadProgress) -> Unit,
     ): File =
         withContext(Dispatchers.IO) {
@@ -421,7 +430,7 @@ class OamBundleDownloader(
                                 AtomicStreamWriter.Options(
                                     bufferSize = bufferSize,
                                     progressStepBytes = progressStepBytes,
-                                    fsync = true,
+                                    fsync = fsync,
                                     expectedSize = expectedTotalBytes,
                                     requireExactSize = expectedTotalBytes != null,
                                     resumeOffset = if (append) resumeOffset else 0L,
@@ -548,7 +557,7 @@ class OamBundleDownloader(
         ) -> Unit,
     ): String =
         withContext(Dispatchers.IO) {
-            ZipInputStream(FileInputStream(zipFile)).use { zip ->
+            ZipInputStream(BufferedInputStream(FileInputStream(zipFile), ZIP_READ_BUFFER_SIZE)).use { zip ->
                 while (true) {
                     coroutineContext.ensureActive()
                     val entry = zip.nextEntry ?: break
@@ -593,6 +602,8 @@ class OamBundleDownloader(
         private const val MAX_RANGE_RESTARTS = 1
         private const val MAX_IO_RETRIES = 3
         private const val IO_RETRY_DELAY_MS = 2_000L
+        private const val OAM_ZIP_DOWNLOAD_BUFFER_SIZE = 2 * 1024 * 1024
+        private const val ZIP_READ_BUFFER_SIZE = 1024 * 1024
         private const val BROUTER_SEGMENTS_BASE_URL = "https://brouter.de/brouter/segments4"
         private const val USER_AGENT = "GlanceMap-WearOS-OAM-Downloader/1.0 https://www.openandromaps.org"
         private const val OAM_DOWNLOAD_TELEMETRY_TAG = "OamDownload"
