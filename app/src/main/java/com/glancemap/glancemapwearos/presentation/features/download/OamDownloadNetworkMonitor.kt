@@ -5,14 +5,32 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 
 data class OamDownloadNetworkState(
     val isWifi: Boolean,
+    val isBluetooth: Boolean,
+    val isCellular: Boolean,
+    val isEthernet: Boolean,
+    val isVpn: Boolean,
     val hasInternet: Boolean,
     val isValidated: Boolean,
+    val isUnmetered: Boolean,
+    val isMetered: Boolean,
 ) {
     val isValidatedWifi: Boolean
         get() = isWifi && hasInternet && isValidated
+
+    val transportLabel: String
+        get() =
+            when {
+                isWifi -> "wifi"
+                isBluetooth -> "bluetooth"
+                isCellular -> "cellular"
+                isEthernet -> "ethernet"
+                isVpn -> "vpn"
+                else -> "none"
+            }
 
     val userLabel: String
         get() =
@@ -23,6 +41,12 @@ data class OamDownloadNetworkState(
                 hasInternet -> "Not on Wi-Fi"
                 else -> "No internet"
             }
+
+    val telemetryFields: String
+        get() =
+            "transport=$transportLabel " +
+                "wifi=$isWifi bluetooth=$isBluetooth cellular=$isCellular ethernet=$isEthernet vpn=$isVpn " +
+                "internet=$hasInternet validated=$isValidated unmetered=$isUnmetered metered=$isMetered"
 }
 
 class OamDownloadNetworkMonitor(
@@ -33,7 +57,14 @@ class OamDownloadNetworkMonitor(
     fun currentState(): OamDownloadNetworkState {
         val network = connectivityManager?.activeNetwork
         val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
-        return capabilities.toDownloadNetworkState()
+        return capabilities.toDownloadNetworkState(isMetered = connectivityManager?.isActiveNetworkMetered)
+    }
+
+    fun logSnapshot(event: String) {
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            "event=$event ${currentState().telemetryFields}",
+        )
     }
 
     fun watchForValidatedWifi(onValidatedWifi: () -> Unit): AutoCloseable {
@@ -48,7 +79,12 @@ class OamDownloadNetworkMonitor(
                     network: Network,
                     networkCapabilities: NetworkCapabilities,
                 ) {
-                    if (networkCapabilities.toDownloadNetworkState().isValidatedWifi) {
+                    val state = networkCapabilities.toDownloadNetworkState()
+                    DebugTelemetry.log(
+                        OAM_DOWNLOAD_TELEMETRY_TAG,
+                        "event=network_capabilities_changed ${state.telemetryFields}",
+                    )
+                    if (state.isValidatedWifi) {
                         onValidatedWifi()
                     }
                 }
@@ -71,15 +107,33 @@ class OamDownloadNetworkMonitor(
         onValidatedWifi: () -> Unit,
     ) {
         val capabilities = manager.getNetworkCapabilities(network)
-        if (capabilities.toDownloadNetworkState().isValidatedWifi) {
+        val state = capabilities.toDownloadNetworkState()
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            "event=network_available ${state.telemetryFields}",
+        )
+        if (state.isValidatedWifi) {
             onValidatedWifi()
         }
     }
+
+    private companion object {
+        private const val OAM_DOWNLOAD_TELEMETRY_TAG = "OamDownload"
+    }
 }
 
-private fun NetworkCapabilities?.toDownloadNetworkState(): OamDownloadNetworkState =
-    OamDownloadNetworkState(
+private fun NetworkCapabilities?.toDownloadNetworkState(isMetered: Boolean? = null): OamDownloadNetworkState {
+    val hasInternet = this?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    val isUnmetered = this?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true
+    return OamDownloadNetworkState(
         isWifi = this?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true,
-        hasInternet = this?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true,
+        isBluetooth = this?.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) == true,
+        isCellular = this?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true,
+        isEthernet = this?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true,
+        isVpn = this?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true,
+        hasInternet = hasInternet,
         isValidated = this?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
+        isUnmetered = isUnmetered,
+        isMetered = isMetered ?: (hasInternet && !isUnmetered),
     )
+}

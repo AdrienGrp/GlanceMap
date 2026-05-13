@@ -110,10 +110,20 @@ class DownloadViewModel(
     }
 
     fun downloadSelectedBundle() {
+        val state = _uiState.value
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            "event=${if (state.isPausedDownload) "user_resume_request" else "user_download_request"} " +
+                networkMonitor.currentState().telemetryFields,
+        )
         downloadSelectedBundleInternal(allowNonWifi = false)
     }
 
     fun continueDownloadWithoutWifi() {
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            "event=user_continue_without_wifi ${networkMonitor.currentState().telemetryFields}",
+        )
         downloadSelectedBundleInternal(allowNonWifi = true)
     }
 
@@ -147,6 +157,11 @@ class DownloadViewModel(
         }
         val selection = state.selection
         val networkState = networkMonitor.currentState()
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            "event=download_request allowNonWifi=$allowNonWifi " +
+                "areas=${areas.size} bundle=${selection.toBundleChoice().name} ${networkState.telemetryFields}",
+        )
         if (!allowNonWifi && !networkState.isValidatedWifi) {
             _uiState.update {
                 it.copy(
@@ -159,7 +174,8 @@ class DownloadViewModel(
             }
             DebugTelemetry.log(
                 OAM_DOWNLOAD_TELEMETRY_TAG,
-                "event=wifi_preflight_blocked state=${networkState.userLabel}",
+                "event=wifi_preflight_blocked state=${networkState.userLabel.telemetryValue()} " +
+                    networkState.telemetryFields,
             )
             return
         }
@@ -173,8 +189,12 @@ class DownloadViewModel(
                         networkMonitor.watchForValidatedWifi {
                             if (!didReconnectOnWifi) {
                                 didReconnectOnWifi = true
-                                DebugTelemetry.log(OAM_DOWNLOAD_TELEMETRY_TAG, "event=wifi_available_reconnect")
-                                downloader.abortActiveDownloads()
+                                DebugTelemetry.log(
+                                    OAM_DOWNLOAD_TELEMETRY_TAG,
+                                    "event=auto_reconnect_request reason=wifi_available " +
+                                        networkMonitor.currentState().telemetryFields,
+                                )
+                                downloader.abortActiveDownloads(reason = "wifi_available")
                             }
                         }
                 }
@@ -302,14 +322,22 @@ class DownloadViewModel(
     }
 
     fun pauseDownload() {
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            "event=user_pause_request ${networkMonitor.currentState().telemetryFields}",
+        )
         stopRequest = DownloadStopRequest.PAUSE
-        downloader.abortActiveDownloads()
+        downloader.abortActiveDownloads(reason = "user_pause")
         downloadJob?.cancel()
     }
 
     fun cancelDownload() {
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            "event=user_cancel_request ${networkMonitor.currentState().telemetryFields}",
+        )
         stopRequest = DownloadStopRequest.CANCEL
-        downloader.abortActiveDownloads()
+        downloader.abortActiveDownloads(reason = "user_cancel")
         downloadJob?.cancel()
     }
 
@@ -352,6 +380,8 @@ class DownloadViewModel(
         private const val OAM_DOWNLOAD_TELEMETRY_TAG = "OamDownload"
     }
 }
+
+private fun String.telemetryValue(): String = replace(' ', '_')
 
 private enum class DownloadStopRequest {
     PAUSE,

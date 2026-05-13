@@ -3,6 +3,7 @@
     "LongMethod",
     "LongParameterList",
     "LoopWithTooManyJumpStatements",
+    "LargeClass",
     "TooManyFunctions",
 )
 
@@ -56,8 +57,12 @@ class OamBundleDownloader(
 
     suspend fun installedBundles(): List<OamInstalledBundle> = bundleStore.listInstalledBundles()
 
-    fun abortActiveDownloads() {
+    fun abortActiveDownloads(reason: String = "manual") {
         val connections = synchronized(activeConnections) { activeConnections.toList() }
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            "event=abort_active_downloads reason=$reason activeConnections=${connections.size}",
+        )
         connections.forEach { connection ->
             runCatching { connection.disconnect() }
         }
@@ -401,6 +406,11 @@ class OamBundleDownloader(
                                 delay(STALL_CHECK_INTERVAL_MS)
                                 val idleMs = System.currentTimeMillis() - lastProgressAtMs
                                 if (idleMs >= STALL_RECONNECT_TIMEOUT_MS) {
+                                    DebugTelemetry.log(
+                                        OAM_DOWNLOAD_TELEMETRY_TAG,
+                                        "event=auto_reconnect_request reason=stall_timeout " +
+                                            "file=$safeName idleMs=$idleMs bytes=$lastProgressBytes",
+                                    )
                                     logDownloadSpeed(
                                         event = "download_stalled_reconnect",
                                         label = label,
@@ -605,6 +615,17 @@ class OamBundleDownloader(
                     }
                     val entryFileName = File(entry.name).name
                     val expectedSize = entry.size.takeIf { it > 0L }
+                    val extractStartedAtMs = System.currentTimeMillis()
+                    var extractedBytes = 0L
+                    logExtraction(
+                        event = "extract_start",
+                        label = label,
+                        zipFileName = zipFile.name,
+                        entryFileName = entryFileName,
+                        bytesDone = 0L,
+                        totalBytes = expectedSize,
+                        durationMs = null,
+                    )
                     onProgress(
                         OamDownloadProgress(
                             phase = "EXTRACTING",
@@ -617,6 +638,7 @@ class OamBundleDownloader(
                         zip,
                         expectedSize,
                     ) { bytes ->
+                        extractedBytes = bytes
                         onProgress(
                             OamDownloadProgress(
                                 phase = "EXTRACTING",
@@ -626,12 +648,44 @@ class OamBundleDownloader(
                             ),
                         )
                     }
+                    logExtraction(
+                        event = "extract_complete",
+                        label = label,
+                        zipFileName = zipFile.name,
+                        entryFileName = entryFileName,
+                        bytesDone = extractedBytes,
+                        totalBytes = expectedSize,
+                        durationMs = System.currentTimeMillis() - extractStartedAtMs,
+                    )
                     zip.closeEntry()
                     return@withContext entryFileName
                 }
             }
             throw IOException("$label ZIP did not contain a $extension file")
         }
+
+    private fun logExtraction(
+        event: String,
+        label: String,
+        zipFileName: String,
+        entryFileName: String,
+        bytesDone: Long,
+        totalBytes: Long?,
+        durationMs: Long?,
+    ) {
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            buildString {
+                append("event=").append(event)
+                append(" label=").append(label)
+                append(" zip=").append(zipFileName)
+                append(" entry=").append(entryFileName)
+                append(" bytes=").append(bytesDone.coerceAtLeast(0L))
+                append(" total=").append(totalBytes ?: "unknown")
+                append(" durationMs=").append(durationMs ?: "na")
+            },
+        )
+    }
 
     private companion object {
         private const val CONNECT_TIMEOUT_MS = 20_000
