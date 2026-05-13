@@ -1,6 +1,7 @@
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -149,6 +150,7 @@ class LiveTrackingService : Service() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private suspend fun sendLastKnownLocationIfAvailable() {
         if (!hasLocationPermission()) return
         val location =
@@ -243,6 +245,7 @@ class LiveTrackingService : Service() {
         return replayedCount
     }
 
+    @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
         if (!hasLocationPermission()) return
         runCatching { locationClient.removeLocationUpdates(locationCallback) }
