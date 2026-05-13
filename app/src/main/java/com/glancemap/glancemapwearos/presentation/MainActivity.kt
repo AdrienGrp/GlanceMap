@@ -28,6 +28,8 @@ import androidx.wear.compose.material3.timeTextCurvedText
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
+import com.glancemap.glancemapwearos.presentation.features.download.DownloadScreen
+import com.glancemap.glancemapwearos.presentation.features.download.DownloadSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxScreen
 import com.glancemap.glancemapwearos.presentation.features.home.MainScreen
 import com.glancemap.glancemapwearos.presentation.features.maps.MapsScreen
@@ -225,6 +227,55 @@ class MainActivity : ComponentActivity() {
                                     navController = navController,
                                     mapViewModel = appContainer.mapViewModel,
                                     themeViewModel = appContainer.themeViewModel,
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.DOWNLOAD) {
+                            var isDownloadAreaPickerOpen by remember { mutableStateOf(false) }
+                            var downloadAreaFolder by remember { mutableStateOf<String?>(null) }
+                            var downloadAreaSearchQuery by remember { mutableStateOf("") }
+                            DismissableScreen(
+                                onDismiss = {
+                                    if (isDownloadAreaPickerOpen) {
+                                        when {
+                                            downloadAreaSearchQuery.isNotBlank() -> downloadAreaSearchQuery = ""
+                                            downloadAreaFolder != null -> downloadAreaFolder = null
+                                            else -> isDownloadAreaPickerOpen = false
+                                        }
+                                    } else {
+                                        navController.popBackStack()
+                                    }
+                                },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                DownloadScreen(
+                                    viewModel = appContainer.downloadViewModel,
+                                    areaPickerOpen = isDownloadAreaPickerOpen,
+                                    onAreaPickerOpenChange = { isDownloadAreaPickerOpen = it },
+                                    selectedAreaFolder = downloadAreaFolder,
+                                    onSelectedAreaFolderChange = { downloadAreaFolder = it },
+                                    areaSearchQuery = downloadAreaSearchQuery,
+                                    onAreaSearchQueryChange = { downloadAreaSearchQuery = it },
+                                    onLibraryChanged = {
+                                        appContainer.mapViewModel.loadMapFiles()
+                                        appContainer.mapViewModel.loadRoutingPackFiles()
+                                        appContainer.poiViewModel.loadPoiFiles()
+                                    },
+                                    onOpenSettings = {
+                                        navController.navigate(WatchRoutes.DOWNLOAD_SETTINGS)
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.DOWNLOAD_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                DownloadSettingsScreen(
+                                    viewModel = appContainer.downloadViewModel,
                                 )
                             }
                         }

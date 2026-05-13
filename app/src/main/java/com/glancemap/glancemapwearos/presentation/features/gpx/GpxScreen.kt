@@ -440,7 +440,7 @@ fun GpxScreen(
                     if (gpxFiles.isEmpty()) {
                         item {
                             Text(
-                                text = "Use the companion phone app to send GPX files to your watch.",
+                                text = "Send GPX files from the companion phone app.",
                                 modifier = Modifier.padding(emptyStatePadding),
                                 textAlign = TextAlign.Center,
                             )

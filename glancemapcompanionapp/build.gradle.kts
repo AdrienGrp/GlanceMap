@@ -173,6 +173,7 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.partial.content)
+    implementation(libs.okhttp)
 
     // Gson for JSON serialization
     implementation(libs.gson)
