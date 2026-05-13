@@ -211,8 +211,10 @@ class PoiViewModel(
     ) {
         viewModelScope.launch {
             if (isUserPoiPath(path)) {
-                userPoiRepository.setFileEnabled(enabled)
-                reloadFromDisk()
+                withContext(Dispatchers.IO) {
+                    userPoiRepository.setFileEnabled(enabled)
+                }
+                refreshUserPoiSourceFromDisk()
                 return@launch
             }
             val file = _poiFiles.value.firstOrNull { it.path == path } ?: return@launch
@@ -251,8 +253,10 @@ class PoiViewModel(
     ) {
         viewModelScope.launch {
             if (isUserPoiPath(path)) {
-                userPoiRepository.setCategoryEnabled(enabled)
-                reloadFromDisk()
+                withContext(Dispatchers.IO) {
+                    userPoiRepository.setCategoryEnabled(enabled)
+                }
+                refreshUserPoiSourceFromDisk()
                 return@launch
             }
             val file = _poiFiles.value.firstOrNull { it.path == path } ?: return@launch
@@ -279,8 +283,10 @@ class PoiViewModel(
     ) {
         viewModelScope.launch {
             if (isUserPoiPath(path) && categoryId == USER_POI_CATEGORY_ID) {
-                userPoiRepository.setCategoryEnabled(enabled)
-                reloadFromDisk()
+                withContext(Dispatchers.IO) {
+                    userPoiRepository.setCategoryEnabled(enabled)
+                }
+                refreshUserPoiSourceFromDisk()
                 return@launch
             }
             val file = _poiFiles.value.firstOrNull { it.path == path } ?: return@launch
@@ -478,14 +484,16 @@ class PoiViewModel(
     fun deletePoiFile(path: String) {
         viewModelScope.launch {
             if (isUserPoiPath(path)) {
-                userPoiRepository.clearAll()
+                withContext(Dispatchers.IO) {
+                    userPoiRepository.clearAll()
+                }
                 _categoryPreviews.update { previews ->
                     previews.filterKeys { key -> key.filePath != path }
                 }
                 _categoryCounts.update { counts ->
                     counts.filterKeys { key -> key.filePath != path }
                 }
-                reloadFromDisk()
+                refreshUserPoiSourceFromDisk()
                 return@launch
             }
             poiRepository.deletePoiFile(path)
@@ -517,14 +525,14 @@ class PoiViewModel(
         withContext(Dispatchers.IO) {
             userPoiRepository.renamePoi(id = id, newName = newName)
         }
-        reloadFromDisk()
+        refreshUserPoiSourceFromDisk()
     }
 
     suspend fun deleteMyCreationPoi(id: Long) {
         withContext(Dispatchers.IO) {
             userPoiRepository.deletePoi(id)
         }
-        reloadFromDisk()
+        refreshUserPoiSourceFromDisk()
     }
 
     fun consumeNavigateTarget() {
@@ -846,8 +854,35 @@ class PoiViewModel(
             withContext(Dispatchers.IO) {
                 userPoiRepository.createPoi(lat = lat, lon = lon)
             }
-        reloadFromDisk()
+        refreshUserPoiSourceFromDisk()
         return record
+    }
+
+    private suspend fun refreshUserPoiSourceFromDisk() {
+        val wasExpanded = _poiFiles.value.firstOrNull { isUserPoiPath(it.path) }?.isExpanded
+        userPoiSourceState =
+            withContext(Dispatchers.IO) {
+                userPoiRepository.readSourceState()
+            }
+        val syntheticUserFile =
+            buildUserPoiFileUiState(
+                isExpanded = wasExpanded ?: userPoiSourceState.points.isNotEmpty(),
+            )
+        _poiFiles.update { files ->
+            if (files.any { isUserPoiPath(it.path) }) {
+                files.map { file ->
+                    if (isUserPoiPath(file.path)) syntheticUserFile else file
+                }
+            } else {
+                listOf(syntheticUserFile) + files
+            }
+        }
+        _categoryPreviews.update { previews ->
+            previews.filterKeys { key -> key.filePath != USER_POI_SOURCE_PATH }
+        }
+        _categoryCounts.update { counts ->
+            counts.filterKeys { key -> key.filePath != USER_POI_SOURCE_PATH }
+        }
     }
 
     private fun buildUserPoiFileUiState(isExpanded: Boolean): PoiFileUiState {
