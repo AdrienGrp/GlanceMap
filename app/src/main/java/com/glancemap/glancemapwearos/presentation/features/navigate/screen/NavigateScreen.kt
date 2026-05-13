@@ -820,6 +820,23 @@ fun NavigateScreen(
                 routeToolPreview != null
         }
     val reshapePreviewInspectMode = reshapePreviewInspectDraft != null
+    val gpsStartupMapCenteringActive =
+        !offlineMode &&
+            shouldTrackLocation &&
+            locationMarker == null &&
+            uiState.lastKnownLocation == null
+    val gpsStartupLastKnownCenter =
+        uiState.lastKnownLocation.takeIf {
+            !offlineMode &&
+                shouldTrackLocation &&
+                locationMarker == null &&
+                navigateTarget == null &&
+                pendingPoiFocusTarget == null
+        }
+
+    LaunchedEffect(gpsStartupLastKnownCenter, mapView) {
+        gpsStartupLastKnownCenter?.let { mapView.setCenter(it) }
+    }
 
     OfflineStartCenteringEffect(
         isOfflineMode = offlineMode,
@@ -828,6 +845,7 @@ fun NavigateScreen(
         selectedMapPath = selectedMapPath,
         activeGpxDetails = activeGpxDetails,
         skipInitialCentering = navigateTarget != null || pendingPoiFocusTarget != null,
+        enabled = offlineMode || gpsStartupMapCenteringActive,
     )
 
     val recenterTarget: LatLong? =
