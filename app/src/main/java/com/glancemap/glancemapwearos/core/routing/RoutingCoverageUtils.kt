@@ -99,6 +99,14 @@ object RoutingCoverageUtils {
         }
     }
 
+    fun requiredSegmentNamesForMapFile(mapFile: File): Set<String>? {
+        val mapSignature = mapSignatureOf(mapFile) ?: return null
+        return requiredSegmentNamesForMap(
+            mapFile = mapFile,
+            mapSignature = mapSignature,
+        )
+    }
+
     private fun requiredSegmentNamesForMap(
         mapFile: File,
         mapSignature: String,

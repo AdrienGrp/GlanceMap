@@ -27,6 +27,8 @@ class OamBundleStore(
                         bundleChoice = bundleChoice,
                         mapFileName = prefs.getString(key(areaId, "map"), null),
                         poiFileName = prefs.getString(key(areaId, "poi"), null),
+                        routingFileNames = prefs.getString(key(areaId, "routing"), null).toRoutingFileNames(),
+                        downloadedRoutingFileNames = prefs.getString(key(areaId, "routing_downloaded"), null).toRoutingFileNames(),
                         installedAtMillis = prefs.getLong(key(areaId, "installed_at"), 0L),
                     )
                 }.sortedBy { it.areaLabel.lowercase() }
@@ -42,6 +44,8 @@ class OamBundleStore(
                 .putString(key(bundle.areaId, "choice"), bundle.bundleChoice.name)
                 .putString(key(bundle.areaId, "map"), bundle.mapFileName)
                 .putString(key(bundle.areaId, "poi"), bundle.poiFileName)
+                .putString(key(bundle.areaId, "routing"), bundle.routingFileNames.joinToString("\n"))
+                .putString(key(bundle.areaId, "routing_downloaded"), bundle.downloadedRoutingFileNames.joinToString("\n"))
                 .putLong(key(bundle.areaId, "installed_at"), bundle.installedAtMillis)
                 .apply()
         }
@@ -56,6 +60,8 @@ class OamBundleStore(
                 .remove(key(areaId, "choice"))
                 .remove(key(areaId, "map"))
                 .remove(key(areaId, "poi"))
+                .remove(key(areaId, "routing"))
+                .remove(key(areaId, "routing_downloaded"))
                 .remove(key(areaId, "installed_at"))
                 .apply()
         }
@@ -69,3 +75,12 @@ class OamBundleStore(
         private const val KEY_AREA_IDS = "area_ids"
     }
 }
+
+private fun String?.toRoutingFileNames(): List<String> =
+    this
+        ?.lineSequence()
+        ?.map { it.trim() }
+        ?.filter { it.endsWith(".rd5", ignoreCase = true) }
+        ?.distinct()
+        ?.toList()
+        .orEmpty()

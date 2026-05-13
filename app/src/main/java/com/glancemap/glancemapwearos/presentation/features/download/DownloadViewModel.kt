@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 data class DownloadUiState(
     val areas: List<OamDownloadArea> = OamDownloadCatalog.areas,
-    val selectedAreaIds: Set<String> = setOf(OamDownloadCatalog.areas.first().id),
+    val selectedAreaIds: Set<String> = emptySet(),
     val selection: OamDownloadSelection = OamDownloadSelection(),
     val installedBundles: List<OamInstalledBundle> = emptyList(),
     val isDownloading: Boolean = false,
@@ -20,6 +20,7 @@ data class DownloadUiState(
     val detail: String? = null,
     val bytesDone: Long = 0L,
     val totalBytes: Long? = null,
+    val isPausedDownload: Boolean = false,
     val statusMessage: String? = null,
     val errorMessage: String? = null,
     val lastLibraryChangedAtMillis: Long = 0L,
@@ -38,6 +39,7 @@ class DownloadViewModel(
     val uiState: StateFlow<DownloadUiState> = _uiState.asStateFlow()
 
     private var downloadJob: Job? = null
+    private var stopRequest: DownloadStopRequest? = null
 
     init {
         refreshInstalledBundles()
@@ -54,6 +56,7 @@ class DownloadViewModel(
                 }
             state.copy(
                 selectedAreaIds = nextIds,
+                isPausedDownload = false,
                 statusMessage = null,
                 errorMessage = null,
             )
@@ -65,6 +68,7 @@ class DownloadViewModel(
         _uiState.update { state ->
             state.copy(
                 selection = state.selection.copy(includeMap = includeMap),
+                isPausedDownload = false,
                 statusMessage = null,
                 errorMessage = null,
             )
@@ -76,6 +80,7 @@ class DownloadViewModel(
         _uiState.update { state ->
             state.copy(
                 selection = state.selection.copy(includePoi = includePoi),
+                isPausedDownload = false,
                 statusMessage = null,
                 errorMessage = null,
             )
@@ -87,6 +92,7 @@ class DownloadViewModel(
         _uiState.update { state ->
             state.copy(
                 selection = state.selection.copy(includeRouting = includeRouting),
+                isPausedDownload = false,
                 statusMessage = null,
                 errorMessage = null,
             )
@@ -100,7 +106,7 @@ class DownloadViewModel(
             _uiState.update {
                 it.copy(
                     statusMessage = "Nothing selected",
-                    errorMessage = "Enable Map or POI in Download settings.",
+                    errorMessage = "Enable Maps, POI, or Routing in Download settings.",
                 )
             }
             return
@@ -115,7 +121,8 @@ class DownloadViewModel(
             }
             return
         }
-        val choice = state.selection.toBundleChoice()
+        val selection = state.selection
+        stopRequest = null
         downloadJob =
             viewModelScope.launch {
                 _uiState.update {
@@ -125,13 +132,14 @@ class DownloadViewModel(
                         detail = "${areas.size} area(s)",
                         bytesDone = 0L,
                         totalBytes = null,
+                        isPausedDownload = false,
                         statusMessage = "Starting download",
                         errorMessage = null,
                     )
                 }
                 try {
                     areas.forEachIndexed { index, area ->
-                        downloader.downloadBundle(area, choice) { progress ->
+                        downloader.downloadBundle(area, selection) { progress ->
                             _uiState.update {
                                 it.copy(
                                     phase = progress.phase,
@@ -153,19 +161,38 @@ class DownloadViewModel(
                             detail = "${areas.size} area(s)",
                             bytesDone = 0L,
                             totalBytes = null,
+                            isPausedDownload = false,
                             statusMessage = if (areas.size == 1) "Bundle installed" else "Bundles installed",
                             errorMessage = null,
                             lastLibraryChangedAtMillis = System.currentTimeMillis(),
                         )
                     }
                 } catch (cancelled: CancellationException) {
+                    val request = stopRequest ?: DownloadStopRequest.PAUSE
+                    if (request == DownloadStopRequest.CANCEL) {
+                        downloader.deletePartialDownloads(areas, selection)
+                    }
                     _uiState.update {
-                        it.copy(
-                            isDownloading = false,
-                            phase = "PAUSED",
-                            statusMessage = "Download paused",
-                            errorMessage = null,
-                        )
+                        if (request == DownloadStopRequest.CANCEL) {
+                            it.copy(
+                                isDownloading = false,
+                                phase = "CANCELED",
+                                detail = "${areas.size} area(s)",
+                                bytesDone = 0L,
+                                totalBytes = null,
+                                isPausedDownload = false,
+                                statusMessage = "Download canceled",
+                                errorMessage = null,
+                            )
+                        } else {
+                            it.copy(
+                                isDownloading = false,
+                                phase = "PAUSED",
+                                isPausedDownload = true,
+                                statusMessage = "Download paused",
+                                errorMessage = null,
+                            )
+                        }
                     }
                     throw cancelled
                 } catch (error: Throwable) {
@@ -174,16 +201,27 @@ class DownloadViewModel(
                             isDownloading = false,
                             phase = "FAILED",
                             statusMessage = "Download failed",
+                            isPausedDownload = false,
                             errorMessage = error.message ?: "Download failed",
                         )
                     }
+                } finally {
+                    downloadJob = null
+                    stopRequest = null
                 }
             }
     }
 
-    fun cancelDownload() {
+    fun pauseDownload() {
+        stopRequest = DownloadStopRequest.PAUSE
+        downloader.abortActiveDownloads()
         downloadJob?.cancel()
-        downloadJob = null
+    }
+
+    fun cancelDownload() {
+        stopRequest = DownloadStopRequest.CANCEL
+        downloader.abortActiveDownloads()
+        downloadJob?.cancel()
     }
 
     fun deleteBundle(bundle: OamInstalledBundle) {
@@ -218,4 +256,9 @@ class DownloadViewModel(
             }
         }
     }
+}
+
+private enum class DownloadStopRequest {
+    PAUSE,
+    CANCEL,
 }

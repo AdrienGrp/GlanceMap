@@ -1,6 +1,11 @@
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import android.content.Context
+import com.glancemap.glancemapwearos.core.routing.RoutingCoverageUtils
+import com.glancemap.glancemapwearos.core.routing.routingSegmentPartFile
+import com.glancemap.glancemapwearos.core.routing.routingSegmentTargetFile
+import com.glancemap.glancemapwearos.core.routing.routingSegmentsDir
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.MapRepository
 import com.glancemap.glancemapwearos.data.repository.PoiRepository
 import com.glancemap.glancemapwearos.data.repository.internal.AtomicStreamWriter
@@ -13,6 +18,7 @@ import java.io.FileInputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.Collections
 import java.util.zip.ZipInputStream
 import kotlin.coroutines.coroutineContext
 
@@ -23,6 +29,11 @@ data class OamDownloadProgress(
     val totalBytes: Long? = null,
 )
 
+private data class RoutingSegmentDownloadResult(
+    val fileName: String,
+    val downloaded: Boolean,
+)
+
 class OamBundleDownloader(
     private val context: Context,
     private val mapRepository: MapRepository,
@@ -30,23 +41,61 @@ class OamBundleDownloader(
     private val bundleStore: OamBundleStore = OamBundleStore(context),
 ) {
     private val downloadDir: File by lazy { context.getDir("oam_downloads", Context.MODE_PRIVATE) }
+    private val activeConnections = Collections.synchronizedSet(mutableSetOf<HttpURLConnection>())
 
     suspend fun installedBundles(): List<OamInstalledBundle> = bundleStore.listInstalledBundles()
 
+    fun abortActiveDownloads() {
+        val connections = synchronized(activeConnections) { activeConnections.toList() }
+        connections.forEach { connection ->
+            runCatching { connection.disconnect() }
+        }
+    }
+
+    suspend fun deletePartialDownloads(
+        areas: List<OamDownloadArea>,
+        selection: OamDownloadSelection,
+    ) {
+        withContext(Dispatchers.IO) {
+            val installedBundles = bundleStore.listInstalledBundles()
+            areas.forEach { area ->
+                if (selection.includeMap) {
+                    deleteZipAndPartial("${area.id}.map.zip")
+                }
+                if (selection.includePoi) {
+                    deleteZipAndPartial("${area.id}.poi.zip")
+                }
+                if (selection.includeRouting) {
+                    routingSegmentNamesForArea(
+                        area = area,
+                        installedBundles = installedBundles,
+                    ).forEach { fileName ->
+                        routingSegmentPartFile(context, fileName).delete()
+                    }
+                }
+            }
+        }
+    }
+
     suspend fun downloadBundle(
         area: OamDownloadArea,
-        choice: OamBundleChoice,
+        selection: OamDownloadSelection,
         onProgress: (OamDownloadProgress) -> Unit,
     ): OamInstalledBundle {
-        require(choice.includeMap || choice.includePoi) { "Select at least one download item." }
+        require(selection.canDownload) { "Select at least one download item." }
 
-        var mapFileName: String? = null
-        if (choice.includeMap) {
+        val existingBundle = bundleStore.listInstalledBundles().firstOrNull { it.areaId == area.id }
+        var mapFileName: String? = existingBundle?.mapFileName
+        if (selection.includeMap) {
             val mapZip =
-                downloadZip(
+                downloadFile(
                     url = area.mapZipUrl,
+                    dir = downloadDir,
                     fileName = "${area.id}.map.zip",
                     label = "Map",
+                    progressDetail = "Map zip",
+                    bufferSize = 1024 * 1024,
+                    progressStepBytes = 2L * 1024 * 1024,
                     onProgress = onProgress,
                 )
             mapFileName =
@@ -68,13 +117,17 @@ class OamBundleDownloader(
             mapZip.delete()
         }
 
-        var poiFileName: String? = null
-        if (choice.includePoi) {
+        var poiFileName: String? = existingBundle?.poiFileName
+        if (selection.includePoi) {
             val poiZip =
-                downloadZip(
+                downloadFile(
                     url = area.poiZipUrl,
+                    dir = downloadDir,
                     fileName = "${area.id}.poi.zip",
                     label = "POI",
+                    progressDetail = "POI zip",
+                    bufferSize = 1024 * 1024,
+                    progressStepBytes = 2L * 1024 * 1024,
                     onProgress = onProgress,
                 )
             poiFileName =
@@ -95,21 +148,61 @@ class OamBundleDownloader(
             poiZip.delete()
         }
 
+        var downloadedRoutingFileNames = existingBundle?.downloadedRoutingFileNames.orEmpty()
+        val routingFileNames =
+            if (selection.includeRouting) {
+                val mapFile =
+                    mapFileForRouting(area = area, mapFileName = mapFileName)
+                        ?: throw IOException("Routing needs the map in this bundle or an installed map for ${area.region}.")
+                val requiredSegments =
+                    RoutingCoverageUtils
+                        .requiredSegmentNamesForMapFile(mapFile)
+                        ?.sorted()
+                        ?: throw IOException("Cannot read map bounds for routing.")
+                val segmentResults =
+                    requiredSegments.map { fileName ->
+                        downloadRoutingSegment(
+                            fileName = fileName,
+                            onProgress = onProgress,
+                        )
+                    }
+                val resultFileNames = segmentResults.map { it.fileName }
+                downloadedRoutingFileNames =
+                    (downloadedRoutingFileNames + segmentResults.filter { it.downloaded }.map { it.fileName })
+                        .distinct()
+                        .filter { it in resultFileNames }
+                resultFileNames
+            } else {
+                existingBundle?.routingFileNames.orEmpty()
+            }
+
         val installed =
             OamInstalledBundle(
                 areaId = area.id,
                 areaLabel = area.region,
-                bundleChoice = choice,
+                bundleChoice = selection.toBundleChoice(),
                 mapFileName = mapFileName,
                 poiFileName = poiFileName,
+                routingFileNames = routingFileNames,
+                downloadedRoutingFileNames = downloadedRoutingFileNames,
                 installedAtMillis = System.currentTimeMillis(),
             )
         bundleStore.upsert(installed)
+        if (selection.includeRouting) {
+            RoutingCoverageUtils.clearCaches()
+        }
         return installed
     }
 
     suspend fun deleteBundle(bundle: OamInstalledBundle) {
         withContext(Dispatchers.IO) {
+            val routingFilesUsedByOtherBundles =
+                bundleStore
+                    .listInstalledBundles()
+                    .asSequence()
+                    .filterNot { it.areaId == bundle.areaId }
+                    .flatMap { it.routingFileNames.asSequence() }
+                    .toSet()
             bundle.mapFileName?.let { fileName ->
                 mapRepository
                     .listMapFiles()
@@ -124,6 +217,13 @@ class OamBundleDownloader(
             }
             deleteZipAndPartial("${bundle.areaId}.map.zip")
             deleteZipAndPartial("${bundle.areaId}.poi.zip")
+            bundle.downloadedRoutingFileNames
+                .filterNot { it in routingFilesUsedByOtherBundles }
+                .forEach { fileName ->
+                    routingSegmentTargetFile(context, fileName).delete()
+                    routingSegmentPartFile(context, fileName).delete()
+                }
+            RoutingCoverageUtils.clearCaches()
         }
         bundleStore.remove(bundle.areaId)
     }
@@ -134,22 +234,87 @@ class OamBundleDownloader(
         File(downloadDir, ".$safeName.part").delete()
     }
 
-    private suspend fun downloadZip(
+    private suspend fun routingSegmentNamesForArea(
+        area: OamDownloadArea,
+        installedBundles: List<OamInstalledBundle>,
+    ): Set<String> =
+        mapFileForRouting(
+            area = area,
+            mapFileName =
+                installedBundles
+                    .firstOrNull { it.areaId == area.id }
+                    ?.mapFileName,
+        )?.let { mapFile ->
+            RoutingCoverageUtils.requiredSegmentNamesForMapFile(mapFile)
+        }.orEmpty()
+
+    private suspend fun mapFileForRouting(
+        area: OamDownloadArea,
+        mapFileName: String?,
+    ): File? {
+        val candidateNames =
+            listOfNotNull(
+                mapFileName,
+                "${area.region}.map",
+            )
+        return mapRepository
+            .listMapFiles()
+            .firstOrNull { file -> candidateNames.any { it.equals(file.name, ignoreCase = true) } }
+    }
+
+    private suspend fun downloadRoutingSegment(
+        fileName: String,
+        onProgress: (OamDownloadProgress) -> Unit,
+    ): RoutingSegmentDownloadResult {
+        val safeName = File(fileName).name
+        val targetFile = routingSegmentTargetFile(context, safeName)
+        if (targetFile.exists() && targetFile.length() > 0L) {
+            onProgress(
+                OamDownloadProgress(
+                    phase = "READY",
+                    detail = safeName,
+                    bytesDone = targetFile.length(),
+                    totalBytes = targetFile.length(),
+                ),
+            )
+            return RoutingSegmentDownloadResult(fileName = safeName, downloaded = false)
+        }
+        downloadFile(
+            url = "$BROUTER_SEGMENTS_BASE_URL/$safeName",
+            dir = routingSegmentsDir(context),
+            fileName = safeName,
+            label = "Routing",
+            progressDetail = safeName,
+            bufferSize = 512 * 1024,
+            progressStepBytes = 1L * 1024 * 1024,
+            onProgress = onProgress,
+        )
+        return RoutingSegmentDownloadResult(fileName = safeName, downloaded = true)
+    }
+
+    private suspend fun downloadFile(
         url: String,
+        dir: File,
         fileName: String,
         label: String,
+        progressDetail: String,
+        bufferSize: Int,
+        progressStepBytes: Long,
         onProgress: (OamDownloadProgress) -> Unit,
     ): File =
         withContext(Dispatchers.IO) {
-            if (!downloadDir.exists() && !downloadDir.mkdirs()) {
-                throw IOException("Cannot create OAM download directory")
+            if (!dir.exists() && !dir.mkdirs()) {
+                throw IOException("Cannot create download directory")
             }
             val safeName = File(fileName).name
-            val finalFile = File(downloadDir, safeName)
-            val partFile = File(downloadDir, ".$safeName.part")
+            val finalFile = File(dir, safeName)
+            val partFile = File(dir, ".$safeName.part")
             var resumeOffset = partFile.takeIf { it.exists() }?.length()?.coerceAtLeast(0L) ?: 0L
             var restartCount = 0
             var ioRetryCount = 0
+            val downloadStartedAtMs = System.currentTimeMillis()
+            var lastSpeedSampleAtMs = downloadStartedAtMs
+            var lastSpeedSampleBytes = resumeOffset
 
             while (true) {
                 coroutineContext.ensureActive()
@@ -158,6 +323,7 @@ class OamBundleDownloader(
                         url = url,
                         resumeOffset = resumeOffset,
                     )
+                activeConnections += connection
                 try {
                     val code = connection.responseCode
                     val append =
@@ -193,31 +359,68 @@ class OamBundleDownloader(
                     onProgress(
                         OamDownloadProgress(
                             phase = "DOWNLOADING",
-                            detail = "$label zip",
+                            detail = progressDetail,
                             bytesDone = resumeOffset,
                             totalBytes = expectedTotalBytes,
                         ),
                     )
+                    logDownloadSpeed(
+                        event = "download_start",
+                        label = label,
+                        fileName = safeName,
+                        bytesDone = resumeOffset,
+                        totalBytes = expectedTotalBytes,
+                        currentSpeedMbps = null,
+                        averageSpeedMbps = null,
+                    )
 
                     connection.inputStream.use { input ->
                         AtomicStreamWriter.writeAtomic(
-                            dir = downloadDir,
+                            dir = dir,
                             fileName = safeName,
                             inputStream = input,
                             onProgress = { bytes ->
+                                val nowMs = System.currentTimeMillis()
+                                val elapsedSinceLastMs = nowMs - lastSpeedSampleAtMs
+                                val bytesSinceLast = bytes - lastSpeedSampleBytes
+                                val currentSpeedMbps =
+                                    if (elapsedSinceLastMs > 0L && bytesSinceLast > 0L) {
+                                        bytesPerMsToMbps(bytesSinceLast, elapsedSinceLastMs)
+                                    } else {
+                                        null
+                                    }
+                                val elapsedSinceStartMs = nowMs - downloadStartedAtMs
+                                val bytesSinceStart = bytes - resumeOffset
+                                val averageSpeedMbps =
+                                    if (elapsedSinceStartMs > 0L && bytesSinceStart > 0L) {
+                                        bytesPerMsToMbps(bytesSinceStart, elapsedSinceStartMs)
+                                    } else {
+                                        null
+                                    }
+                                lastSpeedSampleAtMs = nowMs
+                                lastSpeedSampleBytes = bytes
                                 onProgress(
                                     OamDownloadProgress(
                                         phase = "DOWNLOADING",
-                                        detail = "$label zip",
+                                        detail = progressDetail,
                                         bytesDone = bytes,
                                         totalBytes = expectedTotalBytes,
                                     ),
                                 )
+                                logDownloadSpeed(
+                                    event = "download_progress",
+                                    label = label,
+                                    fileName = safeName,
+                                    bytesDone = bytes,
+                                    totalBytes = expectedTotalBytes,
+                                    currentSpeedMbps = currentSpeedMbps,
+                                    averageSpeedMbps = averageSpeedMbps,
+                                )
                             },
                             options =
                                 AtomicStreamWriter.Options(
-                                    bufferSize = 1024 * 1024,
-                                    progressStepBytes = 2L * 1024 * 1024,
+                                    bufferSize = bufferSize,
+                                    progressStepBytes = progressStepBytes,
                                     fsync = true,
                                     expectedSize = expectedTotalBytes,
                                     requireExactSize = expectedTotalBytes != null,
@@ -228,6 +431,20 @@ class OamBundleDownloader(
                                 ),
                         )
                     }
+                    val completedAtMs = System.currentTimeMillis()
+                    logDownloadSpeed(
+                        event = "download_complete",
+                        label = label,
+                        fileName = safeName,
+                        bytesDone = finalFile.length().coerceAtLeast(0L),
+                        totalBytes = expectedTotalBytes,
+                        currentSpeedMbps = null,
+                        averageSpeedMbps =
+                            bytesPerMsToMbps(
+                                bytes = finalFile.length().coerceAtLeast(0L) - resumeOffset,
+                                elapsedMs = completedAtMs - downloadStartedAtMs,
+                            ),
+                    )
                     return@withContext finalFile
                 } catch (error: IOException) {
                     resumeOffset = partFile.takeIf { it.exists() }?.length()?.coerceAtLeast(0L) ?: 0L
@@ -238,13 +455,27 @@ class OamBundleDownloader(
                     onProgress(
                         OamDownloadProgress(
                             phase = "PAUSED",
-                            detail = "$label zip interrupted",
+                            detail = "$progressDetail interrupted",
                             bytesDone = resumeOffset,
                         ),
+                    )
+                    logDownloadSpeed(
+                        event = "download_interrupted",
+                        label = label,
+                        fileName = safeName,
+                        bytesDone = resumeOffset,
+                        totalBytes = null,
+                        currentSpeedMbps = null,
+                        averageSpeedMbps =
+                            bytesPerMsToMbps(
+                                bytes = resumeOffset - lastSpeedSampleBytes,
+                                elapsedMs = System.currentTimeMillis() - lastSpeedSampleAtMs,
+                            ),
                     )
                     delay(IO_RETRY_DELAY_MS * ioRetryCount)
                     continue
                 } finally {
+                    activeConnections -= connection
                     connection.disconnect()
                 }
             }
@@ -268,6 +499,41 @@ class OamBundleDownloader(
                 setRequestProperty("Range", "bytes=$resumeOffset-")
             }
         }
+
+    private fun logDownloadSpeed(
+        event: String,
+        label: String,
+        fileName: String,
+        bytesDone: Long,
+        totalBytes: Long?,
+        currentSpeedMbps: Double?,
+        averageSpeedMbps: Double?,
+    ) {
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            buildString {
+                append("event=").append(event)
+                append(" label=").append(label)
+                append(" file=").append(fileName)
+                append(" bytes=").append(bytesDone.coerceAtLeast(0L))
+                append(" total=").append(totalBytes ?: "unknown")
+                append(" currentMbps=").append(currentSpeedMbps?.formatSpeed() ?: "na")
+                append(" averageMbps=").append(averageSpeedMbps?.formatSpeed() ?: "na")
+            },
+        )
+    }
+
+    private fun bytesPerMsToMbps(
+        bytes: Long,
+        elapsedMs: Long,
+    ): Double? =
+        if (bytes > 0L && elapsedMs > 0L) {
+            (bytes * 8.0) / elapsedMs / 1000.0
+        } else {
+            null
+        }
+
+    private fun Double.formatSpeed(): String = java.lang.String.format(java.util.Locale.US, "%.2f", this)
 
     private suspend fun extractFirstEntry(
         zipFile: File,
@@ -327,6 +593,8 @@ class OamBundleDownloader(
         private const val MAX_RANGE_RESTARTS = 1
         private const val MAX_IO_RETRIES = 3
         private const val IO_RETRY_DELAY_MS = 2_000L
+        private const val BROUTER_SEGMENTS_BASE_URL = "https://brouter.de/brouter/segments4"
         private const val USER_AGENT = "GlanceMap-WearOS-OAM-Downloader/1.0 https://www.openandromaps.org"
+        private const val OAM_DOWNLOAD_TELEMETRY_TAG = "OamDownload"
     }
 }

@@ -232,14 +232,24 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable(WatchRoutes.DOWNLOAD) {
+                            var isDownloadAreaPickerOpen by remember { mutableStateOf(false) }
                             DismissableScreen(
-                                onDismiss = { navController.popBackStack() },
+                                onDismiss = {
+                                    if (isDownloadAreaPickerOpen) {
+                                        isDownloadAreaPickerOpen = false
+                                    } else {
+                                        navController.popBackStack()
+                                    }
+                                },
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 DownloadScreen(
                                     viewModel = appContainer.downloadViewModel,
+                                    areaPickerOpen = isDownloadAreaPickerOpen,
+                                    onAreaPickerOpenChange = { isDownloadAreaPickerOpen = it },
                                     onLibraryChanged = {
                                         appContainer.mapViewModel.loadMapFiles()
+                                        appContainer.mapViewModel.loadRoutingPackFiles()
                                         appContainer.poiViewModel.loadPoiFiles()
                                     },
                                     onOpenSettings = {

@@ -68,8 +68,7 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
                     checked = uiState.selection.includeRouting,
                     onCheckedChanged = viewModel::setIncludeRouting,
                     label = "Routing",
-                    secondaryLabel = "Coming later",
-                    enabled = false,
+                    secondaryLabel = "BRouter RD5",
                 )
             }
             item {

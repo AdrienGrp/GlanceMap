@@ -229,6 +229,7 @@ fun MainScreen(
                     height = centerButtonHeight,
                     iconSize = centerButtonIconSize,
                     compact = compactScreen,
+                    showLabel = false,
                     onClick = { navController.navigate(WatchRoutes.DOWNLOAD) },
                 )
             }
@@ -339,6 +340,7 @@ private fun HomeActionButton(
     height: Dp,
     iconSize: Dp,
     compact: Boolean,
+    showLabel: Boolean = true,
     onClick: () -> Unit,
 ) {
     Button(
@@ -359,13 +361,15 @@ private fun HomeActionButton(
             contentDescription = label,
             modifier = Modifier.size(iconSize),
         )
-        Spacer(Modifier.size(if (compact) 4.dp else ButtonDefaults.IconSpacing))
-        Text(
-            text = label,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (showLabel) {
+            Spacer(Modifier.size(if (compact) 4.dp else ButtonDefaults.IconSpacing))
+            Text(
+                text = label,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
