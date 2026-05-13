@@ -81,27 +81,33 @@ fun MainScreen(
         }
     val baseButtonWidth =
         when (screenSize) {
-            WearScreenSize.LARGE -> 116.dp
-            WearScreenSize.MEDIUM -> 108.dp
-            WearScreenSize.SMALL -> 100.dp
+            WearScreenSize.LARGE -> 108.dp
+            WearScreenSize.MEDIUM -> 100.dp
+            WearScreenSize.SMALL -> 92.dp
         }
     val verticalSpacing =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 7.dp
-            WearScreenSize.SMALL -> 6.dp
+            WearScreenSize.LARGE -> 6.dp
+            WearScreenSize.MEDIUM -> 5.dp
+            WearScreenSize.SMALL -> 4.dp
         }
     val settingsButtonBottomPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 5.dp
-            WearScreenSize.MEDIUM -> 4.dp
-            WearScreenSize.SMALL -> 3.dp
+            WearScreenSize.LARGE -> 3.dp
+            WearScreenSize.MEDIUM -> 3.dp
+            WearScreenSize.SMALL -> 2.dp
         }
     val settingsButtonSize =
         when (screenSize) {
-            WearScreenSize.LARGE -> 24.dp
-            WearScreenSize.MEDIUM -> 22.dp
-            WearScreenSize.SMALL -> 20.dp
+            WearScreenSize.LARGE -> 22.dp
+            WearScreenSize.MEDIUM -> 20.dp
+            WearScreenSize.SMALL -> 18.dp
+        }
+    val settingsIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 15.dp
+            WearScreenSize.MEDIUM -> 14.dp
+            WearScreenSize.SMALL -> 13.dp
         }
     val navigateIconButtonSize =
         when (screenSize) {
@@ -144,17 +150,17 @@ fun MainScreen(
         val compactScreen = adaptive.isRound && minOf(maxWidth, maxHeight) < 200.dp
         val centerButtonHeight =
             when (screenSize) {
-                WearScreenSize.LARGE -> 44.dp
-                WearScreenSize.MEDIUM -> 42.dp
-                WearScreenSize.SMALL -> if (compactScreen) 36.dp else 40.dp
+                WearScreenSize.LARGE -> 40.dp
+                WearScreenSize.MEDIUM -> 38.dp
+                WearScreenSize.SMALL -> if (compactScreen) 33.dp else 36.dp
             }
         val centerButtonIconSize =
             when (screenSize) {
-                WearScreenSize.LARGE -> 18.dp
-                WearScreenSize.MEDIUM -> 17.dp
-                WearScreenSize.SMALL -> if (compactScreen) 15.dp else 16.dp
+                WearScreenSize.LARGE -> 17.dp
+                WearScreenSize.MEDIUM -> 16.dp
+                WearScreenSize.SMALL -> if (compactScreen) 14.dp else 15.dp
             }
-        val centerVerticalSpacing = if (compactScreen) 4.dp else verticalSpacing
+        val centerVerticalSpacing = if (compactScreen) 3.dp else verticalSpacing
         val contentHorizontalPadding = if (compactScreen) 0.dp else horizontalPadding
         val centerSideGap = if (compactScreen) 6.dp else 8.dp
         val leftReservedWidth = modeToggleButtonSize + navigateIconEdgePadding + centerSideGap
@@ -283,11 +289,15 @@ fun MainScreen(
                         .size(settingsButtonSize),
                 colors =
                     IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.8f),
+                        containerColor = Color.Black.copy(alpha = 0.72f),
                         contentColor = Color.White,
                     ),
             ) {
-                Icon(Icons.Default.Settings, contentDescription = "Settings")
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    modifier = Modifier.size(settingsIconSize),
+                )
             }
 
             gpsStatusMessage?.let { message ->

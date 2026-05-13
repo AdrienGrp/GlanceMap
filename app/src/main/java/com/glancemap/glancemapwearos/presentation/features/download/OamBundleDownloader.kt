@@ -38,32 +38,38 @@ class OamBundleDownloader(
         choice: OamBundleChoice,
         onProgress: (OamDownloadProgress) -> Unit,
     ): OamInstalledBundle {
-        val mapZip =
-            downloadZip(
-                url = area.mapZipUrl,
-                fileName = "${area.id}.map.zip",
-                label = "Map",
-                onProgress = onProgress,
-            )
-        val mapFileName =
-            extractFirstEntry(
-                zipFile = mapZip,
-                extension = ".map",
-                label = "Map",
-                onProgress = onProgress,
-            ) { fileName, input, expectedSize, progress ->
-                mapRepository.saveMapFileAtomic(
-                    fileName = fileName,
-                    inputStream = input,
-                    expectedSize = expectedSize,
-                    resumeOffset = 0L,
-                    computeSha256 = false,
-                    onProgress = progress,
+        require(choice.includeMap || choice.includePoi) { "Select at least one download item." }
+
+        var mapFileName: String? = null
+        if (choice.includeMap) {
+            val mapZip =
+                downloadZip(
+                    url = area.mapZipUrl,
+                    fileName = "${area.id}.map.zip",
+                    label = "Map",
+                    onProgress = onProgress,
                 )
-            }
+            mapFileName =
+                extractFirstEntry(
+                    zipFile = mapZip,
+                    extension = ".map",
+                    label = "Map",
+                    onProgress = onProgress,
+                ) { fileName, input, expectedSize, progress ->
+                    mapRepository.saveMapFileAtomic(
+                        fileName = fileName,
+                        inputStream = input,
+                        expectedSize = expectedSize,
+                        resumeOffset = 0L,
+                        computeSha256 = false,
+                        onProgress = progress,
+                    )
+                }
+            mapZip.delete()
+        }
 
         var poiFileName: String? = null
-        if (choice == OamBundleChoice.MAP_AND_POI) {
+        if (choice.includePoi) {
             val poiZip =
                 downloadZip(
                     url = area.poiZipUrl,
@@ -88,7 +94,6 @@ class OamBundleDownloader(
                 }
             poiZip.delete()
         }
-        mapZip.delete()
 
         val installed =
             OamInstalledBundle(

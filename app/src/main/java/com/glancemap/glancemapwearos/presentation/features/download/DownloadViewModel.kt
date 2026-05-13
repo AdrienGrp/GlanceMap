@@ -12,8 +12,8 @@ import kotlinx.coroutines.launch
 
 data class DownloadUiState(
     val areas: List<OamDownloadArea> = OamDownloadCatalog.areas,
-    val selectedAreaId: String = OamDownloadCatalog.areas.first().id,
-    val selectedBundle: OamBundleChoice = OamBundleChoice.MAP_AND_POI,
+    val selectedAreaIds: Set<String> = setOf(OamDownloadCatalog.areas.first().id),
+    val selection: OamDownloadSelection = OamDownloadSelection(),
     val installedBundles: List<OamInstalledBundle> = emptyList(),
     val isDownloading: Boolean = false,
     val phase: String? = null,
@@ -24,8 +24,11 @@ data class DownloadUiState(
     val errorMessage: String? = null,
     val lastLibraryChangedAtMillis: Long = 0L,
 ) {
-    val selectedArea: OamDownloadArea
-        get() = areas.firstOrNull { it.id == selectedAreaId } ?: areas.first()
+    val selectedAreas: List<OamDownloadArea>
+        get() = areas.filter { it.id in selectedAreaIds }
+
+    val selectedBundle: OamBundleChoice
+        get() = selection.toBundleChoice()
 }
 
 class DownloadViewModel(
@@ -40,22 +43,50 @@ class DownloadViewModel(
         refreshInstalledBundles()
     }
 
-    fun selectArea(areaId: String) {
+    fun toggleArea(areaId: String) {
         if (_uiState.value.isDownloading) return
         _uiState.update { state ->
+            val nextIds =
+                if (areaId in state.selectedAreaIds) {
+                    state.selectedAreaIds - areaId
+                } else {
+                    state.selectedAreaIds + areaId
+                }
             state.copy(
-                selectedAreaId = areaId,
+                selectedAreaIds = nextIds,
                 statusMessage = null,
                 errorMessage = null,
             )
         }
     }
 
-    fun selectBundle(choice: OamBundleChoice) {
+    fun setIncludeMap(includeMap: Boolean) {
         if (_uiState.value.isDownloading) return
         _uiState.update { state ->
             state.copy(
-                selectedBundle = choice,
+                selection = state.selection.copy(includeMap = includeMap),
+                statusMessage = null,
+                errorMessage = null,
+            )
+        }
+    }
+
+    fun setIncludePoi(includePoi: Boolean) {
+        if (_uiState.value.isDownloading) return
+        _uiState.update { state ->
+            state.copy(
+                selection = state.selection.copy(includePoi = includePoi),
+                statusMessage = null,
+                errorMessage = null,
+            )
+        }
+    }
+
+    fun setIncludeRouting(includeRouting: Boolean) {
+        if (_uiState.value.isDownloading) return
+        _uiState.update { state ->
+            state.copy(
+                selection = state.selection.copy(includeRouting = includeRouting),
                 statusMessage = null,
                 errorMessage = null,
             )
@@ -65,15 +96,33 @@ class DownloadViewModel(
     fun downloadSelectedBundle() {
         if (downloadJob?.isActive == true) return
         val state = _uiState.value
-        val area = state.selectedArea
-        val choice = state.selectedBundle
+        if (!state.selection.canDownload) {
+            _uiState.update {
+                it.copy(
+                    statusMessage = "Nothing selected",
+                    errorMessage = "Enable Map or POI in Download settings.",
+                )
+            }
+            return
+        }
+        val areas = state.selectedAreas
+        if (areas.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    statusMessage = "No area selected",
+                    errorMessage = "Select at least one area before downloading.",
+                )
+            }
+            return
+        }
+        val choice = state.selection.toBundleChoice()
         downloadJob =
             viewModelScope.launch {
                 _uiState.update {
                     it.copy(
                         isDownloading = true,
                         phase = "STARTING",
-                        detail = area.region,
+                        detail = "${areas.size} area(s)",
                         bytesDone = 0L,
                         totalBytes = null,
                         statusMessage = "Starting download",
@@ -81,16 +130,18 @@ class DownloadViewModel(
                     )
                 }
                 try {
-                    downloader.downloadBundle(area, choice) { progress ->
-                        _uiState.update {
-                            it.copy(
-                                phase = progress.phase,
-                                detail = progress.detail,
-                                bytesDone = progress.bytesDone,
-                                totalBytes = progress.totalBytes,
-                                statusMessage = progress.phase.lowercase().replaceFirstChar { char -> char.uppercase() },
-                                errorMessage = null,
-                            )
+                    areas.forEachIndexed { index, area ->
+                        downloader.downloadBundle(area, choice) { progress ->
+                            _uiState.update {
+                                it.copy(
+                                    phase = progress.phase,
+                                    detail = "${index + 1}/${areas.size} ${area.region} - ${progress.detail}",
+                                    bytesDone = progress.bytesDone,
+                                    totalBytes = progress.totalBytes,
+                                    statusMessage = progress.phase.lowercase().replaceFirstChar { char -> char.uppercase() },
+                                    errorMessage = null,
+                                )
+                            }
                         }
                     }
                     val installed = downloader.installedBundles()
@@ -99,10 +150,10 @@ class DownloadViewModel(
                             installedBundles = installed,
                             isDownloading = false,
                             phase = "READY",
-                            detail = area.region,
+                            detail = "${areas.size} area(s)",
                             bytesDone = 0L,
                             totalBytes = null,
-                            statusMessage = "Bundle installed",
+                            statusMessage = if (areas.size == 1) "Bundle installed" else "Bundles installed",
                             errorMessage = null,
                             lastLibraryChangedAtMillis = System.currentTimeMillis(),
                         )
