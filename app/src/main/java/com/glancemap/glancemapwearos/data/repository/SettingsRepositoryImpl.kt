@@ -448,12 +448,14 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setGpxTrackColorMode(mode: String) {
         context.dataStore.edit {
-            it[PrefKeys.GPX_TRACK_COLOR_MODE] =
+            val sanitizedMode =
                 if (mode in allowedGpxTrackColorModes) {
                     mode
                 } else {
                     SettingsRepository.DEFAULT_GPX_TRACK_COLOR_MODE
                 }
+            it[PrefKeys.GPX_TRACK_COLOR_MODE] = sanitizedMode
+            it[PrefKeys.GPX_TRACK_OPACITY_PERCENT] = defaultGpxTrackOpacityPercentFor(sanitizedMode)
         }
     }
 
@@ -799,6 +801,13 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.MIN_GPX_TRACK_OPACITY_PERCENT,
                 SettingsRepository.MAX_GPX_TRACK_OPACITY_PERCENT,
             )
+
+        private fun defaultGpxTrackOpacityPercentFor(mode: String): Int =
+            when (mode) {
+                SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION ->
+                    SettingsRepository.DEFAULT_GPX_ELEVATION_TRACK_OPACITY_PERCENT
+                else -> SettingsRepository.DEFAULT_GPX_SOLID_TRACK_OPACITY_PERCENT
+            }
 
         private fun sanitizeGpxUphillVerticalMetersPerHour(metersPerHour: Float): Float =
             metersPerHour.coerceIn(

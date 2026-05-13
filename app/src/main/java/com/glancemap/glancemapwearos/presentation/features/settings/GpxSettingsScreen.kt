@@ -310,29 +310,6 @@ fun GpxSettingsScreen(
                 }
             }
             item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(groupSpacing),
-                ) {
-                    Text(
-                        text = "Track Color",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-
-                    SimpleColorPicker(
-                        colors = colorPalette,
-                        selectedColor = Color(trackColor),
-                        itemSpacing = colorPickerSpacing,
-                        buttonSize = colorButtonSize,
-                        selectedIconSize = selectedIconSize,
-                        onColorSelected = { color ->
-                            viewModel.setGpxTrackColor(color.toArgb())
-                        },
-                    )
-                }
-            }
-            item {
                 SettingsPickerChip(
                     label = "Color Mode",
                     secondaryLabel =
@@ -344,7 +321,31 @@ fun GpxSettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+            if (trackColorMode == SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID) {
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(groupSpacing),
+                    ) {
+                        Text(
+                            text = "Track Color",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
 
+                        SimpleColorPicker(
+                            colors = colorPalette,
+                            selectedColor = Color(trackColor),
+                            itemSpacing = colorPickerSpacing,
+                            buttonSize = colorButtonSize,
+                            selectedIconSize = selectedIconSize,
+                            onColorSelected = { color ->
+                                viewModel.setGpxTrackColor(color.toArgb())
+                            },
+                        )
+                    }
+                }
+            }
             item {
                 TrackWidthSetting(
                     label = "Track Width",

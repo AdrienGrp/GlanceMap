@@ -36,6 +36,9 @@ import org.mapsforge.map.layer.overlay.Marker
 import org.mapsforge.map.layer.overlay.Polyline
 import org.mapsforge.map.model.common.Observer
 
+private const val ELEVATION_TRACK_OUTLINE_ALPHA = 176
+private const val ELEVATION_TRACK_OUTLINE_WIDTH_EXTRA_PX = 3f
+
 @Composable
 @OptIn(FlowPreview::class)
 @Suppress("FunctionNaming", "LongMethod", "LongParameterList")
@@ -669,17 +672,11 @@ private fun GpxAndInspectionOverlayEffect(
                                 opacityPercent = gpxTrackOpacityPercent,
                             )
                         elevationPolylinesById[id] =
-                            segments.map { segment ->
-                                Polyline(
-                                    createGpxTrackPaint(
-                                        color = segment.color,
-                                        strokeWidth = gpxTrackWidth,
-                                    ),
-                                    AndroidGraphicFactory.INSTANCE,
-                                ).also { polyline ->
-                                    polyline.latLongs.addAll(segment.points)
-                                    layers.add(polyline)
-                                }
+                            createElevationTrackPolylines(
+                                segments = segments,
+                                strokeWidth = gpxTrackWidth,
+                            ).also { polylines ->
+                                polylines.forEach(layers::add)
                             }
                         changed = true
                     } else {
@@ -771,16 +768,12 @@ private fun GpxAndInspectionOverlayEffect(
                             opacityPercent = gpxTrackOpacityPercent,
                         )
                     elevationPolylinesById[details.id] =
-                        segments.map { segment ->
-                            Polyline(
-                                createGpxTrackPaint(
-                                    color = segment.color,
-                                    strokeWidth = gpxTrackWidth,
-                                ),
-                                AndroidGraphicFactory.INSTANCE,
-                            ).also { polyline ->
-                                polyline.latLongs.addAll(segment.points)
-                                layers.add(polyline)
+                        createElevationTrackPolylines(
+                            segments = segments,
+                            strokeWidth = gpxTrackWidth,
+                        ).also { polylines ->
+                            polylines.forEach(layers::add)
+                            if (polylines.isNotEmpty()) {
                                 changed = true
                             }
                         }
@@ -978,3 +971,43 @@ private fun GpxAndInspectionOverlayEffect(
         }
     }
 }
+
+private fun createElevationTrackPolylines(
+    segments: List<ElevationTrackSegment>,
+    strokeWidth: Float,
+): List<Polyline> {
+    val outlineWidth = strokeWidth + ELEVATION_TRACK_OUTLINE_WIDTH_EXTRA_PX
+    val outlineColor = Color.argb(ELEVATION_TRACK_OUTLINE_ALPHA, 18, 24, 32)
+    val outlines =
+        segments.map { segment ->
+            createElevationTrackPolyline(
+                points = segment.points,
+                color = outlineColor,
+                strokeWidth = outlineWidth,
+            )
+        }
+    val coloredSegments =
+        segments.map { segment ->
+            createElevationTrackPolyline(
+                points = segment.points,
+                color = segment.color,
+                strokeWidth = strokeWidth,
+            )
+        }
+    return outlines + coloredSegments
+}
+
+private fun createElevationTrackPolyline(
+    points: List<LatLong>,
+    color: Int,
+    strokeWidth: Float,
+): Polyline =
+    Polyline(
+        createGpxTrackPaint(
+            color = color,
+            strokeWidth = strokeWidth,
+        ),
+        AndroidGraphicFactory.INSTANCE,
+    ).also { polyline ->
+        polyline.latLongs.addAll(points)
+    }
