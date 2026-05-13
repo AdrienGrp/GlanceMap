@@ -422,6 +422,7 @@ class GpxViewModel(
                     GpxTrackDetails(
                         id = path,
                         points = profile.points.map { it.latLong },
+                        trackPoints = profile.points,
                         title = fileState.title,
                         distance = profile.totalDistance,
                         elevationGain = profile.totalAscent,
