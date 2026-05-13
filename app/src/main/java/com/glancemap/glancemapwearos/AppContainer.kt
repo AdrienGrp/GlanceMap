@@ -9,6 +9,8 @@ import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepository
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepositoryImpl
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.SyncManager
+import com.glancemap.glancemapwearos.presentation.features.download.DownloadViewModel
+import com.glancemap.glancemapwearos.presentation.features.download.OamBundleDownloader
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
@@ -32,6 +34,7 @@ interface AppContainer {
     val mapViewModel: MapViewModel
     val poiViewModel: PoiViewModel
     val syncManager: SyncManager
+    val downloadViewModel: DownloadViewModel
     val themeViewModel: ThemeViewModel
     val settingsViewModel: SettingsViewModel
     val locationViewModel: LocationViewModel
@@ -96,6 +99,17 @@ class DefaultAppContainer(
             userPoiRepository = userPoiRepository,
             settingsRepository = settingsRepository,
             syncManager = syncManager,
+        )
+    }
+
+    override val downloadViewModel: DownloadViewModel by lazy {
+        DownloadViewModel(
+            downloader =
+                OamBundleDownloader(
+                    context = applicationContext,
+                    mapRepository = mapRepository,
+                    poiRepository = poiRepository,
+                ),
         )
     }
 

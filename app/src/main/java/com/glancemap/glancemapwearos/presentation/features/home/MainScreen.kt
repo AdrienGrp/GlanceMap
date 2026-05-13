@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.LocationDisabled
 import androidx.compose.material.icons.filled.Map
@@ -145,14 +146,15 @@ fun MainScreen(
             when (screenSize) {
                 WearScreenSize.LARGE -> 44.dp
                 WearScreenSize.MEDIUM -> 42.dp
-                WearScreenSize.SMALL -> if (compactScreen) 40.dp else 41.dp
+                WearScreenSize.SMALL -> if (compactScreen) 36.dp else 40.dp
             }
         val centerButtonIconSize =
             when (screenSize) {
                 WearScreenSize.LARGE -> 18.dp
                 WearScreenSize.MEDIUM -> 17.dp
-                WearScreenSize.SMALL -> 16.dp
+                WearScreenSize.SMALL -> if (compactScreen) 15.dp else 16.dp
             }
+        val centerVerticalSpacing = if (compactScreen) 4.dp else verticalSpacing
         val contentHorizontalPadding = if (compactScreen) 0.dp else horizontalPadding
         val centerSideGap = if (compactScreen) 6.dp else 8.dp
         val leftReservedWidth = modeToggleButtonSize + navigateIconEdgePadding + centerSideGap
@@ -184,7 +186,7 @@ fun MainScreen(
                         .align(Alignment.Center)
                         .offset(x = centerColumnOffset)
                         .padding(horizontal = contentHorizontalPadding),
-                verticalArrangement = Arrangement.spacedBy(verticalSpacing, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(centerVerticalSpacing, Alignment.CenterVertically),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 HomeActionButton(
@@ -213,6 +215,15 @@ fun MainScreen(
                     iconSize = centerButtonIconSize,
                     compact = compactScreen,
                     onClick = { navController.navigate(WatchRoutes.MAPS) },
+                )
+                HomeActionButton(
+                    label = "Download",
+                    icon = Icons.Filled.Download,
+                    width = centerButtonWidth,
+                    height = centerButtonHeight,
+                    iconSize = centerButtonIconSize,
+                    compact = compactScreen,
+                    onClick = { navController.navigate(WatchRoutes.DOWNLOAD) },
                 )
             }
 
