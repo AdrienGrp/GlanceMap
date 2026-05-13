@@ -1,3 +1,10 @@
+@file:Suppress(
+    "FunctionName",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+)
+
 package com.glancemap.glancemapcompanionapp.filepicker
 
 import android.Manifest

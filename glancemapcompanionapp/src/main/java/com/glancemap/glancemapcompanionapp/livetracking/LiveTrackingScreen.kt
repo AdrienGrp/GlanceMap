@@ -1,3 +1,14 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionName",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+    "MaxLineLength",
+    "ReturnCount",
+    "TooManyFunctions",
+)
+
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import android.Manifest

@@ -62,20 +62,22 @@ internal object LiveTrackingPreferences {
         group: String,
     ): SavedLiveTrackingSettings? {
         val cleanGroup = group.trim()
-        if (cleanGroup.isBlank()) return null
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val prefix = groupProfilePrefix(cleanGroup)
-        if (!prefs.contains("$prefix.$KEY_USER_NAME")) return null
-        return SavedLiveTrackingSettings(
-            group = cleanGroup,
-            userName = prefs.getString("$prefix.$KEY_USER_NAME", "").orEmpty(),
-            notificationEmailAddresses =
-                prefs.getString("$prefix.$KEY_NOTIFICATION_EMAILS", "").orEmpty().toEmailList(),
-            alertEmailAddresses = prefs.getString("$prefix.$KEY_ALERT_EMAILS", "").orEmpty().toEmailList(),
-            stuckAlarmMinutes =
-                prefs.getString("$prefix.$KEY_STUCK_ALARM_MINUTES", "15").orEmpty().ifBlank { "15" },
-            updateIntervalSeconds = prefs.getInt("$prefix.$KEY_UPDATE_INTERVAL_SECONDS", 60),
-        )
+        return if (cleanGroup.isBlank() || !prefs.contains("$prefix.$KEY_USER_NAME")) {
+            null
+        } else {
+            SavedLiveTrackingSettings(
+                group = cleanGroup,
+                userName = prefs.getString("$prefix.$KEY_USER_NAME", "").orEmpty(),
+                notificationEmailAddresses =
+                    prefs.getString("$prefix.$KEY_NOTIFICATION_EMAILS", "").orEmpty().toEmailList(),
+                alertEmailAddresses = prefs.getString("$prefix.$KEY_ALERT_EMAILS", "").orEmpty().toEmailList(),
+                stuckAlarmMinutes =
+                    prefs.getString("$prefix.$KEY_STUCK_ALARM_MINUTES", "15").orEmpty().ifBlank { "15" },
+                updateIntervalSeconds = prefs.getInt("$prefix.$KEY_UPDATE_INTERVAL_SECONDS", 60),
+            )
+        }
     }
 
     fun saveGroupSettings(

@@ -1,6 +1,9 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -62,26 +65,27 @@ class LiveTrackingService : Service() {
         intent: Intent?,
         flags: Int,
         startId: Int,
-    ): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopTracking()
-            return START_NOT_STICKY
+    ): Int =
+        when {
+            intent?.action == ACTION_STOP -> {
+                stopTracking()
+                START_NOT_STICKY
+            }
+            intent?.toLiveTrackingSettings() == null -> {
+                LiveTrackingSessionStore.setStopped("Missing live tracking settings")
+                stopSelf()
+                START_NOT_STICKY
+            }
+            else -> {
+                val parsedSettings = requireNotNull(intent.toLiveTrackingSettings())
+                settings = parsedSettings
+                sentStart = false
+                LiveTrackingSessionStore.setStarting()
+                startForegroundNotification("Starting live tracking")
+                startTracking(parsedSettings)
+                START_STICKY
+            }
         }
-
-        val parsedSettings = intent?.toLiveTrackingSettings()
-        if (parsedSettings == null) {
-            LiveTrackingSessionStore.setStopped("Missing live tracking settings")
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        settings = parsedSettings
-        sentStart = false
-        LiveTrackingSessionStore.setStarting()
-        startForegroundNotification("Starting live tracking")
-        startTracking(parsedSettings)
-        return START_STICKY
-    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -143,6 +147,7 @@ class LiveTrackingService : Service() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private suspend fun sendLastKnownLocationIfAvailable() {
         if (!hasLocationPermission()) return
         val location =
@@ -183,6 +188,7 @@ class LiveTrackingService : Service() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
         if (!hasLocationPermission()) return
         val request =
