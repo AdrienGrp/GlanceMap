@@ -36,7 +36,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.glancemap.glancemapcompanionapp.companionAdaptiveSpec
 import com.glancemap.glancemapcompanionapp.resolveUriDisplayName
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val START_AFTER_UPLOAD_DELAY_MS = 1500L
 
 private enum class LiveTrackingPage {
     MAIN,
@@ -544,6 +547,10 @@ fun LiveTrackingScreen(
                                     )
                             if (validationMessage != null) return@MainTrackingContent
                             if (!canStart) return@MainTrackingContent
+                            if (isSendingPlan) {
+                                sendStatusMessage = "Please wait for the current send to finish before starting."
+                                return@MainTrackingContent
+                            }
                             if (!hasLocationPermission) {
                                 locationPermissionLauncher.launch(
                                     arrayOf(
@@ -570,6 +577,8 @@ fun LiveTrackingScreen(
                                     }.onSuccess { result ->
                                         planSent = true
                                         sendStatusMessage = result.message.ifBlank { "Sent" }
+                                        delay(START_AFTER_UPLOAD_DELAY_MS)
+                                        sendStatusMessage = "Starting live tracking"
                                         LiveTrackingService.start(
                                             context = context,
                                             settings = settings,

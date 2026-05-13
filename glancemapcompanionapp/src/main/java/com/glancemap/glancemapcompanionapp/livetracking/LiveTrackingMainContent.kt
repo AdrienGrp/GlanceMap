@@ -167,11 +167,25 @@ internal fun ColumnScope.MainTrackingContent(
                 }
             }
             sendStatusMessage?.let { message ->
+                val isSendError = message.startsWith("Send failed", ignoreCase = true)
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color =
+                        if (isSendError) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                 )
+                if (isSendError) {
+                    OutlinedButton(
+                        onClick = { emailArkluzSupport(context, message) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Email Arkluz")
+                    }
+                }
             }
         }
 
@@ -230,6 +244,12 @@ internal fun ColumnScope.MainTrackingContent(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
+                OutlinedButton(
+                    onClick = { emailArkluzSupport(context, error) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Email Arkluz")
+                }
             }
         }
 

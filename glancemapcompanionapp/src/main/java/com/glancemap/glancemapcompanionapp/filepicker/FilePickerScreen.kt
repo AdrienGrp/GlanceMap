@@ -748,9 +748,9 @@ fun FilePickerScreen(
                                     ) {
                                         Text("Select file(s)")
                                     }
-                                    Text(
-                                        formatSelectedFilesSummary(uiState.selectedFileDisplayNames),
-                                        style = MaterialTheme.typography.bodySmall,
+                                    SelectedFilesCompactSummary(
+                                        fileNames = uiState.selectedFileDisplayNames,
+                                        modifier = Modifier.fillMaxWidth(),
                                     )
                                 }
                             }
@@ -932,6 +932,93 @@ fun FilePickerScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SelectedFilesCompactSummary(
+    fileNames: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    var showAllFiles by remember { mutableStateOf(false) }
+
+    if (fileNames.isEmpty()) {
+        Text(
+            text = "No file selected",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier,
+        )
+        return
+    }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = fileNames.first(),
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (fileNames.size > 1) {
+            TextButton(
+                onClick = { showAllFiles = true },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+            ) {
+                Text("+${fileNames.size - 1} more")
+            }
+        }
+    }
+
+    if (showAllFiles) {
+        val scrollState = rememberScrollState()
+        AlertDialog(
+            onDismissRequest = { showAllFiles = false },
+            title = { Text("${fileNames.size} selected files") },
+            text = {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp),
+                ) {
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(scrollState)
+                                .padding(end = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        fileNames.forEachIndexed { index, fileName ->
+                            Text(
+                                text = "${index + 1}. $fileName",
+                                style = MaterialTheme.typography.bodySmall,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    if (scrollState.maxValue > 0) {
+                        PageScrollbar(
+                            scrollState = scrollState,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .fillMaxHeight(),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAllFiles = false }) {
+                    Text("Close")
+                }
+            },
+        )
     }
 }
 

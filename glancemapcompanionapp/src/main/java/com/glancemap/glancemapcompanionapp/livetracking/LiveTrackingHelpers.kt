@@ -237,3 +237,29 @@ internal fun shareUrl(
             .putExtra(Intent.EXTRA_TEXT, url)
     context.startActivity(Intent.createChooser(intent, "Share track link"))
 }
+
+internal fun emailArkluzSupport(
+    context: Context,
+    errorMessage: String,
+) {
+    val body =
+        buildString {
+            appendLine("Hello,")
+            appendLine()
+            appendLine("I got this Live Tracking error from GlanceMap Companion:")
+            appendLine(errorMessage.ifBlank { "Unknown error" })
+            appendLine()
+            appendLine("Thanks")
+        }
+    val intent =
+        Intent(
+            Intent.ACTION_SENDTO,
+            Uri.parse("mailto:arkluz@arkluz.com"),
+        ).apply {
+            putExtra(Intent.EXTRA_SUBJECT, "GlanceMap Live Tracking error")
+            putExtra(Intent.EXTRA_TEXT, body)
+        }
+    runCatching {
+        context.startActivity(intent)
+    }
+}
