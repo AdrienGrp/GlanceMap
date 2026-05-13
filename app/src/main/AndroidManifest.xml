@@ -76,6 +76,11 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
+        <service
+            android:name=".presentation.features.download.OamDownloadForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <!-- ✅ Correct binding for WearableListenerService -->
         <service
             android:name=".core.service.DataLayerListenerService"

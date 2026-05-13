@@ -1,7 +1,10 @@
+@file:Suppress("CyclomaticComplexMethod", "LongMethod", "ReturnCount", "TooGenericExceptionCaught", "TooManyFunctions")
+
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +26,7 @@ data class DownloadUiState(
     val isPausedDownload: Boolean = false,
     val statusMessage: String? = null,
     val errorMessage: String? = null,
+    val networkWarningMessage: String? = null,
     val lastLibraryChangedAtMillis: Long = 0L,
 ) {
     val selectedAreas: List<OamDownloadArea>
@@ -35,6 +39,7 @@ data class DownloadUiState(
 class DownloadViewModel(
     private val downloader: OamBundleDownloader,
     private val notificationController: OamDownloadNotificationController,
+    private val networkMonitor: OamDownloadNetworkMonitor,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DownloadUiState())
     val uiState: StateFlow<DownloadUiState> = _uiState.asStateFlow()
@@ -60,6 +65,7 @@ class DownloadViewModel(
                 isPausedDownload = false,
                 statusMessage = null,
                 errorMessage = null,
+                networkWarningMessage = null,
             )
         }
     }
@@ -72,6 +78,7 @@ class DownloadViewModel(
                 isPausedDownload = false,
                 statusMessage = null,
                 errorMessage = null,
+                networkWarningMessage = null,
             )
         }
     }
@@ -84,6 +91,7 @@ class DownloadViewModel(
                 isPausedDownload = false,
                 statusMessage = null,
                 errorMessage = null,
+                networkWarningMessage = null,
             )
         }
     }
@@ -96,11 +104,24 @@ class DownloadViewModel(
                 isPausedDownload = false,
                 statusMessage = null,
                 errorMessage = null,
+                networkWarningMessage = null,
             )
         }
     }
 
     fun downloadSelectedBundle() {
+        downloadSelectedBundleInternal(allowNonWifi = false)
+    }
+
+    fun continueDownloadWithoutWifi() {
+        downloadSelectedBundleInternal(allowNonWifi = true)
+    }
+
+    fun dismissNetworkWarning() {
+        _uiState.update { it.copy(networkWarningMessage = null) }
+    }
+
+    private fun downloadSelectedBundleInternal(allowNonWifi: Boolean) {
         if (downloadJob?.isActive == true) return
         val state = _uiState.value
         if (!state.selection.canDownload) {
@@ -108,6 +129,7 @@ class DownloadViewModel(
                 it.copy(
                     statusMessage = "Nothing selected",
                     errorMessage = "Enable Maps, POI, or Routing in Download settings.",
+                    networkWarningMessage = null,
                 )
             }
             return
@@ -118,14 +140,44 @@ class DownloadViewModel(
                 it.copy(
                     statusMessage = "No area selected",
                     errorMessage = "Select at least one area before downloading.",
+                    networkWarningMessage = null,
                 )
             }
             return
         }
         val selection = state.selection
+        val networkState = networkMonitor.currentState()
+        if (!allowNonWifi && !networkState.isValidatedWifi) {
+            _uiState.update {
+                it.copy(
+                    statusMessage = "Wi-Fi recommended",
+                    errorMessage = null,
+                    networkWarningMessage =
+                        "${networkState.userLabel}. Connect the watch to Wi-Fi for large downloads, " +
+                            "or continue and the app will reconnect automatically if Wi-Fi appears.",
+                )
+            }
+            DebugTelemetry.log(
+                OAM_DOWNLOAD_TELEMETRY_TAG,
+                "event=wifi_preflight_blocked state=${networkState.userLabel}",
+            )
+            return
+        }
         stopRequest = null
         downloadJob =
             viewModelScope.launch {
+                var wifiReconnectHandle: AutoCloseable? = null
+                var didReconnectOnWifi = false
+                if (!networkState.isValidatedWifi) {
+                    wifiReconnectHandle =
+                        networkMonitor.watchForValidatedWifi {
+                            if (!didReconnectOnWifi) {
+                                didReconnectOnWifi = true
+                                DebugTelemetry.log(OAM_DOWNLOAD_TELEMETRY_TAG, "event=wifi_available_reconnect")
+                                downloader.abortActiveDownloads()
+                            }
+                        }
+                }
                 notificationController.showProgress(
                     title = "Downloading maps",
                     detail = "${areas.size} area(s)",
@@ -142,6 +194,7 @@ class DownloadViewModel(
                         isPausedDownload = false,
                         statusMessage = "Starting download",
                         errorMessage = null,
+                        networkWarningMessage = null,
                     )
                 }
                 try {
@@ -160,7 +213,10 @@ class DownloadViewModel(
                                     detail = detail,
                                     bytesDone = progress.bytesDone,
                                     totalBytes = progress.totalBytes,
-                                    statusMessage = progress.phase.lowercase().replaceFirstChar { char -> char.uppercase() },
+                                    statusMessage =
+                                        progress.phase
+                                            .lowercase()
+                                            .replaceFirstChar { char -> char.uppercase() },
                                     errorMessage = null,
                                 )
                             }
@@ -170,6 +226,7 @@ class DownloadViewModel(
                     _uiState.update {
                         it.copy(
                             installedBundles = installed,
+                            selectedAreaIds = emptySet(),
                             isDownloading = false,
                             phase = "READY",
                             detail = "${areas.size} area(s)",
@@ -178,6 +235,7 @@ class DownloadViewModel(
                             isPausedDownload = false,
                             statusMessage = if (areas.size == 1) "Bundle installed" else "Bundles installed",
                             errorMessage = null,
+                            networkWarningMessage = null,
                             lastLibraryChangedAtMillis = System.currentTimeMillis(),
                         )
                     }
@@ -209,6 +267,7 @@ class DownloadViewModel(
                                 isPausedDownload = false,
                                 statusMessage = "Download canceled",
                                 errorMessage = null,
+                                networkWarningMessage = null,
                             )
                         } else {
                             it.copy(
@@ -217,6 +276,7 @@ class DownloadViewModel(
                                 isPausedDownload = true,
                                 statusMessage = "Download paused",
                                 errorMessage = null,
+                                networkWarningMessage = null,
                             )
                         }
                     }
@@ -229,10 +289,12 @@ class DownloadViewModel(
                             statusMessage = "Download failed",
                             isPausedDownload = false,
                             errorMessage = error.message ?: "Download failed",
+                            networkWarningMessage = null,
                         )
                     }
                     notificationController.showError(error.message ?: "Download failed")
                 } finally {
+                    wifiReconnectHandle?.close()
                     downloadJob = null
                     stopRequest = null
                 }
@@ -262,6 +324,7 @@ class DownloadViewModel(
                         installedBundles = installed,
                         statusMessage = "Bundle deleted",
                         errorMessage = null,
+                        networkWarningMessage = null,
                         lastLibraryChangedAtMillis = System.currentTimeMillis(),
                     )
                 }
@@ -270,6 +333,7 @@ class DownloadViewModel(
                     it.copy(
                         statusMessage = "Delete failed",
                         errorMessage = error.message ?: "Delete failed",
+                        networkWarningMessage = null,
                     )
                 }
             }
@@ -282,6 +346,10 @@ class DownloadViewModel(
                 it.copy(installedBundles = downloader.installedBundles())
             }
         }
+    }
+
+    private companion object {
+        private const val OAM_DOWNLOAD_TELEMETRY_TAG = "OamDownload"
     }
 }
 

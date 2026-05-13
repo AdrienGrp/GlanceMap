@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName", "FunctionNaming", "LongParameterList")
+
 package com.glancemap.glancemapwearos.presentation.features.home
 
 import androidx.compose.foundation.background
@@ -94,21 +96,15 @@ fun MainScreen(
         }
     val settingsButtonBottomPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 3.dp
-            WearScreenSize.MEDIUM -> 3.dp
-            WearScreenSize.SMALL -> 2.dp
+            WearScreenSize.LARGE -> 5.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
         }
     val settingsButtonSize =
         when (screenSize) {
-            WearScreenSize.LARGE -> 22.dp
-            WearScreenSize.MEDIUM -> 20.dp
-            WearScreenSize.SMALL -> 18.dp
-        }
-    val settingsIconSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 15.dp
-            WearScreenSize.MEDIUM -> 14.dp
-            WearScreenSize.SMALL -> 13.dp
+            WearScreenSize.LARGE -> 28.dp
+            WearScreenSize.MEDIUM -> 26.dp
+            WearScreenSize.SMALL -> 24.dp
         }
     val navigateIconButtonSize =
         when (screenSize) {
@@ -275,7 +271,6 @@ fun MainScreen(
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings",
-                    modifier = Modifier.size(settingsIconSize),
                 )
             }
 

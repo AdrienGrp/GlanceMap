@@ -14,4 +14,6 @@ tasks.withType<JavaCompile>().configureEach {
 
 dependencies {
     api(project(":brouter-util"))
+
+    testImplementation(libs.junit)
 }

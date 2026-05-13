@@ -28,8 +28,8 @@ import androidx.wear.compose.material3.timeTextCurvedText
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
-import com.glancemap.glancemapwearos.presentation.features.download.DownloadSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.download.DownloadScreen
+import com.glancemap.glancemapwearos.presentation.features.download.DownloadSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxScreen
 import com.glancemap.glancemapwearos.presentation.features.home.MainScreen
 import com.glancemap.glancemapwearos.presentation.features.maps.MapsScreen

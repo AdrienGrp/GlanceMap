@@ -1,3 +1,11 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "LongMethod",
+    "LongParameterList",
+    "LoopWithTooManyJumpStatements",
+    "TooManyFunctions",
+)
+
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import android.content.Context
@@ -12,11 +20,13 @@ import com.glancemap.glancemapwearos.data.repository.internal.AtomicStreamWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
-import java.io.BufferedInputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.Collections
@@ -383,62 +393,90 @@ class OamBundleDownloader(
                         averageSpeedMbps = null,
                     )
 
-                    connection.inputStream.use { input ->
-                        AtomicStreamWriter.writeAtomic(
-                            dir = dir,
-                            fileName = safeName,
-                            inputStream = input,
-                            onProgress = { bytes ->
-                                val nowMs = System.currentTimeMillis()
-                                val elapsedSinceLastMs = nowMs - lastSpeedSampleAtMs
-                                val bytesSinceLast = bytes - lastSpeedSampleBytes
-                                val currentSpeedMbps =
-                                    if (elapsedSinceLastMs > 0L && bytesSinceLast > 0L) {
-                                        bytesPerMsToMbps(bytesSinceLast, elapsedSinceLastMs)
-                                    } else {
-                                        null
-                                    }
-                                val elapsedSinceStartMs = nowMs - downloadStartedAtMs
-                                val bytesSinceStart = bytes - resumeOffset
-                                val averageSpeedMbps =
-                                    if (elapsedSinceStartMs > 0L && bytesSinceStart > 0L) {
-                                        bytesPerMsToMbps(bytesSinceStart, elapsedSinceStartMs)
-                                    } else {
-                                        null
-                                    }
-                                lastSpeedSampleAtMs = nowMs
-                                lastSpeedSampleBytes = bytes
-                                onProgress(
-                                    OamDownloadProgress(
-                                        phase = "DOWNLOADING",
-                                        detail = progressDetail,
+                    var lastProgressAtMs = System.currentTimeMillis()
+                    var lastProgressBytes = resumeOffset
+                    val stallWatchdog =
+                        launch {
+                            while (isActive) {
+                                delay(STALL_CHECK_INTERVAL_MS)
+                                val idleMs = System.currentTimeMillis() - lastProgressAtMs
+                                if (idleMs >= STALL_RECONNECT_TIMEOUT_MS) {
+                                    logDownloadSpeed(
+                                        event = "download_stalled_reconnect",
+                                        label = label,
+                                        fileName = safeName,
+                                        bytesDone = lastProgressBytes,
+                                        totalBytes = expectedTotalBytes,
+                                        currentSpeedMbps = null,
+                                        averageSpeedMbps = null,
+                                    )
+                                    connection.disconnect()
+                                    return@launch
+                                }
+                            }
+                        }
+                    try {
+                        connection.inputStream.use { input ->
+                            AtomicStreamWriter.writeAtomic(
+                                dir = dir,
+                                fileName = safeName,
+                                inputStream = input,
+                                onProgress = { bytes ->
+                                    val nowMs = System.currentTimeMillis()
+                                    val elapsedSinceLastMs = nowMs - lastSpeedSampleAtMs
+                                    val bytesSinceLast = bytes - lastSpeedSampleBytes
+                                    val currentSpeedMbps =
+                                        if (elapsedSinceLastMs > 0L && bytesSinceLast > 0L) {
+                                            bytesPerMsToMbps(bytesSinceLast, elapsedSinceLastMs)
+                                        } else {
+                                            null
+                                        }
+                                    val elapsedSinceStartMs = nowMs - downloadStartedAtMs
+                                    val bytesSinceStart = bytes - resumeOffset
+                                    val averageSpeedMbps =
+                                        if (elapsedSinceStartMs > 0L && bytesSinceStart > 0L) {
+                                            bytesPerMsToMbps(bytesSinceStart, elapsedSinceStartMs)
+                                        } else {
+                                            null
+                                        }
+                                    lastSpeedSampleAtMs = nowMs
+                                    lastSpeedSampleBytes = bytes
+                                    lastProgressAtMs = nowMs
+                                    lastProgressBytes = bytes
+                                    onProgress(
+                                        OamDownloadProgress(
+                                            phase = "DOWNLOADING",
+                                            detail = progressDetail,
+                                            bytesDone = bytes,
+                                            totalBytes = expectedTotalBytes,
+                                        ),
+                                    )
+                                    logDownloadSpeed(
+                                        event = "download_progress",
+                                        label = label,
+                                        fileName = safeName,
                                         bytesDone = bytes,
                                         totalBytes = expectedTotalBytes,
+                                        currentSpeedMbps = currentSpeedMbps,
+                                        averageSpeedMbps = averageSpeedMbps,
+                                    )
+                                },
+                                options =
+                                    AtomicStreamWriter.Options(
+                                        bufferSize = bufferSize,
+                                        progressStepBytes = progressStepBytes,
+                                        fsync = fsync,
+                                        expectedSize = expectedTotalBytes,
+                                        requireExactSize = expectedTotalBytes != null,
+                                        resumeOffset = if (append) resumeOffset else 0L,
+                                        keepPartialOnCancel = true,
+                                        keepPartialOnFailure = true,
+                                        computeSha256 = false,
                                     ),
-                                )
-                                logDownloadSpeed(
-                                    event = "download_progress",
-                                    label = label,
-                                    fileName = safeName,
-                                    bytesDone = bytes,
-                                    totalBytes = expectedTotalBytes,
-                                    currentSpeedMbps = currentSpeedMbps,
-                                    averageSpeedMbps = averageSpeedMbps,
-                                )
-                            },
-                            options =
-                                AtomicStreamWriter.Options(
-                                    bufferSize = bufferSize,
-                                    progressStepBytes = progressStepBytes,
-                                    fsync = fsync,
-                                    expectedSize = expectedTotalBytes,
-                                    requireExactSize = expectedTotalBytes != null,
-                                    resumeOffset = if (append) resumeOffset else 0L,
-                                    keepPartialOnCancel = true,
-                                    keepPartialOnFailure = true,
-                                    computeSha256 = false,
-                                ),
-                        )
+                            )
+                        }
+                    } finally {
+                        stallWatchdog.cancel()
                     }
                     val completedAtMs = System.currentTimeMillis()
                     logDownloadSpeed(
@@ -598,6 +636,8 @@ class OamBundleDownloader(
     private companion object {
         private const val CONNECT_TIMEOUT_MS = 20_000
         private const val READ_TIMEOUT_MS = 60_000
+        private const val STALL_CHECK_INTERVAL_MS = 15_000L
+        private const val STALL_RECONNECT_TIMEOUT_MS = 75_000L
         private const val HTTP_RANGE_NOT_SATISFIABLE = 416
         private const val MAX_RANGE_RESTARTS = 1
         private const val MAX_IO_RETRIES = 3

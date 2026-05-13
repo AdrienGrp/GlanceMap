@@ -1,3 +1,13 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionName",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+    "ReturnCount",
+    "TooManyFunctions",
+)
+
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import androidx.activity.compose.BackHandler
@@ -59,18 +69,19 @@ import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.Icon as Material3Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
+import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.material.Chip
+import androidx.wear.compose.material3.Icon as Material3Icon
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
@@ -89,6 +100,9 @@ fun DownloadScreen(
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val uiState by viewModel.uiState.collectAsState()
+    if (uiState.isDownloading) {
+        KeepScreenOnEffect()
+    }
     val showAreaPicker = areaPickerOpen
     var bundlePendingDelete by remember { mutableStateOf<OamInstalledBundle?>(null) }
     var showOamInfoDialog by remember { mutableStateOf(false) }
@@ -204,12 +218,6 @@ fun DownloadScreen(
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
         }
-    val settingsIconSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 15.dp
-            WearScreenSize.MEDIUM -> 14.dp
-            WearScreenSize.SMALL -> 13.dp
-        }
     val footerTextSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 9.sp
@@ -272,6 +280,11 @@ fun DownloadScreen(
     OamAttributionDialog(
         visible = showOamInfoDialog,
         onDismiss = { dismissOamInfoDialog() },
+    )
+    DownloadNetworkWarningDialog(
+        message = uiState.networkWarningMessage,
+        onContinue = viewModel::continueDownloadWithoutWifi,
+        onDismiss = viewModel::dismissNetworkWarning,
     )
     AreaSearchDialog(
         visible = showAreaSearchDialog,
@@ -375,7 +388,7 @@ fun DownloadScreen(
                                             if (selectedCount > 0) {
                                                 append(" - ").append(selectedCount).append(" selected")
                                             }
-                                    },
+                                        },
                                     icon = Icons.Filled.Folder,
                                     selected = selectedCount > 0,
                                     onClick = { onSelectedAreaFolderChange(folder) },
@@ -527,14 +540,6 @@ fun DownloadScreen(
                         }
                     }
 
-                    uiState.statusMessage?.let { message ->
-                        item {
-                            StatusText(
-                                text = message,
-                                error = false,
-                            )
-                        }
-                    }
                     uiState.errorMessage?.let { message ->
                         item {
                             StatusText(
@@ -548,7 +553,11 @@ fun DownloadScreen(
 
             Text(
                 text = "Bundle: ${uiState.selection.compactLabel()}",
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = footerTextSize, lineHeight = footerLineHeight),
+                style =
+                    MaterialTheme.typography.labelSmall.copy(
+                        fontSize = footerTextSize,
+                        lineHeight = footerLineHeight,
+                    ),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -583,7 +592,6 @@ fun DownloadScreen(
                     Material3Icon(
                         imageVector = Icons.Filled.Settings,
                         contentDescription = "Download settings",
-                        modifier = Modifier.size(settingsIconSize),
                     )
                 }
             }
@@ -856,6 +864,44 @@ private fun OamAttributionDialog(
 }
 
 @Composable
+private fun DownloadNetworkWarningDialog(
+    message: String?,
+    onContinue: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (message == null) return
+
+    AlertDialog(
+        visible = true,
+        onDismissRequest = onDismiss,
+        title = { Text("Wi-Fi recommended") },
+        text = {
+            Text(
+                text = message,
+                textAlign = TextAlign.Center,
+            )
+        },
+        confirmButton = {
+            Button(onClick = onContinue) {
+                Text("Continue")
+            }
+        },
+        dismissButton = {
+            Button(
+                onClick = onDismiss,
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.12f),
+                        contentColor = Color.White,
+                    ),
+            ) {
+                Text("Cancel")
+            }
+        },
+    )
+}
+
+@Composable
 private fun DownloadSummary(
     areas: List<OamDownloadArea>,
     selection: OamDownloadSelection,
@@ -934,14 +980,17 @@ private fun OamDownloadSelection.compactLabel(): String =
         else -> "None"
     }
 
-private fun List<OamDownloadArea>.estimatedSizeLabel(selection: OamDownloadSelection): String =
-    estimatedBytes(selection).toSizeLabel(selection)
+private fun List<OamDownloadArea>.estimatedSizeLabel(
+    selection: OamDownloadSelection,
+): String = estimatedBytes(selection).toSizeLabel(selection)
 
-private fun OamDownloadArea.areaSizeLabel(selection: OamDownloadSelection): String =
-    "$continent - ${estimatedBytes(selection).toSizeLabel(selection)}"
+private fun OamDownloadArea.areaSizeLabel(
+    selection: OamDownloadSelection,
+): String = "$continent - ${estimatedBytes(selection).toSizeLabel(selection)}"
 
-private fun List<OamDownloadArea>.estimatedBytes(selection: OamDownloadSelection): Long =
-    sumOf { it.estimatedBytes(selection) }
+private fun List<OamDownloadArea>.estimatedBytes(
+    selection: OamDownloadSelection,
+): Long = sumOf { it.estimatedBytes(selection) }
 
 private fun OamDownloadArea.estimatedBytes(selection: OamDownloadSelection): Long =
     (if (selection.includeMap) mapSizeBytes else 0L) +
@@ -950,8 +999,10 @@ private fun OamDownloadArea.estimatedBytes(selection: OamDownloadSelection): Lon
 private fun List<OamDownloadArea>.fileCountLabel(selection: OamDownloadSelection): String {
     val knownCount =
         size *
-            ((if (selection.includeMap) 1 else 0) +
-                (if (selection.includePoi) 1 else 0))
+            (
+                (if (selection.includeMap) 1 else 0) +
+                    (if (selection.includePoi) 1 else 0)
+            )
     return when {
         selection.includeRouting && knownCount == 0 -> "routing"
         selection.includeRouting -> "$knownCount+"
@@ -971,7 +1022,7 @@ private fun List<OamDownloadArea>.selectedAreaLabel(): String =
         0 -> "Pick area"
         1 -> first().region
         2 -> joinToString(" + ") { it.region }
-        else -> "${size} areas selected"
+        else -> "$size areas selected"
     }
 
 private fun List<OamDownloadArea>.selectedAreaSecondaryLabel(): String =

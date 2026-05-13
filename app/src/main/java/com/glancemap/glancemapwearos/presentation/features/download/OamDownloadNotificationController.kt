@@ -1,6 +1,9 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -25,23 +28,17 @@ class OamDownloadNotificationController(
         bytesDone: Long,
         totalBytes: Long?,
     ) {
-        notify(
-            buildBase(title, detail)
-                .setOngoing(true)
-                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-                .apply {
-                    val total = totalBytes?.takeIf { it > 0L }
-                    if (total != null) {
-                        val progress = ((bytesDone.coerceAtLeast(0L) * 100L) / total).toInt().coerceIn(0, 100)
-                        setProgress(100, progress, false)
-                    } else {
-                        setProgress(0, 0, true)
-                    }
-                },
+        OamDownloadForegroundService.showProgress(
+            context = appContext,
+            title = title,
+            detail = detail,
+            bytesDone = bytesDone,
+            totalBytes = totalBytes,
         )
     }
 
     fun showPaused(detail: String) {
+        OamDownloadForegroundService.stop(appContext)
         notify(
             buildBase("Download paused", detail)
                 .setOngoing(false)
@@ -51,6 +48,7 @@ class OamDownloadNotificationController(
     }
 
     fun showComplete(detail: String) {
+        OamDownloadForegroundService.stop(appContext)
         notify(
             buildBase("Download complete", detail)
                 .setOngoing(false)
@@ -61,6 +59,7 @@ class OamDownloadNotificationController(
     }
 
     fun showError(detail: String) {
+        OamDownloadForegroundService.stop(appContext)
         notify(
             buildBase("Download failed", detail)
                 .setOngoing(false)
@@ -70,6 +69,7 @@ class OamDownloadNotificationController(
     }
 
     fun clear() {
+        OamDownloadForegroundService.stop(appContext)
         NotificationManagerCompat.from(appContext).cancel(NOTIFICATION_ID)
     }
 
@@ -90,12 +90,23 @@ class OamDownloadNotificationController(
 
     private fun notify(builder: NotificationCompat.Builder) {
         if (!canPostNotifications()) return
+        try {
+            notifyAfterPermissionCheck(builder)
+        } catch (_: SecurityException) {
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun notifyAfterPermissionCheck(builder: NotificationCompat.Builder) {
         NotificationManagerCompat.from(appContext).notify(NOTIFICATION_ID, builder.build())
     }
 
     private fun canPostNotifications(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
 
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return

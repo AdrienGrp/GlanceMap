@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapwearos.core.routing
 
 import android.content.Context

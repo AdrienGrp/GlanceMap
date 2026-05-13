@@ -27,8 +27,14 @@ class OamBundleStore(
                         bundleChoice = bundleChoice,
                         mapFileName = prefs.getString(key(areaId, "map"), null),
                         poiFileName = prefs.getString(key(areaId, "poi"), null),
-                        routingFileNames = prefs.getString(key(areaId, "routing"), null).toRoutingFileNames(),
-                        downloadedRoutingFileNames = prefs.getString(key(areaId, "routing_downloaded"), null).toRoutingFileNames(),
+                        routingFileNames =
+                            prefs
+                                .getString(key(areaId, "routing"), null)
+                                .toRoutingFileNames(),
+                        downloadedRoutingFileNames =
+                            prefs
+                                .getString(key(areaId, "routing_downloaded"), null)
+                                .toRoutingFileNames(),
                         installedAtMillis = prefs.getLong(key(areaId, "installed_at"), 0L),
                     )
                 }.sortedBy { it.areaLabel.lowercase() }
@@ -45,8 +51,10 @@ class OamBundleStore(
                 .putString(key(bundle.areaId, "map"), bundle.mapFileName)
                 .putString(key(bundle.areaId, "poi"), bundle.poiFileName)
                 .putString(key(bundle.areaId, "routing"), bundle.routingFileNames.joinToString("\n"))
-                .putString(key(bundle.areaId, "routing_downloaded"), bundle.downloadedRoutingFileNames.joinToString("\n"))
-                .putLong(key(bundle.areaId, "installed_at"), bundle.installedAtMillis)
+                .putString(
+                    key(bundle.areaId, "routing_downloaded"),
+                    bundle.downloadedRoutingFileNames.joinToString("\n"),
+                ).putLong(key(bundle.areaId, "installed_at"), bundle.installedAtMillis)
                 .apply()
         }
 
