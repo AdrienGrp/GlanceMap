@@ -278,6 +278,11 @@ fun DownloadScreen(
         onConfirm = viewModel::confirmRefreshBundle,
         onDismiss = viewModel::dismissRefreshPrompt,
     )
+    RefreshBundleSummaryDialog(
+        summary = uiState.refreshSummaryPrompt,
+        onConfirm = viewModel::confirmRefreshSelectedBundles,
+        onDismiss = viewModel::dismissRefreshSummary,
+    )
     AreaSearchDialog(
         visible = showAreaSearchDialog,
         initialQuery = areaSearchQuery,
@@ -308,6 +313,9 @@ fun DownloadScreen(
                 onInfoClick = { showOamInfoDialog = true },
                 onRefreshModeClick = {
                     refreshMode = !refreshMode
+                    if (!refreshMode) {
+                        viewModel.clearRefreshBundleSelection()
+                    }
                     if (refreshMode) {
                         deleteMode = false
                     }
@@ -437,14 +445,28 @@ fun DownloadScreen(
                                 Text(
                                     text =
                                         if (uiState.isCheckingUpdates) {
-                                            "Checking bundle"
+                                            "Checking selected"
+                                        } else if (uiState.selectedRefreshBundleIds.isEmpty()) {
+                                            "Select bundles to check"
                                         } else {
-                                            "Tap a bundle to check updates"
+                                            "${uiState.selectedRefreshBundleIds.size} selected"
                                         },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            item {
+                                DownloadActionButton(
+                                    label = refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size),
+                                    icon = Icons.Filled.Refresh,
+                                    enabled =
+                                        uiState.selectedRefreshBundleIds.isNotEmpty() &&
+                                            !uiState.isCheckingUpdates,
+                                    height = actionButtonHeight,
+                                    iconSize = actionButtonIconSize,
+                                    onClick = viewModel::checkSelectedBundlesForRefresh,
                                 )
                             }
                         }
@@ -464,10 +486,11 @@ fun DownloadScreen(
                                 InstalledBundleRow(
                                     bundle = bundle,
                                     refreshMode = refreshMode,
+                                    refreshSelected = bundle.areaId in uiState.selectedRefreshBundleIds,
                                     deleteMode = deleteMode,
                                     onRefresh = {
                                         if (!uiState.isDownloading && refreshMode) {
-                                            viewModel.checkBundleForRefresh(bundle)
+                                            viewModel.toggleRefreshBundleSelection(bundle.areaId)
                                         }
                                     },
                                     onDelete = {
@@ -749,6 +772,7 @@ private fun DownloadProgress(uiState: DownloadUiState) {
 private fun InstalledBundleRow(
     bundle: OamInstalledBundle,
     refreshMode: Boolean,
+    refreshSelected: Boolean,
     deleteMode: Boolean,
     onRefresh: () -> Unit,
     onDelete: () -> Unit,
@@ -758,11 +782,12 @@ private fun InstalledBundleRow(
         secondaryLabel = installedBundleSubtitle(bundle),
         icon =
             when {
+                refreshMode && refreshSelected -> Icons.Filled.Check
                 refreshMode -> Icons.Filled.Refresh
                 deleteMode -> Icons.Filled.Delete
                 else -> Icons.Filled.Check
             },
-        selected = !deleteMode && !refreshMode,
+        selected = refreshSelected || (!deleteMode && !refreshMode),
         onClick =
             when {
                 refreshMode -> onRefresh
@@ -771,6 +796,13 @@ private fun InstalledBundleRow(
             },
     )
 }
+
+private fun refreshSelectionButtonLabel(selectedCount: Int): String =
+    if (selectedCount > 0) {
+        "Check $selectedCount"
+    } else {
+        "Check selected"
+    }
 
 private fun installedBundleSubtitle(bundle: OamInstalledBundle): String =
     listOfNotNull(

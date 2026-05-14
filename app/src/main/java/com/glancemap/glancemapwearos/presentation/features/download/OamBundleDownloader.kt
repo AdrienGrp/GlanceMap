@@ -44,6 +44,7 @@ data class OamDownloadProgress(
 private data class RoutingSegmentDownloadResult(
     val fileName: String,
     val downloaded: Boolean,
+    val available: Boolean = true,
 )
 
 private data class RemoteFileRequest(
@@ -292,7 +293,7 @@ class OamBundleDownloader(
                             onProgress = onProgress,
                         )
                     }
-                val resultFileNames = segmentResults.map { it.fileName }
+                val resultFileNames = segmentResults.filter { it.available }.map { it.fileName }
                 downloadedRoutingFileNames =
                     (downloadedRoutingFileNames + segmentResults.filter { it.downloaded }.map { it.fileName })
                         .distinct()
@@ -466,18 +467,43 @@ class OamBundleDownloader(
             )
             return RoutingSegmentDownloadResult(fileName = safeName, downloaded = false)
         }
-        downloadFile(
-            url = "$BROUTER_SEGMENTS_BASE_URL/$safeName",
-            dir = routingSegmentsDir(context),
-            fileName = safeName,
-            label = "Routing",
-            progressDetail = safeName,
-            bufferSize = 512 * 1024,
-            progressStepBytes = 1L * 1024 * 1024,
-            fsync = true,
-            onProgress = onProgress,
-        )
-        return RoutingSegmentDownloadResult(fileName = safeName, downloaded = true)
+        val url = "$BROUTER_SEGMENTS_BASE_URL/$safeName"
+        val result =
+            runCatching {
+                downloadFile(
+                    url = url,
+                    dir = routingSegmentsDir(context),
+                    fileName = safeName,
+                    label = "Routing",
+                    progressDetail = safeName,
+                    bufferSize = 512 * 1024,
+                    progressStepBytes = 1L * 1024 * 1024,
+                    fsync = true,
+                    onProgress = onProgress,
+                )
+                RoutingSegmentDownloadResult(fileName = safeName, downloaded = true)
+            }.getOrElse { error ->
+                if (error.isHttpNotFound()) {
+                    DebugTelemetry.log(
+                        OAM_DOWNLOAD_TELEMETRY_TAG,
+                        "event=skip_missing_routing_segment file=$safeName url=$url",
+                    )
+                    onProgress(
+                        OamDownloadProgress(
+                            phase = "SKIPPED",
+                            detail = "$safeName unavailable",
+                        ),
+                    )
+                    RoutingSegmentDownloadResult(
+                        fileName = safeName,
+                        downloaded = false,
+                        available = false,
+                    )
+                } else {
+                    throw error
+                }
+            }
+        return result
     }
 
     private fun remoteFileRequestsForBundle(
@@ -969,6 +995,8 @@ private fun OamRemoteFileMetadata.compareWith(other: OamRemoteFileMetadata): Rem
             compareNullableValues(contentLengthBytes, other.contentLengthBytes)
         else -> RemoteMetadataComparison.UNKNOWN
     }
+
+private fun Throwable.isHttpNotFound(): Boolean = message?.contains("HTTP 404", ignoreCase = true) == true
 
 private fun <T> compareNullableValues(
     previous: T,

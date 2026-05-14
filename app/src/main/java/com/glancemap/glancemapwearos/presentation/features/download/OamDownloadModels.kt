@@ -88,6 +88,28 @@ data class OamBundleUpdateCheck(
     val unknownFileNames: List<String> = emptyList(),
 )
 
+data class OamBundleRefreshSummary(
+    val checks: List<OamBundleUpdateCheck>,
+) {
+    val totalCount: Int
+        get() = checks.size
+
+    val upToDateCount: Int
+        get() = checks.count { it.status == OamBundleUpdateStatus.UP_TO_DATE }
+
+    val updateAvailableCount: Int
+        get() = checks.count { it.status == OamBundleUpdateStatus.UPDATE_AVAILABLE }
+
+    val unknownCount: Int
+        get() = checks.count { it.status == OamBundleUpdateStatus.UNKNOWN }
+
+    val bundlesToRefresh: List<OamInstalledBundle>
+        get() =
+            checks
+                .filterNot { it.status == OamBundleUpdateStatus.UP_TO_DATE }
+                .map { it.bundle }
+}
+
 object OamDownloadCatalog {
     val areas: List<OamDownloadArea> =
         OAM_CATALOG_ROWS

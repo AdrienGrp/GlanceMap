@@ -220,7 +220,8 @@ internal fun RefreshBundleDialog(
                     when {
                         updateAvailable -> "Update available"
                         upToDate -> "Already up to date"
-                        else -> "Refresh bundle?"
+                        check.checkedFileCount == 0 -> "Update info missing"
+                        else -> "Check incomplete"
                     },
                 textAlign = TextAlign.Center,
             )
@@ -253,6 +254,53 @@ internal fun RefreshBundleDialog(
     )
 }
 
+@Composable
+internal fun RefreshBundleSummaryDialog(
+    summary: OamBundleRefreshSummary?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (summary == null) return
+
+    val refreshCount = summary.bundlesToRefresh.size
+    val allUpToDate = refreshCount == 0
+    AlertDialog(
+        visible = true,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (allUpToDate) "All up to date" else "Refresh bundles?",
+                textAlign = TextAlign.Center,
+            )
+        },
+        text = {
+            Text(
+                text = refreshSummaryDialogText(summary),
+                textAlign = TextAlign.Center,
+            )
+        },
+        confirmButton = {
+            Button(onClick = if (allUpToDate) onDismiss else onConfirm) {
+                Text(if (allUpToDate) "OK" else "Refresh $refreshCount")
+            }
+        },
+        dismissButton = {
+            if (!allUpToDate) {
+                Button(
+                    onClick = onDismiss,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White,
+                        ),
+                ) {
+                    Text("Cancel")
+                }
+            }
+        },
+    )
+}
+
 private fun refreshBundleDialogText(check: OamBundleUpdateCheck): String =
     when (check.status) {
         OamBundleUpdateStatus.UPDATE_AVAILABLE ->
@@ -270,21 +318,33 @@ private fun refreshBundleDialogText(check: OamBundleUpdateCheck): String =
                 append("\n\nExisting files will be replaced after the download completes.")
             }
         OamBundleUpdateStatus.UNKNOWN ->
-            buildString {
-                append("Could not verify every remote file for ")
-                append(check.bundle.areaLabel)
-                append(".")
-                if (check.unknownFileNames.isNotEmpty()) {
-                    append("\n\nUnknown: ")
-                    append(check.unknownFileNames.take(MAX_DIALOG_FILE_NAMES).joinToString(", "))
-                    if (check.unknownFileNames.size > MAX_DIALOG_FILE_NAMES) {
-                        append(" +")
-                        append(check.unknownFileNames.size - MAX_DIALOG_FILE_NAMES)
-                    }
-                }
-                append("\n\nRefresh anyway?")
+            if (check.checkedFileCount == 0) {
+                "${check.bundle.areaLabel} has no saved update info yet.\n\n" +
+                    "Refresh once to enable future checks."
+            } else {
+                "Some files for ${check.bundle.areaLabel} could not be checked.\n\n" +
+                    "Refresh anyway?"
             }
         OamBundleUpdateStatus.UP_TO_DATE -> "${check.bundle.areaLabel} is already up to date."
+    }
+
+private fun refreshSummaryDialogText(summary: OamBundleRefreshSummary): String =
+    if (summary.bundlesToRefresh.isEmpty()) {
+        "${summary.totalCount} selected bundle(s) are up to date."
+    } else {
+        buildString {
+            append("${summary.totalCount} checked")
+            if (summary.updateAvailableCount > 0) {
+                append("\n${summary.updateAvailableCount} update available")
+            }
+            if (summary.unknownCount > 0) {
+                append("\n${summary.unknownCount} need update info")
+            }
+            if (summary.upToDateCount > 0) {
+                append("\n${summary.upToDateCount} up to date")
+            }
+            append("\n\nRefresh ${summary.bundlesToRefresh.size} bundle(s)?")
+        }
     }
 
 private const val MAX_DIALOG_FILE_NAMES = 3

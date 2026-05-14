@@ -1,4 +1,11 @@
-@file:Suppress("CyclomaticComplexMethod", "LongMethod", "ReturnCount", "TooGenericExceptionCaught", "TooManyFunctions")
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "LargeClass",
+    "LongMethod",
+    "ReturnCount",
+    "TooGenericExceptionCaught",
+    "TooManyFunctions",
+)
 
 package com.glancemap.glancemapwearos.presentation.features.download
 
@@ -25,7 +32,9 @@ data class DownloadUiState(
     val totalBytes: Long? = null,
     val isPausedDownload: Boolean = false,
     val isCheckingUpdates: Boolean = false,
+    val selectedRefreshBundleIds: Set<String> = emptySet(),
     val refreshPrompt: OamBundleUpdateCheck? = null,
+    val refreshSummaryPrompt: OamBundleRefreshSummary? = null,
     val statusMessage: String? = null,
     val errorMessage: String? = null,
     val networkWarningMessage: String? = null,
@@ -48,7 +57,7 @@ class DownloadViewModel(
 
     private var downloadJob: Job? = null
     private var stopRequest: DownloadStopRequest? = null
-    private var pendingNonWifiRefreshBundle: OamInstalledBundle? = null
+    private var pendingNonWifiRefreshBundles: List<OamInstalledBundle> = emptyList()
 
     init {
         refreshInstalledBundles()
@@ -127,17 +136,17 @@ class DownloadViewModel(
             OAM_DOWNLOAD_TELEMETRY_TAG,
             "event=user_continue_without_wifi ${networkMonitor.currentState().telemetryFields}",
         )
-        val refreshBundle = pendingNonWifiRefreshBundle
-        pendingNonWifiRefreshBundle = null
-        if (refreshBundle != null) {
-            refreshBundleInternal(refreshBundle, allowNonWifi = true)
+        val refreshBundles = pendingNonWifiRefreshBundles
+        pendingNonWifiRefreshBundles = emptyList()
+        if (refreshBundles.isNotEmpty()) {
+            refreshBundlesInternal(refreshBundles, allowNonWifi = true)
         } else {
             downloadSelectedBundleInternal(allowNonWifi = true)
         }
     }
 
     fun dismissNetworkWarning() {
-        pendingNonWifiRefreshBundle = null
+        pendingNonWifiRefreshBundles = emptyList()
         _uiState.update { it.copy(networkWarningMessage = null) }
     }
 
@@ -218,6 +227,7 @@ class DownloadViewModel(
                     it.copy(
                         isDownloading = true,
                         refreshPrompt = null,
+                        refreshSummaryPrompt = null,
                         phase = "STARTING",
                         detail = "${areas.size} area(s)",
                         bytesDone = 0L,
@@ -405,13 +415,121 @@ class DownloadViewModel(
     }
 
     fun dismissRefreshPrompt() {
-        _uiState.update { it.copy(refreshPrompt = null) }
+        _uiState.update { it.copy(refreshPrompt = null, refreshSummaryPrompt = null) }
     }
 
     fun confirmRefreshBundle() {
         val bundle = _uiState.value.refreshPrompt?.bundle ?: return
         _uiState.update { it.copy(refreshPrompt = null) }
-        refreshBundleInternal(bundle, allowNonWifi = false)
+        refreshBundlesInternal(listOf(bundle), allowNonWifi = false)
+    }
+
+    fun toggleRefreshBundleSelection(areaId: String) {
+        if (_uiState.value.isDownloading || _uiState.value.isCheckingUpdates) return
+        _uiState.update { state ->
+            val nextSelection =
+                if (areaId in state.selectedRefreshBundleIds) {
+                    state.selectedRefreshBundleIds - areaId
+                } else {
+                    state.selectedRefreshBundleIds + areaId
+                }
+            state.copy(
+                selectedRefreshBundleIds = nextSelection,
+                refreshPrompt = null,
+                refreshSummaryPrompt = null,
+                statusMessage = null,
+                errorMessage = null,
+                networkWarningMessage = null,
+            )
+        }
+    }
+
+    fun clearRefreshBundleSelection() {
+        if (_uiState.value.isDownloading || _uiState.value.isCheckingUpdates) return
+        _uiState.update {
+            it.copy(
+                selectedRefreshBundleIds = emptySet(),
+                refreshPrompt = null,
+                refreshSummaryPrompt = null,
+            )
+        }
+    }
+
+    fun checkSelectedBundlesForRefresh() {
+        val state = _uiState.value
+        if (state.isDownloading || state.isCheckingUpdates) return
+        val bundles = state.installedBundles.filter { it.areaId in state.selectedRefreshBundleIds }
+        if (bundles.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    statusMessage = "No bundle selected",
+                    errorMessage = "Select at least one installed bundle.",
+                    refreshSummaryPrompt = null,
+                    networkWarningMessage = null,
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isCheckingUpdates = true,
+                    refreshPrompt = null,
+                    refreshSummaryPrompt = null,
+                    statusMessage = "Checking ${bundles.size} bundle(s)",
+                    errorMessage = null,
+                    networkWarningMessage = null,
+                )
+            }
+            val checks =
+                bundles.map { bundle ->
+                    runCatching { downloader.checkBundleUpdates(bundle) }
+                        .getOrElse { error ->
+                            OamBundleUpdateCheck(
+                                bundle = bundle,
+                                status = OamBundleUpdateStatus.UNKNOWN,
+                                checkedFileCount = 0,
+                                unknownFileNames = listOf(error.message ?: "Update check failed"),
+                            )
+                        }
+                }
+            val summary = OamBundleRefreshSummary(checks)
+            _uiState.update {
+                it.copy(
+                    isCheckingUpdates = false,
+                    refreshSummaryPrompt = summary,
+                    statusMessage =
+                        if (summary.bundlesToRefresh.isEmpty()) {
+                            "Selected bundles are up to date"
+                        } else {
+                            "${summary.bundlesToRefresh.size} bundle(s) need refresh"
+                        },
+                    errorMessage = null,
+                    networkWarningMessage = null,
+                )
+            }
+        }
+    }
+
+    fun dismissRefreshSummary() {
+        _uiState.update { it.copy(refreshSummaryPrompt = null) }
+    }
+
+    fun confirmRefreshSelectedBundles() {
+        val bundles =
+            _uiState.value
+                .refreshSummaryPrompt
+                ?.bundlesToRefresh
+                .orEmpty()
+        _uiState.update {
+            it.copy(
+                refreshSummaryPrompt = null,
+                selectedRefreshBundleIds = emptySet(),
+            )
+        }
+        if (bundles.isNotEmpty()) {
+            refreshBundlesInternal(bundles, allowNonWifi = false)
+        }
     }
 
     fun deleteBundle(bundle: OamInstalledBundle) {
@@ -449,31 +567,39 @@ class DownloadViewModel(
         }
     }
 
-    private fun refreshBundleInternal(
-        bundle: OamInstalledBundle,
+    private fun refreshBundlesInternal(
+        bundles: List<OamInstalledBundle>,
         allowNonWifi: Boolean,
     ) {
         if (downloadJob?.isActive == true) return
-        val area = _uiState.value.areas.firstOrNull { it.id == bundle.areaId }
-        if (area == null) {
+        val targets =
+            bundles.mapNotNull { bundle ->
+                _uiState.value.areas.firstOrNull { it.id == bundle.areaId }?.let { area ->
+                    RefreshTarget(
+                        bundle = bundle,
+                        area = area,
+                        selection = bundle.toDownloadSelection(),
+                    )
+                }
+            }
+        if (targets.size != bundles.size || targets.isEmpty()) {
             _uiState.update {
                 it.copy(
                     statusMessage = "Refresh failed",
-                    errorMessage = "Unknown bundle area: ${bundle.areaLabel}",
+                    errorMessage = "One or more bundle areas are unknown.",
                     networkWarningMessage = null,
                 )
             }
             return
         }
-        val selection = bundle.toDownloadSelection()
         val networkState = networkMonitor.currentState()
         DebugTelemetry.log(
             OAM_DOWNLOAD_TELEMETRY_TAG,
-            "event=refresh_request allowNonWifi=$allowNonWifi area=${area.id} " +
-                "bundle=${selection.toBundleChoice().name} ${networkState.telemetryFields}",
+            "event=refresh_request allowNonWifi=$allowNonWifi bundles=${targets.size} " +
+                networkState.telemetryFields,
         )
         if (!allowNonWifi && !networkState.isValidatedWifi) {
-            pendingNonWifiRefreshBundle = bundle
+            pendingNonWifiRefreshBundles = bundles
             _uiState.update {
                 it.copy(
                     statusMessage = "Wi-Fi recommended",
@@ -494,8 +620,8 @@ class DownloadViewModel(
         downloadJob =
             viewModelScope.launch {
                 notificationController.showProgress(
-                    title = "Refreshing bundle",
-                    detail = area.region,
+                    title = "Refreshing bundles",
+                    detail = "${targets.size} bundle(s)",
                     bytesDone = 0L,
                     totalBytes = null,
                 )
@@ -503,41 +629,43 @@ class DownloadViewModel(
                     it.copy(
                         isDownloading = true,
                         phase = "STARTING",
-                        detail = area.region,
+                        detail = "${targets.size} bundle(s)",
                         bytesDone = 0L,
                         totalBytes = null,
                         isPausedDownload = false,
-                        statusMessage = "Refreshing bundle",
+                        statusMessage = "Refreshing bundles",
                         errorMessage = null,
                         networkWarningMessage = null,
                     )
                 }
                 try {
-                    downloader.downloadBundle(
-                        area = area,
-                        selection = selection,
-                        forceMapAndPoi = true,
-                        forceRoutingSegments = true,
-                    ) { progress ->
-                        val detail = "${area.region} - ${progress.detail}"
-                        notificationController.showProgress(
-                            title = "Refreshing offline bundle",
-                            detail = detail,
-                            bytesDone = progress.bytesDone,
-                            totalBytes = progress.totalBytes,
-                        )
-                        _uiState.update {
-                            it.copy(
-                                phase = progress.phase,
+                    targets.forEachIndexed { index, target ->
+                        downloader.downloadBundle(
+                            area = target.area,
+                            selection = target.selection,
+                            forceMapAndPoi = true,
+                            forceRoutingSegments = true,
+                        ) { progress ->
+                            val detail = "${index + 1}/${targets.size} ${target.area.region} - ${progress.detail}"
+                            notificationController.showProgress(
+                                title = "Refreshing offline bundle",
                                 detail = detail,
                                 bytesDone = progress.bytesDone,
                                 totalBytes = progress.totalBytes,
-                                statusMessage =
-                                    progress.phase
-                                        .lowercase()
-                                        .replaceFirstChar { char -> char.uppercase() },
-                                errorMessage = null,
                             )
+                            _uiState.update {
+                                it.copy(
+                                    phase = progress.phase,
+                                    detail = detail,
+                                    bytesDone = progress.bytesDone,
+                                    totalBytes = progress.totalBytes,
+                                    statusMessage =
+                                        progress.phase
+                                            .lowercase()
+                                            .replaceFirstChar { char -> char.uppercase() },
+                                    errorMessage = null,
+                                )
+                            }
                         }
                     }
                     val installed = downloader.installedBundles()
@@ -545,33 +673,42 @@ class DownloadViewModel(
                         it.copy(
                             installedBundles = installed,
                             selectedAreaIds = emptySet(),
+                            selectedRefreshBundleIds = emptySet(),
                             isDownloading = false,
                             phase = "READY",
-                            detail = area.region,
+                            detail = "${targets.size} bundle(s)",
                             bytesDone = 0L,
                             totalBytes = null,
                             isPausedDownload = false,
-                            statusMessage = "Bundle refreshed",
+                            statusMessage = if (targets.size == 1) "Bundle refreshed" else "Bundles refreshed",
                             errorMessage = null,
                             networkWarningMessage = null,
                             lastLibraryChangedAtMillis = System.currentTimeMillis(),
                         )
                     }
-                    notificationController.showComplete("${area.region} refreshed")
+                    notificationController.showComplete(
+                        if (targets.size == 1) {
+                            "${targets.first().area.region} refreshed"
+                        } else {
+                            "${targets.size} bundles refreshed"
+                        },
+                    )
                 } catch (cancelled: CancellationException) {
                     val request = stopRequest ?: DownloadStopRequest.PAUSE
                     if (request == DownloadStopRequest.CANCEL) {
-                        downloader.deletePartialDownloads(listOf(area), selection)
+                        targets.forEach { target ->
+                            downloader.deletePartialDownloads(listOf(target.area), target.selection)
+                        }
                         notificationController.clear()
                     } else {
-                        notificationController.showPaused(area.region)
+                        notificationController.showPaused("${targets.size} bundle(s)")
                     }
                     _uiState.update {
                         if (request == DownloadStopRequest.CANCEL) {
                             it.copy(
                                 isDownloading = false,
                                 phase = "CANCELED",
-                                detail = area.region,
+                                detail = "${targets.size} bundle(s)",
                                 bytesDone = 0L,
                                 totalBytes = null,
                                 isPausedDownload = false,
@@ -621,6 +758,12 @@ private enum class DownloadStopRequest {
     PAUSE,
     CANCEL,
 }
+
+private data class RefreshTarget(
+    val bundle: OamInstalledBundle,
+    val area: OamDownloadArea,
+    val selection: OamDownloadSelection,
+)
 
 private fun OamInstalledBundle.toDownloadSelection(): OamDownloadSelection =
     OamDownloadSelection(
