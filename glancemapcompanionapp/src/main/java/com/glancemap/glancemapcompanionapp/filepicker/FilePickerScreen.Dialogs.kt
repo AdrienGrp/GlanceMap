@@ -355,9 +355,6 @@ internal fun FilePickerQuickGuideDialog(
                             title = "Get files ready",
                             lines =
                                 listOf(
-                                    "GlanceMap does not own maps; download them from external sources, then send them to the watch.",
-                                    "Once files are on the watch, GlanceMap can work offline without the phone.",
-                                    "During navigation, keeping phone and watch connected is recommended for battery saving.",
                                     "Use 1. Download to get Mapsforge OSM .map, POI, GPX, or routing files.",
                                     "Tap 2. Select file(s) to add files from the phone:",
                                     ".map = offline map",
