@@ -11,6 +11,7 @@ import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.reader.MapFile
 import java.io.File
 
+@Suppress("FunctionNaming", "LongParameterList")
 @Composable
 internal fun OfflineStartCenteringEffect(
     isOfflineMode: Boolean,
@@ -19,22 +20,23 @@ internal fun OfflineStartCenteringEffect(
     selectedMapPath: String?,
     activeGpxDetails: List<GpxTrackDetails>,
     skipInitialCentering: Boolean = false,
+    enabled: Boolean = isOfflineMode,
 ) {
-    LaunchedEffect(isOfflineMode) {
-        if (!isOfflineMode) {
+    LaunchedEffect(enabled) {
+        if (!enabled) {
             mapViewModel.resetOfflineStartCenterTracking()
         }
     }
 
     LaunchedEffect(
-        isOfflineMode,
+        enabled,
         selectedMapPath,
         activeGpxDetails,
         skipInitialCentering,
         mapViewModel,
         mapView,
     ) {
-        if (!isOfflineMode) return@LaunchedEffect
+        if (!enabled) return@LaunchedEffect
         val forceStartupCenter =
             mapViewModel.shouldForceOfflineStartCenter(
                 selectedMapPath = selectedMapPath,

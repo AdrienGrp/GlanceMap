@@ -132,6 +132,8 @@ class LocationService : Service() {
 
     @Volatile private var latestPassiveLocationExperiment: Boolean = false
 
+    @Volatile private var latestPhoneConnected: Boolean? = null
+
     @Volatile private var latestUserIntervalMs: Long = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
 
     @Volatile private var latestAmbientIntervalMs: Long = SettingsRepository.DEFAULT_AMBIENT_GPS_INTERVAL_MS
@@ -169,6 +171,7 @@ class LocationService : Service() {
             hasCoarsePermission = { latestHasCoarsePermission },
             watchGpsOnly = { latestWatchGpsOnly },
             passiveLocationExperiment = { latestGpsDebugTelemetry && latestPassiveLocationExperiment },
+            phoneConnected = { latestPhoneConnected },
             lastAnyAcceptedFixAtElapsedMs = { lastAnyAcceptedFixAtElapsedMs },
             lastCallbackAcceptedFixAtElapsedMs = { lastCallbackAcceptedFixAtElapsedMs },
             lastRequestAppliedAtElapsedMs = { lastRequestAppliedAtElapsedMs },
@@ -531,6 +534,10 @@ class LocationService : Service() {
             } else {
                 null
             }
+        updateLatestPhoneConnection(
+            phoneConnected = phoneConnected,
+            nowElapsedMs = nowElapsedMs,
+        )
         val shouldCheckWatchGps =
             requestSpec.sourceMode == LocationSourceMode.WATCH_GPS ||
                 requestSpec.sourceMode == LocationSourceMode.AUTO_FUSED
@@ -586,6 +593,19 @@ class LocationService : Service() {
             LocationEnvironmentAction.RESTART_REQUEST
         } else {
             LocationEnvironmentAction.CONTINUE
+        }
+    }
+
+    private fun updateLatestPhoneConnection(
+        phoneConnected: Boolean?,
+        nowElapsedMs: Long,
+    ) {
+        if (phoneConnected != null) {
+            latestPhoneConnected = phoneConnected
+            selfHealFailoverCoordinator.onPhoneConnectionStateChecked(
+                phoneConnected = phoneConnected,
+                nowElapsedMs = nowElapsedMs,
+            )
         }
     }
 
