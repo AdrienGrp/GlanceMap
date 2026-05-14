@@ -74,6 +74,14 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
                 )
             }
             item {
+                SettingsToggleChip(
+                    checked = uiState.selection.includeDem,
+                    onCheckedChanged = viewModel::setIncludeDem,
+                    label = "DEM",
+                    secondaryLabel = "Elevation tiles",
+                )
+            }
+            item {
                 Text(
                     text = "Bundle: ${uiState.selection.label()}",
                     style = MaterialTheme.typography.bodySmall,

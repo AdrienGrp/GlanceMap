@@ -10,6 +10,8 @@
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import android.content.Context
+import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
+import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
 import com.glancemap.glancemapwearos.core.routing.RoutingCoverageUtils
 import com.glancemap.glancemapwearos.core.routing.routingSegmentPartFile
 import com.glancemap.glancemapwearos.core.routing.routingSegmentTargetFile
@@ -18,6 +20,8 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.MapRepository
 import com.glancemap.glancemapwearos.data.repository.PoiRepository
 import com.glancemap.glancemapwearos.data.repository.internal.AtomicStreamWriter
+import com.glancemap.glancemapwearos.presentation.features.maps.theme.createMissingDemMarker
+import com.glancemap.glancemapwearos.presentation.features.maps.theme.validateDemTileFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -31,6 +35,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.Collections
+import java.util.Locale
 import java.util.zip.ZipInputStream
 import kotlin.coroutines.coroutineContext
 
@@ -45,6 +50,11 @@ private data class RoutingSegmentDownloadResult(
     val fileName: String,
     val downloaded: Boolean,
     val available: Boolean = true,
+)
+
+private data class DemTileDownloadResult(
+    val tileId: String,
+    val stored: Boolean,
 )
 
 private data class RemoteFileRequest(
@@ -147,6 +157,15 @@ class OamBundleDownloader(
                         routingSegmentPartFile(context, fileName).delete()
                     }
                 }
+                if (selection.includeDem) {
+                    runCatching {
+                        demTileIdsForArea(
+                            area = area,
+                            installedBundles = installedBundles,
+                        )
+                    }.getOrDefault(emptySet())
+                        .forEach(::deleteDemPartial)
+                }
             }
         }
     }
@@ -156,6 +175,7 @@ class OamBundleDownloader(
         selection: OamDownloadSelection,
         forceMapAndPoi: Boolean = false,
         forceRoutingSegments: Boolean = false,
+        forceDemTiles: Boolean = false,
         onProgress: (OamDownloadProgress) -> Unit,
     ): OamInstalledBundle {
         require(selection.canDownload) { "Select at least one download item." }
@@ -303,6 +323,29 @@ class OamBundleDownloader(
                 existingBundle?.routingFileNames.orEmpty()
             }
 
+        var downloadedDemTileIds = existingBundle?.downloadedDemTileIds.orEmpty()
+        val demTileIds =
+            if (selection.includeDem) {
+                val requiredTiles = demTileIdsForArea(area = area, mapFileName = mapFileName)
+                val tileResults =
+                    requiredTiles.map { tileId ->
+                        val tileRequest = demRemoteFileRequest(tileId)
+                        fetchRemoteMetadataOrNull(tileRequest)?.let { remoteFilesByUrl[it.url] = it }
+                        downloadDemTile(
+                            tileId = tileId,
+                            forceDownload = forceDemTiles,
+                            onProgress = onProgress,
+                        )
+                    }
+                downloadedDemTileIds =
+                    (downloadedDemTileIds + tileResults.filter { it.stored }.map { it.tileId })
+                        .distinct()
+                        .filter { it in requiredTiles }
+                requiredTiles
+            } else {
+                existingBundle?.demTileIds.orEmpty()
+            }
+
         val installed =
             OamInstalledBundle(
                 areaId = area.id,
@@ -312,12 +355,18 @@ class OamBundleDownloader(
                 poiFileName = poiFileName,
                 routingFileNames = routingFileNames,
                 downloadedRoutingFileNames = downloadedRoutingFileNames,
+                demTileIds = demTileIds,
+                downloadedDemTileIds = downloadedDemTileIds,
                 installedAtMillis = System.currentTimeMillis(),
                 remoteFiles = remoteFilesByUrl.values.sortedBy { it.url },
             )
         bundleStore.upsert(installed)
         if (selection.includeRouting) {
             RoutingCoverageUtils.clearCaches()
+        }
+        if (selection.includeDem) {
+            DemSignatureStore.markDirty(context)
+            Dem3CoverageUtils.clearCaches()
         }
         return installed
     }
@@ -330,6 +379,13 @@ class OamBundleDownloader(
                     .asSequence()
                     .filterNot { it.areaId == bundle.areaId }
                     .flatMap { it.routingFileNames.asSequence() }
+                    .toSet()
+            val demTilesUsedByOtherBundles =
+                bundleStore
+                    .listInstalledBundles()
+                    .asSequence()
+                    .filterNot { it.areaId == bundle.areaId }
+                    .flatMap { it.demTileIds.asSequence() }
                     .toSet()
             bundle.mapFileName?.let { fileName ->
                 mapRepository
@@ -352,6 +408,19 @@ class OamBundleDownloader(
                     routingSegmentPartFile(context, fileName).delete()
                 }
             RoutingCoverageUtils.clearCaches()
+            val remainingMapDemTiles =
+                mapRepository
+                    .listMapFiles()
+                    .flatMap { file -> Dem3CoverageUtils.requiredTileIdsForMap(file).orEmpty() }
+                    .toSet()
+            Dem3CoverageUtils.deleteTiles(
+                context = context,
+                tileIds =
+                    bundle.downloadedDemTileIds
+                        .filterNot { it in demTilesUsedByOtherBundles || it in remainingMapDemTiles }
+                        .toSet(),
+            )
+            Dem3CoverageUtils.clearCaches()
         }
         bundleStore.remove(bundle.areaId)
     }
@@ -379,7 +448,7 @@ class OamBundleDownloader(
         mapFileName: String?,
     ): List<String> {
         val mapFile =
-            mapFileForRouting(area = area, mapFileName = mapFileName)
+            mapFileForArea(area = area, mapFileName = mapFileName)
                 ?: throw IOException("Routing needs the map in this bundle or an installed map for ${area.region}.")
         return RoutingCoverageUtils
             .requiredSegmentNamesForMapFile(mapFile)
@@ -387,7 +456,32 @@ class OamBundleDownloader(
             ?: throw IOException("Cannot read map bounds for routing.")
     }
 
-    private suspend fun mapFileForRouting(
+    private suspend fun demTileIdsForArea(
+        area: OamDownloadArea,
+        installedBundles: List<OamInstalledBundle>,
+    ): Set<String> =
+        demTileIdsForArea(
+            area = area,
+            mapFileName =
+                installedBundles
+                    .firstOrNull { it.areaId == area.id }
+                    ?.mapFileName,
+        ).toSet()
+
+    private suspend fun demTileIdsForArea(
+        area: OamDownloadArea,
+        mapFileName: String?,
+    ): List<String> {
+        val mapFile =
+            mapFileForArea(area = area, mapFileName = mapFileName)
+                ?: throw IOException("DEM needs the map in this bundle or an installed map for ${area.region}.")
+        return Dem3CoverageUtils
+            .requiredTileIdsForMap(mapFile)
+            ?.sorted()
+            ?: throw IOException("Cannot read map bounds for DEM.")
+    }
+
+    private suspend fun mapFileForArea(
         area: OamDownloadArea,
         mapFileName: String?,
     ): File? {
@@ -506,6 +600,106 @@ class OamBundleDownloader(
         return result
     }
 
+    private suspend fun downloadDemTile(
+        tileId: String,
+        forceDownload: Boolean,
+        onProgress: (OamDownloadProgress) -> Unit,
+    ): DemTileDownloadResult {
+        val safeTileId = tileId.uppercase(Locale.ROOT)
+        val targetFile = demTileTargetFile(safeTileId)
+        if (!forceDownload && isDemTileStored(safeTileId, targetFile)) {
+            onProgress(
+                OamDownloadProgress(
+                    phase = "READY",
+                    detail = "$safeTileId DEM",
+                    bytesDone = targetFile.takeIf { it.exists() }?.length()?.coerceAtLeast(0L) ?: 0L,
+                    totalBytes = targetFile.takeIf { it.exists() }?.length()?.takeIf { it > 0L },
+                ),
+            )
+            return DemTileDownloadResult(tileId = safeTileId, stored = true)
+        }
+
+        val request = demRemoteFileRequest(safeTileId)
+        val result =
+            runCatching {
+                val file =
+                    downloadFile(
+                        url = request.url,
+                        dir = targetFile.parentFile ?: Dem3CoverageUtils.demRootDir(context),
+                        fileName = targetFile.name,
+                        label = "DEM",
+                        progressDetail = "$safeTileId DEM",
+                        bufferSize = 512 * 1024,
+                        progressStepBytes = 512L * 1024,
+                        fsync = true,
+                        onProgress = onProgress,
+                    )
+                runCatching { validateDemTileFile(file) }
+                    .onFailure {
+                        file.delete()
+                    }.getOrThrow()
+                DemTileDownloadResult(tileId = safeTileId, stored = true)
+            }.getOrElse { error ->
+                if (error.isHttpNotFound()) {
+                    targetFile.delete()
+                    File(targetFile.parentFile ?: Dem3CoverageUtils.demRootDir(context), ".${targetFile.name}.part")
+                        .delete()
+                    createMissingDemMarker(
+                        target = targetFile,
+                        demRoot = Dem3CoverageUtils.demRootDir(context),
+                    )
+                    DebugTelemetry.log(
+                        OAM_DOWNLOAD_TELEMETRY_TAG,
+                        "event=skip_missing_dem_tile tile=$safeTileId url=${request.url}",
+                    )
+                    onProgress(
+                        OamDownloadProgress(
+                            phase = "SKIPPED",
+                            detail = "$safeTileId DEM unavailable",
+                        ),
+                    )
+                    DemTileDownloadResult(tileId = safeTileId, stored = true)
+                } else {
+                    throw error
+                }
+            }
+        return result
+    }
+
+    private fun isDemTileStored(
+        tileId: String,
+        targetFile: File,
+    ): Boolean {
+        val demRoot = Dem3CoverageUtils.demRootDir(context)
+        if (targetFile.exists() && targetFile.isFile && runCatching { validateDemTileFile(targetFile) }.isSuccess) {
+            return true
+        }
+        return Dem3CoverageUtils
+            .missingTileMarkerCandidates(demRoot = demRoot, tileId = tileId)
+            .any { it.exists() && it.isFile }
+    }
+
+    private fun deleteDemPartial(tileId: String) {
+        val targetFile = demTileTargetFile(tileId)
+        File(targetFile.parentFile ?: Dem3CoverageUtils.demRootDir(context), ".${targetFile.name}.part").delete()
+    }
+
+    private fun demRemoteFileRequest(tileId: String): RemoteFileRequest {
+        val safeTileId = tileId.uppercase(Locale.ROOT)
+        val folder = safeTileId.substring(0, 3)
+        val fileName = "$safeTileId.hgt.zip"
+        return RemoteFileRequest(
+            url = "$DEM3_BASE_URL/$folder/$fileName",
+            fileName = fileName,
+        )
+    }
+
+    private fun demTileTargetFile(tileId: String): File {
+        val safeTileId = tileId.uppercase(Locale.ROOT)
+        val folder = safeTileId.substring(0, 3)
+        return File(File(Dem3CoverageUtils.demRootDir(context), folder), "$safeTileId.hgt.zip")
+    }
+
     private fun remoteFileRequestsForBundle(
         area: OamDownloadArea,
         bundle: OamInstalledBundle,
@@ -535,6 +729,9 @@ class OamBundleDownloader(
                         fileName = safeName,
                     ),
                 )
+            }
+            bundle.demTileIds.forEach { tileId ->
+                add(demRemoteFileRequest(tileId))
             }
         }
 
@@ -969,6 +1166,7 @@ class OamBundleDownloader(
         private const val OAM_ZIP_DOWNLOAD_BUFFER_SIZE = 2 * 1024 * 1024
         private const val ZIP_READ_BUFFER_SIZE = 1024 * 1024
         private const val BROUTER_SEGMENTS_BASE_URL = "https://brouter.de/brouter/segments4"
+        private const val DEM3_BASE_URL = "https://download.mapsforge.org/maps/dem/dem3"
         private const val USER_AGENT = "GlanceMap-WearOS-OAM-Downloader/1.0 https://www.openandromaps.org"
         private const val OAM_DOWNLOAD_TELEMETRY_TAG = "OamDownload"
     }

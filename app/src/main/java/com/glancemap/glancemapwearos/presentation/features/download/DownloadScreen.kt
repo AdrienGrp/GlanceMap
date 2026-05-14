@@ -809,19 +809,16 @@ private fun installedBundleSubtitle(bundle: OamInstalledBundle): String =
         "Map".takeIf { bundle.mapFileName != null },
         "POI".takeIf { bundle.poiFileName != null },
         "Routing".takeIf { bundle.routingFileNames.isNotEmpty() },
+        "DEM".takeIf { bundle.demTileIds.isNotEmpty() },
     ).joinToString(" + ").ifBlank { bundle.bundleChoice.label }
 
 private fun OamDownloadSelection.compactLabel(): String =
-    when {
-        includeMap && includePoi && includeRouting -> "Maps + POI + Routing"
-        includeMap && includePoi -> "Maps + POI"
-        includeMap && includeRouting -> "Maps + Routing"
-        includePoi && includeRouting -> "POI + Routing"
-        includeMap -> "Maps"
-        includePoi -> "POI"
-        includeRouting -> "Routing"
-        else -> "None"
-    }
+    listOfNotNull(
+        "Maps".takeIf { includeMap },
+        "POI".takeIf { includePoi },
+        "Route".takeIf { includeRouting },
+        "DEM".takeIf { includeDem },
+    ).joinToString(" + ").ifBlank { "None" }
 
 private fun List<OamDownloadArea>.estimatedSizeLabel(
     selection: OamDownloadSelection,
@@ -846,18 +843,21 @@ private fun List<OamDownloadArea>.fileCountLabel(selection: OamDownloadSelection
                 (if (selection.includeMap) 1 else 0) +
                     (if (selection.includePoi) 1 else 0)
             )
+    val hasUnknownCount = selection.includeRouting || selection.includeDem
     return when {
-        selection.includeRouting && knownCount == 0 -> "routing"
-        selection.includeRouting -> "$knownCount+"
+        hasUnknownCount && knownCount == 0 -> "bundle files"
+        hasUnknownCount -> "$knownCount+"
         else -> knownCount.toString()
     }
 }
 
 private fun Long.toSizeLabel(selection: OamDownloadSelection): String =
-    when {
-        selection.includeRouting && this > 0L -> "${formatBytes(this)} + routing"
-        selection.includeRouting -> "routing"
-        else -> formatBytes(this)
+    buildList {
+        if (this@toSizeLabel > 0L) add(formatBytes(this@toSizeLabel))
+        if (selection.includeRouting) add("routing")
+        if (selection.includeDem) add("DEM")
+    }.joinToString(" + ").ifBlank {
+        formatBytes(this)
     }
 
 private fun List<OamDownloadArea>.selectedAreaLabel(): String =
