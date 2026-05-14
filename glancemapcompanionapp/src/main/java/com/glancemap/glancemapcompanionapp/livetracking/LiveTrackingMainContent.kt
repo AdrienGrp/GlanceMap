@@ -1,3 +1,10 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+)
+
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
@@ -21,6 +29,7 @@ import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -44,10 +53,12 @@ internal fun ColumnScope.MainTrackingContent(
     isConnected: Boolean,
     group: String,
     headerMessage: String?,
+    hasSelectedGpx: Boolean,
     selectedGpxName: String,
     comments: String,
     onCommentsChange: (String) -> Unit,
     onPickGpx: () -> Unit,
+    onClearGpx: () -> Unit,
     showSendPlan: Boolean,
     canSendPlan: Boolean,
     isSendingPlan: Boolean,
@@ -140,12 +151,44 @@ internal fun ColumnScope.MainTrackingContent(
                 Text("Select GPX")
             }
             Text(
-                text = selectedGpxName.ifBlank { "No GPX selected" },
-                style = MaterialTheme.typography.bodySmall,
+                text = "Selected GPX",
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = selectedGpxName.ifBlank { "No GPX selected" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (hasSelectedGpx) {
+                    IconButton(
+                        onClick = onClearGpx,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Clear selected GPX",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            if (sessionState.isTracking) {
+                Text(
+                    text = "Choose another GPX anytime, then tap Send update to update the planned route.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         TrackingPanel(title = "Comments to send in notification email") {
@@ -157,13 +200,20 @@ internal fun ColumnScope.MainTrackingContent(
                 minLines = if (isCompactLayout) 2 else 4,
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (sessionState.isTracking) {
+                Text(
+                    text = "Tracking is active. You can change the GPX or comment, then tap Send update.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (showSendPlan) {
                 Button(
                     onClick = onSendPlan,
                     enabled = canSendPlan && !isSendingPlan,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(if (isSendingPlan) "Sending" else "Send")
+                    Text(if (isSendingPlan) "Sending" else "Send update")
                 }
             }
             sendStatusMessage?.let { message ->

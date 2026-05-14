@@ -522,4 +522,4 @@ class LiveTrackingService : Service() {
     }
 }
 
-private fun Throwable.toLiveTrackingErrorText(): String = message?.takeIf { it.isNotBlank() } ?: "network unavailable"
+private fun Throwable.toLiveTrackingErrorText(): String = toArkluzFailureDetail()

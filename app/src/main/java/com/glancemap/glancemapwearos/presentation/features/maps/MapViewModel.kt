@@ -8,8 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.cache.AppDerivedCacheCleaner
 import com.glancemap.glancemapwearos.core.cache.AppDerivedCacheCleanupResult
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
+import com.glancemap.glancemapwearos.core.maps.GeoBounds
 import com.glancemap.glancemapwearos.core.routing.RoutingCoverageUtils
 import com.glancemap.glancemapwearos.core.routing.isRoutingSegmentFileName
+import com.glancemap.glancemapwearos.core.routing.routingSegmentBounds
 import com.glancemap.glancemapwearos.core.routing.routingSegmentPartFile
 import com.glancemap.glancemapwearos.core.routing.routingSegmentsDir
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
@@ -57,6 +59,7 @@ data class RoutingPackFileState(
     val path: String,
     val sizeBytes: Long,
     val modifiedAtMillis: Long,
+    val bounds: GeoBounds? = null,
 )
 
 private data class OfflineViewportSnapshot(
@@ -468,6 +471,7 @@ class MapViewModel(
                                 path = file.absolutePath,
                                 sizeBytes = file.length(),
                                 modifiedAtMillis = file.lastModified(),
+                                bounds = routingSegmentBounds(file.name),
                             )
                         }?.toList()
                         .orEmpty()

@@ -42,6 +42,8 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
+import com.glancemap.glancemapwearos.presentation.features.navigate.coverage.OfflineMapCoverageArea
+import com.glancemap.glancemapwearos.presentation.features.navigate.coverage.OfflineMapCoverageKind
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
@@ -209,10 +211,31 @@ fun NavigateScreen(
 
     // ---- VMS ----
     val selectedMapPath by mapViewModel.selectedMapPath.collectAsState()
+    val routingPackFiles by mapViewModel.routingPackFiles.collectAsState()
     val activeGpxDetails by gpxViewModel.activeGpxDetails.collectAsState()
     val activePoiOverlaySources by poiViewModel.activeOverlaySources.collectAsState()
+    val poiCoverageAreas by poiViewModel.poiCoverageAreas.collectAsState()
     val navigateTarget by poiViewModel.navigateTarget.collectAsState()
     val offlinePoiSearchUiState by poiViewModel.offlineSearchUiState.collectAsState()
+    val offlineCoverageAreas =
+        remember(poiCoverageAreas, routingPackFiles) {
+            poiCoverageAreas.map { area ->
+                OfflineMapCoverageArea(
+                    id = "poi:${area.filePath}",
+                    kind = OfflineMapCoverageKind.POI,
+                    bounds = area.bounds,
+                )
+            } +
+                routingPackFiles.mapNotNull { file ->
+                    file.bounds?.let { bounds ->
+                        OfflineMapCoverageArea(
+                            id = "routing:${file.path}",
+                            kind = OfflineMapCoverageKind.ROUTING,
+                            bounds = bounds,
+                        )
+                    }
+                }
+        }
 
     val fallbackMapViewportWidthPx =
         remember(configuration.screenWidthDp, density.density) {
@@ -743,6 +766,7 @@ fun NavigateScreen(
         routeToolDraftPoints = routeToolDraftConnectorPoints,
         poiViewModel = poiViewModel,
         activePoiOverlaySources = activePoiOverlaySources,
+        offlineCoverageAreas = offlineCoverageAreas,
         poiMarkerSizePx = poiIconSizePx,
         gpxTrackColor = gpxTrackColor,
         gpxTrackColorMode = gpxTrackColorMode,

@@ -156,6 +156,17 @@ fun LiveTrackingScreen(
         )
     }
 
+    fun clearPlannedGpx() {
+        selectedGpxUri = null
+        selectedGpxName = ""
+        planSent = false
+        sendStatusMessage = null
+        savePlannedDraft(
+            draftGpxUri = null,
+            draftGpxName = "",
+        )
+    }
+
     val gpxPicker =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument(),
@@ -208,7 +219,7 @@ fun LiveTrackingScreen(
                     recordedTrackDownloadStatusMessage = result.message
                 }.onFailure { error ->
                     recordedTrackDownloadStatusMessage =
-                        "Download failed: ${error.message ?: "unknown error"}"
+                        "Download failed: ${error.toArkluzFailureDetail()}"
                 }
                 isDownloadingRecordedTrack = false
             }
@@ -431,7 +442,7 @@ fun LiveTrackingScreen(
                         }
                     }.onFailure { error ->
                         saveSettingsStatusMessage =
-                            "Save failed: ${error.message ?: "unknown error"}"
+                            "Save failed: ${error.toArkluzFailureDetail()}"
                     }
                     isSavingSettings = false
                 }
@@ -482,6 +493,7 @@ fun LiveTrackingScreen(
                         isConnected = isConnected,
                         group = group,
                         headerMessage = headerMessage,
+                        hasSelectedGpx = selectedGpxUri != null,
                         selectedGpxName = selectedGpxName,
                         comments = comments,
                         onCommentsChange = {
@@ -500,6 +512,7 @@ fun LiveTrackingScreen(
                                 gpxPicker.launch(arrayOf("application/gpx+xml", "text/xml", "*/*"))
                             }
                         },
+                        onClearGpx = { clearPlannedGpx() },
                         showSendPlan = showSendPlan,
                         canSendPlan = canSendPlan,
                         isSendingPlan = isSendingPlan,
@@ -534,7 +547,7 @@ fun LiveTrackingScreen(
                                     planSent = true
                                     sendStatusMessage = result.message.ifBlank { "Sent" }
                                 }.onFailure { error ->
-                                    sendStatusMessage = "Send failed: ${error.message ?: "unknown error"}"
+                                    sendStatusMessage = "Send failed: ${error.toArkluzFailureDetail()}"
                                 }
                                 isSendingPlan = false
                             }
@@ -585,17 +598,16 @@ fun LiveTrackingScreen(
                                             .viewerPassword
                                             ?.let { followerPassword = it }
                                         client.uploadPlannedRoute(settings)
-                                    }.onSuccess { result ->
+                                    }.onSuccess {
                                         planSent = true
-                                        sendStatusMessage = result.message.ifBlank { "Sent" }
+                                        sendStatusMessage = null
                                         delay(START_AFTER_UPLOAD_DELAY_MS)
-                                        sendStatusMessage = "Starting live tracking"
                                         LiveTrackingService.start(
                                             context = context,
                                             settings = settings,
                                         )
                                     }.onFailure { error ->
-                                        sendStatusMessage = "Send failed: ${error.message ?: "unknown error"}"
+                                        sendStatusMessage = "Send failed: ${error.toArkluzFailureDetail()}"
                                     }
                                     isSendingPlan = false
                                     isStartingSession = false
@@ -626,7 +638,7 @@ fun LiveTrackingScreen(
                                                 ?: "Recorded tracks deleted"
                                     }.onFailure { error ->
                                         deleteTracksStatusMessage =
-                                            "Delete failed: ${error.message ?: "unknown error"}"
+                                            "Delete failed: ${error.toArkluzFailureDetail()}"
                                     }
                                     isDeletingTracks = false
                                 }
@@ -721,7 +733,8 @@ fun LiveTrackingScreen(
                                             headerMessage = null
                                         }
                                     }.onFailure { error ->
-                                        loginJoinStatusMessage = error.message ?: "Unable to connect"
+                                        loginJoinStatusMessage =
+                                            "Unable to connect: ${error.toArkluzFailureDetail()}"
                                     }
                                     isLoginJoinLoading = false
                                 }
@@ -768,7 +781,8 @@ fun LiveTrackingScreen(
                                         loginJoinStatusMessage = "$status to ${group.trim()}"
                                         headerMessage = null
                                     }.onFailure { error ->
-                                        loginJoinStatusMessage = error.message ?: "Unable to create group"
+                                        loginJoinStatusMessage =
+                                            "Unable to create group: ${error.toArkluzFailureDetail()}"
                                     }
                                     isLoginJoinLoading = false
                                 }

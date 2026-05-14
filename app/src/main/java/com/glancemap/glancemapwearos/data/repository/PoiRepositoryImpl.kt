@@ -172,6 +172,8 @@ class PoiRepositoryImpl(
             )
         }
 
+    override suspend fun readCoverageBounds(path: String) = withContext(Dispatchers.IO) { readPoiCoverageBounds(path) }
+
     override suspend fun isFileEnabled(path: String): Boolean =
         withContext(Dispatchers.IO) {
             prefs.getBoolean(fileEnabledKey(path), false)

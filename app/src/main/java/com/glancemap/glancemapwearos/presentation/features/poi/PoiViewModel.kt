@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.presentation.features.poi
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.glancemap.glancemapwearos.core.maps.GeoBounds
 import com.glancemap.glancemapwearos.data.repository.PoiCategory
 import com.glancemap.glancemapwearos.data.repository.PoiPointDetails
 import com.glancemap.glancemapwearos.data.repository.PoiRepository
@@ -52,6 +53,12 @@ data class PoiFileUiState(
     val categories: List<PoiCategoryUiState>,
     val enabledPoiCount: Int,
     val totalPoiCount: Int,
+)
+
+data class PoiCoverageAreaUiState(
+    val filePath: String,
+    val fileName: String,
+    val bounds: GeoBounds,
 )
 
 data class PoiCategoryPreviewKey(
@@ -147,6 +154,9 @@ class PoiViewModel(
 
     private val _poiFiles = MutableStateFlow<List<PoiFileUiState>>(emptyList())
     val poiFiles: StateFlow<List<PoiFileUiState>> = _poiFiles.asStateFlow()
+
+    private val _poiCoverageAreas = MutableStateFlow<List<PoiCoverageAreaUiState>>(emptyList())
+    val poiCoverageAreas: StateFlow<List<PoiCoverageAreaUiState>> = _poiCoverageAreas.asStateFlow()
 
     private val _categoryPreviews =
         MutableStateFlow<Map<PoiCategoryPreviewKey, PoiCategoryPreviewUiState>>(emptyMap())
@@ -706,10 +716,19 @@ class PoiViewModel(
         val files = poiRepository.listPoiFiles()
         userPoiSourceState = userPoiRepository.readSourceState()
 
-        val importedFiles =
+        val (importedFiles, coverageAreas) =
             withContext(Dispatchers.IO) {
+                val coverage = mutableListOf<PoiCoverageAreaUiState>()
                 files.map { file ->
                     val categories = poiRepository.readCategories(file.absolutePath)
+                    poiRepository.readCoverageBounds(file.absolutePath)?.let { bounds ->
+                        coverage +=
+                            PoiCoverageAreaUiState(
+                                filePath = file.absolutePath,
+                                fileName = file.nameWithoutExtension,
+                                bounds = bounds,
+                            )
+                    }
                     val categoryIds = categories.map { it.id }.toSet()
                     val enabledIds = poiRepository.getEnabledCategories(file.absolutePath, categoryIds)
                     val isEnabled = poiRepository.isFileEnabled(file.absolutePath)
@@ -732,7 +751,7 @@ class PoiViewModel(
                         enabledPoiCount = enabledPoiCount,
                         totalPoiCount = totalPoiCount,
                     )
-                }
+                } to coverage
             }
 
         val syntheticUserFile =
@@ -741,6 +760,7 @@ class PoiViewModel(
             )
 
         _poiFiles.value = listOf(syntheticUserFile) + importedFiles
+        _poiCoverageAreas.value = coverageAreas
         _categoryPreviews.value = emptyMap()
         _categoryCounts.value = emptyMap()
     }

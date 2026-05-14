@@ -30,6 +30,7 @@ import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ViewComfyAlt
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
@@ -335,16 +336,13 @@ internal fun FilePickerQuickGuideDialog(
                     listOf(
                         QuickGuidePage(
                             title = "Welcome to GlanceMap Companion",
-                            intro =
-                                "Use this phone app to prepare and send maps, routes, POI, GPX files, " +
-                                    "and routing data to your watch.",
+                            intro = WELCOME_WATCH_DOWNLOAD_INTRO,
                             lines =
                                 listOf(
-                                    "GlanceMap does not own maps; download them from external sources, " +
-                                        "then send them to the watch.",
+                                    "Use the phone companion to send GPX routes, custom maps, POI, routing data, and elevation files.",
+                                    "Choose phone downloads when you need different map sources or more control over files.",
+                                    "Start Live Tracking from the phone to share your GPS position and track links.",
                                     "Once files are on the watch, GlanceMap can work offline without the phone.",
-                                    "During navigation, keeping phone and watch connected is recommended for " +
-                                        "battery saving.",
                                     QUICK_GUIDE_BOOK_ICON_LINE,
                                 ),
                         ),
@@ -356,9 +354,6 @@ internal fun FilePickerQuickGuideDialog(
                             title = "Get files ready",
                             lines =
                                 listOf(
-                                    "GlanceMap does not own maps; download them from external sources, then send them to the watch.",
-                                    "Once files are on the watch, GlanceMap can work offline without the phone.",
-                                    "During navigation, keeping phone and watch connected is recommended for battery saving.",
                                     "Use 1. Download to get Mapsforge OSM .map, POI, GPX, or routing files.",
                                     "Tap 2. Select file(s) to add files from the phone:",
                                     ".map = offline map",
@@ -480,7 +475,7 @@ internal fun FilePickerQuickGuideDialog(
     val showBodyTitle = !isWelcomePage && pages.size > 1
     val titleHeight =
         when {
-            isWelcomePage -> 72.dp
+            isWelcomePage -> 88.dp
             pages.size > 1 -> 72.dp
             else -> 48.dp
         }
@@ -565,18 +560,22 @@ internal fun FilePickerQuickGuideDialog(
                             )
                         }
                         page.intro?.let { intro ->
-                            Text(
-                                text = intro,
-                                modifier = Modifier.fillMaxWidth(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign =
-                                    if (isWelcomePage) {
-                                        TextAlign.Center
-                                    } else {
-                                        TextAlign.Start
-                                    },
-                            )
+                            if (intro == WELCOME_WATCH_DOWNLOAD_INTRO) {
+                                welcomeWatchDownloadIntroText()
+                            } else {
+                                Text(
+                                    text = intro,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign =
+                                        if (isWelcomePage) {
+                                            TextAlign.Center
+                                        } else {
+                                            TextAlign.Start
+                                        },
+                                )
+                            }
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             page.lines.forEach { line ->
@@ -630,6 +629,28 @@ internal fun FilePickerQuickGuideDialog(
         },
     )
 }
+
+@Composable
+private fun welcomeWatchDownloadIntroText() {
+    Text(
+        text =
+            buildAnnotatedString {
+                append("Start on the watch: ")
+                appendInlineContent(GUIDE_DOWNLOAD_ICON_ID, "[download]")
+                append(" direct bundle downloads are the easiest way to get offline maps.")
+            },
+        modifier = Modifier.fillMaxWidth(),
+        inlineContent = welcomeGuideIntroInlineContent(),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
+}
+
+private fun welcomeGuideIntroInlineContent(): Map<String, InlineTextContent> =
+    mapOf(
+        GUIDE_DOWNLOAD_ICON_ID to guideInlineIcon(Icons.Filled.Download, "Download"),
+    )
 
 @Composable
 private fun quickGuideLineText(line: String) {
@@ -785,6 +806,9 @@ private fun quickGuideDialogTitle(mode: QuickGuideMode): String =
 private const val GUIDE_TOOLS_ICON_ID = "guide_tools_icon"
 private const val GUIDE_STAY_ICON_ID = "guide_stay_icon"
 private const val GUIDE_BOOK_ICON_ID = "guide_book_icon"
+private const val GUIDE_DOWNLOAD_ICON_ID = "guide_download_icon"
+private const val WELCOME_WATCH_DOWNLOAD_INTRO =
+    "Start on the watch: direct bundle downloads are the easiest way to get offline maps."
 private const val STAY_OPEN_GUIDE_LINE = "__stay_open_guide_line__"
 private const val QUICK_GUIDE_BOOK_ICON_LINE = "__quick_guide_book_icon_line__"
 

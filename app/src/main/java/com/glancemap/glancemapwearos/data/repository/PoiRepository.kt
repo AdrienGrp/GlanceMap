@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.data.repository
 
+import com.glancemap.glancemapwearos.core.maps.GeoBounds
 import java.io.File
 import java.io.InputStream
 
@@ -69,6 +70,8 @@ interface PoiRepository {
     suspend fun fileExists(fileName: String): Boolean
 
     suspend fun readCategories(path: String): List<PoiCategory>
+
+    suspend fun readCoverageBounds(path: String): GeoBounds?
 
     suspend fun isFileEnabled(path: String): Boolean
 

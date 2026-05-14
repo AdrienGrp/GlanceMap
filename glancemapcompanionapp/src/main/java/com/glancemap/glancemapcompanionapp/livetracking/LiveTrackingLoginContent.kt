@@ -96,6 +96,10 @@ internal fun ColumnScope.LoginJoinContent(
                     color =
                         if (message.startsWith("Error", ignoreCase = true)) {
                             MaterialTheme.colorScheme.error
+                        } else if (message.startsWith("Unable", ignoreCase = true)) {
+                            MaterialTheme.colorScheme.error
+                        } else if (message.contains("failed", ignoreCase = true)) {
+                            MaterialTheme.colorScheme.error
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
