@@ -63,7 +63,52 @@ data class OamInstalledBundle(
     val routingFileNames: List<String> = emptyList(),
     val downloadedRoutingFileNames: List<String> = emptyList(),
     val installedAtMillis: Long,
+    val remoteFiles: List<OamRemoteFileMetadata> = emptyList(),
 )
+
+data class OamRemoteFileMetadata(
+    val url: String,
+    val fileName: String,
+    val entityTag: String?,
+    val lastModifiedMillis: Long?,
+    val contentLengthBytes: Long?,
+)
+
+enum class OamBundleUpdateStatus {
+    UPDATE_AVAILABLE,
+    UP_TO_DATE,
+    UNKNOWN,
+}
+
+data class OamBundleUpdateCheck(
+    val bundle: OamInstalledBundle,
+    val status: OamBundleUpdateStatus,
+    val checkedFileCount: Int,
+    val changedFileNames: List<String> = emptyList(),
+    val unknownFileNames: List<String> = emptyList(),
+)
+
+data class OamBundleRefreshSummary(
+    val checks: List<OamBundleUpdateCheck>,
+) {
+    val totalCount: Int
+        get() = checks.size
+
+    val upToDateCount: Int
+        get() = checks.count { it.status == OamBundleUpdateStatus.UP_TO_DATE }
+
+    val updateAvailableCount: Int
+        get() = checks.count { it.status == OamBundleUpdateStatus.UPDATE_AVAILABLE }
+
+    val unknownCount: Int
+        get() = checks.count { it.status == OamBundleUpdateStatus.UNKNOWN }
+
+    val bundlesToRefresh: List<OamInstalledBundle>
+        get() =
+            checks
+                .filterNot { it.status == OamBundleUpdateStatus.UP_TO_DATE }
+                .map { it.bundle }
+}
 
 object OamDownloadCatalog {
     val areas: List<OamDownloadArea> =
