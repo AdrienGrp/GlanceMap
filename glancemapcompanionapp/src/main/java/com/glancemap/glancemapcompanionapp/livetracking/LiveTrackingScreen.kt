@@ -598,11 +598,10 @@ fun LiveTrackingScreen(
                                             .viewerPassword
                                             ?.let { followerPassword = it }
                                         client.uploadPlannedRoute(settings)
-                                    }.onSuccess { result ->
+                                    }.onSuccess {
                                         planSent = true
-                                        sendStatusMessage = result.message.ifBlank { "Sent" }
+                                        sendStatusMessage = null
                                         delay(START_AFTER_UPLOAD_DELAY_MS)
-                                        sendStatusMessage = "Starting live tracking"
                                         LiveTrackingService.start(
                                             context = context,
                                             settings = settings,
