@@ -219,7 +219,7 @@ fun LiveTrackingScreen(
                     recordedTrackDownloadStatusMessage = result.message
                 }.onFailure { error ->
                     recordedTrackDownloadStatusMessage =
-                        "Download failed: ${error.message ?: "unknown error"}"
+                        "Download failed: ${error.toArkluzFailureDetail()}"
                 }
                 isDownloadingRecordedTrack = false
             }
@@ -442,7 +442,7 @@ fun LiveTrackingScreen(
                         }
                     }.onFailure { error ->
                         saveSettingsStatusMessage =
-                            "Save failed: ${error.message ?: "unknown error"}"
+                            "Save failed: ${error.toArkluzFailureDetail()}"
                     }
                     isSavingSettings = false
                 }
@@ -547,7 +547,7 @@ fun LiveTrackingScreen(
                                     planSent = true
                                     sendStatusMessage = result.message.ifBlank { "Sent" }
                                 }.onFailure { error ->
-                                    sendStatusMessage = "Send failed: ${error.message ?: "unknown error"}"
+                                    sendStatusMessage = "Send failed: ${error.toArkluzFailureDetail()}"
                                 }
                                 isSendingPlan = false
                             }
@@ -607,7 +607,7 @@ fun LiveTrackingScreen(
                                             settings = settings,
                                         )
                                     }.onFailure { error ->
-                                        sendStatusMessage = "Send failed: ${error.message ?: "unknown error"}"
+                                        sendStatusMessage = "Send failed: ${error.toArkluzFailureDetail()}"
                                     }
                                     isSendingPlan = false
                                     isStartingSession = false
@@ -638,7 +638,7 @@ fun LiveTrackingScreen(
                                                 ?: "Recorded tracks deleted"
                                     }.onFailure { error ->
                                         deleteTracksStatusMessage =
-                                            "Delete failed: ${error.message ?: "unknown error"}"
+                                            "Delete failed: ${error.toArkluzFailureDetail()}"
                                     }
                                     isDeletingTracks = false
                                 }
@@ -733,7 +733,8 @@ fun LiveTrackingScreen(
                                             headerMessage = null
                                         }
                                     }.onFailure { error ->
-                                        loginJoinStatusMessage = error.message ?: "Unable to connect"
+                                        loginJoinStatusMessage =
+                                            "Unable to connect: ${error.toArkluzFailureDetail()}"
                                     }
                                     isLoginJoinLoading = false
                                 }
@@ -780,7 +781,8 @@ fun LiveTrackingScreen(
                                         loginJoinStatusMessage = "$status to ${group.trim()}"
                                         headerMessage = null
                                     }.onFailure { error ->
-                                        loginJoinStatusMessage = error.message ?: "Unable to create group"
+                                        loginJoinStatusMessage =
+                                            "Unable to create group: ${error.toArkluzFailureDetail()}"
                                     }
                                     isLoginJoinLoading = false
                                 }

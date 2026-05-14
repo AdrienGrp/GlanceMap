@@ -14,6 +14,8 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -411,6 +413,19 @@ internal class ArkluzHttpException(
 internal fun Throwable.isRetryableArkluzFailure(): Boolean =
     this is IOException &&
         (this !is ArkluzHttpException || code >= 500)
+
+internal fun Throwable.toArkluzFailureDetail(): String =
+    when (this) {
+        is UnknownHostException -> "Arkluz is temporarily unreachable. Check your internet connection and try again."
+        is SocketTimeoutException -> "Arkluz did not respond in time. Try again."
+        is IOException ->
+            if (this is ArkluzHttpException) {
+                message?.takeIf { it.isNotBlank() } ?: "Server error"
+            } else {
+                "Network connection to Arkluz was interrupted. Try again."
+            }
+        else -> message?.takeIf { it.isNotBlank() } ?: "unknown error"
+    }
 
 private fun okhttp3.Response.toShortHttpErrorMessage(): String = "HTTP $code at ${arkluzUtcTimestamp()}"
 
