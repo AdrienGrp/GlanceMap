@@ -336,10 +336,11 @@ internal fun FilePickerQuickGuideDialog(
                         QuickGuidePage(
                             title = "Welcome to GlanceMap Companion",
                             intro =
-                                "Use this phone app to prepare offline files for your watch and manage Live Tracking.",
+                                "Start on the watch: direct bundle downloads are the easiest way to get offline maps.",
                             lines =
                                 listOf(
-                                    "Send maps, GPX routes, POI, routing data, and elevation files to the watch.",
+                                    "Use the phone companion to send GPX routes, custom maps, POI, routing data, and elevation files.",
+                                    "Choose phone downloads when you need different map sources or more control over files.",
                                     "Start Live Tracking from the phone to share your GPS position and track links.",
                                     "GlanceMap does not own maps; download them from external sources first.",
                                     "Once files are on the watch, GlanceMap can work offline without the phone.",
