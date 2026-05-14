@@ -50,6 +50,15 @@ object LiveTrackingSessionStore {
             )
     }
 
+    fun setStopping(status: String) {
+        _state.value =
+            _state.value.copy(
+                isTracking = false,
+                status = status,
+                lastError = null,
+            )
+    }
+
     fun setStoppedWithError(
         status: String,
         message: String,

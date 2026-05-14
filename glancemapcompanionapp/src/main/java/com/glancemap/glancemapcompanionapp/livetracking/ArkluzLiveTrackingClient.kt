@@ -13,10 +13,15 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 data class LiveTrackingSettings(
-    val trackingUrl: String = ArkluzTrackingEndpoint.PRODUCTION.url,
+    val trackingUrl: String = ArkluzTrackingEndpoint.DEVELOPMENT.url,
     val updateIntervalSeconds: Int = 60,
     val group: String,
     val participantPassword: String,
@@ -29,6 +34,28 @@ data class LiveTrackingSettings(
     val gpxUri: Uri?,
     val gpxName: String,
 )
+
+internal data class ArkluzLocationUpdate(
+    val trackingUrl: String,
+    val latitude: Double,
+    val longitude: Double,
+    val altitudeMeters: Double?,
+    val speedMetersPerSecond: Float?,
+    val accuracyMeters: Float,
+    val epochSeconds: Long,
+    val batteryPercent: Int,
+    val gsmSignalPercent: Int,
+    val group: String,
+    val participantPassword: String,
+    val userName: String,
+    val notificationEmails: String,
+    val alertEmails: String,
+    val stuckAlarmMinutes: String,
+    val start: Boolean,
+    val stop: Boolean,
+) {
+    fun asStoredGpsPoint(): ArkluzLocationUpdate = copy(start = false, stop = false)
+}
 
 enum class ArkluzTrackingEndpoint(
     val label: String,
@@ -82,7 +109,7 @@ internal class ArkluzLiveTrackingClient(
                 execute(
                     Request
                         .Builder()
-                        .url(settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url })
+                        .url(settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url })
                         .post(body)
                         .build(),
                 )
@@ -97,7 +124,7 @@ internal class ArkluzLiveTrackingClient(
             val url =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "register")
@@ -120,7 +147,7 @@ internal class ArkluzLiveTrackingClient(
             val url =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "check")
@@ -142,7 +169,7 @@ internal class ArkluzLiveTrackingClient(
             val url =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "cleanup")
@@ -159,12 +186,44 @@ internal class ArkluzLiveTrackingClient(
             )
         }
 
+    suspend fun downloadRecordedGpx(
+        settings: LiveTrackingSettings,
+        userOnly: Boolean,
+        outputUri: Uri,
+    ): ArkluzServerResult =
+        withContext(Dispatchers.IO) {
+            val urlBuilder =
+                settings.trackingUrl
+                    .trim()
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
+                    .toHttpUrl()
+                    .newBuilder()
+                    .addQueryParameter("q", "gpx")
+                    .addQueryParameter("day", todayForArkluz())
+                    .addQueryParameter("group", settings.group.trim())
+                    .addQueryParameter("p", settings.followerPassword.trim())
+
+            if (userOnly) {
+                urlBuilder.addQueryParameter("user", settings.userName.trim())
+            }
+
+            executeGpxDownload(
+                request =
+                    Request
+                        .Builder()
+                        .url(urlBuilder.build())
+                        .get()
+                        .build(),
+                outputUri = outputUri,
+            )
+        }
+
     suspend fun saveSettings(settings: LiveTrackingSettings): ArkluzServerResult =
         withContext(Dispatchers.IO) {
             val urlBuilder =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "check")
@@ -198,43 +257,72 @@ internal class ArkluzLiveTrackingClient(
         location: Location,
         start: Boolean,
         stop: Boolean,
-    ): ArkluzServerResult =
+    ): ArkluzServerResult = sendLocationUpdate(buildLocationUpdate(settings, location, start, stop))
+
+    fun buildLocationUpdate(
+        settings: LiveTrackingSettings,
+        location: Location,
+        start: Boolean,
+        stop: Boolean,
+    ): ArkluzLocationUpdate =
+        ArkluzLocationUpdate(
+            trackingUrl = settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url },
+            latitude = location.latitude,
+            longitude = location.longitude,
+            altitudeMeters = location.altitude.takeIf { location.hasAltitude() },
+            speedMetersPerSecond = location.speed.takeIf { location.hasSpeed() },
+            accuracyMeters = location.accuracy,
+            epochSeconds = location.time / 1000L,
+            batteryPercent = batteryPercent(),
+            gsmSignalPercent = gsmSignalPercent(),
+            group = settings.group.trim(),
+            participantPassword = settings.participantPassword.trim(),
+            userName = settings.userName.trim(),
+            notificationEmails = settings.notificationEmails.trim(),
+            alertEmails = settings.alertEmails.trim(),
+            stuckAlarmMinutes = settings.stuckAlarmMinutes.trim(),
+            start = start,
+            stop = stop,
+        )
+
+    suspend fun sendLocationUpdate(update: ArkluzLocationUpdate): ArkluzServerResult =
         withContext(Dispatchers.IO) {
             val urlBuilder =
-                settings.trackingUrl
+                update.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.PRODUCTION.url }
+                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
                     .toHttpUrl()
                     .newBuilder()
-                    .addQueryParameter("lat", location.latitude.toString())
-                    .addQueryParameter("lon", location.longitude.toString())
-                    .addQueryParameter("acc", location.accuracy.toString())
-                    .addQueryParameter("time", location.time.toString())
-                    .addQueryParameter("battery", batteryPercent().toString())
-                    .addQueryParameter("group", settings.group.trim())
-                    .addQueryParameter("pass", settings.participantPassword.trim())
-                    .addQueryParameter("user", settings.userName.trim())
+                    .addQueryParameter("lat", update.latitude.toString())
+                    .addQueryParameter("lon", update.longitude.toString())
+                    .addQueryParameter("acc", update.accuracyMeters.toString())
+                    .addQueryParameter("time", update.epochSeconds.toString())
+                    .addQueryParameter("battery", update.batteryPercent.toString())
+                    .addQueryParameter("gsm_signal", update.gsmSignalPercent.toString())
+                    .addQueryParameter("group", update.group)
+                    .addQueryParameter("pass", update.participantPassword)
+                    .addQueryParameter("user", update.userName)
 
-            if (location.hasAltitude()) {
-                urlBuilder.addQueryParameter("alt", location.altitude.toString())
+            update.altitudeMeters?.let { altitude ->
+                urlBuilder.addQueryParameter("alt", altitude.toString())
             }
-            if (location.hasSpeed()) {
-                urlBuilder.addQueryParameter("speed", location.speed.toString())
+            update.speedMetersPerSecond?.let { speed ->
+                urlBuilder.addQueryParameter("speed", speed.toString())
             }
-            settings.notificationEmails.trim().takeIf { it.isNotBlank() }?.let { emails ->
+            update.notificationEmails.takeIf { it.isNotBlank() }?.let { emails ->
                 urlBuilder.addQueryParameter("email", emails)
             }
-            settings.alertEmails.trim().takeIf { it.isNotBlank() }?.let { emails ->
+            update.alertEmails.takeIf { it.isNotBlank() }?.let { emails ->
                 urlBuilder.addQueryParameter("alert", emails)
             }
-            settings.stuckAlarmMinutes.trim().takeIf { it.isNotBlank() }?.let { alarm ->
+            update.stuckAlarmMinutes.takeIf { it.isNotBlank() }?.let { alarm ->
                 urlBuilder.addQueryParameter("alarm", alarm)
             }
-            if (start) {
-                urlBuilder.addQueryParameter("start", "1")
+            if (update.start) {
+                urlBuilder.addEncodedQueryParameter("start", null)
             }
-            if (stop) {
-                urlBuilder.addQueryParameter("stop", "1")
+            if (update.stop) {
+                urlBuilder.addEncodedQueryParameter("stop", null)
             }
 
             execute(
@@ -253,13 +341,38 @@ internal class ArkluzLiveTrackingClient(
                     .string()
                     .toReadableServerMessage()
             if (!response.isSuccessful) {
-                val detail = serverMessage.ifBlank { "HTTP ${response.code}" }
-                error("Server returned $detail")
+                throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
             }
             if (serverMessage.isArkluzError()) {
                 error(serverMessage)
             }
             return serverMessage.toArkluzServerResult()
+        }
+    }
+
+    private fun executeGpxDownload(
+        request: Request,
+        outputUri: Uri,
+    ): ArkluzServerResult {
+        httpClient.newCall(request).execute().use { response ->
+            val body = response.body
+            val contentType = body.contentType()?.toString().orEmpty()
+            if (!response.isSuccessful) {
+                throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
+            }
+            if (!contentType.contains("gpx", ignoreCase = true)) {
+                val serverMessage = body.string().toReadableServerMessage()
+                if (serverMessage.isArkluzError()) {
+                    throw IllegalStateException(serverMessage)
+                }
+                throw IllegalStateException(serverMessage.ifBlank { "Server did not return a GPX file" })
+            }
+
+            appContext.contentResolver.openOutputStream(outputUri, "wt").use { output ->
+                requireNotNull(output) { "Unable to open destination file" }
+                body.byteStream().use { input -> input.copyTo(output) }
+            }
+            return ArkluzServerResult("Recorded GPX downloaded")
         }
     }
 
@@ -284,7 +397,27 @@ internal class ArkluzLiveTrackingClient(
         val batteryManager = appContext.getSystemService(BatteryManager::class.java)
         return batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
     }
+
+    private fun gsmSignalPercent(): Int = -1
 }
+
+private fun todayForArkluz(): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+
+internal class ArkluzHttpException(
+    val code: Int,
+    message: String,
+) : IOException(message)
+
+internal fun Throwable.isRetryableArkluzFailure(): Boolean =
+    this is IOException &&
+        (this !is ArkluzHttpException || code >= 500)
+
+private fun okhttp3.Response.toShortHttpErrorMessage(): String = "HTTP $code at ${arkluzUtcTimestamp()}"
+
+private fun arkluzUtcTimestamp(): String =
+    SimpleDateFormat("yyyy-MM-dd HH:mm:ss 'UTC'", Locale.US)
+        .apply { timeZone = TimeZone.getTimeZone("UTC") }
+        .format(Date())
 
 data class ArkluzServerResult(
     val message: String,
@@ -304,6 +437,7 @@ private fun String.toReadableServerMessage(): String =
         .map { it.trim() }
         .filter { it.isNotBlank() }
         .joinToString(separator = "\n")
+        .replace(Regex("\\s*Go back\\.?\\s*$", RegexOption.IGNORE_CASE), "")
         .trim()
 
 private fun String.isArkluzError(): Boolean {

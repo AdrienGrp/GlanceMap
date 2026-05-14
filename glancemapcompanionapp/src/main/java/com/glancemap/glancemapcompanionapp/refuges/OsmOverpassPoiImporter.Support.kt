@@ -58,7 +58,7 @@ internal fun buildOverpassSelectionClauses(
 
 internal fun parseOverpassCountResponse(body: String): OsmOverpassPoiCountEstimate {
     require(OVERPASS_COUNT_TYPE_REGEX.containsMatchIn(body)) {
-        "Invalid Overpass count response."
+        "Unable to read the OSM Overpass POI estimate. Try a smaller area or select fewer POI categories."
     }
     val counts =
         OVERPASS_COUNT_TAG_REGEX

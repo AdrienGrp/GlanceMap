@@ -23,7 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.HelpCenter
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.SendToMobile
 import androidx.compose.material.icons.filled.BugReport
@@ -66,11 +65,20 @@ private enum class CompanionHomeArea {
 }
 
 @Composable
-fun FilePickerScreen(viewModel: FileTransferViewModel) {
+fun FilePickerScreen(
+    viewModel: FileTransferViewModel,
+    openSendToWatchToken: Long = 0L,
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val uiState by viewModel.uiState.collectAsState()
+    val lastTransferGpx =
+        remember(uiState.selectedFileUris, uiState.selectedFileDisplayNames) {
+            uiState.selectedFileUris
+                .zip(uiState.selectedFileDisplayNames)
+                .lastOrNull { (_, name) -> name.endsWith(".gpx", ignoreCase = true) }
+        }
     val isImportingRefuges by viewModel.isImportingRefuges.collectAsState()
     val poiImportProgress by viewModel.poiImportProgress.collectAsState()
     val isDownloadingRouting by viewModel.isDownloadingRouting.collectAsState()
@@ -90,15 +98,21 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
 
     val autoOpenHelpOnFirstLaunch =
         remember(context) {
-            shouldAutoOpenHelpOnFirstLaunch(context).also { shouldShow ->
-                if (shouldShow) markHelpShown(context)
-            }
+            shouldAutoOpenHelpOnFirstLaunch(context)
         }
     var showCancelDialog by remember { mutableStateOf(false) }
     var quickGuideMode by remember { mutableStateOf(QuickGuideMode.GENERAL) }
     var showHowToDialog by remember(autoOpenHelpOnFirstLaunch) { mutableStateOf(autoOpenHelpOnFirstLaunch) }
     var showDebugDialog by remember { mutableStateOf(false) }
-    var activeHomeArea by remember { mutableStateOf(CompanionHomeArea.HOME) }
+    var activeHomeArea by remember {
+        mutableStateOf(
+            if (openSendToWatchToken != 0L) {
+                CompanionHomeArea.SEND_TO_WATCH
+            } else {
+                CompanionHomeArea.HOME
+            },
+        )
+    }
     var showRefugesDialog by remember { mutableStateOf(false) }
     var showRoutingMenu by remember { mutableStateOf(false) }
     var showThemeLegendMenu by remember { mutableStateOf(false) }
@@ -116,6 +130,12 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
 
     BackHandler(enabled = activeHomeArea != CompanionHomeArea.HOME) {
         activeHomeArea = CompanionHomeArea.HOME
+    }
+
+    LaunchedEffect(openSendToWatchToken) {
+        if (openSendToWatchToken != 0L) {
+            activeHomeArea = CompanionHomeArea.SEND_TO_WATCH
+        }
     }
 
     val mapDownloadSources =
@@ -382,6 +402,30 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
         }
     }
 
+    LaunchedEffect(activeHomeArea) {
+        when (activeHomeArea) {
+            CompanionHomeArea.SEND_TO_WATCH -> {
+                if (shouldAutoOpenSendToWatchGuide(context)) {
+                    markSendToWatchGuideShown(context)
+                    quickGuideMode = QuickGuideMode.TRANSFER
+                    showHowToDialog = true
+                }
+            }
+
+            CompanionHomeArea.LIVE_TRACKING -> {
+                if (shouldAutoOpenLiveTrackingGuide(context)) {
+                    markLiveTrackingGuideShown(context)
+                    quickGuideMode = QuickGuideMode.LIVE_TRACKING
+                    showHowToDialog = true
+                }
+            }
+
+            CompanionHomeArea.HOME,
+            CompanionHomeArea.MAP_LEGEND,
+            -> Unit
+        }
+    }
+
     LaunchedEffect(showRefugesDialog, showRoutingDialog) {
         if (!showRefugesDialog && !showRoutingDialog) return@LaunchedEffect
         if (showRefugesDialog) {
@@ -512,8 +556,6 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 CompanionHomeArea.HOME -> {
                     CompanionHomeScreen(
                         adaptive = adaptive,
-                        debugCaptureActive = debugCaptureState.active,
-                        onOpenDebug = { showDebugDialog = true },
                         onOpenSendToWatch = { activeHomeArea = CompanionHomeArea.SEND_TO_WATCH },
                         onOpenLiveTracking = { activeHomeArea = CompanionHomeArea.LIVE_TRACKING },
                         onOpenMapLegend = { activeHomeArea = CompanionHomeArea.MAP_LEGEND },
@@ -530,6 +572,12 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 CompanionHomeArea.LIVE_TRACKING -> {
                     LiveTrackingScreen(
                         onBack = { activeHomeArea = CompanionHomeArea.HOME },
+                        onOpenQuickGuide = {
+                            quickGuideMode = QuickGuideMode.LIVE_TRACKING
+                            showHowToDialog = true
+                        },
+                        lastTransferGpxUri = lastTransferGpx?.first,
+                        lastTransferGpxName = lastTransferGpx?.second.orEmpty(),
                     )
                 }
 
@@ -562,6 +610,7 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                         FilledTonalIconButton(
                             onClick = { activeHomeArea = CompanionHomeArea.HOME },
                             modifier = Modifier.size(adaptive.helpIconButtonSize),
+                            colors = companionTonalIconButtonColors(),
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -578,7 +627,13 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                                         if (debugCaptureState.active) {
                                             MaterialTheme.colorScheme.errorContainer
                                         } else {
-                                            MaterialTheme.colorScheme.secondaryContainer
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        },
+                                    contentColor =
+                                        if (debugCaptureState.active) {
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
                                         },
                                 ),
                         ) {
@@ -612,10 +667,11 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                                 showHowToDialog = true
                             },
                             modifier = Modifier.size(adaptive.helpIconButtonSize),
+                            colors = companionTonalIconButtonColors(),
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.HelpCenter,
-                                contentDescription = "Help",
+                                imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                                contentDescription = "Quick Guide",
                                 modifier = Modifier.size(adaptive.helpIconSize),
                             )
                         }
@@ -721,9 +777,9 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                                     ) {
                                         Text("Select file(s)")
                                     }
-                                    Text(
-                                        formatSelectedFilesSummary(uiState.selectedFileDisplayNames),
-                                        style = MaterialTheme.typography.bodySmall,
+                                    SelectedFilesCompactSummary(
+                                        fileNames = uiState.selectedFileDisplayNames,
+                                        modifier = Modifier.fillMaxWidth(),
                                     )
                                 }
                             }
@@ -846,7 +902,12 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 FilePickerQuickGuideDialog(
                     adaptive = adaptive,
                     mode = quickGuideMode,
-                    onDismiss = { showHowToDialog = false },
+                    onDismiss = {
+                        if (autoOpenHelpOnFirstLaunch && quickGuideMode == QuickGuideMode.GENERAL) {
+                            markHelpShown(context)
+                        }
+                        showHowToDialog = false
+                    },
                 )
             }
 
@@ -904,10 +965,95 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
 }
 
 @Composable
+private fun SelectedFilesCompactSummary(
+    fileNames: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    var showAllFiles by remember { mutableStateOf(false) }
+
+    if (fileNames.isEmpty()) {
+        Text(
+            text = "No file selected",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier,
+        )
+        return
+    }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = fileNames.first(),
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (fileNames.size > 1) {
+            TextButton(
+                onClick = { showAllFiles = true },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+            ) {
+                Text("+${fileNames.size - 1} more")
+            }
+        }
+    }
+
+    if (showAllFiles) {
+        val scrollState = rememberScrollState()
+        AlertDialog(
+            onDismissRequest = { showAllFiles = false },
+            title = { Text("${fileNames.size} selected files") },
+            text = {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp),
+                ) {
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(scrollState)
+                                .padding(end = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        fileNames.forEachIndexed { index, fileName ->
+                            Text(
+                                text = "${index + 1}. $fileName",
+                                style = MaterialTheme.typography.bodySmall,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    if (scrollState.maxValue > 0) {
+                        PageScrollbar(
+                            scrollState = scrollState,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .fillMaxHeight(),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAllFiles = false }) {
+                    Text("Close")
+                }
+            },
+        )
+    }
+}
+
+@Composable
 private fun CompanionHomeScreen(
     adaptive: CompanionAdaptiveSpec,
-    debugCaptureActive: Boolean,
-    onOpenDebug: () -> Unit,
     onOpenSendToWatch: () -> Unit,
     onOpenLiveTracking: () -> Unit,
     onOpenMapLegend: () -> Unit,
@@ -919,9 +1065,7 @@ private fun CompanionHomeScreen(
     Column(
         modifier =
             Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(adaptive.sectionGap),
+                .fillMaxSize(),
     ) {
         Row(
             modifier =
@@ -931,30 +1075,7 @@ private fun CompanionHomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            FilledTonalIconButton(
-                onClick = onOpenDebug,
-                modifier = Modifier.size(adaptive.helpIconButtonSize),
-                colors =
-                    IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor =
-                            if (debugCaptureActive) {
-                                MaterialTheme.colorScheme.errorContainer
-                            } else {
-                                MaterialTheme.colorScheme.secondaryContainer
-                            },
-                    ),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.BugReport,
-                    contentDescription =
-                        if (debugCaptureActive) {
-                            "Stop phone debug capture"
-                        } else {
-                            "Start phone debug capture"
-                        },
-                    modifier = Modifier.size(adaptive.helpIconSize),
-                )
-            }
+            Spacer(modifier = Modifier.size(adaptive.helpIconButtonSize))
             Text(
                 text = "GlanceMap Companion",
                 style =
@@ -968,73 +1089,80 @@ private fun CompanionHomeScreen(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.size(adaptive.helpIconButtonSize))
-        }
-
-        Button(
-            onClick = onOpenSendToWatch,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 72.dp),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.SendToMobile,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+            FilledTonalIconButton(
+                onClick = onOpenQuickGuide,
+                modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors = companionTonalIconButtonColors(),
             ) {
-                Text(
-                    text = "Send to Watch",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = "Maps, GPX, POI and routing files",
-                    style = MaterialTheme.typography.bodySmall,
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    contentDescription = "Quick Guide",
+                    modifier = Modifier.size(adaptive.helpIconSize),
                 )
             }
         }
 
-        HomeActionButton(
-            icon = Icons.Filled.SpatialTracking,
-            title = "Live Tracking",
-            description = "Share phone GPS updates through Arkluz",
-            onClick = onOpenLiveTracking,
-        )
-        HomeActionButton(
-            icon = Icons.Filled.Map,
-            title = "Map Legend",
-            description = "Open theme legends and reference pages",
-            onClick = onOpenMapLegend,
-        )
-        HomeActionButton(
-            icon = Icons.AutoMirrored.Filled.MenuBook,
-            title = "Quick Guide",
-            description = "Review the companion app workflow",
-            onClick = onOpenQuickGuide,
-        )
-        HomeActionButton(
-            icon = Icons.Filled.Gavel,
-            title = "Credits & Legal",
-            description = "Privacy, licences and acknowledgements",
-            onClick = onOpenCreditsLegal,
-        )
-
-        SectionCard(
-            title = "Contributions",
-            modifier = Modifier.fillMaxWidth(),
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text =
-                    "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, " +
-                        "OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(adaptive.sectionGap),
+            ) {
+                Button(
+                    onClick = onOpenSendToWatch,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 72.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.SendToMobile,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = "Send to Watch",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "Maps, GPX, POI and routing files",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+
+                HomeActionButton(
+                    icon = Icons.Filled.SpatialTracking,
+                    title = "Live Tracking",
+                    description = "Share your GPS location",
+                    onClick = onOpenLiveTracking,
+                )
+                HomeActionButton(
+                    icon = Icons.Filled.Map,
+                    title = "Map Legend",
+                    description = "Open theme legends and reference pages",
+                    onClick = onOpenMapLegend,
+                )
+                HomeActionButton(
+                    icon = Icons.Filled.Gavel,
+                    title = "Credits & Legal",
+                    description = "Privacy, licences and acknowledgements",
+                    onClick = onOpenCreditsLegal,
+                )
+            }
         }
     }
 }
@@ -1080,6 +1208,13 @@ private fun HomeActionButton(
 }
 
 @Composable
+private fun companionTonalIconButtonColors() =
+    IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    )
+
+@Composable
 private fun CompanionMapLegendScreen(
     adaptive: CompanionAdaptiveSpec,
     selectedThemeLegend: ThemeLegendSource,
@@ -1108,6 +1243,7 @@ private fun CompanionMapLegendScreen(
             FilledTonalIconButton(
                 onClick = onBack,
                 modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors = companionTonalIconButtonColors(),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -1131,10 +1267,11 @@ private fun CompanionMapLegendScreen(
             FilledTonalIconButton(
                 onClick = onOpenHelp,
                 modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors = companionTonalIconButtonColors(),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.HelpCenter,
-                    contentDescription = "Help",
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    contentDescription = "Quick Guide",
                     modifier = Modifier.size(adaptive.helpIconSize),
                 )
             }
