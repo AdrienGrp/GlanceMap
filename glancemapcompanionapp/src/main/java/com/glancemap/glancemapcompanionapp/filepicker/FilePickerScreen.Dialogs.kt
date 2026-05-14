@@ -342,7 +342,6 @@ internal fun FilePickerQuickGuideDialog(
                                     "Use the phone companion to send GPX routes, custom maps, POI, routing data, and elevation files.",
                                     "Choose phone downloads when you need different map sources or more control over files.",
                                     "Start Live Tracking from the phone to share your GPS position and track links.",
-                                    "GlanceMap does not own maps; download them from external sources first.",
                                     "Once files are on the watch, GlanceMap can work offline without the phone.",
                                     QUICK_GUIDE_BOOK_ICON_LINE,
                                 ),
