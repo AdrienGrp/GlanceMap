@@ -1,6 +1,6 @@
 # Data and Asset Attribution
 
-Last reviewed: 2026-04-29
+Last reviewed: 2026-05-07
 
 This file tracks attribution and licensing notes for non-code map assets, datasets and imported POI sources used by GlanceMap.
 
@@ -142,7 +142,29 @@ Important:
 - Keep attribution and share-alike obligations with the project docs.
 - User-facing note is available in `licenses/VOLUNTARY_THEME.md`.
 
-## 8) Refuges.info data imports
+## 8) OS Map Mapsforge theme
+
+- Local embedded theme files:
+  - `app/src/main/assets/theme/os-map/OS Map V4 Day.xml`
+  - `app/src/main/assets/theme/os-map/OS Map V4 Night.xml`
+  - `app/src/main/assets/theme/os-map/os_res/`
+- Theme discussion:
+  - https://forum.locusmap.eu/index.php?topic=7000.msg59948#msg59948
+- Release ZIP:
+  - https://drive.google.com/uc?export=download&id=1RzZTMLRIQM1pY_R8FXdVxKPSTqO2LHUE
+- Legends:
+  - https://drive.google.com/file/d/1PE0eBzJnGMbDs9a_V_uhQQa0db5RK-Zs/view
+  - https://drive.google.com/file/d/1OwAeuBtYN-XxjGkpOs3SrdYAUwYXDets/view
+- Observed upstream license statement:
+  - Declared in the XML comment header as CC BY-NC-SA 3.0
+
+Important:
+- The stated license is non-commercial.
+- GlanceMap's current noncommercial distribution model is treated as compatible.
+- Keep attribution and share-alike obligations with the project docs.
+- User-facing note is available in `licenses/OS_MAP_THEME.md`.
+
+## 9) Refuges.info data imports
 
 - Companion imports POI data from:
   - `https://www.refuges.info/api/bbox`

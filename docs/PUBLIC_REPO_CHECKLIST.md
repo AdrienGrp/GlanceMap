@@ -57,6 +57,7 @@ source code and bundled assets is still public distribution.
    - French Kiss
    - Hike, Ride & Sight, if the approval terms are only stored in private messages
    - Voluntary Theme
+   - OS Map Theme
    - For each approval, keep:
      - parties,
      - request/response dates,

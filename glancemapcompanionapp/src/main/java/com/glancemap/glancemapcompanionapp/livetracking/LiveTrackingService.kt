@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import android.Manifest
@@ -69,40 +71,41 @@ class LiveTrackingService : Service() {
         intent: Intent?,
         flags: Int,
         startId: Int,
-    ): Int {
+    ): Int =
         when (intent?.action) {
             ACTION_PAUSE -> {
                 pauseTracking()
-                return START_STICKY
+                START_STICKY
             }
 
             ACTION_RESUME -> {
                 resumeTracking()
-                return START_STICKY
+                START_STICKY
             }
 
             ACTION_STOP -> {
                 stopTracking()
-                return START_NOT_STICKY
+                START_NOT_STICKY
+            }
+
+            else -> {
+                val parsedSettings = intent?.toLiveTrackingSettings()
+                if (parsedSettings == null) {
+                    LiveTrackingSessionStore.setStopped("Missing live tracking settings")
+                    stopSelf()
+                    START_NOT_STICKY
+                } else {
+                    settings = parsedSettings
+                    sentStart = false
+                    isPaused = false
+                    isStopping = false
+                    LiveTrackingSessionStore.setStarting()
+                    startForegroundNotification("Starting live tracking")
+                    startTracking(parsedSettings)
+                    START_STICKY
+                }
             }
         }
-
-        val parsedSettings = intent?.toLiveTrackingSettings()
-        if (parsedSettings == null) {
-            LiveTrackingSessionStore.setStopped("Missing live tracking settings")
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        settings = parsedSettings
-        sentStart = false
-        isPaused = false
-        isStopping = false
-        LiveTrackingSessionStore.setStarting()
-        startForegroundNotification("Starting live tracking")
-        startTracking(parsedSettings)
-        return START_STICKY
-    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 

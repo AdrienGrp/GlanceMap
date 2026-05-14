@@ -178,6 +178,7 @@ fun NavigateScreen(
         initial = SettingsRepository.COMPASS_HEADING_SOURCE_AUTO,
     )
     val gpxTrackColor by settingsViewModel.gpxTrackColor.collectAsState()
+    val gpxTrackColorMode by settingsViewModel.gpxTrackColorMode.collectAsState()
     val gpxTrackWidth by settingsViewModel.gpxTrackWidth.collectAsState()
     val gpxTrackOpacityPercent by settingsViewModel.gpxTrackOpacityPercent.collectAsState()
     val autoRecenterEnabled by settingsViewModel.autoRecenterEnabled.collectAsState()
@@ -744,6 +745,7 @@ fun NavigateScreen(
         activePoiOverlaySources = activePoiOverlaySources,
         poiMarkerSizePx = poiIconSizePx,
         gpxTrackColor = gpxTrackColor,
+        gpxTrackColorMode = gpxTrackColorMode,
         gpxTrackWidth = gpxTrackWidth,
         gpxTrackOpacityPercent = gpxTrackOpacityPercent,
         compassRenderStateFlow = compassViewModel.renderState,
@@ -805,7 +807,11 @@ fun NavigateScreen(
                 poiViewModel.clearOfflinePoiSearch()
             }
             shortcutTrayExpanded -> shortcutTrayExpanded = false
-            else -> Unit
+            else -> {
+                // Samsung Galaxy Watch can route the physical Back button here when users set it
+                // to "Go to previous screen"; make it a hardware shortcut to the existing menu.
+                onMenuClick()
+            }
         }
     }
 

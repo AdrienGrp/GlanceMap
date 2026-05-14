@@ -1,3 +1,12 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionName",
+    "FunctionNaming",
+    "LongMethod",
+    "MatchingDeclarationName",
+    "MaxLineLength",
+)
+
 package com.glancemap.glancemapcompanionapp.filepicker
 
 import android.content.Context

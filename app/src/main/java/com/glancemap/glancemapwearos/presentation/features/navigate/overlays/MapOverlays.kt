@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import com.glancemap.glancemapwearos.data.repository.PoiType
 import com.glancemap.glancemapwearos.data.repository.PoiViewport
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxInspectionUiState
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
@@ -35,8 +36,12 @@ import org.mapsforge.map.layer.overlay.Marker
 import org.mapsforge.map.layer.overlay.Polyline
 import org.mapsforge.map.model.common.Observer
 
+private const val ELEVATION_TRACK_OUTLINE_ALPHA = 176
+private const val ELEVATION_TRACK_OUTLINE_WIDTH_EXTRA_PX = 3f
+
 @Composable
 @OptIn(FlowPreview::class)
+@Suppress("FunctionNaming", "LongMethod", "LongParameterList")
 internal fun MapOverlays(
     mapHolder: MapHolder,
     activeGpxDetails: List<GpxTrackDetails>,
@@ -47,6 +52,7 @@ internal fun MapOverlays(
     activePoiOverlaySources: List<PoiOverlaySource>,
     poiMarkerSizePx: Int,
     gpxTrackColor: Int,
+    gpxTrackColorMode: String,
     gpxTrackWidth: Float,
     gpxTrackOpacityPercent: Int,
     compassRenderStateFlow: StateFlow<CompassRenderState>,
@@ -200,6 +206,7 @@ internal fun MapOverlays(
         routeToolCreatePreviewActive = routeToolCreatePreviewActive,
         routeToolDraftPoints = routeToolDraftPoints,
         gpxTrackColor = gpxTrackColor,
+        gpxTrackColorMode = gpxTrackColorMode,
         gpxTrackWidth = gpxTrackWidth,
         gpxTrackOpacityPercent = gpxTrackOpacityPercent,
         locationMarker = locationMarker,
@@ -541,6 +548,7 @@ private fun PoiOverlayEffect(
 }
 
 @Composable
+@Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 private fun GpxAndInspectionOverlayEffect(
     mapView: MapView,
     activeGpxDetails: List<GpxTrackDetails>,
@@ -548,6 +556,7 @@ private fun GpxAndInspectionOverlayEffect(
     routeToolCreatePreviewActive: Boolean,
     routeToolDraftPoints: List<LatLong>,
     gpxTrackColor: Int,
+    gpxTrackColorMode: String,
     gpxTrackWidth: Float,
     gpxTrackOpacityPercent: Int,
     locationMarker: RotatableMarker?,
@@ -559,6 +568,7 @@ private fun GpxAndInspectionOverlayEffect(
     requestMapRedraw: () -> Unit,
 ) {
     val layers = mapView.layerManager.layers
+    val useElevationTrackColors = gpxTrackColorMode == SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION
 
     val trackPaint =
         remember {
@@ -575,6 +585,7 @@ private fun GpxAndInspectionOverlayEffect(
 
     // Stable caches
     val polylinesById = remember(mapView) { mutableMapOf<String, Polyline>() }
+    val elevationPolylinesById = remember(mapView) { mutableMapOf<String, List<Polyline>>() }
     val startMarkersById = remember(mapView) { mutableMapOf<String, Marker>() }
     val endMarkersById = remember(mapView) { mutableMapOf<String, Marker>() }
     val lodById = remember(mapView) { mutableMapOf<String, TrackLodLevels>() }
@@ -640,7 +651,7 @@ private fun GpxAndInspectionOverlayEffect(
         requestMapRedraw()
     }
 
-    DisposableEffect(mapView) {
+    DisposableEffect(mapView, useElevationTrackColors, gpxTrackWidth, gpxTrackOpacityPercent) {
         val observer =
             Observer {
                 val zoomNow =
@@ -651,17 +662,37 @@ private fun GpxAndInspectionOverlayEffect(
 
                 lodById.forEach { (id, lod) ->
                     if (displayedLodBucketById[id] == newBucket) return@forEach
-                    val polyline = polylinesById[id] ?: return@forEach
                     val renderPoints = lod.pointsForZoom(zoomNow)
-                    if (!hasSameLatLongs(polyline.latLongs, renderPoints)) {
-                        polyline.latLongs.clear()
-                        polyline.latLongs.addAll(renderPoints)
+
+                    if (useElevationTrackColors) {
+                        elevationPolylinesById.remove(id)?.forEach { layers.remove(it) }
+                        val segments =
+                            buildElevationTrackSegments(
+                                points = renderPoints,
+                                opacityPercent = gpxTrackOpacityPercent,
+                            )
+                        elevationPolylinesById[id] =
+                            createElevationTrackPolylines(
+                                segments = segments,
+                                strokeWidth = gpxTrackWidth,
+                            ).also { polylines ->
+                                polylines.forEach(layers::add)
+                            }
                         changed = true
+                    } else {
+                        val polyline = polylinesById[id] ?: return@forEach
+                        val renderLatLongs = renderPoints.latLongs()
+                        if (!hasSameLatLongs(polyline.latLongs, renderLatLongs)) {
+                            polyline.latLongs.clear()
+                            polyline.latLongs.addAll(renderLatLongs)
+                            changed = true
+                        }
                     }
                     displayedLodBucketById[id] = newBucket
                 }
 
-                if (changed) requestMapRedraw()
+                val reordered = if (changed) topOverlayCoordinator.sync() else false
+                if (changed || reordered) requestMapRedraw()
             }
 
         mapView.model.mapViewPosition.addObserver(observer)
@@ -669,12 +700,12 @@ private fun GpxAndInspectionOverlayEffect(
     }
 
     // Update polylines + S/E markers
-    LaunchedEffect(activeGpxDetails) {
+    LaunchedEffect(activeGpxDetails, useElevationTrackColors, gpxTrackWidth, gpxTrackOpacityPercent) {
         val wantedIds = activeGpxDetails.map { it.id }.toSet()
         val computedLodById =
             withContext(Dispatchers.Default) {
                 activeGpxDetails.associate { details ->
-                    details.id to buildTrackLodLevels(details.points)
+                    details.id to buildTrackLodLevels(details.trackPoints)
                 }
             }
 
@@ -687,6 +718,10 @@ private fun GpxAndInspectionOverlayEffect(
                         true
                     } == true
                 ) {
+                    changed = true
+                }
+                elevationPolylinesById.remove(id)?.forEach { polyline ->
+                    layers.remove(polyline)
                     changed = true
                 }
                 if (startMarkersById.remove(id)?.let {
@@ -718,21 +753,56 @@ private fun GpxAndInspectionOverlayEffect(
                 lodById[details.id] = lod
                 val renderPoints = lod.pointsForZoom(zoomNow)
 
-                val polyline =
-                    polylinesById.getOrPut(details.id) {
-                        Polyline(trackPaint, AndroidGraphicFactory.INSTANCE).also { p ->
-                            p.latLongs.addAll(renderPoints)
-                            layers.add(p)
-                            changed = true
-                        }
+                if (useElevationTrackColors) {
+                    polylinesById.remove(details.id)?.let { solidPolyline ->
+                        layers.remove(solidPolyline)
+                        changed = true
                     }
+                    elevationPolylinesById.remove(details.id)?.forEach { polyline ->
+                        layers.remove(polyline)
+                        changed = true
+                    }
+                    val segments =
+                        buildElevationTrackSegments(
+                            points = renderPoints,
+                            opacityPercent = gpxTrackOpacityPercent,
+                        )
+                    elevationPolylinesById[details.id] =
+                        createElevationTrackPolylines(
+                            segments = segments,
+                            strokeWidth = gpxTrackWidth,
+                        ).also { polylines ->
+                            polylines.forEach(layers::add)
+                            if (polylines.isNotEmpty()) {
+                                changed = true
+                            }
+                        }
+                } else {
+                    elevationPolylinesById.remove(details.id)?.forEach { polyline ->
+                        layers.remove(polyline)
+                        changed = true
+                    }
+                    val renderLatLongs = renderPoints.latLongs()
+                    val polyline =
+                        polylinesById.getOrPut(details.id) {
+                            Polyline(trackPaint, AndroidGraphicFactory.INSTANCE).also { p ->
+                                p.latLongs.addAll(renderLatLongs)
+                                layers.add(p)
+                                changed = true
+                            }
+                        }
 
-                val bucketChanged = displayedLodBucketById[details.id] != currentBucket
-                val sourceChanged = previousLod?.sourceSignature != lod.sourceSignature
-                if (sourceChanged || bucketChanged || !hasSameLatLongs(polyline.latLongs, renderPoints)) {
-                    polyline.latLongs.clear()
-                    polyline.latLongs.addAll(renderPoints)
-                    changed = true
+                    val bucketChanged = displayedLodBucketById[details.id] != currentBucket
+                    val sourceChanged = previousLod?.sourceSignature != lod.sourceSignature
+                    if (
+                        sourceChanged ||
+                        bucketChanged ||
+                        !hasSameLatLongs(polyline.latLongs, renderLatLongs)
+                    ) {
+                        polyline.latLongs.clear()
+                        polyline.latLongs.addAll(renderLatLongs)
+                        changed = true
+                    }
                 }
                 displayedLodBucketById[details.id] = currentBucket
 
@@ -879,6 +949,7 @@ private fun GpxAndInspectionOverlayEffect(
         onDispose {
             mapView.post {
                 polylinesById.values.forEach(layers::remove)
+                elevationPolylinesById.values.flatten().forEach(layers::remove)
                 startMarkersById.values.forEach(layers::remove)
                 endMarkersById.values.forEach(layers::remove)
                 markerAHolder[0]?.let(layers::remove)
@@ -886,6 +957,7 @@ private fun GpxAndInspectionOverlayEffect(
                 layers.remove(previewPolyline)
 
                 polylinesById.clear()
+                elevationPolylinesById.clear()
                 startMarkersById.clear()
                 endMarkersById.clear()
                 lodById.clear()
@@ -899,3 +971,43 @@ private fun GpxAndInspectionOverlayEffect(
         }
     }
 }
+
+private fun createElevationTrackPolylines(
+    segments: List<ElevationTrackSegment>,
+    strokeWidth: Float,
+): List<Polyline> {
+    val outlineWidth = strokeWidth + ELEVATION_TRACK_OUTLINE_WIDTH_EXTRA_PX
+    val outlineColor = Color.argb(ELEVATION_TRACK_OUTLINE_ALPHA, 18, 24, 32)
+    val outlines =
+        segments.map { segment ->
+            createElevationTrackPolyline(
+                points = segment.points,
+                color = outlineColor,
+                strokeWidth = outlineWidth,
+            )
+        }
+    val coloredSegments =
+        segments.map { segment ->
+            createElevationTrackPolyline(
+                points = segment.points,
+                color = segment.color,
+                strokeWidth = strokeWidth,
+            )
+        }
+    return outlines + coloredSegments
+}
+
+private fun createElevationTrackPolyline(
+    points: List<LatLong>,
+    color: Int,
+    strokeWidth: Float,
+): Polyline =
+    Polyline(
+        createGpxTrackPaint(
+            color = color,
+            strokeWidth = strokeWidth,
+        ),
+        AndroidGraphicFactory.INSTANCE,
+    ).also { polyline ->
+        polyline.latLongs.addAll(points)
+    }

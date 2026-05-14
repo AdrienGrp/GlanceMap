@@ -339,6 +339,19 @@ class SettingsViewModel(
             settingsRepository.setGpxTrackColor(color)
         }
 
+    val gpxTrackColorMode: StateFlow<String> =
+        settingsRepository.gpxTrackColorMode
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TRACK_COLOR_MODE,
+            )
+
+    fun setGpxTrackColorMode(mode: String) =
+        viewModelScope.launch {
+            settingsRepository.setGpxTrackColorMode(mode)
+        }
+
     val gpxTrackWidth: StateFlow<Float> =
         settingsRepository.gpxTrackWidth
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 8f)

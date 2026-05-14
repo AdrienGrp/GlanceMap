@@ -344,7 +344,7 @@ internal class ArkluzLiveTrackingClient(
                 throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
             }
             if (serverMessage.isArkluzError()) {
-                throw IllegalStateException(serverMessage)
+                error(serverMessage)
             }
             return serverMessage.toArkluzServerResult()
         }
@@ -448,11 +448,12 @@ private fun String.isArkluzError(): Boolean {
         "please specify a group and a password" in singleLine
 }
 
-private fun String.toUserFacingServerMessage(): String {
-    if (isBlank()) return "Server accepted request"
-    if (startsWith("OK", ignoreCase = true)) return "Server accepted request"
-    return this
-}
+private fun String.toUserFacingServerMessage(): String =
+    if (isBlank() || startsWith("OK", ignoreCase = true)) {
+        "Server accepted request"
+    } else {
+        this
+    }
 
 private fun String.toArkluzServerResult(): ArkluzServerResult {
     val lines = lines().map { it.trim() }.filter { it.isNotBlank() }

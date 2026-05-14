@@ -669,7 +669,7 @@ fun MapsScreen(
                     if (mapFiles.isEmpty()) {
                         item {
                             Text(
-                                text = "Use the companion phone app to add .map files to your watch.",
+                                text = "Download maps on the watch or add .map files from the companion phone app.",
                                 modifier = Modifier.padding(emptyStatePadding),
                                 textAlign = TextAlign.Center,
                             )

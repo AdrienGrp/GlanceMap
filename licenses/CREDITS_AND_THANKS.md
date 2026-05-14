@@ -35,8 +35,9 @@ This page is the user-friendly credit summary for the main projects and communit
    - Website: https://voluntary.nichesite.org/
    - Credits: https://voluntary.nichesite.org/credits.html
 
-8. OS Map theme
-   - Additional bundled Mapsforge theme.
+8. OS Map theme (Karl Chick)
+   - Additional bundled Mapsforge theme inspired by UK Ordnance Survey map conventions.
+   - Theme discussion: https://forum.locusmap.eu/index.php?topic=7000.msg59948#msg59948
 
 9. OpenStreetMap contributors
    - Map data attribution:

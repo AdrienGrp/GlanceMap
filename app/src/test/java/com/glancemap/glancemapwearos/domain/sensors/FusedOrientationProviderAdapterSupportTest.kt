@@ -134,6 +134,26 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
+    fun unusableRestartSamplesStayPendingEvenAfterConfirmationBudget() {
+        val decision =
+            resolveFusedRestartHeadingDecision(
+                pendingHeadingDeg = 4.2f,
+                displayHeadingDeg = 5.0f,
+                pendingAtElapsedMs = 100L,
+                nowElapsedMs = 320L,
+                pendingSampleCount = 3,
+                timeoutMs = 160L,
+                headingErrorDeg = 180f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
+        assertEquals(FusedRestartHeadingAction.AWAIT_PENDING, decision.action)
+        assertEquals(4.2f, decision.nextPendingHeadingDeg)
+        assertEquals(4, decision.sampleCount)
+        assertNull(decision.confirmReason)
+    }
+
+    @Test
     fun relockLargeJumpNeedsConfirmationWhenFusedConfidenceIsWeak() {
         val action =
             resolveFusedLargeJumpAction(
@@ -252,11 +272,36 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
+    fun bootstrapSensorHeadingContinuesWhenFreshFusedHeadingIsUnreliable() {
+        val fusedState =
+            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
+                headingSource = HeadingSource.FUSED_ORIENTATION,
+                accuracy = android.hardware.SensorManager.SENSOR_STATUS_UNRELIABLE,
+                headingSampleElapsedRealtimeMs = 1_000L,
+                headingSampleStale = false,
+            )
+        val bootstrapState =
+            initialCompassRenderState(providerType = CompassProviderType.SENSOR_MANAGER).copy(
+                headingDeg = 212f,
+                accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
+                headingSource = HeadingSource.ROTATION_VECTOR,
+            )
+
+        assertTrue(
+            shouldUseFusedBootstrapHeading(
+                fusedRenderState = fusedState,
+                bootstrapRenderState = bootstrapState,
+                nowElapsedMs = 1_200L,
+            ),
+        )
+    }
+
+    @Test
     fun recentCachedFusedHeadingSuppressesBootstrapBridgeDuringWarmRestart() {
         val fusedState =
             initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
                 headingDeg = 184f,
-                accuracy = android.hardware.SensorManager.SENSOR_STATUS_UNRELIABLE,
+                accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSampleElapsedRealtimeMs = 10_000L,
                 headingSampleStale = true,
                 headingSource = HeadingSource.NONE,
@@ -275,5 +320,39 @@ class FusedOrientationProviderAdapterSupportTest {
                 nowElapsedMs = 14_000L,
             ),
         )
+    }
+
+    @Test
+    fun unusableFusedHeadingTriggersFallbackAfterSamplesAndDuration() {
+        val first =
+            computeFusedUnusableHeadingUpdate(
+                nowElapsedMs = 1_000L,
+                consecutiveUnusableSamples = 0,
+                firstUnusableSampleAtElapsedMs = 0L,
+                minSamples = 3,
+                minDurationMs = 1_000L,
+            )
+        val second =
+            computeFusedUnusableHeadingUpdate(
+                nowElapsedMs = 1_500L,
+                consecutiveUnusableSamples = first.state.consecutiveSamples,
+                firstUnusableSampleAtElapsedMs = first.state.firstSampleAtElapsedMs,
+                minSamples = 3,
+                minDurationMs = 1_000L,
+            )
+        val third =
+            computeFusedUnusableHeadingUpdate(
+                nowElapsedMs = 2_100L,
+                consecutiveUnusableSamples = second.state.consecutiveSamples,
+                firstUnusableSampleAtElapsedMs = second.state.firstSampleAtElapsedMs,
+                minSamples = 3,
+                minDurationMs = 1_000L,
+            )
+
+        assertFalse(first.shouldFallback)
+        assertFalse(second.shouldFallback)
+        assertTrue(third.shouldFallback)
+        assertEquals(3, third.state.consecutiveSamples)
+        assertEquals(1_100L, third.durationMs)
     }
 }

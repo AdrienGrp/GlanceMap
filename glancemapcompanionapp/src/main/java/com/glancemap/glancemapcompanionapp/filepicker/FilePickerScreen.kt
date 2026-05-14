@@ -1,3 +1,10 @@
+@file:Suppress(
+    "FunctionName",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+)
+
 package com.glancemap.glancemapcompanionapp.filepicker
 
 import android.Manifest
@@ -221,6 +228,28 @@ fun FilePickerScreen(
                             ThemeLegendLink(
                                 label = "Open theme website",
                                 url = "https://voluntary.nichesite.org/",
+                            ),
+                        ),
+                ),
+                ThemeLegendSource(
+                    label = "OS Map",
+                    links =
+                        listOf(
+                            ThemeLegendLink(
+                                label = "Open day legend PDF",
+                                url =
+                                    "https://drive.google.com/uc?export=download&" +
+                                        "id=1PE0eBzJnGMbDs9a_V_uhQQa0db5RK-Zs",
+                            ),
+                            ThemeLegendLink(
+                                label = "Open night legend PDF",
+                                url =
+                                    "https://drive.google.com/uc?export=download&" +
+                                        "id=1OwAeuBtYN-XxjGkpOs3SrdYAUwYXDets",
+                            ),
+                            ThemeLegendLink(
+                                label = "Open theme discussion",
+                                url = "https://forum.locusmap.eu/index.php?topic=7000.msg59948#msg59948",
                             ),
                         ),
                 ),
