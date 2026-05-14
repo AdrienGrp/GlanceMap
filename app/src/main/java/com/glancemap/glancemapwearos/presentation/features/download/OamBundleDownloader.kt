@@ -1172,7 +1172,7 @@ class OamBundleDownloader(
     }
 }
 
-private enum class RemoteMetadataComparison {
+internal enum class RemoteMetadataComparison {
     SAME,
     CHANGED,
     UNKNOWN,
@@ -1183,16 +1183,26 @@ private val OamRemoteFileMetadata.metadataValues: List<Any?>
 
 private fun OamRemoteFileMetadata.isComparable(): Boolean = metadataValues.any { it != null }
 
-private fun OamRemoteFileMetadata.compareWith(other: OamRemoteFileMetadata): RemoteMetadataComparison =
+internal fun OamRemoteFileMetadata.compareWith(other: OamRemoteFileMetadata): RemoteMetadataComparison =
     when {
         url != other.url -> RemoteMetadataComparison.CHANGED
-        entityTag != null && other.entityTag != null -> compareNullableValues(entityTag, other.entityTag)
+        entityTag != null && other.entityTag != null && entityTag == other.entityTag -> RemoteMetadataComparison.SAME
+        hasSameStableIdentity(other) -> RemoteMetadataComparison.SAME
+        entityTag != null && other.entityTag != null -> RemoteMetadataComparison.CHANGED
         lastModifiedMillis != null && other.lastModifiedMillis != null ->
             compareNullableValues(lastModifiedMillis, other.lastModifiedMillis)
         contentLengthBytes != null && other.contentLengthBytes != null ->
             compareNullableValues(contentLengthBytes, other.contentLengthBytes)
         else -> RemoteMetadataComparison.UNKNOWN
     }
+
+private fun OamRemoteFileMetadata.hasSameStableIdentity(other: OamRemoteFileMetadata): Boolean =
+    lastModifiedMillis != null &&
+        other.lastModifiedMillis != null &&
+        contentLengthBytes != null &&
+        other.contentLengthBytes != null &&
+        lastModifiedMillis == other.lastModifiedMillis &&
+        contentLengthBytes == other.contentLengthBytes
 
 private fun Throwable.isHttpNotFound(): Boolean = message?.contains("HTTP 404", ignoreCase = true) == true
 
