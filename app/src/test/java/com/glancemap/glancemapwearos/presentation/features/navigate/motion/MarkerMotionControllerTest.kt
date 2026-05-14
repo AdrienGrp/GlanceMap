@@ -428,6 +428,60 @@ class MarkerMotionControllerTest {
     }
 
     @Test
+    fun autoFusedRepeatedClampCatchesUpToGoodWalkingFixes() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+        val target1 = moveLatLong(base, bearing = 20f, distanceMeters = 30f)
+        val target2 = moveLatLong(base, bearing = 20f, distanceMeters = 42f)
+        val target3 = moveLatLong(base, bearing = 20f, distanceMeters = 55f)
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 110_000L,
+            fixElapsedMs = 110_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1.4f,
+            rawBearingDeg = 20f,
+        )
+        controller.onGpsFix(
+            latLong = target1,
+            nowElapsedMs = 113_000L,
+            fixElapsedMs = 113_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1.4f,
+            rawBearingDeg = 20f,
+        )
+        controller.onGpsFix(
+            latLong = target2,
+            nowElapsedMs = 116_000L,
+            fixElapsedMs = 116_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1.4f,
+            rawBearingDeg = 20f,
+        )
+        controller.onGpsFix(
+            latLong = target3,
+            nowElapsedMs = 119_000L,
+            fixElapsedMs = 119_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1.4f,
+            rawBearingDeg = 20f,
+        )
+        assertEquals("auto_fused_catch_up", MarkerMotionTelemetry.latestSnapshot().reason)
+
+        val settled =
+            controller.predict(
+                nowElapsedMs = 119_400L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: base
+
+        assertTrue(distanceMeters(settled, target3) < 2f)
+        assertEquals(2, MarkerMotionTelemetry.summary().clampedCorrections)
+    }
+
+    @Test
     fun watchGpsSustainedBikeLagCatchesUpAfterRepeatedClamps() {
         MarkerMotionTelemetry.clear()
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
