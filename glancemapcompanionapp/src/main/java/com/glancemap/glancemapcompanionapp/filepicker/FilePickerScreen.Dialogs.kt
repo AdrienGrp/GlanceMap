@@ -336,15 +336,13 @@ internal fun FilePickerQuickGuideDialog(
                         QuickGuidePage(
                             title = "Welcome to GlanceMap Companion",
                             intro =
-                                "Use this phone app to prepare and send maps, routes, POI, GPX files, " +
-                                    "and routing data to your watch.",
+                                "Use this phone app to prepare offline files for your watch and manage Live Tracking.",
                             lines =
                                 listOf(
-                                    "GlanceMap does not own maps; download them from external sources, " +
-                                        "then send them to the watch.",
+                                    "Send maps, GPX routes, POI, routing data, and elevation files to the watch.",
+                                    "Start Live Tracking from the phone to share your GPS position and track links.",
+                                    "GlanceMap does not own maps; download them from external sources first.",
                                     "Once files are on the watch, GlanceMap can work offline without the phone.",
-                                    "During navigation, keeping phone and watch connected is recommended for " +
-                                        "battery saving.",
                                     QUICK_GUIDE_BOOK_ICON_LINE,
                                 ),
                         ),
@@ -480,13 +478,13 @@ internal fun FilePickerQuickGuideDialog(
     val showBodyTitle = !isWelcomePage && pages.size > 1
     val titleHeight =
         when {
-            isWelcomePage -> 72.dp
+            isWelcomePage -> 52.dp
             pages.size > 1 -> 72.dp
             else -> 48.dp
         }
     val bodyMaxHeight =
         if (isWelcomePage) {
-            adaptive.quickGuideDialogMaxHeight.coerceAtMost(360.dp)
+            adaptive.quickGuideDialogMaxHeight.coerceAtMost(320.dp)
         } else {
             adaptive.quickGuideDialogMaxHeight
         }
