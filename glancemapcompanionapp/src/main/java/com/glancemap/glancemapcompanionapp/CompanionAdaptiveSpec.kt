@@ -46,7 +46,7 @@ fun companionAdaptiveSpec(
                 sectionGap = 8.dp,
                 helpIconButtonSize = 30.dp,
                 helpIconSize = 18.dp,
-                quickGuideDialogMaxHeight = 360.dp,
+                quickGuideDialogMaxHeight = 340.dp,
                 refugesDialogMaxHeight = 380.dp,
             )
 
@@ -63,7 +63,7 @@ fun companionAdaptiveSpec(
                 sectionGap = 8.dp,
                 helpIconButtonSize = 34.dp,
                 helpIconSize = 20.dp,
-                quickGuideDialogMaxHeight = 460.dp,
+                quickGuideDialogMaxHeight = 440.dp,
                 refugesDialogMaxHeight = 500.dp,
             )
 
@@ -80,7 +80,7 @@ fun companionAdaptiveSpec(
                 sectionGap = 8.dp,
                 helpIconButtonSize = 36.dp,
                 helpIconSize = 21.dp,
-                quickGuideDialogMaxHeight = 560.dp,
+                quickGuideDialogMaxHeight = 540.dp,
                 refugesDialogMaxHeight = 620.dp,
             )
     }
