@@ -372,15 +372,7 @@ class SelfHealFailoverCoordinatorTest {
         val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
         telemetry.setDebugEnabled(false)
         val engine = LocationEngine(telemetry)
-        engine.markRequestApplied(
-            RequestSpec(
-                priority = Priority.PRIORITY_HIGH_ACCURACY,
-                intervalMs = 3_000L,
-                minDistanceMeters = 1f,
-                mode = LocationRuntimeMode.INTERACTIVE,
-                sourceMode = LocationSourceMode.WATCH_GPS,
-            ),
-        )
+        engine.markRequestApplied(interactiveWatchGpsRequestSpec())
         var requestRefreshes = 0
         val coordinator =
             SelfHealFailoverCoordinator(
@@ -415,15 +407,7 @@ class SelfHealFailoverCoordinatorTest {
         )
         assertEquals(1, requestRefreshes)
 
-        engine.markRequestApplied(
-            RequestSpec(
-                priority = Priority.PRIORITY_HIGH_ACCURACY,
-                intervalMs = 3_000L,
-                minDistanceMeters = 1f,
-                mode = LocationRuntimeMode.INTERACTIVE,
-                sourceMode = LocationSourceMode.WATCH_GPS,
-            ),
-        )
+        engine.markRequestApplied(interactiveWatchGpsRequestSpec())
         coordinator.maybeTriggerInteractiveSelfHealNow(
             nowElapsedMs = 50_000L,
             interactiveTracking = true,
@@ -442,4 +426,13 @@ class SelfHealFailoverCoordinatorTest {
     fun goodWatchGpsAccuracyCountsAsAutoFusedRecovery() {
         assertTrue(isWatchGpsGoodEnoughForAutoFusedRecovery(35f))
     }
+
+    private fun interactiveWatchGpsRequestSpec(): RequestSpec =
+        RequestSpec(
+            priority = Priority.PRIORITY_HIGH_ACCURACY,
+            intervalMs = 3_000L,
+            minDistanceMeters = 1f,
+            mode = LocationRuntimeMode.INTERACTIVE,
+            sourceMode = LocationSourceMode.WATCH_GPS,
+        )
 }

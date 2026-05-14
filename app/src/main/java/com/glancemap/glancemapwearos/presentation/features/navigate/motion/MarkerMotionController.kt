@@ -531,41 +531,63 @@ private class MarkerMotionGpsFixProcessor(
         val sustainedLagCatchUpReason = sustainedLagCatchUpReason(context, motion, correction)
         val correctionTarget =
             resolveCorrectionTarget(
-                request =
-                    CorrectionTargetRequest(
-                        currentDisplayed = correction.currentDisplayed,
-                        targetLatLong = context.fix.latLong,
-                        correctionDistanceM = correction.correctionDistanceM,
-                        accuracyM = context.accuracyM,
-                        speedMps = motion.speedMps,
-                        allowLargeCorrection =
-                            context.fix.allowLargeCorrection ||
-                                sustainedLagCatchUpReason != null ||
-                                isSourceModeTransition(context),
-                    ),
+                request = correctionTargetRequest(context, motion, correction, sustainedLagCatchUpReason),
             )
         updateClampTelemetry(context, motion, correction, correctionTarget)
-        if (shouldApplyCorrectionImmediately(context, sustainedLagCatchUpReason)) {
-            state.displayedLatLong = correctionTarget.targetLatLong
-            state.correctionBlend = null
-            recordFixAccepted(
-                context = context,
-                motion = motion,
-                event =
-                    FixAcceptedTelemetry(
-                        mode = MarkerMotionMode.FIXED,
-                        reason =
-                            correctionReason(
-                                context = context,
-                                sustainedLagCatchUpReason = sustainedLagCatchUpReason,
-                                wasClamped = correctionTarget.wasClamped,
-                            ),
-                        correctionDistanceM = correctionTarget.visibleCorrectionDistanceM,
-                        blendDurationMs = null,
-                    ),
-            )
-            return correctionTarget.targetLatLong
+        return if (shouldApplyCorrectionImmediately(context, sustainedLagCatchUpReason)) {
+            applyImmediateCorrection(context, motion, correctionTarget, sustainedLagCatchUpReason)
+        } else {
+            beginCorrectionBlend(context, motion, correction, correctionTarget, sustainedLagCatchUpReason)
         }
+    }
+
+    private fun correctionTargetRequest(
+        context: GpsFixContext,
+        motion: ResolvedMotion,
+        correction: CorrectionContext,
+        sustainedLagCatchUpReason: String?,
+    ): CorrectionTargetRequest =
+        CorrectionTargetRequest(
+            currentDisplayed = correction.currentDisplayed,
+            targetLatLong = context.fix.latLong,
+            correctionDistanceM = correction.correctionDistanceM,
+            accuracyM = context.accuracyM,
+            speedMps = motion.speedMps,
+            allowLargeCorrection =
+                context.fix.allowLargeCorrection ||
+                    sustainedLagCatchUpReason != null ||
+                    isSourceModeTransition(context),
+        )
+
+    private fun applyImmediateCorrection(
+        context: GpsFixContext,
+        motion: ResolvedMotion,
+        correctionTarget: CorrectionTargetDecision,
+        sustainedLagCatchUpReason: String?,
+    ): LatLong {
+        state.displayedLatLong = correctionTarget.targetLatLong
+        state.correctionBlend = null
+        recordFixAccepted(
+            context = context,
+            motion = motion,
+            event =
+                FixAcceptedTelemetry(
+                    mode = MarkerMotionMode.FIXED,
+                    reason = correctionReason(context, sustainedLagCatchUpReason, correctionTarget.wasClamped),
+                    correctionDistanceM = correctionTarget.visibleCorrectionDistanceM,
+                    blendDurationMs = null,
+                ),
+        )
+        return correctionTarget.targetLatLong
+    }
+
+    private fun beginCorrectionBlend(
+        context: GpsFixContext,
+        motion: ResolvedMotion,
+        correction: CorrectionContext,
+        correctionTarget: CorrectionTargetDecision,
+        sustainedLagCatchUpReason: String?,
+    ): LatLong {
         state.correctionBlend =
             CorrectionBlend(
                 from = correction.currentDisplayed,
@@ -579,12 +601,7 @@ private class MarkerMotionGpsFixProcessor(
             event =
                 FixAcceptedTelemetry(
                     mode = MarkerMotionMode.BLEND,
-                    reason =
-                        correctionReason(
-                            context = context,
-                            sustainedLagCatchUpReason = sustainedLagCatchUpReason,
-                            wasClamped = correctionTarget.wasClamped,
-                        ),
+                    reason = correctionReason(context, sustainedLagCatchUpReason, correctionTarget.wasClamped),
                     correctionDistanceM = correctionTarget.visibleCorrectionDistanceM,
                     blendDurationMs = correctionBlendDurationMs,
                 ),

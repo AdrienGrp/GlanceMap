@@ -11,6 +11,7 @@ import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.reader.MapFile
 import java.io.File
 
+@Suppress("FunctionNaming", "LongParameterList")
 @Composable
 internal fun OfflineStartCenteringEffect(
     isOfflineMode: Boolean,

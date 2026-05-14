@@ -11,6 +11,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+@Suppress("LargeClass")
 class MarkerMotionControllerTest {
     @Test
     fun predictsForwardFromDerivedMotionWhenRawSpeedIsMissing() {

@@ -346,24 +346,22 @@ internal class SelfHealFailoverCoordinator(
         thresholdMs: Long,
         expectedIntervalMs: Long,
     ): Boolean {
-        if (fixGapMs < thresholdMs) return false
-        if (lastRequestAppliedAtElapsedMs() <= 0L) return false
-        val sinceLastAppliedMs = (nowElapsedMs - lastRequestAppliedAtElapsedMs()).coerceAtLeast(0L)
-        if (sinceLastAppliedMs < thresholdMs) return false
-        val currentSourceMode = engine.currentSourceModeOrNull() ?: return false
-        if (
-            currentSourceMode != LocationSourceMode.AUTO_FUSED &&
-            currentSourceMode != LocationSourceMode.WATCH_GPS
-        ) {
-            return false
-        }
+        val lastRequestAppliedAt = lastRequestAppliedAtElapsedMs()
+        val sinceLastAppliedMs = (nowElapsedMs - lastRequestAppliedAt).coerceAtLeast(0L)
+        val currentSourceMode = engine.currentSourceModeOrNull()
         val sinceLastHealMs =
             if (lastSelfHealAtElapsedMs > 0L) {
                 (nowElapsedMs - lastSelfHealAtElapsedMs).coerceAtLeast(0L)
             } else {
                 Long.MAX_VALUE
             }
-        if (sinceLastHealMs < SELF_HEAL_COOLDOWN_MS) return false
+        val shouldRefresh =
+            fixGapMs >= thresholdMs &&
+                lastRequestAppliedAt > 0L &&
+                sinceLastAppliedMs >= thresholdMs &&
+                currentSourceMode.isGpsSearchRefreshSourceMode() &&
+                sinceLastHealMs >= SELF_HEAL_COOLDOWN_MS
+        if (!shouldRefresh) return false
 
         lastSelfHealAtElapsedMs = nowElapsedMs
         telemetry.logSelfHealTriggered(
@@ -376,6 +374,14 @@ internal class SelfHealFailoverCoordinator(
         serviceScope.launch { requestLocationUpdateIfNeeded() }
         return true
     }
+
+    private fun LocationSourceMode?.isGpsSearchRefreshSourceMode(): Boolean =
+        when (this) {
+            LocationSourceMode.AUTO_FUSED,
+            LocationSourceMode.WATCH_GPS,
+            -> true
+            else -> false
+        }
 
     private fun maybeTriggerPassiveExperimentNoFixFailover(
         nowElapsedMs: Long,
