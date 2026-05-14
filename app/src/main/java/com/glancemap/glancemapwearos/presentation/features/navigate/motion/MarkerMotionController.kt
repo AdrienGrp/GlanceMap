@@ -520,7 +520,7 @@ private class MarkerMotionGpsFixProcessor(
                     ),
             )
         updateClampTelemetry(context, motion, correction, correctionTarget)
-        if (shouldApplyWatchGpsCorrectionImmediately(context)) {
+        if (shouldApplyCorrectionImmediately(context, sustainedLagCatchUpReason)) {
             state.displayedLatLong = correctionTarget.targetLatLong
             state.correctionBlend = null
             recordFixAccepted(
@@ -591,9 +591,13 @@ private class MarkerMotionGpsFixProcessor(
         }
     }
 
-    private fun shouldApplyWatchGpsCorrectionImmediately(
+    private fun shouldApplyCorrectionImmediately(
         context: GpsFixContext,
-    ): Boolean = context.fix.sourceMode == LocationSourceMode.WATCH_GPS
+        sustainedLagCatchUpReason: String?,
+    ): Boolean =
+        context.fix.sourceMode == LocationSourceMode.WATCH_GPS ||
+            sustainedLagCatchUpReason != null ||
+            isSourceModeTransition(context)
 
     private fun isSourceModeTransition(context: GpsFixContext): Boolean =
         context.previousFix?.sourceMode != null &&

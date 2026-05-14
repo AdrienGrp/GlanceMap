@@ -366,16 +366,18 @@ class MarkerMotionControllerTest {
             rawBearingDeg = 0f,
             sourceMode = LocationSourceMode.WATCH_GPS,
         )
-        controller.onGpsFix(
-            latLong = phoneFix,
-            nowElapsedMs = 102_200L,
-            fixElapsedMs = 102_200L,
-            accuracyM = 16f,
-            rawSpeedMps = 1.1f,
-            rawBearingDeg = 33f,
-            sourceMode = LocationSourceMode.AUTO_FUSED,
-        )
+        val reanchored =
+            controller.onGpsFix(
+                latLong = phoneFix,
+                nowElapsedMs = 102_200L,
+                fixElapsedMs = 102_200L,
+                accuracyM = 16f,
+                rawSpeedMps = 1.1f,
+                rawBearingDeg = 33f,
+                sourceMode = LocationSourceMode.AUTO_FUSED,
+            )
         assertEquals("source_switch", MarkerMotionTelemetry.latestSnapshot().reason)
+        assertTrue(distanceMeters(reanchored, phoneFix) < 2f)
 
         val settled =
             controller.predict(
@@ -460,15 +462,17 @@ class MarkerMotionControllerTest {
             rawSpeedMps = 1.4f,
             rawBearingDeg = 20f,
         )
-        controller.onGpsFix(
-            latLong = target3,
-            nowElapsedMs = 119_000L,
-            fixElapsedMs = 119_000L,
-            accuracyM = 8f,
-            rawSpeedMps = 1.4f,
-            rawBearingDeg = 20f,
-        )
+        val catchUpDisplay =
+            controller.onGpsFix(
+                latLong = target3,
+                nowElapsedMs = 119_000L,
+                fixElapsedMs = 119_000L,
+                accuracyM = 8f,
+                rawSpeedMps = 1.4f,
+                rawBearingDeg = 20f,
+            )
         assertEquals("auto_fused_catch_up", MarkerMotionTelemetry.latestSnapshot().reason)
+        assertTrue(distanceMeters(catchUpDisplay, target3) < 2f)
 
         val settled =
             controller.predict(
