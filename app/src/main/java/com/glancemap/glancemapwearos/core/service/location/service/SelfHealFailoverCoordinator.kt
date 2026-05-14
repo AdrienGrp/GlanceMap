@@ -45,9 +45,36 @@ internal class SelfHealFailoverCoordinator(
 
     fun isAutoFusedFallbackToWatchGps(): Boolean = autoFusedFallbackToWatchGps
 
-    fun onPhoneConnectionStateChecked(phoneConnected: Boolean) {
+    fun onPhoneConnectionStateChecked(
+        phoneConnected: Boolean,
+        nowElapsedMs: Long = 0L,
+    ) {
         if (phoneConnected && autoFusedFallbackToWatchGps) {
+            val fallbackDurationMs =
+                if (autoFusedFallbackSinceElapsedMs > 0L && nowElapsedMs > 0L) {
+                    (nowElapsedMs - autoFusedFallbackSinceElapsedMs).coerceAtLeast(0L)
+                } else {
+                    0L
+                }
+            val lastAcceptedFixAt = lastAnyAcceptedFixAtElapsedMs()
+            val fixGapMs =
+                if (lastAcceptedFixAt > 0L && nowElapsedMs > 0L) {
+                    (nowElapsedMs - lastAcceptedFixAt).coerceAtLeast(0L)
+                } else {
+                    0L
+                }
             lastAutoFusedRecoveryProbeAtElapsedMs = 0L
+            clearAutoFusedFailoverStateInternal(reason = "phone_reconnected")
+            if (nowElapsedMs > 0L) {
+                autoFusedRecoveryGraceUntilElapsedMs = nowElapsedMs + AUTO_FUSED_RECOVERY_GRACE_MS
+            }
+            telemetry.logAutoFusedRecoveryTriggered(
+                reason = "phone_reconnected",
+                fallbackDurationMs = fallbackDurationMs,
+                fixGapMs = fixGapMs,
+                expectedIntervalMs = expectedIntervalMs(),
+            )
+            requestLocationUpdateIfNeeded()
         }
     }
 
@@ -427,15 +454,22 @@ internal class SelfHealFailoverCoordinator(
                 .coerceAtLeast(AUTO_FUSED_RECOVERY_PROBE_MIN_FALLBACK_MS)
         if (fallbackDurationMs < minProbeDurationMs) return false
 
+        val knownPhoneConnected = phoneConnected()
         val sinceLastProbeMs =
             if (lastAutoFusedRecoveryProbeAtElapsedMs > 0L) {
                 (nowElapsedMs - lastAutoFusedRecoveryProbeAtElapsedMs).coerceAtLeast(0L)
             } else {
                 Long.MAX_VALUE
             }
-        if (sinceLastProbeMs < AUTO_FUSED_RECOVERY_PROBE_COOLDOWN_MS) return false
+        val recoveryProbeCooldownMs =
+            if (knownPhoneConnected == false) {
+                DISCONNECTED_PHONE_RECOVERY_CHECK_COOLDOWN_MS
+            } else {
+                AUTO_FUSED_RECOVERY_PROBE_COOLDOWN_MS
+            }
+        if (sinceLastProbeMs < recoveryProbeCooldownMs) return false
 
-        if (phoneConnected() == false) {
+        if (knownPhoneConnected == false) {
             lastAutoFusedRecoveryProbeAtElapsedMs = nowElapsedMs
             requestLocationUpdateIfNeeded()
             return true
@@ -620,6 +654,7 @@ private const val AUTO_FUSED_RECOVERY_MIN_FALLBACK_MS = 20_000L
 private const val AUTO_FUSED_RECOVERY_PROBE_MIN_MULTIPLIER = 6L
 private const val AUTO_FUSED_RECOVERY_PROBE_MIN_FALLBACK_MS = 30_000L
 private const val AUTO_FUSED_RECOVERY_PROBE_COOLDOWN_MS = 45_000L
+private const val DISCONNECTED_PHONE_RECOVERY_CHECK_COOLDOWN_MS = 10_000L
 private const val AUTO_FUSED_RECOVERY_GRACE_MS = 15_000L
 private const val PASSIVE_EXPERIMENT_NO_FIX_FAILOVER_MAX_GAP_MS = 8_000L
 private const val GPS_SEARCH_REFRESH_MIN_GAP_MS = 15_000L

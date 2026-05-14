@@ -81,6 +81,8 @@ internal fun rememberNavigateLocationUiState(
 
     val latestShouldFollowPosition = rememberUpdatedState(shouldFollowPosition)
     val latestSuppressLocationMarker = rememberUpdatedState(suppressLocationMarker)
+    val latestShouldTrackLocation = rememberUpdatedState(shouldTrackLocation)
+    val latestScreenState = rememberUpdatedState(screenState)
 
     var locationMarker by remember { mutableStateOf<RotatableMarker?>(null) }
     var lastRenderedMarkerLatLong by remember { mutableStateOf<LatLong?>(null) }
@@ -587,21 +589,28 @@ internal fun rememberNavigateLocationUiState(
     }
 
     // Motion prediction loop.
-    LaunchedEffect(
-        shouldTrackLocation,
-        screenState,
-        mapView,
-        markerMotionController,
-    ) {
-        if (!shouldTrackLocation) return@LaunchedEffect
-        if (screenState.isNonInteractive) return@LaunchedEffect
-
+    LaunchedEffect(mapView, markerMotionController) {
         while (isActive) {
+            val predictionActive =
+                latestShouldTrackLocation.value &&
+                    !latestScreenState.value.isNonInteractive
+            delay(
+                if (predictionActive) {
+                    markerMotionController.suggestedPredictionTickMs()
+                } else {
+                    MARKER_PREDICTION_INACTIVE_TICK_MS
+                },
+            )
+            if (
+                !latestShouldTrackLocation.value ||
+                latestScreenState.value.isNonInteractive
+            ) {
+                continue
+            }
             if (latestSuppressLocationMarker.value) {
                 delay(80L)
                 continue
             }
-            delay(markerMotionController.suggestedPredictionTickMs())
             val nowElapsedMs = android.os.SystemClock.elapsedRealtime()
             if (
                 holdMarkerUntilFreshFix ||
@@ -711,6 +720,7 @@ internal fun rememberNavigateLocationUiState(
 }
 
 private const val MARKER_UPDATE_EPSILON_DEG2 = 1e-11
+private const val MARKER_PREDICTION_INACTIVE_TICK_MS = 1_000L
 private const val WAKE_REACQUIRE_TIMEOUT_MS = 6_000L
 private const val WAKE_REACQUIRE_COOLDOWN_MS = 60_000L
 private const val POST_WAKE_PREDICTION_GRACE_MS = 700L

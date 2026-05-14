@@ -534,7 +534,10 @@ class LocationService : Service() {
             } else {
                 null
             }
-        updateLatestPhoneConnection(phoneConnected)
+        updateLatestPhoneConnection(
+            phoneConnected = phoneConnected,
+            nowElapsedMs = nowElapsedMs,
+        )
         val shouldCheckWatchGps =
             requestSpec.sourceMode == LocationSourceMode.WATCH_GPS ||
                 requestSpec.sourceMode == LocationSourceMode.AUTO_FUSED
@@ -593,10 +596,16 @@ class LocationService : Service() {
         }
     }
 
-    private fun updateLatestPhoneConnection(phoneConnected: Boolean?) {
+    private fun updateLatestPhoneConnection(
+        phoneConnected: Boolean?,
+        nowElapsedMs: Long,
+    ) {
         if (phoneConnected != null) {
             latestPhoneConnected = phoneConnected
-            selfHealFailoverCoordinator.onPhoneConnectionStateChecked(phoneConnected)
+            selfHealFailoverCoordinator.onPhoneConnectionStateChecked(
+                phoneConnected = phoneConnected,
+                nowElapsedMs = nowElapsedMs,
+            )
         }
     }
 
