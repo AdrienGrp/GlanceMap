@@ -434,9 +434,9 @@ class MarkerMotionControllerTest {
         MarkerMotionTelemetry.clear()
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
         val base = LatLong(48.8566, 2.3522)
-        val target1 = moveLatLong(base, bearing = 20f, distanceMeters = 30f)
-        val target2 = moveLatLong(base, bearing = 20f, distanceMeters = 42f)
-        val target3 = moveLatLong(base, bearing = 20f, distanceMeters = 55f)
+        val target1 = moveLatLong(base, bearing = 20f, distanceMeters = 40f)
+        val target2 = moveLatLong(base, bearing = 20f, distanceMeters = 75f)
+        val target3 = moveLatLong(base, bearing = 20f, distanceMeters = 110f)
 
         controller.onGpsFix(
             latLong = base,
@@ -483,6 +483,40 @@ class MarkerMotionControllerTest {
 
         assertTrue(distanceMeters(settled, target3) < 2f)
         assertEquals(2, MarkerMotionTelemetry.summary().clampedCorrections)
+    }
+
+    @Test
+    fun gpsFixAdvancesPreviousBlendWhenPredictionLoopDoesNotRun() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+        val bearing = 180f
+        var display = base
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 130_000L,
+            fixElapsedMs = 130_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1.3f,
+            rawBearingDeg = bearing,
+        )
+        for (index in 1..8) {
+            val target = moveLatLong(base, bearing = bearing, distanceMeters = index * 5f)
+            display =
+                controller.onGpsFix(
+                    latLong = target,
+                    nowElapsedMs = 130_000L + index * 3_000L,
+                    fixElapsedMs = 130_000L + index * 3_000L,
+                    accuracyM = 8f,
+                    rawSpeedMps = 1.3f,
+                    rawBearingDeg = bearing,
+                )
+        }
+
+        val previousTarget = moveLatLong(base, bearing = bearing, distanceMeters = 35f)
+        assertTrue(distanceMeters(display, previousTarget) < 2f)
+        assertEquals(0, MarkerMotionTelemetry.summary().clampedCorrections)
     }
 
     @Test

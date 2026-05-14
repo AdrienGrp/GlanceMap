@@ -247,8 +247,33 @@ private class MarkerMotionGpsFixProcessor(
     private val correctionBlendDurationMs: Long,
 ) {
     fun onGpsFix(fix: MarkerMotionGpsFix): LatLong {
+        val candidateContext = buildGpsFixContext(fix)
+        rejectGpsFix(candidateContext)?.let { return it }
+
+        advanceActiveCorrectionBlend(fix.nowElapsedMs)
         val context = buildGpsFixContext(fix)
-        return rejectGpsFix(context) ?: acceptGpsFix(context)
+        return acceptGpsFix(context)
+    }
+
+    private fun advanceActiveCorrectionBlend(nowElapsedMs: Long) {
+        val blend = state.correctionBlend ?: return
+        val elapsedMs = (nowElapsedMs - blend.startElapsedMs).coerceAtLeast(0L)
+        val fraction = (elapsedMs.toFloat() / blend.durationMs.toFloat()).coerceIn(0f, 1f)
+        val blended = lerpLatLong(blend.from, blend.to, fraction)
+        state.displayedLatLong = blended
+        state.lastAcceptedFix?.let { fix ->
+            MarkerMotionTelemetry.recordBlendState(
+                nowElapsedMs = nowElapsedMs,
+                fixAgeMs = (nowElapsedMs - fix.fixElapsedMs).coerceAtLeast(0L),
+                accuracyM = fix.accuracyM,
+                speedMps = fix.speedMps,
+                bearingDeg = fix.bearingDeg,
+                correctionDistanceM = distanceMeters(blended, blend.to),
+            )
+        }
+        if (fraction >= 1f) {
+            state.correctionBlend = null
+        }
     }
 
     private fun buildGpsFixContext(fix: MarkerMotionGpsFix): GpsFixContext {
