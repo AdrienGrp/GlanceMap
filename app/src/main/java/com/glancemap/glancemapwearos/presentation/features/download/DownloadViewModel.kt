@@ -516,6 +516,7 @@ class DownloadViewModel(
                     downloader.downloadBundle(
                         area = area,
                         selection = selection,
+                        forceMapAndPoi = true,
                         forceRoutingSegments = true,
                     ) { progress ->
                         val detail = "${area.region} - ${progress.detail}"

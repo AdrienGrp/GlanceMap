@@ -153,6 +153,7 @@ class OamBundleDownloader(
     suspend fun downloadBundle(
         area: OamDownloadArea,
         selection: OamDownloadSelection,
+        forceMapAndPoi: Boolean = false,
         forceRoutingSegments: Boolean = false,
         onProgress: (OamDownloadProgress) -> Unit,
     ): OamInstalledBundle {
@@ -167,79 +168,109 @@ class OamBundleDownloader(
                 .toMutableMap()
         var mapFileName: String? = existingBundle?.mapFileName
         if (selection.includeMap) {
+            val existingMapFile =
+                if (forceMapAndPoi) {
+                    null
+                } else {
+                    existingMapFileForArea(area = area, knownFileName = existingBundle?.mapFileName)
+                }
             fetchRemoteMetadataOrNull(
                 RemoteFileRequest(
                     url = area.mapZipUrl,
                     fileName = remoteFileName(area.mapZipUrl),
                 ),
             )?.let { remoteFilesByUrl[it.url] = it }
-            val mapZip =
-                downloadFile(
-                    url = area.mapZipUrl,
-                    dir = downloadDir,
-                    fileName = "${area.id}.map.zip",
+            if (existingMapFile != null) {
+                mapFileName = existingMapFile.name
+                reportExistingFile(
                     label = "Map",
-                    progressDetail = "Map zip",
-                    bufferSize = OAM_ZIP_DOWNLOAD_BUFFER_SIZE,
-                    progressStepBytes = 2L * 1024 * 1024,
-                    fsync = false,
+                    file = existingMapFile,
                     onProgress = onProgress,
                 )
-            mapFileName =
-                extractFirstEntry(
-                    zipFile = mapZip,
-                    extension = ".map",
-                    label = "Map",
-                    onProgress = onProgress,
-                ) { fileName, input, expectedSize, progress ->
-                    mapRepository.saveMapFileAtomic(
-                        fileName = fileName,
-                        inputStream = input,
-                        expectedSize = expectedSize,
-                        resumeOffset = 0L,
-                        computeSha256 = false,
-                        onProgress = progress,
+            } else {
+                val mapZip =
+                    downloadFile(
+                        url = area.mapZipUrl,
+                        dir = downloadDir,
+                        fileName = "${area.id}.map.zip",
+                        label = "Map",
+                        progressDetail = "Map zip",
+                        bufferSize = OAM_ZIP_DOWNLOAD_BUFFER_SIZE,
+                        progressStepBytes = 2L * 1024 * 1024,
+                        fsync = false,
+                        onProgress = onProgress,
                     )
-                }
-            mapZip.delete()
+                mapFileName =
+                    extractFirstEntry(
+                        zipFile = mapZip,
+                        extension = ".map",
+                        label = "Map",
+                        onProgress = onProgress,
+                    ) { fileName, input, expectedSize, progress ->
+                        mapRepository.saveMapFileAtomic(
+                            fileName = fileName,
+                            inputStream = input,
+                            expectedSize = expectedSize,
+                            resumeOffset = 0L,
+                            computeSha256 = false,
+                            onProgress = progress,
+                        )
+                    }
+                mapZip.delete()
+            }
         }
 
         var poiFileName: String? = existingBundle?.poiFileName
         if (selection.includePoi) {
+            val existingPoiFile =
+                if (forceMapAndPoi) {
+                    null
+                } else {
+                    existingPoiFileForArea(area = area, knownFileName = existingBundle?.poiFileName)
+                }
             fetchRemoteMetadataOrNull(
                 RemoteFileRequest(
                     url = area.poiZipUrl,
                     fileName = remoteFileName(area.poiZipUrl),
                 ),
             )?.let { remoteFilesByUrl[it.url] = it }
-            val poiZip =
-                downloadFile(
-                    url = area.poiZipUrl,
-                    dir = downloadDir,
-                    fileName = "${area.id}.poi.zip",
+            if (existingPoiFile != null) {
+                poiFileName = existingPoiFile.name
+                reportExistingFile(
                     label = "POI",
-                    progressDetail = "POI zip",
-                    bufferSize = OAM_ZIP_DOWNLOAD_BUFFER_SIZE,
-                    progressStepBytes = 2L * 1024 * 1024,
-                    fsync = false,
+                    file = existingPoiFile,
                     onProgress = onProgress,
                 )
-            poiFileName =
-                extractFirstEntry(
-                    zipFile = poiZip,
-                    extension = ".poi",
-                    label = "POI",
-                    onProgress = onProgress,
-                ) { fileName, input, expectedSize, progress ->
-                    poiRepository.savePoiFileAtomic(
-                        fileName = fileName,
-                        inputStream = input,
-                        expectedSize = expectedSize,
-                        resumeOffset = 0L,
-                        onProgress = progress,
+            } else {
+                val poiZip =
+                    downloadFile(
+                        url = area.poiZipUrl,
+                        dir = downloadDir,
+                        fileName = "${area.id}.poi.zip",
+                        label = "POI",
+                        progressDetail = "POI zip",
+                        bufferSize = OAM_ZIP_DOWNLOAD_BUFFER_SIZE,
+                        progressStepBytes = 2L * 1024 * 1024,
+                        fsync = false,
+                        onProgress = onProgress,
                     )
-                }
-            poiZip.delete()
+                poiFileName =
+                    extractFirstEntry(
+                        zipFile = poiZip,
+                        extension = ".poi",
+                        label = "POI",
+                        onProgress = onProgress,
+                    ) { fileName, input, expectedSize, progress ->
+                        poiRepository.savePoiFileAtomic(
+                            fileName = fileName,
+                            inputStream = input,
+                            expectedSize = expectedSize,
+                            resumeOffset = 0L,
+                            onProgress = progress,
+                        )
+                    }
+                poiZip.delete()
+            }
         }
 
         var downloadedRoutingFileNames = existingBundle?.downloadedRoutingFileNames.orEmpty()
@@ -367,6 +398,54 @@ class OamBundleDownloader(
         return mapRepository
             .listMapFiles()
             .firstOrNull { file -> candidateNames.any { it.equals(file.name, ignoreCase = true) } }
+    }
+
+    private suspend fun existingMapFileForArea(
+        area: OamDownloadArea,
+        knownFileName: String?,
+    ): File? =
+        mapRepository
+            .listMapFiles()
+            .firstMatchingFileName(
+                knownFileName,
+                "${area.region}.map",
+            )
+
+    private suspend fun existingPoiFileForArea(
+        area: OamDownloadArea,
+        knownFileName: String?,
+    ): File? =
+        poiRepository
+            .listPoiFiles()
+            .firstMatchingFileName(
+                knownFileName,
+                "${area.region}.poi",
+            )
+
+    private fun List<File>.firstMatchingFileName(vararg candidateNames: String?): File? =
+        firstOrNull { file ->
+            candidateNames
+                .filterNotNull()
+                .any { candidate -> candidate.equals(file.name, ignoreCase = true) }
+        }
+
+    private fun reportExistingFile(
+        label: String,
+        file: File,
+        onProgress: (OamDownloadProgress) -> Unit,
+    ) {
+        DebugTelemetry.log(
+            OAM_DOWNLOAD_TELEMETRY_TAG,
+            "event=reuse_existing_file label=$label file=${file.name} bytes=${file.length().coerceAtLeast(0L)}",
+        )
+        onProgress(
+            OamDownloadProgress(
+                phase = "READY",
+                detail = "${file.name} already on watch",
+                bytesDone = file.length().coerceAtLeast(0L),
+                totalBytes = file.length().takeIf { it > 0L },
+            ),
+        )
     }
 
     private suspend fun downloadRoutingSegment(
