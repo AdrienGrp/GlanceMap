@@ -351,6 +351,46 @@ class MarkerMotionControllerTest {
     }
 
     @Test
+    fun sourceModeSwitchAllowsReanchorWithoutOutlierDropOrClamp() {
+        MarkerMotionTelemetry.clear()
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val watchFix = LatLong(48.8566, 2.3522)
+        val phoneFix = moveLatLong(watchFix, bearing = 70f, distanceMeters = 76f)
+
+        controller.onGpsFix(
+            latLong = watchFix,
+            nowElapsedMs = 100_000L,
+            fixElapsedMs = 100_000L,
+            accuracyM = 125f,
+            rawSpeedMps = 1.0f,
+            rawBearingDeg = 0f,
+            sourceMode = LocationSourceMode.WATCH_GPS,
+        )
+        controller.onGpsFix(
+            latLong = phoneFix,
+            nowElapsedMs = 102_200L,
+            fixElapsedMs = 102_200L,
+            accuracyM = 16f,
+            rawSpeedMps = 1.1f,
+            rawBearingDeg = 33f,
+            sourceMode = LocationSourceMode.AUTO_FUSED,
+        )
+        assertEquals("source_switch", MarkerMotionTelemetry.latestSnapshot().reason)
+
+        val settled =
+            controller.predict(
+                nowElapsedMs = 102_600L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ) ?: watchFix
+
+        val summary = MarkerMotionTelemetry.summary()
+        assertTrue(distanceMeters(settled, phoneFix) < 2f)
+        assertEquals(0, summary.outlierDrops)
+        assertEquals(0, summary.clampedCorrections)
+    }
+
+    @Test
     fun clampsLargeCorrectionDuringNormalInteractiveWalking() {
         MarkerMotionTelemetry.clear()
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
