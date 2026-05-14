@@ -50,6 +50,7 @@ internal fun MapOverlays(
     routeToolDraftPoints: List<LatLong>,
     poiViewModel: PoiViewModel,
     activePoiOverlaySources: List<PoiOverlaySource>,
+    offlineCoverageAreas: List<OfflineMapCoverageArea>,
     poiMarkerSizePx: Int,
     gpxTrackColor: Int,
     gpxTrackColorMode: String,
@@ -100,6 +101,33 @@ internal fun MapOverlays(
     val compassConeLayer =
         remember(mapView) {
             findExistingCompassConeLayer(mapView) ?: CompassConeLayer()
+        }
+    val offlineCoverageLayer =
+        remember(mapView) {
+            OfflineCoverageLayer(
+                poiFillPaint =
+                    AndroidGraphicFactory.INSTANCE.createPaint().apply {
+                        setStyle(Style.FILL)
+                        color = Color.argb(38, 42, 177, 109)
+                    },
+                poiStrokePaint =
+                    AndroidGraphicFactory.INSTANCE.createPaint().apply {
+                        setStyle(Style.STROKE)
+                        color = Color.argb(186, 42, 177, 109)
+                        strokeWidth = 2f
+                    },
+                routingFillPaint =
+                    AndroidGraphicFactory.INSTANCE.createPaint().apply {
+                        setStyle(Style.FILL)
+                        color = Color.argb(34, 90, 128, 255)
+                    },
+                routingStrokePaint =
+                    AndroidGraphicFactory.INSTANCE.createPaint().apply {
+                        setStyle(Style.STROKE)
+                        color = Color.argb(186, 90, 128, 255)
+                        strokeWidth = 2f
+                    },
+            )
         }
     val markerAHolder = remember(mapView) { arrayOfNulls<Marker>(1) }
     val markerBHolder = remember(mapView) { arrayOfNulls<Marker>(1) }
@@ -171,6 +199,14 @@ internal fun MapOverlays(
         locationMarker = locationMarker,
         accuracyCircleLayer = gpsAccuracyCircleLayer,
         topOverlayCoordinator = topOverlayCoordinator,
+        requestMapRedraw = requestMapRedraw,
+    )
+
+    OfflineCoverageLayerEffect(
+        mapView = mapView,
+        navMode = navMode,
+        coverageAreas = offlineCoverageAreas,
+        coverageLayer = offlineCoverageLayer,
         requestMapRedraw = requestMapRedraw,
     )
 
@@ -287,6 +323,40 @@ private fun GpsAccuracyCircleLayerEffect(
         onDispose {
             mapView.post {
                 layers.remove(accuracyCircleLayer)
+                mapView.requestLayerRedrawSafely()
+            }
+        }
+    }
+}
+
+@Composable
+private fun OfflineCoverageLayerEffect(
+    mapView: MapView,
+    navMode: NavMode,
+    coverageAreas: List<OfflineMapCoverageArea>,
+    coverageLayer: OfflineCoverageLayer,
+    requestMapRedraw: () -> Unit,
+) {
+    val layers = mapView.layerManager.layers
+    val shouldShow = navMode == NavMode.PANNING && coverageAreas.isNotEmpty()
+
+    LaunchedEffect(mapView, navMode, coverageAreas) {
+        mapView.post {
+            val hasLayer = layers.contains(coverageLayer)
+            if (!hasLayer) {
+                layers.add(coverageLayer)
+            }
+            coverageLayer.areas = coverageAreas
+            coverageLayer.isVisible = shouldShow
+            requestMapRedraw()
+        }
+    }
+
+    DisposableEffect(mapView) {
+        onDispose {
+            mapView.post {
+                layers.remove(coverageLayer)
+                coverageLayer.areas = emptyList()
                 mapView.requestLayerRedrawSafely()
             }
         }
