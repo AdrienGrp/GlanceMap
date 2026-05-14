@@ -156,6 +156,17 @@ fun LiveTrackingScreen(
         )
     }
 
+    fun clearPlannedGpx() {
+        selectedGpxUri = null
+        selectedGpxName = ""
+        planSent = false
+        sendStatusMessage = null
+        savePlannedDraft(
+            draftGpxUri = null,
+            draftGpxName = "",
+        )
+    }
+
     val gpxPicker =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument(),
@@ -482,6 +493,7 @@ fun LiveTrackingScreen(
                         isConnected = isConnected,
                         group = group,
                         headerMessage = headerMessage,
+                        hasSelectedGpx = selectedGpxUri != null,
                         selectedGpxName = selectedGpxName,
                         comments = comments,
                         onCommentsChange = {
@@ -500,6 +512,7 @@ fun LiveTrackingScreen(
                                 gpxPicker.launch(arrayOf("application/gpx+xml", "text/xml", "*/*"))
                             }
                         },
+                        onClearGpx = { clearPlannedGpx() },
                         showSendPlan = showSendPlan,
                         canSendPlan = canSendPlan,
                         isSendingPlan = isSendingPlan,
