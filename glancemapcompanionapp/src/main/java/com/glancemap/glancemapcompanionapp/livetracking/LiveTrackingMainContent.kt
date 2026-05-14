@@ -175,6 +175,13 @@ internal fun ColumnScope.MainTrackingContent(
                     }
                 }
             }
+            if (sessionState.isTracking) {
+                Text(
+                    text = "Choose another GPX anytime, then tap Send update to update the planned route.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         TrackingPanel(title = "Comments to send in notification email") {
@@ -186,13 +193,20 @@ internal fun ColumnScope.MainTrackingContent(
                 minLines = if (isCompactLayout) 2 else 4,
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (sessionState.isTracking) {
+                Text(
+                    text = "Tracking is active. You can change the GPX or comment, then tap Send update.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (showSendPlan) {
                 Button(
                     onClick = onSendPlan,
                     enabled = canSendPlan && !isSendingPlan,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(if (isSendingPlan) "Sending" else "Send")
+                    Text(if (isSendingPlan) "Sending" else "Send update")
                 }
             }
             sendStatusMessage?.let { message ->
