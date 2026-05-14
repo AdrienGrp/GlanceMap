@@ -3,8 +3,6 @@ package com.glancemap.glancemapwearos.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import android.database.sqlite.SQLiteDatabase
-import com.glancemap.glancemapwearos.core.maps.GeoBounds
-import com.glancemap.glancemapwearos.core.maps.geoBoundsOrNull
 import com.glancemap.glancemapwearos.data.repository.internal.AtomicStreamWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -174,55 +172,7 @@ class PoiRepositoryImpl(
             )
         }
 
-    override suspend fun readCoverageBounds(path: String): GeoBounds? =
-        withContext(Dispatchers.IO) {
-            val poiFile = File(path)
-            if (!poiFile.exists() || !poiFile.isFile) return@withContext null
-
-            openPoiDatabase(poiFile.absolutePath).use { db ->
-                db
-                    .rawQuery(
-                        """
-                        SELECT
-                            MIN(lat) AS min_lat,
-                            MAX(lat) AS max_lat,
-                            MIN(lon) AS min_lon,
-                            MAX(lon) AS max_lon,
-                            COUNT(*) AS point_count
-                        FROM poi_index
-                        """.trimIndent(),
-                        emptyArray(),
-                    ).use { cursor ->
-                        if (!cursor.moveToFirst()) return@withContext null
-                        val countIdx = cursor.getColumnIndex("point_count")
-                        val minLatIdx = cursor.getColumnIndex("min_lat")
-                        val maxLatIdx = cursor.getColumnIndex("max_lat")
-                        val minLonIdx = cursor.getColumnIndex("min_lon")
-                        val maxLonIdx = cursor.getColumnIndex("max_lon")
-                        if (
-                            countIdx < 0 ||
-                            minLatIdx < 0 ||
-                            maxLatIdx < 0 ||
-                            minLonIdx < 0 ||
-                            maxLonIdx < 0 ||
-                            cursor.getLong(countIdx) <= 0L ||
-                            cursor.isNull(minLatIdx) ||
-                            cursor.isNull(maxLatIdx) ||
-                            cursor.isNull(minLonIdx) ||
-                            cursor.isNull(maxLonIdx)
-                        ) {
-                            return@withContext null
-                        }
-
-                        geoBoundsOrNull(
-                            minLat = cursor.getDouble(minLatIdx),
-                            maxLat = cursor.getDouble(maxLatIdx),
-                            minLon = cursor.getDouble(minLonIdx),
-                            maxLon = cursor.getDouble(maxLonIdx),
-                        )
-                    }
-            }
-        }
+    override suspend fun readCoverageBounds(path: String) = withContext(Dispatchers.IO) { readPoiCoverageBounds(path) }
 
     override suspend fun isFileEnabled(path: String): Boolean =
         withContext(Dispatchers.IO) {

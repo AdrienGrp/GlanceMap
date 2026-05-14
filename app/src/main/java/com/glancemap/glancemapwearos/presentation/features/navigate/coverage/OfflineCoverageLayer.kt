@@ -1,4 +1,4 @@
-package com.glancemap.glancemapwearos.presentation.features.navigate
+package com.glancemap.glancemapwearos.presentation.features.navigate.coverage
 
 import org.mapsforge.core.graphics.Canvas
 import org.mapsforge.core.graphics.Paint

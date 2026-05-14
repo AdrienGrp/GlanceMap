@@ -42,6 +42,8 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
+import com.glancemap.glancemapwearos.presentation.features.navigate.coverage.OfflineMapCoverageArea
+import com.glancemap.glancemapwearos.presentation.features.navigate.coverage.OfflineMapCoverageKind
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState

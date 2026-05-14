@@ -1,3 +1,10 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+)
+
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import androidx.compose.foundation.layout.Arrangement

@@ -12,37 +12,44 @@ internal const val ROUTING_DEFAULT_PROFILE_FILE_NAME = "hiking-mountain.brf"
 internal const val ROUTING_DUMMY_PROFILE_FILE_NAME = "dummy.brf"
 
 private const val ROUTING_SEGMENT_DEGREES = 5.0
-private val ROUTING_SEGMENT_FILE_NAME_REGEX = Regex("""^([EW])(\d{1,3})_([NS])(\d{1,2})\.rd5$""", RegexOption.IGNORE_CASE)
+private val ROUTING_SEGMENT_FILE_NAME_REGEX =
+    Regex("""^([EW])(\d{1,3})_([NS])(\d{1,2})\.rd5$""", RegexOption.IGNORE_CASE)
 
 internal fun isRoutingSegmentFileName(fileName: String): Boolean = fileName.endsWith(".rd5", ignoreCase = true)
 
-internal fun routingSegmentBounds(fileName: String): GeoBounds? {
-    val match = ROUTING_SEGMENT_FILE_NAME_REGEX.matchEntire(File(fileName).name) ?: return null
-    val lonHemisphere = match.groupValues[1].uppercase()
-    val lonDegrees = match.groupValues[2].toDoubleOrNull() ?: return null
-    val latHemisphere = match.groupValues[3].uppercase()
-    val latDegrees = match.groupValues[4].toDoubleOrNull() ?: return null
-
-    val minLon =
-        when (lonHemisphere) {
-            "E" -> lonDegrees
-            "W" -> -lonDegrees
-            else -> return null
+internal fun routingSegmentBounds(fileName: String): GeoBounds? =
+    ROUTING_SEGMENT_FILE_NAME_REGEX.matchEntire(File(fileName).name)?.let { match ->
+        val minLon =
+            signedRoutingDegrees(
+                hemisphere = match.groupValues[1].uppercase(),
+                degrees = match.groupValues[2].toDoubleOrNull(),
+            )
+        val minLat =
+            signedRoutingDegrees(
+                hemisphere = match.groupValues[3].uppercase(),
+                degrees = match.groupValues[4].toDoubleOrNull(),
+            )
+        minLon?.let { lon ->
+            minLat?.let { lat ->
+                geoBoundsOrNull(
+                    minLat = lat,
+                    maxLat = lat + ROUTING_SEGMENT_DEGREES,
+                    minLon = lon,
+                    maxLon = lon + ROUTING_SEGMENT_DEGREES,
+                )
+            }
         }
-    val minLat =
-        when (latHemisphere) {
-            "N" -> latDegrees
-            "S" -> -latDegrees
-            else -> return null
-        }
+    }
 
-    return geoBoundsOrNull(
-        minLat = minLat,
-        maxLat = minLat + ROUTING_SEGMENT_DEGREES,
-        minLon = minLon,
-        maxLon = minLon + ROUTING_SEGMENT_DEGREES,
-    )
-}
+private fun signedRoutingDegrees(
+    hemisphere: String,
+    degrees: Double?,
+): Double? =
+    when (hemisphere) {
+        "E", "N" -> degrees
+        "W", "S" -> degrees?.unaryMinus()
+        else -> null
+    }
 
 internal fun routingRootDir(context: Context): File = File(context.filesDir, ROUTING_ROOT_DIR_NAME).apply { mkdirs() }
 

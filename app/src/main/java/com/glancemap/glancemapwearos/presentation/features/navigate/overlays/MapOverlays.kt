@@ -18,6 +18,8 @@ import com.glancemap.glancemapwearos.presentation.features.maps.GpxInspectionPop
 import com.glancemap.glancemapwearos.presentation.features.maps.GpxInspectionPopupAB
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
+import com.glancemap.glancemapwearos.presentation.features.navigate.coverage.OfflineCoverageLayer
+import com.glancemap.glancemapwearos.presentation.features.navigate.coverage.OfflineMapCoverageArea
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlaySource
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
 import kotlinx.coroutines.Dispatchers
@@ -202,7 +204,7 @@ internal fun MapOverlays(
         requestMapRedraw = requestMapRedraw,
     )
 
-    OfflineCoverageLayerEffect(
+    offlineCoverageLayerEffect(
         mapView = mapView,
         navMode = navMode,
         coverageAreas = offlineCoverageAreas,
@@ -330,7 +332,7 @@ private fun GpsAccuracyCircleLayerEffect(
 }
 
 @Composable
-private fun OfflineCoverageLayerEffect(
+private fun offlineCoverageLayerEffect(
     mapView: MapView,
     navMode: NavMode,
     coverageAreas: List<OfflineMapCoverageArea>,

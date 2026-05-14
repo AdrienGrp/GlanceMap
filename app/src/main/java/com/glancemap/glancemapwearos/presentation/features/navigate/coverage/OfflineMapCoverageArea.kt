@@ -1,4 +1,4 @@
-package com.glancemap.glancemapwearos.presentation.features.navigate
+package com.glancemap.glancemapwearos.presentation.features.navigate.coverage
 
 import com.glancemap.glancemapwearos.core.maps.GeoBounds
 
