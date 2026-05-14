@@ -121,6 +121,19 @@ class DownloadViewModel(
         }
     }
 
+    fun setIncludeDem(includeDem: Boolean) {
+        if (_uiState.value.isDownloading) return
+        _uiState.update { state ->
+            state.copy(
+                selection = state.selection.copy(includeDem = includeDem),
+                isPausedDownload = false,
+                statusMessage = null,
+                errorMessage = null,
+                networkWarningMessage = null,
+            )
+        }
+    }
+
     fun downloadSelectedBundle() {
         val state = _uiState.value
         DebugTelemetry.log(
@@ -157,7 +170,7 @@ class DownloadViewModel(
             _uiState.update {
                 it.copy(
                     statusMessage = "Nothing selected",
-                    errorMessage = "Enable Maps, POI, or Routing in Download settings.",
+                    errorMessage = "Enable Maps, POI, Routing, or DEM in Download settings.",
                     networkWarningMessage = null,
                 )
             }
@@ -645,6 +658,7 @@ class DownloadViewModel(
                             selection = target.selection,
                             forceMapAndPoi = true,
                             forceRoutingSegments = true,
+                            forceDemTiles = true,
                         ) { progress ->
                             val detail = "${index + 1}/${targets.size} ${target.area.region} - ${progress.detail}"
                             notificationController.showProgress(
@@ -770,4 +784,5 @@ private fun OamInstalledBundle.toDownloadSelection(): OamDownloadSelection =
         includeMap = mapFileName != null,
         includePoi = poiFileName != null,
         includeRouting = routingFileNames.isNotEmpty(),
+        includeDem = demTileIds.isNotEmpty(),
     )

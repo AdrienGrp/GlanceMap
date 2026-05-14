@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 
 class OamBundleStore(
     context: Context,
@@ -37,6 +38,14 @@ class OamBundleStore(
                             prefs
                                 .getString(key(areaId, "routing_downloaded"), null)
                                 .toRoutingFileNames(),
+                        demTileIds =
+                            prefs
+                                .getString(key(areaId, "dem"), null)
+                                .toDemTileIds(),
+                        downloadedDemTileIds =
+                            prefs
+                                .getString(key(areaId, "dem_downloaded"), null)
+                                .toDemTileIds(),
                         installedAtMillis = prefs.getLong(key(areaId, "installed_at"), 0L),
                         remoteFiles = prefs.getString(key(areaId, "remote_files"), null).toRemoteFileMetadata(),
                     )
@@ -57,7 +66,9 @@ class OamBundleStore(
                 .putString(
                     key(bundle.areaId, "routing_downloaded"),
                     bundle.downloadedRoutingFileNames.joinToString("\n"),
-                ).putLong(key(bundle.areaId, "installed_at"), bundle.installedAtMillis)
+                ).putString(key(bundle.areaId, "dem"), bundle.demTileIds.joinToString("\n"))
+                .putString(key(bundle.areaId, "dem_downloaded"), bundle.downloadedDemTileIds.joinToString("\n"))
+                .putLong(key(bundle.areaId, "installed_at"), bundle.installedAtMillis)
                 .putString(key(bundle.areaId, "remote_files"), bundle.remoteFiles.toJson())
                 .apply()
         }
@@ -74,6 +85,8 @@ class OamBundleStore(
                 .remove(key(areaId, "poi"))
                 .remove(key(areaId, "routing"))
                 .remove(key(areaId, "routing_downloaded"))
+                .remove(key(areaId, "dem"))
+                .remove(key(areaId, "dem_downloaded"))
                 .remove(key(areaId, "installed_at"))
                 .remove(key(areaId, "remote_files"))
                 .apply()
@@ -97,6 +110,17 @@ private fun String?.toRoutingFileNames(): List<String> =
         ?.distinct()
         ?.toList()
         .orEmpty()
+
+private fun String?.toDemTileIds(): List<String> =
+    this
+        ?.lineSequence()
+        ?.map { it.trim().uppercase(Locale.ROOT) }
+        ?.filter { DEM_TILE_ID_REGEX.matches(it) }
+        ?.distinct()
+        ?.toList()
+        .orEmpty()
+
+private val DEM_TILE_ID_REGEX = Regex("[NS]\\d{2}[EW]\\d{3}")
 
 private fun String?.toRemoteFileMetadata(): List<OamRemoteFileMetadata> =
     runCatching {
