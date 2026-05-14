@@ -136,6 +136,51 @@ internal fun markHelpShown(context: Context) {
         .apply()
 }
 
+internal fun shouldAutoOpenSendToWatchGuide(context: Context): Boolean =
+    shouldAutoOpenOneShotGuide(
+        context = context,
+        key = KEY_AUTO_OPEN_SEND_TO_WATCH_GUIDE,
+    )
+
+internal fun markSendToWatchGuideShown(context: Context) {
+    markOneShotGuideShown(
+        context = context,
+        key = KEY_AUTO_OPEN_SEND_TO_WATCH_GUIDE,
+    )
+}
+
+internal fun shouldAutoOpenLiveTrackingGuide(context: Context): Boolean =
+    shouldAutoOpenOneShotGuide(
+        context = context,
+        key = KEY_AUTO_OPEN_LIVE_TRACKING_GUIDE,
+    )
+
+internal fun markLiveTrackingGuideShown(context: Context) {
+    markOneShotGuideShown(
+        context = context,
+        key = KEY_AUTO_OPEN_LIVE_TRACKING_GUIDE,
+    )
+}
+
+private fun shouldAutoOpenOneShotGuide(
+    context: Context,
+    key: String,
+): Boolean {
+    val prefs = context.getSharedPreferences(COMPANION_UI_PREFS, Context.MODE_PRIVATE)
+    return prefs.getBoolean(key, true)
+}
+
+private fun markOneShotGuideShown(
+    context: Context,
+    key: String,
+) {
+    context
+        .getSharedPreferences(COMPANION_UI_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(key, false)
+        .apply()
+}
+
 internal fun hasNotificationPermission(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < 33) return true
     return ContextCompat.checkSelfPermission(
@@ -329,3 +374,5 @@ internal fun formatPhoneStoredFilesSummary(
 
 private const val COMPANION_UI_PREFS = "companion_ui_prefs"
 private const val KEY_AUTO_OPEN_HELP_ON_FIRST_LAUNCH = "auto_open_help_on_first_launch"
+private const val KEY_AUTO_OPEN_SEND_TO_WATCH_GUIDE = "auto_open_send_to_watch_guide"
+private const val KEY_AUTO_OPEN_LIVE_TRACKING_GUIDE = "auto_open_live_tracking_guide"

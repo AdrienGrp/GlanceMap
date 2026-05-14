@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapwearos.core.routing
 
 import android.content.Context
@@ -97,6 +99,14 @@ object RoutingCoverageUtils {
         synchronized(coverageCache) {
             coverageCache.clear()
         }
+    }
+
+    fun requiredSegmentNamesForMapFile(mapFile: File): Set<String>? {
+        val mapSignature = mapSignatureOf(mapFile) ?: return null
+        return requiredSegmentNamesForMap(
+            mapFile = mapFile,
+            mapSignature = mapSignature,
+        )
     }
 
     private fun requiredSegmentNamesForMap(

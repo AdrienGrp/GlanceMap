@@ -178,6 +178,7 @@ fun NavigateScreen(
         initial = SettingsRepository.COMPASS_HEADING_SOURCE_AUTO,
     )
     val gpxTrackColor by settingsViewModel.gpxTrackColor.collectAsState()
+    val gpxTrackColorMode by settingsViewModel.gpxTrackColorMode.collectAsState()
     val gpxTrackWidth by settingsViewModel.gpxTrackWidth.collectAsState()
     val gpxTrackOpacityPercent by settingsViewModel.gpxTrackOpacityPercent.collectAsState()
     val autoRecenterEnabled by settingsViewModel.autoRecenterEnabled.collectAsState()
@@ -744,6 +745,7 @@ fun NavigateScreen(
         activePoiOverlaySources = activePoiOverlaySources,
         poiMarkerSizePx = poiIconSizePx,
         gpxTrackColor = gpxTrackColor,
+        gpxTrackColorMode = gpxTrackColorMode,
         gpxTrackWidth = gpxTrackWidth,
         gpxTrackOpacityPercent = gpxTrackOpacityPercent,
         compassRenderStateFlow = compassViewModel.renderState,

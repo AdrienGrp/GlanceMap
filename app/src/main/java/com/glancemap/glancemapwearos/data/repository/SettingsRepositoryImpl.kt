@@ -71,6 +71,7 @@ class SettingsRepositoryImpl private constructor(
         val CROWN_ZOOM_ENABLED = booleanPreferencesKey("crown_zoom_enabled")
         val CROWN_ZOOM_INVERTED = booleanPreferencesKey("crown_zoom_inverted")
         val GPX_TRACK_COLOR = intPreferencesKey("gpx_track_color")
+        val GPX_TRACK_COLOR_MODE = stringPreferencesKey("gpx_track_color_mode")
         val GPX_TRACK_WIDTH = floatPreferencesKey("gpx_track_width")
         val GPX_TRACK_OPACITY_PERCENT = intPreferencesKey("gpx_track_opacity_percent")
         val AUTO_RECENTER_ENABLED = booleanPreferencesKey("auto_recenter_enabled")
@@ -435,6 +436,29 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit { it[PrefKeys.GPX_TRACK_COLOR] = color }
     }
 
+    override val gpxTrackColorMode: Flow<String> =
+        context.dataStore.data.map {
+            val stored = it[PrefKeys.GPX_TRACK_COLOR_MODE]
+            if (stored != null && stored in allowedGpxTrackColorModes) {
+                stored
+            } else {
+                SettingsRepository.DEFAULT_GPX_TRACK_COLOR_MODE
+            }
+        }
+
+    override suspend fun setGpxTrackColorMode(mode: String) {
+        context.dataStore.edit {
+            val sanitizedMode =
+                if (mode in allowedGpxTrackColorModes) {
+                    mode
+                } else {
+                    SettingsRepository.DEFAULT_GPX_TRACK_COLOR_MODE
+                }
+            it[PrefKeys.GPX_TRACK_COLOR_MODE] = sanitizedMode
+            it[PrefKeys.GPX_TRACK_OPACITY_PERCENT] = defaultGpxTrackOpacityPercentFor(sanitizedMode)
+        }
+    }
+
     override val gpxTrackWidth: Flow<Float> = context.dataStore.data.map { it[PrefKeys.GPX_TRACK_WIDTH] ?: 8f }
 
     override suspend fun setGpxTrackWidth(width: Float) {
@@ -745,6 +769,11 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.POI_ICON_SIZE_MEDIUM_PX,
                 SettingsRepository.POI_ICON_SIZE_LARGE_PX,
             )
+        private val allowedGpxTrackColorModes =
+            setOf(
+                SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID,
+                SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION,
+            )
         private const val LEGACY_ZOOM_BUTTONS_HIDE_MINUS = "HIDE_MINUS"
         private const val CACHE_PREFS_NAME = "settings_runtime_cache"
         private const val CACHE_KEY_NAVIGATION_MARKER_STYLE = "navigation_marker_style"
@@ -772,6 +801,13 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.MIN_GPX_TRACK_OPACITY_PERCENT,
                 SettingsRepository.MAX_GPX_TRACK_OPACITY_PERCENT,
             )
+
+        private fun defaultGpxTrackOpacityPercentFor(mode: String): Int =
+            when (mode) {
+                SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION ->
+                    SettingsRepository.DEFAULT_GPX_ELEVATION_TRACK_OPACITY_PERCENT
+                else -> SettingsRepository.DEFAULT_GPX_SOLID_TRACK_OPACITY_PERCENT
+            }
 
         private fun sanitizeGpxUphillVerticalMetersPerHour(metersPerHour: Float): Float =
             metersPerHour.coerceIn(

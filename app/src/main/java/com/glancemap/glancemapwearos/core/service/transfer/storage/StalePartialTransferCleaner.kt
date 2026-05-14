@@ -64,6 +64,7 @@ internal object StalePartialTransferCleaner {
                 add(context.getDir("gpx", Context.MODE_PRIVATE))
                 add(context.getDir("maps", Context.MODE_PRIVATE))
                 add(context.getDir("poi", Context.MODE_PRIVATE))
+                add(context.getDir("oam_downloads", Context.MODE_PRIVATE))
                 add(routingSegmentsDir(context))
                 add(
                     context.getExternalFilesDir(DEM_DIR_NAME)

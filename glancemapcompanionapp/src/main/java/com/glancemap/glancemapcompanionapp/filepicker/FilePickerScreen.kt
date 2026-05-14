@@ -1,3 +1,10 @@
+@file:Suppress(
+    "FunctionName",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+)
+
 package com.glancemap.glancemapcompanionapp.filepicker
 
 import android.Manifest
@@ -7,6 +14,7 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -14,15 +22,21 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.HelpCenter
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.SendToMobile
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SpatialTracking
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -31,22 +45,40 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.glancemap.glancemapcompanionapp.CompanionAdaptiveSpec
 import com.glancemap.glancemapcompanionapp.FileTransferViewModel
 import com.glancemap.glancemapcompanionapp.GeneratedPhoneFile
 import com.glancemap.glancemapcompanionapp.PrivacyPolicyActivity
 import com.glancemap.glancemapcompanionapp.RefugesImportDialog
 import com.glancemap.glancemapcompanionapp.RoutingDownloadDialog
 import com.glancemap.glancemapcompanionapp.companionAdaptiveSpec
+import com.glancemap.glancemapcompanionapp.livetracking.LiveTrackingScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private enum class CompanionHomeArea {
+    HOME,
+    SEND_TO_WATCH,
+    LIVE_TRACKING,
+    MAP_LEGEND,
+}
+
 @Composable
-fun FilePickerScreen(viewModel: FileTransferViewModel) {
+fun FilePickerScreen(
+    viewModel: FileTransferViewModel,
+    openSendToWatchToken: Long = 0L,
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val uiState by viewModel.uiState.collectAsState()
+    val lastTransferGpx =
+        remember(uiState.selectedFileUris, uiState.selectedFileDisplayNames) {
+            uiState.selectedFileUris
+                .zip(uiState.selectedFileDisplayNames)
+                .lastOrNull { (_, name) -> name.endsWith(".gpx", ignoreCase = true) }
+        }
     val isImportingRefuges by viewModel.isImportingRefuges.collectAsState()
     val poiImportProgress by viewModel.poiImportProgress.collectAsState()
     val isDownloadingRouting by viewModel.isDownloadingRouting.collectAsState()
@@ -66,13 +98,21 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
 
     val autoOpenHelpOnFirstLaunch =
         remember(context) {
-            shouldAutoOpenHelpOnFirstLaunch(context).also { shouldShow ->
-                if (shouldShow) markHelpShown(context)
-            }
+            shouldAutoOpenHelpOnFirstLaunch(context)
         }
     var showCancelDialog by remember { mutableStateOf(false) }
+    var quickGuideMode by remember { mutableStateOf(QuickGuideMode.GENERAL) }
     var showHowToDialog by remember(autoOpenHelpOnFirstLaunch) { mutableStateOf(autoOpenHelpOnFirstLaunch) }
     var showDebugDialog by remember { mutableStateOf(false) }
+    var activeHomeArea by remember {
+        mutableStateOf(
+            if (openSendToWatchToken != 0L) {
+                CompanionHomeArea.SEND_TO_WATCH
+            } else {
+                CompanionHomeArea.HOME
+            },
+        )
+    }
     var showRefugesDialog by remember { mutableStateOf(false) }
     var showRoutingMenu by remember { mutableStateOf(false) }
     var showThemeLegendMenu by remember { mutableStateOf(false) }
@@ -87,6 +127,17 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
     var isLoadingPhoneStoredFiles by remember { mutableStateOf(false) }
     var isClearingPhoneStoredFiles by remember { mutableStateOf(false) }
     var phoneStoredFilesRefreshToken by remember { mutableIntStateOf(0) }
+
+    BackHandler(enabled = activeHomeArea != CompanionHomeArea.HOME) {
+        activeHomeArea = CompanionHomeArea.HOME
+    }
+
+    LaunchedEffect(openSendToWatchToken) {
+        if (openSendToWatchToken != 0L) {
+            activeHomeArea = CompanionHomeArea.SEND_TO_WATCH
+        }
+    }
+
     val mapDownloadSources =
         remember {
             listOf(
@@ -351,6 +402,30 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
         }
     }
 
+    LaunchedEffect(activeHomeArea) {
+        when (activeHomeArea) {
+            CompanionHomeArea.SEND_TO_WATCH -> {
+                if (shouldAutoOpenSendToWatchGuide(context)) {
+                    markSendToWatchGuideShown(context)
+                    quickGuideMode = QuickGuideMode.TRANSFER
+                    showHowToDialog = true
+                }
+            }
+
+            CompanionHomeArea.LIVE_TRACKING -> {
+                if (shouldAutoOpenLiveTrackingGuide(context)) {
+                    markLiveTrackingGuideShown(context)
+                    quickGuideMode = QuickGuideMode.LIVE_TRACKING
+                    showHowToDialog = true
+                }
+            }
+
+            CompanionHomeArea.HOME,
+            CompanionHomeArea.MAP_LEGEND,
+            -> Unit
+        }
+    }
+
     LaunchedEffect(showRefugesDialog, showRoutingDialog) {
         if (!showRefugesDialog && !showRoutingDialog) return@LaunchedEffect
         if (showRefugesDialog) {
@@ -477,60 +552,340 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     .fillMaxSize()
                     .padding(adaptive.pagePadding),
         ) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = adaptive.helpIconButtonSize),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                FilledTonalIconButton(
-                    onClick = { showDebugDialog = true },
-                    modifier = Modifier.size(adaptive.helpIconButtonSize),
-                    colors =
-                        IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor =
-                                if (debugCaptureState.active) {
-                                    MaterialTheme.colorScheme.errorContainer
-                                } else {
-                                    MaterialTheme.colorScheme.secondaryContainer
-                                },
-                        ),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.BugReport,
-                        contentDescription =
-                            if (debugCaptureState.active) {
-                                "Stop phone debug capture"
-                            } else {
-                                "Start phone debug capture"
-                            },
-                        modifier = Modifier.size(adaptive.helpIconSize),
+            when (activeHomeArea) {
+                CompanionHomeArea.HOME -> {
+                    CompanionHomeScreen(
+                        adaptive = adaptive,
+                        onOpenSendToWatch = { activeHomeArea = CompanionHomeArea.SEND_TO_WATCH },
+                        onOpenLiveTracking = { activeHomeArea = CompanionHomeArea.LIVE_TRACKING },
+                        onOpenMapLegend = { activeHomeArea = CompanionHomeArea.MAP_LEGEND },
+                        onOpenQuickGuide = {
+                            quickGuideMode = QuickGuideMode.GENERAL
+                            showHowToDialog = true
+                        },
+                        onOpenCreditsLegal = {
+                            context.startActivity(PrivacyPolicyActivity.creditsAndLegalIntent(context))
+                        },
                     )
                 }
-                Text(
-                    text = "GlanceMap Companion app",
-                    style =
-                        if (isCompactScreen) {
-                            MaterialTheme.typography.titleSmall
-                        } else {
-                            MaterialTheme.typography.headlineSmall
+
+                CompanionHomeArea.LIVE_TRACKING -> {
+                    LiveTrackingScreen(
+                        onBack = { activeHomeArea = CompanionHomeArea.HOME },
+                        onOpenQuickGuide = {
+                            quickGuideMode = QuickGuideMode.LIVE_TRACKING
+                            showHowToDialog = true
                         },
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                FilledTonalIconButton(
-                    onClick = { showHowToDialog = true },
-                    modifier = Modifier.size(adaptive.helpIconButtonSize),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.HelpCenter,
-                        contentDescription = "Help",
-                        modifier = Modifier.size(adaptive.helpIconSize),
+                        lastTransferGpxUri = lastTransferGpx?.first,
+                        lastTransferGpxName = lastTransferGpx?.second.orEmpty(),
                     )
+                }
+
+                CompanionHomeArea.MAP_LEGEND -> {
+                    CompanionMapLegendScreen(
+                        adaptive = adaptive,
+                        selectedThemeLegend = selectedThemeLegend,
+                        themeLegendSources = themeLegendSources,
+                        showThemeLegendMenu = showThemeLegendMenu,
+                        onShowThemeLegendMenuChange = { showThemeLegendMenu = it },
+                        onThemeLegendSelected = { selectedThemeLegend = it },
+                        onOpenLink = { openCompanionUrl(context, it) },
+                        onOpenHelp = {
+                            quickGuideMode = QuickGuideMode.MAP_LEGEND
+                            showHowToDialog = true
+                        },
+                        onBack = { activeHomeArea = CompanionHomeArea.HOME },
+                    )
+                }
+
+                CompanionHomeArea.SEND_TO_WATCH -> {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = adaptive.helpIconButtonSize),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        FilledTonalIconButton(
+                            onClick = { activeHomeArea = CompanionHomeArea.HOME },
+                            modifier = Modifier.size(adaptive.helpIconButtonSize),
+                            colors = companionTonalIconButtonColors(),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back to home",
+                                modifier = Modifier.size(adaptive.helpIconSize),
+                            )
+                        }
+                        FilledTonalIconButton(
+                            onClick = { showDebugDialog = true },
+                            modifier = Modifier.size(adaptive.helpIconButtonSize),
+                            colors =
+                                IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor =
+                                        if (debugCaptureState.active) {
+                                            MaterialTheme.colorScheme.errorContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        },
+                                    contentColor =
+                                        if (debugCaptureState.active) {
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        },
+                                ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.BugReport,
+                                contentDescription =
+                                    if (debugCaptureState.active) {
+                                        "Stop phone debug capture"
+                                    } else {
+                                        "Start phone debug capture"
+                                    },
+                                modifier = Modifier.size(adaptive.helpIconSize),
+                            )
+                        }
+                        Text(
+                            text = "Send to Watch",
+                            style =
+                                if (isCompactScreen) {
+                                    MaterialTheme.typography.titleSmall
+                                } else {
+                                    MaterialTheme.typography.headlineSmall
+                                },
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        FilledTonalIconButton(
+                            onClick = {
+                                quickGuideMode = QuickGuideMode.TRANSFER
+                                showHowToDialog = true
+                            },
+                            modifier = Modifier.size(adaptive.helpIconButtonSize),
+                            colors = companionTonalIconButtonColors(),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                                contentDescription = "Quick Guide",
+                                modifier = Modifier.size(adaptive.helpIconSize),
+                            )
+                        }
+                    }
+
+                    if (showManagePhoneFilesDialog) {
+                        ManagePhoneFilesDialog(
+                            context = context,
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            uiLocked = uiLocked,
+                            isLoadingPhoneStoredFiles = isLoadingPhoneStoredFiles,
+                            isClearingPhoneStoredFiles = isClearingPhoneStoredFiles,
+                            onIsClearingPhoneStoredFilesChange = { isClearingPhoneStoredFiles = it },
+                            phoneStoredFilesSummary = phoneStoredFilesSummary,
+                            onRefreshRequested = { phoneStoredFilesRefreshToken += 1 },
+                            onDismiss = { showManagePhoneFilesDialog = false },
+                            coroutineScope = coroutineScope,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(adaptive.titleGap))
+
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier =
+                                if (enablePageScroll) {
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(pageScrollState)
+                                        .padding(end = 10.dp)
+                                } else {
+                                    Modifier.fillMaxWidth()
+                                },
+                        ) {
+                            FilePickerDownloadSection(
+                                context = context,
+                                adaptive = adaptive,
+                                uiLocked = uiLocked,
+                                hasNotificationPermission = hasNotificationPermission,
+                                hasBluetoothConnectPermission = hasBluetoothConnectPermission,
+                                canRefreshLastRefuges = canRefreshLastRefuges,
+                                canRefreshLastRouting = canRefreshLastRouting,
+                                mapDownloadSources = mapDownloadSources,
+                                showMapSourcesMenu = showMapSourcesMenu,
+                                onShowMapSourcesMenuChange = { showMapSourcesMenu = it },
+                                showRefugesMenu = showRefugesMenu,
+                                onShowRefugesMenuChange = { showRefugesMenu = it },
+                                showRoutingMenu = showRoutingMenu,
+                                onShowRoutingMenuChange = { showRoutingMenu = it },
+                                onRequestMissingPermissions = requestMissingPermissions,
+                                onShowManagePhoneFiles = { showManagePhoneFilesDialog = true },
+                                onShowRefugesDialog = { showRefugesDialog = true },
+                                onShowRoutingDialog = { showRoutingDialog = true },
+                                onRefreshLastRefuges = {
+                                    viewModel.refreshLastRefuges(
+                                        context = context,
+                                        appendToSelection = true,
+                                    )
+                                },
+                                onRefreshLastRouting = {
+                                    viewModel.refreshLastRouting(
+                                        context = context,
+                                        appendToSelection = true,
+                                    )
+                                },
+                            )
+
+                            Spacer(modifier = Modifier.height(adaptive.sectionGap))
+
+                            SectionCard(
+                                title = "2. Select files (.gpx / .map / .poi / .rd5 / .hgt)",
+                                headerAction = {
+                                    TextButton(
+                                        onClick = { viewModel.clearSelectedFiles() },
+                                        enabled = uiState.selectedFileUris.isNotEmpty() && !uiLocked,
+                                    ) {
+                                        Text("Clear")
+                                    }
+                                },
+                                modifier =
+                                    if (useCompactPageLayout) {
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 120.dp)
+                                    } else {
+                                        Modifier.fillMaxWidth()
+                                    },
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+                                ) {
+                                    Button(
+                                        onClick = { multiPickerLauncher.launch(arrayOf("*/*")) },
+                                        enabled = !uiLocked,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Text("Select file(s)")
+                                    }
+                                    SelectedFilesCompactSummary(
+                                        fileNames = uiState.selectedFileDisplayNames,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(adaptive.sectionGap))
+
+                            SectionCard(
+                                title = "3. Select watch",
+                                headerAction = {
+                                    IconButton(
+                                        onClick = { viewModel.findWatchNodes() },
+                                        enabled = !uiLocked,
+                                        modifier = Modifier.size(30.dp),
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = "Refresh Watch List",
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                },
+                                modifier =
+                                    if (useCompactPageLayout) {
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 110.dp)
+                                    } else {
+                                        Modifier.fillMaxWidth()
+                                    },
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    if (uiState.availableWatches.isEmpty()) {
+                                        Text("No watches found.", style = MaterialTheme.typography.bodySmall)
+                                    } else {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            uiState.availableWatches.forEach { watch ->
+                                                val isSelected = uiState.selectedWatch?.id == watch.id
+                                                Button(
+                                                    onClick = { viewModel.onWatchSelected(context, watch) },
+                                                    enabled = !uiLocked,
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    colors =
+                                                        ButtonDefaults.buttonColors(
+                                                            containerColor =
+                                                                if (isSelected) {
+                                                                    Color(0xFF4CAF50)
+                                                                } else {
+                                                                    MaterialTheme.colorScheme.primary
+                                                                },
+                                                        ),
+                                                ) {
+                                                    Text(
+                                                        text = watch.displayName,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(adaptive.sectionGap))
+
+                            FilePickerTransferSection(
+                                adaptive = adaptive,
+                                uiState = uiState,
+                                uiLocked = uiLocked,
+                                isAllowedSelection = isAllowedSelection,
+                                transferSessionActive = transferSessionActive,
+                                cancellingTransfer = cancellingTransfer,
+                                waitingForReconnect = waitingForReconnect,
+                                debugCaptureState = debugCaptureState,
+                                onSend = { viewModel.sendFiles(context) },
+                                onResume = { viewModel.resumeTransfer() },
+                                onPause = { viewModel.pauseTransfer() },
+                                onCancelRequested = { showCancelDialog = true },
+                            )
+
+                            Spacer(modifier = Modifier.height(adaptive.sectionGap))
+
+                            FilePickerHistorySection(
+                                adaptive = adaptive,
+                                uiState = uiState,
+                                historyListState = historyListState,
+                                onClearHistory = { viewModel.clearHistory() },
+                            )
+                        }
+                        if (enablePageScroll) {
+                            PageScrollbar(
+                                scrollState = pageScrollState,
+                                modifier =
+                                    Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .fillMaxHeight(),
+                            )
+                        }
+                    }
                 }
             }
 
@@ -543,309 +898,16 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                 )
             }
 
-            if (showManagePhoneFilesDialog) {
-                ManagePhoneFilesDialog(
-                    context = context,
-                    viewModel = viewModel,
-                    uiState = uiState,
-                    uiLocked = uiLocked,
-                    isLoadingPhoneStoredFiles = isLoadingPhoneStoredFiles,
-                    isClearingPhoneStoredFiles = isClearingPhoneStoredFiles,
-                    onIsClearingPhoneStoredFilesChange = { isClearingPhoneStoredFiles = it },
-                    phoneStoredFilesSummary = phoneStoredFilesSummary,
-                    onRefreshRequested = { phoneStoredFilesRefreshToken += 1 },
-                    onDismiss = { showManagePhoneFilesDialog = false },
-                    coroutineScope = coroutineScope,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(adaptive.titleGap))
-
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-            ) {
-                Column(
-                    modifier =
-                        if (enablePageScroll) {
-                            Modifier
-                                .fillMaxWidth()
-                                .verticalScroll(pageScrollState)
-                                .padding(end = 10.dp)
-                        } else {
-                            Modifier.fillMaxWidth()
-                        },
-                ) {
-                    FilePickerDownloadSection(
-                        context = context,
-                        adaptive = adaptive,
-                        uiLocked = uiLocked,
-                        hasNotificationPermission = hasNotificationPermission,
-                        hasBluetoothConnectPermission = hasBluetoothConnectPermission,
-                        canRefreshLastRefuges = canRefreshLastRefuges,
-                        canRefreshLastRouting = canRefreshLastRouting,
-                        mapDownloadSources = mapDownloadSources,
-                        showMapSourcesMenu = showMapSourcesMenu,
-                        onShowMapSourcesMenuChange = { showMapSourcesMenu = it },
-                        showRefugesMenu = showRefugesMenu,
-                        onShowRefugesMenuChange = { showRefugesMenu = it },
-                        showRoutingMenu = showRoutingMenu,
-                        onShowRoutingMenuChange = { showRoutingMenu = it },
-                        onRequestMissingPermissions = requestMissingPermissions,
-                        onShowManagePhoneFiles = { showManagePhoneFilesDialog = true },
-                        onShowRefugesDialog = { showRefugesDialog = true },
-                        onShowRoutingDialog = { showRoutingDialog = true },
-                        onRefreshLastRefuges = {
-                            viewModel.refreshLastRefuges(
-                                context = context,
-                                appendToSelection = true,
-                            )
-                        },
-                        onRefreshLastRouting = {
-                            viewModel.refreshLastRouting(
-                                context = context,
-                                appendToSelection = true,
-                            )
-                        },
-                    )
-
-                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
-
-                    SectionCard(
-                        title = "2. Select files (.gpx / .map / .poi / .rd5 / .hgt)",
-                        headerAction = {
-                            TextButton(
-                                onClick = { viewModel.clearSelectedFiles() },
-                                enabled = uiState.selectedFileUris.isNotEmpty() && !uiLocked,
-                            ) {
-                                Text("Clear")
-                            }
-                        },
-                        modifier =
-                            if (useCompactPageLayout) {
-                                Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 120.dp)
-                            } else {
-                                Modifier.fillMaxWidth()
-                            },
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
-                        ) {
-                            Button(
-                                onClick = { multiPickerLauncher.launch(arrayOf("*/*")) },
-                                enabled = !uiLocked,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text("Select file(s)")
-                            }
-                            Text(
-                                formatSelectedFilesSummary(uiState.selectedFileDisplayNames),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
-
-                    SectionCard(
-                        title = "3. Select watch",
-                        headerAction = {
-                            IconButton(
-                                onClick = { viewModel.findWatchNodes() },
-                                enabled = !uiLocked,
-                                modifier = Modifier.size(30.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.Refresh,
-                                    contentDescription = "Refresh Watch List",
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                        },
-                        modifier =
-                            if (useCompactPageLayout) {
-                                Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 110.dp)
-                            } else {
-                                Modifier.fillMaxWidth()
-                            },
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            if (uiState.availableWatches.isEmpty()) {
-                                Text("No watches found.", style = MaterialTheme.typography.bodySmall)
-                            } else {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    uiState.availableWatches.forEach { watch ->
-                                        val isSelected = uiState.selectedWatch?.id == watch.id
-                                        Button(
-                                            onClick = { viewModel.onWatchSelected(context, watch) },
-                                            enabled = !uiLocked,
-                                            modifier = Modifier.fillMaxWidth(),
-                                            colors =
-                                                ButtonDefaults.buttonColors(
-                                                    containerColor =
-                                                        if (isSelected) {
-                                                            Color(0xFF4CAF50)
-                                                        } else {
-                                                            MaterialTheme.colorScheme.primary
-                                                        },
-                                                ),
-                                        ) {
-                                            Text(
-                                                text = watch.displayName,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
-
-                    FilePickerTransferSection(
-                        adaptive = adaptive,
-                        uiState = uiState,
-                        uiLocked = uiLocked,
-                        isAllowedSelection = isAllowedSelection,
-                        transferSessionActive = transferSessionActive,
-                        cancellingTransfer = cancellingTransfer,
-                        waitingForReconnect = waitingForReconnect,
-                        debugCaptureState = debugCaptureState,
-                        onSend = { viewModel.sendFiles(context) },
-                        onResume = { viewModel.resumeTransfer() },
-                        onPause = { viewModel.pauseTransfer() },
-                        onCancelRequested = { showCancelDialog = true },
-                    )
-
-                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
-
-                    FilePickerHistorySection(
-                        adaptive = adaptive,
-                        uiState = uiState,
-                        historyListState = historyListState,
-                        onClearHistory = { viewModel.clearHistory() },
-                    )
-
-                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
-
-                    SectionCard(
-                        title = "6. Theme legend",
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                text = "Select a bundled theme and open its legend or reference page.",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                OutlinedButton(
-                                    onClick = { showThemeLegendMenu = true },
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(
-                                        text = selectedThemeLegend.label,
-                                        modifier = Modifier.weight(1f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.UnfoldMore,
-                                        contentDescription = "Select theme",
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = showThemeLegendMenu,
-                                    onDismissRequest = { showThemeLegendMenu = false },
-                                ) {
-                                    themeLegendSources.forEach { source ->
-                                        DropdownMenuItem(
-                                            text = { Text(source.label) },
-                                            onClick = {
-                                                selectedThemeLegend = source
-                                                showThemeLegendMenu = false
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                            if (selectedThemeLegend.links.isEmpty()) {
-                                Text(
-                                    text = "No public legend link found yet for this theme.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            } else {
-                                selectedThemeLegend.links.forEach { link ->
-                                    OutlinedButton(
-                                        onClick = { openCompanionUrl(context, link.url) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Text(link.label)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(adaptive.sectionGap))
-
-                    SectionCard(
-                        title = "7. Credits & Legal",
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                text = "Open the same Credits & Legal documents as the watch app, in the same order.",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            OutlinedButton(
-                                onClick = {
-                                    context.startActivity(PrivacyPolicyActivity.creditsAndLegalIntent(context))
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text("Open Credits & Legal")
-                            }
-                        }
-                    }
-                }
-                if (enablePageScroll) {
-                    PageScrollbar(
-                        scrollState = pageScrollState,
-                        modifier =
-                            Modifier
-                                .align(Alignment.CenterEnd)
-                                .fillMaxHeight(),
-                    )
-                }
-            }
-
             if (showHowToDialog) {
                 FilePickerQuickGuideDialog(
                     adaptive = adaptive,
-                    onDismiss = { showHowToDialog = false },
+                    mode = quickGuideMode,
+                    onDismiss = {
+                        if (autoOpenHelpOnFirstLaunch && quickGuideMode == QuickGuideMode.GENERAL) {
+                            markHelpShown(context)
+                        }
+                        showHowToDialog = false
+                    },
                 )
             }
 
@@ -897,6 +959,392 @@ fun FilePickerScreen(viewModel: FileTransferViewModel) {
                     saveGeneratedFilesOnPhone = saveGeneratedFilesOnPhone,
                     onDismiss = { showRoutingDialog = false },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectedFilesCompactSummary(
+    fileNames: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    var showAllFiles by remember { mutableStateOf(false) }
+
+    if (fileNames.isEmpty()) {
+        Text(
+            text = "No file selected",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier,
+        )
+        return
+    }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = fileNames.first(),
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (fileNames.size > 1) {
+            TextButton(
+                onClick = { showAllFiles = true },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+            ) {
+                Text("+${fileNames.size - 1} more")
+            }
+        }
+    }
+
+    if (showAllFiles) {
+        val scrollState = rememberScrollState()
+        AlertDialog(
+            onDismissRequest = { showAllFiles = false },
+            title = { Text("${fileNames.size} selected files") },
+            text = {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp),
+                ) {
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(scrollState)
+                                .padding(end = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        fileNames.forEachIndexed { index, fileName ->
+                            Text(
+                                text = "${index + 1}. $fileName",
+                                style = MaterialTheme.typography.bodySmall,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    if (scrollState.maxValue > 0) {
+                        PageScrollbar(
+                            scrollState = scrollState,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .fillMaxHeight(),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAllFiles = false }) {
+                    Text("Close")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun CompanionHomeScreen(
+    adaptive: CompanionAdaptiveSpec,
+    onOpenSendToWatch: () -> Unit,
+    onOpenLiveTracking: () -> Unit,
+    onOpenMapLegend: () -> Unit,
+    onOpenQuickGuide: () -> Unit,
+    onOpenCreditsLegal: () -> Unit,
+) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize(),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = adaptive.helpIconButtonSize),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(modifier = Modifier.size(adaptive.helpIconButtonSize))
+            Text(
+                text = "GlanceMap Companion",
+                style =
+                    if (adaptive.isCompactScreen) {
+                        MaterialTheme.typography.titleMedium
+                    } else {
+                        MaterialTheme.typography.headlineSmall
+                    },
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            FilledTonalIconButton(
+                onClick = onOpenQuickGuide,
+                modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors = companionTonalIconButtonColors(),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    contentDescription = "Quick Guide",
+                    modifier = Modifier.size(adaptive.helpIconSize),
+                )
+            }
+        }
+
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(adaptive.sectionGap),
+            ) {
+                Button(
+                    onClick = onOpenSendToWatch,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 72.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.SendToMobile,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = "Send to Watch",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "Maps, GPX, POI and routing files",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+
+                HomeActionButton(
+                    icon = Icons.Filled.SpatialTracking,
+                    title = "Live Tracking",
+                    description = "Share your GPS location",
+                    onClick = onOpenLiveTracking,
+                )
+                HomeActionButton(
+                    icon = Icons.Filled.Map,
+                    title = "Map Legend",
+                    description = "Open theme legends and reference pages",
+                    onClick = onOpenMapLegend,
+                )
+                HomeActionButton(
+                    icon = Icons.Filled.Gavel,
+                    title = "Credits & Legal",
+                    description = "Privacy, licences and acknowledgements",
+                    onClick = onOpenCreditsLegal,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeActionButton(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 62.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun companionTonalIconButtonColors() =
+    IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    )
+
+@Composable
+private fun CompanionMapLegendScreen(
+    adaptive: CompanionAdaptiveSpec,
+    selectedThemeLegend: ThemeLegendSource,
+    themeLegendSources: List<ThemeLegendSource>,
+    showThemeLegendMenu: Boolean,
+    onShowThemeLegendMenuChange: (Boolean) -> Unit,
+    onThemeLegendSelected: (ThemeLegendSource) -> Unit,
+    onOpenLink: (String) -> Unit,
+    onOpenHelp: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(adaptive.sectionGap),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = adaptive.helpIconButtonSize),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FilledTonalIconButton(
+                onClick = onBack,
+                modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors = companionTonalIconButtonColors(),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back to home",
+                    modifier = Modifier.size(adaptive.helpIconSize),
+                )
+            }
+            Text(
+                text = "Map Legend",
+                style =
+                    if (adaptive.isCompactScreen) {
+                        MaterialTheme.typography.titleSmall
+                    } else {
+                        MaterialTheme.typography.headlineSmall
+                    },
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            FilledTonalIconButton(
+                onClick = onOpenHelp,
+                modifier = Modifier.size(adaptive.helpIconButtonSize),
+                colors = companionTonalIconButtonColors(),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    contentDescription = "Quick Guide",
+                    modifier = Modifier.size(adaptive.helpIconSize),
+                )
+            }
+        }
+
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(adaptive.sectionGap),
+        ) {
+            SectionCard(
+                title = "Theme legend",
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Select a bundled theme and open its legend or reference page.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { onShowThemeLegendMenuChange(true) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = selectedThemeLegend.label,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Icon(
+                                imageVector = Icons.Default.UnfoldMore,
+                                contentDescription = "Select theme",
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showThemeLegendMenu,
+                            onDismissRequest = { onShowThemeLegendMenuChange(false) },
+                        ) {
+                            themeLegendSources.forEach { source ->
+                                DropdownMenuItem(
+                                    text = { Text(source.label) },
+                                    onClick = {
+                                        onThemeLegendSelected(source)
+                                        onShowThemeLegendMenuChange(false)
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    if (selectedThemeLegend.links.isEmpty()) {
+                        Text(
+                            text = "No public legend link found yet for this theme.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        selectedThemeLegend.links.forEach { link ->
+                            OutlinedButton(
+                                onClick = { onOpenLink(link.url) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(link.label)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

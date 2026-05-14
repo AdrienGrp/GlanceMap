@@ -12,32 +12,54 @@ import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme =
     darkColorScheme(
-        primary = Purple80,
-        secondary = PurpleGrey80,
-        tertiary = Pink80,
+        primary = TrailGreen80,
+        onPrimary = CompanionDarkBackground,
+        primaryContainer = TrailGreenDark,
+        onPrimaryContainer = TrailGreen90,
+        secondary = MossGrey80,
+        onSecondary = CompanionDarkBackground,
+        secondaryContainer = CompanionDarkSecondaryContainer,
+        onSecondaryContainer = CompanionDarkOnSecondaryContainer,
+        tertiary = SunAmber80,
+        onTertiary = CompanionDarkBackground,
+        tertiaryContainer = SunAmberDark,
+        onTertiaryContainer = SunAmber80,
+        background = CompanionDarkBackground,
+        onBackground = CompanionDarkOnSurface,
+        surface = CompanionDarkSurface,
+        onSurface = CompanionDarkOnSurface,
+        surfaceVariant = CompanionDarkSurfaceVariant,
+        onSurfaceVariant = CompanionDarkOnSurfaceVariant,
+        outline = CompanionDarkOutline,
     )
 
 private val LightColorScheme =
     lightColorScheme(
-        primary = Purple40,
-        secondary = PurpleGrey40,
-        tertiary = Pink40,
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-     */
+        primary = TrailGreen40,
+        onPrimary = CompanionLightSurface,
+        primaryContainer = TrailGreen90,
+        onPrimaryContainer = CompanionLightOnSecondaryContainer,
+        secondary = MossGrey40,
+        onSecondary = CompanionLightSurface,
+        secondaryContainer = CompanionLightSecondaryContainer,
+        onSecondaryContainer = CompanionLightOnSecondaryContainer,
+        tertiary = SunAmber40,
+        onTertiary = CompanionLightSurface,
+        tertiaryContainer = CompanionLightTertiaryContainer,
+        onTertiaryContainer = CompanionLightOnTertiaryContainer,
+        background = CompanionLightBackground,
+        onBackground = CompanionLightOnSurface,
+        surface = CompanionLightSurface,
+        onSurface = CompanionLightOnSurface,
+        surfaceVariant = CompanionLightSurfaceVariant,
+        onSurfaceVariant = CompanionLightOnSurfaceVariant,
     )
 
 @Composable
 fun GlanceMapTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme =

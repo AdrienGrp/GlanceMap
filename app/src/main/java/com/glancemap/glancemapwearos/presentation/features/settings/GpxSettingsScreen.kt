@@ -91,6 +91,7 @@ fun GpxSettingsScreen(
         )
     val adaptive = rememberWearAdaptiveSpec()
     val trackColor by viewModel.gpxTrackColor.collectAsState()
+    val trackColorMode by viewModel.gpxTrackColorMode.collectAsState()
     val trackWidth by viewModel.gpxTrackWidth.collectAsState()
     val trackOpacityPercent by viewModel.gpxTrackOpacityPercent.collectAsState()
     val isGpxInspectionEnabled by viewModel.isGpxInspectionEnabled.collectAsState()
@@ -105,6 +106,7 @@ fun GpxSettingsScreen(
     val isMetric by viewModel.isMetric.collectAsState()
     var showInspectionHelpDialog by remember { mutableStateOf(false) }
     var showAdvancedElevationFilter by remember { mutableStateOf(false) }
+    var showTrackColorModeDialog by remember { mutableStateOf(false) }
     val helpDialogScrollState = rememberScrollState()
     val helpDialogFocusRequester = remember { FocusRequester() }
     val currentLocale = LocalLocale.current.platformLocale
@@ -308,29 +310,42 @@ fun GpxSettingsScreen(
                 }
             }
             item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(groupSpacing),
-                ) {
-                    Text(
-                        text = "Track Color",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-
-                    SimpleColorPicker(
-                        colors = colorPalette,
-                        selectedColor = Color(trackColor),
-                        itemSpacing = colorPickerSpacing,
-                        buttonSize = colorButtonSize,
-                        selectedIconSize = selectedIconSize,
-                        onColorSelected = { color ->
-                            viewModel.setGpxTrackColor(color.toArgb())
+                SettingsPickerChip(
+                    label = "Color Mode",
+                    secondaryLabel =
+                        when (trackColorMode) {
+                            SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION -> "Elevation"
+                            else -> "Solid color"
                         },
-                    )
+                    onClick = { showTrackColorModeDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (trackColorMode == SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID) {
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(groupSpacing),
+                    ) {
+                        Text(
+                            text = "Track Color",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+
+                        SimpleColorPicker(
+                            colors = colorPalette,
+                            selectedColor = Color(trackColor),
+                            itemSpacing = colorPickerSpacing,
+                            buttonSize = colorButtonSize,
+                            selectedIconSize = selectedIconSize,
+                            onColorSelected = { color ->
+                                viewModel.setGpxTrackColor(color.toArgb())
+                            },
+                        )
+                    }
                 }
             }
-
             item {
                 TrackWidthSetting(
                     label = "Track Width",
@@ -524,6 +539,19 @@ fun GpxSettingsScreen(
                 )
             }
         },
+    )
+
+    OptionPickerDialog(
+        visible = showTrackColorModeDialog,
+        title = "Color Mode",
+        selectedValue = trackColorMode,
+        options =
+            listOf(
+                SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID to "Solid color",
+                SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION to "Elevation",
+            ),
+        onDismiss = { showTrackColorModeDialog = false },
+        onSelect = viewModel::setGpxTrackColorMode,
     )
 }
 

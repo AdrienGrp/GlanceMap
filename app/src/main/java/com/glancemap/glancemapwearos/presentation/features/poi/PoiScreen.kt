@@ -695,7 +695,7 @@ fun PoiScreen(
                     if (poiFiles.isEmpty()) {
                         item {
                             Text(
-                                text = "Use the companion phone app to send .poi files to your watch.",
+                                text = "Download POIs on the watch or send .poi files from the companion phone app.",
                                 modifier = Modifier.padding(emptyStatePadding),
                                 textAlign = TextAlign.Center,
                             )
