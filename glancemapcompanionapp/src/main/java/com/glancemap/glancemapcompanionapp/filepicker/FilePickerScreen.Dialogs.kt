@@ -481,7 +481,7 @@ internal fun FilePickerQuickGuideDialog(
         }
     val bodyMaxHeight =
         if (isWelcomePage) {
-            adaptive.quickGuideDialogMaxHeight.coerceAtMost(340.dp)
+            adaptive.quickGuideDialogMaxHeight.coerceAtMost(360.dp)
         } else {
             adaptive.quickGuideDialogMaxHeight
         }
