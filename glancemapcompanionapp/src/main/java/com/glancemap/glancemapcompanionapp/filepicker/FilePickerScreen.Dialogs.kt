@@ -476,7 +476,7 @@ internal fun FilePickerQuickGuideDialog(
     val showBodyTitle = !isWelcomePage && pages.size > 1
     val titleHeight =
         when {
-            isWelcomePage -> 52.dp
+            isWelcomePage -> 88.dp
             pages.size > 1 -> 72.dp
             else -> 48.dp
         }
