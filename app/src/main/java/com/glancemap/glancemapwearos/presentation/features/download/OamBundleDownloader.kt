@@ -239,6 +239,14 @@ class OamBundleDownloader(
                     }
                 mapZip.delete()
             }
+            upsertPartialBundle(
+                area = area,
+                selection = selection,
+                existingBundle = existingBundle,
+                mapFileName = mapFileName,
+                poiFileName = existingBundle?.poiFileName,
+                remoteFiles = remoteFilesByUrl.values,
+            )
         }
 
         var poiFileName: String? = existingBundle?.poiFileName
@@ -292,6 +300,14 @@ class OamBundleDownloader(
                     }
                 poiZip.delete()
             }
+            upsertPartialBundle(
+                area = area,
+                selection = selection,
+                existingBundle = existingBundle,
+                mapFileName = mapFileName,
+                poiFileName = poiFileName,
+                remoteFiles = remoteFilesByUrl.values,
+            )
         }
 
         var downloadedRoutingFileNames = existingBundle?.downloadedRoutingFileNames.orEmpty()
@@ -492,7 +508,7 @@ class OamBundleDownloader(
             )
         return mapRepository
             .listMapFiles()
-            .firstOrNull { file -> candidateNames.any { it.equals(file.name, ignoreCase = true) } }
+            .firstMatchingFileName(*candidateNames.toTypedArray())
     }
 
     private suspend fun existingMapFileForArea(
@@ -521,8 +537,44 @@ class OamBundleDownloader(
         firstOrNull { file ->
             candidateNames
                 .filterNotNull()
-                .any { candidate -> candidate.equals(file.name, ignoreCase = true) }
+                .any { candidate -> candidate.matchesOamFileName(file.name) }
         }
+
+    private fun String.matchesOamFileName(fileName: String): Boolean =
+        equals(fileName, ignoreCase = true) ||
+            normalizedOamFileStem() == fileName.normalizedOamFileStem()
+
+    private fun String.normalizedOamFileStem(): String =
+        substringBeforeLast('.')
+            .filter(Char::isLetterOrDigit)
+            .lowercase(Locale.ROOT)
+
+    private suspend fun upsertPartialBundle(
+        area: OamDownloadArea,
+        selection: OamDownloadSelection,
+        existingBundle: OamInstalledBundle?,
+        mapFileName: String?,
+        poiFileName: String?,
+        remoteFiles: Collection<OamRemoteFileMetadata>,
+    ) {
+        bundleStore.upsert(
+            OamInstalledBundle(
+                areaId = area.id,
+                areaLabel = area.region,
+                bundleChoice = selection.toBundleChoice(),
+                mapFileName = mapFileName,
+                poiFileName = poiFileName,
+                routingFileNames = existingBundle?.routingFileNames.orEmpty(),
+                downloadedRoutingFileNames = existingBundle?.downloadedRoutingFileNames.orEmpty(),
+                demTileIds = existingBundle?.demTileIds.orEmpty(),
+                downloadedDemTileIds = existingBundle?.downloadedDemTileIds.orEmpty(),
+                installedAtMillis =
+                    existingBundle?.installedAtMillis?.takeIf { it > 0L }
+                        ?: System.currentTimeMillis(),
+                remoteFiles = remoteFiles.sortedBy { it.url },
+            ),
+        )
+    }
 
     private fun reportExistingFile(
         label: String,

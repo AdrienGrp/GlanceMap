@@ -13,6 +13,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -303,9 +304,6 @@ class DownloadViewModel(
                 } catch (cancelled: CancellationException) {
                     val request = stopRequest ?: DownloadStopRequest.PAUSE
                     if (request == DownloadStopRequest.CANCEL) {
-                        downloader.deletePartialDownloads(areas, selection)
-                    }
-                    if (request == DownloadStopRequest.CANCEL) {
                         notificationController.clear()
                     } else {
                         notificationController.showPaused("${areas.size} area(s)")
@@ -360,9 +358,12 @@ class DownloadViewModel(
             OAM_DOWNLOAD_TELEMETRY_TAG,
             "event=user_pause_request ${networkMonitor.currentState().telemetryFields}",
         )
-        stopRequest = DownloadStopRequest.PAUSE
-        downloader.abortActiveDownloads(reason = "user_pause")
-        downloadJob?.cancel()
+        requestDownloadStop(
+            request = DownloadStopRequest.PAUSE,
+            abortReason = "user_pause",
+            phase = "PAUSING",
+            statusMessage = "Pausing download",
+        )
     }
 
     fun cancelDownload() {
@@ -370,9 +371,33 @@ class DownloadViewModel(
             OAM_DOWNLOAD_TELEMETRY_TAG,
             "event=user_cancel_request ${networkMonitor.currentState().telemetryFields}",
         )
-        stopRequest = DownloadStopRequest.CANCEL
-        downloader.abortActiveDownloads(reason = "user_cancel")
-        downloadJob?.cancel()
+        requestDownloadStop(
+            request = DownloadStopRequest.CANCEL,
+            abortReason = "user_cancel",
+            phase = "CANCELING",
+            statusMessage = "Canceling download",
+        )
+    }
+
+    private fun requestDownloadStop(
+        request: DownloadStopRequest,
+        abortReason: String,
+        phase: String,
+        statusMessage: String,
+    ) {
+        stopRequest = request
+        _uiState.update {
+            it.copy(
+                phase = phase,
+                statusMessage = statusMessage,
+                errorMessage = null,
+                networkWarningMessage = null,
+            )
+        }
+        downloadJob?.cancel(CancellationException(statusMessage))
+        viewModelScope.launch(Dispatchers.IO) {
+            downloader.abortActiveDownloads(reason = abortReason)
+        }
     }
 
     fun checkBundleForRefresh(bundle: OamInstalledBundle) {
@@ -710,9 +735,6 @@ class DownloadViewModel(
                 } catch (cancelled: CancellationException) {
                     val request = stopRequest ?: DownloadStopRequest.PAUSE
                     if (request == DownloadStopRequest.CANCEL) {
-                        targets.forEach { target ->
-                            downloader.deletePartialDownloads(listOf(target.area), target.selection)
-                        }
                         notificationController.clear()
                     } else {
                         notificationController.showPaused("${targets.size} bundle(s)")
