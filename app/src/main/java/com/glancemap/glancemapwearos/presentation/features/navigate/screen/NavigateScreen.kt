@@ -846,11 +846,22 @@ fun NavigateScreen(
                 routeToolPreview != null
         }
     val reshapePreviewInspectMode = reshapePreviewInspectDraft != null
-    val gpsStartupMapCenteringActive =
+    val gpsStartupMapCenteringPending =
         !offlineMode &&
             shouldTrackLocation &&
             locationMarker == null &&
             uiState.lastKnownLocation == null
+    var gpsStartupMapFallbackAllowed by remember { mutableStateOf(false) }
+    LaunchedEffect(gpsStartupMapCenteringPending) {
+        gpsStartupMapFallbackAllowed = false
+        if (gpsStartupMapCenteringPending) {
+            delay(NORMAL_STARTUP_MAP_FALLBACK_GRACE_MS)
+            gpsStartupMapFallbackAllowed = true
+        }
+    }
+    val gpsStartupMapCenteringActive =
+        gpsStartupMapCenteringPending &&
+            gpsStartupMapFallbackAllowed
     val gpsStartupLastKnownCenter =
         uiState.lastKnownLocation.takeIf {
             !offlineMode &&
@@ -1242,3 +1253,4 @@ private fun shouldUpdateZoomReferenceLatitude(
         abs(currentLatitude - nextLatitude) >= MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES
 
 private const val MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES = 0.25
+private const val NORMAL_STARTUP_MAP_FALLBACK_GRACE_MS = 15_000L

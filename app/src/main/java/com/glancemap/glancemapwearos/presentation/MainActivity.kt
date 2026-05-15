@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
@@ -56,6 +57,10 @@ class MainActivity : ComponentActivity() {
     private var _isAmbient by mutableStateOf(false)
     private var _ambientTickMs by mutableStateOf(0L)
     private var _isDeviceInteractive by mutableStateOf(true)
+
+    @Volatile
+    private var activeRoute: String? = null
+
     private val screenStateReceiver =
         object : BroadcastReceiver() {
             override fun onReceive(
@@ -123,7 +128,12 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val route = backStackEntry?.destination?.route
-                val isNavigateScreen = route == null || route == WatchRoutes.NAVIGATE
+                val routeLabel = route ?: WatchRoutes.NAVIGATE
+                LaunchedEffect(routeLabel) {
+                    activeRoute = routeLabel
+                    logNavigationTelemetry(event = "route_visible", route = routeLabel)
+                }
+                val isNavigateScreen = routeLabel == WatchRoutes.NAVIGATE
                 val navigateViaSwipeLeft: () -> Unit = {
                     val popped = navController.popBackStack(WatchRoutes.NAVIGATE, inclusive = false)
                     if (!popped) {
@@ -164,6 +174,18 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable(WatchRoutes.NAVIGATE) {
                             // ✅ NO swipe container here -> swipe-to-dismiss cannot happen
+                            DisposableEffect(Unit) {
+                                logNavigationTelemetry(
+                                    event = "navigate_compose_enter",
+                                    route = WatchRoutes.NAVIGATE,
+                                )
+                                onDispose {
+                                    logNavigationTelemetry(
+                                        event = "navigate_compose_dispose",
+                                        route = activeRoute ?: WatchRoutes.NAVIGATE,
+                                    )
+                                }
+                            }
                             NavigateScreen(
                                 mapViewModel = appContainer.mapViewModel,
                                 gpxViewModel = appContainer.gpxViewModel,
@@ -184,6 +206,9 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable(WatchRoutes.MAIN_MENU) {
+                            BackHandler(enabled = true) {
+                                finishAndRemoveTask()
+                            }
                             DismissableScreen(
                                 onDismiss = { finishAndRemoveTask() },
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
@@ -513,9 +538,25 @@ class MainActivity : ComponentActivity() {
         val message =
             buildString {
                 append("event=").append(event)
+                append(" route=").append(activeRoute ?: "unknown")
                 append(" ambient=").append(_isAmbient)
                 append(" interactive=").append(interactive?.toString() ?: "na")
             }
         DebugTelemetry.log("ScreenTelemetry", message)
+    }
+
+    private fun logNavigationTelemetry(
+        event: String,
+        route: String?,
+    ) {
+        val interactive = getSystemService(PowerManager::class.java)?.isInteractive
+        val message =
+            buildString {
+                append("event=").append(event)
+                append(" route=").append(route ?: "unknown")
+                append(" ambient=").append(_isAmbient)
+                append(" interactive=").append(interactive?.toString() ?: "na")
+            }
+        DebugTelemetry.log("NavigationTelemetry", message)
     }
 }

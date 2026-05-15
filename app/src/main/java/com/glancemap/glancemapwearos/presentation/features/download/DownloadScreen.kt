@@ -305,6 +305,7 @@ fun DownloadScreen(
                 hasInstalledBundles = uiState.installedBundles.isNotEmpty(),
                 refreshMode = refreshMode,
                 deleteMode = deleteMode,
+                selectedRefreshBundleCount = uiState.selectedRefreshBundleIds.size,
                 topPadding = headerTopSafePadding,
                 bottomPadding = headerBottomPadding,
                 actionButtonSize = headerActionButtonSize,
@@ -356,6 +357,7 @@ fun DownloadScreen(
                         onDone = { onAreaPickerOpenChange(false) },
                         onOpenSearch = { showAreaSearchDialog = true },
                         onClearSearch = { onAreaSearchQueryChange("") },
+                        onClearAreaSelection = viewModel::clearAreaSelection,
                         onSelectedAreaFolderChange = onSelectedAreaFolderChange,
                         onToggleArea = viewModel::toggleArea,
                     )
@@ -442,22 +444,6 @@ fun DownloadScreen(
                     } else {
                         if (refreshMode) {
                             item {
-                                Text(
-                                    text =
-                                        if (uiState.isCheckingUpdates) {
-                                            "Checking selected"
-                                        } else if (uiState.selectedRefreshBundleIds.isEmpty()) {
-                                            "Select bundles to check"
-                                        } else {
-                                            "${uiState.selectedRefreshBundleIds.size} selected"
-                                        },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                            item {
                                 DownloadActionButton(
                                     label = refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size),
                                     icon = Icons.Filled.Refresh,
@@ -467,17 +453,6 @@ fun DownloadScreen(
                                     height = actionButtonHeight,
                                     iconSize = actionButtonIconSize,
                                     onClick = viewModel::checkSelectedBundlesForRefresh,
-                                )
-                            }
-                        }
-                        if (deleteMode) {
-                            item {
-                                Text(
-                                    text = "Tap a bundle to delete it",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
@@ -579,6 +554,7 @@ private fun DownloadHeader(
     hasInstalledBundles: Boolean,
     refreshMode: Boolean,
     deleteMode: Boolean,
+    selectedRefreshBundleCount: Int,
     topPadding: Dp,
     bottomPadding: Dp,
     actionButtonSize: Dp,
@@ -635,6 +611,26 @@ private fun DownloadHeader(
                     selected = deleteMode,
                     danger = true,
                     onClick = onDeleteModeClick,
+                )
+            }
+            if (refreshMode) {
+                Text(
+                    text =
+                        when {
+                            isCheckingUpdates -> "Checking selected"
+                            selectedRefreshBundleCount == 0 -> "Select bundles to update"
+                            else -> "$selectedRefreshBundleCount selected"
+                        },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                )
+            } else if (deleteMode) {
+                Text(
+                    text = "Delete mode",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
                 )
             }
         }
