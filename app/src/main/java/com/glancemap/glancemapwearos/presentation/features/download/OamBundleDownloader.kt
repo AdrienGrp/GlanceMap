@@ -508,7 +508,7 @@ class OamBundleDownloader(
             )
         return mapRepository
             .listMapFiles()
-            .firstMatchingFileName(*candidateNames.toTypedArray())
+            .firstMatchingFileName(candidateNames)
     }
 
     private suspend fun existingMapFileForArea(
@@ -518,8 +518,10 @@ class OamBundleDownloader(
         mapRepository
             .listMapFiles()
             .firstMatchingFileName(
-                knownFileName,
-                "${area.region}.map",
+                listOf(
+                    knownFileName,
+                    "${area.region}.map",
+                ),
             )
 
     private suspend fun existingPoiFileForArea(
@@ -529,11 +531,13 @@ class OamBundleDownloader(
         poiRepository
             .listPoiFiles()
             .firstMatchingFileName(
-                knownFileName,
-                "${area.region}.poi",
+                listOf(
+                    knownFileName,
+                    "${area.region}.poi",
+                ),
             )
 
-    private fun List<File>.firstMatchingFileName(vararg candidateNames: String?): File? =
+    private fun List<File>.firstMatchingFileName(candidateNames: Iterable<String?>): File? =
         firstOrNull { file ->
             candidateNames
                 .filterNotNull()

@@ -83,6 +83,19 @@ class DownloadViewModel(
         }
     }
 
+    fun clearAreaSelection() {
+        if (_uiState.value.isDownloading) return
+        _uiState.update {
+            it.copy(
+                selectedAreaIds = emptySet(),
+                isPausedDownload = false,
+                statusMessage = null,
+                errorMessage = null,
+                networkWarningMessage = null,
+            )
+        }
+    }
+
     fun setIncludeMap(includeMap: Boolean) {
         if (_uiState.value.isDownloading) return
         _uiState.update { state ->

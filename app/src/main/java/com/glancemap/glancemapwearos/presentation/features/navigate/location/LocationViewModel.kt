@@ -47,6 +47,8 @@ class LocationViewModel(
     private var pendingImmediateLocationRequestSource: String? = null
     private var lastImmediateRequestAtMs: Long = Long.MIN_VALUE
     private var lastStartupImmediateRequestAtMs: Long = Long.MIN_VALUE
+    private var screenOffStartedAtMs: Long = Long.MIN_VALUE
+    private var lastScreenOffDurationMs: Long? = null
     private var reconnectJob: Job? = null
     private var connectionWatchdogJob: Job? = null
     private var isBindingInProgress: Boolean = false
@@ -132,6 +134,14 @@ class LocationViewModel(
         val screenStateChanged = desiredScreenState != screenState
         val trackingChanged = isTrackingEnabled != trackingEnabled
         if (!screenStateChanged && !trackingChanged) return
+
+        if (screenStateChanged) {
+            updateScreenOffTelemetryState(
+                previousScreenState = desiredScreenState,
+                nextScreenState = screenState,
+                nowElapsedMs = SystemClock.elapsedRealtime(),
+            )
+        }
 
         desiredScreenState = screenState
 
@@ -234,6 +244,11 @@ class LocationViewModel(
             lastStartupImmediateRequestAtMs = now
         }
 
+        logWakeBurstCandidateTelemetry(
+            source = source,
+            nowElapsedMs = now,
+        )
+
         lastImmediateRequestAtMs = now
 
         if (!isTrackingEnabled) {
@@ -261,12 +276,7 @@ class LocationViewModel(
     private fun shouldSkipUiImmediateRequest(nowElapsedMs: Long): Boolean {
         val snapshot = _gpsSignalSnapshot.value
         val timingProfile = resolveLocationTimingProfile(_effectiveGpsIntervalMs.value)
-        val fixAgeMs =
-            if (snapshot.lastFixElapsedRealtimeMs > 0L) {
-                (nowElapsedMs - snapshot.lastFixElapsedRealtimeMs).coerceAtLeast(0L)
-            } else {
-                snapshot.lastFixAgeMs
-            }
+        val fixAgeMs = snapshot.resolveLastFixAgeMs(nowElapsedMs = nowElapsedMs)
         if (fixAgeMs <= 0L || fixAgeMs == Long.MAX_VALUE) return false
         val serviceFreshnessMaxAgeMs =
             snapshot.lastFixFreshMaxAgeMs
@@ -279,6 +289,50 @@ class LocationViewModel(
             )
         if (fixAgeMs > freshnessMaxAgeMs) return false
         return fixAgeMs <= timingProfile.uiImmediateSkipMaxAgeMs
+    }
+
+    private fun updateScreenOffTelemetryState(
+        previousScreenState: LocationScreenState,
+        nextScreenState: LocationScreenState,
+        nowElapsedMs: Long,
+    ) {
+        val wasInteractive = previousScreenState == LocationScreenState.INTERACTIVE
+        val isInteractive = nextScreenState == LocationScreenState.INTERACTIVE
+        if (wasInteractive && !isInteractive) {
+            screenOffStartedAtMs = nowElapsedMs
+            return
+        }
+        if (!wasInteractive && isInteractive && screenOffStartedAtMs != Long.MIN_VALUE) {
+            lastScreenOffDurationMs = (nowElapsedMs - screenOffStartedAtMs).coerceAtLeast(0L)
+            screenOffStartedAtMs = Long.MIN_VALUE
+        }
+    }
+
+    private fun logWakeBurstCandidateTelemetry(
+        source: String,
+        nowElapsedMs: Long,
+    ) {
+        if (!source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX)) return
+
+        val snapshot = _gpsSignalSnapshot.value
+        val fixAgeMs = snapshot.resolveLastFixAgeMs(nowElapsedMs = nowElapsedMs)
+        val accuracyM = snapshot.lastFixAccuracyM.takeIf { it.isFinite() }
+        val screenOffMs = lastScreenOffDurationMs
+        val decision =
+            evaluateWakeBurstSkipCandidate(
+                fixAgeMs = fixAgeMs,
+                accuracyM = accuracyM,
+                screenOffMs = screenOffMs,
+            )
+        DebugTelemetry.log(
+            CONNECTION_TELEMETRY_TAG,
+            "wakeBurstCandidate source=$source wouldSkip=${decision.wouldSkip} " +
+                "reason=${decision.reason} fixAgeMs=${fixAgeMs.telemetryValue()} " +
+                "accuracyM=${accuracyM.telemetryValue()} screenOffMs=${screenOffMs.telemetryValue()} " +
+                "fixMaxAgeMs=$WAKE_BURST_SKIP_FIX_MAX_AGE_MS " +
+                "accuracyMaxM=${WAKE_BURST_SKIP_MAX_ACCURACY_M.telemetryValue()} " +
+                "screenOffMaxMs=$WAKE_BURST_SKIP_SCREEN_OFF_MAX_MS",
+        )
     }
 
     private fun bindService() {
@@ -443,12 +497,67 @@ internal fun shouldForceUiImmediateLocationRequest(source: String): Boolean =
     source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX) ||
         source == UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
 
+private data class WakeBurstSkipCandidate(
+    val wouldSkip: Boolean,
+    val reason: String,
+)
+
+private fun evaluateWakeBurstSkipCandidate(
+    fixAgeMs: Long,
+    accuracyM: Float?,
+    screenOffMs: Long?,
+): WakeBurstSkipCandidate =
+    when {
+        fixAgeMs <= 0L || fixAgeMs == Long.MAX_VALUE -> {
+            WakeBurstSkipCandidate(wouldSkip = false, reason = "no_recent_fix")
+        }
+        fixAgeMs > WAKE_BURST_SKIP_FIX_MAX_AGE_MS -> {
+            WakeBurstSkipCandidate(wouldSkip = false, reason = "fix_too_old")
+        }
+        accuracyM == null -> {
+            WakeBurstSkipCandidate(wouldSkip = false, reason = "accuracy_unknown")
+        }
+        accuracyM > WAKE_BURST_SKIP_MAX_ACCURACY_M -> {
+            WakeBurstSkipCandidate(wouldSkip = false, reason = "accuracy_too_low")
+        }
+        screenOffMs == null -> {
+            WakeBurstSkipCandidate(wouldSkip = false, reason = "screen_off_unknown")
+        }
+        screenOffMs > WAKE_BURST_SKIP_SCREEN_OFF_MAX_MS -> {
+            WakeBurstSkipCandidate(wouldSkip = false, reason = "screen_off_too_long")
+        }
+        else -> {
+            WakeBurstSkipCandidate(wouldSkip = true, reason = "fresh_fix_after_short_screen_off")
+        }
+    }
+
+private fun GpsSignalSnapshot.resolveLastFixAgeMs(nowElapsedMs: Long): Long =
+    if (lastFixElapsedRealtimeMs > 0L) {
+        (nowElapsedMs - lastFixElapsedRealtimeMs).coerceAtLeast(0L)
+    } else {
+        lastFixAgeMs
+    }
+
+private fun Long.telemetryValue(): String =
+    if (this == Long.MAX_VALUE) {
+        "na"
+    } else {
+        toString()
+    }
+
+private fun Long?.telemetryValue(): String = this?.telemetryValue() ?: "na"
+
+private fun Float?.telemetryValue(): String = this?.let { "%.1f".format(it) } ?: "na"
+
 private const val UI_IMMEDIATE_REQUEST_DEBOUNCE_MS = 1_500L
 
 // Keep wake startup responsive while still avoiding repeated duplicate bursts.
 private const val UI_STARTUP_IMMEDIATE_REQUEST_COOLDOWN_MS = 6_000L
 private const val UI_STARTUP_REQUEST_SOURCE_PREFIX = "ui_startup_fresh_fix"
 internal const val UI_WAKE_REACQUIRE_TIMEOUT_SOURCE = "ui_wake_reacquire_timeout"
+private const val WAKE_BURST_SKIP_FIX_MAX_AGE_MS = 2_000L
+private const val WAKE_BURST_SKIP_MAX_ACCURACY_M = 35f
+private const val WAKE_BURST_SKIP_SCREEN_OFF_MAX_MS = 10_000L
 private const val CONNECTION_WATCHDOG_INTERVAL_MS = 10_000L
 private const val BIND_ATTEMPT_TIMEOUT_MS = 15_000L
 private const val CONNECTION_TELEMETRY_TAG = "LocationVM"

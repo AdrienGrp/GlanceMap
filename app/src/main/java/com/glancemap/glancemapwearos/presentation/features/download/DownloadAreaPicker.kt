@@ -33,6 +33,7 @@ internal fun ScalingLazyListScope.downloadAreaPickerItems(
     onDone: () -> Unit,
     onOpenSearch: () -> Unit,
     onClearSearch: () -> Unit,
+    onClearAreaSelection: () -> Unit,
     onSelectedAreaFolderChange: (String?) -> Unit,
     onToggleArea: (String) -> Unit,
 ) {
@@ -48,6 +49,17 @@ internal fun ScalingLazyListScope.downloadAreaPickerItems(
             icon = Icons.Filled.Check,
             onClick = onDone,
         )
+    }
+
+    if (selectedAreaIds.isNotEmpty()) {
+        item {
+            DownloadChip(
+                label = "Clear selected areas",
+                secondaryLabel = "${selectedAreaIds.size} selected",
+                icon = Icons.Filled.Close,
+                onClick = onClearAreaSelection,
+            )
+        }
     }
 
     item {
