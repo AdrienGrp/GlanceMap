@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit
 private val diagnosticsExporterTimestampFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(ZoneId.systemDefault())
 private const val CONNECTED_PHONE_NODES_TIMEOUT_MS = 1_500L
+private const val HISTORICAL_EXIT_TRACE_MAX_LINES = 80
+private const val HISTORICAL_EXIT_TRACE_MAX_CHARS_PER_LINE = 240
 
 internal data class LocationPermissionSnapshot(
     val hasFinePermission: Boolean,
@@ -101,6 +103,7 @@ internal data class HistoricalExitReason(
     val pssKb: Long,
     val rssKb: Long,
     val description: String?,
+    val tracePreviewLines: List<String> = emptyList(),
 )
 
 internal fun captureSensorInventory(context: Context): SensorInventorySnapshot {
@@ -281,9 +284,10 @@ internal fun captureHistoricalProcessExitReasons(context: Context): HistoricalEx
                 .getHistoricalProcessExitReasons(context.packageName, 0, 6)
                 .orEmpty()
                 .map { info ->
+                    val reason = formatExitReason(info.reason)
                     HistoricalExitReason(
                         timestampMs = info.timestamp,
-                        reason = formatExitReason(info.reason),
+                        reason = reason,
                         subReason = -1,
                         importance = info.importance,
                         status = info.status,
@@ -294,6 +298,12 @@ internal fun captureHistoricalProcessExitReasons(context: Context): HistoricalEx
                                 ?.replace(Regex("\\s+"), " ")
                                 ?.trim()
                                 ?.takeIf { it.isNotEmpty() },
+                        tracePreviewLines =
+                            if (reason == "ANR" || reason.contains("CRASH")) {
+                                readHistoricalExitTracePreview(info)
+                            } else {
+                                emptyList()
+                            },
                     )
                 }
         HistoricalExitReasonsSnapshot(
@@ -308,6 +318,21 @@ internal fun captureHistoricalProcessExitReasons(context: Context): HistoricalEx
         )
     }
 }
+
+private fun readHistoricalExitTracePreview(info: ApplicationExitInfo): List<String> =
+    runCatching {
+        info.traceInputStream
+            ?.bufferedReader()
+            ?.useLines { lines ->
+                lines
+                    .map { line ->
+                        line
+                            .trimEnd()
+                            .take(HISTORICAL_EXIT_TRACE_MAX_CHARS_PER_LINE)
+                    }.take(HISTORICAL_EXIT_TRACE_MAX_LINES)
+                    .toList()
+            }.orEmpty()
+    }.getOrDefault(emptyList())
 
 internal fun formatExitReason(reason: Int): String =
     when (reason) {

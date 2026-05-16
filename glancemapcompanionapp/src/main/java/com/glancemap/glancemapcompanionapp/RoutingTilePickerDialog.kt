@@ -1,4 +1,4 @@
-@file:Suppress("FunctionNaming")
+@file:Suppress("FunctionNaming", "LongParameterList")
 
 package com.glancemap.glancemapcompanionapp
 
@@ -43,6 +43,7 @@ private const val DEFAULT_ROUTING_PICKER_BBOX = "5.00,43.00,10.00,48.00"
 @Composable
 internal fun RoutingTilePickerDialog(
     initialBbox: String,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
@@ -92,6 +93,7 @@ internal fun RoutingTilePickerDialog(
                     },
                 ),
             initialBbox = initialPickerBbox,
+            watchInstalledCoverageAreas = watchInstalledCoverageAreas,
         )
     }
 }
@@ -117,6 +119,7 @@ private fun RoutingTilePickerSurface(
     state: RoutingTilePickerState,
     actions: RoutingTilePickerActions,
     initialBbox: String,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
 ) {
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -147,7 +150,14 @@ private fun RoutingTilePickerSurface(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            RoutingTilePickerMap(initialBbox, useLocationDefault, state, actions, Modifier.weight(1f))
+            RoutingTilePickerMap(
+                initialBbox = initialBbox,
+                useLocationDefault = useLocationDefault,
+                watchInstalledCoverageAreas = watchInstalledCoverageAreas,
+                state = state,
+                actions = actions,
+                modifier = Modifier.weight(1f),
+            )
             Spacer(modifier = Modifier.height(10.dp))
             RoutingTilePickerFooter(state, actions)
         }
@@ -158,6 +168,7 @@ private fun RoutingTilePickerSurface(
 private fun RoutingTilePickerMap(
     initialBbox: String,
     useLocationDefault: Boolean,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
     state: RoutingTilePickerState,
     actions: RoutingTilePickerActions,
     modifier: Modifier = Modifier,
@@ -181,9 +192,13 @@ private fun RoutingTilePickerMap(
                         context = context,
                         initialBounds = initialBounds,
                         useLocationDefault = useLocationDefault,
+                        watchInstalledCoverageAreas = watchInstalledCoverageAreas,
                         onSelectionChanged = actions.onSelectionChanged,
                         onReady = actions.onReady,
                     ).also { view -> pickerView = view }
+                },
+                update = { view ->
+                    view.setWatchInstalledCoverageAreas(watchInstalledCoverageAreas)
                 },
                 modifier = Modifier.fillMaxSize(),
             )

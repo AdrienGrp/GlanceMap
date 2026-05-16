@@ -6,6 +6,7 @@ import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
 import com.glancemap.glancemapwearos.core.routing.isRoutingSegmentFileName
+import com.glancemap.glancemapwearos.core.routing.routingSegmentBounds
 import com.glancemap.glancemapwearos.core.routing.routingSegmentPartFile
 import com.glancemap.glancemapwearos.core.routing.routingSegmentTargetFile
 import com.glancemap.glancemapwearos.core.routing.routingSegmentsDir
@@ -20,6 +21,18 @@ import java.security.MessageDigest
 import java.util.Locale
 
 internal data class WatchMapWithBounds(
+    val fileName: String,
+    val absolutePath: String,
+    val bbox: String,
+)
+
+internal data class WatchPoiWithBounds(
+    val fileName: String,
+    val absolutePath: String,
+    val bbox: String,
+)
+
+internal data class WatchRoutingSegmentWithBounds(
     val fileName: String,
     val absolutePath: String,
     val bbox: String,
@@ -112,6 +125,40 @@ internal class WatchFileOps(
                     bbox = "${bbox.minLongitude},${bbox.minLatitude},${bbox.maxLongitude},${bbox.maxLatitude}",
                 )
             }.sortedBy { it.fileName.lowercase(Locale.ROOT) }
+    }
+
+    suspend fun listPoiFilesWithBounds(): List<WatchPoiWithBounds> {
+        return container.poiRepository
+            .listPoiFiles()
+            .mapNotNull { file ->
+                val bounds =
+                    runCatching { container.poiRepository.readCoverageBounds(file.absolutePath) }
+                        .getOrNull()
+                        ?: return@mapNotNull null
+
+                WatchPoiWithBounds(
+                    fileName = file.name,
+                    absolutePath = file.absolutePath,
+                    bbox = "${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}",
+                )
+            }.sortedBy { it.fileName.lowercase(Locale.ROOT) }
+    }
+
+    fun listRoutingSegmentsWithBounds(): List<WatchRoutingSegmentWithBounds> {
+        return routingSegmentsDir(app.applicationContext)
+            .listFiles()
+            ?.asSequence()
+            ?.filter { it.isFile && isRoutingSegmentFileName(it.name) }
+            ?.mapNotNull { file ->
+                val bounds = routingSegmentBounds(file.name) ?: return@mapNotNull null
+                WatchRoutingSegmentWithBounds(
+                    fileName = file.name,
+                    absolutePath = file.absolutePath,
+                    bbox = "${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}",
+                )
+            }?.sortedBy { it.fileName.lowercase(Locale.ROOT) }
+            ?.toList()
+            .orEmpty()
     }
 
     /**

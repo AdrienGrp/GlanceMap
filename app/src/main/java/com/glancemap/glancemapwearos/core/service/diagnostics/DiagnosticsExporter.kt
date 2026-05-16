@@ -889,6 +889,12 @@ object DiagnosticsExporter {
                     writer.appendLine(
                         "exit[$index]=timestamp=${formatCaptureTime(entry.timestampMs)} reason=${entry.reason} subReason=${entry.subReason} importance=${entry.importance} status=${entry.status} pssKb=${entry.pssKb} rssKb=${entry.rssKb} description=${entry.description ?: "na"}",
                     )
+                    if (entry.tracePreviewLines.isNotEmpty()) {
+                        writer.appendLine("exit[$index].tracePreviewLineCount=${entry.tracePreviewLines.size}")
+                        entry.tracePreviewLines.forEachIndexed { traceIndex, line ->
+                            writer.appendLine("exit[$index].trace[$traceIndex]=$line")
+                        }
+                    }
                 }
             }
             writer.appendLine()

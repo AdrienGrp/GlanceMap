@@ -5,3 +5,15 @@ data class WatchInstalledMap(
     val filePath: String,
     val bbox: String,
 )
+
+enum class WatchInstalledCoverageKind {
+    POI,
+    ROUTING,
+}
+
+data class WatchInstalledCoverageArea(
+    val fileName: String,
+    val filePath: String,
+    val bbox: String,
+    val kind: WatchInstalledCoverageKind,
+)

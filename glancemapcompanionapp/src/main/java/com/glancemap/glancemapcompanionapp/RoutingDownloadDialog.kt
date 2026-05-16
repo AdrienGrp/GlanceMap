@@ -1,3 +1,5 @@
+@file:Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
+
 package com.glancemap.glancemapcompanionapp
 
 import android.content.Context
@@ -44,6 +46,7 @@ internal fun RoutingDownloadDialog(
     isDownloadingRouting: Boolean,
     routingDownloadProgress: RoutingDownloadProgressState,
     watchInstalledMaps: List<WatchInstalledMap>,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
     isLoadingWatchInstalledMaps: Boolean,
     watchInstalledMapsStatusMessage: String?,
     lastRoutingDownloadedFiles: List<GeneratedPhoneFile>,
@@ -157,6 +160,8 @@ internal fun RoutingDownloadDialog(
     if (showRoutingTilePicker) {
         RoutingTilePickerDialog(
             initialBbox = routingTilePickerInitialBbox,
+            watchInstalledCoverageAreas =
+                watchInstalledCoverageAreas.filter { it.kind == WatchInstalledCoverageKind.ROUTING },
             onDismiss = { showRoutingTilePicker = false },
             onConfirm = { pickedBbox ->
                 bboxInput = pickedBbox

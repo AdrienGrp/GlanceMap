@@ -123,6 +123,10 @@ class FileTransferViewModel : ViewModel() {
     private val _watchInstalledMaps = MutableStateFlow<List<WatchInstalledMap>>(emptyList())
     val watchInstalledMaps: StateFlow<List<WatchInstalledMap>> = _watchInstalledMaps.asStateFlow()
 
+    private val _watchInstalledCoverageAreas = MutableStateFlow<List<WatchInstalledCoverageArea>>(emptyList())
+    val watchInstalledCoverageAreas: StateFlow<List<WatchInstalledCoverageArea>> =
+        _watchInstalledCoverageAreas.asStateFlow()
+
     private val _isLoadingWatchInstalledMaps = MutableStateFlow(false)
     val isLoadingWatchInstalledMaps: StateFlow<Boolean> = _isLoadingWatchInstalledMaps.asStateFlow()
 
@@ -193,6 +197,7 @@ class FileTransferViewModel : ViewModel() {
                             }
                             if (selectedChanged || (reachabilityChanged && !currentSelectedWatchReachable)) {
                                 _watchInstalledMaps.value = emptyList()
+                                _watchInstalledCoverageAreas.value = emptyList()
                             }
 
                             previousSelectedWatchId = currentSelectedWatchId
@@ -255,6 +260,7 @@ class FileTransferViewModel : ViewModel() {
         serviceRef?.get()?.onWatchSelected(watch)
         _uiState.value = _uiState.value.copy(selectedWatch = watch)
         _watchInstalledMaps.value = emptyList()
+        _watchInstalledCoverageAreas.value = emptyList()
         _watchInstalledMapsStatusMessage.value = null
         refreshWatchInstalledMaps(
             context = context.applicationContext,
@@ -398,12 +404,14 @@ class FileTransferViewModel : ViewModel() {
         if (selectedWatch == null) {
             pendingWatchMapsRefresh = false
             _watchInstalledMaps.value = emptyList()
+            _watchInstalledCoverageAreas.value = emptyList()
             _watchInstalledMapsStatusMessage.value = null
             return
         }
         if (!isSelectedWatchReachable(selectedWatch, _uiState.value.availableWatches)) {
             pendingWatchMapsRefresh = false
             _watchInstalledMaps.value = emptyList()
+            _watchInstalledCoverageAreas.value = emptyList()
             val message = selectedWatchDisconnectedStatusMessage()
             _watchInstalledMapsStatusMessage.value = message
             if (showToastIfUnavailable) {
@@ -437,15 +445,24 @@ class FileTransferViewModel : ViewModel() {
                             result.maps
                                 .filter { it.bbox.isNotBlank() }
                                 .sortedBy { it.fileName.lowercase() }
+                        _watchInstalledCoverageAreas.value =
+                            result.coverageAreas
+                                .filter { it.bbox.isNotBlank() }
+                                .sortedWith(
+                                    compareBy<WatchInstalledCoverageArea> { it.kind.name }
+                                        .thenBy { it.fileName.lowercase() },
+                                )
                     }
 
                     is WatchInstalledMapsRequester.Result.Timeout -> {
                         _watchInstalledMaps.value = emptyList()
+                        _watchInstalledCoverageAreas.value = emptyList()
                         _watchInstalledMapsStatusMessage.value = selectedWatchTimeoutStatusMessage()
                     }
 
                     is WatchInstalledMapsRequester.Result.Error -> {
                         _watchInstalledMaps.value = emptyList()
+                        _watchInstalledCoverageAreas.value = emptyList()
                         val message = normalizeWatchMapsStatusMessage(result.exception)
                         _watchInstalledMapsStatusMessage.value = message
                         Toast
@@ -458,6 +475,7 @@ class FileTransferViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 _watchInstalledMaps.value = emptyList()
+                _watchInstalledCoverageAreas.value = emptyList()
                 val message = normalizeWatchMapsStatusMessage(e)
                 _watchInstalledMapsStatusMessage.value = message
                 Toast
