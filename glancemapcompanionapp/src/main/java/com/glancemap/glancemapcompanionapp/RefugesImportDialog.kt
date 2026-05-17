@@ -1,3 +1,5 @@
+@file:Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
+
 package com.glancemap.glancemapcompanionapp
 
 import android.content.Context
@@ -68,6 +70,7 @@ internal fun RefugesImportDialog(
     useDetailedRefugesRegionPresets: Boolean,
     onUseDetailedRefugesRegionPresetsChange: (Boolean) -> Unit,
     watchInstalledMaps: List<WatchInstalledMap>,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
     isLoadingWatchInstalledMaps: Boolean,
     watchInstalledMapsStatusMessage: String?,
     lastImportedPoiFile: GeneratedPhoneFile?,
@@ -249,6 +252,8 @@ internal fun RefugesImportDialog(
         BboxMapPickerDialog(
             initialBbox = mapPickerInitialBbox,
             selectedSource = selectedSource,
+            watchInstalledCoverageAreas =
+                watchInstalledCoverageAreas.filter { it.kind == WatchInstalledCoverageKind.POI },
             onDismiss = { showBboxMapPicker = false },
             onConfirm = { pickedBbox ->
                 bboxInput = pickedBbox
