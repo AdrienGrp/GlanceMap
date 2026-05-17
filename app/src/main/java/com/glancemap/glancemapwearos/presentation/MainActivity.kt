@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -257,9 +258,9 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable(WatchRoutes.DOWNLOAD) {
-                            var isDownloadAreaPickerOpen by remember { mutableStateOf(false) }
-                            var downloadAreaFolder by remember { mutableStateOf<String?>(null) }
-                            var downloadAreaSearchQuery by remember { mutableStateOf("") }
+                            var isDownloadAreaPickerOpen by rememberSaveable { mutableStateOf(false) }
+                            var downloadAreaFolder by rememberSaveable { mutableStateOf<String?>(null) }
+                            var downloadAreaSearchQuery by rememberSaveable { mutableStateOf("") }
                             DismissableScreen(
                                 onDismiss = {
                                     if (isDownloadAreaPickerOpen) {

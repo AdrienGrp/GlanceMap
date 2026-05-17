@@ -804,6 +804,7 @@ private fun installedBundleSubtitle(bundle: OamInstalledBundle): String =
     listOfNotNull(
         "Map".takeIf { bundle.mapFileName != null },
         "POI".takeIf { bundle.poiFileName != null },
+        "Refuges.info".takeIf { bundle.refugesInfoFileName != null },
         "Routing".takeIf { bundle.routingFileNames.isNotEmpty() },
         "DEM".takeIf { bundle.demTileIds.isNotEmpty() },
     ).joinToString(" + ").ifBlank { bundle.bundleChoice.label }
@@ -814,6 +815,7 @@ private fun OamDownloadSelection.compactLabel(): String =
         "POI".takeIf { includePoi },
         "Route".takeIf { includeRouting },
         "DEM".takeIf { includeDem },
+        "Refuges".takeIf { includeRefugesInfo },
     ).joinToString(" + ").ifBlank { "None" }
 
 private fun List<OamDownloadArea>.estimatedSizeLabel(
@@ -839,7 +841,7 @@ private fun List<OamDownloadArea>.fileCountLabel(selection: OamDownloadSelection
                 (if (selection.includeMap) 1 else 0) +
                     (if (selection.includePoi) 1 else 0)
             )
-    val hasUnknownCount = selection.includeRouting || selection.includeDem
+    val hasUnknownCount = selection.includeRouting || selection.includeDem || selection.includeRefugesInfo
     return when {
         hasUnknownCount && knownCount == 0 -> "bundle files"
         hasUnknownCount -> "$knownCount+"
@@ -852,6 +854,7 @@ private fun Long.toSizeLabel(selection: OamDownloadSelection): String =
         if (this@toSizeLabel > 0L) add(formatBytes(this@toSizeLabel))
         if (selection.includeRouting) add("routing")
         if (selection.includeDem) add("DEM")
+        if (selection.includeRefugesInfo) add("Refuges.info")
     }.joinToString(" + ").ifBlank {
         formatBytes(this)
     }
