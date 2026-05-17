@@ -1,4 +1,4 @@
-@file:Suppress("FunctionNaming", "TooManyFunctions")
+@file:Suppress("FunctionNaming", "LongParameterList", "TooManyFunctions")
 
 package com.glancemap.glancemapcompanionapp
 
@@ -52,6 +52,7 @@ private const val REFUGES_PICKER_MAX_LAT_SPAN_DEGREES = 12.0
 internal fun BboxMapPickerDialog(
     initialBbox: String,
     selectedSource: PoiImportSource,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
@@ -95,6 +96,7 @@ internal fun BboxMapPickerDialog(
         BboxMapPickerSurface(
             initialBbox = initialPickerBbox,
             useLocationDefault = useLocationDefault,
+            watchInstalledCoverageAreas = watchInstalledCoverageAreas,
             state =
                 BboxMapPickerState(
                     selectedBbox = selectedBbox,
@@ -138,6 +140,7 @@ private data class BboxMapPickerMapState(
 private fun BboxMapPickerSurface(
     initialBbox: String,
     useLocationDefault: Boolean,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
     state: BboxMapPickerState,
     actions: BboxMapPickerActions,
 ) {
@@ -176,6 +179,7 @@ private fun BboxMapPickerSurface(
             BboxMapPickerMap(
                 initialBbox = initialBbox,
                 useLocationDefault = useLocationDefault,
+                watchInstalledCoverageAreas = watchInstalledCoverageAreas,
                 mapState =
                     BboxMapPickerMapState(
                         fineControlEnabled = fineControlEnabled,
@@ -207,6 +211,7 @@ private fun BboxMapPickerHeader() {
 private fun BboxMapPickerMap(
     initialBbox: String,
     useLocationDefault: Boolean,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
     mapState: BboxMapPickerMapState,
     actions: BboxMapPickerActions,
     modifier: Modifier = Modifier,
@@ -227,12 +232,14 @@ private fun BboxMapPickerMap(
                         context = context,
                         initialBounds = initialBounds,
                         useLocationDefault = useLocationDefault,
+                        watchInstalledCoverageAreas = watchInstalledCoverageAreas,
                         onBoundsChanged = actions.onBboxChanged,
                         onReady = actions.onReady,
                     ).also { view -> pickerView = view }
                 },
                 update = { view ->
                     view.setFineControlEnabled(mapState.fineControlEnabled)
+                    view.setWatchInstalledCoverageAreas(watchInstalledCoverageAreas)
                 },
                 modifier = Modifier.fillMaxSize(),
             )

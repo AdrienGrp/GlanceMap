@@ -193,10 +193,18 @@ internal class MapLibreBboxPickerView(
     context: Context,
     initialBounds: MapPickerBounds,
     private val useLocationDefault: Boolean,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
     private val onBoundsChanged: (String) -> Unit,
     onReady: () -> Unit,
 ) : BaseMapLibrePickerView(context, onReady) {
     private var selectedBounds = initialBounds
+    private var watchInstalledCoverageAreas = watchInstalledCoverageAreas
+    private val watchCoverageOverlay =
+        WatchInstalledCoverageOverlay(
+            context = context,
+            areasProvider = { this.watchInstalledCoverageAreas },
+            mapProvider = { map },
+        )
     private val overlay =
         BboxSelectionOverlay(
             context = context,
@@ -209,9 +217,18 @@ internal class MapLibreBboxPickerView(
 
     init {
         addView(
+            watchCoverageOverlay,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+        )
+        addView(
             overlay,
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
         )
+    }
+
+    fun setWatchInstalledCoverageAreas(areas: List<WatchInstalledCoverageArea>) {
+        watchInstalledCoverageAreas = areas
+        watchCoverageOverlay.invalidate()
     }
 
     fun setFineControlEnabled(enabled: Boolean) {
@@ -252,10 +269,18 @@ internal class MapLibreRoutingTilePickerView(
     context: Context,
     private val initialBounds: MapPickerBounds,
     private val useLocationDefault: Boolean,
+    watchInstalledCoverageAreas: List<WatchInstalledCoverageArea>,
     private val onSelectionChanged: (bbox: String, tiles: List<String>) -> Unit,
     onReady: () -> Unit,
 ) : BaseMapLibrePickerView(context, onReady) {
     private val selectedTiles = linkedSetOf<RoutingTile>()
+    private var watchInstalledCoverageAreas = watchInstalledCoverageAreas
+    private val watchCoverageOverlay =
+        WatchInstalledCoverageOverlay(
+            context = context,
+            areasProvider = { this.watchInstalledCoverageAreas },
+            mapProvider = { map },
+        )
     private val overlay =
         RoutingTileOverlay(
             context = context,
@@ -266,9 +291,18 @@ internal class MapLibreRoutingTilePickerView(
     init {
         selectedTiles += routingTilesForBounds(initialBounds)
         addView(
+            watchCoverageOverlay,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+        )
+        addView(
             overlay,
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
         )
+    }
+
+    fun setWatchInstalledCoverageAreas(areas: List<WatchInstalledCoverageArea>) {
+        watchInstalledCoverageAreas = areas
+        watchCoverageOverlay.invalidate()
     }
 
     override fun onStyleReady(map: MapLibreMap) {
@@ -817,6 +851,90 @@ private val BBOX_VERTEX_HANDLES =
         BboxHandle.SouthEast,
         BboxHandle.SouthWest,
     )
+
+private class WatchInstalledCoverageOverlay(
+    context: Context,
+    private val areasProvider: () -> List<WatchInstalledCoverageArea>,
+    private val mapProvider: () -> MapLibreMap?,
+) : View(context) {
+    private val poiFillPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x262ab16d
+            style = Paint.Style.FILL
+        }
+    private val poiStrokePaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xd92ab16d.toInt()
+            style = Paint.Style.STROKE
+            strokeWidth = dpFloat(2)
+        }
+    private val routingFillPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x245a80ff
+            style = Paint.Style.FILL
+        }
+    private val routingStrokePaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xd95a80ff.toInt()
+            style = Paint.Style.STROKE
+            strokeWidth = dpFloat(2)
+        }
+    private val labelPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xff10212b.toInt()
+            textSize = 11 * resources.displayMetrics.density
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+        }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val activeMap = mapProvider()
+        areasProvider().forEach { area ->
+            val bounds = MapPickerBounds.parseOrNull(area.bbox) ?: return@forEach
+            val rect = bounds.screenRect(activeMap) ?: return@forEach
+            val (fill, stroke) =
+                when (area.kind) {
+                    WatchInstalledCoverageKind.POI -> poiFillPaint to poiStrokePaint
+                    WatchInstalledCoverageKind.ROUTING -> routingFillPaint to routingStrokePaint
+                }
+            canvas.drawRect(rect, fill)
+            canvas.drawRect(rect, stroke)
+            drawCoverageLabel(canvas, rect, area)
+        }
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean = false
+
+    private fun MapPickerBounds.screenRect(activeMap: MapLibreMap?): RectF? {
+        if (activeMap == null) return null
+        val northWest = activeMap.projection.toScreenLocation(LatLng(north, west))
+        val southEast = activeMap.projection.toScreenLocation(LatLng(south, east))
+        return RectF(
+            min(northWest.x, southEast.x),
+            min(northWest.y, southEast.y),
+            max(northWest.x, southEast.x),
+            max(northWest.y, southEast.y),
+        )
+    }
+
+    private fun drawCoverageLabel(
+        canvas: Canvas,
+        rect: RectF,
+        area: WatchInstalledCoverageArea,
+    ) {
+        if (rect.width() < dpFloat(74) || rect.height() < dpFloat(26)) return
+        val label =
+            when (area.kind) {
+                WatchInstalledCoverageKind.POI -> "POI"
+                WatchInstalledCoverageKind.ROUTING -> area.fileName.substringBeforeLast('.')
+            }
+        val baseline = rect.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2f
+        canvas.drawText(label, rect.centerX(), baseline, labelPaint)
+    }
+
+    private fun dpFloat(value: Int): Float = value * resources.displayMetrics.density
+}
 
 private class RoutingTileOverlay(
     context: Context,
