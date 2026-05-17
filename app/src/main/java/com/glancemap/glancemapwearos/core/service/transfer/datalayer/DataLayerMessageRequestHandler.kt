@@ -11,10 +11,14 @@ import com.glancemap.glancemapwearos.core.service.transfer.contract.TransferCons
 import com.glancemap.glancemapwearos.core.service.transfer.notifications.NotificationHelper
 import com.glancemap.glancemapwearos.core.service.transfer.runtime.TransferSessionState
 import com.glancemap.glancemapwearos.core.service.transfer.storage.WatchFileOps
+import com.glancemap.glancemapwearos.core.service.transfer.storage.WatchMapWithBounds
+import com.glancemap.glancemapwearos.core.service.transfer.storage.WatchPoiWithBounds
+import com.glancemap.glancemapwearos.core.service.transfer.storage.WatchRoutingSegmentWithBounds
 import com.google.android.gms.wearable.MessageEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 
@@ -26,6 +30,8 @@ private fun ConnectivityManager.hasWifiTransport(network: Network?): Boolean =
 private val ConnectivityManager.hasAvailableWifiNetwork: Boolean
     @Suppress("DEPRECATION")
     get() = allNetworks.any { network -> hasWifiTransport(network) }
+
+private const val TAG = "DataLayerMessageReq"
 
 internal class DataLayerMessageRequestHandler(
     private val service: DataLayerListenerService,
@@ -398,27 +404,7 @@ internal class DataLayerMessageRequestHandler(
         }
 
         appScope.launch(Dispatchers.IO) {
-            val maps =
-                runCatching { fileOps.listMapFilesWithBounds() }
-                    .getOrElse {
-                        Log.w(TAG, "Failed to list maps for request id=$requestId", it)
-                        emptyList()
-                    }
-
-            val jsonMaps = org.json.JSONArray()
-            maps.forEach { map ->
-                jsonMaps.put(
-                    JSONObject()
-                        .put("name", map.fileName)
-                        .put("path", map.absolutePath)
-                        .put("bbox", map.bbox),
-                )
-            }
-
-            val reply =
-                JSONObject()
-                    .put("id", requestId)
-                    .put("maps", jsonMaps)
+            val reply = buildInstalledCoverageReply(requestId, fileOps)
 
             runCatching {
                 sendMessage(
@@ -474,8 +460,72 @@ internal class DataLayerMessageRequestHandler(
             }
         }
     }
+}
 
-    private companion object {
-        const val TAG = "DataLayerMessageReq"
+private suspend fun buildInstalledCoverageReply(
+    requestId: String,
+    fileOps: WatchFileOps,
+): JSONObject {
+    val maps =
+        runCatching { fileOps.listMapFilesWithBounds() }
+            .getOrElse {
+                Log.w(TAG, "Failed to list maps for request id=$requestId", it)
+                emptyList()
+            }
+    val pois =
+        runCatching { fileOps.listPoiFilesWithBounds() }
+            .getOrElse {
+                Log.w(TAG, "Failed to list POI coverage for request id=$requestId", it)
+                emptyList()
+            }
+    val routingSegments =
+        runCatching { fileOps.listRoutingSegmentsWithBounds() }
+            .getOrElse {
+                Log.w(TAG, "Failed to list routing coverage for request id=$requestId", it)
+                emptyList()
+            }
+
+    return JSONObject()
+        .put("id", requestId)
+        .put("maps", mapsToJsonRows(maps))
+        .put("pois", poisToJsonRows(pois))
+        .put("routingTiles", routingSegmentsToJsonRows(routingSegments))
+}
+
+private fun mapsToJsonRows(maps: List<WatchMapWithBounds>): JSONArray =
+    maps.toJsonRows(
+        fileName = WatchMapWithBounds::fileName,
+        absolutePath = WatchMapWithBounds::absolutePath,
+        bbox = WatchMapWithBounds::bbox,
+    )
+
+private fun poisToJsonRows(pois: List<WatchPoiWithBounds>): JSONArray =
+    pois.toJsonRows(
+        fileName = WatchPoiWithBounds::fileName,
+        absolutePath = WatchPoiWithBounds::absolutePath,
+        bbox = WatchPoiWithBounds::bbox,
+    )
+
+private fun routingSegmentsToJsonRows(segments: List<WatchRoutingSegmentWithBounds>): JSONArray =
+    segments.toJsonRows(
+        fileName = WatchRoutingSegmentWithBounds::fileName,
+        absolutePath = WatchRoutingSegmentWithBounds::absolutePath,
+        bbox = WatchRoutingSegmentWithBounds::bbox,
+    )
+
+private fun <T> List<T>.toJsonRows(
+    fileName: (T) -> String,
+    absolutePath: (T) -> String,
+    bbox: (T) -> String,
+): JSONArray {
+    val rows = JSONArray()
+    forEach { item ->
+        rows.put(
+            JSONObject()
+                .put("name", fileName(item))
+                .put("path", absolutePath(item))
+                .put("bbox", bbox(item)),
+        )
     }
+    return rows
 }

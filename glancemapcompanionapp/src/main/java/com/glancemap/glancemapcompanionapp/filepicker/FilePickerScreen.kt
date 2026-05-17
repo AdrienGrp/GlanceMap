@@ -88,6 +88,7 @@ fun FilePickerScreen(
     val refugesRegionPresets by viewModel.refugesRegionPresets.collectAsState()
     val useDetailedRefugesRegionPresets by viewModel.useDetailedRefugesRegionPresets.collectAsState()
     val watchInstalledMaps by viewModel.watchInstalledMaps.collectAsState()
+    val watchInstalledCoverageAreas by viewModel.watchInstalledCoverageAreas.collectAsState()
     val isLoadingWatchInstalledMaps by viewModel.isLoadingWatchInstalledMaps.collectAsState()
     val watchInstalledMapsStatusMessage by viewModel.watchInstalledMapsStatusMessage.collectAsState()
     val lastImportedPoiFile by viewModel.lastImportedPoiFile.collectAsState()
@@ -936,6 +937,7 @@ fun FilePickerScreen(
                         viewModel.setUseDetailedRefugesRegionPresets(context, enabled)
                     },
                     watchInstalledMaps = watchInstalledMaps,
+                    watchInstalledCoverageAreas = watchInstalledCoverageAreas,
                     isLoadingWatchInstalledMaps = isLoadingWatchInstalledMaps,
                     watchInstalledMapsStatusMessage = watchInstalledMapsStatusMessage,
                     lastImportedPoiFile = lastImportedPoiFile,
@@ -953,6 +955,7 @@ fun FilePickerScreen(
                     isDownloadingRouting = isDownloadingRouting,
                     routingDownloadProgress = routingDownloadProgress,
                     watchInstalledMaps = watchInstalledMaps,
+                    watchInstalledCoverageAreas = watchInstalledCoverageAreas,
                     isLoadingWatchInstalledMaps = isLoadingWatchInstalledMaps,
                     watchInstalledMapsStatusMessage = watchInstalledMapsStatusMessage,
                     lastRoutingDownloadedFiles = lastRoutingDownloadedFiles,
