@@ -100,6 +100,7 @@ fun DownloadScreen(
             context.getSharedPreferences(DOWNLOAD_INFO_PREFS, android.content.Context.MODE_PRIVATE)
         }
     val listState = rememberScalingLazyListState()
+    var wasAreaPickerOpen by remember { mutableStateOf(showAreaPicker) }
     val selectedAreas = uiState.selectedAreas
     val estimatedSize =
         selectedAreas.estimatedSizeLabel(uiState.selection)
@@ -235,10 +236,15 @@ fun DownloadScreen(
         }
     }
     LaunchedEffect(showAreaPicker) {
+        val closedAreaPicker = wasAreaPickerOpen && !showAreaPicker
+        wasAreaPickerOpen = showAreaPicker
         if (!showAreaPicker) {
             onSelectedAreaFolderChange(null)
             onAreaSearchQueryChange("")
             showAreaSearchDialog = false
+            if (closedAreaPicker && uiState.selectedAreaIds.isNotEmpty()) {
+                listState.scrollToItem(DOWNLOAD_MAIN_ACTION_ITEM_INDEX)
+            }
         }
     }
 
@@ -795,9 +801,9 @@ private fun InstalledBundleRow(
 
 private fun refreshSelectionButtonLabel(selectedCount: Int): String =
     if (selectedCount > 0) {
-        "Check $selectedCount"
+        "Check for update ($selectedCount)"
     } else {
-        "Check selected"
+        "Check for update"
     }
 
 private fun installedBundleSubtitle(bundle: OamInstalledBundle): String =
@@ -945,3 +951,4 @@ private val SelectedChipIcon = Color(0xFF7FE4C8)
 
 private const val DOWNLOAD_INFO_PREFS = "download_screen_info_prefs"
 private const val DOWNLOAD_INFO_SHOWN_KEY = "oam_info_shown"
+private const val DOWNLOAD_MAIN_ACTION_ITEM_INDEX = 2

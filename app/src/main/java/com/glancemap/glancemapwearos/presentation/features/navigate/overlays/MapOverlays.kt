@@ -51,6 +51,7 @@ internal fun MapOverlays(
     poiViewModel: PoiViewModel,
     activePoiOverlaySources: List<PoiOverlaySource>,
     poiMarkerSizePx: Int,
+    poiMarkerStyle: String,
     gpxTrackColor: Int,
     gpxTrackColorMode: String,
     gpxTrackWidth: Float,
@@ -193,6 +194,7 @@ internal fun MapOverlays(
         poiViewModel = poiViewModel,
         activePoiOverlaySources = activePoiOverlaySources,
         poiMarkerSizePx = poiMarkerSizePx,
+        poiMarkerStyle = poiMarkerStyle,
         requestMapRedraw = requestMapRedraw,
         onPoiMarkersSnapshotChanged = onPoiMarkersSnapshotChanged,
         locationMarker = locationMarker,
@@ -365,11 +367,13 @@ private fun findExistingCompassConeLayer(mapView: MapView): CompassConeLayer? =
 
 @Composable
 @OptIn(FlowPreview::class)
+@Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 private fun PoiOverlayEffect(
     mapView: MapView,
     poiViewModel: PoiViewModel,
     activePoiOverlaySources: List<PoiOverlaySource>,
     poiMarkerSizePx: Int,
+    poiMarkerStyle: String,
     requestMapRedraw: () -> Unit,
     onPoiMarkersSnapshotChanged: (List<com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker>) -> Unit,
     locationMarker: RotatableMarker?,
@@ -382,10 +386,16 @@ private fun PoiOverlayEffect(
             (poiMarkerSizePx * 0.72f).toInt().coerceAtLeast(12)
         }
     val markerBitmapByType =
-        remember(mapView, poiMarkerSizePx, iconSizePx) {
+        remember(mapView, poiMarkerSizePx, iconSizePx, poiMarkerStyle) {
             PoiType.entries.associateWith { type ->
                 val osmIcon = loadOsmPoiIconBitmapOrNull(mapView, type, sizePx = iconSizePx)
-                AndroidBitmap(createPoiTypeMarkerBitmap(type, osmIcon, sizePx = poiMarkerSizePx))
+                AndroidBitmap(
+                    if (poiMarkerStyle == SettingsRepository.POI_MARKER_STYLE_THEME_ICON) {
+                        createPoiThemeIconMarkerBitmap(osmIcon, poiMarkerSizePx, fallbackType = type)
+                    } else {
+                        createPoiTypeMarkerBitmap(type, osmIcon, sizePx = poiMarkerSizePx)
+                    },
+                )
             }
         }
     val latestSources = rememberUpdatedState(activePoiOverlaySources)
@@ -414,7 +424,7 @@ private fun PoiOverlayEffect(
         onPoiMarkersSnapshotChanged(emptyList())
     }
 
-    LaunchedEffect(activePoiOverlaySources, poiMarkerSizePx) {
+    LaunchedEffect(activePoiOverlaySources, poiMarkerSizePx, poiMarkerStyle) {
         if (activePoiOverlaySources.isEmpty()) {
             clearAllMarkers()
         } else {
@@ -505,11 +515,21 @@ private fun PoiOverlayEffect(
                                 ?: return@forEach
                         if (existing == null) {
                             val marker = Marker(latLong, bitmap, 0, 0)
-                            markersByKey[point.key] = PoiMarkerEntry(marker, point.type, poiMarkerSizePx)
+                            markersByKey[point.key] =
+                                PoiMarkerEntry(
+                                    marker = marker,
+                                    type = point.type,
+                                    markerSizePx = poiMarkerSizePx,
+                                    markerStyle = poiMarkerStyle,
+                                )
                             layers.add(marker)
                             changed = true
                         } else {
-                            if (existing.type != point.type || existing.markerSizePx != poiMarkerSizePx) {
+                            if (
+                                existing.type != point.type ||
+                                existing.markerSizePx != poiMarkerSizePx ||
+                                existing.markerStyle != poiMarkerStyle
+                            ) {
                                 layers.remove(existing.marker)
                                 val marker = Marker(latLong, bitmap, 0, 0)
                                 markersByKey[point.key] =
@@ -517,6 +537,7 @@ private fun PoiOverlayEffect(
                                         marker = marker,
                                         type = point.type,
                                         markerSizePx = poiMarkerSizePx,
+                                        markerStyle = poiMarkerStyle,
                                     )
                                 layers.add(marker)
                                 changed = true

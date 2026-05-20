@@ -59,6 +59,8 @@ interface SettingsRepository {
         const val POI_ICON_SIZE_DEFAULT_PX = 22
         const val POI_ICON_SIZE_MEDIUM_PX = 24
         const val POI_ICON_SIZE_LARGE_PX = 26
+        const val POI_MARKER_STYLE_BADGE = "BADGE"
+        const val POI_MARKER_STYLE_THEME_ICON = "THEME_ICON"
 
         const val POI_POPUP_TIMEOUT_DEFAULT_SECONDS = 5
         const val POI_POPUP_TIMEOUT_MIN_SECONDS = 1
@@ -283,6 +285,10 @@ interface SettingsRepository {
     val poiIconSizePx: Flow<Int>
 
     suspend fun setPoiIconSizePx(sizePx: Int)
+
+    val poiMarkerStyle: Flow<String>
+
+    suspend fun setPoiMarkerStyle(style: String)
 
     val poiTapToCenterEnabled: Flow<Boolean>
 

@@ -98,6 +98,7 @@ class SettingsRepositoryImpl private constructor(
         val GPX_LONG_PRESS_TIP_SHOWN = booleanPreferencesKey("gpx_long_press_tip_shown")
         val IS_METRIC = booleanPreferencesKey("is_metric")
         val POI_ICON_SIZE_PX = intPreferencesKey("poi_icon_size_px")
+        val POI_MARKER_STYLE = stringPreferencesKey("poi_marker_style")
         val POI_TAP_TO_CENTER_ENABLED = booleanPreferencesKey("poi_tap_to_center_enabled")
         val POI_POPUP_TIMEOUT_SECONDS = intPreferencesKey("poi_popup_timeout_seconds")
         val POI_POPUP_MANUAL_CLOSE_ONLY = booleanPreferencesKey("poi_popup_manual_close_only")
@@ -665,6 +666,17 @@ class SettingsRepositoryImpl private constructor(
         }
     }
 
+    override val poiMarkerStyle: Flow<String> =
+        context.dataStore.data.map {
+            sanitizePoiMarkerStyle(it[PrefKeys.POI_MARKER_STYLE])
+        }
+
+    override suspend fun setPoiMarkerStyle(style: String) {
+        context.dataStore.edit {
+            it[PrefKeys.POI_MARKER_STYLE] = sanitizePoiMarkerStyle(style)
+        }
+    }
+
     override val poiTapToCenterEnabled: Flow<Boolean> =
         context.dataStore.data.map {
             it[PrefKeys.POI_TAP_TO_CENTER_ENABLED] ?: true
@@ -769,6 +781,11 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.POI_ICON_SIZE_MEDIUM_PX,
                 SettingsRepository.POI_ICON_SIZE_LARGE_PX,
             )
+        private val allowedPoiMarkerStyles =
+            setOf(
+                SettingsRepository.POI_MARKER_STYLE_BADGE,
+                SettingsRepository.POI_MARKER_STYLE_THEME_ICON,
+            )
         private val allowedGpxTrackColorModes =
             setOf(
                 SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID,
@@ -795,6 +812,13 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.POI_POPUP_TIMEOUT_MIN_SECONDS,
                 SettingsRepository.POI_POPUP_TIMEOUT_MAX_SECONDS,
             )
+
+        private fun sanitizePoiMarkerStyle(style: String?): String =
+            if (style in allowedPoiMarkerStyles) {
+                style.orEmpty()
+            } else {
+                SettingsRepository.POI_MARKER_STYLE_BADGE
+            }
 
         private fun sanitizeGpxTrackOpacityPercent(opacityPercent: Int): Int =
             opacityPercent.coerceIn(

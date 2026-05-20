@@ -21,6 +21,7 @@ internal data class PoiMarkerEntry(
     val marker: Marker,
     val type: PoiType,
     val markerSizePx: Int,
+    val markerStyle: String,
 )
 
 private val PoiType.markerLabel: String
@@ -183,6 +184,63 @@ internal fun createPoiTypeMarkerBitmap(
 
     return bitmap
 }
+
+internal fun createPoiThemeIconMarkerBitmap(
+    iconBitmap: Bitmap?,
+    sizePx: Int,
+    fallbackType: PoiType,
+): Bitmap {
+    if (iconBitmap == null) return createPoiTypeMarkerBitmap(fallbackType, null, sizePx)
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+
+    val shadowRect =
+        RectF(
+            sizePx * 0.08f,
+            sizePx * 0.08f,
+            sizePx * 0.92f,
+            sizePx * 0.92f,
+        )
+    val iconRect =
+        RectF(
+            sizePx * 0.12f,
+            sizePx * 0.12f,
+            sizePx * 0.88f,
+            sizePx * 0.88f,
+        )
+    val haloPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            alpha = 210
+            colorFilter =
+                android.graphics.PorterDuffColorFilter(
+                    android.graphics.Color.WHITE,
+                    android.graphics.PorterDuff.Mode.SRC_IN,
+                )
+        }
+    val shadowPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            alpha = 190
+            colorFilter =
+                android.graphics.PorterDuffColorFilter(
+                    android.graphics.Color.BLACK,
+                    android.graphics.PorterDuff.Mode.SRC_IN,
+                )
+        }
+    canvas.drawBitmap(iconBitmap, null, shadowRect, haloPaint)
+    canvas.drawBitmap(iconBitmap, null, shadowRect.insetCopy(sizePx * 0.04f), shadowPaint)
+    canvas.drawBitmap(iconBitmap, null, iconRect, null)
+
+    return bitmap
+}
+
+private fun RectF.insetCopy(inset: Float): RectF =
+    RectF(
+        left + inset,
+        top + inset,
+        right - inset,
+        bottom - inset,
+    )
 
 internal fun ensureTopOverlayOrder(
     layers: Layers,
