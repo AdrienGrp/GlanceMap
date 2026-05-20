@@ -742,59 +742,71 @@ tasks.register("prepareOsmPoiIcons") {
             PoiIconSpec(
                 assetName = "peak.svg",
                 remoteCandidates = listOf("mountain.svg"),
-                localCandidates = listOf("ele-res/s_peak.svg", "theme/openhiking/natural/peak.svg"),
+                localCandidates = listOf("poi/source/peak.svg", "ele-res/s_peak.svg", "theme/openhiking/natural/peak.svg"),
             ),
             PoiIconSpec(
                 assetName = "water.svg",
                 remoteCandidates = listOf("drinking-water.svg", "fountain.svg"),
-                localCandidates = listOf("ele-res/s_drinking_water.svg", "theme/openhiking/services/drinking_water.svg"),
+                localCandidates = listOf(
+                    "poi/source/water.svg",
+                    "ele-res/s_drinking_water.svg",
+                    "theme/openhiking/services/drinking_water.svg",
+                ),
             ),
             PoiIconSpec(
                 assetName = "hut.svg",
                 remoteCandidates = listOf("shelter.svg", "lodging.svg"),
-                localCandidates = listOf("ele-res/s_alpine_hut.svg", "theme/openhiking/hiking/alpine_hut.svg"),
+                localCandidates = listOf("poi/source/hut.svg", "ele-res/s_alpine_hut.svg", "theme/openhiking/hiking/alpine_hut.svg"),
             ),
             PoiIconSpec(
                 assetName = "camp.svg",
                 remoteCandidates = listOf("campsite.svg", "rv-park.svg"),
-                localCandidates = listOf("ele-res/s_camp_site.svg", "theme/openhiking/accomodation/camp_site.svg"),
+                localCandidates = listOf("poi/source/camp.svg", "ele-res/s_camp_site.svg", "theme/openhiking/accomodation/camp_site.svg"),
             ),
             PoiIconSpec(
                 assetName = "food.svg",
                 remoteCandidates = listOf("restaurant.svg", "fast-food.svg", "cafe.svg"),
-                localCandidates = listOf("ele-res/s_restaurant.svg", "theme/openhiking/food/restaurant.svg"),
+                localCandidates = listOf("poi/source/food.svg", "ele-res/s_restaurant.svg", "theme/openhiking/food/restaurant.svg"),
             ),
             PoiIconSpec(
                 assetName = "toilet.svg",
                 remoteCandidates = listOf("toilet.svg"),
-                localCandidates = listOf("ele-res/s_toilets.svg", "theme/openhiking/services/toilets.svg"),
+                localCandidates = listOf("poi/source/toilet.svg", "ele-res/s_toilets.svg", "theme/openhiking/services/toilets.svg"),
             ),
             PoiIconSpec(
                 assetName = "transport.svg",
                 remoteCandidates = listOf("bus.svg", "rail.svg", "ferry.svg"),
-                localCandidates = listOf("ele-res/s_pt_bus.svg", "theme/openhiking/transportation/bus_stop.svg"),
+                localCandidates = listOf(
+                    "poi/source/transport.svg",
+                    "ele-res/s_pt_bus.svg",
+                    "theme/openhiking/transportation/bus_stop.svg",
+                ),
             ),
             PoiIconSpec(
                 assetName = "bike.svg",
                 remoteCandidates = listOf("bicycle-share.svg", "bike-share.svg", "cycling.svg"),
-                localCandidates = listOf("ele-res/s_bicycle_shop.svg", "ele-res/s_bicycle_rental.svg"),
+                localCandidates = listOf("poi/source/bike.svg", "ele-res/s_bicycle_shop.svg", "ele-res/s_bicycle_rental.svg"),
             ),
             PoiIconSpec(
                 assetName = "viewpoint.svg",
                 remoteCandidates = listOf("landmark.svg", "triangle.svg"),
-                localCandidates = listOf("ele-res/s_viewpoint.svg", "theme/openhiking/hiking/viewpoint.svg"),
+                localCandidates = listOf("poi/source/viewpoint.svg", "ele-res/s_viewpoint.svg", "theme/openhiking/hiking/viewpoint.svg"),
             ),
             PoiIconSpec(
                 assetName = "parking.svg",
                 remoteCandidates = listOf("parking.svg"),
-                localCandidates = listOf("ele-res/s_parking.svg", "theme/openhiking/transportation/parking.svg"),
+                localCandidates = listOf("poi/source/parking.svg", "ele-res/s_parking.svg", "theme/openhiking/transportation/parking.svg"),
             ),
             PoiIconSpec(
                 assetName = "shop.svg",
                 remoteCandidates = listOf("shop.svg", "grocery.svg"),
-                localCandidates = listOf("ele-res/s_sports_shop.svg", "theme/openhiking/shop/shop.svg"),
+                localCandidates = listOf("poi/source/shop.svg", "ele-res/s_sports_shop.svg", "theme/openhiking/shop/shop.svg"),
             ),
-            PoiIconSpec(assetName = "generic.svg", remoteCandidates = listOf("marker.svg", "circle.svg")),
+            PoiIconSpec(
+                assetName = "generic.svg",
+                remoteCandidates = listOf("marker.svg", "circle.svg"),
+                localCandidates = listOf("poi/source/generic.svg"),
+            ),
         )
         val iconsDir = File(outputRoot, "poi/osm").apply { mkdirs() }
         val overwrite = osmPoiIconsOverwrite.get().toBoolean()

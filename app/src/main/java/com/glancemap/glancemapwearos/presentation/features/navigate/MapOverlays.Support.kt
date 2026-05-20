@@ -211,7 +211,7 @@ internal fun createPoiThemeIconMarkerBitmap(
         )
     val haloPaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            alpha = 210
+            alpha = 235
             colorFilter =
                 android.graphics.PorterDuffColorFilter(
                     android.graphics.Color.WHITE,
@@ -220,26 +220,38 @@ internal fun createPoiThemeIconMarkerBitmap(
         }
     val shadowPaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            alpha = 190
+            alpha = 135
             colorFilter =
                 android.graphics.PorterDuffColorFilter(
                     android.graphics.Color.BLACK,
                     android.graphics.PorterDuff.Mode.SRC_IN,
                 )
         }
+    val iconPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            alpha = 255
+            colorFilter =
+                android.graphics.PorterDuffColorFilter(
+                    fallbackType.markerColorArgb,
+                    android.graphics.PorterDuff.Mode.SRC_IN,
+                )
+        }
     canvas.drawBitmap(iconBitmap, null, shadowRect, haloPaint)
-    canvas.drawBitmap(iconBitmap, null, shadowRect.insetCopy(sizePx * 0.04f), shadowPaint)
-    canvas.drawBitmap(iconBitmap, null, iconRect, null)
+    canvas.drawBitmap(iconBitmap, null, iconRect.offsetCopy(dx = sizePx * 0.04f, dy = sizePx * 0.05f), shadowPaint)
+    canvas.drawBitmap(iconBitmap, null, iconRect, iconPaint)
 
     return bitmap
 }
 
-private fun RectF.insetCopy(inset: Float): RectF =
+private fun RectF.offsetCopy(
+    dx: Float,
+    dy: Float,
+): RectF =
     RectF(
-        left + inset,
-        top + inset,
-        right - inset,
-        bottom - inset,
+        left + dx,
+        top + dy,
+        right + dx,
+        bottom + dy,
     )
 
 internal fun ensureTopOverlayOrder(
