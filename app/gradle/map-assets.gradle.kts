@@ -530,7 +530,8 @@ fun tilePathSegments(tileId: String): Pair<String, String> {
 
 data class PoiIconSpec(
     val assetName: String,
-    val remoteCandidates: List<String>
+    val remoteCandidates: List<String>,
+    val localCandidates: List<String> = emptyList(),
 )
 
 tasks.register("prepareBundledThemeAssets") {
@@ -730,41 +731,112 @@ tasks.register("prepareElevateThemeAssets") {
 
 tasks.register("prepareOsmPoiIcons") {
     group = "build setup"
-    description = "Downloads Maki POI icons into generated assets."
+    description = "Prepares generated POI icons from bundled themes or Maki."
     outputs.dir(generatedOsmPoiIconsAssetsDir)
 
     doLast {
         val outputRoot = generatedOsmPoiIconsAssetsDir
         outputRoot.mkdirs()
 
+        val iconSpecs = listOf(
+            PoiIconSpec(
+                assetName = "peak.svg",
+                remoteCandidates = listOf("mountain.svg"),
+                localCandidates = listOf("poi/source/peak.svg", "ele-res/s_peak.svg", "theme/openhiking/natural/peak.svg"),
+            ),
+            PoiIconSpec(
+                assetName = "water.svg",
+                remoteCandidates = listOf("drinking-water.svg", "fountain.svg"),
+                localCandidates = listOf(
+                    "poi/source/water.svg",
+                    "ele-res/s_drinking_water.svg",
+                    "theme/openhiking/services/drinking_water.svg",
+                ),
+            ),
+            PoiIconSpec(
+                assetName = "hut.svg",
+                remoteCandidates = listOf("shelter.svg", "lodging.svg"),
+                localCandidates = listOf("poi/source/hut.svg", "ele-res/s_alpine_hut.svg", "theme/openhiking/hiking/alpine_hut.svg"),
+            ),
+            PoiIconSpec(
+                assetName = "camp.svg",
+                remoteCandidates = listOf("campsite.svg", "rv-park.svg"),
+                localCandidates = listOf("poi/source/camp.svg", "ele-res/s_camp_site.svg", "theme/openhiking/accomodation/camp_site.svg"),
+            ),
+            PoiIconSpec(
+                assetName = "food.svg",
+                remoteCandidates = listOf("restaurant.svg", "fast-food.svg", "cafe.svg"),
+                localCandidates = listOf("poi/source/food.svg", "ele-res/s_restaurant.svg", "theme/openhiking/food/restaurant.svg"),
+            ),
+            PoiIconSpec(
+                assetName = "toilet.svg",
+                remoteCandidates = listOf("toilet.svg"),
+                localCandidates = listOf("poi/source/toilet.svg", "ele-res/s_toilets.svg", "theme/openhiking/services/toilets.svg"),
+            ),
+            PoiIconSpec(
+                assetName = "transport.svg",
+                remoteCandidates = listOf("bus.svg", "rail.svg", "ferry.svg"),
+                localCandidates = listOf(
+                    "poi/source/transport.svg",
+                    "ele-res/s_pt_bus.svg",
+                    "theme/openhiking/transportation/bus_stop.svg",
+                ),
+            ),
+            PoiIconSpec(
+                assetName = "bike.svg",
+                remoteCandidates = listOf("bicycle-share.svg", "bike-share.svg", "cycling.svg"),
+                localCandidates = listOf("poi/source/bike.svg", "ele-res/s_bicycle_shop.svg", "ele-res/s_bicycle_rental.svg"),
+            ),
+            PoiIconSpec(
+                assetName = "viewpoint.svg",
+                remoteCandidates = listOf("landmark.svg", "triangle.svg"),
+                localCandidates = listOf("poi/source/viewpoint.svg", "ele-res/s_viewpoint.svg", "theme/openhiking/hiking/viewpoint.svg"),
+            ),
+            PoiIconSpec(
+                assetName = "parking.svg",
+                remoteCandidates = listOf("parking.svg"),
+                localCandidates = listOf("poi/source/parking.svg", "ele-res/s_parking.svg", "theme/openhiking/transportation/parking.svg"),
+            ),
+            PoiIconSpec(
+                assetName = "shop.svg",
+                remoteCandidates = listOf("shop.svg", "grocery.svg"),
+                localCandidates = listOf("poi/source/shop.svg", "ele-res/s_sports_shop.svg", "theme/openhiking/shop/shop.svg"),
+            ),
+            PoiIconSpec(
+                assetName = "generic.svg",
+                remoteCandidates = listOf("marker.svg", "circle.svg"),
+                localCandidates = listOf("poi/source/generic.svg"),
+            ),
+        )
+        val iconsDir = File(outputRoot, "poi/osm").apply { mkdirs() }
+        val overwrite = osmPoiIconsOverwrite.get().toBoolean()
+
+        fun copyLocalFallback(spec: PoiIconSpec, targetFile: File): Boolean {
+            if (targetFile.exists() && !overwrite) return true
+            val source =
+                spec.localCandidates
+                    .asSequence()
+                    .map { project.file("src/main/assets/$it") }
+                    .firstOrNull { it.isFile }
+                    ?: return false
+            source.copyTo(targetFile, overwrite = true)
+            return true
+        }
+
         val downloadEnabled = osmPoiIconsDownloadEnabled.get().toBoolean()
         if (!downloadEnabled) {
-            logger.lifecycle("OSM POI icon download disabled.")
+            val copied = iconSpecs.count { spec ->
+                copyLocalFallback(spec, File(iconsDir, spec.assetName))
+            }
+            logger.lifecycle("OSM POI icon download disabled. Copied local fallback icons=$copied out=${iconsDir.absolutePath}")
             return@doLast
         }
 
         val allowFallback = osmPoiIconsAllowFallback.get().toBoolean()
-        val overwrite = osmPoiIconsOverwrite.get().toBoolean()
         val failOnMissing = osmPoiIconsFailOnMissing.get().toBoolean()
         val makiBaseUrl = makiIconsBaseUrl.get().trim().trimEnd('/')
-
-        val iconSpecs = listOf(
-            PoiIconSpec(assetName = "peak.svg", remoteCandidates = listOf("mountain.svg")),
-            PoiIconSpec(assetName = "water.svg", remoteCandidates = listOf("drinking-water.svg", "fountain.svg")),
-            PoiIconSpec(assetName = "hut.svg", remoteCandidates = listOf("shelter.svg", "lodging.svg")),
-            PoiIconSpec(assetName = "camp.svg", remoteCandidates = listOf("campsite.svg", "rv-park.svg")),
-            PoiIconSpec(assetName = "food.svg", remoteCandidates = listOf("restaurant.svg", "fast-food.svg", "cafe.svg")),
-            PoiIconSpec(assetName = "toilet.svg", remoteCandidates = listOf("toilet.svg")),
-            PoiIconSpec(assetName = "transport.svg", remoteCandidates = listOf("bus.svg", "rail.svg", "ferry.svg")),
-            PoiIconSpec(assetName = "bike.svg", remoteCandidates = listOf("bicycle-share.svg", "bike-share.svg", "cycling.svg")),
-            PoiIconSpec(assetName = "viewpoint.svg", remoteCandidates = listOf("landmark.svg", "triangle.svg")),
-            PoiIconSpec(assetName = "parking.svg", remoteCandidates = listOf("parking.svg")),
-            PoiIconSpec(assetName = "shop.svg", remoteCandidates = listOf("shop.svg", "grocery.svg")),
-            PoiIconSpec(assetName = "generic.svg", remoteCandidates = listOf("marker.svg", "circle.svg"))
-        )
-
-        val iconsDir = File(outputRoot, "poi/osm").apply { mkdirs() }
         var downloaded = 0
+        var copiedFallback = 0
         var missing = 0
 
         fun tryDownload(sourceUrl: String, targetFile: File): Boolean {
@@ -800,7 +872,11 @@ tasks.register("prepareOsmPoiIcons") {
         iconSpecs.forEach { spec ->
             val target = File(iconsDir, spec.assetName)
             if (target.exists() && !overwrite) {
-                downloaded += 1
+                copiedFallback += 1
+                return@forEach
+            }
+            if (copyLocalFallback(spec, target)) {
+                copiedFallback += 1
                 return@forEach
             }
 
@@ -817,18 +893,22 @@ tasks.register("prepareOsmPoiIcons") {
 
             if (success) {
                 downloaded += 1
+            } else if (copyLocalFallback(spec, target)) {
+                copiedFallback += 1
             } else {
                 missing += 1
                 logger.warn("Missing Maki icon candidates for ${spec.assetName}: ${spec.remoteCandidates}")
             }
         }
 
-        logger.lifecycle("Maki POI icons: downloaded=$downloaded missing=$missing out=${iconsDir.absolutePath}")
+        logger.lifecycle(
+            "POI icons: downloaded=$downloaded localFallback=$copiedFallback missing=$missing out=${iconsDir.absolutePath}"
+        )
         if (missing > 0 && failOnMissing) {
             throw GradleException("Missing $missing Maki POI icons.")
         }
-        if (downloaded == 0 && !allowFallback) {
-            throw GradleException("No Maki POI icons downloaded and fallback disabled.")
+        if (downloaded == 0 && copiedFallback == 0 && !allowFallback) {
+            throw GradleException("No POI icons prepared and fallback disabled.")
         }
     }
 }

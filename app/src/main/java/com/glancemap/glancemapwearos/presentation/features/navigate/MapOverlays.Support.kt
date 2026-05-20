@@ -21,6 +21,7 @@ internal data class PoiMarkerEntry(
     val marker: Marker,
     val type: PoiType,
     val markerSizePx: Int,
+    val markerStyle: String,
 )
 
 private val PoiType.markerLabel: String
@@ -183,6 +184,75 @@ internal fun createPoiTypeMarkerBitmap(
 
     return bitmap
 }
+
+internal fun createPoiThemeIconMarkerBitmap(
+    iconBitmap: Bitmap?,
+    sizePx: Int,
+    fallbackType: PoiType,
+): Bitmap {
+    if (iconBitmap == null) return createPoiTypeMarkerBitmap(fallbackType, null, sizePx)
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+
+    val shadowRect =
+        RectF(
+            sizePx * 0.08f,
+            sizePx * 0.08f,
+            sizePx * 0.92f,
+            sizePx * 0.92f,
+        )
+    val iconRect =
+        RectF(
+            sizePx * 0.12f,
+            sizePx * 0.12f,
+            sizePx * 0.88f,
+            sizePx * 0.88f,
+        )
+    val haloPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            alpha = 235
+            colorFilter =
+                android.graphics.PorterDuffColorFilter(
+                    android.graphics.Color.WHITE,
+                    android.graphics.PorterDuff.Mode.SRC_IN,
+                )
+        }
+    val shadowPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            alpha = 135
+            colorFilter =
+                android.graphics.PorterDuffColorFilter(
+                    android.graphics.Color.BLACK,
+                    android.graphics.PorterDuff.Mode.SRC_IN,
+                )
+        }
+    val iconPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            alpha = 255
+            colorFilter =
+                android.graphics.PorterDuffColorFilter(
+                    fallbackType.markerColorArgb,
+                    android.graphics.PorterDuff.Mode.SRC_IN,
+                )
+        }
+    canvas.drawBitmap(iconBitmap, null, shadowRect, haloPaint)
+    canvas.drawBitmap(iconBitmap, null, iconRect.offsetCopy(dx = sizePx * 0.04f, dy = sizePx * 0.05f), shadowPaint)
+    canvas.drawBitmap(iconBitmap, null, iconRect, iconPaint)
+
+    return bitmap
+}
+
+private fun RectF.offsetCopy(
+    dx: Float,
+    dy: Float,
+): RectF =
+    RectF(
+        left + dx,
+        top + dy,
+        right + dx,
+        bottom + dy,
+    )
 
 internal fun ensureTopOverlayOrder(
     layers: Layers,

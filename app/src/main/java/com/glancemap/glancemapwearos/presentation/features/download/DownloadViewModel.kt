@@ -148,6 +148,19 @@ class DownloadViewModel(
         }
     }
 
+    fun setIncludeRefugesInfo(includeRefugesInfo: Boolean) {
+        if (_uiState.value.isDownloading) return
+        _uiState.update { state ->
+            state.copy(
+                selection = state.selection.copy(includeRefugesInfo = includeRefugesInfo),
+                isPausedDownload = false,
+                statusMessage = null,
+                errorMessage = null,
+                networkWarningMessage = null,
+            )
+        }
+    }
+
     fun downloadSelectedBundle() {
         val state = _uiState.value
         DebugTelemetry.log(
@@ -184,7 +197,7 @@ class DownloadViewModel(
             _uiState.update {
                 it.copy(
                     statusMessage = "Nothing selected",
-                    errorMessage = "Enable Maps, POI, Routing, or DEM in Download settings.",
+                    errorMessage = "Enable Maps, POI, Routing, DEM, or Refuges.info in Download settings.",
                     networkWarningMessage = null,
                 )
             }
@@ -820,4 +833,5 @@ private fun OamInstalledBundle.toDownloadSelection(): OamDownloadSelection =
         includePoi = poiFileName != null,
         includeRouting = routingFileNames.isNotEmpty(),
         includeDem = demTileIds.isNotEmpty(),
+        includeRefugesInfo = refugesInfoFileName != null,
     )

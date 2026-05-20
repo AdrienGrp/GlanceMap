@@ -70,6 +70,13 @@ class OamBundleDownloader(
 ) {
     private val downloadDir: File by lazy { context.getDir("oam_downloads", Context.MODE_PRIVATE) }
     private val activeConnections = Collections.synchronizedSet(mutableSetOf<HttpURLConnection>())
+    private val refugesInfoImporter by lazy {
+        RefugesInfoPoiImporter(
+            context = context,
+            poiRepository = poiRepository,
+            activeConnections = activeConnections,
+        )
+    }
 
     suspend fun installedBundles(): List<OamInstalledBundle> = bundleStore.listInstalledBundles()
 
@@ -148,6 +155,11 @@ class OamBundleDownloader(
                 }
                 if (selection.includePoi) {
                     deleteZipAndPartial("${area.id}.poi.zip")
+                }
+                if (selection.includeRefugesInfo) {
+                    val fileName = refugesInfoFileNameForArea(area)
+                    File(context.cacheDir, ".$fileName.tmp").delete()
+                    File(context.cacheDir, fileName).delete()
                 }
                 if (selection.includeRouting) {
                     routingSegmentNamesForArea(
@@ -245,6 +257,7 @@ class OamBundleDownloader(
                 existingBundle = existingBundle,
                 mapFileName = mapFileName,
                 poiFileName = existingBundle?.poiFileName,
+                refugesInfoFileName = existingBundle?.refugesInfoFileName,
                 remoteFiles = remoteFilesByUrl.values,
             )
         }
@@ -306,6 +319,50 @@ class OamBundleDownloader(
                 existingBundle = existingBundle,
                 mapFileName = mapFileName,
                 poiFileName = poiFileName,
+                refugesInfoFileName = existingBundle?.refugesInfoFileName,
+                remoteFiles = remoteFilesByUrl.values,
+            )
+        }
+
+        var refugesInfoFileName: String? = existingBundle?.refugesInfoFileName
+        if (selection.includeRefugesInfo) {
+            val existingRefugesInfoFile =
+                if (forceMapAndPoi) {
+                    null
+                } else {
+                    existingRefugesInfoFileForArea(
+                        area = area,
+                        knownFileName = existingBundle?.refugesInfoFileName,
+                    )
+                }
+            if (existingRefugesInfoFile != null) {
+                refugesInfoFileName = existingRefugesInfoFile.name
+                reportExistingFile(
+                    label = "Refuges.info",
+                    file = existingRefugesInfoFile,
+                    onProgress = onProgress,
+                )
+            } else {
+                val mapFile =
+                    mapFileForArea(area = area, mapFileName = mapFileName)
+                        ?: throw IOException(
+                            "Refuges.info needs the map in this bundle or an installed map for ${area.region}.",
+                        )
+                refugesInfoFileName =
+                    refugesInfoImporter.importForMap(
+                        mapFile = mapFile,
+                        fileName = refugesInfoFileNameForArea(area),
+                        areaLabel = area.region,
+                        onProgress = onProgress,
+                    )
+            }
+            upsertPartialBundle(
+                area = area,
+                selection = selection,
+                existingBundle = existingBundle,
+                mapFileName = mapFileName,
+                poiFileName = poiFileName,
+                refugesInfoFileName = refugesInfoFileName,
                 remoteFiles = remoteFilesByUrl.values,
             )
         }
@@ -369,6 +426,7 @@ class OamBundleDownloader(
                 bundleChoice = selection.toBundleChoice(),
                 mapFileName = mapFileName,
                 poiFileName = poiFileName,
+                refugesInfoFileName = refugesInfoFileName,
                 routingFileNames = routingFileNames,
                 downloadedRoutingFileNames = downloadedRoutingFileNames,
                 demTileIds = demTileIds,
@@ -410,6 +468,12 @@ class OamBundleDownloader(
                     ?.let { mapRepository.deleteMapFile(it.absolutePath) }
             }
             bundle.poiFileName?.let { fileName ->
+                poiRepository
+                    .listPoiFiles()
+                    .firstOrNull { it.name == fileName }
+                    ?.let { poiRepository.deletePoiFile(it.absolutePath) }
+            }
+            bundle.refugesInfoFileName?.let { fileName ->
                 poiRepository
                     .listPoiFiles()
                     .firstOrNull { it.name == fileName }
@@ -537,6 +601,21 @@ class OamBundleDownloader(
                 ),
             )
 
+    private suspend fun existingRefugesInfoFileForArea(
+        area: OamDownloadArea,
+        knownFileName: String?,
+    ): File? =
+        poiRepository
+            .listPoiFiles()
+            .firstMatchingFileName(
+                listOf(
+                    knownFileName,
+                    refugesInfoFileNameForArea(area),
+                ),
+            )
+
+    private fun refugesInfoFileNameForArea(area: OamDownloadArea): String = "${area.region}.refuges-info.poi"
+
     private fun List<File>.firstMatchingFileName(candidateNames: Iterable<String?>): File? =
         firstOrNull { file ->
             candidateNames
@@ -559,6 +638,7 @@ class OamBundleDownloader(
         existingBundle: OamInstalledBundle?,
         mapFileName: String?,
         poiFileName: String?,
+        refugesInfoFileName: String?,
         remoteFiles: Collection<OamRemoteFileMetadata>,
     ) {
         bundleStore.upsert(
@@ -568,6 +648,7 @@ class OamBundleDownloader(
                 bundleChoice = selection.toBundleChoice(),
                 mapFileName = mapFileName,
                 poiFileName = poiFileName,
+                refugesInfoFileName = refugesInfoFileName,
                 routingFileNames = existingBundle?.routingFileNames.orEmpty(),
                 downloadedRoutingFileNames = existingBundle?.downloadedRoutingFileNames.orEmpty(),
                 demTileIds = existingBundle?.demTileIds.orEmpty(),

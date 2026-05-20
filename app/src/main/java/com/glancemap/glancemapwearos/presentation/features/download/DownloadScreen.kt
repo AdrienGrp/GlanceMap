@@ -100,6 +100,7 @@ fun DownloadScreen(
             context.getSharedPreferences(DOWNLOAD_INFO_PREFS, android.content.Context.MODE_PRIVATE)
         }
     val listState = rememberScalingLazyListState()
+    var wasAreaPickerOpen by remember { mutableStateOf(showAreaPicker) }
     val selectedAreas = uiState.selectedAreas
     val estimatedSize =
         selectedAreas.estimatedSizeLabel(uiState.selection)
@@ -235,10 +236,15 @@ fun DownloadScreen(
         }
     }
     LaunchedEffect(showAreaPicker) {
+        val closedAreaPicker = wasAreaPickerOpen && !showAreaPicker
+        wasAreaPickerOpen = showAreaPicker
         if (!showAreaPicker) {
             onSelectedAreaFolderChange(null)
             onAreaSearchQueryChange("")
             showAreaSearchDialog = false
+            if (closedAreaPicker && uiState.selectedAreaIds.isNotEmpty()) {
+                listState.scrollToItem(DOWNLOAD_MAIN_ACTION_ITEM_INDEX)
+            }
         }
     }
 
@@ -795,15 +801,16 @@ private fun InstalledBundleRow(
 
 private fun refreshSelectionButtonLabel(selectedCount: Int): String =
     if (selectedCount > 0) {
-        "Check $selectedCount"
+        "Check for update ($selectedCount)"
     } else {
-        "Check selected"
+        "Check for update"
     }
 
 private fun installedBundleSubtitle(bundle: OamInstalledBundle): String =
     listOfNotNull(
         "Map".takeIf { bundle.mapFileName != null },
         "POI".takeIf { bundle.poiFileName != null },
+        "Refuges.info".takeIf { bundle.refugesInfoFileName != null },
         "Routing".takeIf { bundle.routingFileNames.isNotEmpty() },
         "DEM".takeIf { bundle.demTileIds.isNotEmpty() },
     ).joinToString(" + ").ifBlank { bundle.bundleChoice.label }
@@ -814,6 +821,7 @@ private fun OamDownloadSelection.compactLabel(): String =
         "POI".takeIf { includePoi },
         "Route".takeIf { includeRouting },
         "DEM".takeIf { includeDem },
+        "Refuges".takeIf { includeRefugesInfo },
     ).joinToString(" + ").ifBlank { "None" }
 
 private fun List<OamDownloadArea>.estimatedSizeLabel(
@@ -839,7 +847,7 @@ private fun List<OamDownloadArea>.fileCountLabel(selection: OamDownloadSelection
                 (if (selection.includeMap) 1 else 0) +
                     (if (selection.includePoi) 1 else 0)
             )
-    val hasUnknownCount = selection.includeRouting || selection.includeDem
+    val hasUnknownCount = selection.includeRouting || selection.includeDem || selection.includeRefugesInfo
     return when {
         hasUnknownCount && knownCount == 0 -> "bundle files"
         hasUnknownCount -> "$knownCount+"
@@ -852,6 +860,7 @@ private fun Long.toSizeLabel(selection: OamDownloadSelection): String =
         if (this@toSizeLabel > 0L) add(formatBytes(this@toSizeLabel))
         if (selection.includeRouting) add("routing")
         if (selection.includeDem) add("DEM")
+        if (selection.includeRefugesInfo) add("Refuges.info")
     }.joinToString(" + ").ifBlank {
         formatBytes(this)
     }
@@ -942,3 +951,4 @@ private val SelectedChipIcon = Color(0xFF7FE4C8)
 
 private const val DOWNLOAD_INFO_PREFS = "download_screen_info_prefs"
 private const val DOWNLOAD_INFO_SHOWN_KEY = "oam_info_shown"
+private const val DOWNLOAD_MAIN_ACTION_ITEM_INDEX = 2

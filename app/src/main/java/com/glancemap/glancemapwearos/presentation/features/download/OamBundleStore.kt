@@ -30,6 +30,7 @@ class OamBundleStore(
                         bundleChoice = bundleChoice,
                         mapFileName = prefs.getString(key(areaId, "map"), null),
                         poiFileName = prefs.getString(key(areaId, "poi"), null),
+                        refugesInfoFileName = prefs.getString(key(areaId, "refuges_info_poi"), null),
                         routingFileNames =
                             prefs
                                 .getString(key(areaId, "routing"), null)
@@ -62,6 +63,7 @@ class OamBundleStore(
                 .putString(key(bundle.areaId, "choice"), bundle.bundleChoice.name)
                 .putString(key(bundle.areaId, "map"), bundle.mapFileName)
                 .putString(key(bundle.areaId, "poi"), bundle.poiFileName)
+                .putString(key(bundle.areaId, "refuges_info_poi"), bundle.refugesInfoFileName)
                 .putString(key(bundle.areaId, "routing"), bundle.routingFileNames.joinToString("\n"))
                 .putString(
                     key(bundle.areaId, "routing_downloaded"),
@@ -83,6 +85,7 @@ class OamBundleStore(
                 .remove(key(areaId, "choice"))
                 .remove(key(areaId, "map"))
                 .remove(key(areaId, "poi"))
+                .remove(key(areaId, "refuges_info_poi"))
                 .remove(key(areaId, "routing"))
                 .remove(key(areaId, "routing_downloaded"))
                 .remove(key(areaId, "dem"))

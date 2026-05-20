@@ -565,6 +565,19 @@ class SettingsViewModel(
             settingsRepository.setPoiIconSizePx(sizePx)
         }
 
+    val poiMarkerStyle: StateFlow<String> =
+        settingsRepository.poiMarkerStyle
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.POI_MARKER_STYLE_BADGE,
+            )
+
+    fun setPoiMarkerStyle(style: String) =
+        viewModelScope.launch {
+            settingsRepository.setPoiMarkerStyle(style)
+        }
+
     val poiTapToCenterEnabled: StateFlow<Boolean> =
         settingsRepository.poiTapToCenterEnabled
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)

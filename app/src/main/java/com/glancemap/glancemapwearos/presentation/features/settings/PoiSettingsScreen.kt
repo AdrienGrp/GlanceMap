@@ -37,10 +37,12 @@ fun PoiSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val poiIconSizePx by viewModel.poiIconSizePx.collectAsState()
+    val poiMarkerStyle by viewModel.poiMarkerStyle.collectAsState()
     val poiTapToCenterEnabled by viewModel.poiTapToCenterEnabled.collectAsState()
     val poiPopupTimeoutSeconds by viewModel.poiPopupTimeoutSeconds.collectAsState()
     val poiPopupManualCloseOnly by viewModel.poiPopupManualCloseOnly.collectAsState()
     var showIconSizePicker by remember { mutableStateOf(false) }
+    var showMarkerStylePicker by remember { mutableStateOf(false) }
     var showTapActionPicker by remember { mutableStateOf(false) }
     val iconSizeOptions =
         remember {
@@ -49,6 +51,13 @@ fun PoiSettingsScreen(
                 SettingsRepository.POI_ICON_SIZE_SMALL_PX to "Small",
                 SettingsRepository.POI_ICON_SIZE_MEDIUM_PX to "Medium",
                 SettingsRepository.POI_ICON_SIZE_LARGE_PX to "Big",
+            )
+        }
+    val markerStyleOptions =
+        remember {
+            listOf(
+                SettingsRepository.POI_MARKER_STYLE_BADGE to "Colored circle",
+                SettingsRepository.POI_MARKER_STYLE_THEME_ICON to "Theme icon",
             )
         }
     val tapActionOptions =
@@ -84,6 +93,14 @@ fun PoiSettingsScreen(
                     secondaryLabel = poiIconSizeLabel(poiIconSizePx),
                     iconImageVector = Icons.Filled.UnfoldMore,
                     onClick = { showIconSizePicker = true },
+                )
+            }
+            item {
+                SettingsPickerChip(
+                    label = "POI marker style",
+                    secondaryLabel = poiMarkerStyleLabel(poiMarkerStyle),
+                    iconImageVector = Icons.Filled.UnfoldMore,
+                    onClick = { showMarkerStylePicker = true },
                 )
             }
             item {
@@ -129,6 +146,14 @@ fun PoiSettingsScreen(
         onSelect = { selected -> viewModel.setPoiIconSizePx(selected) },
     )
     OptionPickerDialog(
+        visible = showMarkerStylePicker,
+        title = "POI marker style",
+        selectedValue = poiMarkerStyle,
+        options = markerStyleOptions,
+        onDismiss = { showMarkerStylePicker = false },
+        onSelect = { selected -> viewModel.setPoiMarkerStyle(selected) },
+    )
+    OptionPickerDialog(
         visible = showTapActionPicker,
         title = "POI list tap action",
         selectedValue = poiTapToCenterEnabled,
@@ -144,6 +169,12 @@ private fun poiIconSizeLabel(sizePx: Int): String =
         SettingsRepository.POI_ICON_SIZE_MEDIUM_PX -> "Medium"
         SettingsRepository.POI_ICON_SIZE_LARGE_PX -> "Big"
         else -> "Default"
+    }
+
+private fun poiMarkerStyleLabel(style: String): String =
+    when (style) {
+        SettingsRepository.POI_MARKER_STYLE_THEME_ICON -> "Theme icon"
+        else -> "Colored circle"
     }
 
 @Composable

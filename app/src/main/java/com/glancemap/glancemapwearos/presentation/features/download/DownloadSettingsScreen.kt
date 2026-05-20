@@ -82,6 +82,14 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
                 )
             }
             item {
+                SettingsToggleChip(
+                    checked = uiState.selection.includeRefugesInfo,
+                    onCheckedChanged = viewModel::setIncludeRefugesInfo,
+                    label = "Refuges.info",
+                    secondaryLabel = "All refuge POIs",
+                )
+            }
+            item {
                 Text(
                     text = "Bundle: ${uiState.selection.label()}",
                     style = MaterialTheme.typography.bodySmall,

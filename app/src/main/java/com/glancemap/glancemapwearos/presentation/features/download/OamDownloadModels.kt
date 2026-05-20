@@ -30,9 +30,10 @@ data class OamDownloadSelection(
     val includePoi: Boolean = true,
     val includeRouting: Boolean = true,
     val includeDem: Boolean = true,
+    val includeRefugesInfo: Boolean = false,
 ) {
     val canDownload: Boolean
-        get() = includeMap || includePoi || includeRouting || includeDem
+        get() = includeMap || includePoi || includeRouting || includeDem || includeRefugesInfo
 
     fun toBundleChoice(): OamBundleChoice =
         when {
@@ -48,6 +49,7 @@ data class OamDownloadSelection(
             "POI".takeIf { includePoi },
             "Routing".takeIf { includeRouting },
             "DEM".takeIf { includeDem },
+            "Refuges.info".takeIf { includeRefugesInfo },
         ).joinToString(" + ").ifBlank { "Nothing selected" }
 }
 
@@ -57,6 +59,7 @@ data class OamInstalledBundle(
     val bundleChoice: OamBundleChoice,
     val mapFileName: String?,
     val poiFileName: String?,
+    val refugesInfoFileName: String? = null,
     val routingFileNames: List<String> = emptyList(),
     val downloadedRoutingFileNames: List<String> = emptyList(),
     val demTileIds: List<String> = emptyList(),

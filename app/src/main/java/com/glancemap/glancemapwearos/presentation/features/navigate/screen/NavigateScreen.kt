@@ -199,6 +199,7 @@ fun NavigateScreen(
     val isGpxInspectionEnabled by settingsViewModel.isGpxInspectionEnabled.collectAsState()
     val isMetric by settingsViewModel.isMetric.collectAsState()
     val poiIconSizePx by settingsViewModel.poiIconSizePx.collectAsState()
+    val poiMarkerStyle by settingsViewModel.poiMarkerStyle.collectAsState()
     val poiPopupTimeoutSeconds by settingsViewModel.poiPopupTimeoutSeconds.collectAsState(
         initial = SettingsRepository.POI_POPUP_TIMEOUT_DEFAULT_SECONDS,
     )
@@ -744,6 +745,7 @@ fun NavigateScreen(
         poiViewModel = poiViewModel,
         activePoiOverlaySources = activePoiOverlaySources,
         poiMarkerSizePx = poiIconSizePx,
+        poiMarkerStyle = poiMarkerStyle,
         gpxTrackColor = gpxTrackColor,
         gpxTrackColorMode = gpxTrackColorMode,
         gpxTrackWidth = gpxTrackWidth,

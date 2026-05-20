@@ -1,4 +1,5 @@
 @file:Suppress(
+    "CyclomaticComplexMethod",
     "FunctionName",
     "FunctionNaming",
     "LongMethod",
@@ -51,15 +52,27 @@ internal fun ScalingLazyListScope.downloadAreaPickerItems(
         )
     }
 
-    if (selectedAreaIds.isNotEmpty()) {
-        item {
-            DownloadChip(
-                label = "Clear selected areas",
-                secondaryLabel = "${selectedAreaIds.size} selected",
-                icon = Icons.Filled.Close,
-                onClick = onClearAreaSelection,
-            )
-        }
+    item {
+        DownloadChip(
+            label =
+                if (selectedAreaIds.isNotEmpty()) {
+                    "Clear selected areas"
+                } else {
+                    "No areas selected"
+                },
+            secondaryLabel =
+                if (selectedAreaIds.isNotEmpty()) {
+                    "${selectedAreaIds.size} selected"
+                } else {
+                    "Pick one or more areas"
+                },
+            icon = if (selectedAreaIds.isNotEmpty()) Icons.Filled.Close else Icons.Filled.Map,
+            onClick = {
+                if (selectedAreaIds.isNotEmpty()) {
+                    onClearAreaSelection()
+                }
+            },
+        )
     }
 
     item {
