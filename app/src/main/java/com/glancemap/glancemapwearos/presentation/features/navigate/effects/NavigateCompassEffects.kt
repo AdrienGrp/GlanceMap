@@ -224,15 +224,10 @@ internal fun resolveNavigateCompassImmediateStopDelayMs(
         !isOfflineMode && compassProviderType == CompassProviderType.GOOGLE_FUSED
     return if (shouldApplyGoogleFusedGrace) {
         when (screenState) {
-            LocationScreenState.SCREEN_OFF,
-            LocationScreenState.AMBIENT,
-            -> GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS
+            LocationScreenState.SCREEN_OFF -> 0L
+            LocationScreenState.AMBIENT -> GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS
             LocationScreenState.INTERACTIVE ->
-                if (reason == NAVIGATE_COMPASS_EFFECT_DISPOSE_REASON) {
-                    GOOGLE_FUSED_NAVIGATE_DISPOSE_GRACE_MS
-                } else {
-                    0L
-                }
+                0L
         }
     } else {
         0L
@@ -246,5 +241,4 @@ private fun logNavigateCompassEffect(message: String) {
 
 private const val NAVIGATE_COMPASS_STOP_DEBOUNCE_MS = 2_500L
 private const val GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS = 10_000L
-private const val GOOGLE_FUSED_NAVIGATE_DISPOSE_GRACE_MS = 10_000L
 private const val NAVIGATE_COMPASS_EFFECT_DISPOSE_REASON = "effect_dispose"

@@ -112,9 +112,9 @@ class NavigateCompassEffectsStateTest {
     }
 
     @Test
-    fun googleFusedGetsTransientStopGraceWhenScreenTurnsOff() {
+    fun googleFusedStopsImmediatelyWhenScreenTurnsOffButKeepsAmbientGrace() {
         assertEquals(
-            10_000L,
+            0L,
             resolveNavigateCompassImmediateStopDelayMs(
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.SCREEN_OFF,
@@ -134,9 +134,9 @@ class NavigateCompassEffectsStateTest {
     }
 
     @Test
-    fun googleFusedGetsShortDisposeGraceWhenNavigateLeavesInteractiveScreen() {
+    fun googleFusedStopsImmediatelyWhenNavigateLeavesInteractiveScreen() {
         assertEquals(
-            10_000L,
+            0L,
             resolveNavigateCompassImmediateStopDelayMs(
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.INTERACTIVE,
