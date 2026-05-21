@@ -35,6 +35,7 @@ import com.glancemap.glancemapwearos.core.service.location.config.GpsSettingsSta
 import com.glancemap.glancemapwearos.core.service.location.config.NOTIFICATION_ID
 import com.glancemap.glancemapwearos.core.service.location.config.TELEMETRY_SUMMARY_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.config.TELEMETRY_TAG
+import com.glancemap.glancemapwearos.core.service.location.config.WAKE_BURST_START_DEBOUNCE_MS
 import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_AUTO_FALLBACK_INTERACTIVE_MAX_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.config.WATCH_GPS_MAX_ACCEPTED_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.engine.LocationEngine
@@ -150,11 +151,14 @@ class LocationService : Service() {
 
     @Volatile private var lastRequestAppliedAtElapsedMs: Long = 0L
 
+    @Volatile private var lastRuntimeStateChangedAtElapsedMs: Long = 0L
+
     @Volatile private var sourceModeWarmupUntilElapsedMs: Long = 0L
 
     @Volatile private var sourceModeWarmupExpectedOrigin: LocationSourceMode? = null
 
     private var energySampleJob: Job? = null
+    private var pendingDebouncedImmediateLocationJob: Job? = null
     private var keepAliveNotificationMode: KeepAliveNotificationMode = KeepAliveNotificationMode.OFF
 
     private val selfHealFailoverCoordinator by lazy {
@@ -427,6 +431,42 @@ class LocationService : Service() {
     }
 
     fun requestImmediateLocation(source: String = "service_unknown") {
+        requestImmediateLocation(source = source, allowWakeDebounce = true)
+    }
+
+    private fun requestImmediateLocation(
+        source: String,
+        allowWakeDebounce: Boolean,
+    ) {
+        immediateBurstGuardReason()?.let { reason ->
+            pendingDebouncedImmediateLocationJob?.cancel()
+            pendingDebouncedImmediateLocationJob = null
+            telemetry.logImmediateRequestGuarded(
+                source = source,
+                reason = reason,
+                screenState = latestScreenState.name,
+                trackingEnabled = latestTrackingEnabled,
+            )
+            return
+        }
+
+        val debounceMs = wakeBurstDebounceRemainingMs(source)
+        if (allowWakeDebounce && debounceMs > 0L) {
+            pendingDebouncedImmediateLocationJob?.cancel()
+            telemetry.logImmediateRequestDeferred(
+                source = source,
+                delayMs = debounceMs,
+                screenState = latestScreenState.name,
+                trackingEnabled = latestTrackingEnabled,
+            )
+            pendingDebouncedImmediateLocationJob =
+                serviceScope.launch {
+                    delay(debounceMs)
+                    requestImmediateLocation(source = source, allowWakeDebounce = false)
+                }
+            return
+        }
+
         immediateLocationCoordinator.requestImmediateLocation(source)
     }
 
@@ -440,6 +480,9 @@ class LocationService : Service() {
 
         latestScreenState = screenState
         latestTrackingEnabled = trackingEnabled
+        lastRuntimeStateChangedAtElapsedMs = SystemClock.elapsedRealtime()
+        pendingDebouncedImmediateLocationJob?.cancel()
+        pendingDebouncedImmediateLocationJob = null
 
         telemetry.logRuntimeStateApplied(
             screenState = screenState.name,
@@ -617,6 +660,20 @@ class LocationService : Service() {
             LocationRuntimeMode.PASSIVE -> requestSpec.intervalMs * 2L
         }
 
+    private fun immediateBurstGuardReason(): String? =
+        when {
+            !latestTrackingEnabled -> "tracking_disabled"
+            latestScreenState.isNonInteractive && !latestAmbientGps -> "non_interactive_without_gps"
+            else -> null
+        }
+
+    private fun wakeBurstDebounceRemainingMs(source: String): Long {
+        if (!source.startsWith("ui_startup_fresh_fix_ambient_exit")) return 0L
+        val elapsedSinceRuntimeChangeMs =
+            SystemClock.elapsedRealtime() - lastRuntimeStateChangedAtElapsedMs
+        return (WAKE_BURST_START_DEBOUNCE_MS - elapsedSinceRuntimeChangeMs).coerceAtLeast(0L)
+    }
+
     @SuppressLint("MissingPermission")
     private fun observeGpsSettings() {
         serviceScope.launch {
@@ -789,6 +846,8 @@ class LocationService : Service() {
     }
 
     private fun stopAllAndSelf(stopSelf: Boolean = true) {
+        pendingDebouncedImmediateLocationJob?.cancel()
+        pendingDebouncedImmediateLocationJob = null
         requestCoordinator.cancel()
         immediateLocationCoordinator.shutdown(reason = "service_stop")
         energySampleJob?.cancel()

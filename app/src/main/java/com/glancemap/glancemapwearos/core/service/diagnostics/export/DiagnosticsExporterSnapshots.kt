@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorManager
@@ -86,6 +87,7 @@ internal data class MemorySnapshot(
     val lowMemory: Boolean?,
     val memoryClassMb: Int?,
     val largeMemoryClassMb: Int?,
+    val largeHeapRequested: Boolean,
 )
 
 internal data class HistoricalExitReasonsSnapshot(
@@ -260,6 +262,7 @@ internal fun captureMemorySnapshot(context: Context): MemorySnapshot {
         lowMemory = systemMemoryInfo?.lowMemory,
         memoryClassMb = activityManager?.memoryClass,
         largeMemoryClassMb = activityManager?.largeMemoryClass,
+        largeHeapRequested = (context.applicationInfo.flags and ApplicationInfo.FLAG_LARGE_HEAP) != 0,
     )
 }
 

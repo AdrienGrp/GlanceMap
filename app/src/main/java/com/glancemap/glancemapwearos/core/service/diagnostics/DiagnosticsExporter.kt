@@ -69,6 +69,8 @@ object DiagnosticsExporter {
         val startupBogusSampleIgnoredCount: Int = 0,
         val staleFixDropCount: Int = 0,
         val sourceMismatchDropCount: Int = 0,
+        val immediateRequestGuardSkipCount: Int = 0,
+        val immediateRequestDeferredWakeBurstCount: Int = 0,
         val gpsFreshTrueCount: Int = 0,
         val gpsFreshFalseCount: Int = 0,
         val watchGpsDegradedEnteredCount: Int = 0,
@@ -226,6 +228,7 @@ object DiagnosticsExporter {
                 kotlin.math.abs(captureDurationMs - bufferedSpanMs) > SESSION_DURATION_MISMATCH_THRESHOLD_MS
         val energyLines = EnergyDiagnostics.snapshotLines()
         val energyDroppedLines = EnergyDiagnostics.droppedLineCount()
+        val energySummary = EnergyDiagnostics.summary()
         val demDownloadSummary = DemDownloadDiagnostics.summary()
         val demDownloadLines = DemDownloadDiagnostics.snapshotLines()
         val demDownloadDroppedLines = DemDownloadDiagnostics.droppedLineCount()
@@ -284,6 +287,7 @@ object DiagnosticsExporter {
             writer.appendLine("nativeHeapFreeMb=${formatBytesToMb(memorySnapshot.nativeHeapFreeBytes)}")
             writer.appendLine("memoryClassMb=${memorySnapshot.memoryClassMb?.toString() ?: "na"}")
             writer.appendLine("largeMemoryClassMb=${memorySnapshot.largeMemoryClassMb?.toString() ?: "na"}")
+            writer.appendLine("largeHeapRequested=${memorySnapshot.largeHeapRequested}")
             writer.appendLine("processTotalPssKb=${memorySnapshot.totalPssKb?.toString() ?: "na"}")
             writer.appendLine("processDalvikPssKb=${memorySnapshot.dalvikPssKb?.toString() ?: "na"}")
             writer.appendLine("processNativePssKb=${memorySnapshot.nativePssKb?.toString() ?: "na"}")
@@ -502,6 +506,12 @@ object DiagnosticsExporter {
             )
             writer.appendLine("staleFixDropCount=${telemetryInsights.staleFixDropCount}")
             writer.appendLine("sourceMismatchDropCount=${telemetryInsights.sourceMismatchDropCount}")
+            writer.appendLine("immediateRequestGuardSkipCount=${telemetryInsights.immediateRequestGuardSkipCount}")
+            writer.appendLine(
+                "immediateRequestDeferredWakeBurstCount=${
+                    telemetryInsights.immediateRequestDeferredWakeBurstCount
+                }",
+            )
             writer.appendLine(
                 "failoverAutoToWatchAccuracyCount=${telemetryInsights.failoverAutoToWatchAccuracyCount}",
             )
@@ -636,6 +646,26 @@ object DiagnosticsExporter {
                 writer.appendLine("No telemetry captured yet. Enable diagnostics capture and reproduce.")
             } else {
                 telemetryLines.forEach { line -> writer.appendLine(line) }
+            }
+            writer.appendLine()
+            writer.appendLine("Energy By Mode Summary")
+            if (energySummary.modes.isEmpty()) {
+                writer.appendLine("No energy diagnostics samples yet.")
+            } else {
+                energySummary.modes.forEach { (mode, stats) ->
+                    writer.appendLine(
+                        "mode[$mode]=samples=${stats.sampleCount} currentSamples=${stats.currentSampleCount} " +
+                            "avgCurNowUa=${stats.avgCurrentNowUa?.toString() ?: "na"} " +
+                            "minCurNowUa=${stats.minCurrentNowUa?.toString() ?: "na"} " +
+                            "maxCurNowUa=${stats.maxCurrentNowUa?.toString() ?: "na"} " +
+                            "levelMin=${stats.minLevelPct?.toString() ?: "na"} " +
+                            "levelMax=${stats.maxLevelPct?.toString() ?: "na"} " +
+                            "levelAvg=${formatOneDecimal(stats.avgLevelPct)} " +
+                            "tempMinC=${formatOneDecimal(stats.minTempC)} " +
+                            "tempMaxC=${formatOneDecimal(stats.maxTempC)} " +
+                            "tempAvgC=${formatOneDecimal(stats.avgTempC)}",
+                    )
+                }
             }
             writer.appendLine()
             writer.appendLine("Energy Diagnostics")
@@ -988,6 +1018,9 @@ object DiagnosticsExporter {
             origin = origin,
             gnssInsights = gnssInsights,
         )
+
+    private fun formatOneDecimal(value: Double?): String =
+        value?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
 }
 
 internal fun normalizeThreadtimeLogcatLine(

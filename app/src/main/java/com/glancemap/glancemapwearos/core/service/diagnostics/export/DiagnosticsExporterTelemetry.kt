@@ -86,6 +86,8 @@ internal fun deriveTelemetryInsights(
     var startupBogusSampleIgnoredCount = 0
     var staleFixDropCount = 0
     var sourceMismatchDropCount = 0
+    var immediateRequestGuardSkipCount = 0
+    var immediateRequestDeferredWakeBurstCount = 0
     var gpsFreshTrueCount = 0
     var gpsFreshFalseCount = 0
     var watchGpsDegradedEnteredCount = 0
@@ -271,6 +273,8 @@ internal fun deriveTelemetryInsights(
             "startup_bogus_sample ignored" in line -> startupBogusSampleIgnoredCount += 1
             "staleFix: dropped" in line -> staleFixDropCount += 1
             "sourceMismatch: dropped" in line -> sourceMismatchDropCount += 1
+            "immediateRequest: skipGuard" in line -> immediateRequestGuardSkipCount += 1
+            "immediateRequest: deferWakeBurst" in line -> immediateRequestDeferredWakeBurstCount += 1
             "gpsSignal: sample" in line && "fresh=true" in line -> gpsFreshTrueCount += 1
             "gpsSignal: sample" in line && "fresh=false" in line -> gpsFreshFalseCount += 1
             "watchGpsDegraded: state=entered" in line -> {
@@ -326,6 +330,8 @@ internal fun deriveTelemetryInsights(
         startupBogusSampleIgnoredCount = startupBogusSampleIgnoredCount,
         staleFixDropCount = staleFixDropCount,
         sourceMismatchDropCount = sourceMismatchDropCount,
+        immediateRequestGuardSkipCount = immediateRequestGuardSkipCount,
+        immediateRequestDeferredWakeBurstCount = immediateRequestDeferredWakeBurstCount,
         gpsFreshTrueCount = gpsFreshTrueCount,
         gpsFreshFalseCount = gpsFreshFalseCount,
         watchGpsDegradedEnteredCount = watchGpsDegradedEnteredCount,

@@ -24,7 +24,7 @@ internal object DebugTelemetry {
     private val lock = Any()
     private val lines = ArrayDeque<String>()
     private val lineTimesMs = ArrayDeque<Long>()
-    private const val MAX_LINES = 2000
+    private const val MAX_LINES = 12_000
     private var droppedLines: Int = 0
     private var totalLoggedLines: Long = 0L
     private var sessionId: Long = 0L

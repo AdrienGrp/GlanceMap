@@ -10,7 +10,25 @@ import java.util.ArrayDeque
 
 internal object EnergyDiagnostics {
     private const val TAG = "EnergyTelemetry"
-    private const val MAX_LINES = 800
+    private const val MAX_LINES = 2_000
+
+    data class ModeStats(
+        val sampleCount: Int,
+        val currentSampleCount: Int,
+        val avgCurrentNowUa: Long?,
+        val minCurrentNowUa: Int?,
+        val maxCurrentNowUa: Int?,
+        val minLevelPct: Int?,
+        val maxLevelPct: Int?,
+        val avgLevelPct: Double?,
+        val minTempC: Double?,
+        val maxTempC: Double?,
+        val avgTempC: Double?,
+    )
+
+    data class Summary(
+        val modes: Map<String, ModeStats>,
+    )
 
     private val lock = Any()
     private val lines = ArrayDeque<String>()
@@ -28,6 +46,27 @@ internal object EnergyDiagnostics {
     fun droppedLineCount(): Int = synchronized(lock) { droppedLines }
 
     fun maxBufferedLines(): Int = MAX_LINES
+
+    fun summary(): Summary {
+        return summarizeLines(snapshotLines())
+    }
+
+    internal fun summarizeLines(snapshot: List<String>): Summary {
+        if (snapshot.isEmpty()) return Summary(modes = emptyMap())
+        val accumulators = linkedMapOf<String, ModeAccumulator>()
+        snapshot.forEach { line ->
+            if (" level=" !in line && " curNowUa=" !in line && " tempC=" !in line) return@forEach
+            val mode = classifyMode(line)
+            val accumulator = accumulators.getOrPut(mode) { ModeAccumulator() }
+            accumulator.add(line)
+        }
+        return Summary(
+            modes =
+                accumulators
+                    .mapValues { (_, accumulator) -> accumulator.toStats() }
+                    .filterValues { stats -> stats.sampleCount > 0 },
+        )
+    }
 
     fun recordSample(
         context: Context,
@@ -153,4 +192,103 @@ internal object EnergyDiagnostics {
             BatteryManager.BATTERY_PLUGGED_WIRELESS -> "wireless"
             else -> "battery"
         }
+
+    private fun classifyMode(line: String): String =
+        when {
+            "mode=BURST" in line || "burst=true" in line -> "burst"
+            "screenState=SCREEN_OFF" in line || "interactive=false" in line -> "screen_off"
+            "mode=INTERACTIVE" in line || "screenState=INTERACTIVE" in line || "tracking=true" in line -> {
+                "interactive"
+            }
+            "tracking=false" in line -> "idle"
+            "transfer" in line.lowercase() || "channel" in line.lowercase() || "http" in line.lowercase() -> "transfer"
+            else -> "other"
+        }
+
+    private fun tokenValue(
+        line: String,
+        key: String,
+    ): String? {
+        val index = line.indexOf(key)
+        if (index < 0) return null
+        val start = index + key.length
+        if (start >= line.length) return null
+        val end = line.indexOf(' ', start).let { if (it < 0) line.length else it }
+        return line.substring(start, end).trim()
+    }
+
+    private class ModeAccumulator {
+        private var sampleCount = 0
+        private var currentSampleCount = 0
+        private var currentTotalUa = 0L
+        private var minCurrentUa: Int? = null
+        private var maxCurrentUa: Int? = null
+        private var levelSampleCount = 0
+        private var levelTotal = 0
+        private var minLevel: Int? = null
+        private var maxLevel: Int? = null
+        private var tempSampleCount = 0
+        private var tempTotal = 0.0
+        private var minTemp: Double? = null
+        private var maxTemp: Double? = null
+
+        fun add(line: String) {
+            sampleCount += 1
+            tokenValue(line, "curNowUa=")
+                ?.toIntOrNull()
+                ?.takeIf { it != Int.MIN_VALUE }
+                ?.let { current ->
+                    currentSampleCount += 1
+                    currentTotalUa += current.toLong()
+                    minCurrentUa = minCurrentUa?.let { minOf(it, current) } ?: current
+                    maxCurrentUa = maxCurrentUa?.let { maxOf(it, current) } ?: current
+                }
+            tokenValue(line, "level=")
+                ?.toIntOrNull()
+                ?.let { level ->
+                    levelSampleCount += 1
+                    levelTotal += level
+                    minLevel = minLevel?.let { minOf(it, level) } ?: level
+                    maxLevel = maxLevel?.let { maxOf(it, level) } ?: level
+                }
+            tokenValue(line, "tempC=")
+                ?.toDoubleOrNull()
+                ?.let { temp ->
+                    tempSampleCount += 1
+                    tempTotal += temp
+                    minTemp = minTemp?.let { minOf(it, temp) } ?: temp
+                    maxTemp = maxTemp?.let { maxOf(it, temp) } ?: temp
+                }
+        }
+
+        fun toStats(): ModeStats =
+            ModeStats(
+                sampleCount = sampleCount,
+                currentSampleCount = currentSampleCount,
+                avgCurrentNowUa =
+                    if (currentSampleCount > 0) {
+                        currentTotalUa / currentSampleCount
+                    } else {
+                        null
+                    },
+                minCurrentNowUa = minCurrentUa,
+                maxCurrentNowUa = maxCurrentUa,
+                minLevelPct = minLevel,
+                maxLevelPct = maxLevel,
+                avgLevelPct =
+                    if (levelSampleCount > 0) {
+                        levelTotal.toDouble() / levelSampleCount.toDouble()
+                    } else {
+                        null
+                    },
+                minTempC = minTemp,
+                maxTempC = maxTemp,
+                avgTempC =
+                    if (tempSampleCount > 0) {
+                        tempTotal / tempSampleCount.toDouble()
+                    } else {
+                        null
+                    },
+            )
+    }
 }
