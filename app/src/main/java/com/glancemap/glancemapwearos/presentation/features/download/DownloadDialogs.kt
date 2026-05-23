@@ -151,7 +151,7 @@ internal fun OamAttributionDialog(
                 text =
                     "Connect watch to Wi-Fi &\n" +
                         "Keep the watch on its charger for the download.\n\n" +
-                        "Thanks to OpenAndroMaps for providing free offline maps and POIs.\n\n" +
+                        "Thanks to OpenAndroMaps for providing the offline maps and POIs.\n\n" +
                         "https://www.openandromaps.org",
                 textAlign = TextAlign.Center,
             )
