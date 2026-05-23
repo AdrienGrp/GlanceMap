@@ -201,6 +201,7 @@ fun NavigateScreen(
     val gpsDebugTelemetryPopupEnabled by settingsViewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
     val isGpxInspectionEnabled by settingsViewModel.isGpxInspectionEnabled.collectAsState()
     val isMetric by settingsViewModel.isMetric.collectAsState()
+    val backButtonExitsNavigation by settingsViewModel.backButtonExitsNavigation.collectAsState()
     val poiIconSizePx by settingsViewModel.poiIconSizePx.collectAsState()
     val poiMarkerStyle by settingsViewModel.poiMarkerStyle.collectAsState()
     val poiPopupTimeoutSeconds by settingsViewModel.poiPopupTimeoutSeconds.collectAsState(
@@ -819,13 +820,18 @@ fun NavigateScreen(
             }
             shortcutTrayExpanded -> shortcutTrayExpanded = false
             else -> {
-                // Samsung Galaxy Watch can route the physical Back button here when users set it
-                // to "Go to previous screen"; make it a hardware shortcut to the existing menu.
-                DebugTelemetry.log(
-                    "NavigationTelemetry",
-                    "event=navigate_back_to_menu route=navigate_screen reason=no_overlay_open",
-                )
-                onMenuClick()
+                if (backButtonExitsNavigation) {
+                    DebugTelemetry.log(
+                        "NavigationTelemetry",
+                        "event=navigate_back_to_menu route=navigate_screen reason=no_overlay_open compat=true",
+                    )
+                    onMenuClick()
+                } else {
+                    DebugTelemetry.log(
+                        "NavigationTelemetry",
+                        "event=navigate_back_ignored route=navigate_screen reason=no_overlay_open compat=false",
+                    )
+                }
             }
         }
     }

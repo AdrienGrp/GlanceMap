@@ -51,6 +51,7 @@ fun SettingsScreen(
     }
     val listState = rememberScalingLazyListState()
     val isMetric by viewModel.isMetric.collectAsState()
+    val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
     val unitOptions =
         remember {
             listOf(
@@ -109,6 +110,14 @@ fun SettingsScreen(
                     secondaryLabel = if (isMetric) "Metric" else "Imperial",
                     iconImageVector = Icons.Filled.UnfoldMore,
                     onClick = { showUnitsPicker = true },
+                )
+            }
+            item {
+                SettingsToggleChip(
+                    checked = backButtonExitsNavigation,
+                    onCheckedChanged = viewModel::setBackButtonExitsNavigation,
+                    label = "Back exits navigation",
+                    secondaryLabel = if (backButtonExitsNavigation) "On" else "Off",
                 )
             }
             item {

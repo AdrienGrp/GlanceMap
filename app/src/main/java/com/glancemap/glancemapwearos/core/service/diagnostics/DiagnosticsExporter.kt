@@ -37,6 +37,7 @@ data class DiagnosticsSettingsSnapshot(
     val gpsInAmbientMode: Boolean,
     val gpsDebugTelemetry: Boolean,
     val gpsPassiveLocationExperiment: Boolean,
+    val backButtonExitsNavigation: Boolean,
 )
 
 @Suppress("TooManyFunctions")
@@ -402,6 +403,7 @@ object DiagnosticsExporter {
             writer.appendLine("gpsInAmbientMode=${settings.gpsInAmbientMode}")
             writer.appendLine("gpsDebugTelemetry=${settings.gpsDebugTelemetry}")
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
+            writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
             writer.appendLine("continuousLocationGranularity=permission_level")
             writer.appendLine("currentLocationGranularity=permission_level")
             writer.appendLine("locationFinePermissionGranted=${locationPermission.hasFinePermission}")

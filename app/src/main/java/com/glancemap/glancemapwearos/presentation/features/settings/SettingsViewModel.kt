@@ -578,6 +578,15 @@ class SettingsViewModel(
             settingsRepository.setMetric(isMetric)
         }
 
+    val backButtonExitsNavigation: StateFlow<Boolean> =
+        settingsRepository.backButtonExitsNavigation
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setBackButtonExitsNavigation(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setBackButtonExitsNavigation(enabled)
+        }
+
     val poiIconSizePx: StateFlow<Int> =
         settingsRepository.poiIconSizePx
             .stateIn(

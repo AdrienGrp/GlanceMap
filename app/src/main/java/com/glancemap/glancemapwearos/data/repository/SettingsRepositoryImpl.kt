@@ -100,6 +100,7 @@ class SettingsRepositoryImpl private constructor(
             booleanPreferencesKey("gpx_elevation_auto_adjust_per_gpx")
         val GPX_LONG_PRESS_TIP_SHOWN = booleanPreferencesKey("gpx_long_press_tip_shown")
         val IS_METRIC = booleanPreferencesKey("is_metric")
+        val BACK_BUTTON_EXITS_NAVIGATION = booleanPreferencesKey("back_button_exits_navigation")
         val POI_ICON_SIZE_PX = intPreferencesKey("poi_icon_size_px")
         val POI_MARKER_STYLE = stringPreferencesKey("poi_marker_style")
         val POI_TAP_TO_CENTER_ENABLED = booleanPreferencesKey("poi_tap_to_center_enabled")
@@ -681,6 +682,13 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setMetric(isMetric: Boolean) {
         context.dataStore.edit { it[PrefKeys.IS_METRIC] = isMetric }
+    }
+
+    override val backButtonExitsNavigation: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.BACK_BUTTON_EXITS_NAVIGATION] ?: false }
+
+    override suspend fun setBackButtonExitsNavigation(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.BACK_BUTTON_EXITS_NAVIGATION] = enabled }
     }
 
     override val poiIconSizePx: Flow<Int> =

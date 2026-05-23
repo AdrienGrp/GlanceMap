@@ -293,6 +293,10 @@ interface SettingsRepository {
 
     suspend fun setMetric(isMetric: Boolean)
 
+    val backButtonExitsNavigation: Flow<Boolean>
+
+    suspend fun setBackButtonExitsNavigation(enabled: Boolean)
+
     val poiIconSizePx: Flow<Int>
 
     suspend fun setPoiIconSizePx(sizePx: Int)
