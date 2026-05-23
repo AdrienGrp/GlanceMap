@@ -240,7 +240,7 @@ internal class MarkerMotionController(
     }
 }
 
-@Suppress("TooManyFunctions")
+@Suppress("LargeClass", "TooManyFunctions")
 private class MarkerMotionGpsFixProcessor(
     private val state: MarkerMotionState,
     private val maxAcceptedFixAgeMs: Long,

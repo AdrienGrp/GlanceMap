@@ -73,6 +73,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AndroidGraphicFactory.createInstance(this.application)

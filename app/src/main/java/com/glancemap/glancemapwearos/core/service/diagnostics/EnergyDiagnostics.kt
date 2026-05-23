@@ -47,9 +47,7 @@ internal object EnergyDiagnostics {
 
     fun maxBufferedLines(): Int = MAX_LINES
 
-    fun summary(): Summary {
-        return summarizeLines(snapshotLines())
-    }
+    fun summary(): Summary = summarizeLines(snapshotLines())
 
     internal fun summarizeLines(snapshot: List<String>): Summary {
         if (snapshot.isEmpty()) return Summary(modes = emptyMap())
@@ -205,6 +203,7 @@ internal object EnergyDiagnostics {
             else -> "other"
         }
 
+    @Suppress("ReturnCount")
     private fun tokenValue(
         line: String,
         key: String,
@@ -232,6 +231,7 @@ internal object EnergyDiagnostics {
         private var minTemp: Double? = null
         private var maxTemp: Double? = null
 
+        @Suppress("CyclomaticComplexMethod")
         fun add(line: String) {
             sampleCount += 1
             tokenValue(line, "curNowUa=")

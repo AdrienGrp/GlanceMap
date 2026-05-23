@@ -367,7 +367,10 @@ private fun buildHistoricalExitTraceInsights(traceLines: List<String>): List<Str
             ?.toIntOrNull()
     if (ownerTid != null) {
         insights += "lockOwnerThreadId=$ownerTid"
-        val ownerStartIndex = traceLines.indexOfFirst { line -> "tid=$ownerTid " in line || line.endsWith("tid=$ownerTid") }
+        val ownerStartIndex =
+            traceLines.indexOfFirst { line ->
+                "tid=$ownerTid " in line || line.endsWith("tid=$ownerTid")
+            }
         if (ownerStartIndex >= 0) {
             val ownerLines =
                 traceLines

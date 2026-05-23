@@ -413,6 +413,7 @@ internal fun toTelemetryWindow(
     return TelemetryWindow(lines = filtered, firstAtMs = firstAtMs, lastAtMs = lastAtMs)
 }
 
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemetryInsights {
     if (lines.isEmpty()) return CompassTelemetryInsights()
 

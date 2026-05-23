@@ -214,6 +214,7 @@ internal fun resolveNavigateCompassStopReason(
         else -> "resume_guard"
     }
 
+@Suppress("UnusedParameter")
 internal fun resolveNavigateCompassImmediateStopDelayMs(
     compassProviderType: CompassProviderType,
     screenState: LocationScreenState,

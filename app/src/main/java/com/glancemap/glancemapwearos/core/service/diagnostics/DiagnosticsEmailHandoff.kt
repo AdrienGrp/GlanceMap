@@ -47,6 +47,7 @@ internal object DiagnosticsEmailHandoff {
         return false
     }
 
+    @Suppress("ReturnCount")
     private fun buildPayloads(
         fileName: String,
         subject: String,
@@ -90,6 +91,7 @@ internal object DiagnosticsEmailHandoff {
         return payloads
     }
 
+    @Suppress("LongParameterList")
     private fun encodePayload(
         fileName: String,
         subject: String,
@@ -102,17 +104,17 @@ internal object DiagnosticsEmailHandoff {
     ): ByteArray {
         val json =
             JSONObject()
-            .put("email", TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL)
-            .put("subject", subject)
-            .put("fileName", fileName)
-            .put("encoding", "gzip_base64_utf8_text")
-            .put("truncated", false)
-            .put("chunked", chunkCount > 1)
-            .put("chunkIndex", chunkIndex)
-            .put("chunkCount", chunkCount)
-            .put("rawTextBytes", rawTextBytes)
-            .put("compressedBytes", compressedBytes)
-            .put("content", base64Content)
+                .put("email", TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL)
+                .put("subject", subject)
+                .put("fileName", fileName)
+                .put("encoding", "gzip_base64_utf8_text")
+                .put("truncated", false)
+                .put("chunked", chunkCount > 1)
+                .put("chunkIndex", chunkIndex)
+                .put("chunkCount", chunkCount)
+                .put("rawTextBytes", rawTextBytes)
+                .put("compressedBytes", compressedBytes)
+                .put("content", base64Content)
         transferId?.let { json.put("transferId", it) }
         return json
             .toString()
@@ -123,8 +125,7 @@ internal object DiagnosticsEmailHandoff {
         fileName: String,
         compressedBytes: Int,
         chunkCount: Int,
-    ): String =
-        "${System.currentTimeMillis()}_${fileName.hashCode()}_${compressedBytes}_$chunkCount"
+    ): String = "${System.currentTimeMillis()}_${fileName.hashCode()}_${compressedBytes}_$chunkCount"
 
     private fun gzip(bytes: ByteArray): ByteArray {
         val buffer = ByteArrayOutputStream()

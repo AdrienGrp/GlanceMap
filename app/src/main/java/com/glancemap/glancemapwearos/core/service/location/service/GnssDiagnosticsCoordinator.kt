@@ -39,6 +39,7 @@ internal class GnssDiagnosticsCoordinator(
     private var lastPolicyDisabledSignature: String? = null
 
     @SuppressLint("MissingPermission")
+    @Suppress("LongMethod", "ReturnCount")
     @Synchronized
     fun update(enabled: Boolean) {
         if (!enabled) {
@@ -221,8 +222,7 @@ internal class GnssDiagnosticsCoordinator(
         scheduleStatusWatchdogIfNeeded()
     }
 
-    private fun shouldDisableCollectorBySourcePolicy(): Boolean =
-        !watchOnly() && sourceMode() == "auto_fused"
+    private fun shouldDisableCollectorBySourcePolicy(): Boolean = !watchOnly() && sourceMode() == "auto_fused"
 
     @Synchronized
     fun unregister(reason: String = "unspecified") {

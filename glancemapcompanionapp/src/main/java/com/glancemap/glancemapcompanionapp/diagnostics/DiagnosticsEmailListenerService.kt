@@ -83,14 +83,16 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
         val base64Content =
             if (chunked || chunkCount > 1) {
                 PendingDiagnosticsEmailChunks.accept(
-                    transferId = transferId,
-                    email = email,
-                    subject = subject,
-                    fileName = fileName,
-                    truncated = truncated,
-                    chunkIndex = chunkIndex,
-                    chunkCount = chunkCount,
-                    content = content,
+                    DiagnosticsPayloadChunk(
+                        transferId = transferId,
+                        email = email,
+                        subject = subject,
+                        fileName = fileName,
+                        truncated = truncated,
+                        chunkIndex = chunkIndex,
+                        chunkCount = chunkCount,
+                        content = content,
+                    ),
                 ) ?: return null
             } else {
                 content
@@ -237,48 +239,54 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
         val chunks: Array<String?>,
     )
 
+    private data class DiagnosticsPayloadChunk(
+        val transferId: String,
+        val email: String,
+        val subject: String,
+        val fileName: String,
+        val truncated: Boolean,
+        val chunkIndex: Int,
+        val chunkCount: Int,
+        val content: String,
+    )
+
     private object PendingDiagnosticsEmailChunks {
         private const val MAX_PENDING_AGE_MS = 10 * 60 * 1000L
         private val lock = Any()
         private val pending = linkedMapOf<String, PendingChunkSet>()
 
-        fun accept(
-            transferId: String,
-            email: String,
-            subject: String,
-            fileName: String,
-            truncated: Boolean,
-            chunkIndex: Int,
-            chunkCount: Int,
-            content: String,
-        ): String? {
-            require(transferId.isNotBlank()) { "Missing chunk transferId" }
-            require(chunkCount > 1) { "Invalid chunk count: $chunkCount" }
-            require(chunkIndex in 0 until chunkCount) { "Invalid chunk index: $chunkIndex/$chunkCount" }
+        fun accept(chunk: DiagnosticsPayloadChunk): String? {
+            require(chunk.transferId.isNotBlank()) { "Missing chunk transferId" }
+            require(chunk.chunkCount > 1) { "Invalid chunk count: ${chunk.chunkCount}" }
+            require(chunk.chunkIndex in 0 until chunk.chunkCount) {
+                "Invalid chunk index: ${chunk.chunkIndex}/${chunk.chunkCount}"
+            }
 
             synchronized(lock) {
                 pruneExpiredLocked()
                 val set =
-                    pending.getOrPut(transferId) {
+                    pending.getOrPut(chunk.transferId) {
                         PendingChunkSet(
-                            email = email,
-                            subject = subject,
-                            fileName = fileName,
-                            truncated = truncated,
-                            chunkCount = chunkCount,
+                            email = chunk.email,
+                            subject = chunk.subject,
+                            fileName = chunk.fileName,
+                            truncated = chunk.truncated,
+                            chunkCount = chunk.chunkCount,
                             createdAtMs = System.currentTimeMillis(),
-                            chunks = arrayOfNulls(chunkCount),
+                            chunks = arrayOfNulls(chunk.chunkCount),
                         )
                     }
-                require(set.chunkCount == chunkCount) { "Chunk count changed for $transferId" }
-                require(set.email == email && set.subject == subject && set.fileName == fileName) {
-                    "Chunk metadata changed for $transferId"
+                require(set.chunkCount == chunk.chunkCount) {
+                    "Chunk count changed for ${chunk.transferId}"
+                }
+                require(set.email == chunk.email && set.subject == chunk.subject && set.fileName == chunk.fileName) {
+                    "Chunk metadata changed for ${chunk.transferId}"
                 }
 
-                set.chunks[chunkIndex] = content
+                set.chunks[chunk.chunkIndex] = chunk.content
                 if (set.chunks.any { it == null }) return null
 
-                pending.remove(transferId)
+                pending.remove(chunk.transferId)
                 return set.chunks.joinToString(separator = "") { it.orEmpty() }
             }
         }

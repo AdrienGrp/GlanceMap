@@ -31,6 +31,7 @@ private data class MapRendererCacheBucketInfo(
     val sizeBytes: Long,
 )
 
+@Suppress("LongMethod")
 internal fun captureMapRendererCacheDiagnostics(context: Context): MapRenderer.CacheDiagnosticsSnapshot {
     val prefs = context.getSharedPreferences(CACHE_CLEANUP_PREFS_NAME, Context.MODE_PRIVATE)
     val tileCacheRoot = context.externalCacheDir ?: context.cacheDir

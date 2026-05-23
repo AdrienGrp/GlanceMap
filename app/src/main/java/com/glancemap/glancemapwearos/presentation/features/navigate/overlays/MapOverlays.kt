@@ -1,18 +1,15 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import android.graphics.Color
-import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.PoiType
 import com.glancemap.glancemapwearos.data.repository.PoiViewport
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
-import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxInspectionUiState
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.gpx.InspectionABUiState
@@ -38,13 +35,9 @@ import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.layer.overlay.Marker
 import org.mapsforge.map.layer.overlay.Polyline
 import org.mapsforge.map.model.common.Observer
-import java.util.Locale
-import kotlin.math.roundToInt
 
 private const val ELEVATION_TRACK_OUTLINE_ALPHA = 176
 private const val ELEVATION_TRACK_OUTLINE_WIDTH_EXTRA_PX = 3f
-private const val CONE_TELEMETRY_TAG = "ConeTelemetry"
-private const val CONE_TELEMETRY_MIN_INTERVAL_MS = 2_000L
 
 @Composable
 @OptIn(FlowPreview::class)
@@ -310,6 +303,7 @@ private fun GpsAccuracyCircleLayerEffect(
 }
 
 @Composable
+@Suppress("FunctionNaming", "LongMethod", "LongParameterList")
 private fun CompassConeLayerEffect(
     mapView: MapView,
     navMode: NavMode,
@@ -351,18 +345,30 @@ private fun CompassConeLayerEffect(
         locationMarker,
     ) {
         coneTelemetryLogger.log(
-            navMode = navMode,
-            showCompassConeOverlay = showCompassConeOverlay,
-            shouldShow = shouldShow,
-            compassQuality = compassQuality,
-            compassHeadingErrorDeg = compassHeadingErrorDeg,
-            compassRenderState = compassRenderStateFlow.value,
-            gpsFixAccuracyM = gpsFixAccuracyM,
-            gpsFixFresh = gpsFixFresh,
-            gpsFixSpeedMps = gpsFixSpeedMps,
-            gpsFixBearingDeg = gpsFixBearingDeg,
-            renderedHeadingDeg = renderedHeadingDeg,
-            locationMarker = locationMarker,
+            ConeTelemetryDecision(
+                navMode = navMode,
+                overlayEnabled = showCompassConeOverlay,
+                shouldShow = shouldShow,
+                compass =
+                    ConeTelemetryCompass(
+                        quality = compassQuality,
+                        headingErrorDeg = compassHeadingErrorDeg,
+                        renderState = compassRenderStateFlow.value,
+                        renderedHeadingDeg = renderedHeadingDeg,
+                    ),
+                gps =
+                    ConeTelemetryGps(
+                        accuracyM = gpsFixAccuracyM,
+                        fresh = gpsFixFresh,
+                        speedMps = gpsFixSpeedMps,
+                        bearingDeg = gpsFixBearingDeg,
+                    ),
+                marker =
+                    ConeTelemetryMarker(
+                        present = locationMarker != null,
+                        headingDeg = locationMarker?.heading,
+                    ),
+            ),
         )
         mapView.post {
             val hasLayer = layers.contains(coneLayer)
@@ -403,127 +409,6 @@ private fun CompassConeLayerEffect(
 private fun findExistingCompassConeLayer(mapView: MapView): CompassConeLayer? =
     mapView.layerManager.layers
         .firstOrNull { it is CompassConeLayer } as? CompassConeLayer
-
-private class ConeTelemetryLogger {
-    private var lastSignature: String? = null
-    private var lastStateKey: String? = null
-    private var lastLoggedAtElapsedMs: Long = Long.MIN_VALUE
-
-    fun log(
-        navMode: NavMode,
-        showCompassConeOverlay: Boolean,
-        shouldShow: Boolean,
-        compassQuality: CompassMarkerQuality,
-        compassHeadingErrorDeg: Float?,
-        compassRenderState: CompassRenderState,
-        gpsFixAccuracyM: Float,
-        gpsFixFresh: Boolean,
-        gpsFixSpeedMps: Float,
-        gpsFixBearingDeg: Float?,
-        renderedHeadingDeg: Float,
-        locationMarker: RotatableMarker?,
-    ) {
-        if (!DebugTelemetry.isEnabled()) return
-
-        val reason =
-            coneDecisionReason(
-                showCompassConeOverlay = showCompassConeOverlay,
-                locationMarker = locationMarker,
-                navMode = navMode,
-                compassRenderState = compassRenderState,
-                shouldShow = shouldShow,
-            )
-        val source =
-            if (shouldShow) {
-                "compass"
-            } else {
-                "none"
-            }
-        val stateKey = "$shouldShow|$source|$reason|$navMode|${compassQuality.name}"
-        val signature =
-            stateKey +
-                "|compass=${compassRenderState.headingDeg.bucket(5f)}" +
-                "|rendered=${renderedHeadingDeg.bucket(5f)}" +
-                "|marker=${locationMarker?.heading?.bucket(5f) ?: "na"}" +
-                "|gpsBrg=${gpsFixBearingDeg?.bucket(5f) ?: "na"}" +
-                "|gpsSpd=${gpsFixSpeedMps.bucket(0.25f)}" +
-                "|gpsAcc=${gpsFixAccuracyM.bucket(5f)}" +
-                "|gpsFresh=$gpsFixFresh" +
-                "|headingSource=${compassRenderState.headingSource.name}"
-        if (signature == lastSignature) return
-
-        val nowElapsedMs = SystemClock.elapsedRealtime()
-        val stateChanged = stateKey != lastStateKey
-        if (!stateChanged && nowElapsedMs - lastLoggedAtElapsedMs < CONE_TELEMETRY_MIN_INTERVAL_MS) {
-            return
-        }
-
-        lastSignature = signature
-        lastStateKey = stateKey
-        lastLoggedAtElapsedMs = nowElapsedMs
-
-        DebugTelemetry.log(
-            CONE_TELEMETRY_TAG,
-            "event=decision visible=$shouldShow source=$source reason=$reason navMode=$navMode " +
-                "coneHeading=${coneHeadingForTelemetry(navMode, renderedHeadingDeg).formatOrNa(1)} " +
-                "renderedHeading=${renderedHeadingDeg.formatOrNa(1)} " +
-                "compassHeading=${compassRenderState.headingDeg.formatOrNa(1)} " +
-                "compassSource=${compassRenderState.headingSource.name.lowercase(Locale.US)} " +
-                "compassAccuracy=${compassRenderState.accuracy} " +
-                "headingError=${compassHeadingErrorDeg.formatOrNa(1)} " +
-                "quality=${compassQuality.name.lowercase(Locale.US)} " +
-                "markerHeading=${locationMarker?.heading.formatOrNa(1)} " +
-                "gpsBearing=${gpsFixBearingDeg.formatOrNa(1)} " +
-                "gpsSpeed=${gpsFixSpeedMps.formatOrNa(2)} " +
-                "gpsAccuracy=${gpsFixAccuracyM.formatOrNa(1)} " +
-                "gpsFresh=$gpsFixFresh",
-        )
-    }
-}
-
-private fun coneDecisionReason(
-    showCompassConeOverlay: Boolean,
-    locationMarker: RotatableMarker?,
-    navMode: NavMode,
-    compassRenderState: CompassRenderState,
-    shouldShow: Boolean,
-): String =
-    when {
-        !showCompassConeOverlay -> "style_disabled"
-        locationMarker == null -> "no_marker"
-        navMode == NavMode.PANNING -> "panning"
-        compassRenderState.headingSource == HeadingSource.NONE -> "no_compass"
-        !shouldDriveHeadingForNavMode(navMode, compassRenderState) -> {
-            when {
-                compassRenderState.headingSampleStale -> "compass_stale"
-                else -> "compass_not_driving"
-            }
-        }
-        shouldShow -> "visible"
-        else -> "hidden"
-    }
-
-private fun coneHeadingForTelemetry(
-    navMode: NavMode,
-    renderedHeadingDeg: Float,
-): Float =
-    when (navMode) {
-        NavMode.NORTH_UP_FOLLOW -> renderedHeadingDeg
-        NavMode.COMPASS_FOLLOW,
-        NavMode.PANNING -> 0f
-    }
-
-private fun Float.bucket(step: Float): Int {
-    if (!isFinite() || step <= 0f) return Int.MIN_VALUE
-    return (this / step).roundToInt()
-}
-
-private fun Float?.formatOrNa(decimals: Int): String =
-    if (this == null || !isFinite()) {
-        "na"
-    } else {
-        "%.${decimals}f".format(Locale.US, this)
-    }
 
 @Composable
 @OptIn(FlowPreview::class)

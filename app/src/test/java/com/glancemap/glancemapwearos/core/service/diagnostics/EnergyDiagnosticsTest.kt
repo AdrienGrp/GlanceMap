@@ -11,7 +11,6 @@ class EnergyDiagnosticsTest {
         DebugTelemetry.setEnabled(false)
         DebugTelemetry.clear()
         EnergyDiagnostics.clear()
-        DebugTelemetry.setEnabled(true)
     }
 
     @After

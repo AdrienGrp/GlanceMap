@@ -39,6 +39,7 @@ data class DiagnosticsSettingsSnapshot(
     val gpsPassiveLocationExperiment: Boolean,
 )
 
+@Suppress("TooManyFunctions")
 object DiagnosticsExporter {
     private const val SESSION_DURATION_MISMATCH_THRESHOLD_MS = 5_000L
 
@@ -453,7 +454,11 @@ object DiagnosticsExporter {
             writer.appendLine("markerMotionBlendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("markerMotionOutlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("markerMotionBlockedTransitions=${markerMotionSummary.blockedTransitions}")
-            writer.appendLine("markerMotionBlockedReasons=${formatMarkerMotionBlockedReasons(markerMotionSummary.blockedReasonCounts)}")
+            writer.appendLine(
+                "markerMotionBlockedReasons=${
+                    formatMarkerMotionBlockedReasons(markerMotionSummary.blockedReasonCounts)
+                }",
+            )
             writer.appendLine("mapHotPathBufferedLines=${mapHotPathLines.size}")
             writer.appendLine("mapHotPathBufferMaxLines=${MapHotPathDiagnostics.maxBufferedLines()}")
             writer.appendLine("mapHotPathDroppedLines=$mapHotPathDroppedLines")
@@ -873,7 +878,11 @@ object DiagnosticsExporter {
             writer.appendLine("blendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("clampedCorrections=${markerMotionSummary.clampedCorrections}")
             writer.appendLine("blockedTransitions=${markerMotionSummary.blockedTransitions}")
-            writer.appendLine("blockedReasons=${formatMarkerMotionBlockedReasons(markerMotionSummary.blockedReasonCounts)}")
+            writer.appendLine(
+                "blockedReasons=${
+                    formatMarkerMotionBlockedReasons(markerMotionSummary.blockedReasonCounts)
+                }",
+            )
             writer.appendLine("latestMode=${markerMotionSnapshot.mode.label}")
             writer.appendLine("latestReason=${markerMotionSnapshot.reason ?: "na"}")
             writer.appendLine("latestFixAgeMs=${markerMotionSnapshot.fixAgeMs?.toString() ?: "na"}")
@@ -1114,8 +1123,7 @@ object DiagnosticsExporter {
             gnssInsights = gnssInsights,
         )
 
-    private fun formatOneDecimal(value: Double?): String =
-        value?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
+    private fun formatOneDecimal(value: Double?): String = value?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
 
     private fun formatMarkerMotionBlockedReasons(reasonCounts: Map<String, Int>): String =
         if (reasonCounts.isEmpty()) {
