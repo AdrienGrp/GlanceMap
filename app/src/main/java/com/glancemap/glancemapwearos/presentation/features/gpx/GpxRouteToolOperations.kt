@@ -271,9 +271,7 @@ internal class GpxRouteToolOperations(
                 .firstOrNull { it.name == editOutput.fileName }
                 ?: error("The edited GPX was not found after saving.")
 
-        val currentActive = gpxRepository.getActiveGpxFiles().first()
-        val updatedActive = (currentActive - source.file.absolutePath) + savedFile.absolutePath
-        gpxRepository.setActiveGpxFiles(updatedActive)
+        gpxRepository.setActiveGpxFiles(setOf(savedFile.absolutePath))
 
         reportProgress(onProgress, "Preparing stats...")
         return buildRouteToolSaveResult(

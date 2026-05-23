@@ -650,8 +650,8 @@ class GpxViewModel(
                 profileCache.clear()
                 etaCache.clear()
                 dismissInspection()
+                reloadFromDisk()
                 onComplete(result)
-                launch { reloadFromDisk() }
             } else {
                 onComplete(result)
             }

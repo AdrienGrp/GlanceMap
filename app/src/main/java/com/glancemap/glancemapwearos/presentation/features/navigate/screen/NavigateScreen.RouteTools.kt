@@ -223,7 +223,11 @@ internal fun rememberNavigateRouteToolActions(
         triggerHaptic()
         setShortcutTrayExpanded(false)
         setPoiCreationSelectionActive(false)
-        setRouteToolOptions(routeToolOptions.withVisibleLoopDefaults())
+        setRouteToolOptions(
+            routeToolOptions
+                .withVisibleLoopDefaults()
+                .copy(saveBehavior = RouteSaveBehavior.SAVE_AS_NEW),
+        )
         clearRouteToolExecutionFeedback()
         clearRouteToolResultState()
         clearRouteToolPreviewState()
