@@ -314,6 +314,9 @@ class LocationService : Service() {
                 locationGatewayFor = { sourceMode -> locationGatewayFor(sourceMode) },
                 locationUpdateSink = { locationUpdateSink },
                 removeAllLocationUpdates = { removeAllLocationUpdates() },
+                removeInactiveLocationUpdates = { activeSourceMode ->
+                    removeInactiveLocationUpdates(activeSourceMode)
+                },
                 onNoPermissions = { nowElapsedMs ->
                     engine.onNoPermissions(nowElapsedMs = nowElapsedMs)
                     lastAnyAcceptedFixAtElapsedMs = 0L
@@ -1038,6 +1041,13 @@ class LocationService : Service() {
             }
         }
         firstError?.let { throw it }
+    }
+
+    private suspend fun removeInactiveLocationUpdates(activeSourceMode: LocationSourceMode) {
+        when (activeSourceMode) {
+            LocationSourceMode.AUTO_FUSED -> watchGpsLocationGateway.removeLocationUpdates()
+            LocationSourceMode.WATCH_GPS -> fusedLocationGateway.removeLocationUpdates()
+        }
     }
 
     private fun removeAllLocationUpdatesBestEffort() {

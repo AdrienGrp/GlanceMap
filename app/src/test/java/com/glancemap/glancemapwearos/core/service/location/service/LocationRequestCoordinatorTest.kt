@@ -8,6 +8,7 @@ import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpda
 import com.glancemap.glancemapwearos.core.service.location.engine.LocationEngine
 import com.glancemap.glancemapwearos.core.service.location.model.LocationPermissionSnapshot
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CoroutineScope
@@ -77,6 +78,7 @@ class LocationRequestCoordinatorTest {
                             coordinator?.requestLocationUpdateIfNeeded()
                         }
                     },
+                    removeInactiveLocationUpdates = {},
                     onNoPermissions = {},
                     onNoRequestSpec = { _, _ -> },
                     onRequestApplied = { _, _ -> },
@@ -143,6 +145,7 @@ class LocationRequestCoordinatorTest {
                     locationGatewayFor = { gateway },
                     locationUpdateSink = { NoopLocationUpdateSink },
                     removeAllLocationUpdates = {},
+                    removeInactiveLocationUpdates = {},
                     onNoPermissions = {},
                     onNoRequestSpec = { _, _ -> },
                     onRequestApplied = { _, _ -> },
@@ -209,6 +212,7 @@ class LocationRequestCoordinatorTest {
                     locationGatewayFor = { gateway },
                     locationUpdateSink = { NoopLocationUpdateSink },
                     removeAllLocationUpdates = {},
+                    removeInactiveLocationUpdates = {},
                     onNoPermissions = {},
                     onNoRequestSpec = { _, _ -> },
                     onRequestApplied = { _, _ -> },
@@ -276,6 +280,7 @@ class LocationRequestCoordinatorTest {
                     locationGatewayFor = { gateway },
                     locationUpdateSink = { NoopLocationUpdateSink },
                     removeAllLocationUpdates = {},
+                    removeInactiveLocationUpdates = {},
                     onNoPermissions = {},
                     onNoRequestSpec = { _, _ -> },
                     onRequestApplied = { _, _ -> },
@@ -295,6 +300,83 @@ class LocationRequestCoordinatorTest {
 
             assertEquals(Priority.PRIORITY_PASSIVE, gateway.lastRequest?.priority)
             assertFalse(gateway.lastRequest?.waitForAccurateLocation == true)
+        }
+
+    @Test
+    fun sameSourceRequestReconfigurationKeepsActiveBackendRegistered() =
+        runBlocking {
+            val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+            telemetry.setDebugEnabled(false)
+            val engine = LocationEngine(telemetry)
+            val gateway = CapturingLocationGateway()
+            val scope = CoroutineScope(coroutineContext + SupervisorJob())
+            var userIntervalMs = 3_000L
+            var removeAllCount = 0
+            var removeInactiveSource: LocationSourceMode? = null
+            val coordinator =
+                LocationRequestCoordinator(
+                    serviceScope = scope,
+                    engine = engine,
+                    telemetry = telemetry,
+                    readAndStoreLocationPermissions = {
+                        LocationPermissionSnapshot(
+                            hasFinePermission = true,
+                            hasCoarsePermission = true,
+                        )
+                    },
+                    updateSelfHealMonitor = {},
+                    updateGnssDiagnostics = {},
+                    foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
+                    cancelImmediateLocationWork = {},
+                    currentState = {
+                        RequestUpdateState(
+                            bound = false,
+                            tracking = true,
+                            keepOpen = true,
+                            watchOnlyRequested = true,
+                            watchOnlyEffective = true,
+                            screenState = LocationScreenState.INTERACTIVE,
+                            backgroundGps = false,
+                            passiveLocationExperiment = false,
+                            userIntervalMs = userIntervalMs,
+                            ambientIntervalMs = 60_000L,
+                        )
+                    },
+                    effectiveUpdateIntervalMs = { userIntervalMs },
+                    strictSourceWarmupMs = 0L,
+                    setSourceModeWarmup = { _, _ -> },
+                    clearSourceModeWarmup = {},
+                    locationGatewayFor = { gateway },
+                    locationUpdateSink = { NoopLocationUpdateSink },
+                    removeAllLocationUpdates = { removeAllCount += 1 },
+                    removeInactiveLocationUpdates = { sourceMode -> removeInactiveSource = sourceMode },
+                    onNoPermissions = {},
+                    onNoRequestSpec = { _, _ -> },
+                    onRequestApplied = { _, _ -> },
+                    onRequestFailed = {},
+                    maybeTriggerInteractiveSelfHealNow = { _, _, _ -> },
+                    recordEnergySample = { _, _ -> },
+                    elapsedRealtime = { 1_000L },
+                )
+
+            coordinator.requestLocationUpdateIfNeeded()
+            withTimeout(1_000L) {
+                while (gateway.lastRequest?.intervalMs != 3_000L) {
+                    yield()
+                }
+            }
+
+            userIntervalMs = 5_000L
+            coordinator.requestLocationUpdateIfNeeded()
+            withTimeout(1_000L) {
+                while (gateway.lastRequest?.intervalMs != 5_000L) {
+                    yield()
+                }
+            }
+
+            assertEquals(1, removeAllCount)
+            assertEquals(LocationSourceMode.WATCH_GPS, removeInactiveSource)
         }
 }
 
