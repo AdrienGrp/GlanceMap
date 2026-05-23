@@ -840,7 +840,15 @@ private fun GpxAndInspectionOverlayEffect(
         mapView.post {
             var changed = false
             // remove old layers
-            (polylinesById.keys - wantedIds).forEach { id ->
+            (trackedGpxOverlayIds(
+                polylinesById = polylinesById,
+                elevationPolylinesById = elevationPolylinesById,
+                startMarkersById = startMarkersById,
+                endMarkersById = endMarkersById,
+                directionArrowMarkersById = directionArrowMarkersById,
+                lodById = lodById,
+                displayedLodBucketById = displayedLodBucketById,
+            ) - wantedIds).forEach { id ->
                 if (polylinesById.remove(id)?.let {
                         layers.remove(it)
                         true
@@ -1137,6 +1145,25 @@ private fun GpxAndInspectionOverlayEffect(
         }
     }
 }
+
+private fun trackedGpxOverlayIds(
+    polylinesById: Map<String, Polyline>,
+    elevationPolylinesById: Map<String, List<Polyline>>,
+    startMarkersById: Map<String, Marker>,
+    endMarkersById: Map<String, Marker>,
+    directionArrowMarkersById: Map<String, List<RotatableMarker>>,
+    lodById: Map<String, TrackLodLevels>,
+    displayedLodBucketById: Map<String, Int>,
+): Set<String> =
+    buildSet {
+        addAll(polylinesById.keys)
+        addAll(elevationPolylinesById.keys)
+        addAll(startMarkersById.keys)
+        addAll(endMarkersById.keys)
+        addAll(directionArrowMarkersById.keys)
+        addAll(lodById.keys)
+        addAll(displayedLodBucketById.keys)
+    }
 
 private fun replaceDirectionArrowMarkers(
     layers: Layers,
