@@ -62,11 +62,26 @@ data class RoutingPackFileState(
     val bounds: GeoBounds? = null,
 )
 
-private data class OfflineViewportSnapshot(
-    val contextKey: String,
-    val center: org.mapsforge.core.model.LatLong,
-    val zoomLevel: Int,
-)
+internal fun buildOfflineStartCenterContextKey(
+    selectedMapPath: String?,
+    activeGpxDetails: List<GpxTrackDetails>,
+): String {
+    val normalizedMapPath = selectedMapPath?.trim().orEmpty()
+    val gpxIds =
+        activeGpxDetails
+            .asSequence()
+            .map { it.id }
+            .sorted()
+            .joinToString(separator = "|")
+
+    if (normalizedMapPath.isEmpty()) {
+        return "gpx=$gpxIds"
+    }
+    if (gpxIds.isEmpty()) {
+        return "map=$normalizedMapPath"
+    }
+    return "map=$normalizedMapPath;gpx=$gpxIds"
+}
 
 class MapViewModel(
     private val context: Context,
@@ -126,7 +141,6 @@ class MapViewModel(
     private var initialMapLoadIndicatorPending: Boolean = true
     private var offlineStartCenterContextKey: String? = null
     private var offlineStartCenterApplied: Boolean = false
-    private var offlineViewportSnapshot: OfflineViewportSnapshot? = null
     private var lastObservedSelectedMapPath: String? = null
     private var forcedOfflineStartCenterContextKey: String? = null
 
@@ -255,7 +269,7 @@ class MapViewModel(
         if (offlineStartCenterContextKey != contextKey) {
             offlineStartCenterContextKey = contextKey
             offlineStartCenterApplied = false
-            if (selectedMapPath.isNullOrBlank() && activeGpxDetails.isNotEmpty()) {
+            if (activeGpxDetails.isNotEmpty()) {
                 forcedOfflineStartCenterContextKey = contextKey
             }
         }
@@ -274,7 +288,6 @@ class MapViewModel(
     fun resetOfflineStartCenterTracking() {
         offlineStartCenterContextKey = null
         offlineStartCenterApplied = false
-        offlineViewportSnapshot = null
     }
 
     fun shouldForceOfflineStartCenter(
@@ -284,8 +297,8 @@ class MapViewModel(
         val contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
         if (forcedOfflineStartCenterContextKey == contextKey) return true
 
-        // In GPX-only offline mode, a newly active GPX should win over any previously saved viewport.
-        if (selectedMapPath.isNullOrBlank() && activeGpxDetails.isNotEmpty()) {
+        // In offline mode, an active GPX should force a fresh startup center.
+        if (activeGpxDetails.isNotEmpty()) {
             return offlineStartCenterContextKey != contextKey
         }
 
@@ -302,40 +315,12 @@ class MapViewModel(
         }
     }
 
-    fun saveOfflineViewport(
-        selectedMapPath: String?,
-        activeGpxDetails: List<GpxTrackDetails>,
-        center: org.mapsforge.core.model.LatLong?,
-        zoomLevel: Int,
-    ) {
-        if (center == null) return
-        if (!center.latitude.isFinite() || !center.longitude.isFinite()) return
-
-        offlineViewportSnapshot =
-            OfflineViewportSnapshot(
-                contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails),
-                center = center,
-                zoomLevel = zoomLevel,
-            )
-    }
-
-    fun restoreOfflineViewport(
-        selectedMapPath: String?,
-        activeGpxDetails: List<GpxTrackDetails>,
-    ): Pair<org.mapsforge.core.model.LatLong, Int>? {
-        val snapshot = offlineViewportSnapshot ?: return null
-        val contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
-        if (snapshot.contextKey != contextKey) return null
-        return snapshot.center to snapshot.zoomLevel
-    }
-
     fun getCurrentMapCenter(): org.mapsforge.core.model.LatLong? =
         mapHolder
             ?.mapView
             ?.model
             ?.mapViewPosition
             ?.center
-            ?: offlineViewportSnapshot?.center
 
     private fun applyLatestZoomBounds(reason: String) {
         val zoomMin = latestZoomMin
@@ -876,22 +861,5 @@ class MapViewModel(
             resetOfflineStartCenterTracking()
         }
         forcedOfflineStartCenterContextKey = normalizedPath?.let { "map=$it" }
-    }
-
-    private fun buildOfflineStartCenterContextKey(
-        selectedMapPath: String?,
-        activeGpxDetails: List<GpxTrackDetails>,
-    ): String {
-        val normalizedMapPath = selectedMapPath?.trim().orEmpty()
-        if (normalizedMapPath.isNotEmpty()) {
-            return "map=$normalizedMapPath"
-        }
-        val gpxIds =
-            activeGpxDetails
-                .asSequence()
-                .map { it.id }
-                .sorted()
-                .joinToString(separator = "|")
-        return "gpx=$gpxIds"
     }
 }

@@ -42,14 +42,6 @@ internal fun OfflineStartCenteringEffect(
                 selectedMapPath = selectedMapPath,
                 activeGpxDetails = activeGpxDetails,
             )
-        if (!skipInitialCentering && !forceStartupCenter) {
-            mapViewModel.restoreOfflineViewport(selectedMapPath, activeGpxDetails)?.let { (center, zoomLevel) ->
-                mapView.model.mapViewPosition.setZoomLevel(zoomLevel.toByte(), false)
-                mapView.setCenter(center)
-                mapViewModel.markOfflineStartCenterHandled(selectedMapPath, activeGpxDetails)
-                return@LaunchedEffect
-            }
-        }
         if (!mapViewModel.shouldApplyOfflineStartCenter(selectedMapPath, activeGpxDetails)) {
             return@LaunchedEffect
         }
