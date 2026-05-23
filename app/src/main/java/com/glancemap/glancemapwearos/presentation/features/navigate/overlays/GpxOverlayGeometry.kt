@@ -8,9 +8,10 @@ import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.min
 
-private const val GPX_DIRECTION_ARROW_SPACING_PX = 84.0
+private const val GPX_DIRECTION_ARROW_SPACING_PX = 140.0
 private const val GPX_DIRECTION_ARROW_MIN_SEGMENT_PX = 8.0
-private const val MAX_GPX_DIRECTION_ARROWS_PER_TRACK = 80
+private const val GPX_DIRECTION_ARROW_MIN_SCREEN_SEPARATION_PX = 58.0
+private const val MAX_GPX_DIRECTION_ARROWS_PER_TRACK = 48
 
 internal data class TrackLodLevels(
     val sourceSignature: Long,
@@ -76,6 +77,7 @@ internal fun buildGpxDirectionArrows(
     val zoomLevel = zoom.coerceIn(0, 30).toByte()
     val mapSize = MercatorProjection.getMapSize(zoomLevel, tileSize)
     val arrows = ArrayList<GpxDirectionArrow>()
+    val arrowPixels = ArrayList<XY>()
     var distanceSinceLastArrow = GPX_DIRECTION_ARROW_SPACING_PX * 0.5
 
     for (i in 0 until points.lastIndex) {
@@ -102,16 +104,19 @@ internal fun buildGpxDirectionArrows(
             val t = (consumedOnSegment / segmentLength).coerceIn(0.0, 1.0)
             val arrowX = startX + dx * t
             val arrowY = startY + dy * t
-            arrows.add(
-                GpxDirectionArrow(
-                    latLong =
-                        LatLong(
-                            MercatorProjection.pixelYToLatitude(arrowY, mapSize),
-                            MercatorProjection.pixelXToLongitude(arrowX, mapSize),
-                        ),
-                    headingDeg = Math.toDegrees(atan2(dx, -dy)).toFloat(),
-                ),
-            )
+            if (!hasNearbyDirectionArrow(arrowPixels, arrowX, arrowY)) {
+                arrows.add(
+                    GpxDirectionArrow(
+                        latLong =
+                            LatLong(
+                                MercatorProjection.pixelYToLatitude(arrowY, mapSize),
+                                MercatorProjection.pixelXToLongitude(arrowX, mapSize),
+                            ),
+                        headingDeg = Math.toDegrees(atan2(dx, -dy)).toFloat(),
+                    ),
+                )
+                arrowPixels.add(XY(arrowX, arrowY))
+            }
             distanceSinceLastArrow = 0.0
         }
 
@@ -120,6 +125,21 @@ internal fun buildGpxDirectionArrows(
     }
 
     return arrows
+}
+
+private fun hasNearbyDirectionArrow(
+    arrowPixels: List<XY>,
+    x: Double,
+    y: Double,
+): Boolean {
+    val minDistanceSq =
+        GPX_DIRECTION_ARROW_MIN_SCREEN_SEPARATION_PX *
+            GPX_DIRECTION_ARROW_MIN_SCREEN_SEPARATION_PX
+    return arrowPixels.any { arrow ->
+        val dx = arrow.x - x
+        val dy = arrow.y - y
+        dx * dx + dy * dy < minDistanceSq
+    }
 }
 
 private fun latLongListSignature(points: List<TrackPoint>): Long {

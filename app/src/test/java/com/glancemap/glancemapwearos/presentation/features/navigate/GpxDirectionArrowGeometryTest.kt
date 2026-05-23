@@ -54,7 +54,7 @@ class GpxDirectionArrowGeometryTest {
                 tileSize = 256,
             )
 
-        assertEquals(80, arrows.size)
+        assertEquals(48, arrows.size)
     }
 
     private fun trackPoint(

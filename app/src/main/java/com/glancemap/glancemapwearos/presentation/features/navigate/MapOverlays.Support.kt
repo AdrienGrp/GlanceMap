@@ -244,7 +244,7 @@ internal fun createPoiThemeIconMarkerBitmap(
     return bitmap
 }
 
-internal fun createGpxDirectionArrowBitmap(sizePx: Int = 22): Bitmap {
+internal fun createGpxDirectionArrowBitmap(sizePx: Int = 16): Bitmap {
     val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
@@ -262,7 +262,7 @@ internal fun createGpxDirectionArrowBitmap(sizePx: Int = 22): Bitmap {
             color = android.graphics.Color.WHITE
             style = Paint.Style.STROKE
             strokeJoin = Paint.Join.ROUND
-            strokeWidth = sizePx * 0.18f
+            strokeWidth = sizePx * 0.14f
             alpha = 225
         }
     val fillPaint =
