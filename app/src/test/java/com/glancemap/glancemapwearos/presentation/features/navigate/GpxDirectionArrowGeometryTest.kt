@@ -54,7 +54,28 @@ class GpxDirectionArrowGeometryTest {
                 tileSize = 256,
             )
 
-        assertEquals(48, arrows.size)
+        assertEquals(36, arrows.size)
+    }
+
+    @Test
+    fun buildsArrowsAcrossDenseShortSegments() {
+        val points =
+            (0..400).map { index ->
+                trackPoint(
+                    lat = 45.0,
+                    lon = 6.0 + index * 0.000125,
+                )
+            }
+
+        val arrows =
+            buildGpxDirectionArrows(
+                points = points,
+                zoom = 16,
+                tileSize = 256,
+            )
+
+        assertTrue(arrows.size >= 10)
+        assertEquals(90f, arrows.first().headingDeg, 0.5f)
     }
 
     private fun trackPoint(
