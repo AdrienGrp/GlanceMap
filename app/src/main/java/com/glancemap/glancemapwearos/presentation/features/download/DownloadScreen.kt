@@ -29,9 +29,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -451,8 +451,13 @@ fun DownloadScreen(
                         if (refreshMode) {
                             item {
                                 DownloadActionButton(
-                                    label = refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size),
-                                    icon = Icons.Filled.Refresh,
+                                    label =
+                                        if (uiState.isCheckingUpdates) {
+                                            "Checking updates..."
+                                        } else {
+                                            refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size)
+                                        },
+                                    icon = Icons.Filled.Update,
                                     enabled =
                                         uiState.selectedRefreshBundleIds.isNotEmpty() &&
                                             !uiState.isCheckingUpdates,
@@ -600,7 +605,7 @@ private fun DownloadHeader(
                     onClick = onInfoClick,
                 )
                 HeaderActionButton(
-                    icon = Icons.Filled.Refresh,
+                    icon = Icons.Filled.Update,
                     contentDescription = if (refreshMode) "Exit refresh mode" else "Enter refresh mode",
                     buttonSize = actionButtonSize,
                     iconSize = actionIconSize,
@@ -785,7 +790,7 @@ private fun InstalledBundleRow(
         icon =
             when {
                 refreshMode && refreshSelected -> Icons.Filled.Check
-                refreshMode -> Icons.Filled.Refresh
+                refreshMode -> Icons.Filled.Update
                 deleteMode -> Icons.Filled.Delete
                 else -> Icons.Filled.Check
             },
