@@ -58,6 +58,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -642,7 +646,19 @@ internal fun BoxScope.GpxInspectionBSelectionPromptOverlay(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Select point B",
+                text =
+                    buildAnnotatedString {
+                        append("Select 2")
+                        withStyle(
+                            SpanStyle(
+                                baselineShift = BaselineShift.Superscript,
+                                fontSize = textSize * 0.72f,
+                            ),
+                        ) {
+                            append("nd")
+                        }
+                        append(" point")
+                    },
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = textSize,
