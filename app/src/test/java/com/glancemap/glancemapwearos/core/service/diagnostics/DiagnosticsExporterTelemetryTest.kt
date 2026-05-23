@@ -112,6 +112,48 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals(1, insights.immediateRequestDeferredWakeBurstCount)
     }
 
+    @Test
+    fun passiveExternalGpsSignalSamplesAreSummarized() {
+        val lines =
+            listOf(
+                "2026-04-20 20:07:12.000 [LocTelemetry] requestUpdates applied: " +
+                    "priority=105 intervalMs=3000 minDistanceM=0.0 state=ACTIVE " +
+                    "bound=false keepOpen=true watchOnly=false burst=false backend=passive_external " +
+                    "mode=INTERACTIVE trackingEnabled=true interactive=true screenState=INTERACTIVE " +
+                    "finePermission=true coarsePermission=true passivePriority=true",
+                "2026-04-20 20:07:13.000 [LocTelemetry] locationBatch: raw=1 normalized=1 " +
+                    "accepted=0 fallback=false origin=passive_external duplicatesDropped=0",
+                "2026-04-20 20:07:13.000 [LocTelemetry] gpsSignal: sample " +
+                    "ageMs=34118 fresh=false maxAgeMs=20000 accuracyM=125.0 " +
+                    "sourceMode=passive_external provider=gps accepted=false " +
+                    "watchGpsDegraded=false watchGpsDegradedFixStreak=0",
+                "2026-04-20 20:07:16.000 [LocTelemetry] gpsSignal: sample " +
+                    "ageMs=100 fresh=true maxAgeMs=20000 accuracyM=8.5 " +
+                    "sourceMode=passive_external provider=fused accepted=true " +
+                    "watchGpsDegraded=false watchGpsDegradedFixStreak=0",
+            )
+
+        val insights =
+            deriveTelemetryInsights(
+                lines = lines,
+                captureWindowEndEpochMs = epochMs("2026-04-20T20:07:29"),
+            )
+
+        assertEquals(1, insights.requestBackendPassiveExternalCount)
+        assertEquals(1, insights.batchOriginPassiveExternalCount)
+        assertEquals(2, insights.passiveExternalSignalSampleCount)
+        assertEquals(1, insights.passiveExternalFreshSampleCount)
+        assertEquals(1, insights.passiveExternalStaleSampleCount)
+        assertEquals(1, insights.passiveExternalAcceptedSampleCount)
+        assertEquals(1, insights.passiveExternalRejectedSampleCount)
+        assertEquals(100L, insights.passiveExternalLastAgeMs)
+        assertEquals(100L, insights.passiveExternalMinAgeMs)
+        assertEquals(34_118L, insights.passiveExternalMaxAgeMs)
+        assertEquals(20_000L, insights.passiveExternalLastMaxAgeMs)
+        assertEquals(8.5f, insights.passiveExternalLastAccuracyM)
+        assertEquals("fused", insights.passiveExternalLastProvider)
+    }
+
     private fun epochMs(localDateTime: String): Long =
         LocalDateTime
             .parse(localDateTime)

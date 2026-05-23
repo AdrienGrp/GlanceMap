@@ -93,6 +93,17 @@ internal fun deriveTelemetryInsights(
     var immediateRequestDeferredWakeBurstCount = 0
     var gpsFreshTrueCount = 0
     var gpsFreshFalseCount = 0
+    var passiveExternalSignalSampleCount = 0
+    var passiveExternalFreshSampleCount = 0
+    var passiveExternalStaleSampleCount = 0
+    var passiveExternalAcceptedSampleCount = 0
+    var passiveExternalRejectedSampleCount = 0
+    var passiveExternalLastAgeMs: Long? = null
+    var passiveExternalMinAgeMs: Long? = null
+    var passiveExternalMaxAgeMs: Long? = null
+    var passiveExternalLastMaxAgeMs: Long? = null
+    var passiveExternalLastAccuracyM: Float? = null
+    var passiveExternalLastProvider: String? = null
     var watchGpsDegradedEnteredCount = 0
     var watchGpsDegradedClearedCount = 0
     var watchGpsDegradedSampleCount = 0
@@ -225,6 +236,34 @@ internal fun deriveTelemetryInsights(
         }
 
         if ("gpsSignal: sample" in line) {
+            if (extractTokenValue(line, "sourceMode=") == "passive_external") {
+                passiveExternalSignalSampleCount += 1
+                val ageMs = parseLongToken(line, "ageMs=")
+                val maxAgeMs = parseLongToken(line, "maxAgeMs=")
+                val accuracyM = parseFloatToken(line, "accuracyM=")
+                val provider = extractTokenValue(line, "provider=")?.takeIf { it != "unknown" }
+                val fresh = parseBooleanToken(line, "fresh=")
+                val accepted = parseBooleanToken(line, "accepted=")
+
+                when (fresh) {
+                    true -> passiveExternalFreshSampleCount += 1
+                    false -> passiveExternalStaleSampleCount += 1
+                    null -> Unit
+                }
+                when (accepted) {
+                    true -> passiveExternalAcceptedSampleCount += 1
+                    false -> passiveExternalRejectedSampleCount += 1
+                    null -> Unit
+                }
+                ageMs?.let { age ->
+                    passiveExternalLastAgeMs = age
+                    passiveExternalMinAgeMs = minOf(passiveExternalMinAgeMs ?: age, age)
+                    passiveExternalMaxAgeMs = maxOf(passiveExternalMaxAgeMs ?: age, age)
+                }
+                passiveExternalLastMaxAgeMs = maxAgeMs ?: passiveExternalLastMaxAgeMs
+                passiveExternalLastAccuracyM = accuracyM ?: passiveExternalLastAccuracyM
+                passiveExternalLastProvider = provider ?: passiveExternalLastProvider
+            }
             when (extractTokenValue(line, "watchGpsDegraded=")) {
                 "true" -> {
                     watchGpsDegradedSampleCount += 1
@@ -343,6 +382,17 @@ internal fun deriveTelemetryInsights(
         immediateRequestDeferredWakeBurstCount = immediateRequestDeferredWakeBurstCount,
         gpsFreshTrueCount = gpsFreshTrueCount,
         gpsFreshFalseCount = gpsFreshFalseCount,
+        passiveExternalSignalSampleCount = passiveExternalSignalSampleCount,
+        passiveExternalFreshSampleCount = passiveExternalFreshSampleCount,
+        passiveExternalStaleSampleCount = passiveExternalStaleSampleCount,
+        passiveExternalAcceptedSampleCount = passiveExternalAcceptedSampleCount,
+        passiveExternalRejectedSampleCount = passiveExternalRejectedSampleCount,
+        passiveExternalLastAgeMs = passiveExternalLastAgeMs,
+        passiveExternalMinAgeMs = passiveExternalMinAgeMs,
+        passiveExternalMaxAgeMs = passiveExternalMaxAgeMs,
+        passiveExternalLastMaxAgeMs = passiveExternalLastMaxAgeMs,
+        passiveExternalLastAccuracyM = passiveExternalLastAccuracyM,
+        passiveExternalLastProvider = passiveExternalLastProvider,
         watchGpsDegradedEnteredCount = watchGpsDegradedEnteredCount,
         watchGpsDegradedClearedCount = watchGpsDegradedClearedCount,
         watchGpsDegradedSampleCount = watchGpsDegradedSampleCount,
@@ -600,6 +650,11 @@ private fun parseFloatToken(
     line: String,
     key: String,
 ): Float? = extractTokenValue(line, key)?.toFloatOrNull()
+
+private fun parseLongToken(
+    line: String,
+    key: String,
+): Long? = extractTokenValue(line, key)?.toLongOrNull()
 
 internal fun formatBooleanToken(value: Boolean?): String = value?.toString() ?: "na"
 
