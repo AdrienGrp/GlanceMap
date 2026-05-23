@@ -145,12 +145,13 @@ internal fun OamAttributionDialog(
     AlertDialog(
         visible = visible,
         onDismissRequest = onDismiss,
-        title = { Text("OpenAndroMaps") },
+        title = { Text("Download") },
         text = {
             Text(
                 text =
-                    "Thanks to OpenAndroMaps for providing free offline maps and POIs.\n\n" +
-                        "Large map files can take a long time to download. Keep the watch on its charger.\n\n" +
+                    "Connect watch to Wi-Fi &\n" +
+                        "Keep the watch on its charger for the download.\n\n" +
+                        "Thanks to OpenAndroMaps for providing free offline maps and POIs.\n\n" +
                         "https://www.openandromaps.org",
                 textAlign = TextAlign.Center,
             )
