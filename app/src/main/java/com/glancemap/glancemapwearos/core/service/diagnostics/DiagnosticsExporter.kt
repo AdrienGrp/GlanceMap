@@ -1,7 +1,9 @@
 package com.glancemap.glancemapwearos.core.service.diagnostics
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Build
+import com.glancemap.glancemapwearos.BuildConfig
 import com.glancemap.glancemapwearos.core.service.location.config.ENABLE_STRICT_FIX_FILTERING
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
@@ -109,6 +111,19 @@ object DiagnosticsExporter {
         val screenOnFixGapMaxMs: Long = 0L,
     )
 
+    internal data class CompassTelemetryInsights(
+        val managerStartCount: Int = 0,
+        val managerStopScheduledCount: Int = 0,
+        val managerStopRequestedCount: Int = 0,
+        val headingSampleCount: Int = 0,
+        val largeJumpPendingCount: Int = 0,
+        val largeJumpAcceptedCount: Int = 0,
+        val staleSampleCount: Int = 0,
+        val largeJumpWithinManagerStart500MsCount: Int = 0,
+        val sampleAfterStopScheduledCount: Int = 0,
+        val sampleAfterStopRequestedCount: Int = 0,
+    )
+
     internal data class GnssInsights(
         val statusSampleCount: Int = 0,
         val startedCount: Int = 0,
@@ -129,6 +144,10 @@ object DiagnosticsExporter {
         val dualBandObservedStatusCount: Int = 0,
         val l1SatelliteMax: Int = 0,
         val l5SatelliteMax: Int = 0,
+        val collectorRegisteredCount: Int = 0,
+        val collectorUnregisteredCount: Int = 0,
+        val collectorInactiveCount: Int = 0,
+        val collectorPolicyDisabledCount: Int = 0,
     )
 
     internal data class AcceptedFixSummary(
@@ -209,6 +228,7 @@ object DiagnosticsExporter {
                 lines = telemetryLines,
                 captureWindowEndEpochMs = captureWindowEndEpochMs,
             )
+        val compassTelemetryInsights = deriveCompassTelemetryInsights(telemetryLines)
         val acceptedFixSummaries = deriveAcceptedFixSummaries(telemetryLines)
         val captureDurationMs =
             captureDurationMs(
@@ -268,6 +288,14 @@ object DiagnosticsExporter {
             writer.appendLine("Package: ${context.packageName}")
             writer.appendLine("VersionName: ${packageInfo.versionName}")
             writer.appendLine("VersionCode: ${packageInfo.longVersionCode}")
+            writer.appendLine("BuildType: ${BuildConfig.BUILD_TYPE}")
+            writer.appendLine("Debuggable: ${(appInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0}")
+            writer.appendLine("GitSha: ${BuildConfig.GIT_SHA}")
+            writer.appendLine("GitBranch: ${BuildConfig.GIT_BRANCH}")
+            writer.appendLine(
+                "MappingIdentity: version=${packageInfo.versionName} code=${packageInfo.longVersionCode} " +
+                    "buildType=${BuildConfig.BUILD_TYPE} git=${BuildConfig.GIT_SHA}",
+            )
             writer.appendLine("TargetSdk: ${appInfo.targetSdkVersion}")
             writer.appendLine("FirstInstall: ${formatInstallTime(packageInfo.firstInstallTime)}")
             writer.appendLine("LastUpdate: ${formatInstallTime(packageInfo.lastUpdateTime)}")
@@ -313,6 +341,10 @@ object DiagnosticsExporter {
             writer.appendLine("tileCacheBucketCount=${cacheSnapshot.tileCacheBucketCount}")
             writer.appendLine("tileCacheTotalSizeMb=${formatBytesToMb(cacheSnapshot.tileCacheTotalSizeBytes)}")
             writer.appendLine("activeTileCacheSizeMb=${formatNullableBytesToMb(cacheSnapshot.activeTileCacheSizeBytes)}")
+            writer.appendLine("tileCacheSoftLimitMb=${formatBytesToMb(cacheSnapshot.tileCacheSoftLimitBytes)}")
+            writer.appendLine("tileCacheTargetLimitMb=${formatBytesToMb(cacheSnapshot.tileCacheTargetLimitBytes)}")
+            writer.appendLine("tileCacheMaxAgeMs=${cacheSnapshot.tileCacheMaxAgeMs}")
+            writer.appendLine("tileCacheCleanupIntervalMs=${cacheSnapshot.tileCacheCleanupIntervalMs}")
             writer.appendLine("cacheLastCleanupAt=${formatCaptureTime(cacheSnapshot.lastCleanupMs)}")
             writer.appendLine(
                 "cacheLastCleanupAgeMs=${
@@ -326,6 +358,18 @@ object DiagnosticsExporter {
             writer.appendLine("reliefOverlayCacheSizeMb=${formatBytesToMb(cacheSnapshot.reliefOverlayCacheSizeBytes)}")
             writer.appendLine("bundledThemeCacheDirCount=${cacheSnapshot.bundledThemeCacheDirCount}")
             writer.appendLine("bundledThemeCacheTotalSizeMb=${formatBytesToMb(cacheSnapshot.bundledThemeCacheTotalSizeBytes)}")
+            if (cacheSnapshot.tileCacheBuckets.isEmpty()) {
+                writer.appendLine("tileCacheBuckets=none")
+            } else {
+                cacheSnapshot.tileCacheBuckets.forEachIndexed { index, bucket ->
+                    writer.appendLine(
+                        "tileCacheBucket[$index]=id=${bucket.id} active=${bucket.active} " +
+                            "sizeMb=${formatBytesToMb(bucket.sizeBytes)} " +
+                            "lastUsedAt=${formatCaptureTime(bucket.lastUsedMs)} " +
+                            "lastUsedAgeMs=${formatAgeMs(now.toEpochMilli(), bucket.lastUsedMs)}",
+                    )
+                }
+            }
             writer.appendLine()
             writer.appendLine("Sensor Inventory")
             writer.appendLine("headingPublicApiSupported=${sensorInventory.headingPublicApiSupported}")
@@ -409,6 +453,7 @@ object DiagnosticsExporter {
             writer.appendLine("markerMotionBlendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("markerMotionOutlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("markerMotionBlockedTransitions=${markerMotionSummary.blockedTransitions}")
+            writer.appendLine("markerMotionBlockedReasons=${formatMarkerMotionBlockedReasons(markerMotionSummary.blockedReasonCounts)}")
             writer.appendLine("mapHotPathBufferedLines=${mapHotPathLines.size}")
             writer.appendLine("mapHotPathBufferMaxLines=${MapHotPathDiagnostics.maxBufferedLines()}")
             writer.appendLine("mapHotPathDroppedLines=$mapHotPathDroppedLines")
@@ -540,6 +585,43 @@ object DiagnosticsExporter {
                 "watchGpsDegradedLastObserved=${
                     formatBooleanToken(telemetryInsights.watchGpsDegradedLastObserved)
                 }",
+            )
+            writer.appendLine()
+            writer.appendLine("Compass Telemetry Summary")
+            writer.appendLine("managerStartCount=${compassTelemetryInsights.managerStartCount}")
+            writer.appendLine("managerStopScheduledCount=${compassTelemetryInsights.managerStopScheduledCount}")
+            writer.appendLine("managerStopRequestedCount=${compassTelemetryInsights.managerStopRequestedCount}")
+            writer.appendLine("headingSampleCount=${compassTelemetryInsights.headingSampleCount}")
+            writer.appendLine("largeJumpPendingCount=${compassTelemetryInsights.largeJumpPendingCount}")
+            writer.appendLine("largeJumpAcceptedCount=${compassTelemetryInsights.largeJumpAcceptedCount}")
+            writer.appendLine(
+                "largeJumpRatePercent=${
+                    formatRatePercent(
+                        compassTelemetryInsights.largeJumpPendingCount +
+                            compassTelemetryInsights.largeJumpAcceptedCount,
+                        compassTelemetryInsights.headingSampleCount,
+                    )
+                }",
+            )
+            writer.appendLine("staleSampleCount=${compassTelemetryInsights.staleSampleCount}")
+            writer.appendLine(
+                "staleSampleRatePercent=${
+                    formatRatePercent(
+                        compassTelemetryInsights.staleSampleCount,
+                        compassTelemetryInsights.headingSampleCount,
+                    )
+                }",
+            )
+            writer.appendLine(
+                "largeJumpWithinManagerStart500MsCount=${
+                    compassTelemetryInsights.largeJumpWithinManagerStart500MsCount
+                }",
+            )
+            writer.appendLine(
+                "sampleAfterStopScheduledCount=${compassTelemetryInsights.sampleAfterStopScheduledCount}",
+            )
+            writer.appendLine(
+                "sampleAfterStopRequestedCount=${compassTelemetryInsights.sampleAfterStopRequestedCount}",
             )
             writer.appendLine("batchEventCount=${telemetryInsights.batchEventCount}")
             writer.appendLine("batchOriginAutoFusedCount=${telemetryInsights.batchOriginAutoFusedCount}")
@@ -690,6 +772,8 @@ object DiagnosticsExporter {
             writer.appendLine("resumeRestartCount=${demDownloadSummary.resumeRestartCount}")
             writer.appendLine("validationFailureCount=${demDownloadSummary.validationFailureCount}")
             writer.appendLine("networkUnavailableCount=${demDownloadSummary.networkUnavailableCount}")
+            writer.appendLine("activityState=${demDownloadSummary.activityState}")
+            writer.appendLine("diagnosticContext=${demDownloadSummary.diagnosticContext}")
             writer.appendLine()
             writer.appendLine("DEM Download Events")
             if (demDownloadLines.isEmpty()) {
@@ -752,6 +836,10 @@ object DiagnosticsExporter {
             writer.appendLine("l1ObservedStatusCount=${gnssInsights.l1ObservedStatusCount}")
             writer.appendLine("l5ObservedStatusCount=${gnssInsights.l5ObservedStatusCount}")
             writer.appendLine("dualBandObservedStatusCount=${gnssInsights.dualBandObservedStatusCount}")
+            writer.appendLine("collectorRegisteredCount=${gnssInsights.collectorRegisteredCount}")
+            writer.appendLine("collectorUnregisteredCount=${gnssInsights.collectorUnregisteredCount}")
+            writer.appendLine("collectorInactiveCount=${gnssInsights.collectorInactiveCount}")
+            writer.appendLine("collectorPolicyDisabledCount=${gnssInsights.collectorPolicyDisabledCount}")
             writer.appendLine(
                 "l1SatelliteMax=${
                     if (gnssInsights.statusSampleCount > 0) gnssInsights.l1SatelliteMax.toString() else "na"
@@ -785,6 +873,7 @@ object DiagnosticsExporter {
             writer.appendLine("blendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("clampedCorrections=${markerMotionSummary.clampedCorrections}")
             writer.appendLine("blockedTransitions=${markerMotionSummary.blockedTransitions}")
+            writer.appendLine("blockedReasons=${formatMarkerMotionBlockedReasons(markerMotionSummary.blockedReasonCounts)}")
             writer.appendLine("latestMode=${markerMotionSnapshot.mode.label}")
             writer.appendLine("latestReason=${markerMotionSnapshot.reason ?: "na"}")
             writer.appendLine("latestFixAgeMs=${markerMotionSnapshot.fixAgeMs?.toString() ?: "na"}")
@@ -919,6 +1008,12 @@ object DiagnosticsExporter {
                     writer.appendLine(
                         "exit[$index]=timestamp=${formatCaptureTime(entry.timestampMs)} reason=${entry.reason} subReason=${entry.subReason} importance=${entry.importance} status=${entry.status} pssKb=${entry.pssKb} rssKb=${entry.rssKb} description=${entry.description ?: "na"}",
                     )
+                    if (entry.traceInsightLines.isNotEmpty()) {
+                        writer.appendLine("exit[$index].traceInsightLineCount=${entry.traceInsightLines.size}")
+                        entry.traceInsightLines.forEachIndexed { traceIndex, line ->
+                            writer.appendLine("exit[$index].traceInsight[$traceIndex]=$line")
+                        }
+                    }
                     if (entry.tracePreviewLines.isNotEmpty()) {
                         writer.appendLine("exit[$index].tracePreviewLineCount=${entry.tracePreviewLines.size}")
                         entry.tracePreviewLines.forEachIndexed { traceIndex, line ->
@@ -1021,6 +1116,15 @@ object DiagnosticsExporter {
 
     private fun formatOneDecimal(value: Double?): String =
         value?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
+
+    private fun formatMarkerMotionBlockedReasons(reasonCounts: Map<String, Int>): String =
+        if (reasonCounts.isEmpty()) {
+            "none"
+        } else {
+            reasonCounts.entries
+                .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+                .joinToString(separator = ",") { (reason, count) -> "$reason:$count" }
+        }
 }
 
 internal fun normalizeThreadtimeLogcatLine(

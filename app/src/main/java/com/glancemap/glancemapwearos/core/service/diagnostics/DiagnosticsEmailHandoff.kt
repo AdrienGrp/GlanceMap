@@ -13,7 +13,7 @@ import java.util.zip.GZIPOutputStream
 
 internal object DiagnosticsEmailHandoff {
     private const val MAX_MESSAGE_PAYLOAD_BYTES = 90 * 1024
-    private val tailSizes = intArrayOf(220_000, 160_000, 110_000, 75_000, 50_000)
+    private const val CHUNK_CONTENT_CHARS = 55_000
 
     suspend fun sendToPhone(
         context: Context,
@@ -21,7 +21,7 @@ internal object DiagnosticsEmailHandoff {
         subject: String,
     ): Boolean {
         val fullText = runCatching { diagnosticsFile.readText() }.getOrNull() ?: return false
-        val payload = buildPayload(diagnosticsFile.name, subject, fullText) ?: return false
+        val payloads = buildPayloads(diagnosticsFile.name, subject, fullText) ?: return false
 
         val nodes =
             runCatching { Wearable.getNodeClient(context).connectedNodes.await() }.getOrNull()
@@ -33,63 +33,98 @@ internal object DiagnosticsEmailHandoff {
         for (node in sortedNodes) {
             val sent =
                 runCatching {
-                    messageClient
-                        .sendMessage(
-                            node.id,
-                            TransferConstants.PATH_DIAGNOSTICS_EMAIL_REQUEST,
-                            payload,
-                        ).await()
+                    payloads.forEach { payload ->
+                        messageClient
+                            .sendMessage(
+                                node.id,
+                                TransferConstants.PATH_DIAGNOSTICS_EMAIL_REQUEST,
+                                payload,
+                            ).await()
+                    }
                 }.isSuccess
             if (sent) return true
         }
         return false
     }
 
-    private fun buildPayload(
+    private fun buildPayloads(
         fileName: String,
         subject: String,
         fullText: String,
-    ): ByteArray? {
-        val fullPayload = encodePayload(fileName, subject, fullText, truncated = false)
+    ): List<ByteArray>? {
+        val compressed = gzip(fullText.toByteArray(Charsets.UTF_8))
+        val base64 = Base64.encodeToString(compressed, Base64.NO_WRAP)
+        val fullPayload =
+            encodePayload(
+                fileName = fileName,
+                subject = subject,
+                base64Content = base64,
+                transferId = null,
+                chunkIndex = 0,
+                chunkCount = 1,
+                rawTextBytes = fullText.toByteArray(Charsets.UTF_8).size,
+                compressedBytes = compressed.size,
+            )
         if (fullPayload.size <= MAX_MESSAGE_PAYLOAD_BYTES) {
-            return fullPayload
+            return listOf(fullPayload)
         }
 
-        for (tailSize in tailSizes) {
-            if (fullText.length <= tailSize) continue
-            val truncatedText =
-                buildString {
-                    appendLine("Diagnostics were truncated before phone handoff due payload size.")
-                    appendLine()
-                    append(fullText.takeLast(tailSize))
-                }
-            val payload = encodePayload(fileName, subject, truncatedText, truncated = true)
-            if (payload.size <= MAX_MESSAGE_PAYLOAD_BYTES) {
-                return payload
+        val chunks = base64.chunked(CHUNK_CONTENT_CHARS)
+        val transferId = buildTransferId(fileName, compressed.size, chunks.size)
+        val payloads =
+            chunks.mapIndexed { index, chunk ->
+                encodePayload(
+                    fileName = fileName,
+                    subject = subject,
+                    base64Content = chunk,
+                    transferId = transferId,
+                    chunkIndex = index,
+                    chunkCount = chunks.size,
+                    rawTextBytes = fullText.toByteArray(Charsets.UTF_8).size,
+                    compressedBytes = compressed.size,
+                )
             }
+        if (payloads.any { it.size > MAX_MESSAGE_PAYLOAD_BYTES }) {
+            return null
         }
-
-        return null
+        return payloads
     }
 
     private fun encodePayload(
         fileName: String,
         subject: String,
-        text: String,
-        truncated: Boolean,
+        base64Content: String,
+        transferId: String?,
+        chunkIndex: Int,
+        chunkCount: Int,
+        rawTextBytes: Int,
+        compressedBytes: Int,
     ): ByteArray {
-        val compressed = gzip(text.toByteArray(Charsets.UTF_8))
-        val base64 = Base64.encodeToString(compressed, Base64.NO_WRAP)
-        return JSONObject()
+        val json =
+            JSONObject()
             .put("email", TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL)
             .put("subject", subject)
             .put("fileName", fileName)
             .put("encoding", "gzip_base64_utf8_text")
-            .put("truncated", truncated)
-            .put("content", base64)
+            .put("truncated", false)
+            .put("chunked", chunkCount > 1)
+            .put("chunkIndex", chunkIndex)
+            .put("chunkCount", chunkCount)
+            .put("rawTextBytes", rawTextBytes)
+            .put("compressedBytes", compressedBytes)
+            .put("content", base64Content)
+        transferId?.let { json.put("transferId", it) }
+        return json
             .toString()
             .toByteArray(Charsets.UTF_8)
     }
+
+    private fun buildTransferId(
+        fileName: String,
+        compressedBytes: Int,
+        chunkCount: Int,
+    ): String =
+        "${System.currentTimeMillis()}_${fileName.hashCode()}_${compressedBytes}_$chunkCount"
 
     private fun gzip(bytes: ByteArray): ByteArray {
         val buffer = ByteArrayOutputStream()

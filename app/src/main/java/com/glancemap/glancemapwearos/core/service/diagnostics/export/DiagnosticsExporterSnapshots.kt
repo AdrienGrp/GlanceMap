@@ -25,6 +25,7 @@ private val diagnosticsExporterTimestampFormatter: DateTimeFormatter =
 private const val CONNECTED_PHONE_NODES_TIMEOUT_MS = 1_500L
 private const val HISTORICAL_EXIT_TRACE_MAX_LINES = 80
 private const val HISTORICAL_EXIT_TRACE_MAX_CHARS_PER_LINE = 240
+private const val HISTORICAL_EXIT_LOCK_OWNER_MAX_LINES = 36
 
 internal data class LocationPermissionSnapshot(
     val hasFinePermission: Boolean,
@@ -106,6 +107,7 @@ internal data class HistoricalExitReason(
     val rssKb: Long,
     val description: String?,
     val tracePreviewLines: List<String> = emptyList(),
+    val traceInsightLines: List<String> = emptyList(),
 )
 
 internal fun captureSensorInventory(context: Context): SensorInventorySnapshot {
@@ -288,6 +290,12 @@ internal fun captureHistoricalProcessExitReasons(context: Context): HistoricalEx
                 .orEmpty()
                 .map { info ->
                     val reason = formatExitReason(info.reason)
+                    val traceSnapshot =
+                        if (reason == "ANR" || reason.contains("CRASH")) {
+                            readHistoricalExitTraceSnapshot(info)
+                        } else {
+                            HistoricalExitTraceSnapshot()
+                        }
                     HistoricalExitReason(
                         timestampMs = info.timestamp,
                         reason = reason,
@@ -301,12 +309,8 @@ internal fun captureHistoricalProcessExitReasons(context: Context): HistoricalEx
                                 ?.replace(Regex("\\s+"), " ")
                                 ?.trim()
                                 ?.takeIf { it.isNotEmpty() },
-                        tracePreviewLines =
-                            if (reason == "ANR" || reason.contains("CRASH")) {
-                                readHistoricalExitTracePreview(info)
-                            } else {
-                                emptyList()
-                            },
+                        tracePreviewLines = traceSnapshot.previewLines,
+                        traceInsightLines = traceSnapshot.insightLines,
                     )
                 }
         HistoricalExitReasonsSnapshot(
@@ -322,20 +326,73 @@ internal fun captureHistoricalProcessExitReasons(context: Context): HistoricalEx
     }
 }
 
-private fun readHistoricalExitTracePreview(info: ApplicationExitInfo): List<String> =
+private data class HistoricalExitTraceSnapshot(
+    val previewLines: List<String> = emptyList(),
+    val insightLines: List<String> = emptyList(),
+)
+
+private fun readHistoricalExitTraceSnapshot(info: ApplicationExitInfo): HistoricalExitTraceSnapshot =
     runCatching {
-        info.traceInputStream
-            ?.bufferedReader()
-            ?.useLines { lines ->
-                lines
-                    .map { line ->
-                        line
-                            .trimEnd()
-                            .take(HISTORICAL_EXIT_TRACE_MAX_CHARS_PER_LINE)
-                    }.take(HISTORICAL_EXIT_TRACE_MAX_LINES)
-                    .toList()
-            }.orEmpty()
-    }.getOrDefault(emptyList())
+        val traceLines =
+            info.traceInputStream
+                ?.bufferedReader()
+                ?.useLines { lines ->
+                    lines
+                        .map { line ->
+                            line
+                                .trimEnd()
+                                .take(HISTORICAL_EXIT_TRACE_MAX_CHARS_PER_LINE)
+                        }.toList()
+                }.orEmpty()
+        HistoricalExitTraceSnapshot(
+            previewLines = traceLines.take(HISTORICAL_EXIT_TRACE_MAX_LINES),
+            insightLines = buildHistoricalExitTraceInsights(traceLines),
+        )
+    }.getOrDefault(HistoricalExitTraceSnapshot())
+
+private fun buildHistoricalExitTraceInsights(traceLines: List<String>): List<String> {
+    if (traceLines.isEmpty()) return emptyList()
+    val insights = mutableListOf<String>()
+    val blockedLine =
+        traceLines.firstOrNull { line ->
+            "held by thread" in line ||
+                "waiting to lock" in line ||
+                "blocked on" in line
+        }
+    blockedLine?.let { insights += "mainOrFirstBlockedLine=$it" }
+
+    val ownerTid =
+        blockedLine
+            ?.let { Regex("""held by thread\s+(\d+)""").find(it)?.groupValues?.getOrNull(1) }
+            ?.toIntOrNull()
+    if (ownerTid != null) {
+        insights += "lockOwnerThreadId=$ownerTid"
+        val ownerStartIndex = traceLines.indexOfFirst { line -> "tid=$ownerTid " in line || line.endsWith("tid=$ownerTid") }
+        if (ownerStartIndex >= 0) {
+            val ownerLines =
+                traceLines
+                    .drop(ownerStartIndex)
+                    .takeWhileIndexed { index, line -> index == 0 || line.isNotBlank() }
+                    .take(HISTORICAL_EXIT_LOCK_OWNER_MAX_LINES)
+            insights += "lockOwnerPreviewLineCount=${ownerLines.size}"
+            ownerLines.forEachIndexed { index, line ->
+                insights += "lockOwner[$index]=$line"
+            }
+        } else {
+            insights += "lockOwnerPreviewLineCount=0"
+        }
+    }
+    return insights
+}
+
+private inline fun <T> Iterable<T>.takeWhileIndexed(predicate: (Int, T) -> Boolean): List<T> {
+    val result = mutableListOf<T>()
+    forEachIndexed { index, item ->
+        if (!predicate(index, item)) return result
+        result += item
+    }
+    return result
+}
 
 internal fun formatExitReason(reason: Int): String =
     when (reason) {

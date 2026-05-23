@@ -63,11 +63,23 @@ class MapRenderer(
         val tileCacheBucketCount: Int,
         val tileCacheTotalSizeBytes: Long,
         val activeTileCacheSizeBytes: Long?,
+        val tileCacheSoftLimitBytes: Long,
+        val tileCacheTargetLimitBytes: Long,
+        val tileCacheMaxAgeMs: Long,
+        val tileCacheCleanupIntervalMs: Long,
         val lastCleanupMs: Long?,
+        val tileCacheBuckets: List<CacheBucketDiagnostics>,
         val reliefOverlayNamespaceCount: Int,
         val reliefOverlayCacheSizeBytes: Long,
         val bundledThemeCacheDirCount: Int,
         val bundledThemeCacheTotalSizeBytes: Long,
+    )
+
+    data class CacheBucketDiagnostics(
+        val id: String,
+        val sizeBytes: Long,
+        val lastUsedMs: Long?,
+        val active: Boolean,
     )
 
     companion object {

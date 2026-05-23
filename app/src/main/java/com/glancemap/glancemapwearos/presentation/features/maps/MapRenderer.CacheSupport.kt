@@ -66,7 +66,25 @@ internal fun captureMapRendererCacheDiagnostics(context: Context): MapRenderer.C
         tileCacheBucketCount = tileCacheBuckets.size,
         tileCacheTotalSizeBytes = tileCacheBuckets.sumOf { mapRendererDirectorySizeBytes(it) },
         activeTileCacheSizeBytes = activeTileCacheSizeBytes,
+        tileCacheSoftLimitBytes = CACHE_SOFT_LIMIT_BYTES,
+        tileCacheTargetLimitBytes = CACHE_TARGET_LIMIT_BYTES,
+        tileCacheMaxAgeMs = CACHE_MAX_AGE_MS,
+        tileCacheCleanupIntervalMs = CACHE_CLEANUP_INTERVAL_MS,
         lastCleanupMs = prefs.getLong(KEY_CACHE_LAST_CLEANUP_MS, 0L).takeIf { it > 0L },
+        tileCacheBuckets =
+            tileCacheBuckets
+                .map { dir ->
+                    val lastUsedMs = mapRendererBucketLastUsedMs(dir).takeIf { it > 0L }
+                    MapRenderer.CacheBucketDiagnostics(
+                        id = dir.name,
+                        sizeBytes = mapRendererDirectorySizeBytes(dir),
+                        lastUsedMs = lastUsedMs,
+                        active = dir.name == activeTileCacheId,
+                    )
+                }.sortedWith(
+                    compareByDescending<MapRenderer.CacheBucketDiagnostics> { it.active }
+                        .thenByDescending { it.lastUsedMs ?: 0L },
+                ),
         reliefOverlayNamespaceCount = reliefOverlayEntries.count { it.isDirectory || it.isFile },
         reliefOverlayCacheSizeBytes =
             if (reliefOverlayRootDir.exists()) {

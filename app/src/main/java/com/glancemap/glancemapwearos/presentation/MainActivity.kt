@@ -29,6 +29,7 @@ import androidx.wear.compose.material3.TimeTextDefaults
 import androidx.wear.compose.material3.timeTextCurvedText
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
 import com.glancemap.glancemapwearos.presentation.features.download.DownloadScreen
 import com.glancemap.glancemapwearos.presentation.features.download.DownloadSettingsScreen
@@ -544,6 +545,7 @@ class MainActivity : ComponentActivity() {
                 append(" interactive=").append(interactive?.toString() ?: "na")
             }
         DebugTelemetry.log("ScreenTelemetry", message)
+        FieldMarkerDiagnostics.recordMarker(type = event, note = activeRoute ?: "unknown")
     }
 
     private fun logNavigationTelemetry(
@@ -559,5 +561,6 @@ class MainActivity : ComponentActivity() {
                 append(" interactive=").append(interactive?.toString() ?: "na")
             }
         DebugTelemetry.log("NavigationTelemetry", message)
+        FieldMarkerDiagnostics.recordMarker(type = event, note = route ?: "unknown")
     }
 }

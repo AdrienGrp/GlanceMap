@@ -39,14 +39,23 @@ internal object DebugTelemetry {
         val previous = enabled.getAndSet(value)
         if (previous == value) return
 
+        var markerType: String? = null
+        var markerNote: String? = null
         synchronized(lock) {
             if (value) {
                 sessionId += 1L
                 sessionStartedAtMs = System.currentTimeMillis()
                 sessionEndedAtMs = null
+                markerType = "diagnostics_capture_start"
+                markerNote = "s$sessionId"
             } else if (sessionStartedAtMs != null) {
                 sessionEndedAtMs = System.currentTimeMillis()
+                markerType = "diagnostics_capture_stop"
+                markerNote = "s$sessionId"
             }
+        }
+        markerType?.let { type ->
+            FieldMarkerDiagnostics.recordMarker(type = type, note = markerNote ?: "na")
         }
     }
 
@@ -75,6 +84,7 @@ internal object DebugTelemetry {
     fun snapshot(): List<String> = synchronized(lock) { lines.toList() }
 
     fun clear() {
+        var markerNote = "na"
         synchronized(lock) {
             lines.clear()
             lineTimesMs.clear()
@@ -84,12 +94,15 @@ internal object DebugTelemetry {
                 sessionId = 1L
                 sessionStartedAtMs = System.currentTimeMillis()
                 sessionEndedAtMs = null
+                markerNote = "s$sessionId"
             } else {
                 sessionId = 0L
                 sessionStartedAtMs = null
                 sessionEndedAtMs = null
+                markerNote = "disabled"
             }
         }
+        FieldMarkerDiagnostics.recordMarker(type = "diagnostics_capture_clear", note = markerNote)
     }
 
     fun size(): Int = synchronized(lock) { lines.size }

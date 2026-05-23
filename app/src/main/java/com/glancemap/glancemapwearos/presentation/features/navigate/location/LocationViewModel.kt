@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationTimingProfile
@@ -248,6 +249,7 @@ class LocationViewModel(
             source = source,
             nowElapsedMs = now,
         )
+        FieldMarkerDiagnostics.recordMarker(type = "immediate_location", note = source)
 
         lastImmediateRequestAtMs = now
 
