@@ -387,6 +387,19 @@ class SettingsViewModel(
             settingsRepository.setGpxTrackOpacityPercent(opacityPercent)
         }
 
+    val gpxTrackDirectionArrowsEnabled: StateFlow<Boolean> =
+        settingsRepository.gpxTrackDirectionArrowsEnabled
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TRACK_DIRECTION_ARROWS_ENABLED,
+            )
+
+    fun setGpxTrackDirectionArrowsEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setGpxTrackDirectionArrowsEnabled(enabled)
+        }
+
     val autoRecenterEnabled: StateFlow<Boolean> =
         settingsRepository.autoRecenterEnabled
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)

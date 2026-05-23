@@ -56,6 +56,7 @@ interface SettingsRepository {
         const val GPX_TRACK_COLOR_MODE_SOLID = "SOLID"
         const val GPX_TRACK_COLOR_MODE_ELEVATION = "ELEVATION"
         const val DEFAULT_GPX_TRACK_COLOR_MODE = GPX_TRACK_COLOR_MODE_SOLID
+        const val DEFAULT_GPX_TRACK_DIRECTION_ARROWS_ENABLED = false
 
         const val POI_ICON_SIZE_SMALL_PX = 18
         const val POI_ICON_SIZE_DEFAULT_PX = 22
@@ -217,6 +218,10 @@ interface SettingsRepository {
     val gpxTrackOpacityPercent: Flow<Int>
 
     suspend fun setGpxTrackOpacityPercent(opacityPercent: Int)
+
+    val gpxTrackDirectionArrowsEnabled: Flow<Boolean>
+
+    suspend fun setGpxTrackDirectionArrowsEnabled(enabled: Boolean)
 
     // Auto-recenter settings
     val autoRecenterEnabled: Flow<Boolean>

@@ -182,6 +182,7 @@ fun NavigateScreen(
     val gpxTrackColorMode by settingsViewModel.gpxTrackColorMode.collectAsState()
     val gpxTrackWidth by settingsViewModel.gpxTrackWidth.collectAsState()
     val gpxTrackOpacityPercent by settingsViewModel.gpxTrackOpacityPercent.collectAsState()
+    val gpxTrackDirectionArrowsEnabled by settingsViewModel.gpxTrackDirectionArrowsEnabled.collectAsState()
     val autoRecenterEnabled by settingsViewModel.autoRecenterEnabled.collectAsState()
     val autoRecenterDelay by settingsViewModel.autoRecenterDelay.collectAsState(initial = 5)
     val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
@@ -753,6 +754,7 @@ fun NavigateScreen(
         gpxTrackColorMode = gpxTrackColorMode,
         gpxTrackWidth = gpxTrackWidth,
         gpxTrackOpacityPercent = gpxTrackOpacityPercent,
+        gpxTrackDirectionArrowsEnabled = gpxTrackDirectionArrowsEnabled,
         compassRenderStateFlow = compassViewModel.renderState,
         navMode = effectiveNavMode,
         forceNorthUpInPanning = offlineMode,

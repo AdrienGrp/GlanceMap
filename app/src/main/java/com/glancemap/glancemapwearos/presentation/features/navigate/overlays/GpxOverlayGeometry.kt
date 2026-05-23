@@ -4,8 +4,13 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.util.MercatorProjection
+import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.min
+
+private const val GPX_DIRECTION_ARROW_SPACING_PX = 84.0
+private const val GPX_DIRECTION_ARROW_MIN_SEGMENT_PX = 8.0
+private const val MAX_GPX_DIRECTION_ARROWS_PER_TRACK = 80
 
 internal data class TrackLodLevels(
     val sourceSignature: Long,
@@ -24,6 +29,11 @@ internal data class TrackLodLevels(
 private data class XY(
     val x: Double,
     val y: Double,
+)
+
+internal data class GpxDirectionArrow(
+    val latLong: LatLong,
+    val headingDeg: Float,
 )
 
 internal fun zoomBucketFor(zoom: Int): Int =
@@ -55,6 +65,62 @@ internal fun buildTrackLodLevels(points: List<TrackPoint>): TrackLodLevels {
 }
 
 internal fun List<TrackPoint>.latLongs(): List<LatLong> = map { it.latLong }
+
+internal fun buildGpxDirectionArrows(
+    points: List<TrackPoint>,
+    zoom: Int,
+    tileSize: Int,
+): List<GpxDirectionArrow> {
+    if (points.size < 2) return emptyList()
+
+    val zoomLevel = zoom.coerceIn(0, 30).toByte()
+    val mapSize = MercatorProjection.getMapSize(zoomLevel, tileSize)
+    val arrows = ArrayList<GpxDirectionArrow>()
+    var distanceSinceLastArrow = GPX_DIRECTION_ARROW_SPACING_PX * 0.5
+
+    for (i in 0 until points.lastIndex) {
+        val start = points[i].latLong
+        val end = points[i + 1].latLong
+        val startX = MercatorProjection.longitudeToPixelX(start.longitude, mapSize)
+        val startY = MercatorProjection.latitudeToPixelY(start.latitude, mapSize)
+        val endX = MercatorProjection.longitudeToPixelX(end.longitude, mapSize)
+        val endY = MercatorProjection.latitudeToPixelY(end.latitude, mapSize)
+        val dx = endX - startX
+        val dy = endY - startY
+        val segmentLength = kotlin.math.hypot(dx, dy)
+        if (segmentLength < GPX_DIRECTION_ARROW_MIN_SEGMENT_PX) continue
+
+        var consumedOnSegment = 0.0
+        var remainingOnSegment = segmentLength
+        while (
+            arrows.size < MAX_GPX_DIRECTION_ARROWS_PER_TRACK &&
+            distanceSinceLastArrow + remainingOnSegment >= GPX_DIRECTION_ARROW_SPACING_PX
+        ) {
+            val offset = GPX_DIRECTION_ARROW_SPACING_PX - distanceSinceLastArrow
+            consumedOnSegment += offset
+            remainingOnSegment -= offset
+            val t = (consumedOnSegment / segmentLength).coerceIn(0.0, 1.0)
+            val arrowX = startX + dx * t
+            val arrowY = startY + dy * t
+            arrows.add(
+                GpxDirectionArrow(
+                    latLong =
+                        LatLong(
+                            MercatorProjection.pixelYToLatitude(arrowY, mapSize),
+                            MercatorProjection.pixelXToLongitude(arrowX, mapSize),
+                        ),
+                    headingDeg = Math.toDegrees(atan2(dx, -dy)).toFloat(),
+                ),
+            )
+            distanceSinceLastArrow = 0.0
+        }
+
+        distanceSinceLastArrow += remainingOnSegment
+        if (arrows.size >= MAX_GPX_DIRECTION_ARROWS_PER_TRACK) break
+    }
+
+    return arrows
+}
 
 private fun latLongListSignature(points: List<TrackPoint>): Long {
     var h = 1_469_598_103_934_665_603L

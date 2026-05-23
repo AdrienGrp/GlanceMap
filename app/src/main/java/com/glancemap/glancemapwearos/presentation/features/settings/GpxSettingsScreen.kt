@@ -94,6 +94,7 @@ fun GpxSettingsScreen(
     val trackColorMode by viewModel.gpxTrackColorMode.collectAsState()
     val trackWidth by viewModel.gpxTrackWidth.collectAsState()
     val trackOpacityPercent by viewModel.gpxTrackOpacityPercent.collectAsState()
+    val trackDirectionArrowsEnabled by viewModel.gpxTrackDirectionArrowsEnabled.collectAsState()
     val isGpxInspectionEnabled by viewModel.isGpxInspectionEnabled.collectAsState()
     val gpxFlatSpeedMps by viewModel.gpxFlatSpeedMps.collectAsState()
     val gpxAdvancedEtaEnabled by viewModel.gpxAdvancedEtaEnabled.collectAsState()
@@ -345,6 +346,15 @@ fun GpxSettingsScreen(
                         )
                     }
                 }
+            }
+            item {
+                SettingsToggleChip(
+                    checked = trackDirectionArrowsEnabled,
+                    onCheckedChanged = viewModel::setGpxTrackDirectionArrowsEnabled,
+                    label = "Direction arrows",
+                    secondaryLabel = if (trackDirectionArrowsEnabled) "Black" else "Off",
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             item {
                 TrackWidthSetting(

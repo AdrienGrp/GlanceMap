@@ -75,6 +75,8 @@ class SettingsRepositoryImpl private constructor(
         val GPX_TRACK_COLOR_MODE = stringPreferencesKey("gpx_track_color_mode")
         val GPX_TRACK_WIDTH = floatPreferencesKey("gpx_track_width")
         val GPX_TRACK_OPACITY_PERCENT = intPreferencesKey("gpx_track_opacity_percent")
+        val GPX_TRACK_DIRECTION_ARROWS_ENABLED =
+            booleanPreferencesKey("gpx_track_direction_arrows_enabled")
         val AUTO_RECENTER_ENABLED = booleanPreferencesKey("auto_recenter_enabled")
         val AUTO_RECENTER_DELAY = intPreferencesKey("auto_recenter_delay")
         val SELECTED_MAP_PATH = stringPreferencesKey("selected_map_path")
@@ -500,6 +502,16 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit {
             it[PrefKeys.GPX_TRACK_OPACITY_PERCENT] = sanitizeGpxTrackOpacityPercent(opacityPercent)
         }
+    }
+
+    override val gpxTrackDirectionArrowsEnabled: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.GPX_TRACK_DIRECTION_ARROWS_ENABLED]
+                ?: SettingsRepository.DEFAULT_GPX_TRACK_DIRECTION_ARROWS_ENABLED
+        }
+
+    override suspend fun setGpxTrackDirectionArrowsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.GPX_TRACK_DIRECTION_ARROWS_ENABLED] = enabled }
     }
 
     override val autoRecenterEnabled: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.AUTO_RECENTER_ENABLED] ?: false }
