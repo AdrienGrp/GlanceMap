@@ -118,6 +118,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onRecenterRequested: () -> Unit,
     onToggleOrientation: () -> Unit,
     isOfflineMode: Boolean,
+    selectingGpxPointB: Boolean,
+    onCancelSelectingGpxPointB: () -> Unit,
 ) {
     var liveDistanceLineStart by
         remember(mapView, locationMarker, lastKnownLocation) {
@@ -350,6 +352,14 @@ internal fun BoxScope.NavigateOverlaysLayer(
         sideButtonSize = sideButtonSize,
         navButtonBottomPadding = navButtonBottomPadding,
         navButtonSize = navButtonSize,
+    )
+
+    GpxInspectionBSelectionPromptOverlay(
+        visible = selectingGpxPointB,
+        screenSize = screenSize,
+        navButtonBottomPadding = navButtonBottomPadding,
+        navButtonSize = navButtonSize,
+        onCancel = onCancelSelectingGpxPointB,
     )
 
     IconButton(

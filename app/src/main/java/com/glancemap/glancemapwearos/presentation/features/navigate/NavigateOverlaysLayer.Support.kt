@@ -576,6 +576,98 @@ internal fun BoxScope.PoiTapMessageOverlay(
     }
 }
 
+@Composable
+internal fun BoxScope.GpxInspectionBSelectionPromptOverlay(
+    visible: Boolean,
+    screenSize: WearScreenSize,
+    navButtonBottomPadding: Dp,
+    navButtonSize: Dp,
+    onCancel: () -> Unit,
+) {
+    if (!visible) return
+
+    val promptBottomPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 8.dp
+            WearScreenSize.MEDIUM -> 7.dp
+            WearScreenSize.SMALL -> 6.dp
+        }
+    val promptHorizontalPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 10.dp
+            WearScreenSize.MEDIUM -> 9.dp
+            WearScreenSize.SMALL -> 8.dp
+        }
+    val promptVerticalPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 4.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
+    val closeButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 24.dp
+            WearScreenSize.MEDIUM -> 22.dp
+            WearScreenSize.SMALL -> 20.dp
+        }
+    val closeIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 12.dp
+            WearScreenSize.MEDIUM -> 11.dp
+            WearScreenSize.SMALL -> 10.dp
+        }
+    val textSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 9.sp
+        }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(120)),
+        exit = fadeOut(tween(120)),
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = navButtonBottomPadding + navButtonSize + promptBottomPadding),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(12.dp))
+                    .padding(start = promptHorizontalPadding, end = 3.dp)
+                    .padding(vertical = promptVerticalPadding),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Select point B",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = textSize,
+                lineHeight = textSize,
+                maxLines = 1,
+            )
+            IconButton(
+                onClick = onCancel,
+                modifier = Modifier.size(closeButtonSize),
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.16f),
+                        contentColor = Color.White,
+                    ),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Cancel point B selection",
+                    modifier = Modifier.size(closeIconSize),
+                )
+            }
+        }
+    }
+}
+
 private enum class NavButtonTrustState {
     GOOD,
     SEARCHING,

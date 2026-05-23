@@ -261,6 +261,7 @@ fun NavigateScreen(
     // A/B marker points
     val selectedPointA by gpxViewModel.selectedPointA.collectAsState()
     val selectedPointB by gpxViewModel.selectedPointB.collectAsState()
+    val selectingGpxPointB by gpxViewModel.selectingPointB.collectAsState()
     var shortcutTrayExpanded by rememberSaveable { mutableStateOf(false) }
     var showRouteToolsPanel by rememberSaveable { mutableStateOf(false) }
     var routeToolOptions by rememberSaveable(stateSaver = routeToolOptionsSaver) {
@@ -1175,6 +1176,8 @@ fun NavigateScreen(
         watchGpsDegradedWarning = watchGpsDegradedWarning,
         isOfflineMode = offlineMode,
         isGpxInspectionEnabled = isGpxInspectionEnabled,
+        selectingGpxPointB = selectingGpxPointB,
+        onCancelSelectingGpxPointB = { gpxViewModel.cancelSelectingB() },
         activeGpxDetails = activeGpxDetails,
         gpxTrackColor = gpxTrackColor,
         routeToolSession = routeToolSession,

@@ -128,6 +128,8 @@ internal fun NavigateContent(
     watchGpsDegradedWarning: Boolean,
     isOfflineMode: Boolean,
     isGpxInspectionEnabled: Boolean,
+    selectingGpxPointB: Boolean,
+    onCancelSelectingGpxPointB: () -> Unit,
     activeGpxDetails: List<GpxTrackDetails>,
     gpxTrackColor: Int,
     routeToolSession: RouteToolSession?,
@@ -972,6 +974,8 @@ internal fun NavigateContent(
                 onRecenterRequested = onRecenterRequested,
                 onToggleOrientation = onToggleOrientation,
                 isOfflineMode = isOfflineMode,
+                selectingGpxPointB = selectingGpxPointB,
+                onCancelSelectingGpxPointB = onCancelSelectingGpxPointB,
             )
 
             MarkerMotionDebugOverlay(
