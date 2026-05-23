@@ -633,6 +633,47 @@ class GpxRouteEditorTest {
     }
 
     @Test
+    fun trimEndWithStoredMatchedPositionDropsTrimmedTail() {
+        val profile =
+            buildTestProfile(
+                trackPoint(0.0, 0.0),
+                trackPoint(0.0, 0.001),
+                trackPoint(0.0, 0.002),
+                trackPoint(0.0, 0.003),
+            )
+        val snapped =
+            resolveRouteToolTrackMatch(
+                sourcePath = "/tmp/ridge.gpx",
+                sourceTitle = "Ridge",
+                profile = profile,
+                target = LatLong(0.0, 0.0018),
+            )
+
+        val output =
+            buildRouteToolEditOutput(
+                sourcePath = "/tmp/ridge.gpx",
+                sourceFileName = "ridge.gpx",
+                sourceTitle = "Ridge",
+                profile = profile,
+                session =
+                    RouteToolSession(
+                        options =
+                            RouteToolOptions(
+                                toolKind = RouteToolKind.MODIFY,
+                                modifyMode = RouteModifyMode.TRIM_END_FROM_HERE,
+                                saveBehavior = RouteSaveBehavior.SAVE_AS_NEW,
+                            ),
+                        pointB = LatLong(0.0, 0.0018),
+                        pointBTrackPosition = snapped.position,
+                    ),
+            )
+
+        assertEquals(LatLong(0.0, 0.0), output.points.first().latLong)
+        assertEquals(snapped.latLong, output.points.last().latLong)
+        assertFalse(output.points.map { it.latLong }.contains(LatLong(0.0, 0.003)))
+    }
+
+    @Test
     fun changeEndWithStoredEndpointKeepsLoopBodyEvenWhenEndpointIsNearStart() {
         val profile =
             buildTestProfile(

@@ -114,9 +114,24 @@ internal class GpxRouteToolOperations(
                         requireNotNull(session.pointA) {
                             "Pick the new start first."
                         }
+                    val match =
+                        resolveRouteToolTrackMatch(
+                            sourcePath = source.file.absolutePath,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            target = startTarget,
+                        )
                     val endpointPosition =
                         session.pointATrackPosition?.resolveRouteToolTrackPosition(source.profile)
-                    if (endpointPosition != null) {
+                    if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
+                        buildRouteToolEditOutput(
+                            sourcePath = source.file.absolutePath,
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            session = session.copy(pointATrackPosition = match.position),
+                        )
+                    } else if (endpointPosition != null) {
                         val originalStart = pointAt(source.profile.points, endpointPosition).latLong
                         val route =
                             routePlanner.createRoute(
@@ -137,41 +152,24 @@ internal class GpxRouteToolOperations(
                             routedPoints = route.points,
                         )
                     } else {
-                        val match =
-                            resolveRouteToolTrackMatch(
-                                sourcePath = source.file.absolutePath,
-                                sourceTitle = source.fileState.title ?: source.parsed.title,
-                                profile = source.profile,
-                                target = startTarget,
+                        val route =
+                            routePlanner.createRoute(
+                                RoutePlannerRequest(
+                                    origin = startTarget,
+                                    destination = match.latLong,
+                                    preset = session.options.routeStyle.toPlannerPreset(),
+                                    useElevation = session.options.useElevation,
+                                    allowFerries = session.options.allowFerries,
+                                ),
                             )
-                        if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
-                            buildRouteToolEditOutput(
-                                sourcePath = source.file.absolutePath,
-                                sourceFileName = source.file.name,
-                                sourceTitle = source.fileState.title ?: source.parsed.title,
-                                profile = source.profile,
-                                session = session,
-                            )
-                        } else {
-                            val route =
-                                routePlanner.createRoute(
-                                    RoutePlannerRequest(
-                                        origin = startTarget,
-                                        destination = match.latLong,
-                                        preset = session.options.routeStyle.toPlannerPreset(),
-                                        useElevation = session.options.useElevation,
-                                        allowFerries = session.options.allowFerries,
-                                    ),
-                                )
-                            buildRouteToolEndpointChangeOutput(
-                                sourceFileName = source.file.name,
-                                sourceTitle = source.fileState.title ?: source.parsed.title,
-                                profile = source.profile,
-                                session = session,
-                                snappedPosition = match.position,
-                                routedPoints = route.points,
-                            )
-                        }
+                        buildRouteToolEndpointChangeOutput(
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            session = session,
+                            snappedPosition = match.position,
+                            routedPoints = route.points,
+                        )
                     }
                 }
 
@@ -180,9 +178,24 @@ internal class GpxRouteToolOperations(
                         requireNotNull(session.pointB) {
                             "Pick the new end first."
                         }
+                    val match =
+                        resolveRouteToolTrackMatch(
+                            sourcePath = source.file.absolutePath,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            target = endTarget,
+                        )
                     val endpointPosition =
                         session.pointBTrackPosition?.resolveRouteToolTrackPosition(source.profile)
-                    if (endpointPosition != null) {
+                    if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
+                        buildRouteToolEditOutput(
+                            sourcePath = source.file.absolutePath,
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            session = session.copy(pointBTrackPosition = match.position),
+                        )
+                    } else if (endpointPosition != null) {
                         val originalEnd = pointAt(source.profile.points, endpointPosition).latLong
                         val route =
                             routePlanner.createRoute(
@@ -203,41 +216,24 @@ internal class GpxRouteToolOperations(
                             routedPoints = route.points,
                         )
                     } else {
-                        val match =
-                            resolveRouteToolTrackMatch(
-                                sourcePath = source.file.absolutePath,
-                                sourceTitle = source.fileState.title ?: source.parsed.title,
-                                profile = source.profile,
-                                target = endTarget,
+                        val route =
+                            routePlanner.createRoute(
+                                RoutePlannerRequest(
+                                    origin = match.latLong,
+                                    destination = endTarget,
+                                    preset = session.options.routeStyle.toPlannerPreset(),
+                                    useElevation = session.options.useElevation,
+                                    allowFerries = session.options.allowFerries,
+                                ),
                             )
-                        if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
-                            buildRouteToolEditOutput(
-                                sourcePath = source.file.absolutePath,
-                                sourceFileName = source.file.name,
-                                sourceTitle = source.fileState.title ?: source.parsed.title,
-                                profile = source.profile,
-                                session = session,
-                            )
-                        } else {
-                            val route =
-                                routePlanner.createRoute(
-                                    RoutePlannerRequest(
-                                        origin = match.latLong,
-                                        destination = endTarget,
-                                        preset = session.options.routeStyle.toPlannerPreset(),
-                                        useElevation = session.options.useElevation,
-                                        allowFerries = session.options.allowFerries,
-                                    ),
-                                )
-                            buildRouteToolEndpointChangeOutput(
-                                sourceFileName = source.file.name,
-                                sourceTitle = source.fileState.title ?: source.parsed.title,
-                                profile = source.profile,
-                                session = session,
-                                snappedPosition = match.position,
-                                routedPoints = route.points,
-                            )
-                        }
+                        buildRouteToolEndpointChangeOutput(
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
+                            session = session,
+                            snappedPosition = match.position,
+                            routedPoints = route.points,
+                        )
                     }
                 }
 
