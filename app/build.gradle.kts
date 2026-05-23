@@ -10,6 +10,22 @@ apply(from = rootProject.file("gradle/android-app-testing.gradle.kts"))
 
 val glanceMapVersionName = providers.gradleProperty("glanceMapVersionName").get()
 val glanceMapWearVersionCode = providers.gradleProperty("glanceMapWearVersionCode").get().toInt()
+val gitSha =
+    providers
+        .exec {
+            commandLine("git", "rev-parse", "--short=12", "HEAD")
+        }.standardOutput
+        .asText
+        .map { it.trim().ifBlank { "unknown" } }
+        .orElse("unknown")
+val gitBranch =
+    providers
+        .exec {
+            commandLine("git", "rev-parse", "--abbrev-ref", "HEAD")
+        }.standardOutput
+        .asText
+        .map { it.trim().ifBlank { "unknown" } }
+        .orElse("unknown")
 val releaseStoreFile =
     providers
         .gradleProperty("android.injected.signing.store.file")
@@ -68,6 +84,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        buildConfigField("String", "GIT_SHA", "\"${gitSha.get()}\"")
+        buildConfigField("String", "GIT_BRANCH", "\"${gitBranch.get()}\"")
 
         // 2MB channel buffer (tune if you measured better throughput)
         manifestPlaceholders["channelBufferSize"] = "2097152"
@@ -120,7 +138,10 @@ android {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     bundle {
         language {

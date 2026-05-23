@@ -16,7 +16,25 @@ internal data class DemDownloadSummary(
     val resumeRestartCount: Int,
     val validationFailureCount: Int,
     val networkUnavailableCount: Int,
-)
+) {
+    val activityState: String
+        get() =
+            when {
+                eventCount == 0 -> "no_events"
+                failedCount > 0 -> "events_with_failures"
+                completedCount > 0 -> "completed"
+                startedCount > 0 -> "active_or_interrupted"
+                else -> "events_without_download_start"
+            }
+
+    val diagnosticContext: String
+        get() =
+            if (eventCount == 0) {
+                "no_dem_download_activity_captured; likely_disabled_not_requested_or_no_dem_region_open"
+            } else {
+                "dem_download_activity_captured"
+            }
+}
 
 internal object DemDownloadDiagnostics {
     private const val TAG = "DemDownload"

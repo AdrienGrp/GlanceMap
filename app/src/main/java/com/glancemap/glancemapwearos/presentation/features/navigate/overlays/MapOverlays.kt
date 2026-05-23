@@ -67,6 +67,8 @@ internal fun MapOverlays(
     gpsAccuracyCircleEnabled: Boolean,
     gpsFixAccuracyM: Float,
     gpsFixFresh: Boolean,
+    gpsFixSpeedMps: Float,
+    gpsFixBearingDeg: Float?,
     renderedHeadingDeg: Float,
     locationMarker: RotatableMarker?,
     inspectionUiState: GpxInspectionUiState?,
@@ -182,6 +184,11 @@ internal fun MapOverlays(
         compassConeBaseSizePx = compassConeBaseSizePx,
         compassQuality = compassQuality,
         compassHeadingErrorDeg = compassHeadingErrorDeg,
+        compassRenderStateFlow = compassRenderStateFlow,
+        gpsFixAccuracyM = gpsFixAccuracyM,
+        gpsFixFresh = gpsFixFresh,
+        gpsFixSpeedMps = gpsFixSpeedMps,
+        gpsFixBearingDeg = gpsFixBearingDeg,
         renderedHeadingDeg = renderedHeadingDeg,
         locationMarker = locationMarker,
         topOverlayCoordinator = topOverlayCoordinator,
@@ -296,6 +303,7 @@ private fun GpsAccuracyCircleLayerEffect(
 }
 
 @Composable
+@Suppress("FunctionNaming", "LongMethod", "LongParameterList")
 private fun CompassConeLayerEffect(
     mapView: MapView,
     navMode: NavMode,
@@ -303,6 +311,11 @@ private fun CompassConeLayerEffect(
     compassConeBaseSizePx: Int,
     compassQuality: CompassMarkerQuality,
     compassHeadingErrorDeg: Float?,
+    compassRenderStateFlow: StateFlow<CompassRenderState>,
+    gpsFixAccuracyM: Float,
+    gpsFixFresh: Boolean,
+    gpsFixSpeedMps: Float,
+    gpsFixBearingDeg: Float?,
     renderedHeadingDeg: Float,
     locationMarker: RotatableMarker?,
     topOverlayCoordinator: MapTopOverlayCoordinator,
@@ -310,6 +323,7 @@ private fun CompassConeLayerEffect(
     requestMapRedraw: () -> Unit,
 ) {
     val layers = mapView.layerManager.layers
+    val coneTelemetryLogger = remember { ConeTelemetryLogger() }
     val shouldShow =
         showCompassConeOverlay &&
             locationMarker != null &&
@@ -322,9 +336,40 @@ private fun CompassConeLayerEffect(
         compassConeBaseSizePx,
         compassQuality,
         compassHeadingErrorDeg,
+        compassRenderStateFlow,
+        gpsFixAccuracyM,
+        gpsFixFresh,
+        gpsFixSpeedMps,
+        gpsFixBearingDeg,
         renderedHeadingDeg,
         locationMarker,
     ) {
+        coneTelemetryLogger.log(
+            ConeTelemetryDecision(
+                navMode = navMode,
+                overlayEnabled = showCompassConeOverlay,
+                shouldShow = shouldShow,
+                compass =
+                    ConeTelemetryCompass(
+                        quality = compassQuality,
+                        headingErrorDeg = compassHeadingErrorDeg,
+                        renderState = compassRenderStateFlow.value,
+                        renderedHeadingDeg = renderedHeadingDeg,
+                    ),
+                gps =
+                    ConeTelemetryGps(
+                        accuracyM = gpsFixAccuracyM,
+                        fresh = gpsFixFresh,
+                        speedMps = gpsFixSpeedMps,
+                        bearingDeg = gpsFixBearingDeg,
+                    ),
+                marker =
+                    ConeTelemetryMarker(
+                        present = locationMarker != null,
+                        headingDeg = locationMarker?.heading,
+                    ),
+            ),
+        )
         mapView.post {
             val hasLayer = layers.contains(coneLayer)
             if (!hasLayer) {

@@ -44,6 +44,8 @@ internal data class NavigateLocationUiState(
     val gpsEnvironmentWarning: GpsEnvironmentWarning,
     val showGpsIndicatorUnpinned: Boolean,
     val watchGpsDegradedWarning: Boolean,
+    val lastFixSpeedMps: Float,
+    val lastFixBearingDeg: Float?,
 )
 
 internal data class WakeAnchorSeed(
@@ -89,6 +91,8 @@ internal fun rememberNavigateLocationUiState(
     var indicatorFixAtElapsedMs by remember { mutableLongStateOf(0L) }
     var indicatorFixAccuracyM by remember { mutableFloatStateOf(Float.POSITIVE_INFINITY) }
     var indicatorFixFreshMaxAgeMs by remember { mutableLongStateOf(0L) }
+    var latestAcceptedFixSpeedMps by remember { mutableFloatStateOf(0f) }
+    var latestAcceptedFixBearingDeg by remember { mutableStateOf<Float?>(null) }
     var indicatorLocationAvailable by remember { mutableStateOf(true) }
     var indicatorUnavailableSinceElapsedMs by remember { mutableLongStateOf(0L) }
     var indicatorWatchGpsOnlyActive by remember { mutableStateOf(false) }
@@ -126,6 +130,8 @@ internal fun rememberNavigateLocationUiState(
         trackingActivatedAtElapsedMs = 0L
         postWakePredictionHoldUntilElapsedMs = 0L
         lastAcceptedLocationFixElapsedMs = 0L
+        latestAcceptedFixSpeedMps = 0f
+        latestAcceptedFixBearingDeg = null
         lastMarkerVisualUpdateAtElapsedMs = 0L
         lastMarkerMotionAdvanceAtElapsedMs = 0L
         lastInteractiveStaleRefreshAtElapsedMs = Long.MIN_VALUE
@@ -364,6 +370,8 @@ internal fun rememberNavigateLocationUiState(
         trackingActivatedAtElapsedMs = 0L
         postWakePredictionHoldUntilElapsedMs = 0L
         lastAcceptedLocationFixElapsedMs = 0L
+        latestAcceptedFixSpeedMps = 0f
+        latestAcceptedFixBearingDeg = null
         lastMarkerVisualUpdateAtElapsedMs = 0L
         lastMarkerMotionAdvanceAtElapsedMs = 0L
         lastInteractiveStaleRefreshAtElapsedMs = Long.MIN_VALUE
@@ -493,6 +501,9 @@ internal fun rememberNavigateLocationUiState(
                     } else {
                         0f
                     }
+                val motionBearingDeg = if (loc.hasBearing()) loc.bearing else null
+                latestAcceptedFixSpeedMps = motionSpeedMps
+                latestAcceptedFixBearingDeg = motionBearingDeg
                 val markerSourceMode =
                     if (indicatorWatchGpsOnlyActive) {
                         LocationSourceMode.WATCH_GPS
@@ -511,7 +522,7 @@ internal fun rememberNavigateLocationUiState(
                                         fixElapsedMs = fixElapsedMs,
                                         accuracyM = loc.accuracy,
                                         speedMps = motionSpeedMps,
-                                        bearingDeg = if (loc.hasBearing()) loc.bearing else null,
+                                        bearingDeg = motionBearingDeg,
                                     ),
                                 allowLargeCorrection =
                                     shouldBypassCorrectionClamp(
@@ -578,6 +589,8 @@ internal fun rememberNavigateLocationUiState(
             trackingActivatedAtElapsedMs = 0L
             postWakePredictionHoldUntilElapsedMs = 0L
             lastAcceptedLocationFixElapsedMs = 0L
+            latestAcceptedFixSpeedMps = 0f
+            latestAcceptedFixBearingDeg = null
             lastMarkerVisualUpdateAtElapsedMs = 0L
             lastMarkerMotionAdvanceAtElapsedMs = 0L
             lastInteractiveStaleRefreshAtElapsedMs = Long.MIN_VALUE
@@ -716,6 +729,8 @@ internal fun rememberNavigateLocationUiState(
         gpsEnvironmentWarning = activeEnvironmentWarning,
         showGpsIndicatorUnpinned = showGpsIndicatorUnpinned,
         watchGpsDegradedWarning = watchGpsDegradedWarning,
+        lastFixSpeedMps = latestAcceptedFixSpeedMps,
+        lastFixBearingDeg = latestAcceptedFixBearingDeg,
     )
 }
 

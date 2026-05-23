@@ -18,6 +18,7 @@ internal data class MarkerMotionSummary(
     val blendStarts: Int = 0,
     val clampedCorrections: Int = 0,
     val blockedTransitions: Int = 0,
+    val blockedReasonCounts: Map<String, Int> = emptyMap(),
     val latestMode: MarkerMotionMode = MarkerMotionMode.IDLE,
     val latestReason: String? = null,
 ) {
@@ -95,6 +96,7 @@ internal object MarkerMotionTelemetry {
     private var blendStarts: Int = 0
     private var clampedCorrections: Int = 0
     private var blockedTransitions: Int = 0
+    private val blockedReasonCounts = linkedMapOf<String, Int>()
     private var lastLoggedStateSignature: String? = null
 
     fun clear() {
@@ -106,6 +108,7 @@ internal object MarkerMotionTelemetry {
             blendStarts = 0
             clampedCorrections = 0
             blockedTransitions = 0
+            blockedReasonCounts.clear()
             lastLoggedStateSignature = null
         }
     }
@@ -126,6 +129,7 @@ internal object MarkerMotionTelemetry {
                 blendStarts = blendStarts,
                 clampedCorrections = clampedCorrections,
                 blockedTransitions = blockedTransitions,
+                blockedReasonCounts = blockedReasonCounts.toMap(),
                 latestMode = latestSnapshot.mode,
                 latestReason = latestSnapshot.reason,
             )
@@ -387,6 +391,8 @@ internal object MarkerMotionTelemetry {
             if (signature != lastLoggedStateSignature) {
                 if (incrementBlockedTransitions) {
                     blockedTransitions += 1
+                    val reason = snapshot.reason ?: "unknown"
+                    blockedReasonCounts[reason] = (blockedReasonCounts[reason] ?: 0) + 1
                 }
                 lastLoggedStateSignature = signature
                 shouldLog = true

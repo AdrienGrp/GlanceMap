@@ -78,7 +78,7 @@ class MarkerMotionControllerTest {
     }
 
     @Test
-    fun predictsCautiousWalkingFromModerateAccuracyWhenProviderSpeedIsZero() {
+    fun suppressesPredictionFromWeakAutoFusedAccuracy() {
         MarkerMotionTelemetry.clear()
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
         val base = LatLong(48.8566, 2.3522)
@@ -108,9 +108,10 @@ class MarkerMotionControllerTest {
                 watchGpsDegraded = false,
             ) ?: walkingFix
 
-        assertTrue(distanceMeters(walkingFix, predicted) > 0.4f)
-        assertTrue(predicted.longitude > walkingFix.longitude)
-        assertEquals(MarkerMotionMode.PREDICT, MarkerMotionTelemetry.latestSnapshot().mode)
+        assertTrue(distanceMeters(base, predicted) < 0.2f)
+        val snapshot = MarkerMotionTelemetry.latestSnapshot()
+        assertEquals(MarkerMotionMode.FIXED, snapshot.mode)
+        assertEquals("bad_accuracy", snapshot.reason)
     }
 
     @Test

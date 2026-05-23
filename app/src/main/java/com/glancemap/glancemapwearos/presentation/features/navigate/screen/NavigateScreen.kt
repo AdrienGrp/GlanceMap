@@ -28,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.glancemap.glancemapwearos.core.maps.MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES
 import com.glancemap.glancemapwearos.core.maps.mapZoomLevelsForScaleSettings
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
@@ -761,6 +762,8 @@ fun NavigateScreen(
         gpsAccuracyCircleEnabled = gpsAccuracyCircleEnabled && !offlineMode,
         gpsFixAccuracyM = gpsSignalSnapshot.lastFixAccuracyM,
         gpsFixFresh = gpsFixFreshForAccuracyCircle,
+        gpsFixSpeedMps = locationUiState.lastFixSpeedMps,
+        gpsFixBearingDeg = locationUiState.lastFixBearingDeg,
         renderedHeadingDeg = renderedCompassHeadingDeg,
         locationMarker = locationMarker,
         inspectionUiState = inspectionUiState,
@@ -812,6 +815,10 @@ fun NavigateScreen(
             else -> {
                 // Samsung Galaxy Watch can route the physical Back button here when users set it
                 // to "Go to previous screen"; make it a hardware shortcut to the existing menu.
+                DebugTelemetry.log(
+                    "NavigationTelemetry",
+                    "event=navigate_back_to_menu route=navigate_screen reason=no_overlay_open",
+                )
                 onMenuClick()
             }
         }

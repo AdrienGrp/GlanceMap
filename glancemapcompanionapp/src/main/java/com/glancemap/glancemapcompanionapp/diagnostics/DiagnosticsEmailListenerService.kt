@@ -32,7 +32,7 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
             runCatching { parsePayload(messageEvent.data) }.getOrElse {
                 Log.w(TAG, "Invalid diagnostics payload: ${it.message}")
                 return
-            }
+            } ?: return
 
         val diagnosticsFile =
             runCatching { saveDiagnosticsFile(payload.fileName, payload.text) }.getOrElse {
@@ -60,7 +60,7 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
             }
     }
 
-    private fun parsePayload(data: ByteArray): DiagnosticsPayload {
+    private fun parsePayload(data: ByteArray): DiagnosticsPayload? {
         val json = JSONObject(String(data, Charsets.UTF_8))
         val email = json.optString("email", TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL)
         val subject =
@@ -71,12 +71,34 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
         val fileName = json.optString("fileName", "glancemap_diagnostics.txt")
         val encoding = json.optString("encoding", "")
         val truncated = json.optBoolean("truncated", false)
+        val chunked = json.optBoolean("chunked", false)
+        val transferId = json.optString("transferId", "")
+        val chunkIndex = json.optInt("chunkIndex", 0)
+        val chunkCount = json.optInt("chunkCount", 1)
         val content = json.optString("content", "")
 
         require(content.isNotBlank()) { "Missing diagnostics content" }
         require(encoding == "gzip_base64_utf8_text") { "Unsupported encoding: $encoding" }
 
-        val compressed = Base64.decode(content, Base64.DEFAULT)
+        val base64Content =
+            if (chunked || chunkCount > 1) {
+                PendingDiagnosticsEmailChunks.accept(
+                    DiagnosticsPayloadChunk(
+                        transferId = transferId,
+                        email = email,
+                        subject = subject,
+                        fileName = fileName,
+                        truncated = truncated,
+                        chunkIndex = chunkIndex,
+                        chunkCount = chunkCount,
+                        content = content,
+                    ),
+                ) ?: return null
+            } else {
+                content
+            }
+
+        val compressed = Base64.decode(base64Content, Base64.DEFAULT)
         val text =
             GZIPInputStream(ByteArrayInputStream(compressed)).bufferedReader(Charsets.UTF_8).use {
                 it.readText()
@@ -206,6 +228,79 @@ class DiagnosticsEmailListenerService : WearableListenerService() {
         val truncated: Boolean,
         val text: String,
     )
+
+    private data class PendingChunkSet(
+        val email: String,
+        val subject: String,
+        val fileName: String,
+        val truncated: Boolean,
+        val chunkCount: Int,
+        val createdAtMs: Long,
+        val chunks: Array<String?>,
+    )
+
+    private data class DiagnosticsPayloadChunk(
+        val transferId: String,
+        val email: String,
+        val subject: String,
+        val fileName: String,
+        val truncated: Boolean,
+        val chunkIndex: Int,
+        val chunkCount: Int,
+        val content: String,
+    )
+
+    private object PendingDiagnosticsEmailChunks {
+        private const val MAX_PENDING_AGE_MS = 10 * 60 * 1000L
+        private val lock = Any()
+        private val pending = linkedMapOf<String, PendingChunkSet>()
+
+        fun accept(chunk: DiagnosticsPayloadChunk): String? {
+            require(chunk.transferId.isNotBlank()) { "Missing chunk transferId" }
+            require(chunk.chunkCount > 1) { "Invalid chunk count: ${chunk.chunkCount}" }
+            require(chunk.chunkIndex in 0 until chunk.chunkCount) {
+                "Invalid chunk index: ${chunk.chunkIndex}/${chunk.chunkCount}"
+            }
+
+            synchronized(lock) {
+                pruneExpiredLocked()
+                val set =
+                    pending.getOrPut(chunk.transferId) {
+                        PendingChunkSet(
+                            email = chunk.email,
+                            subject = chunk.subject,
+                            fileName = chunk.fileName,
+                            truncated = chunk.truncated,
+                            chunkCount = chunk.chunkCount,
+                            createdAtMs = System.currentTimeMillis(),
+                            chunks = arrayOfNulls(chunk.chunkCount),
+                        )
+                    }
+                require(set.chunkCount == chunk.chunkCount) {
+                    "Chunk count changed for ${chunk.transferId}"
+                }
+                require(set.email == chunk.email && set.subject == chunk.subject && set.fileName == chunk.fileName) {
+                    "Chunk metadata changed for ${chunk.transferId}"
+                }
+
+                set.chunks[chunk.chunkIndex] = chunk.content
+                if (set.chunks.any { it == null }) return null
+
+                pending.remove(chunk.transferId)
+                return set.chunks.joinToString(separator = "") { it.orEmpty() }
+            }
+        }
+
+        private fun pruneExpiredLocked() {
+            val cutoff = System.currentTimeMillis() - MAX_PENDING_AGE_MS
+            val iterator = pending.iterator()
+            while (iterator.hasNext()) {
+                if (iterator.next().value.createdAtMs < cutoff) {
+                    iterator.remove()
+                }
+            }
+        }
+    }
 
     private companion object {
         const val TAG = "DiagEmailListener"

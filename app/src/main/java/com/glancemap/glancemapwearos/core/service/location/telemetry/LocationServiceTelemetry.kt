@@ -232,6 +232,30 @@ internal class LocationServiceTelemetry(
         log("immediateRequest: skipPassiveExperiment source=$source backend=$backend")
     }
 
+    fun logImmediateRequestGuarded(
+        source: String,
+        reason: String,
+        screenState: String,
+        trackingEnabled: Boolean,
+    ) {
+        log(
+            "immediateRequest: skipGuard source=$source reason=$reason " +
+                "screenState=$screenState trackingEnabled=$trackingEnabled",
+        )
+    }
+
+    fun logImmediateRequestDeferred(
+        source: String,
+        delayMs: Long,
+        screenState: String,
+        trackingEnabled: Boolean,
+    ) {
+        log(
+            "immediateRequest: deferWakeBurst source=$source delayMs=$delayMs " +
+                "screenState=$screenState trackingEnabled=$trackingEnabled",
+        )
+    }
+
     fun logGetCurrentLocationFailed(
         source: String,
         backend: String,

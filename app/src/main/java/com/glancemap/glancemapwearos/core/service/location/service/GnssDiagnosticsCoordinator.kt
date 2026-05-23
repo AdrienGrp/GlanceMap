@@ -36,14 +36,33 @@ internal class GnssDiagnosticsCoordinator(
 
     private var statusWatchdogJob: Job? = null
     private var statusCallback: GnssStatus.Callback? = null
+    private var lastPolicyDisabledSignature: String? = null
 
     @SuppressLint("MissingPermission")
+    @Suppress("LongMethod", "ReturnCount")
     @Synchronized
     fun update(enabled: Boolean) {
         if (!enabled) {
+            lastPolicyDisabledSignature = null
             unregister(reason = "debug_disabled")
             return
         }
+
+        if (shouldDisableCollectorBySourcePolicy()) {
+            unregister(reason = "source_policy_auto_fused")
+            val signature =
+                "sourceMode=${sourceMode()} watchOnly=${watchOnly()} tracking=${trackingEnabled()} " +
+                    "bound=${bound()} keepOpen=${keepOpen()} ambient=${ambientModeActive()}"
+            if (signature != lastPolicyDisabledSignature) {
+                lastPolicyDisabledSignature = signature
+                GnssDiagnostics.recordEvent(
+                    "collector_policy_disabled",
+                    "reason=auto_fused_priority $signature",
+                )
+            }
+            return
+        }
+        lastPolicyDisabledSignature = null
 
         if (!hasFinePermission()) {
             unregister(reason = "no_fine_permission")
@@ -202,6 +221,8 @@ internal class GnssDiagnosticsCoordinator(
         )
         scheduleStatusWatchdogIfNeeded()
     }
+
+    private fun shouldDisableCollectorBySourcePolicy(): Boolean = !watchOnly() && sourceMode() == "auto_fused"
 
     @Synchronized
     fun unregister(reason: String = "unspecified") {

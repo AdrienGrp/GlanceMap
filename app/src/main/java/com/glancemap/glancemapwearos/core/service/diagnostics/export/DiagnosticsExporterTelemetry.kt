@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.core.service.diagnostics
 
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.AcceptedFixSummaries
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.AcceptedFixSummary
+import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.CompassTelemetryInsights
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.GnssInsights
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.ObservedFixQualitySummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.TelemetryInsights
@@ -86,6 +87,8 @@ internal fun deriveTelemetryInsights(
     var startupBogusSampleIgnoredCount = 0
     var staleFixDropCount = 0
     var sourceMismatchDropCount = 0
+    var immediateRequestGuardSkipCount = 0
+    var immediateRequestDeferredWakeBurstCount = 0
     var gpsFreshTrueCount = 0
     var gpsFreshFalseCount = 0
     var watchGpsDegradedEnteredCount = 0
@@ -271,6 +274,8 @@ internal fun deriveTelemetryInsights(
             "startup_bogus_sample ignored" in line -> startupBogusSampleIgnoredCount += 1
             "staleFix: dropped" in line -> staleFixDropCount += 1
             "sourceMismatch: dropped" in line -> sourceMismatchDropCount += 1
+            "immediateRequest: skipGuard" in line -> immediateRequestGuardSkipCount += 1
+            "immediateRequest: deferWakeBurst" in line -> immediateRequestDeferredWakeBurstCount += 1
             "gpsSignal: sample" in line && "fresh=true" in line -> gpsFreshTrueCount += 1
             "gpsSignal: sample" in line && "fresh=false" in line -> gpsFreshFalseCount += 1
             "watchGpsDegraded: state=entered" in line -> {
@@ -326,6 +331,8 @@ internal fun deriveTelemetryInsights(
         startupBogusSampleIgnoredCount = startupBogusSampleIgnoredCount,
         staleFixDropCount = staleFixDropCount,
         sourceMismatchDropCount = sourceMismatchDropCount,
+        immediateRequestGuardSkipCount = immediateRequestGuardSkipCount,
+        immediateRequestDeferredWakeBurstCount = immediateRequestDeferredWakeBurstCount,
         gpsFreshTrueCount = gpsFreshTrueCount,
         gpsFreshFalseCount = gpsFreshFalseCount,
         watchGpsDegradedEnteredCount = watchGpsDegradedEnteredCount,
@@ -404,6 +411,90 @@ internal fun toTelemetryWindow(
     val firstAtMs = filtered.firstOrNull()?.let(::parseTelemetryLineEpochMs)
     val lastAtMs = filtered.lastOrNull()?.let(::parseTelemetryLineEpochMs)
     return TelemetryWindow(lines = filtered, firstAtMs = firstAtMs, lastAtMs = lastAtMs)
+}
+
+@Suppress("CyclomaticComplexMethod", "LongMethod")
+internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemetryInsights {
+    if (lines.isEmpty()) return CompassTelemetryInsights()
+
+    var managerStartCount = 0
+    var managerStopScheduledCount = 0
+    var managerStopRequestedCount = 0
+    var headingSampleCount = 0
+    var largeJumpPendingCount = 0
+    var largeJumpAcceptedCount = 0
+    var staleSampleCount = 0
+    var largeJumpWithinManagerStart500MsCount = 0
+    var sampleAfterStopScheduledCount = 0
+    var sampleAfterStopRequestedCount = 0
+    var lastManagerStartAtMs: Long? = null
+    var lastStopScheduledAtMs: Long? = null
+    var lastStopRequestedAtMs: Long? = null
+
+    lines.forEach { line ->
+        if ("[CompassTelemetry]" !in line) return@forEach
+
+        val lineEpochMs = parseTelemetryLineEpochMs(line)
+        val managerStart = "manager start" in line
+        val managerStopScheduled = "manager stop scheduled" in line
+        val managerStopRequested = "manager stop requested" in line
+        val headingSample =
+            " heading raw=" in line ||
+                "google_fused sample heading=" in line
+        val largeJump = "large_jump" in line
+
+        if (managerStart) {
+            managerStartCount += 1
+            lastManagerStartAtMs = lineEpochMs
+            lastStopScheduledAtMs = null
+            lastStopRequestedAtMs = null
+        }
+        if (managerStopScheduled) {
+            managerStopScheduledCount += 1
+            lastStopScheduledAtMs = lineEpochMs
+        }
+        if (managerStopRequested) {
+            managerStopRequestedCount += 1
+            lastStopRequestedAtMs = lineEpochMs
+        }
+        if (headingSample) {
+            headingSampleCount += 1
+            if (lastStopScheduledAtMs != null) {
+                sampleAfterStopScheduledCount += 1
+            }
+            if (lastStopRequestedAtMs != null) {
+                sampleAfterStopRequestedCount += 1
+            }
+        }
+        if ("large_jump pending" in line) {
+            largeJumpPendingCount += 1
+        }
+        if ("large_jump accepted" in line) {
+            largeJumpAcceptedCount += 1
+        }
+        if ("sample_stale" in line) {
+            staleSampleCount += 1
+        }
+        if (largeJump && lineEpochMs != null) {
+            val startAtMs = lastManagerStartAtMs
+            if (startAtMs != null && lineEpochMs - startAtMs in 0L..500L) {
+                largeJumpWithinManagerStart500MsCount += 1
+            }
+        }
+    }
+
+    return CompassTelemetryInsights(
+        managerStartCount = managerStartCount,
+        managerStopScheduledCount = managerStopScheduledCount,
+        managerStopRequestedCount = managerStopRequestedCount,
+        headingSampleCount = headingSampleCount,
+        largeJumpPendingCount = largeJumpPendingCount,
+        largeJumpAcceptedCount = largeJumpAcceptedCount,
+        staleSampleCount = staleSampleCount,
+        largeJumpWithinManagerStart500MsCount = largeJumpWithinManagerStart500MsCount,
+        sampleAfterStopScheduledCount = sampleAfterStopScheduledCount,
+        sampleAfterStopRequestedCount = sampleAfterStopRequestedCount,
+    )
 }
 
 private fun parseRequestMode(line: String): LocationRequestMode? {
@@ -727,6 +818,10 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
     var startedCount = 0
     var stoppedCount = 0
     var firstFixCount = 0
+    var collectorRegisteredCount = 0
+    var collectorUnregisteredCount = 0
+    var collectorInactiveCount = 0
+    var collectorPolicyDisabledCount = 0
 
     var firstFixTtffTotalMs = 0L
     var firstFixTtffMinMs = Int.MAX_VALUE
@@ -751,6 +846,10 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
         when {
             " event=started" in line -> startedCount += 1
             " event=stopped" in line -> stoppedCount += 1
+            " event=collector_registered" in line -> collectorRegisteredCount += 1
+            " event=collector_unregistered" in line -> collectorUnregisteredCount += 1
+            " event=collector_inactive" in line -> collectorInactiveCount += 1
+            " event=collector_policy_disabled" in line -> collectorPolicyDisabledCount += 1
             " event=first_fix" in line -> {
                 firstFixCount += 1
                 val ttffMs = parseIntToken(line, "ttffMs=")
@@ -853,6 +952,10 @@ internal fun deriveGnssInsights(lines: List<String>): GnssInsights {
         dualBandObservedStatusCount = dualBandObservedStatusCount,
         l1SatelliteMax = l1SatelliteMax,
         l5SatelliteMax = l5SatelliteMax,
+        collectorRegisteredCount = collectorRegisteredCount,
+        collectorUnregisteredCount = collectorUnregisteredCount,
+        collectorInactiveCount = collectorInactiveCount,
+        collectorPolicyDisabledCount = collectorPolicyDisabledCount,
     )
 }
 

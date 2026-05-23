@@ -47,6 +47,7 @@ internal class MarkerMotionController(
         MarkerMotionGpsFixProcessor(
             state = state,
             maxAcceptedFixAgeMs = maxAcceptedFixAgeMs,
+            maxVisualCorrectionAccuracyM = maxPredictionAccuracyM,
             minPredictionSpeedMps = minPredictionSpeedMps,
             correctionBlendDurationMs = correctionBlendDurationMs,
         )
@@ -239,10 +240,11 @@ internal class MarkerMotionController(
     }
 }
 
-@Suppress("TooManyFunctions")
+@Suppress("LargeClass", "TooManyFunctions")
 private class MarkerMotionGpsFixProcessor(
     private val state: MarkerMotionState,
     private val maxAcceptedFixAgeMs: Long,
+    private val maxVisualCorrectionAccuracyM: Float,
     private val minPredictionSpeedMps: Float,
     private val correctionBlendDurationMs: Long,
 ) {
@@ -473,12 +475,40 @@ private class MarkerMotionGpsFixProcessor(
         correction: CorrectionContext,
     ): LatLong =
         when {
+            shouldHoldWeakAutoFusedCorrection(context) ->
+                acceptWeakAutoFusedCorrection(context, motion, correction)
             shouldFreezeStationaryJitter(correction.correctionDistanceM, context.accuracyM, motion.speedMps) ->
                 acceptStationaryJitter(context, motion, correction)
             correction.correctionDistanceM <= correctionDeadbandMeters(context.accuracyM, motion.speedMps) ->
                 acceptDeadbandSnap(context, motion, correction)
             else -> startCorrectionBlend(context, motion, correction)
         }
+
+    private fun shouldHoldWeakAutoFusedCorrection(context: GpsFixContext): Boolean =
+        context.fix.sourceMode == LocationSourceMode.AUTO_FUSED &&
+            context.accuracyM > maxVisualCorrectionAccuracyM
+
+    private fun acceptWeakAutoFusedCorrection(
+        context: GpsFixContext,
+        motion: ResolvedMotion,
+        correction: CorrectionContext,
+    ): LatLong {
+        state.displayedLatLong = correction.currentDisplayed
+        state.correctionBlend = null
+        state.clampedCorrectionStreak = 0
+        recordFixAccepted(
+            context = context,
+            motion = motion,
+            event =
+                FixAcceptedTelemetry(
+                    mode = MarkerMotionMode.FIXED,
+                    reason = "weak_accuracy_hold",
+                    correctionDistanceM = correction.correctionDistanceM,
+                    blendDurationMs = null,
+                ),
+        )
+        return correction.currentDisplayed
+    }
 
     private fun acceptStationaryJitter(
         context: GpsFixContext,
@@ -1044,7 +1074,7 @@ private fun lerpLatLong(
 
 private const val EARTH_RADIUS_METERS = 6_371_000.0
 private const val DEFAULT_UNKNOWN_ACCURACY_M = 99f
-private const val DEFAULT_MAX_PREDICTION_ACCURACY_M = 45f
+private const val DEFAULT_MAX_PREDICTION_ACCURACY_M = 35f
 private const val WATCH_GPS_FLOOR_MOTION_ACCURACY_M = 18f
 private const val DEFAULT_MIN_PREDICTION_SPEED_MPS = 0.35f
 private const val DEFAULT_CORRECTION_BLEND_DURATION_MS = 350L
@@ -1066,7 +1096,7 @@ private const val AUTO_FUSED_CATCH_UP_MAX_ACCURACY_M = 12f
 private const val SPEED_SMOOTHING_ALPHA = 0.35f
 private const val GPS_BEARING_MIN_SPEED_MPS = 0.45f
 private const val DERIVED_MOTION_MIN_WINDOW_MS = 900L
-private const val DERIVED_WALKING_SPEED_MAX_ACCURACY_M = 45f
+private const val DERIVED_WALKING_SPEED_MAX_ACCURACY_M = 35f
 private const val DERIVED_WALKING_SPEED_MIN_MPS = 0.25f
 private const val DERIVED_WALKING_SPEED_MAX_MPS = 2.4f
 private const val DERIVED_WALKING_SPEED_CAP_MPS = 1.8f

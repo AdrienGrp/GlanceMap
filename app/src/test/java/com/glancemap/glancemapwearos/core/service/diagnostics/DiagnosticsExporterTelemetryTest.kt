@@ -90,6 +90,28 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals(2_000L, insights.requestBackendWatchGpsDurationMs)
     }
 
+    @Test
+    fun immediateGuardAndWakeDebounceCountersAreSummarized() {
+        val lines =
+            listOf(
+                "2026-04-20 20:07:12.000 [LocTelemetry] immediateRequest: " +
+                    "skipGuard source=ui_startup_fresh_fix_ambient_exit_after_bind " +
+                    "reason=tracking_disabled screenState=SCREEN_OFF trackingEnabled=false",
+                "2026-04-20 20:07:13.000 [LocTelemetry] immediateRequest: " +
+                    "deferWakeBurst source=ui_startup_fresh_fix_ambient_exit_after_bind " +
+                    "delayMs=320 screenState=INTERACTIVE trackingEnabled=true",
+            )
+
+        val insights =
+            deriveTelemetryInsights(
+                lines = lines,
+                captureWindowEndEpochMs = epochMs("2026-04-20T20:07:29"),
+            )
+
+        assertEquals(1, insights.immediateRequestGuardSkipCount)
+        assertEquals(1, insights.immediateRequestDeferredWakeBurstCount)
+    }
+
     private fun epochMs(localDateTime: String): Long =
         LocalDateTime
             .parse(localDateTime)
