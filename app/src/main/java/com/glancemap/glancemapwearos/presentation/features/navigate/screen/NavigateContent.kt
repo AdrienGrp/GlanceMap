@@ -851,12 +851,44 @@ internal fun NavigateContent(
             }
 
             var isDragging by remember { mutableStateOf(false) }
+            var isMultiTouchGestureSuppressed by remember { mutableStateOf(false) }
 
             AndroidView(
                 factory = {
                     (mapView.parent as? ViewGroup)?.removeView(mapView)
                     mapView.apply {
                         setOnTouchListener { v, event ->
+                            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                                isMultiTouchGestureSuppressed = false
+                            }
+                            if (
+                                event.pointerCount > 1 ||
+                                event.actionMasked == MotionEvent.ACTION_POINTER_DOWN ||
+                                event.actionMasked == MotionEvent.ACTION_POINTER_UP
+                            ) {
+                                if (!isMultiTouchGestureSuppressed) {
+                                    isMultiTouchGestureSuppressed = true
+                                    MotionEvent.obtain(event).run {
+                                        action = MotionEvent.ACTION_CANCEL
+                                        v.onTouchEvent(this)
+                                        recycle()
+                                    }
+                                }
+                                isDragging = false
+                                v.parent?.requestDisallowInterceptTouchEvent(true)
+                                return@setOnTouchListener true
+                            }
+                            if (isMultiTouchGestureSuppressed) {
+                                if (
+                                    event.actionMasked == MotionEvent.ACTION_UP ||
+                                    event.actionMasked == MotionEvent.ACTION_CANCEL
+                                ) {
+                                    isMultiTouchGestureSuppressed = false
+                                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                                }
+                                return@setOnTouchListener true
+                            }
+
                             doubleTapGestureDetector.onTouchEvent(event)
                             if (latestInspectionEnabled.value) {
                                 gestureDetector.onTouchEvent(event)
