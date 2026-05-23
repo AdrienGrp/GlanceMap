@@ -39,6 +39,12 @@ import org.mapsforge.map.model.common.Observer
 
 private const val ELEVATION_TRACK_OUTLINE_ALPHA = 176
 private const val ELEVATION_TRACK_OUTLINE_WIDTH_EXTRA_PX = 3f
+private const val ROUTE_TOOL_PREVIEW_ALPHA = 228
+private const val ROUTE_TOOL_CREATE_PREVIEW_ALPHA = 238
+private const val ROUTE_TOOL_DRAFT_ALPHA = 170
+private const val ROUTE_TOOL_AMBER_RED = 247
+private const val ROUTE_TOOL_AMBER_GREEN = 201
+private const val ROUTE_TOOL_AMBER_BLUE = 72
 
 @Composable
 @OptIn(FlowPreview::class)
@@ -707,18 +713,27 @@ private fun GpxAndInspectionOverlayEffect(
         trackPaint.strokeWidth = gpxTrackWidth
         previewPaint.color =
             if (routeToolCreatePreviewActive) {
-                applyOpacityToColor(
-                    color = gpxTrackColor,
-                    opacityPercent = maxOf(gpxTrackOpacityPercent, 88),
+                Color.argb(
+                    ROUTE_TOOL_CREATE_PREVIEW_ALPHA,
+                    ROUTE_TOOL_AMBER_RED,
+                    ROUTE_TOOL_AMBER_GREEN,
+                    ROUTE_TOOL_AMBER_BLUE,
                 )
             } else {
-                Color.argb(228, 247, 201, 72)
+                Color.argb(
+                    ROUTE_TOOL_PREVIEW_ALPHA,
+                    ROUTE_TOOL_AMBER_RED,
+                    ROUTE_TOOL_AMBER_GREEN,
+                    ROUTE_TOOL_AMBER_BLUE,
+                )
             }
         previewPaint.strokeWidth = maxOf(gpxTrackWidth + 2f, 6f)
         draftPaint.color =
-            applyOpacityToColor(
-                color = gpxTrackColor,
-                opacityPercent = maxOf(gpxTrackOpacityPercent, 74),
+            Color.argb(
+                ROUTE_TOOL_DRAFT_ALPHA,
+                ROUTE_TOOL_AMBER_RED,
+                ROUTE_TOOL_AMBER_GREEN,
+                ROUTE_TOOL_AMBER_BLUE,
             )
         draftPaint.strokeWidth = maxOf(gpxTrackWidth, 4f)
         requestMapRedraw()
