@@ -64,6 +64,7 @@ class SettingsRepositoryImpl private constructor(
         val COMPASS_CONE_ACCURACY_COLORS_ENABLED =
             booleanPreferencesKey("compass_cone_accuracy_colors_enabled")
         val NAVIGATION_MARKER_STYLE = stringPreferencesKey("navigation_marker_style")
+        val NAVIGATION_MARKER_ANCHOR_MODE = stringPreferencesKey("navigation_marker_anchor_mode")
         val MAP_DOUBLE_TAP_ACTION = stringPreferencesKey("map_double_tap_action")
         val LIVE_ELEVATION = booleanPreferencesKey("live_elevation")
         val LIVE_DISTANCE = booleanPreferencesKey("live_distance")
@@ -384,6 +385,27 @@ class SettingsRepositoryImpl private constructor(
             it[PrefKeys.NAVIGATION_MARKER_STYLE] = resolved
         }
         writeCachedNavigationMarkerStyle(resolved)
+    }
+
+    override val navigationMarkerAnchorMode: Flow<String> =
+        context.dataStore.data.map {
+            val stored = it[PrefKeys.NAVIGATION_MARKER_ANCHOR_MODE]
+            if (stored != null && stored in allowedMarkerAnchorModes) {
+                stored
+            } else {
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER
+            }
+        }
+
+    override suspend fun setNavigationMarkerAnchorMode(mode: String) {
+        context.dataStore.edit {
+            it[PrefKeys.NAVIGATION_MARKER_ANCHOR_MODE] =
+                if (mode in allowedMarkerAnchorModes) {
+                    mode
+                } else {
+                    SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER
+                }
+        }
     }
 
     override val mapDoubleTapAction: Flow<String> = context.dataStore.data.map { it[PrefKeys.MAP_DOUBLE_TAP_ACTION] ?: "zoom_in" }
@@ -751,6 +773,11 @@ class SettingsRepositoryImpl private constructor(
             setOf(
                 SettingsRepository.MARKER_STYLE_DOT,
                 SettingsRepository.MARKER_STYLE_TRIANGLE,
+            )
+        private val allowedMarkerAnchorModes =
+            setOf(
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER,
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER,
             )
         private val allowedNorthReferenceModes =
             setOf(

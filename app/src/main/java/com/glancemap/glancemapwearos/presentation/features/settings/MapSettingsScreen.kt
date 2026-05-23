@@ -19,6 +19,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepositoryImpl
 import com.glancemap.glancemapwearos.domain.model.maps.theme.ThemeListItem
 import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupBottomSheet
@@ -42,6 +43,7 @@ fun MapSettingsScreen(
     val autoRecenterDelay by viewModel.autoRecenterDelay.collectAsState(initial = 5)
     val liveElevation by viewModel.liveElevation.collectAsState()
     val liveDistance by viewModel.liveDistance.collectAsState()
+    val navigationMarkerAnchorMode by viewModel.navigationMarkerAnchorMode.collectAsState()
     val themeItems by themeViewModel.themeItems.collectAsState()
     val selectedMapPath by viewModel.selectedMapPath.collectAsState()
     val scope = rememberCoroutineScope()
@@ -153,6 +155,27 @@ fun MapSettingsScreen(
                     onCheckedChanged = { viewModel.setLiveDistance(it) },
                     label = "Live distance",
                     secondaryLabel = if (liveDistance) "On" else "Off",
+                )
+            }
+            item {
+                SettingsToggleChip(
+                    checked = navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER,
+                    onCheckedChanged = { enabled ->
+                        viewModel.setNavigationMarkerAnchorMode(
+                            if (enabled) {
+                                SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER
+                            } else {
+                                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER
+                            },
+                        )
+                    },
+                    label = "Lower position marker",
+                    secondaryLabel =
+                        if (navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) {
+                            "Above distance chip"
+                        } else {
+                            "Centered"
+                        },
                 )
             }
             item {

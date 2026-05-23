@@ -112,6 +112,7 @@ internal fun NavigateContent(
     onMenuClick: () -> Unit,
     onPermissionLaunch: () -> Unit,
     mapRotationDeg: Float,
+    navigationMarkerAnchorMode: String,
     compassHeadingDeg: Float,
     liveElevationEnabled: Boolean,
     liveDistanceEnabled: Boolean,
@@ -427,6 +428,7 @@ internal fun NavigateContent(
     val latestOnViewportChanged = rememberUpdatedState(onViewportChanged)
     val latestVisiblePoiMarkers = rememberUpdatedState(visiblePoiMarkers)
     val latestLastKnownLocation = rememberUpdatedState(lastKnownLocation)
+    val latestNavigationMarkerAnchorMode = rememberUpdatedState(navigationMarkerAnchorMode)
     var rotaryScrollAccumulator by remember(mapView, crownZoomEnabled, crownZoomInverted) {
         mutableStateOf(0f)
     }
@@ -500,7 +502,13 @@ internal fun NavigateContent(
             if (
                 shouldEnterPanningAfterDoubleTap(
                     center = mv.model.mapViewPosition.center,
-                    marker = latestLastKnownLocation.value,
+                    marker =
+                        latestLastKnownLocation.value?.let { marker ->
+                            mv.resolveMapCenterForNavigationMarker(
+                                markerLatLong = marker,
+                                markerAnchorMode = latestNavigationMarkerAnchorMode.value,
+                            )
+                        },
                 )
             ) {
                 latestOnUserPanStarted.value.invoke()
@@ -901,6 +909,7 @@ internal fun NavigateContent(
                 liveElevationIconSize = liveElevationIconSize,
                 northIndicatorMode = northIndicatorMode,
                 mapRotationDeg = mapRotationDeg,
+                navigationMarkerAnchorMode = navigationMarkerAnchorMode,
                 compassHeadingDeg = compassHeadingDeg,
                 northIndicatorButtonSize = northIndicatorButtonSize,
                 northIndicatorIconSize = northIndicatorIconSize,

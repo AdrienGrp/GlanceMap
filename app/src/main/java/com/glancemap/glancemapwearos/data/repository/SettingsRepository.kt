@@ -30,6 +30,8 @@ interface SettingsRepository {
 
         const val MARKER_STYLE_DOT = "DOT"
         const val MARKER_STYLE_TRIANGLE = "TRIANGLE"
+        const val NAVIGATION_MARKER_ANCHOR_CENTER = "CENTER"
+        const val NAVIGATION_MARKER_ANCHOR_LOWER = "LOWER"
 
         const val DEFAULT_GPX_FLAT_SPEED_MPS = 3.5f / 3.6f
         const val MAX_GPX_FLAT_SPEED_MPS = 20f / 3.6f
@@ -171,6 +173,10 @@ interface SettingsRepository {
     val navigationMarkerStyle: Flow<String>
 
     suspend fun setNavigationMarkerStyle(style: String)
+
+    val navigationMarkerAnchorMode: Flow<String>
+
+    suspend fun setNavigationMarkerAnchorMode(mode: String)
 
     val mapDoubleTapAction: Flow<String>
 

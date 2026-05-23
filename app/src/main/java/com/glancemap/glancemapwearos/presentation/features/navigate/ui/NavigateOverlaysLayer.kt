@@ -72,6 +72,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     liveElevationIconSize: Dp,
     northIndicatorMode: String,
     mapRotationDeg: Float,
+    navigationMarkerAnchorMode: String,
     compassHeadingDeg: Float,
     northIndicatorButtonSize: Dp,
     northIndicatorIconSize: Dp,
@@ -397,5 +398,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onRecenter = onRecenter,
         onRecenterRequested = onRecenterRequested,
         onToggleOrientation = onToggleOrientation,
+        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
     )
 }
