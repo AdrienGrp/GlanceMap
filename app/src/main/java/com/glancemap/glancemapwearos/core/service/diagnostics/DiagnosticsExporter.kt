@@ -82,6 +82,7 @@ object DiagnosticsExporter {
         val watchGpsDegradedLastObserved: Boolean? = null,
         val batchEventCount: Int = 0,
         val batchOriginAutoFusedCount: Int = 0,
+        val batchOriginPassiveExternalCount: Int = 0,
         val batchOriginWatchGpsCount: Int = 0,
         val batchFallbackCount: Int = 0,
         val batchDuplicateCandidatesDroppedTotal: Int = 0,
@@ -93,11 +94,14 @@ object DiagnosticsExporter {
         val callbackAcceptedFixCount: Int = 0,
         val immediateAcceptedFixCount: Int = 0,
         val acceptedFixOriginAutoFusedCount: Int = 0,
+        val acceptedFixOriginPassiveExternalCount: Int = 0,
         val acceptedFixOriginWatchGpsCount: Int = 0,
         val requestBackendAutoFusedCount: Int = 0,
+        val requestBackendPassiveExternalCount: Int = 0,
         val requestBackendWatchGpsCount: Int = 0,
         val requestBackendSwitchCount: Int = 0,
         val requestBackendAutoFusedDurationMs: Long = 0L,
+        val requestBackendPassiveExternalDurationMs: Long = 0L,
         val requestBackendWatchGpsDurationMs: Long = 0L,
         val requestBackendDurationCoverageMs: Long = 0L,
         val failoverAutoToWatchAccuracyCount: Int = 0,
@@ -513,10 +517,16 @@ object DiagnosticsExporter {
             writer.appendLine("requestModeStationaryBackgroundCount=${telemetryInsights.requestModeStationaryBackgroundCount}")
             writer.appendLine("requestModeOtherwiseCount=${telemetryInsights.requestModeOtherwiseCount}")
             writer.appendLine("requestBackendAutoFusedCount=${telemetryInsights.requestBackendAutoFusedCount}")
+            writer.appendLine(
+                "requestBackendPassiveExternalCount=${telemetryInsights.requestBackendPassiveExternalCount}",
+            )
             writer.appendLine("requestBackendWatchGpsCount=${telemetryInsights.requestBackendWatchGpsCount}")
             writer.appendLine("requestBackendSwitchCount=${telemetryInsights.requestBackendSwitchCount}")
             writer.appendLine(
                 "requestBackendAutoFusedDurationMs=${telemetryInsights.requestBackendAutoFusedDurationMs}",
+            )
+            writer.appendLine(
+                "requestBackendPassiveExternalDurationMs=${telemetryInsights.requestBackendPassiveExternalDurationMs}",
             )
             writer.appendLine(
                 "requestBackendWatchGpsDurationMs=${telemetryInsights.requestBackendWatchGpsDurationMs}",
@@ -630,6 +640,9 @@ object DiagnosticsExporter {
             )
             writer.appendLine("batchEventCount=${telemetryInsights.batchEventCount}")
             writer.appendLine("batchOriginAutoFusedCount=${telemetryInsights.batchOriginAutoFusedCount}")
+            writer.appendLine(
+                "batchOriginPassiveExternalCount=${telemetryInsights.batchOriginPassiveExternalCount}",
+            )
             writer.appendLine("batchOriginWatchGpsCount=${telemetryInsights.batchOriginWatchGpsCount}")
             writer.appendLine("batchFallbackCount=${telemetryInsights.batchFallbackCount}")
             writer.appendLine(
@@ -644,6 +657,11 @@ object DiagnosticsExporter {
             writer.appendLine("immediateAcceptedFixCount=${telemetryInsights.immediateAcceptedFixCount}")
             writer.appendLine(
                 "acceptedFixOriginAutoFusedCount=${telemetryInsights.acceptedFixOriginAutoFusedCount}",
+            )
+            writer.appendLine(
+                "acceptedFixOriginPassiveExternalCount=${
+                    telemetryInsights.acceptedFixOriginPassiveExternalCount
+                }",
             )
             writer.appendLine(
                 "acceptedFixOriginWatchGpsCount=${telemetryInsights.acceptedFixOriginWatchGpsCount}",

@@ -19,6 +19,7 @@ import com.glancemap.glancemapwearos.core.service.location.adapters.LocationSett
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateEvent
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateRequestParams
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpdateSink
+import com.glancemap.glancemapwearos.core.service.location.adapters.PassiveExternalLocationGateway
 import com.glancemap.glancemapwearos.core.service.location.adapters.WatchGpsLocationGateway
 import com.glancemap.glancemapwearos.core.service.location.adapters.WearPhoneConnectionProbe
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_ACCURACY_COARSE_M
@@ -76,6 +77,7 @@ class LocationService : Service() {
 
     private val binder = LocalBinder()
     private lateinit var fusedLocationGateway: FusedLocationGateway
+    private lateinit var passiveExternalLocationGateway: PassiveExternalLocationGateway
     private lateinit var watchGpsLocationGateway: WatchGpsLocationGateway
     private lateinit var locationSettingsPreflight: LocationSettingsPreflight
     private lateinit var phoneConnectionProbe: WearPhoneConnectionProbe
@@ -204,6 +206,11 @@ class LocationService : Service() {
         super.onCreate()
         val fused = LocationServices.getFusedLocationProviderClient(this)
         fusedLocationGateway = FusedLocationGateway(fused)
+        passiveExternalLocationGateway =
+            PassiveExternalLocationGateway(
+                locationManager = requireNotNull(locationManager) { "location_manager_unavailable" },
+                callbackExecutor = locationCallbackExecutor,
+            )
         locationSettingsPreflight = LocationSettingsPreflight(LocationServices.getSettingsClient(this))
         phoneConnectionProbe = WearPhoneConnectionProbe(Wearable.getNodeClient(this))
         watchGpsLocationGateway =
@@ -1016,13 +1023,21 @@ class LocationService : Service() {
         keepAliveNotificationMode = desiredMode
     }
 
-    private fun currentLocationSourceMode(): LocationSourceMode = selfHealFailoverCoordinator.currentLocationSourceMode()
+    private fun currentLocationSourceMode(): LocationSourceMode =
+        when {
+            latestGpsDebugTelemetry &&
+                latestPassiveLocationExperiment &&
+                !latestWatchGpsOnly &&
+                !selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps() -> LocationSourceMode.PASSIVE_EXTERNAL
+            else -> selfHealFailoverCoordinator.currentLocationSourceMode()
+        }
 
     private fun currentLocationGateway(): LocationGateway = locationGatewayFor(currentLocationSourceMode())
 
     private fun locationGatewayFor(sourceMode: LocationSourceMode): LocationGateway =
         when (sourceMode) {
             LocationSourceMode.AUTO_FUSED -> fusedLocationGateway
+            LocationSourceMode.PASSIVE_EXTERNAL -> passiveExternalLocationGateway
             LocationSourceMode.WATCH_GPS -> watchGpsLocationGateway
         }
 
@@ -1032,6 +1047,13 @@ class LocationService : Service() {
             fusedLocationGateway.removeLocationUpdates()
         } catch (error: Exception) {
             firstError = error
+        }
+        try {
+            passiveExternalLocationGateway.removeLocationUpdates()
+        } catch (error: Exception) {
+            if (firstError == null) {
+                firstError = error
+            }
         }
         try {
             watchGpsLocationGateway.removeLocationUpdates()
@@ -1045,13 +1067,24 @@ class LocationService : Service() {
 
     private suspend fun removeInactiveLocationUpdates(activeSourceMode: LocationSourceMode) {
         when (activeSourceMode) {
-            LocationSourceMode.AUTO_FUSED -> watchGpsLocationGateway.removeLocationUpdates()
-            LocationSourceMode.WATCH_GPS -> fusedLocationGateway.removeLocationUpdates()
+            LocationSourceMode.AUTO_FUSED -> {
+                passiveExternalLocationGateway.removeLocationUpdates()
+                watchGpsLocationGateway.removeLocationUpdates()
+            }
+            LocationSourceMode.PASSIVE_EXTERNAL -> {
+                fusedLocationGateway.removeLocationUpdates()
+                watchGpsLocationGateway.removeLocationUpdates()
+            }
+            LocationSourceMode.WATCH_GPS -> {
+                fusedLocationGateway.removeLocationUpdates()
+                passiveExternalLocationGateway.removeLocationUpdates()
+            }
         }
     }
 
     private fun removeAllLocationUpdatesBestEffort() {
         fusedLocationGateway.removeLocationUpdatesBestEffort()
+        passiveExternalLocationGateway.removeLocationUpdatesBestEffort()
         watchGpsLocationGateway.removeLocationUpdatesBestEffort()
     }
 

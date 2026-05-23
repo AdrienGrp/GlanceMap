@@ -198,7 +198,7 @@ class LocationUpdatePolicyTest {
     }
 
     @Test
-    fun interactivePassiveExperimentUsesPassivePriorityForAutoFused() {
+    fun interactivePassiveExperimentUsesPassiveExternalSource() {
         val config =
             LocationUpdatePolicy.resolveServiceConfig(
                 isInHighAccuracyBurst = false,
@@ -215,12 +215,12 @@ class LocationUpdatePolicyTest {
                 highAccuracyBurstIntervalMs = 1_000L,
                 foregroundMinDistanceM = 1f,
                 backgroundMinDistanceM = 5f,
-            )
+        )
 
         assertNotNull(config)
         assertEquals(Priority.PRIORITY_PASSIVE, config?.priority)
         assertEquals(LocationRuntimeMode.INTERACTIVE, config?.mode)
-        assertEquals(LocationSourceMode.AUTO_FUSED, config?.sourceMode)
+        assertEquals(LocationSourceMode.PASSIVE_EXTERNAL, config?.sourceMode)
     }
 
     @Test
@@ -275,7 +275,7 @@ class LocationUpdatePolicyTest {
     }
 
     @Test
-    fun screenOffPassiveExperimentUsesPassivePriorityForAutoFused() {
+    fun screenOffPassiveExperimentUsesPassiveExternalSource() {
         val config =
             LocationUpdatePolicy.resolveServiceConfig(
                 isInHighAccuracyBurst = false,
@@ -297,6 +297,6 @@ class LocationUpdatePolicyTest {
         assertNotNull(config)
         assertEquals(Priority.PRIORITY_PASSIVE, config?.priority)
         assertEquals(LocationRuntimeMode.PASSIVE, config?.mode)
-        assertEquals(LocationSourceMode.AUTO_FUSED, config?.sourceMode)
+        assertEquals(LocationSourceMode.PASSIVE_EXTERNAL, config?.sourceMode)
     }
 }

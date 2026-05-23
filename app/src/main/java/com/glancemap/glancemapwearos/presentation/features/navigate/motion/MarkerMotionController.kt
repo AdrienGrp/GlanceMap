@@ -816,7 +816,9 @@ private class MarkerMotionGpsFixProcessor(
                         motion.speedMps >= WATCH_GPS_CATCH_UP_MIN_SPEED_MPS &&
                         correction.correctionDistanceM >= WATCH_GPS_CATCH_UP_MIN_LAG_M
                 }
-            LocationSourceMode.AUTO_FUSED ->
+            LocationSourceMode.AUTO_FUSED,
+            LocationSourceMode.PASSIVE_EXTERNAL,
+            ->
                 "auto_fused_catch_up".takeIf {
                     context.accuracyM <= AUTO_FUSED_CATCH_UP_MAX_ACCURACY_M &&
                         motion.speedMps >= AUTO_FUSED_CATCH_UP_MIN_SPEED_MPS &&

@@ -12,6 +12,7 @@ internal enum class LocationSourceMode(
     val telemetryValue: String,
 ) {
     AUTO_FUSED("auto_fused"),
+    PASSIVE_EXTERNAL("passive_external"),
     WATCH_GPS("watch_gps"),
 }
 
@@ -46,10 +47,10 @@ internal object LocationUpdatePolicy {
         val safeUserIntervalMs = userIntervalMs.coerceIn(minUserIntervalMs, maxUserIntervalMs)
         val safeAmbientIntervalMs = ambientUserIntervalMs.coerceIn(minAmbientIntervalMs, maxUserIntervalMs)
         val sourceMode =
-            if (watchOnly) {
-                LocationSourceMode.WATCH_GPS
-            } else {
-                LocationSourceMode.AUTO_FUSED
+            when {
+                watchOnly -> LocationSourceMode.WATCH_GPS
+                passiveLocationExperiment && !isInHighAccuracyBurst -> LocationSourceMode.PASSIVE_EXTERNAL
+                else -> LocationSourceMode.AUTO_FUSED
             }
         if (isInHighAccuracyBurst) {
             return LocationUpdateConfig(
@@ -64,10 +65,7 @@ internal object LocationUpdatePolicy {
         if (interactive) {
             val interactivePriority =
                 when {
-                    usePassiveFusedPriority(
-                        sourceMode = sourceMode,
-                        passiveLocationExperiment = passiveLocationExperiment,
-                    ) -> Priority.PRIORITY_PASSIVE
+                    sourceMode == LocationSourceMode.PASSIVE_EXTERNAL -> Priority.PRIORITY_PASSIVE
                     hasFinePermission -> Priority.PRIORITY_HIGH_ACCURACY
                     else -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
                 }
@@ -82,12 +80,7 @@ internal object LocationUpdatePolicy {
 
         return LocationUpdateConfig(
             priority =
-                if (
-                    usePassiveFusedPriority(
-                        sourceMode = sourceMode,
-                        passiveLocationExperiment = passiveLocationExperiment,
-                    )
-                ) {
+                if (sourceMode == LocationSourceMode.PASSIVE_EXTERNAL) {
                     Priority.PRIORITY_PASSIVE
                 } else {
                     Priority.PRIORITY_BALANCED_POWER_ACCURACY
@@ -99,8 +92,4 @@ internal object LocationUpdatePolicy {
         )
     }
 
-    private fun usePassiveFusedPriority(
-        sourceMode: LocationSourceMode,
-        passiveLocationExperiment: Boolean,
-    ): Boolean = passiveLocationExperiment && sourceMode == LocationSourceMode.AUTO_FUSED
 }

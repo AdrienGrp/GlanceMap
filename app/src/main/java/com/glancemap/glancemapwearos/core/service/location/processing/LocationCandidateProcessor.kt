@@ -394,7 +394,9 @@ internal class LocationCandidateProcessor(
         if (!accuracyM.isFinite()) return false
         val accuracyLimitM =
             when (sourceMode) {
-                LocationSourceMode.AUTO_FUSED -> burstEarlyStopAccuracyM
+                LocationSourceMode.AUTO_FUSED,
+                LocationSourceMode.PASSIVE_EXTERNAL,
+                -> burstEarlyStopAccuracyM
                 LocationSourceMode.WATCH_GPS -> watchGpsBurstEarlyStopAccuracyM
             }
         if (accuracyM > accuracyLimitM) return false

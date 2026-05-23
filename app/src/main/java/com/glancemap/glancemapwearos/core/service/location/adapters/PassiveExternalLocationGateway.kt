@@ -1,0 +1,154 @@
+package com.glancemap.glancemapwearos.core.service.location.adapters
+
+import android.annotation.SuppressLint
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.os.SystemClock
+import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
+import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.Executor
+
+internal class PassiveExternalLocationGateway(
+    private val locationManager: LocationManager,
+    private val callbackExecutor: Executor,
+) : LocationGateway {
+    private val requestMutex = Mutex()
+    private val activeListeners = LinkedHashSet<LocationListener>()
+
+    @Volatile private var registeringListener: LocationListener? = null
+
+    @SuppressLint("MissingPermission")
+    override suspend fun getCurrentLocation(request: CurrentLocationRequestParams): Location? {
+        val location = getLastLocation() ?: return null
+        val ageMs = LocationFixPolicy.locationAgeMs(location, SystemClock.elapsedRealtime())
+        return location.takeIf { ageMs <= request.maxUpdateAgeMs }
+    }
+
+    @SuppressLint("MissingPermission")
+    override suspend fun getLastLocation(): Location? {
+        ensurePassiveProviderPresent()
+        return locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+    }
+
+    @SuppressLint("MissingPermission")
+    override suspend fun requestLocationUpdates(
+        request: LocationUpdateRequestParams,
+        sink: LocationUpdateSink,
+    ) {
+        requestMutex.withLock {
+            ensurePassiveProviderPresent()
+            removeLocationUpdatesLocked()
+            val listener =
+                object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        sink.onLocationAvailability(true)
+                        sink.onLocations(
+                            LocationUpdateEvent(
+                                origin = LocationSourceMode.PASSIVE_EXTERNAL,
+                                candidates = listOf(location),
+                            ),
+                        )
+                    }
+
+                    override fun onLocationChanged(locations: MutableList<Location>) {
+                        if (locations.isEmpty()) return
+                        sink.onLocationAvailability(true)
+                        sink.onLocations(
+                            LocationUpdateEvent(
+                                origin = LocationSourceMode.PASSIVE_EXTERNAL,
+                                candidates = locations.toList(),
+                                rawCandidateCount = locations.size,
+                            ),
+                        )
+                    }
+                }
+
+            registeringListener = listener
+            try {
+                locationManager.requestLocationUpdates(
+                    LocationManager.PASSIVE_PROVIDER,
+                    request.intervalMs,
+                    request.minDistanceMeters,
+                    callbackExecutor,
+                    listener,
+                )
+                synchronized(activeListeners) {
+                    activeListeners += listener
+                }
+            } catch (error: Exception) {
+                runCatching { locationManager.removeUpdates(listener) }
+                synchronized(activeListeners) {
+                    activeListeners.remove(listener)
+                }
+                throw error
+            } finally {
+                if (registeringListener === listener) {
+                    registeringListener = null
+                }
+            }
+        }
+    }
+
+    override suspend fun removeLocationUpdates() {
+        requestMutex.withLock {
+            removeLocationUpdatesLocked()
+        }
+    }
+
+    override fun removeLocationUpdatesBestEffort() {
+        drainListeners(includeRegisteringListener = true).forEach { listener ->
+            val removed = runCatching { locationManager.removeUpdates(listener) }.isSuccess
+            if (removed) {
+                synchronized(activeListeners) {
+                    activeListeners.remove(listener)
+                }
+            }
+        }
+    }
+
+    fun isPassiveProviderPresent(): Boolean =
+        runCatching {
+            locationManager.allProviders.contains(LocationManager.PASSIVE_PROVIDER)
+        }.getOrDefault(false)
+
+    private fun removeLocationUpdatesLocked() {
+        val listeners = drainListeners(includeRegisteringListener = true)
+        var firstError: Exception? = null
+        listeners.forEach { listener ->
+            try {
+                locationManager.removeUpdates(listener)
+            } catch (error: Exception) {
+                if (firstError == null) {
+                    firstError = error
+                }
+            }
+        }
+        firstError?.let { throw it }
+    }
+
+    private fun drainListeners(includeRegisteringListener: Boolean): List<LocationListener> {
+        synchronized(activeListeners) {
+            val listeners = LinkedHashSet<LocationListener>()
+            if (activeListeners.isNotEmpty()) {
+                listeners += activeListeners
+                activeListeners.clear()
+            }
+            if (includeRegisteringListener) {
+                val pending = registeringListener
+                if (pending != null) {
+                    listeners += pending
+                }
+            }
+            return listeners.toList()
+        }
+    }
+
+    private fun ensurePassiveProviderPresent() {
+        if (!isPassiveProviderPresent()) {
+            throw IllegalStateException("Passive location provider is not present")
+        }
+    }
+}

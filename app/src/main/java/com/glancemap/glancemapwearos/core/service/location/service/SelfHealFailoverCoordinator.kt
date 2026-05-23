@@ -391,7 +391,7 @@ internal class SelfHealFailoverCoordinator(
         if (!passiveLocationExperiment() || watchGpsOnly()) return false
         if (autoFusedFallbackToWatchGps) return true
         if (nowElapsedMs < autoFusedRecoveryGraceUntilElapsedMs) return true
-        if (engine.currentSourceModeOrNull() != LocationSourceMode.AUTO_FUSED) return true
+        if (engine.currentSourceModeOrNull() != LocationSourceMode.PASSIVE_EXTERNAL) return true
         if (fixGapMs < thresholdMs) return true
 
         activateAutoFusedNoFixFallback(
