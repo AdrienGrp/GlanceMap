@@ -6,6 +6,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
+import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPosition
 import com.glancemap.glancemapwearos.presentation.features.routetools.LoopShapeMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.LoopStartMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.LoopTargetMode
@@ -98,6 +99,10 @@ internal val routeToolSessionSaver: Saver<RouteToolSession?, Any> =
                     ArrayList(session.chainPoints.map { it.latitude }),
                     ArrayList(session.chainPoints.map { it.longitude }),
                     session.loopVariationIndex,
+                    session.pointATrackPosition?.segmentIndex,
+                    session.pointATrackPosition?.t,
+                    session.pointBTrackPosition?.segmentIndex,
+                    session.pointBTrackPosition?.t,
                 )
             }
         },
@@ -129,6 +134,8 @@ internal val routeToolSessionSaver: Saver<RouteToolSession?, Any> =
                     options = options,
                     pointA = latLongOrNull(values[15], values[16]),
                     pointB = latLongOrNull(values[17], values[18]),
+                    pointATrackPosition = trackPositionOrNull(values.getOrNull(26), values.getOrNull(27)),
+                    pointBTrackPosition = trackPositionOrNull(values.getOrNull(28), values.getOrNull(29)),
                     destination = latLongOrNull(values[19], values[20]),
                     loopCenter = latLongOrNull(values[21], values[22]),
                     chainPoints =
@@ -148,6 +155,15 @@ internal fun latLongOrNull(
     val latitude = lat as? Double ?: return null
     val longitude = lon as? Double ?: return null
     return LatLong(latitude, longitude)
+}
+
+internal fun trackPositionOrNull(
+    segmentIndex: Any?,
+    t: Any?,
+): TrackPosition? {
+    val index = segmentIndex as? Int ?: return null
+    val fraction = t as? Double ?: return null
+    return TrackPosition(trackId = "", segmentIndex = index, t = fraction)
 }
 
 internal fun vibratorFrom(context: Context): Vibrator? =
