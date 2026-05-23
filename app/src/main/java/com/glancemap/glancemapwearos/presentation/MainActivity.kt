@@ -199,6 +199,10 @@ class MainActivity : ComponentActivity() {
                                 isDeviceInteractive = isDeviceInteractive,
                                 ambientTickMs = ambientTickMs,
                                 onMenuClick = {
+                                    logNavigationTelemetry(
+                                        event = "menu_click",
+                                        route = activeRoute ?: WatchRoutes.NAVIGATE,
+                                    )
                                     navController.navigate(WatchRoutes.MAIN_MENU) {
                                         launchSingleTop = true
                                         restoreState = true
