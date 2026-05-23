@@ -881,7 +881,13 @@ fun NavigateScreen(
             locationMarker?.latLong ?: uiState.lastKnownLocation
         }
 
-    LaunchedEffect(navigationMarkerAnchorMode, effectiveNavMode, recenterTarget, mapView) {
+    LaunchedEffect(
+        navigationMarkerAnchorMode,
+        effectiveNavMode,
+        recenterTarget,
+        renderedMapRotationDeg,
+        mapView,
+    ) {
         if (!offlineMode && effectiveNavMode != NavMode.PANNING) {
             recenterTarget?.let { mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode) }
         }

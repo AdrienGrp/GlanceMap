@@ -153,7 +153,11 @@ internal fun isGpxUri(
     uri: Uri,
 ): Boolean {
     val name = resolveUriDisplayName(context, uri)
-    return name.lowercase().endsWith(".gpx")
+    if (name.lowercase().endsWith(".gpx")) return true
+    return context.contentResolver
+        .getType(uri)
+        .orEmpty()
+        .lowercase() == "application/gpx+xml"
 }
 
 internal fun suggestPoiFileNameForGpxWaypoints(

@@ -128,6 +128,27 @@ fun MapSettingsScreen(
             }
             item {
                 SettingsToggleChip(
+                    checked = navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER,
+                    onCheckedChanged = { enabled ->
+                        viewModel.setNavigationMarkerAnchorMode(
+                            if (enabled) {
+                                SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER
+                            } else {
+                                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER
+                            },
+                        )
+                    },
+                    label = "Position marker",
+                    secondaryLabel =
+                        if (navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) {
+                            "Bottom"
+                        } else {
+                            "Middle"
+                        },
+                )
+            }
+            item {
+                SettingsToggleChip(
                     checked = liveElevation,
                     onCheckedChanged = { enabled ->
                         if (!enabled) {
@@ -155,27 +176,6 @@ fun MapSettingsScreen(
                     onCheckedChanged = { viewModel.setLiveDistance(it) },
                     label = "Live distance",
                     secondaryLabel = if (liveDistance) "On" else "Off",
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER,
-                    onCheckedChanged = { enabled ->
-                        viewModel.setNavigationMarkerAnchorMode(
-                            if (enabled) {
-                                SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER
-                            } else {
-                                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER
-                            },
-                        )
-                    },
-                    label = "Lower position marker",
-                    secondaryLabel =
-                        if (navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) {
-                            "Above distance chip"
-                        } else {
-                            "Centered"
-                        },
                 )
             }
             item {

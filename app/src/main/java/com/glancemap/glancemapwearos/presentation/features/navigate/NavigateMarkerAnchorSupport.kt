@@ -51,6 +51,6 @@ internal fun MapView.resolveMapCenterForNavigationMarker(
     )
 }
 
-private const val LOWER_MARKER_SCREEN_FRACTION = 0.72
-private const val LOWER_MARKER_MIN_SCREEN_FRACTION = 0.64
-private const val LOWER_MARKER_MAX_SCREEN_FRACTION = 0.78
+private const val LOWER_MARKER_SCREEN_FRACTION = 0.82
+private const val LOWER_MARKER_MIN_SCREEN_FRACTION = 0.74
+private const val LOWER_MARKER_MAX_SCREEN_FRACTION = 0.86
