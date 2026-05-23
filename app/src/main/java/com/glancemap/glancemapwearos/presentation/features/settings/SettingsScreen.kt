@@ -113,14 +113,6 @@ fun SettingsScreen(
                 )
             }
             item {
-                SettingsToggleChip(
-                    checked = backButtonExitsNavigation,
-                    onCheckedChanged = viewModel::setBackButtonExitsNavigation,
-                    label = "Back exits navigation",
-                    secondaryLabel = if (backButtonExitsNavigation) "On" else "Off",
-                )
-            }
-            item {
                 SettingsSectionChip(
                     label = "GPS settings",
                     onClick = { navController.navigate(WatchRoutes.GPS_SETTINGS) },
@@ -158,6 +150,14 @@ fun SettingsScreen(
                 SettingsSectionChip(
                     label = "Debugging",
                     onClick = { navController.navigate(WatchRoutes.DEBUG_SETTINGS) },
+                )
+            }
+            item {
+                SettingsToggleChip(
+                    checked = backButtonExitsNavigation,
+                    onCheckedChanged = viewModel::setBackButtonExitsNavigation,
+                    label = "Back exits navigation",
+                    secondaryLabel = if (backButtonExitsNavigation) "On" else "Off",
                 )
             }
             item {

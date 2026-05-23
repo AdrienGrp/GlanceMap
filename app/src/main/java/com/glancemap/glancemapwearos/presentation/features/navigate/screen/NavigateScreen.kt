@@ -109,18 +109,36 @@ fun NavigateScreen(
     var isScreenResumed by remember(lifecycleOwner) {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
     }
+    var lastScreenResumeElapsedMs by remember(lifecycleOwner) {
+        mutableLongStateOf(SystemClock.elapsedRealtime())
+    }
+    var menuClickGuardUntilElapsedMs by remember(lifecycleOwner) {
+        mutableLongStateOf(lastScreenResumeElapsedMs + NAVIGATE_MENU_CLICK_RESUME_GUARD_MS)
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer =
             LifecycleEventObserver { _, event ->
                 when (event) {
-                    Lifecycle.Event.ON_RESUME -> isScreenResumed = true
+                    Lifecycle.Event.ON_RESUME -> {
+                        val nowElapsedMs = SystemClock.elapsedRealtime()
+                        isScreenResumed = true
+                        lastScreenResumeElapsedMs = nowElapsedMs
+                        menuClickGuardUntilElapsedMs = nowElapsedMs + NAVIGATE_MENU_CLICK_RESUME_GUARD_MS
+                    }
                     Lifecycle.Event.ON_PAUSE -> isScreenResumed = false
                     else -> Unit
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(isScreenResumed, isDeviceInteractive) {
+        if (isScreenResumed && isDeviceInteractive) {
+            val nowElapsedMs = SystemClock.elapsedRealtime()
+            lastScreenResumeElapsedMs = nowElapsedMs
+            menuClickGuardUntilElapsedMs = nowElapsedMs + NAVIGATE_MENU_CLICK_RESUME_GUARD_MS
+        }
     }
 
     // ---- UI STATE ----
@@ -1163,7 +1181,19 @@ fun NavigateScreen(
             }
         },
         triggerHaptic = screenActions.triggerHaptic,
-        onMenuClick = onMenuClick,
+        onMenuClick = {
+            val nowElapsedMs = SystemClock.elapsedRealtime()
+            if (nowElapsedMs < menuClickGuardUntilElapsedMs) {
+                DebugTelemetry.log(
+                    "NavigationTelemetry",
+                    "event=menu_click_ignored route=navigate_screen reason=recent_resume " +
+                        "ageMs=${nowElapsedMs - lastScreenResumeElapsedMs} " +
+                        "remainingMs=${menuClickGuardUntilElapsedMs - nowElapsedMs}",
+                )
+            } else {
+                onMenuClick()
+            }
+        },
         onPermissionLaunch = { locationPermissionState.launchPermissions() },
         mapRotationDeg = renderedMapRotationDeg,
         navigationMarkerAnchorMode = navigationMarkerAnchorMode,
@@ -1267,3 +1297,4 @@ private fun shouldUpdateZoomReferenceLatitude(
 
 private const val MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES = 0.25
 private const val NORMAL_STARTUP_MAP_FALLBACK_GRACE_MS = 15_000L
+private const val NAVIGATE_MENU_CLICK_RESUME_GUARD_MS = 1_500L
