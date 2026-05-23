@@ -771,6 +771,7 @@ fun NavigateScreen(
         gpsFixBearingDeg = locationUiState.lastFixBearingDeg,
         renderedHeadingDeg = renderedCompassHeadingDeg,
         locationMarker = locationMarker,
+        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
         inspectionUiState = inspectionUiState,
         selectedPointA = selectedPointA,
         selectedPointB = selectedPointB,
@@ -888,7 +889,6 @@ fun NavigateScreen(
         navigationMarkerAnchorMode,
         effectiveNavMode,
         recenterTarget,
-        renderedMapRotationDeg,
         mapView,
     ) {
         if (!offlineMode && effectiveNavMode != NavMode.PANNING) {

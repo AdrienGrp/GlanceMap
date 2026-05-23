@@ -6,7 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
@@ -37,12 +39,14 @@ fun NavigationOrientationEffect(
     mapView: MapView?,
     showRealMarkerInCompassMode: Boolean,
     locationMarker: RotatableMarker?,
+    navigationMarkerAnchorMode: String,
     onRenderedHeadingChanged: (Float) -> Unit,
     onRenderedMapRotationChanged: (Float) -> Unit,
     requestMapRedraw: () -> Unit,
 ) {
     val mv = mapView ?: return
     val marker = locationMarker
+    val latestNavigationMarkerAnchorMode = rememberUpdatedState(navigationMarkerAnchorMode)
 
     val navMode =
         remember(isCompassMode, isAutoCentering) {
@@ -73,6 +77,14 @@ fun NavigationOrientationEffect(
             val appliedRotationDeg = syncDisplayedMapRotationFromMap()
             onRenderedMapRotationChanged(appliedRotationDeg)
         }
+    }
+
+    fun recenterLowerMarkerAnchorAfterRotation() {
+        if (navMode == NavMode.PANNING) return
+        val markerLatLong = marker?.latLong ?: return
+        val anchorMode = latestNavigationMarkerAnchorMode.value
+        if (anchorMode != SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) return
+        mv.setCenterForNavigationMarker(markerLatLong, anchorMode)
     }
 
     fun applyMarkersForMode(targetNavMode: NavMode) {
@@ -128,6 +140,7 @@ fun NavigationOrientationEffect(
                 if (shouldDriveHeadingNow || shouldSeedCachedHeading) {
                     val rot = -displayedHeading.floatValue
                     applyMapRotation(rot)
+                    recenterLowerMarkerAnchorAfterRotation()
                 } else {
                     onRenderedMapRotationChanged(syncDisplayedMapRotationFromMap())
                 }
@@ -135,6 +148,7 @@ fun NavigationOrientationEffect(
 
             NavMode.NORTH_UP_FOLLOW -> {
                 applyMapRotation(0f)
+                recenterLowerMarkerAnchorAfterRotation()
             }
 
             NavMode.PANNING -> {
@@ -204,10 +218,12 @@ fun NavigationOrientationEffect(
                 when (navMode) {
                     NavMode.COMPASS_FOLLOW -> {
                         applyMapRotation(-next)
+                        recenterLowerMarkerAnchorAfterRotation()
                         applyMarkersForMode(navMode)
                     }
                     NavMode.NORTH_UP_FOLLOW -> {
                         applyMapRotation(0f)
+                        recenterLowerMarkerAnchorAfterRotation()
                         applyMarkersForMode(navMode)
                     }
                     NavMode.PANNING -> Unit

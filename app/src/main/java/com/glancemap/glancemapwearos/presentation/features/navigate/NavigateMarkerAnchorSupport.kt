@@ -23,8 +23,9 @@ internal fun MapView.resolveMapCenterForNavigationMarker(
     val heightPx = height.toDouble()
     if (widthPx <= 0.0 || heightPx <= 0.0) return markerLatLong
 
+    val lowerMarkerRaisePx = LOWER_MARKER_RAISE_DP * resources.displayMetrics.density
     val desiredMarkerScreenY =
-        (heightPx * LOWER_MARKER_SCREEN_FRACTION).coerceIn(
+        (heightPx * LOWER_MARKER_SCREEN_FRACTION - lowerMarkerRaisePx).coerceIn(
             heightPx * LOWER_MARKER_MIN_SCREEN_FRACTION,
             heightPx * LOWER_MARKER_MAX_SCREEN_FRACTION,
         )
@@ -52,5 +53,6 @@ internal fun MapView.resolveMapCenterForNavigationMarker(
 }
 
 private const val LOWER_MARKER_SCREEN_FRACTION = 0.82
+private const val LOWER_MARKER_RAISE_DP = 8f
 private const val LOWER_MARKER_MIN_SCREEN_FRACTION = 0.74
 private const val LOWER_MARKER_MAX_SCREEN_FRACTION = 0.86
