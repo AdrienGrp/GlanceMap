@@ -166,7 +166,7 @@ internal class LocationCallbackProcessor(
                 location = location,
                 nowElapsedMs = nowElapsedMs,
                 acceptance = acceptance,
-                strictMaxAgeMs = strictFreshMaxAgeMs(),
+                strictMaxAgeMs = strictFreshMaxAgeMsFor(callbackOrigin),
                 hardMaxAgeMs = hardMaxAcceptedFixAgeMs(),
                 callbackOrigin = callbackOrigin,
             )
@@ -184,6 +184,16 @@ internal class LocationCallbackProcessor(
             endHighAccuracyBurstEarly()
         }
         return true
+    }
+
+    private fun strictFreshMaxAgeMsFor(callbackOrigin: LocationSourceMode): Long {
+        val defaultMaxAgeMs = strictFreshMaxAgeMs()
+        if (callbackOrigin != LocationSourceMode.PASSIVE_EXTERNAL) return defaultMaxAgeMs
+        return maxOf(defaultMaxAgeMs, PASSIVE_EXTERNAL_STRICT_FRESH_MAX_AGE_MS)
+    }
+
+    private companion object {
+        const val PASSIVE_EXTERNAL_STRICT_FRESH_MAX_AGE_MS = 20_000L
     }
 }
 

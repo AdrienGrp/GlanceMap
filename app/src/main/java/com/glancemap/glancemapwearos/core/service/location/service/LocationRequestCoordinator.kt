@@ -286,7 +286,11 @@ internal class LocationRequestCoordinator(
         state: RequestUpdateState,
         permissions: LocationPermissionSnapshot,
     ): ResolvedRequestPlan {
-        val passiveTracking = state.tracking && state.screenState.isNonInteractive && state.backgroundGps
+        val passiveExperimentListening =
+            state.passiveLocationExperiment && !state.watchOnlyEffective && state.keepOpen
+        val passiveTracking =
+            (state.tracking && state.screenState.isNonInteractive && state.backgroundGps) ||
+                passiveExperimentListening
         val interactiveTracking = state.tracking && state.screenState.isInteractive
         val spec =
             engine.resolveRequestSpec(

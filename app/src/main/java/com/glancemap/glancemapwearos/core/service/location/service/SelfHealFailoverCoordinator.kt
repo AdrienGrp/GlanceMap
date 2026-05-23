@@ -79,10 +79,10 @@ internal class SelfHealFailoverCoordinator(
     }
 
     fun currentLocationSourceMode(): LocationSourceMode =
-        if (watchGpsOnly() || autoFusedFallbackToWatchGps) {
-            LocationSourceMode.WATCH_GPS
-        } else {
-            LocationSourceMode.AUTO_FUSED
+        when {
+            watchGpsOnly() || autoFusedFallbackToWatchGps -> LocationSourceMode.WATCH_GPS
+            passiveLocationExperiment() -> LocationSourceMode.PASSIVE_EXTERNAL
+            else -> LocationSourceMode.AUTO_FUSED
         }
 
     fun clearAutoFusedFailoverState(reason: String) {
@@ -389,16 +389,6 @@ internal class SelfHealFailoverCoordinator(
         thresholdMs: Long,
     ): Boolean {
         if (!passiveLocationExperiment() || watchGpsOnly()) return false
-        if (autoFusedFallbackToWatchGps) return true
-        if (nowElapsedMs < autoFusedRecoveryGraceUntilElapsedMs) return true
-        if (engine.currentSourceModeOrNull() != LocationSourceMode.PASSIVE_EXTERNAL) return true
-        if (fixGapMs < thresholdMs) return true
-
-        activateAutoFusedNoFixFallback(
-            nowElapsedMs = nowElapsedMs,
-            fixGapMs = fixGapMs,
-            thresholdMs = thresholdMs,
-        )
         return true
     }
 
