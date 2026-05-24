@@ -338,6 +338,7 @@ fun DownloadScreen(
                     deleteMode = !deleteMode
                     if (deleteMode) {
                         refreshMode = false
+                        viewModel.clearRefreshBundleSelection()
                     }
                 },
             )
@@ -801,7 +802,7 @@ private fun InstalledBundleRow(
                 deleteMode -> Icons.Filled.Delete
                 else -> Icons.Filled.Check
             },
-        selected = refreshSelected || (!deleteMode && !refreshMode),
+        selected = (refreshMode && refreshSelected) || (!deleteMode && !refreshMode),
         onClick =
             when {
                 refreshMode -> onRefresh
