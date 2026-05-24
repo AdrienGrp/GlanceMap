@@ -330,7 +330,7 @@ fun DownloadScreen(
                     if (nextRefreshMode) {
                         deleteMode = false
                         coroutineScope.launch {
-                            listState.animateScrollToItem(DOWNLOAD_INSTALLED_BUNDLES_ITEM_INDEX)
+                            listState.animateScrollToItem(DOWNLOAD_FIRST_REFRESH_BUNDLE_ITEM_INDEX)
                         }
                     }
                 },
@@ -964,4 +964,4 @@ private val SelectedChipIcon = Color(0xFF7FE4C8)
 private const val DOWNLOAD_INFO_PREFS = "download_screen_info_prefs"
 private const val DOWNLOAD_INFO_SHOWN_KEY = "oam_info_shown"
 private const val DOWNLOAD_MAIN_ACTION_ITEM_INDEX = 2
-private const val DOWNLOAD_INSTALLED_BUNDLES_ITEM_INDEX = 3
+private const val DOWNLOAD_FIRST_REFRESH_BUNDLE_ITEM_INDEX = 5
