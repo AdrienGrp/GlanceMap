@@ -27,6 +27,7 @@ object Dem3CoverageUtils {
 
     private data class CoverageCacheKey(
         val mapSignature: String,
+        val sourceKey: String,
         val demSignature: String,
     )
 
@@ -57,6 +58,7 @@ object Dem3CoverageUtils {
     fun coverageForMap(
         context: Context,
         mapFile: File,
+        sources: List<DemSource> = DemSource.LOAD_PRIORITY,
     ): DemCoverageSummary {
         val mapSignature =
             mapSignatureOf(mapFile)
@@ -68,7 +70,7 @@ object Dem3CoverageUtils {
             return DemCoverageSummary(0, 0, isCoverageKnown = true)
         }
 
-        val demRoots = demRootDirs(context)
+        val demRoots = sources.map { demRootDir(context, it) }
         val demSignature =
             DemSignatureStore.resolveSignature(
                 context = context,
@@ -78,6 +80,7 @@ object Dem3CoverageUtils {
         val cacheKey =
             CoverageCacheKey(
                 mapSignature = mapSignature,
+                sourceKey = sources.joinToString(",") { it.id },
                 demSignature = demSignature,
             )
 
@@ -109,10 +112,11 @@ object Dem3CoverageUtils {
     fun isReadyForMap(
         context: Context,
         mapPath: String?,
+        sources: List<DemSource> = DemSource.LOAD_PRIORITY,
     ): Boolean {
         val file = mapPath?.takeIf { it.isNotBlank() }?.let(::File) ?: return false
         if (!file.exists() || !file.isFile) return false
-        return coverageForMap(context, file).isReady
+        return coverageForMap(context, file, sources).isReady
     }
 
     fun requiredTileIdsForMap(mapFile: File): Set<String>? {

@@ -364,7 +364,11 @@ class ThemeViewModel(
 
     suspend fun isDemReadyForMap(mapPath: String?): Boolean =
         withContext(Dispatchers.IO) {
-            Dem3CoverageUtils.isReadyForMap(appContext, mapPath)
+            Dem3CoverageUtils.isReadyForMap(
+                context = appContext,
+                mapPath = mapPath,
+                sources = listOf(demSource.value),
+            )
         }
 
     private suspend fun downloadDemForMapInternal(selectedMapFile: File): DemDownloadResult {

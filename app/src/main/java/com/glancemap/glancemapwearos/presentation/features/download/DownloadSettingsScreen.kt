@@ -78,8 +78,8 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
                 SettingsToggleChip(
                     checked = uiState.selection.includeDem,
                     onCheckedChanged = viewModel::setIncludeDem,
-                    label = "DEM",
-                    secondaryLabel = "${uiState.selection.demSource.shortLabel} elevation tiles",
+                    label = "Elevation",
+                    secondaryLabel = uiState.selection.demSource.detailLabel,
                 )
             }
             if (uiState.selection.includeDem) {

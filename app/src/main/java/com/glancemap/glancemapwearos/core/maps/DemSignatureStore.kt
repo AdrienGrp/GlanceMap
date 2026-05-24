@@ -10,16 +10,15 @@ import java.util.Locale
  */
 object DemSignatureStore {
     private const val PREFS_NAME = "dem_signature_store"
-    private const val KEY_SIGNATURE = "signature"
-    private const val KEY_DIRTY = "dirty"
-    private const val KEY_LAST_SCAN_MS = "last_scan_ms"
+    private const val KEY_SIGNATURE_PREFIX = "signature_"
+    private const val KEY_LAST_SCAN_MS_PREFIX = "last_scan_ms_"
     private const val EMPTY_SIGNATURE_SENTINEL = "DEM:EMPTY"
     private const val SIGNATURE_MAX_AGE_MS = 5L * 60L * 1000L
 
     fun markDirty(context: Context) {
         prefs(context)
             .edit()
-            .putBoolean(KEY_DIRTY, true)
+            .clear()
             .apply()
     }
 
@@ -41,24 +40,31 @@ object DemSignatureStore {
     ): String? {
         val now = System.currentTimeMillis()
         val sharedPrefs = prefs(context)
-        val cachedSignature = sharedPrefs.getString(KEY_SIGNATURE, null)
-        val dirty = sharedPrefs.getBoolean(KEY_DIRTY, cachedSignature == null)
-        val lastScanMs = sharedPrefs.getLong(KEY_LAST_SCAN_MS, 0L)
+        val cacheKey = cacheKeyFor(demRootDirs)
+        val cachedSignature = sharedPrefs.getString(KEY_SIGNATURE_PREFIX + cacheKey, null)
+        val lastScanMs = sharedPrefs.getLong(KEY_LAST_SCAN_MS_PREFIX + cacheKey, 0L)
         val isFresh = (now - lastScanMs) <= SIGNATURE_MAX_AGE_MS
 
-        if (!dirty && cachedSignature != null && isFresh) {
+        if (cachedSignature != null && isFresh) {
             return cachedSignature.takeUnless { it == EMPTY_SIGNATURE_SENTINEL }
         }
 
         val scannedSignature = scanDemSignature(demRootDirs = demRootDirs, maxDepth = maxDepth)
         sharedPrefs
             .edit()
-            .putString(KEY_SIGNATURE, scannedSignature ?: EMPTY_SIGNATURE_SENTINEL)
-            .putBoolean(KEY_DIRTY, false)
-            .putLong(KEY_LAST_SCAN_MS, now)
+            .putString(KEY_SIGNATURE_PREFIX + cacheKey, scannedSignature ?: EMPTY_SIGNATURE_SENTINEL)
+            .putLong(KEY_LAST_SCAN_MS_PREFIX + cacheKey, now)
             .apply()
         return scannedSignature
     }
+
+    private fun cacheKeyFor(demRootDirs: List<File>): String =
+        demRootDirs
+            .map { it.absolutePath }
+            .sorted()
+            .joinToString("|")
+            .hashCode()
+            .toString()
 
     private fun scanDemSignature(
         demRootDirs: List<File>,

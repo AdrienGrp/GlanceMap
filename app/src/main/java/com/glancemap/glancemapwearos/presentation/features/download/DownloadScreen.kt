@@ -812,7 +812,7 @@ private fun installedBundleSubtitle(bundle: OamInstalledBundle): String =
         "POI".takeIf { bundle.poiFileName != null },
         "Refuges.info".takeIf { bundle.refugesInfoFileName != null },
         "Routing".takeIf { bundle.routingFileNames.isNotEmpty() },
-        "${bundle.demSource.shortLabel} DEM".takeIf { bundle.demTileIds.isNotEmpty() },
+        "${bundle.demSource.shortLabel} elevation".takeIf { bundle.demTileIds.isNotEmpty() },
     ).joinToString(" + ").ifBlank { bundle.bundleChoice.label }
 
 private fun OamDownloadSelection.compactLabel(): String =
@@ -820,7 +820,7 @@ private fun OamDownloadSelection.compactLabel(): String =
         "Maps".takeIf { includeMap },
         "POI".takeIf { includePoi },
         "Route".takeIf { includeRouting },
-        "${demSource.shortLabel} DEM".takeIf { includeDem },
+        "${demSource.shortLabel} elevation".takeIf { includeDem },
         "Refuges".takeIf { includeRefugesInfo },
     ).joinToString(" + ").ifBlank { "None" }
 
@@ -859,7 +859,7 @@ private fun Long.toSizeLabel(selection: OamDownloadSelection): String =
     buildList {
         if (this@toSizeLabel > 0L) add(formatBytes(this@toSizeLabel))
         if (selection.includeRouting) add("routing")
-        if (selection.includeDem) add("${selection.demSource.shortLabel} DEM")
+        if (selection.includeDem) add("${selection.demSource.shortLabel} elevation")
         if (selection.includeRefugesInfo) add("Refuges.info")
     }.joinToString(" + ").ifBlank {
         formatBytes(this)

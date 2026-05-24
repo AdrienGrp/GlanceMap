@@ -51,7 +51,7 @@ data class OamDownloadSelection(
             "Map".takeIf { includeMap },
             "POI".takeIf { includePoi },
             "Routing".takeIf { includeRouting },
-            "${demSource.shortLabel} DEM".takeIf { includeDem },
+            "${demSource.shortLabel} elevation".takeIf { includeDem },
             "Refuges.info".takeIf { includeRefugesInfo },
         ).joinToString(" + ").ifBlank { "Nothing selected" }
 }

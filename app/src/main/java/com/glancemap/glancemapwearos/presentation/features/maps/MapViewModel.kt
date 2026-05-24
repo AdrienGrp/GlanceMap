@@ -51,6 +51,11 @@ data class MapFileState(
     val demRequiredTiles: Int = 0,
     val demAvailableTiles: Int = 0,
     val demReady: Boolean = false,
+    val demCombinedCoverageKnown: Boolean = false,
+    val demCombinedRequiredTiles: Int = 0,
+    val demCombinedAvailableTiles: Int = 0,
+    val demDetailedAvailableTiles: Int = 0,
+    val demStandardAvailableTiles: Int = 0,
     val routingCoverageKnown: Boolean = false,
     val routingRequiredSegments: Int = 0,
     val routingAvailableSegments: Int = 0,
@@ -147,6 +152,7 @@ class MapViewModel(
     private var offlineViewportSnapshot: OfflineViewportSnapshot? = null
     private var lastObservedSelectedMapPath: String? = null
     private var forcedOfflineStartCenterContextKey: String? = null
+    private var selectedDemSourceForCoverage: DemSource = DemSource.DEFAULT
 
     init {
         loadMapFiles()
@@ -167,6 +173,13 @@ class MapViewModel(
                 } else {
                     rendererConfigApplyPending = true
                 }
+            }.launchIn(viewModelScope)
+
+        settingsRepository.demSource
+            .distinctUntilChanged()
+            .onEach { source ->
+                selectedDemSourceForCoverage = source
+                loadMapFiles()
             }.launchIn(viewModelScope)
 
         syncManager.mapSyncRequest
@@ -443,10 +456,34 @@ class MapViewModel(
     fun loadMapFiles() {
         viewModelScope.launch {
             val files = mapRepository.listMapFiles()
+            val demSource = selectedDemSourceForCoverage
             val states =
                 withContext(Dispatchers.IO) {
                     files.map { file ->
-                        val coverage = Dem3CoverageUtils.coverageForMap(context, file)
+                        val coverage =
+                            Dem3CoverageUtils.coverageForMap(
+                                context = context,
+                                mapFile = file,
+                                sources = listOf(demSource),
+                            )
+                        val detailedCoverage =
+                            Dem3CoverageUtils.coverageForMap(
+                                context = context,
+                                mapFile = file,
+                                sources = listOf(DemSource.MAPZEN_SKADI_1S),
+                            )
+                        val standardCoverage =
+                            Dem3CoverageUtils.coverageForMap(
+                                context = context,
+                                mapFile = file,
+                                sources = listOf(DemSource.MAPSFORGE_DEM3),
+                            )
+                        val combinedCoverage =
+                            Dem3CoverageUtils.coverageForMap(
+                                context = context,
+                                mapFile = file,
+                                sources = DemSource.LOAD_PRIORITY,
+                            )
                         val routingCoverage = RoutingCoverageUtils.coverageForMap(context, file)
                         MapFileState(
                             name = file.name,
@@ -455,6 +492,11 @@ class MapViewModel(
                             demRequiredTiles = coverage.requiredTiles,
                             demAvailableTiles = coverage.availableTiles,
                             demReady = coverage.isReady,
+                            demCombinedCoverageKnown = combinedCoverage.isCoverageKnown,
+                            demCombinedRequiredTiles = combinedCoverage.requiredTiles,
+                            demCombinedAvailableTiles = combinedCoverage.availableTiles,
+                            demDetailedAvailableTiles = detailedCoverage.availableTiles,
+                            demStandardAvailableTiles = standardCoverage.availableTiles,
                             routingCoverageKnown = routingCoverage.isCoverageKnown,
                             routingRequiredSegments = routingCoverage.requiredSegments,
                             routingAvailableSegments = routingCoverage.availableSegments,
