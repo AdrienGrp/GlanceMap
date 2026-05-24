@@ -18,6 +18,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.GpxInspectionPop
 import com.glancemap.glancemapwearos.presentation.features.maps.GpxInspectionPopupAB
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
+import com.glancemap.glancemapwearos.presentation.features.maps.mutateLayers
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlaySource
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
 import kotlinx.coroutines.Dispatchers
@@ -268,7 +269,6 @@ private fun GpsAccuracyCircleLayerEffect(
     topOverlayCoordinator: MapTopOverlayCoordinator,
     requestMapRedraw: () -> Unit,
 ) {
-    val layers = mapView.layerManager.layers
     val clampedAccuracyMeters = sanitizeGpsAccuracyMeters(gpsFixAccuracyM)
     val shouldShow =
         gpsAccuracyCircleEnabled &&
@@ -283,7 +283,7 @@ private fun GpsAccuracyCircleLayerEffect(
         gpsFixFresh,
         locationMarker,
     ) {
-        mapView.post {
+        mapView.mutateLayers { layers ->
             val hasLayer = layers.contains(accuracyCircleLayer)
             if (!hasLayer) {
                 layers.add(accuracyCircleLayer)
@@ -293,7 +293,7 @@ private fun GpsAccuracyCircleLayerEffect(
                 accuracyCircleLayer.radiusMeters = safeRadius
             }
             accuracyCircleLayer.isVisible = shouldShow
-            val reordered = topOverlayCoordinator.sync()
+            val reordered = topOverlayCoordinator.sync(layers)
             if (!hasLayer || reordered) {
                 requestMapRedraw()
             } else {
@@ -304,7 +304,7 @@ private fun GpsAccuracyCircleLayerEffect(
 
     DisposableEffect(mapView) {
         onDispose {
-            mapView.post {
+            mapView.mutateLayers { layers ->
                 layers.remove(accuracyCircleLayer)
                 mapView.requestLayerRedrawSafely()
             }
@@ -332,7 +332,6 @@ private fun CompassConeLayerEffect(
     coneLayer: CompassConeLayer,
     requestMapRedraw: () -> Unit,
 ) {
-    val layers = mapView.layerManager.layers
     val coneTelemetryLogger = remember { ConeTelemetryLogger() }
     val shouldShow =
         showCompassConeOverlay &&
@@ -380,7 +379,7 @@ private fun CompassConeLayerEffect(
                     ),
             ),
         )
-        mapView.post {
+        mapView.mutateLayers { layers ->
             val hasLayer = layers.contains(coneLayer)
             if (!hasLayer) {
                 layers.add(coneLayer)
@@ -396,7 +395,7 @@ private fun CompassConeLayerEffect(
                     NavMode.PANNING -> 0f
                 }
             coneLayer.isVisible = shouldShow
-            val reordered = topOverlayCoordinator.sync()
+            val reordered = topOverlayCoordinator.sync(layers)
             if (!hasLayer || reordered) {
                 requestMapRedraw()
             } else {
@@ -407,7 +406,7 @@ private fun CompassConeLayerEffect(
 
     DisposableEffect(mapView) {
         onDispose {
-            mapView.post {
+            mapView.mutateLayers {
                 coneLayer.anchorMarker = null
                 coneLayer.isVisible = false
                 mapView.requestLayerRedrawSafely()
@@ -434,7 +433,6 @@ private fun PoiOverlayEffect(
     locationMarker: RotatableMarker?,
     topOverlayCoordinator: MapTopOverlayCoordinator,
 ) {
-    val layers = mapView.layerManager.layers
     val markersByKey = remember(mapView) { mutableMapOf<String, PoiMarkerEntry>() }
     val iconSizePx =
         remember(poiMarkerSizePx) {
@@ -470,8 +468,8 @@ private fun PoiOverlayEffect(
         }
 
     fun clearAllMarkers() {
-        mapView.post {
-            if (markersByKey.isEmpty()) return@post
+        mapView.mutateLayers { layers ->
+            if (markersByKey.isEmpty()) return@mutateLayers
             markersByKey.values.forEach { entry -> layers.remove(entry.marker) }
             markersByKey.clear()
             requestMapRedraw()
@@ -488,8 +486,8 @@ private fun PoiOverlayEffect(
     }
 
     LaunchedEffect(locationMarker) {
-        mapView.post {
-            val reordered = topOverlayCoordinator.sync()
+        mapView.mutateLayers { layers ->
+            val reordered = topOverlayCoordinator.sync(layers)
             if (reordered) {
                 requestMapRedraw()
             }
@@ -550,7 +548,7 @@ private fun PoiOverlayEffect(
                     }
                 onPoiMarkersSnapshotChanged(markers)
 
-                mapView.post {
+                mapView.mutateLayers { layers ->
                     val wantedKeys = markers.map { it.key }.toSet()
                     var changed = false
 
@@ -602,7 +600,7 @@ private fun PoiOverlayEffect(
                         }
                     }
 
-                    val reordered = topOverlayCoordinator.sync()
+                    val reordered = topOverlayCoordinator.sync(layers)
 
                     if (changed || reordered) {
                         requestMapRedraw()
@@ -614,7 +612,7 @@ private fun PoiOverlayEffect(
     DisposableEffect(mapView) {
         onDispose {
             onPoiMarkersSnapshotChanged(emptyList())
-            mapView.post {
+            mapView.mutateLayers { layers ->
                 markersByKey.values.forEach { entry -> layers.remove(entry.marker) }
                 markersByKey.clear()
                 mapView.requestLayerRedrawSafely()
@@ -644,7 +642,6 @@ private fun GpxAndInspectionOverlayEffect(
     topOverlayCoordinator: MapTopOverlayCoordinator,
     requestMapRedraw: () -> Unit,
 ) {
-    val layers = mapView.layerManager.layers
     val useElevationTrackColors = gpxTrackColorMode == SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION
 
     val trackPaint =
@@ -754,50 +751,53 @@ private fun GpxAndInspectionOverlayEffect(
                     mapView.model.mapViewPosition.zoomLevel
                         .toInt()
                 val newBucket = zoomBucketFor(zoomNow)
-                var changed = false
+                mapView.mutateLayers { layers ->
+                    var changed = false
 
-                lodById.forEach { (id, lod) ->
-                    val bucketChanged = displayedLodBucketById[id] != newBucket
-                    if (!bucketChanged) {
-                        return@forEach
-                    }
-                    val renderPoints = lod.pointsForZoom(zoomNow)
-
-                    if (bucketChanged) {
-                        if (useElevationTrackColors) {
-                            elevationPolylinesById.remove(id)?.forEach { layers.remove(it) }
-                            val segments =
-                                buildElevationTrackSegments(
-                                    points = renderPoints,
-                                    opacityPercent = gpxTrackOpacityPercent,
-                                )
-                            elevationPolylinesById[id] =
-                                createElevationTrackPolylines(
-                                    segments = segments,
-                                    strokeWidth = gpxTrackWidth,
-                                ).also { polylines ->
-                                    polylines.forEach(layers::add)
-                                }
-                            changed = true
-                        } else {
-                            val polyline = polylinesById[id] ?: return@forEach
-                            val renderLatLongs = renderPoints.latLongs()
-                            if (!hasSameLatLongs(polyline.latLongs, renderLatLongs)) {
-                                polyline.latLongs.clear()
-                                polyline.latLongs.addAll(renderLatLongs)
-                                changed = true
-                            }
+                    lodById.forEach { (id, lod) ->
+                        val bucketChanged = displayedLodBucketById[id] != newBucket
+                        if (!bucketChanged) {
+                            return@forEach
                         }
-                        displayedLodBucketById[id] = newBucket
-                    }
-                }
+                        val renderPoints = lod.pointsForZoom(zoomNow)
 
-                if (changed && layers.contains(directionArrowLayer)) {
-                    layers.remove(directionArrowLayer)
-                    layers.add(directionArrowLayer)
+                        if (bucketChanged) {
+                            if (useElevationTrackColors) {
+                                elevationPolylinesById.remove(id)?.forEach { layers.remove(it) }
+                                val segments =
+                                    buildElevationTrackSegments(
+                                        points = renderPoints,
+                                        opacityPercent = gpxTrackOpacityPercent,
+                                    )
+                                elevationPolylinesById[id] =
+                                    createElevationTrackPolylines(
+                                        segments = segments,
+                                        strokeWidth = gpxTrackWidth,
+                                    ).also { polylines ->
+                                        polylines.forEach(layers::add)
+                                    }
+                                changed = true
+                            } else {
+                                val polyline = polylinesById[id] ?: return@forEach
+                                val renderLatLongs = renderPoints.latLongs()
+                                if (!hasSameLatLongs(polyline.latLongs, renderLatLongs)) {
+                                    polyline.latLongs.clear()
+                                    polyline.latLongs.addAll(renderLatLongs)
+                                    changed = true
+                                }
+                            }
+                            displayedLodBucketById[id] = newBucket
+                        }
+                    }
+
+                    if (changed && layers.contains(directionArrowLayer)) {
+                        layers.remove(directionArrowLayer)
+                        layers.add(directionArrowLayer)
+                    }
+
+                    val reordered = if (changed) topOverlayCoordinator.sync(layers) else false
+                    if (changed || reordered) requestMapRedraw()
                 }
-                val reordered = if (changed) topOverlayCoordinator.sync() else false
-                if (changed || reordered) requestMapRedraw()
             }
 
         mapView.model.mapViewPosition.addObserver(observer)
@@ -820,7 +820,7 @@ private fun GpxAndInspectionOverlayEffect(
                 }
             }
 
-        mapView.post {
+        mapView.mutateLayers { layers ->
             var changed = false
             // remove old layers
             val staleOverlayIds =
@@ -965,14 +965,14 @@ private fun GpxAndInspectionOverlayEffect(
                 }
             }
 
-            val reordered = topOverlayCoordinator.sync()
+            val reordered = topOverlayCoordinator.sync(layers)
 
             if (changed || reordered) requestMapRedraw()
         }
     }
 
     LaunchedEffect(routeToolPreviewPoints) {
-        mapView.post {
+        mapView.mutateLayers { layers ->
             var changed = false
             val hasPreview = routeToolPreviewPoints.size >= 2
             val previewAttached = layers.contains(previewPolyline)
@@ -993,13 +993,13 @@ private fun GpxAndInspectionOverlayEffect(
                 changed = true
             }
 
-            val reordered = topOverlayCoordinator.sync()
+            val reordered = topOverlayCoordinator.sync(layers)
             if (changed || reordered) requestMapRedraw()
         }
     }
 
     LaunchedEffect(routeToolDraftPoints) {
-        mapView.post {
+        mapView.mutateLayers { layers ->
             var changed = false
             val hasDraft = routeToolDraftPoints.size >= 2
             val draftAttached = layers.contains(draftPolyline)
@@ -1020,22 +1020,22 @@ private fun GpxAndInspectionOverlayEffect(
                 changed = true
             }
 
-            val reordered = topOverlayCoordinator.sync()
+            val reordered = topOverlayCoordinator.sync(layers)
             if (changed || reordered) requestMapRedraw()
         }
     }
 
     // Re-apply desired z-order when top overlays change.
     LaunchedEffect(locationMarker, selectedPointA, selectedPointB) {
-        mapView.post {
-            val changed = topOverlayCoordinator.sync()
+        mapView.mutateLayers { layers ->
+            val changed = topOverlayCoordinator.sync(layers)
             if (changed) requestMapRedraw()
         }
     }
 
     // ✅ Marker A (NO re-snap: GpxViewModel already provides a point ON the track)
     LaunchedEffect(selectedPointA, activeGpxDetails) {
-        mapView.post {
+        mapView.mutateLayers { layers ->
             var changed = false
             markerAHolder[0]?.let {
                 layers.remove(it)
@@ -1050,14 +1050,14 @@ private fun GpxAndInspectionOverlayEffect(
                             changed = true
                         }
                 }
-            val reordered = topOverlayCoordinator.sync()
+            val reordered = topOverlayCoordinator.sync(layers)
             if (changed || reordered) requestMapRedraw()
         }
     }
 
     // ✅ Marker B (NO re-snap: GpxViewModel already provides a point ON the track)
     LaunchedEffect(selectedPointB, activeGpxDetails) {
-        mapView.post {
+        mapView.mutateLayers { layers ->
             var changed = false
             markerBHolder[0]?.let {
                 layers.remove(it)
@@ -1072,14 +1072,14 @@ private fun GpxAndInspectionOverlayEffect(
                             changed = true
                         }
                 }
-            val reordered = topOverlayCoordinator.sync()
+            val reordered = topOverlayCoordinator.sync(layers)
             if (changed || reordered) requestMapRedraw()
         }
     }
 
     DisposableEffect(mapView) {
         onDispose {
-            mapView.post {
+            mapView.mutateLayers { layers ->
                 polylinesById.values.forEach(layers::remove)
                 elevationPolylinesById.values.flatten().forEach(layers::remove)
                 startMarkersById.values.forEach(layers::remove)

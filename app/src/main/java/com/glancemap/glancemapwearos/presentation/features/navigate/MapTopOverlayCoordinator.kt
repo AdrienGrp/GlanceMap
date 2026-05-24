@@ -17,7 +17,7 @@ internal class MapTopOverlayCoordinator(
         locationMarker = marker
     }
 
-    fun sync(): Boolean =
+    fun sync(layers: Layers = this.layers): Boolean =
         ensureTopOverlayOrder(
             layers = layers,
             accuracyCircleLayer = accuracyCircleLayer,
