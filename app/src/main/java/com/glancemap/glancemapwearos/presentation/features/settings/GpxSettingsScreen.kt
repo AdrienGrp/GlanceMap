@@ -351,8 +351,8 @@ fun GpxSettingsScreen(
                 SettingsToggleChip(
                     checked = trackDirectionArrowsEnabled,
                     onCheckedChanged = viewModel::setGpxTrackDirectionArrowsEnabled,
-                    label = "Direction arrows",
-                    secondaryLabel = if (trackDirectionArrowsEnabled) "Black" else "Off",
+                    label = "Track direction",
+                    secondaryLabel = if (trackDirectionArrowsEnabled) "Hide arrows" else "Show arrows",
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

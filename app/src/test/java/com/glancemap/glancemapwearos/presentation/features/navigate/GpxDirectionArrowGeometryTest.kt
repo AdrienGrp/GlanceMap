@@ -111,6 +111,33 @@ class GpxDirectionArrowGeometryTest {
     @Test
     fun capsVisibleArrowsPerTrack() {
         val points =
+            (0..2400).map { index ->
+                trackPoint(
+                    lat = 45.0,
+                    lon = 6.0 + index * 0.000025,
+                )
+            }
+
+        val arrows =
+            buildVisibleGpxDirectionArrows(
+                points = points,
+                zoom = 16,
+                tileSize = 256,
+                boundingBox =
+                    BoundingBox(
+                        44.999,
+                        6.0,
+                        45.001,
+                        6.06,
+                    ),
+            )
+
+        assertEquals(MAX_VISIBLE_GPX_DIRECTION_ARROWS_PER_TRACK, arrows.size)
+    }
+
+    @Test
+    fun distributesCappedVisibleArrowsAcrossViewport() {
+        val points =
             (0..1200).map { index ->
                 trackPoint(
                     lat = 45.0,
@@ -130,9 +157,37 @@ class GpxDirectionArrowGeometryTest {
                         45.001,
                         6.03,
                     ),
+                maxArrows = 4,
             )
 
-        assertEquals(MAX_VISIBLE_GPX_DIRECTION_ARROWS_PER_TRACK, arrows.size)
+        assertEquals(4, arrows.size)
+        assertTrue(arrows.first().latLong.longitude < 6.005)
+        assertTrue(arrows.last().latLong.longitude > 6.025)
+    }
+
+    @Test
+    fun buildsVisibleArrowForClippedLongSegment() {
+        val arrows =
+            buildVisibleGpxDirectionArrows(
+                points =
+                    listOf(
+                        trackPoint(lat = 45.0, lon = 6.0),
+                        trackPoint(lat = 45.0, lon = 7.0),
+                    ),
+                zoom = 16,
+                tileSize = 256,
+                boundingBox =
+                    BoundingBox(
+                        44.999,
+                        6.49,
+                        45.001,
+                        6.51,
+                    ),
+                maxArrows = 3,
+            )
+
+        assertTrue(arrows.isNotEmpty())
+        assertTrue(arrows.first().latLong.longitude in 6.49..6.51)
     }
 
     private fun trackPoint(
