@@ -90,7 +90,7 @@ internal class BatchTransferRunner(
         val first = supportedItems.firstOrNull()
 
         if (first == null) {
-            clearSelectedFiles(statusMessage = "No compatible files selected (.gpx, .map, .poi, .rd5, .hgt).")
+            clearSelectedFiles(statusMessage = "No compatible files selected (.gpx, .map, .poi, .rd5, .hgt, .hgt.gz).")
             return
         }
 

@@ -206,6 +206,18 @@ fun DownloadScreen(
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
         }
+    val pickerDownloadButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 38.dp
+            WearScreenSize.MEDIUM -> 34.dp
+            WearScreenSize.SMALL -> 30.dp
+        }
+    val pickerDownloadIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 20.dp
+            WearScreenSize.MEDIUM -> 18.dp
+            WearScreenSize.SMALL -> 16.dp
+        }
     val footerTextSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 9.sp
@@ -233,6 +245,13 @@ fun DownloadScreen(
     LaunchedEffect(infoPrefs) {
         if (!infoPrefs.getBoolean(DOWNLOAD_INFO_SHOWN_KEY, false)) {
             showOamInfoDialog = true
+        }
+    }
+    LaunchedEffect(uiState.installedBundles.isEmpty()) {
+        if (uiState.installedBundles.isEmpty()) {
+            deleteMode = false
+            refreshMode = false
+            viewModel.clearRefreshBundleSelection()
         }
     }
     LaunchedEffect(showAreaPicker) {
@@ -505,48 +524,84 @@ fun DownloadScreen(
                 }
             }
 
-            Text(
-                text = "Bundle: ${uiState.selection.compactLabel()}",
-                style =
-                    MaterialTheme.typography.labelSmall.copy(
-                        fontSize = footerTextSize,
-                        lineHeight = footerLineHeight,
-                    ),
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = footerHorizontalPadding, vertical = 1.dp),
-            )
-
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = settingsBottomPadding),
-            ) {
-                IconButton(
-                    onClick = onOpenSettings,
-                    enabled = !uiState.isDownloading,
+            if (showAreaPicker) {
+                Box(
                     modifier =
                         Modifier
-                            .align(Alignment.Center)
-                            .size(settingsButtonSize),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.8f),
-                            contentColor = Color.White,
-                            disabledContainerColor = Color.Black.copy(alpha = 0.32f),
-                            disabledContentColor = Color.White.copy(alpha = 0.38f),
-                        ),
+                            .fillMaxWidth()
+                            .height(pickerDownloadButtonSize + settingsBottomPadding)
+                            .padding(horizontal = listHorizontalPadding)
+                            .padding(bottom = settingsBottomPadding),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Material3Icon(
-                        imageVector = Icons.Filled.Settings,
-                        contentDescription = "Download settings",
-                    )
+                    if (uiState.selectedAreaIds.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                onAreaPickerOpenChange(false)
+                                viewModel.downloadSelectedBundle()
+                            },
+                            enabled = uiState.selection.canDownload,
+                            modifier = Modifier.size(pickerDownloadButtonSize),
+                            colors =
+                                IconButtonDefaults.iconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    disabledContainerColor = Color.White.copy(alpha = 0.08f),
+                                    disabledContentColor = Color.White.copy(alpha = 0.38f),
+                                ),
+                        ) {
+                            Material3Icon(
+                                imageVector = Icons.Filled.Download,
+                                contentDescription = "Download selected areas",
+                                modifier = Modifier.size(pickerDownloadIconSize),
+                            )
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    text = "Bundle: ${uiState.selection.compactLabel()}",
+                    style =
+                        MaterialTheme.typography.labelSmall.copy(
+                            fontSize = footerTextSize,
+                            lineHeight = footerLineHeight,
+                        ),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = footerHorizontalPadding, vertical = 1.dp),
+                )
+
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = settingsBottomPadding),
+                ) {
+                    IconButton(
+                        onClick = onOpenSettings,
+                        enabled = !uiState.isDownloading,
+                        modifier =
+                            Modifier
+                                .align(Alignment.Center)
+                                .size(settingsButtonSize),
+                        colors =
+                            IconButtonDefaults.iconButtonColors(
+                                containerColor = Color.Black.copy(alpha = 0.8f),
+                                contentColor = Color.White,
+                                disabledContainerColor = Color.Black.copy(alpha = 0.32f),
+                                disabledContentColor = Color.White.copy(alpha = 0.38f),
+                            ),
+                    ) {
+                        Material3Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = "Download settings",
+                        )
+                    }
                 }
             }
         }
@@ -812,7 +867,7 @@ private fun installedBundleSubtitle(bundle: OamInstalledBundle): String =
         "POI".takeIf { bundle.poiFileName != null },
         "Refuges.info".takeIf { bundle.refugesInfoFileName != null },
         "Routing".takeIf { bundle.routingFileNames.isNotEmpty() },
-        "DEM".takeIf { bundle.demTileIds.isNotEmpty() },
+        "${bundle.demSource.shortLabel} elevation".takeIf { bundle.demTileIds.isNotEmpty() },
     ).joinToString(" + ").ifBlank { bundle.bundleChoice.label }
 
 private fun OamDownloadSelection.compactLabel(): String =
@@ -820,7 +875,7 @@ private fun OamDownloadSelection.compactLabel(): String =
         "Maps".takeIf { includeMap },
         "POI".takeIf { includePoi },
         "Route".takeIf { includeRouting },
-        "DEM".takeIf { includeDem },
+        "${demSource.shortLabel} elevation".takeIf { includeDem },
         "Refuges".takeIf { includeRefugesInfo },
     ).joinToString(" + ").ifBlank { "None" }
 
@@ -859,7 +914,7 @@ private fun Long.toSizeLabel(selection: OamDownloadSelection): String =
     buildList {
         if (this@toSizeLabel > 0L) add(formatBytes(this@toSizeLabel))
         if (selection.includeRouting) add("routing")
-        if (selection.includeDem) add("DEM")
+        if (selection.includeDem) add("${selection.demSource.shortLabel} elevation")
         if (selection.includeRefugesInfo) add("Refuges.info")
     }.joinToString(" + ").ifBlank {
         formatBytes(this)

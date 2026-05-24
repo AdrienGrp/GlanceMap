@@ -26,10 +26,12 @@ internal fun downloadDemFile(
     target: File,
     demRoot: File,
     userAgent: String,
+    onConnectionOpened: (HttpURLConnection) -> Unit = {},
 ) {
     val context = buildDemDownloadContext(url = url, target = target)
     recordResumeAttempt(context)
     val connection = openDemConnection(context = context, userAgent = userAgent)
+    onConnectionOpened(connection)
     try {
         val response = prepareDemResponse(connection = connection, context = context, demRoot = demRoot)
         copyDemResponse(connection = connection, context = context, response = response)
@@ -49,7 +51,11 @@ private fun buildDemDownloadContext(
         url = url,
         target = target,
         part = part,
-        tileName = target.name.removeSuffix(".hgt.zip").removeSuffix(".hgt"),
+        tileName =
+            target.name
+                .removeSuffix(".hgt.zip")
+                .removeSuffix(".hgt.gz")
+                .removeSuffix(".hgt"),
         resumeOffset = part.takeIf { it.exists() && it.isFile }?.length()?.coerceAtLeast(0L) ?: 0L,
     )
 }

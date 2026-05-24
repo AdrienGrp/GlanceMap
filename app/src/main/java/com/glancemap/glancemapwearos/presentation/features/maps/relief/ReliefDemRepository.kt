@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapwearos.presentation.features.maps
 
 import android.util.Log
@@ -7,6 +9,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.util.LinkedHashMap
 import java.util.Locale
+import java.util.zip.GZIPInputStream
 import java.util.zip.ZipInputStream
 import kotlin.math.abs
 import kotlin.math.floor
@@ -14,12 +17,17 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 internal class ReliefDemRepository(
-    private val demRootDir: File,
+    private val demRootDirs: List<File>,
     private val tag: String,
 ) {
+    constructor(
+        demRootDir: File,
+        tag: String,
+    ) : this(listOf(demRootDir), tag)
+
     companion object {
-        private const val MIN_DEM_TILE_CACHE_ENTRIES = 12
-        private const val MAX_DEM_TILE_CACHE_ENTRIES = 36
+        private const val MIN_DEM_TILE_CACHE_ENTRIES = 3
+        private const val MAX_DEM_TILE_CACHE_ENTRIES = 8
     }
 
     private val maxDemTileCacheEntries: Int = computeMaxDemTileCacheEntries()
@@ -103,22 +111,31 @@ internal class ReliefDemRepository(
     private fun resolveDemFile(tileId: String): File? {
         val folder = tileId.substring(0, 3)
         val preferred =
-            listOf(
-                File(File(demRootDir, folder), "$tileId.hgt.zip"),
-                File(File(demRootDir, folder), "$tileId.hgt"),
-                File(demRootDir, "$tileId.hgt.zip"),
-                File(demRootDir, "$tileId.hgt"),
-            )
+            demRootDirs.flatMap { demRootDir ->
+                listOf(
+                    File(File(demRootDir, folder), "$tileId.hgt.gz"),
+                    File(File(demRootDir, folder), "$tileId.hgt.zip"),
+                    File(File(demRootDir, folder), "$tileId.hgt"),
+                    File(demRootDir, "$tileId.hgt.gz"),
+                    File(demRootDir, "$tileId.hgt.zip"),
+                    File(demRootDir, "$tileId.hgt"),
+                )
+            }
         return preferred.firstOrNull { it.exists() && it.isFile }
     }
 
     private fun readDemBytes(file: File): ByteArray? =
         BenchmarkTrace.section("relief.demReadBytes") {
-            if (file.name.endsWith(".zip", ignoreCase = true)) {
-                readZipEntryBytes(file)
-            } else {
-                file.readBytes()
+            when {
+                file.name.endsWith(".zip", ignoreCase = true) -> readZipEntryBytes(file)
+                file.name.endsWith(".gz", ignoreCase = true) -> readGzipBytes(file)
+                else -> file.readBytes()
             }
+        }
+
+    private fun readGzipBytes(file: File): ByteArray =
+        GZIPInputStream(FileInputStream(file).buffered()).use { gzip ->
+            gzip.readBytes()
         }
 
     private fun readZipEntryBytes(file: File): ByteArray? {
@@ -180,11 +197,11 @@ internal class ReliefDemRepository(
         val maxHeapMb = Runtime.getRuntime().maxMemory() / (1024L * 1024L)
         val adaptive =
             when {
-                maxHeapMb <= 128L -> 12
-                maxHeapMb <= 192L -> 16
-                maxHeapMb <= 256L -> 20
-                maxHeapMb <= 384L -> 28
-                else -> 36
+                maxHeapMb <= 128L -> 3
+                maxHeapMb <= 192L -> 4
+                maxHeapMb <= 256L -> 5
+                maxHeapMb <= 384L -> 6
+                else -> 8
             }
         return adaptive.coerceIn(MIN_DEM_TILE_CACHE_ENTRIES, MAX_DEM_TILE_CACHE_ENTRIES)
     }

@@ -5,16 +5,28 @@ package com.glancemap.glancemapwearos.presentation.features.download
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.SplitSwitchButton
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.maps.DemSource
+import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsToggleChip
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsListTokens
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -26,6 +38,16 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberScalingLazyListState()
     val listTokens = rememberSettingsListTokens()
+    var showDemSourcePicker by remember { mutableStateOf(false) }
+
+    OptionPickerDialog(
+        visible = showDemSourcePicker,
+        title = "Elevation quality",
+        selectedValue = uiState.selection.demSource,
+        options = DemSource.entries.map { source -> source to source.displayName },
+        onDismiss = { showDemSourcePicker = false },
+        onSelect = viewModel::setDemSource,
+    )
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
@@ -74,11 +96,11 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
                 )
             }
             item {
-                SettingsToggleChip(
+                ElevationDownloadSetting(
                     checked = uiState.selection.includeDem,
+                    source = uiState.selection.demSource,
                     onCheckedChanged = viewModel::setIncludeDem,
-                    label = "DEM",
-                    secondaryLabel = "Elevation tiles",
+                    onPickSource = { showDemSourcePicker = true },
                 )
             }
             item {
@@ -100,4 +122,41 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
             }
         }
     }
+}
+
+@Composable
+private fun ElevationDownloadSetting(
+    checked: Boolean,
+    source: DemSource,
+    onCheckedChanged: (Boolean) -> Unit,
+    onPickSource: () -> Unit,
+) {
+    SplitSwitchButton(
+        checked = checked,
+        onCheckedChange = onCheckedChanged,
+        toggleContentDescription = "Include elevation",
+        onContainerClick = onPickSource,
+        containerClickLabel = "Choose elevation quality",
+        modifier = Modifier.fillMaxWidth(),
+        label = {
+            Text(
+                text = "Elevation",
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(
+                imageVector = Icons.Filled.UnfoldMore,
+                contentDescription = "Choose elevation quality",
+                modifier = Modifier.size(18.dp),
+            )
+        },
+        secondaryLabel = {
+            Text(
+                text = source.shortLabel,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+    )
 }

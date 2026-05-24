@@ -9,6 +9,7 @@ import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.nio.file.Files
+import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -87,6 +88,13 @@ class ThemeViewModelDemSupportTest {
         validateDemTileFile(file)
     }
 
+    @Test
+    fun validDemGzipPassesValidation() {
+        val file = createTempDemGzip(hgtSize = 3601 * 3601 * 2)
+
+        validateDemTileFile(file)
+    }
+
     @Test(expected = DemInvalidTileException::class)
     fun zipWithoutHgtEntryFailsValidation() {
         val file = createTempZipWithEntry(entryName = "readme.txt", payloadSize = 32)
@@ -106,6 +114,21 @@ class ThemeViewModelDemSupportTest {
             entryName = "N46E006.hgt",
             payloadSize = hgtSize,
         )
+
+    private fun createTempDemGzip(hgtSize: Int): File {
+        val file = Files.createTempFile("dem-validation-test", ".hgt.gz").toFile()
+        GZIPOutputStream(file.outputStream().buffered()).use { gzip ->
+            val buffer = ByteArray(8192)
+            var remaining = hgtSize
+            while (remaining > 0) {
+                val write = minOf(buffer.size, remaining)
+                gzip.write(buffer, 0, write)
+                remaining -= write
+            }
+        }
+        file.deleteOnExit()
+        return file
+    }
 
     private fun createTempZipWithEntry(
         entryName: String,

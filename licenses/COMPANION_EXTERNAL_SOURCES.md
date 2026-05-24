@@ -45,7 +45,15 @@ This file lists third-party websites and APIs referenced by the companion app fo
 1. BRouter routing segments
    - https://brouter.de/brouter/segments4/
 
-## 5) Transparency note
+## 5) DEM elevation data
+
+1. Mapsforge DEM3 tiles
+   - https://download.mapsforge.org/maps/dem/dem3
+
+2. Mapzen Terrain Tiles / AWS skadi
+   - https://s3.amazonaws.com/elevation-tiles-prod/skadi
+
+## 6) Transparency note
 
 - These sources are external to GlanceMap.
 - File availability, file quality, service uptime, and legal terms are controlled by each provider.

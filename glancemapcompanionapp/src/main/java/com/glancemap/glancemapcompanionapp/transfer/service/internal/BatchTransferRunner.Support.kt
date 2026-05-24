@@ -211,5 +211,5 @@ internal fun isMapLikeTransferFile(fileName: String): Boolean =
 
 internal fun isDemTransferFile(fileName: String): Boolean {
     val lower = fileName.lowercase()
-    return lower.endsWith(".hgt") || lower.endsWith(".hgt.zip")
+    return lower.endsWith(".hgt") || lower.endsWith(".hgt.zip") || lower.endsWith(".hgt.gz")
 }

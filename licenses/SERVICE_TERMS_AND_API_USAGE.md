@@ -131,10 +131,15 @@ Project note:
 Used for:
 - DEM3 downloads from:
   - `https://download.mapsforge.org/maps/dem/dem3`
+- Optional 1 arcsecond DEM downloads from:
+  - Mapzen Terrain Tiles / AWS `skadi`
+  - `https://s3.amazonaws.com/elevation-tiles-prod/skadi`
 
 References:
 - https://download.mapsforge.org/maps/dem/
 - https://download.mapsforge.org/maps/dem/ReadMe.md
+- https://www.mapzen.com/blog/terrain-tile-service/
+- https://www.mapzen.com/rights/
 
 ## 8) Build-time POI icon source
 
