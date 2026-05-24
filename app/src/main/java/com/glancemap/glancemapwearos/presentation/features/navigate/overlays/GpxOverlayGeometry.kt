@@ -11,9 +11,12 @@ import kotlin.math.max
 import kotlin.math.min
 
 private const val GPX_DIRECTION_ARROW_SPACING_PX = 190.0
+private const val GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX = 150.0
+private const val GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX = 24.0
 private const val GPX_DIRECTION_ARROW_HEADING_SAMPLE_PX = 42.0
 private const val GPX_DIRECTION_ARROW_MIN_SCREEN_SEPARATION_PX = 86.0
 private const val MAX_GPX_DIRECTION_ARROWS_PER_TRACK = 36
+internal const val MAX_VISIBLE_GPX_DIRECTION_ARROWS_PER_TRACK = 10
 
 internal data class TrackLodLevels(
     val sourceSignature: Long,
@@ -33,6 +36,17 @@ private data class XY(
     val x: Double,
     val y: Double,
 )
+
+private data class ProjectedViewportBounds(
+    val left: Double,
+    val top: Double,
+    val right: Double,
+    val bottom: Double,
+) {
+    fun contains(point: XY): Boolean =
+        point.x in left..right &&
+            point.y in top..bottom
+}
 
 internal data class GpxDirectionArrow(
     val latLong: LatLong,
@@ -134,6 +148,62 @@ internal fun buildGpxDirectionArrows(
     return arrows
 }
 
+@Suppress("NestedBlockDepth")
+internal fun buildVisibleGpxDirectionArrows(
+    points: List<TrackPoint>,
+    zoom: Int,
+    tileSize: Int,
+    boundingBox: org.mapsforge.core.model.BoundingBox,
+    maxArrows: Int = MAX_VISIBLE_GPX_DIRECTION_ARROWS_PER_TRACK,
+): List<GpxDirectionArrow> {
+    if (points.size < 2 || maxArrows <= 0) return emptyList()
+
+    val zoomLevel = zoom.coerceIn(0, 30).toByte()
+    val mapSize = MercatorProjection.getMapSize(zoomLevel, tileSize)
+    val viewport = projectedViewportBounds(boundingBox, mapSize)
+    val arrows = ArrayList<GpxDirectionArrow>(maxArrows)
+    val arrowPixels = ArrayList<XY>(maxArrows)
+
+    var previous = project(points.first().latLong, mapSize)
+    for (index in 1 until points.size) {
+        val next = project(points[index].latLong, mapSize)
+        val dx = next.x - previous.x
+        val dy = next.y - previous.y
+        val segmentLength = kotlin.math.hypot(dx, dy)
+        if (segmentLength > 1e-6 && segmentMayTouchViewport(previous, next, viewport)) {
+            var distance = min(segmentLength * 0.5, GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX * 0.5)
+            while (distance < segmentLength && arrows.size < maxArrows) {
+                val t = (distance / segmentLength).coerceIn(0.0, 1.0)
+                val arrowPoint =
+                    XY(
+                        x = previous.x + dx * t,
+                        y = previous.y + dy * t,
+                    )
+                if (
+                    viewport.contains(arrowPoint) &&
+                    !hasNearbyDirectionArrow(arrowPixels, arrowPoint.x, arrowPoint.y)
+                ) {
+                    arrows +=
+                        GpxDirectionArrow(
+                            latLong =
+                                LatLong(
+                                    MercatorProjection.pixelYToLatitude(arrowPoint.y, mapSize),
+                                    MercatorProjection.pixelXToLongitude(arrowPoint.x, mapSize),
+                                ),
+                            headingDeg = Math.toDegrees(atan2(dx, -dy)).toFloat(),
+                        )
+                    arrowPixels += arrowPoint
+                }
+                distance += GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX
+            }
+        }
+        if (arrows.size >= maxArrows) break
+        previous = next
+    }
+
+    return arrows
+}
+
 private fun pointAtDistance(
     projectedPoints: List<XY>,
     cumulativeDistances: DoubleArray,
@@ -198,6 +268,58 @@ private fun hasNearbyDirectionArrow(
         dx * dx + dy * dy < minDistanceSq
     }
 }
+
+private fun project(
+    latLong: LatLong,
+    mapSize: Long,
+): XY =
+    XY(
+        x = MercatorProjection.longitudeToPixelX(latLong.longitude, mapSize),
+        y = MercatorProjection.latitudeToPixelY(latLong.latitude, mapSize),
+    )
+
+private fun projectedViewportBounds(
+    boundingBox: org.mapsforge.core.model.BoundingBox,
+    mapSize: Long,
+): ProjectedViewportBounds {
+    val left =
+        MercatorProjection.longitudeToPixelX(
+            boundingBox.minLongitude,
+            mapSize,
+        ) - GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX
+    val right =
+        MercatorProjection.longitudeToPixelX(
+            boundingBox.maxLongitude,
+            mapSize,
+        ) + GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX
+    val top =
+        MercatorProjection.latitudeToPixelY(
+            boundingBox.maxLatitude,
+            mapSize,
+        ) - GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX
+    val bottom =
+        MercatorProjection.latitudeToPixelY(
+            boundingBox.minLatitude,
+            mapSize,
+        ) + GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX
+
+    return ProjectedViewportBounds(
+        left = min(left, right),
+        top = min(top, bottom),
+        right = max(left, right),
+        bottom = max(top, bottom),
+    )
+}
+
+private fun segmentMayTouchViewport(
+    start: XY,
+    end: XY,
+    viewport: ProjectedViewportBounds,
+): Boolean =
+    max(start.x, end.x) >= viewport.left &&
+        min(start.x, end.x) <= viewport.right &&
+        max(start.y, end.y) >= viewport.top &&
+        min(start.y, end.y) <= viewport.bottom
 
 private fun latLongListSignature(points: List<TrackPoint>): Long {
     var h = 1_469_598_103_934_665_603L

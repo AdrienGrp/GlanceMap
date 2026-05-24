@@ -4,6 +4,7 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mapsforge.core.model.BoundingBox
 import org.mapsforge.core.model.LatLong
 
 class GpxDirectionArrowGeometryTest {
@@ -76,6 +77,62 @@ class GpxDirectionArrowGeometryTest {
 
         assertTrue(arrows.size >= 10)
         assertEquals(90f, arrows.first().headingDeg, 0.5f)
+    }
+
+    @Test
+    fun buildsVisibleArrowsForViewportSubset() {
+        val points =
+            (0..400).map { index ->
+                trackPoint(
+                    lat = 45.0,
+                    lon = 6.0 + index * 0.000025,
+                )
+            }
+
+        val arrows =
+            buildVisibleGpxDirectionArrows(
+                points = points,
+                zoom = 15,
+                tileSize = 256,
+                boundingBox =
+                    BoundingBox(
+                        44.9995,
+                        6.003,
+                        45.0005,
+                        6.006,
+                    ),
+            )
+
+        assertTrue(arrows.isNotEmpty())
+        assertTrue(arrows.size <= MAX_VISIBLE_GPX_DIRECTION_ARROWS_PER_TRACK)
+        assertEquals(90f, arrows.first().headingDeg, 0.5f)
+    }
+
+    @Test
+    fun capsVisibleArrowsPerTrack() {
+        val points =
+            (0..1200).map { index ->
+                trackPoint(
+                    lat = 45.0,
+                    lon = 6.0 + index * 0.000025,
+                )
+            }
+
+        val arrows =
+            buildVisibleGpxDirectionArrows(
+                points = points,
+                zoom = 16,
+                tileSize = 256,
+                boundingBox =
+                    BoundingBox(
+                        44.999,
+                        6.0,
+                        45.001,
+                        6.03,
+                    ),
+            )
+
+        assertEquals(MAX_VISIBLE_GPX_DIRECTION_ARROWS_PER_TRACK, arrows.size)
     }
 
     private fun trackPoint(

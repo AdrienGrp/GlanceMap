@@ -32,7 +32,6 @@ import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidBitmap
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.view.MapView
-import org.mapsforge.map.layer.Layers
 import org.mapsforge.map.layer.overlay.Marker
 import org.mapsforge.map.layer.overlay.Polyline
 import org.mapsforge.map.model.common.Observer
@@ -666,8 +665,6 @@ private fun GpxAndInspectionOverlayEffect(
     val elevationPolylinesById = remember(mapView) { mutableMapOf<String, List<Polyline>>() }
     val startMarkersById = remember(mapView) { mutableMapOf<String, Marker>() }
     val endMarkersById = remember(mapView) { mutableMapOf<String, Marker>() }
-    val directionArrowMarkersById = remember(mapView) { mutableMapOf<String, List<RotatableMarker>>() }
-    val directionArrowZoomById = remember(mapView) { mutableMapOf<String, Int>() }
     val lodById = remember(mapView) { mutableMapOf<String, TrackLodLevels>() }
     val displayedLodBucketById = remember(mapView) { mutableMapOf<String, Int>() }
     val previewPolyline =
@@ -704,7 +701,10 @@ private fun GpxAndInspectionOverlayEffect(
                 ),
             )
         }
-    val directionArrowBitmap = remember { AndroidBitmap(createGpxDirectionArrowBitmap()) }
+    val directionArrowLayer =
+        remember(mapView) {
+            GpxDirectionArrowLayer(AndroidBitmap(createGpxDirectionArrowBitmap()))
+        }
 
     LaunchedEffect(gpxTrackColor, gpxTrackWidth, gpxTrackOpacityPercent, routeToolCreatePreviewActive) {
         trackPaint.color =
@@ -758,8 +758,7 @@ private fun GpxAndInspectionOverlayEffect(
 
                 lodById.forEach { (id, lod) ->
                     val bucketChanged = displayedLodBucketById[id] != newBucket
-                    val arrowZoomChanged = directionArrowZoomById[id] != zoomNow
-                    if (!bucketChanged && (!gpxTrackDirectionArrowsEnabled || !arrowZoomChanged)) {
+                    if (!bucketChanged) {
                         return@forEach
                     }
                     val renderPoints = lod.pointsForZoom(zoomNow)
@@ -791,28 +790,12 @@ private fun GpxAndInspectionOverlayEffect(
                         }
                         displayedLodBucketById[id] = newBucket
                     }
-                    if (gpxTrackDirectionArrowsEnabled) {
-                        val arrows =
-                            buildGpxDirectionArrows(
-                                points = renderPoints,
-                                zoom = zoomNow,
-                                tileSize = mapView.model.displayModel.tileSize,
-                            )
-                        if (
-                            replaceDirectionArrowMarkers(
-                                layers = layers,
-                                markersById = directionArrowMarkersById,
-                                trackId = id,
-                                arrows = arrows,
-                                bitmap = directionArrowBitmap,
-                            )
-                        ) {
-                            changed = true
-                        }
-                        directionArrowZoomById[id] = zoomNow
-                    }
                 }
 
+                if (changed && layers.contains(directionArrowLayer)) {
+                    layers.remove(directionArrowLayer)
+                    layers.add(directionArrowLayer)
+                }
                 val reordered = if (changed) topOverlayCoordinator.sync() else false
                 if (changed || reordered) requestMapRedraw()
             }
@@ -846,7 +829,6 @@ private fun GpxAndInspectionOverlayEffect(
                     elevationPolylinesById = elevationPolylinesById,
                     startMarkersById = startMarkersById,
                     endMarkersById = endMarkersById,
-                    directionArrowMarkersById = directionArrowMarkersById,
                     lodById = lodById,
                     displayedLodBucketById = displayedLodBucketById,
                 ) - wantedIds
@@ -876,22 +858,20 @@ private fun GpxAndInspectionOverlayEffect(
                 ) {
                     changed = true
                 }
-                directionArrowMarkersById.remove(id)?.forEach { marker ->
-                    layers.remove(marker)
-                    changed = true
-                }
-                directionArrowZoomById.remove(id)
                 lodById.remove(id)
                 displayedLodBucketById.remove(id)
             }
-            if (!gpxTrackDirectionArrowsEnabled) {
-                directionArrowMarkersById.keys.toList().forEach { id ->
-                    directionArrowMarkersById.remove(id)?.forEach { marker ->
-                        layers.remove(marker)
-                        changed = true
-                    }
-                    directionArrowZoomById.remove(id)
-                }
+
+            val arrowsVisible = gpxTrackDirectionArrowsEnabled && computedLodById.isNotEmpty()
+            directionArrowLayer.trackLods = if (arrowsVisible) computedLodById else emptyMap()
+            directionArrowLayer.isVisible = arrowsVisible
+            val arrowLayerAttached = layers.contains(directionArrowLayer)
+            if (arrowsVisible && !arrowLayerAttached) {
+                layers.add(directionArrowLayer)
+                changed = true
+            } else if (!arrowsVisible && arrowLayerAttached) {
+                layers.remove(directionArrowLayer)
+                changed = true
             }
 
             // add/update polylines and S/E markers
@@ -957,27 +937,6 @@ private fun GpxAndInspectionOverlayEffect(
                     }
                 }
                 displayedLodBucketById[details.id] = currentBucket
-
-                if (gpxTrackDirectionArrowsEnabled) {
-                    val arrows =
-                        buildGpxDirectionArrows(
-                            points = renderPoints,
-                            zoom = zoomNow,
-                            tileSize = mapView.model.displayModel.tileSize,
-                        )
-                    if (
-                        replaceDirectionArrowMarkers(
-                            layers = layers,
-                            markersById = directionArrowMarkersById,
-                            trackId = details.id,
-                            arrows = arrows,
-                            bitmap = directionArrowBitmap,
-                        )
-                    ) {
-                        changed = true
-                    }
-                    directionArrowZoomById[details.id] = zoomNow
-                }
 
                 // Start marker
                 details.startPoint?.let { start ->
@@ -1125,7 +1084,7 @@ private fun GpxAndInspectionOverlayEffect(
                 elevationPolylinesById.values.flatten().forEach(layers::remove)
                 startMarkersById.values.forEach(layers::remove)
                 endMarkersById.values.forEach(layers::remove)
-                directionArrowMarkersById.values.flatten().forEach(layers::remove)
+                layers.remove(directionArrowLayer)
                 markerAHolder[0]?.let(layers::remove)
                 markerBHolder[0]?.let(layers::remove)
                 layers.remove(previewPolyline)
@@ -1134,8 +1093,7 @@ private fun GpxAndInspectionOverlayEffect(
                 elevationPolylinesById.clear()
                 startMarkersById.clear()
                 endMarkersById.clear()
-                directionArrowMarkersById.clear()
-                directionArrowZoomById.clear()
+                directionArrowLayer.trackLods = emptyMap()
                 lodById.clear()
                 displayedLodBucketById.clear()
                 previewPolyline.latLongs.clear()
@@ -1154,7 +1112,6 @@ private fun trackedGpxOverlayIds(
     elevationPolylinesById: Map<String, List<Polyline>>,
     startMarkersById: Map<String, Marker>,
     endMarkersById: Map<String, Marker>,
-    directionArrowMarkersById: Map<String, List<RotatableMarker>>,
     lodById: Map<String, TrackLodLevels>,
     displayedLodBucketById: Map<String, Int>,
 ): Set<String> =
@@ -1163,42 +1120,9 @@ private fun trackedGpxOverlayIds(
         addAll(elevationPolylinesById.keys)
         addAll(startMarkersById.keys)
         addAll(endMarkersById.keys)
-        addAll(directionArrowMarkersById.keys)
         addAll(lodById.keys)
         addAll(displayedLodBucketById.keys)
     }
-
-private fun replaceDirectionArrowMarkers(
-    layers: Layers,
-    markersById: MutableMap<String, List<RotatableMarker>>,
-    trackId: String,
-    arrows: List<GpxDirectionArrow>,
-    bitmap: org.mapsforge.core.graphics.Bitmap,
-): Boolean {
-    var changed = false
-    markersById.remove(trackId)?.forEach { marker ->
-        layers.remove(marker)
-        changed = true
-    }
-    if (arrows.isEmpty()) return changed
-
-    val horizontalOffset = -bitmap.width / 2
-    val verticalOffset = -bitmap.height / 2
-    val markers =
-        arrows.map { arrow ->
-            RotatableMarker(
-                latLong = arrow.latLong,
-                bitmap = bitmap,
-                horizontalOffset = horizontalOffset,
-                verticalOffset = verticalOffset,
-            ).apply {
-                heading = arrow.headingDeg
-            }
-        }
-    markersById[trackId] = markers
-    markers.forEach(layers::add)
-    return true
-}
 
 private fun createElevationTrackPolylines(
     segments: List<ElevationTrackSegment>,
