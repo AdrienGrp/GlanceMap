@@ -156,8 +156,8 @@ fun SettingsScreen(
                 SettingsToggleChip(
                     checked = backButtonExitsNavigation,
                     onCheckedChanged = viewModel::setBackButtonExitsNavigation,
-                    label = "Back exits navigation",
-                    secondaryLabel = if (backButtonExitsNavigation) "On" else "Off",
+                    label = "Back button",
+                    secondaryLabel = "Exits for compatible watches",
                 )
             }
             item {
