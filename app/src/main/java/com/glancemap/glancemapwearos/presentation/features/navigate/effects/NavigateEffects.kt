@@ -76,7 +76,19 @@ fun NavigationOrientationEffect(
         return actualRotationDeg
     }
 
+    fun recenterLowerMarkerAnchor() {
+        if (navMode == NavMode.PANNING) return
+        val markerLatLong = marker?.latLong ?: return
+        val anchorMode = latestNavigationMarkerAnchorMode.value
+        if (anchorMode != SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) return
+        val desiredCenter = mv.resolveMapCenterForNavigationMarker(markerLatLong, anchorMode)
+        if (shouldUpdateMapCenter(desiredCenter, mv.model.mapViewPosition.center)) {
+            mv.setCenter(desiredCenter)
+        }
+    }
+
     fun applyMapRotation(targetRotationDeg: Float) {
+        recenterLowerMarkerAnchor()
         val currentRotationDeg = syncDisplayedMapRotationFromMap()
         if (abs(angleDeltaDeg(targetRotationDeg, currentRotationDeg)) < MAP_ROTATION_APPLY_EPSILON_DEG) {
             onRenderedMapRotationChanged(currentRotationDeg)
@@ -86,17 +98,6 @@ fun NavigationOrientationEffect(
         if (mv.trySetMapsforgeRotation(targetRotationDeg, anchor)) {
             val appliedRotationDeg = syncDisplayedMapRotationFromMap()
             onRenderedMapRotationChanged(appliedRotationDeg)
-        }
-    }
-
-    fun recenterLowerMarkerAnchorAfterRotation() {
-        if (navMode == NavMode.PANNING) return
-        val markerLatLong = marker?.latLong ?: return
-        val anchorMode = latestNavigationMarkerAnchorMode.value
-        if (anchorMode != SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) return
-        val desiredCenter = mv.resolveMapCenterForNavigationMarker(markerLatLong, anchorMode)
-        if (shouldUpdateMapCenter(desiredCenter, mv.model.mapViewPosition.center)) {
-            mv.setCenter(desiredCenter)
         }
     }
 
@@ -153,7 +154,7 @@ fun NavigationOrientationEffect(
                 if (shouldDriveHeadingNow || shouldSeedCachedHeading) {
                     val rot = -displayedHeading.floatValue
                     applyMapRotation(rot)
-                    recenterLowerMarkerAnchorAfterRotation()
+                    recenterLowerMarkerAnchor()
                 } else {
                     onRenderedMapRotationChanged(syncDisplayedMapRotationFromMap())
                 }
@@ -161,7 +162,7 @@ fun NavigationOrientationEffect(
 
             NavMode.NORTH_UP_FOLLOW -> {
                 applyMapRotation(0f)
-                recenterLowerMarkerAnchorAfterRotation()
+                recenterLowerMarkerAnchor()
             }
 
             NavMode.PANNING -> {
@@ -231,12 +232,12 @@ fun NavigationOrientationEffect(
                 when (navMode) {
                     NavMode.COMPASS_FOLLOW -> {
                         applyMapRotation(-next)
-                        recenterLowerMarkerAnchorAfterRotation()
+                        recenterLowerMarkerAnchor()
                         applyMarkersForMode(navMode)
                     }
                     NavMode.NORTH_UP_FOLLOW -> {
                         applyMapRotation(0f)
-                        recenterLowerMarkerAnchorAfterRotation()
+                        recenterLowerMarkerAnchor()
                         applyMarkersForMode(navMode)
                     }
                     NavMode.PANNING -> Unit
