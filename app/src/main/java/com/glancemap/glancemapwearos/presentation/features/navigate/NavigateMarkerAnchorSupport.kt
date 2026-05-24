@@ -24,19 +24,14 @@ internal fun MapView.resolveMapCenterForNavigationMarker(
     val heightPx = height.toDouble()
     if (widthPx <= 0.0 || heightPx <= 0.0) return markerLatLong
 
-    val lowerMarkerRaisePx = LOWER_MARKER_RAISE_DP * resources.displayMetrics.density
-    val desiredMarkerScreenY =
-        (heightPx * LOWER_MARKER_SCREEN_FRACTION - lowerMarkerRaisePx).coerceIn(
-            heightPx * LOWER_MARKER_MIN_SCREEN_FRACTION,
-            heightPx * LOWER_MARKER_MAX_SCREEN_FRACTION,
-        )
-    val (desiredMarkerMapX, desiredMarkerMapY) =
+    val anchor = resolveNavigationMarkerScreenAnchor(markerAnchorMode)
+    val desiredMarker =
         unrotateTouchToMapSpace(
-            x = widthPx / 2.0,
-            y = desiredMarkerScreenY,
+            point = anchor,
             mapWidth = widthPx,
             mapHeight = heightPx,
             mapRotationDeg = mapRotation.degrees.toDouble(),
+            pivot = anchor,
         )
 
     val zoomLevel = model.mapViewPosition.zoomLevel
@@ -44,13 +39,35 @@ internal fun MapView.resolveMapCenterForNavigationMarker(
     val mapSize = MercatorProjection.getMapSize(zoomLevel, tileSize)
     val markerPixelX = MercatorProjection.longitudeToPixelX(markerLatLong.longitude, mapSize)
     val markerPixelY = MercatorProjection.latitudeToPixelY(markerLatLong.latitude, mapSize)
-    val centerPixelX = markerPixelX - desiredMarkerMapX + widthPx / 2.0
-    val centerPixelY = markerPixelY - desiredMarkerMapY + heightPx / 2.0
+    val centerPixelX = markerPixelX - desiredMarker.x + widthPx / 2.0
+    val centerPixelY = markerPixelY - desiredMarker.y + heightPx / 2.0
 
     return LatLong(
         MercatorProjection.pixelYToLatitude(centerPixelY, mapSize),
         MercatorProjection.pixelXToLongitude(centerPixelX, mapSize),
     )
+}
+
+internal fun MapView.resolveNavigationMarkerScreenAnchor(markerAnchorMode: String): ScreenAnchor {
+    val widthPx = width.toDouble()
+    val heightPx = height.toDouble()
+    val centerX = widthPx / 2.0
+    val centerY = heightPx / 2.0
+    if (
+        widthPx <= 0.0 ||
+        heightPx <= 0.0 ||
+        markerAnchorMode != SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER
+    ) {
+        return ScreenAnchor(centerX, centerY)
+    }
+
+    val lowerMarkerRaisePx = LOWER_MARKER_RAISE_DP * resources.displayMetrics.density
+    val lowerY =
+        (heightPx * LOWER_MARKER_SCREEN_FRACTION - lowerMarkerRaisePx).coerceIn(
+            heightPx * LOWER_MARKER_MIN_SCREEN_FRACTION,
+            heightPx * LOWER_MARKER_MAX_SCREEN_FRACTION,
+        )
+    return ScreenAnchor(centerX, lowerY)
 }
 
 private const val LOWER_MARKER_SCREEN_FRACTION = 0.82

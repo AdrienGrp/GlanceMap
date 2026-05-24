@@ -31,6 +31,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.motion.Marke
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionReading
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionSeed
 import com.glancemap.glancemapwearos.presentation.features.navigate.requestLayerRedrawSafely
+import com.glancemap.glancemapwearos.presentation.features.navigate.resolveMapCenterForNavigationMarker
 import com.glancemap.glancemapwearos.presentation.features.navigate.setCenterForNavigationMarker
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
@@ -572,9 +573,11 @@ internal fun rememberNavigateLocationUiState(
                 }
 
                 if (
-                    shouldCenterOnRenderedMarker(
+                    shouldCenterOnNavigationMarker(
+                        mapView = mapView,
                         shouldFollowPosition = latestShouldFollowPosition.value,
                         target = displayLatLong,
+                        markerAnchorMode = latestNavigationMarkerAnchorMode.value,
                         currentCenter = mapView.model.mapViewPosition.center,
                     )
                 ) {
@@ -663,9 +666,11 @@ internal fun rememberNavigateLocationUiState(
 
             marker.latLong = predicted
             if (
-                shouldCenterOnRenderedMarker(
+                shouldCenterOnNavigationMarker(
+                    mapView = mapView,
                     shouldFollowPosition = latestShouldFollowPosition.value,
                     target = predicted,
+                    markerAnchorMode = latestNavigationMarkerAnchorMode.value,
                     currentCenter = mapView.model.mapViewPosition.center,
                 )
             ) {
@@ -802,6 +807,19 @@ internal fun shouldCenterOnRenderedMarker(
     val dLon = target.longitude - center.longitude
     return (dLat * dLat + dLon * dLon) >= MARKER_UPDATE_EPSILON_DEG2
 }
+
+private fun shouldCenterOnNavigationMarker(
+    mapView: MapView,
+    shouldFollowPosition: Boolean,
+    target: LatLong,
+    markerAnchorMode: String,
+    currentCenter: LatLong?,
+): Boolean =
+    shouldCenterOnRenderedMarker(
+        shouldFollowPosition = shouldFollowPosition,
+        target = mapView.resolveMapCenterForNavigationMarker(target, markerAnchorMode),
+        currentCenter = currentCenter,
+    )
 
 internal fun resolveWakeAnchorSeedOrNull(
     location: android.location.Location?,

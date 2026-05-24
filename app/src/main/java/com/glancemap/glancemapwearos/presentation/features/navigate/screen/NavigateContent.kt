@@ -535,13 +535,14 @@ internal fun NavigateContent(
 
                     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                         val mv = latestMapView.value ?: return false
+                        val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
                         val (x, y) =
                             unrotateTouchToMapSpace(
-                                x = e.x.toDouble(),
-                                y = e.y.toDouble(),
+                                point = ScreenAnchor(e.x.toDouble(), e.y.toDouble()),
                                 mapWidth = mv.width.toDouble(),
                                 mapHeight = mv.height.toDouble(),
                                 mapRotationDeg = mv.mapRotation.degrees.toDouble(),
+                                pivot = anchor,
                             )
                         val ll = runCatching { mv.mapViewProjection.fromPixels(x, y) }.getOrNull() ?: return false
                         if (latestRouteToolSession.value != null) return false
@@ -572,13 +573,14 @@ internal fun NavigateContent(
                     override fun onLongPress(e: MotionEvent) {
                         if (!latestInspectionEnabled.value) return
                         val mv = latestMapView.value ?: return
+                        val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
                         val (x, y) =
                             unrotateTouchToMapSpace(
-                                x = e.x.toDouble(),
-                                y = e.y.toDouble(),
+                                point = ScreenAnchor(e.x.toDouble(), e.y.toDouble()),
                                 mapWidth = mv.width.toDouble(),
                                 mapHeight = mv.height.toDouble(),
                                 mapRotationDeg = mv.mapRotation.degrees.toDouble(),
+                                pivot = anchor,
                             )
                         val ll =
                             runCatching {

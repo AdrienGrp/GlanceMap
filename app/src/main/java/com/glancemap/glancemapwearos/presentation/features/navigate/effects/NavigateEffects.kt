@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.model.Rotation
 import org.mapsforge.map.android.view.MapView
 import java.io.File
@@ -81,7 +82,8 @@ fun NavigationOrientationEffect(
             onRenderedMapRotationChanged(currentRotationDeg)
             return
         }
-        if (mv.trySetMapsforgeRotation(targetRotationDeg)) {
+        val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
+        if (mv.trySetMapsforgeRotation(targetRotationDeg, anchor)) {
             val appliedRotationDeg = syncDisplayedMapRotationFromMap()
             onRenderedMapRotationChanged(appliedRotationDeg)
         }
@@ -92,7 +94,10 @@ fun NavigationOrientationEffect(
         val markerLatLong = marker?.latLong ?: return
         val anchorMode = latestNavigationMarkerAnchorMode.value
         if (anchorMode != SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) return
-        mv.setCenterForNavigationMarker(markerLatLong, anchorMode)
+        val desiredCenter = mv.resolveMapCenterForNavigationMarker(markerLatLong, anchorMode)
+        if (shouldUpdateMapCenter(desiredCenter, mv.model.mapViewPosition.center)) {
+            mv.setCenter(desiredCenter)
+        }
     }
 
     fun applyMarkersForMode(targetNavMode: NavMode) {
@@ -340,12 +345,24 @@ private const val HEADING_ANIMATION_ALPHA = 0.5f
 // Stop animating when within this threshold — sub-pixel on any WearOS display.
 private const val HEADING_ANIMATION_DONE_DEG = 0.05f
 private const val GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS = 30_000L
+private const val MAP_CENTER_UPDATE_EPSILON_DEG2 = 1e-11
 
-private fun MapView.trySetMapsforgeRotation(degrees: Float): Boolean {
+private fun shouldUpdateMapCenter(
+    target: LatLong,
+    current: LatLong?,
+): Boolean {
+    val center = current ?: return true
+    val dLat = target.latitude - center.latitude
+    val dLon = target.longitude - center.longitude
+    return (dLat * dLat + dLon * dLon) >= MAP_CENTER_UPDATE_EPSILON_DEG2
+}
+
+private fun MapView.trySetMapsforgeRotation(
+    degrees: Float,
+    anchor: ScreenAnchor,
+): Boolean {
     if (width <= 0 || height <= 0) return false
-    val px = width * 0.5f
-    val py = height * 0.5f
-    rotate(Rotation(degrees, px, py))
+    rotate(Rotation(degrees, anchor.x.toFloat(), anchor.y.toFloat()))
     return true
 }
 

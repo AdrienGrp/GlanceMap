@@ -1061,46 +1061,43 @@ internal fun projectLatLongToScreenOffset(
     mapView: MapView,
     latLong: LatLong,
     mapRotationDeg: Float,
+    rotationPivot: ScreenAnchor = ScreenAnchor(mapView.width / 2.0, mapView.height / 2.0),
 ): Offset? {
     if (mapView.width <= 0 || mapView.height <= 0) return null
 
-    val mapPoint =
-        runCatching {
-            mapView.mapViewProjection.toPixels(latLong)
-        }.getOrNull() ?: return null
-
-    val (screenX, screenY) =
-        rotateMapSpaceToScreen(
-            x = mapPoint.x,
-            y = mapPoint.y,
-            mapWidth = mapView.width.toDouble(),
-            mapHeight = mapView.height.toDouble(),
-            mapRotationDeg = mapRotationDeg.toDouble(),
-        )
-    return Offset(screenX.toFloat(), screenY.toFloat())
+    return runCatching {
+        mapView.mapViewProjection.toPixels(latLong)
+    }.getOrNull()?.let { mapPoint ->
+        val screen =
+            rotateMapSpaceToScreen(
+                point = ScreenAnchor(mapPoint.x, mapPoint.y),
+                mapWidth = mapView.width.toDouble(),
+                mapHeight = mapView.height.toDouble(),
+                mapRotationDeg = mapRotationDeg.toDouble(),
+                pivot = rotationPivot,
+            )
+        Offset(screen.x.toFloat(), screen.y.toFloat())
+    }
 }
 
 internal fun rotateMapSpaceToScreen(
-    x: Double,
-    y: Double,
+    point: ScreenAnchor,
     mapWidth: Double,
     mapHeight: Double,
     mapRotationDeg: Double,
-): Pair<Double, Double> {
-    if (mapWidth <= 0.0 || mapHeight <= 0.0) return x to y
-    if (kotlin.math.abs(mapRotationDeg) < 0.001) return x to y
+    pivot: ScreenAnchor = ScreenAnchor(mapWidth / 2.0, mapHeight / 2.0),
+): ScreenAnchor {
+    if (mapWidth <= 0.0 || mapHeight <= 0.0 || kotlin.math.abs(mapRotationDeg) < 0.001) return point
 
-    val cx = mapWidth / 2.0
-    val cy = mapHeight / 2.0
     val rad = Math.toRadians(mapRotationDeg)
     val c = cos(rad)
     val s = sin(rad)
 
-    val dx = x - cx
-    val dy = y - cy
+    val dx = point.x - pivot.x
+    val dy = point.y - pivot.y
 
     val rx = dx * c - dy * s
     val ry = dx * s + dy * c
 
-    return (cx + rx) to (cy + ry)
+    return ScreenAnchor(pivot.x + rx, pivot.y + ry)
 }

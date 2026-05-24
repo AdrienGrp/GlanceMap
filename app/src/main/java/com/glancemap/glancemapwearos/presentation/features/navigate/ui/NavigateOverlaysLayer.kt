@@ -166,10 +166,12 @@ internal fun BoxScope.NavigateOverlaysLayer(
                 )
             liveDistanceLineStart =
                 liveDistanceOrigin?.let { origin ->
+                    val anchor = mapView.resolveNavigationMarkerScreenAnchor(navigationMarkerAnchorMode)
                     projectLatLongToScreenOffset(
                         mapView = mapView,
                         latLong = origin,
                         mapRotationDeg = mapRotationDeg,
+                        rotationPivot = anchor,
                     )
                 }
             delay(80L)
