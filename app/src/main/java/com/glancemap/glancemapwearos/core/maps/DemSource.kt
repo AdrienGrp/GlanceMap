@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList")
+
 package com.glancemap.glancemapwearos.core.maps
 
 import android.content.Context
@@ -30,7 +32,8 @@ enum class DemSource(
         rootDirName = "dem1",
         baseUrl = "https://s3.amazonaws.com/elevation-tiles-prod/skadi",
         remoteExtension = ".hgt.gz",
-    );
+    ),
+    ;
 
     fun rootDir(context: Context): File =
         context.getExternalFilesDir(rootDirName)
@@ -51,7 +54,6 @@ enum class DemSource(
         val DEFAULT = MAPSFORGE_DEM3
         val LOAD_PRIORITY = listOf(MAPZEN_SKADI_1S, MAPSFORGE_DEM3)
 
-        fun fromId(id: String?): DemSource =
-            entries.firstOrNull { it.id == id } ?: DEFAULT
+        fun fromId(id: String?): DemSource = entries.firstOrNull { it.id == id } ?: DEFAULT
     }
 }

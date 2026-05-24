@@ -4,6 +4,7 @@
     "LongParameterList",
     "LoopWithTooManyJumpStatements",
     "LargeClass",
+    "MaxLineLength",
     "TooManyFunctions",
 )
 
@@ -791,8 +792,10 @@ class OamBundleDownloader(
             }.getOrElse { error ->
                 if (error.isHttpNotFound()) {
                     targetFile.delete()
-                    File(targetFile.parentFile ?: Dem3CoverageUtils.demRootDir(context, source), ".${targetFile.name}.part")
-                        .delete()
+                    File(
+                        targetFile.parentFile ?: Dem3CoverageUtils.demRootDir(context, source),
+                        ".${targetFile.name}.part",
+                    ).delete()
                     createMissingDemMarker(
                         target = targetFile,
                         demRoot = Dem3CoverageUtils.demRootDir(context, source),
@@ -833,7 +836,10 @@ class OamBundleDownloader(
         source: DemSource,
     ) {
         val targetFile = demTileTargetFile(tileId, source)
-        File(targetFile.parentFile ?: Dem3CoverageUtils.demRootDir(context, source), ".${targetFile.name}.part").delete()
+        File(
+            targetFile.parentFile ?: Dem3CoverageUtils.demRootDir(context, source),
+            ".${targetFile.name}.part",
+        ).delete()
     }
 
     private fun demRemoteFileRequest(

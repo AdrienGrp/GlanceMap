@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "ReturnCount")
+
 package com.glancemap.glancemapwearos.presentation.features.maps.theme
 
 import android.content.Context
@@ -91,6 +93,7 @@ class ThemeViewModel(
     private val _demDownloadUiState = MutableStateFlow(DemDownloadUiState())
     val demDownloadUiState: StateFlow<DemDownloadUiState> = _demDownloadUiState.asStateFlow()
     private var demDownloadJob: Job? = null
+
     @Volatile
     private var activeDemConnection: HttpURLConnection? = null
     val demSource: StateFlow<DemSource> =

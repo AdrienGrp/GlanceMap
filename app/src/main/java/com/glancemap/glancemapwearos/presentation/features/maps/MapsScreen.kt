@@ -1,3 +1,11 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+    "ReturnCount",
+    "TooManyFunctions",
+)
 @file:OptIn(
     com.google.android.horologist.annotations.ExperimentalHorologistApi::class,
     androidx.compose.foundation.ExperimentalFoundationApi::class,
@@ -22,8 +30,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
@@ -388,9 +396,10 @@ fun MapsScreen(
         DeleteConfirmationDialog(
             visible = demSourceToDeleteAll != null,
             title = "Delete DEM source?",
-            message = demSourceToDeleteAll?.let { source ->
-                "Delete all ${source.displayName} DEM files from the watch?"
-            } ?: "",
+            message =
+                demSourceToDeleteAll?.let { source ->
+                    "Delete all ${source.displayName} DEM files from the watch?"
+                } ?: "",
             onConfirm = {
                 demSourceToDeleteAll?.let { mapViewModel.deleteAllDemTileFiles(it) }
                 demSourceToDeleteAll = null

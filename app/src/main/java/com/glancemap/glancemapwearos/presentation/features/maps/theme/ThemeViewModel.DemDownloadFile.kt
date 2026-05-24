@@ -51,7 +51,11 @@ private fun buildDemDownloadContext(
         url = url,
         target = target,
         part = part,
-        tileName = target.name.removeSuffix(".hgt.zip").removeSuffix(".hgt.gz").removeSuffix(".hgt"),
+        tileName =
+            target.name
+                .removeSuffix(".hgt.zip")
+                .removeSuffix(".hgt.gz")
+                .removeSuffix(".hgt"),
         resumeOffset = part.takeIf { it.exists() && it.isFile }?.length()?.coerceAtLeast(0L) ?: 0L,
     )
 }

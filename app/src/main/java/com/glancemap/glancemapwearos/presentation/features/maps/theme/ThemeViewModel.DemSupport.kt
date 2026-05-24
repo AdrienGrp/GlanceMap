@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapwearos.presentation.features.maps.theme
 
 import java.io.File
@@ -82,7 +84,8 @@ internal fun validateDemTileFile(file: File) {
     when {
         file.name.endsWith(".zip", ignoreCase = true) -> validateDemZip(file)
         file.name.endsWith(".gz", ignoreCase = true) -> validateDemGzip(file)
-        !isPlausibleHgtByteSize(file.length()) -> invalidDemTile("DEM tile has invalid HGT size: ${file.length()} bytes.")
+        !isPlausibleHgtByteSize(file.length()) ->
+            invalidDemTile("DEM tile has invalid HGT size: ${file.length()} bytes.")
     }
 }
 

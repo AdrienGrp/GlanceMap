@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount")
+
 package com.glancemap.glancemapwearos.core.maps
 
 import android.content.Context
@@ -44,16 +46,14 @@ object Dem3CoverageUtils {
             true,
         )
 
-    fun demRootDir(context: Context): File =
-        demRootDir(context, DemSource.MAPSFORGE_DEM3)
+    fun demRootDir(context: Context): File = demRootDir(context, DemSource.MAPSFORGE_DEM3)
 
     fun demRootDir(
         context: Context,
         source: DemSource,
     ): File = source.rootDir(context)
 
-    fun demRootDirs(context: Context): List<File> =
-        DemSource.LOAD_PRIORITY.map { it.rootDir(context) }
+    fun demRootDirs(context: Context): List<File> = DemSource.LOAD_PRIORITY.map { it.rootDir(context) }
 
     fun coverageForMap(
         context: Context,

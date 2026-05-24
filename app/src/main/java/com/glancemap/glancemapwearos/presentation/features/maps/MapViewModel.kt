@@ -79,7 +79,9 @@ data class DemTileFileState(
 
 private fun isDemTileFileName(name: String): Boolean {
     val lower = name.lowercase(Locale.ROOT)
-    return lower.endsWith(".hgt") || lower.endsWith(".hgt.zip") || lower.endsWith(".hgt.gz") ||
+    return lower.endsWith(".hgt") ||
+        lower.endsWith(".hgt.zip") ||
+        lower.endsWith(".hgt.gz") ||
         lower.endsWith(".hgt.missing")
 }
 
@@ -544,24 +546,25 @@ class MapViewModel(
         viewModelScope.launch {
             val states =
                 withContext(Dispatchers.IO) {
-                    DemSource.entries.flatMap { source ->
-                        val root = Dem3CoverageUtils.demRootDir(context, source)
-                        root
-                            .walkTopDown()
-                            .maxDepth(3)
-                            .filter { it.isFile && isDemTileFileName(it.name) }
-                            .map { file ->
-                                DemTileFileState(
-                                    name = file.name,
-                                    path = file.absolutePath,
-                                    sizeBytes = file.length(),
-                                    source = source,
-                                )
-                            }.toList()
-                    }.sortedWith(
-                        compareBy<DemTileFileState> { it.source.ordinal }
-                            .thenBy { it.name.lowercase() },
-                    )
+                    DemSource.entries
+                        .flatMap { source ->
+                            val root = Dem3CoverageUtils.demRootDir(context, source)
+                            root
+                                .walkTopDown()
+                                .maxDepth(3)
+                                .filter { it.isFile && isDemTileFileName(it.name) }
+                                .map { file ->
+                                    DemTileFileState(
+                                        name = file.name,
+                                        path = file.absolutePath,
+                                        sizeBytes = file.length(),
+                                        source = source,
+                                    )
+                                }.toList()
+                        }.sortedWith(
+                            compareBy<DemTileFileState> { it.source.ordinal }
+                                .thenBy { it.name.lowercase() },
+                        )
                 }
             _demTileFiles.value = states
         }
