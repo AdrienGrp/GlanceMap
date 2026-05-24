@@ -264,13 +264,18 @@ internal fun RefreshBundleSummaryDialog(
     if (summary == null) return
 
     val refreshCount = summary.bundlesToRefresh.size
-    val allUpToDate = refreshCount == 0
+    val hasUpdates = refreshCount > 0
     AlertDialog(
         visible = true,
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = if (allUpToDate) "All up to date" else "Refresh bundles?",
+                text =
+                    when {
+                        hasUpdates -> "Refresh bundles?"
+                        summary.unknownCount > 0 -> "Check incomplete"
+                        else -> "All up to date"
+                    },
                 textAlign = TextAlign.Center,
             )
         },
@@ -281,12 +286,12 @@ internal fun RefreshBundleSummaryDialog(
             )
         },
         confirmButton = {
-            Button(onClick = if (allUpToDate) onDismiss else onConfirm) {
-                Text(if (allUpToDate) "OK" else "Refresh $refreshCount")
+            Button(onClick = if (hasUpdates) onConfirm else onDismiss) {
+                Text(if (hasUpdates) "Refresh $refreshCount" else "OK")
             }
         },
         dismissButton = {
-            if (!allUpToDate) {
+            if (hasUpdates) {
                 Button(
                     onClick = onDismiss,
                     colors =
@@ -330,22 +335,31 @@ private fun refreshBundleDialogText(check: OamBundleUpdateCheck): String =
     }
 
 private fun refreshSummaryDialogText(summary: OamBundleRefreshSummary): String =
-    if (summary.bundlesToRefresh.isEmpty()) {
-        "${summary.totalCount} selected bundle(s) are up to date."
-    } else {
-        buildString {
-            append("${summary.totalCount} checked")
-            if (summary.updateAvailableCount > 0) {
-                append("\n${summary.updateAvailableCount} update available")
+    when {
+        summary.bundlesToRefresh.isNotEmpty() ->
+            buildString {
+                append("${summary.totalCount} checked")
+                if (summary.updateAvailableCount > 0) {
+                    append("\n${summary.updateAvailableCount} update available")
+                }
+                if (summary.unknownCount > 0) {
+                    append("\n${summary.unknownCount} check incomplete")
+                }
+                if (summary.upToDateCount > 0) {
+                    append("\n${summary.upToDateCount} up to date")
+                }
+                append("\n\nRefresh ${summary.bundlesToRefresh.size} bundle(s)?")
             }
-            if (summary.unknownCount > 0) {
-                append("\n${summary.unknownCount} need update info")
+        summary.unknownCount > 0 ->
+            buildString {
+                append("${summary.totalCount} checked")
+                append("\n${summary.unknownCount} check incomplete")
+                if (summary.upToDateCount > 0) {
+                    append("\n${summary.upToDateCount} up to date")
+                }
+                append("\n\nNo confirmed updates were found.")
             }
-            if (summary.upToDateCount > 0) {
-                append("\n${summary.upToDateCount} up to date")
-            }
-            append("\n\nRefresh ${summary.bundlesToRefresh.size} bundle(s)?")
-        }
+        else -> "${summary.totalCount} selected bundle(s) are up to date."
     }
 
 private const val MAX_DIALOG_FILE_NAMES = 3
