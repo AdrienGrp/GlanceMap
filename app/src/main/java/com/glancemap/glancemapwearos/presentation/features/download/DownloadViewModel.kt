@@ -281,6 +281,7 @@ class DownloadViewModel(
                 try {
                     areas.forEachIndexed { index, area ->
                         downloader.downloadBundle(area, selection) { progress ->
+                            if (!progress.shouldShowInBundleProgress()) return@downloadBundle
                             val detail = "${index + 1}/${areas.size} ${area.region} - ${progress.detail}"
                             notificationController.showProgress(
                                 title = "Downloading offline bundle",
@@ -715,6 +716,7 @@ class DownloadViewModel(
                             forceRoutingFileNames = target.forces.forceRoutingFileNames,
                             forceDemTileIds = target.forces.forceDemTileIds,
                         ) { progress ->
+                            if (!progress.shouldShowInBundleProgress()) return@downloadBundle
                             val detail = "${index + 1}/${targets.size} ${target.area.region} - ${progress.detail}"
                             notificationController.showProgress(
                                 title = "Refreshing offline bundle",
@@ -819,6 +821,8 @@ class DownloadViewModel(
 }
 
 private fun String.telemetryValue(): String = replace(' ', '_')
+
+internal fun OamDownloadProgress.shouldShowInBundleProgress(): Boolean = !phase.equals("SKIPPED", ignoreCase = true)
 
 private enum class DownloadStopRequest {
     PAUSE,
