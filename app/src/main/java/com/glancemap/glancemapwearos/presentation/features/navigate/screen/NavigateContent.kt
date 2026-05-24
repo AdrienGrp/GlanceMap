@@ -46,6 +46,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentW
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
+import com.glancemap.glancemapwearos.presentation.features.maps.MapLayerMutationCoordinator
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
@@ -860,6 +861,7 @@ internal fun NavigateContent(
                         setOnTouchListener { v, event ->
                             if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                                 isMultiTouchGestureSuppressed = false
+                                MapLayerMutationCoordinator.setGestureActive(mapView, true)
                             }
                             if (
                                 event.pointerCount > 1 ||
@@ -884,6 +886,7 @@ internal fun NavigateContent(
                                     event.actionMasked == MotionEvent.ACTION_CANCEL
                                 ) {
                                     isMultiTouchGestureSuppressed = false
+                                    MapLayerMutationCoordinator.setGestureActive(mapView, false)
                                     v.parent?.requestDisallowInterceptTouchEvent(false)
                                 }
                                 return@setOnTouchListener true
@@ -907,6 +910,7 @@ internal fun NavigateContent(
                                 MotionEvent.ACTION_CANCEL,
                                 -> {
                                     isDragging = false
+                                    MapLayerMutationCoordinator.setGestureActive(mapView, false)
                                     v.parent?.requestDisallowInterceptTouchEvent(false)
                                 }
                                 else -> Unit
