@@ -88,6 +88,18 @@ internal fun buildOfflineStartCenterContextKey(
     }
 }
 
+internal fun shouldForceOfflineStartCenterForContext(
+    contextKey: String,
+    hasActiveGpx: Boolean,
+    appliedContextKey: String?,
+    forcedContextKey: String?,
+    savedViewportContextKey: String?,
+): Boolean {
+    if (savedViewportContextKey == contextKey) return false
+    if (forcedContextKey == contextKey) return true
+    return hasActiveGpx && appliedContextKey != contextKey
+}
+
 class MapViewModel(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
@@ -294,7 +306,6 @@ class MapViewModel(
     fun resetOfflineStartCenterTracking() {
         offlineStartCenterContextKey = null
         offlineStartCenterApplied = false
-        offlineViewportSnapshot = null
     }
 
     fun shouldForceOfflineStartCenter(
@@ -302,14 +313,13 @@ class MapViewModel(
         activeGpxDetails: List<GpxTrackDetails>,
     ): Boolean {
         val contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
-        if (forcedOfflineStartCenterContextKey == contextKey) return true
-
-        // In offline mode, an active GPX should force a fresh startup center.
-        if (activeGpxDetails.isNotEmpty()) {
-            return offlineStartCenterContextKey != contextKey
-        }
-
-        return false
+        return shouldForceOfflineStartCenterForContext(
+            contextKey = contextKey,
+            hasActiveGpx = activeGpxDetails.isNotEmpty(),
+            appliedContextKey = offlineStartCenterContextKey,
+            forcedContextKey = forcedOfflineStartCenterContextKey,
+            savedViewportContextKey = offlineViewportSnapshot?.contextKey,
+        )
     }
 
     fun consumeForcedOfflineStartCenter(
@@ -328,7 +338,7 @@ class MapViewModel(
         center: LatLong?,
         zoomLevel: Int,
     ) {
-        val canSave = activeGpxDetails.isEmpty() && center?.hasFiniteCoordinates() == true
+        val canSave = center?.hasFiniteCoordinates() == true
         if (canSave) {
             offlineViewportSnapshot =
                 OfflineViewportSnapshot(
@@ -346,7 +356,6 @@ class MapViewModel(
         val snapshot = offlineViewportSnapshot
         val contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
         return if (
-            activeGpxDetails.isEmpty() &&
             snapshot != null &&
             snapshot.contextKey == contextKey
         ) {

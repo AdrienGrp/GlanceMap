@@ -2,6 +2,8 @@ package com.glancemap.glancemapwearos.presentation.features.maps
 
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mapsforge.core.model.LatLong
 
@@ -37,6 +39,38 @@ class OfflineStartCenterContextKeyTest {
             )
 
         assertEquals("gpx=loop.gpx", key)
+    }
+
+    @Test
+    fun `active gpx forces startup center when no saved viewport exists`() {
+        val key = "map=/maps/alps.map;gpx=loop.gpx"
+
+        val shouldForce =
+            shouldForceOfflineStartCenterForContext(
+                contextKey = key,
+                hasActiveGpx = true,
+                appliedContextKey = "map=/maps/alps.map",
+                forcedContextKey = null,
+                savedViewportContextKey = null,
+            )
+
+        assertTrue(shouldForce)
+    }
+
+    @Test
+    fun `saved gpx viewport prevents forced startup center`() {
+        val key = "map=/maps/alps.map;gpx=loop.gpx"
+
+        val shouldForce =
+            shouldForceOfflineStartCenterForContext(
+                contextKey = key,
+                hasActiveGpx = true,
+                appliedContextKey = "map=/maps/alps.map",
+                forcedContextKey = key,
+                savedViewportContextKey = key,
+            )
+
+        assertFalse(shouldForce)
     }
 
     private fun track(id: String): GpxTrackDetails =
