@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import android.content.Context
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -39,6 +40,7 @@ class OamBundleStore(
                             prefs
                                 .getString(key(areaId, "routing_downloaded"), null)
                                 .toRoutingFileNames(),
+                        demSource = DemSource.fromId(prefs.getString(key(areaId, "dem_source"), null)),
                         demTileIds =
                             prefs
                                 .getString(key(areaId, "dem"), null)
@@ -69,6 +71,7 @@ class OamBundleStore(
                     key(bundle.areaId, "routing_downloaded"),
                     bundle.downloadedRoutingFileNames.joinToString("\n"),
                 ).putString(key(bundle.areaId, "dem"), bundle.demTileIds.joinToString("\n"))
+                .putString(key(bundle.areaId, "dem_source"), bundle.demSource.id)
                 .putString(key(bundle.areaId, "dem_downloaded"), bundle.downloadedDemTileIds.joinToString("\n"))
                 .putLong(key(bundle.areaId, "installed_at"), bundle.installedAtMillis)
                 .putString(key(bundle.areaId, "remote_files"), bundle.remoteFiles.toJson())
@@ -89,6 +92,7 @@ class OamBundleStore(
                 .remove(key(areaId, "routing"))
                 .remove(key(areaId, "routing_downloaded"))
                 .remove(key(areaId, "dem"))
+                .remove(key(areaId, "dem_source"))
                 .remove(key(areaId, "dem_downloaded"))
                 .remove(key(areaId, "installed_at"))
                 .remove(key(areaId, "remote_files"))

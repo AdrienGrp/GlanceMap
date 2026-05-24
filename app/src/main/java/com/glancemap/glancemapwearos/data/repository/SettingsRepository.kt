@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.data.repository
 
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
@@ -194,6 +195,10 @@ interface SettingsRepository {
     val offlineMode: Flow<Boolean>
 
     suspend fun setOfflineMode(enabled: Boolean)
+
+    val demSource: Flow<DemSource>
+
+    suspend fun setDemSource(source: DemSource)
 
     val crownZoomEnabled: Flow<Boolean>
 

@@ -1,3 +1,11 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+    "ReturnCount",
+    "TooManyFunctions",
+)
 @file:OptIn(
     com.google.android.horologist.annotations.ExperimentalHorologistApi::class,
     androidx.compose.foundation.ExperimentalFoundationApi::class,
@@ -22,9 +30,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Downloading
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Landscape
@@ -59,6 +67,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
@@ -90,8 +99,10 @@ fun MapsScreen(
     val adaptive = rememberWearAdaptiveSpec()
     val mapFiles by mapViewModel.mapFiles.collectAsState()
     val routingPackFiles by mapViewModel.routingPackFiles.collectAsState()
+    val demTileFiles by mapViewModel.demTileFiles.collectAsState()
     val selectedMapPath by mapViewModel.selectedMapPath.collectAsState()
     val demDownloadState by themeViewModel.demDownloadUiState.collectAsState()
+    val selectedDemSource by themeViewModel.demSource.collectAsState()
 
     // Explicit state (no "by" delegation to avoid the error you saw)
     val showDeleteDialogState = remember { mutableStateOf(false) }
@@ -109,6 +120,9 @@ fun MapsScreen(
     var renameInProgress by remember { mutableStateOf(false) }
     var renameError by remember { mutableStateOf<String?>(null) }
     var routingInfoMap by remember { mutableStateOf<MapFileState?>(null) }
+    var showDemDataDialog by remember { mutableStateOf(false) }
+    var demTileToDelete by remember { mutableStateOf<DemTileFileState?>(null) }
+    var demSourceToDeleteAll by remember { mutableStateOf<DemSource?>(null) }
     var showRoutingDataDialog by remember { mutableStateOf(false) }
     var routingPackToDelete by remember { mutableStateOf<RoutingPackFileState?>(null) }
     var showDeleteAllRoutingDialog by remember { mutableStateOf(false) }
@@ -369,6 +383,31 @@ fun MapsScreen(
         )
 
         DeleteConfirmationDialog(
+            visible = demTileToDelete != null,
+            title = "Delete DEM tile?",
+            message = demTileToDelete?.name ?: "",
+            onConfirm = {
+                demTileToDelete?.let { mapViewModel.deleteDemTileFile(it.path) }
+                demTileToDelete = null
+            },
+            onDismiss = { demTileToDelete = null },
+        )
+
+        DeleteConfirmationDialog(
+            visible = demSourceToDeleteAll != null,
+            title = "Delete DEM source?",
+            message =
+                demSourceToDeleteAll?.let { source ->
+                    "Delete all ${source.displayName} DEM files from the watch?"
+                } ?: "",
+            onConfirm = {
+                demSourceToDeleteAll?.let { mapViewModel.deleteAllDemTileFiles(it) }
+                demSourceToDeleteAll = null
+            },
+            onDismiss = { demSourceToDeleteAll = null },
+        )
+
+        DeleteConfirmationDialog(
             visible = showDeleteAllRoutingDialog,
             title = "Delete all routing data?",
             message = routingDeleteAllMessage(routingPackFiles),
@@ -469,6 +508,84 @@ fun MapsScreen(
         )
 
         AlertDialog(
+            visible = showDemDataDialog,
+            onDismissRequest = { showDemDataDialog = false },
+            title = { Text("Elevation data") },
+            text = {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = adaptive.helpDialogMaxHeight)
+                            .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Text(
+                        text = "Used for hill shading, slope and altitude.",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "Choose quality for new elevation downloads.",
+                        style = MaterialTheme.typography.labelMedium,
+                        textAlign = TextAlign.Center,
+                    )
+                    DemSource.entries.forEach { source ->
+                        DemQualityChoiceRow(
+                            source = source,
+                            selected = selectedDemSource == source,
+                            onSelect = { themeViewModel.setDemSource(source) },
+                        )
+                    }
+                    DemSource.entries.forEach { source ->
+                        val files = demTileFiles.filter { it.source == source }
+                        DemStorageSummaryRow(
+                            source = source,
+                            files = files,
+                            onDeleteAll = { demSourceToDeleteAll = source },
+                        )
+                    }
+                    if (mapFiles.isNotEmpty()) {
+                        Text(
+                            text = "Map coverage",
+                            style = MaterialTheme.typography.labelMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                        mapFiles.forEach { mapFile ->
+                            DemMapCoverageRow(mapFile = mapFile)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                IconButton(
+                    onClick = { showDemDataDialog = false },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Done",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            },
+            dismissButton = {
+                IconButton(
+                    onClick = { showDemDataDialog = false },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            },
+        )
+
+        AlertDialog(
             visible = showHelpDialog,
             onDismissRequest = { showHelpDialog = false },
             title = { Text("Map Actions") },
@@ -482,13 +599,17 @@ fun MapsScreen(
                 ) {
                     Text(
                         "Toggle a map to activate/deactivate.\n" +
-                            "DEM badge: tap icon to download DEM.\n" +
+                            ".map: the offline map you see on screen.\n" +
+                            ".poi: searchable places and map points.\n" +
+                            "Routing: offline route calculation files.\n" +
+                            "Elevation: height data for altitude, slope and terrain shading.\n" +
+                            "Refuges.info: huts, shelters and water points.\n" +
+                            "Elevation badge: tap icon to download data.\n" +
                             "Route badge: tap icon to view routing coverage.\n" +
-                            "Use the route button at the top to manage routing packs.\n" +
+                            "Use the elevation and route buttons at the top to manage data.\n" +
                             "Grey = missing.\n" +
                             "Amber = partial.\n" +
                             "Green = ready.\n" +
-                            "Hill/slope layers need DEM files.\n" +
                             "Use rename mode to rename maps.\n" +
                             "Use delete mode to remove maps.\n" +
                             "Use the gear for map settings.",
@@ -540,6 +661,25 @@ fun MapsScreen(
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = "Map actions help",
+                                modifier = Modifier.size(headerActionIconSize),
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                mapViewModel.loadDemTileFiles()
+                                showDemDataDialog = true
+                            },
+                            modifier = Modifier.size(headerActionButtonSize),
+                            colors =
+                                IconButtonDefaults.iconButtonColors(
+                                    containerColor = Color.Black.copy(alpha = 0.7f),
+                                    contentColor = Color.White,
+                                ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Landscape,
+                                contentDescription = "DEM data",
                                 modifier = Modifier.size(headerActionIconSize),
                             )
                         }
@@ -703,6 +843,9 @@ fun MapsScreen(
                             onDownloadDem = {
                                 themeViewModel.downloadDemForMap(mapFile.path)
                             },
+                            onCancelDemDownload = {
+                                themeViewModel.cancelDemDownload()
+                            },
                             onShowRoutingInfo = {
                                 routingInfoMap = mapFile
                             },
@@ -726,11 +869,47 @@ fun MapsScreen(
                     if (demDownloadState.isDownloading && demDownloadState.totalTiles > 0) {
                         RouteToolBusySpinner(size = 30.dp)
 
-                        Text(
-                            text = "DEM ${demDownloadState.processedTiles}/${demDownloadState.totalTiles}",
-                            style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = "Elevation ${demDownloadState.processedTiles}/${demDownloadState.totalTiles}",
+                                style = MaterialTheme.typography.labelSmall,
+                                textAlign = TextAlign.Center,
+                            )
+                            IconButton(
+                                onClick = { themeViewModel.cancelDemDownload() },
+                                modifier = Modifier.size(24.dp),
+                                colors =
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    ),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Cancel elevation download",
+                                    modifier = Modifier.size(13.dp),
+                                )
+                            }
+                        }
+                    } else if (demDownloadState.isDownloading) {
+                        IconButton(
+                            onClick = { themeViewModel.cancelDemDownload() },
+                            modifier = Modifier.size(24.dp),
+                            colors =
+                                IconButtonDefaults.iconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel elevation download",
+                                modifier = Modifier.size(13.dp),
+                            )
+                        }
                     }
 
                     if (visibleDemStatusMessage.isNotBlank()) {
@@ -784,6 +963,7 @@ private fun MapItem(
     isDemDownloadRunning: Boolean,
     isDemDownloadingForThisMap: Boolean,
     onDownloadDem: () -> Unit,
+    onCancelDemDownload: () -> Unit,
     onShowRoutingInfo: () -> Unit,
 ) {
     Row(
@@ -857,11 +1037,13 @@ private fun MapItem(
             ) {
                 IconButton(
                     onClick = {
-                        if (!mapFile.demReady && !isDemDownloadRunning) {
+                        if (isDemDownloadingForThisMap) {
+                            onCancelDemDownload()
+                        } else if (!isDemDownloadRunning) {
                             onDownloadDem()
                         }
                     },
-                    enabled = !isDemDownloadRunning || mapFile.demReady,
+                    enabled = !isDemDownloadRunning || isDemDownloadingForThisMap,
                     modifier = Modifier.size(MAP_DATA_BADGE_SIZE),
                     colors =
                         IconButtonDefaults.iconButtonColors(
@@ -874,8 +1056,8 @@ private fun MapItem(
                     when {
                         isDemDownloadingForThisMap -> {
                             Icon(
-                                imageVector = Icons.Default.Downloading,
-                                contentDescription = "DEM downloading",
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel elevation download",
                                 modifier = Modifier.size(MAP_DATA_ICON_SIZE),
                             )
                         }
@@ -955,6 +1137,168 @@ private fun routingPackSummary(packs: List<RoutingPackFileState>): String {
 private fun routingDeleteAllMessage(packs: List<RoutingPackFileState>): String {
     if (packs.isEmpty()) return "No routing packs installed."
     return "Deletes ${routingPackSummary(packs)} from the watch."
+}
+
+@Composable
+private fun DemQualityChoiceRow(
+    source: DemSource,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Button(
+        onClick = onSelect,
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            if (selected) {
+                ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            } else {
+                ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Landscape,
+                contentDescription = null,
+                modifier = Modifier.size(15.dp),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = source.displayName,
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = source.detailLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Selected",
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DemStorageSummaryRow(
+    source: DemSource,
+    files: List<DemTileFileState>,
+    onDeleteAll: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = source.displayName,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = demTileSummary(files),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.68f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (files.isNotEmpty()) {
+            IconButton(
+                onClick = onDeleteAll,
+                modifier = Modifier.size(24.dp),
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete ${source.displayName}",
+                    modifier = Modifier.size(13.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DemMapCoverageRow(mapFile: MapFileState) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = mapFile.name,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = demMapCoverageLabel(mapFile),
+            style = MaterialTheme.typography.bodySmall,
+            color = demMapCoverageColor(mapFile),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+private fun demMapCoverageLabel(mapFile: MapFileState): String {
+    if (!mapFile.demCombinedCoverageKnown) return "Unknown"
+    if (mapFile.demCombinedRequiredTiles == 0) return "No elevation"
+    if (mapFile.demDetailedAvailableTiles >= mapFile.demCombinedRequiredTiles) return "Detailed ready"
+    if (mapFile.demCombinedAvailableTiles >= mapFile.demCombinedRequiredTiles) {
+        return if (mapFile.demDetailedAvailableTiles > 0) {
+            "Mixed ready"
+        } else {
+            "Standard ready"
+        }
+    }
+    if (mapFile.demCombinedAvailableTiles > 0) {
+        return "${mapFile.demCombinedAvailableTiles}/${mapFile.demCombinedRequiredTiles}"
+    }
+    return "Missing"
+}
+
+private fun demMapCoverageColor(mapFile: MapFileState): Color =
+    when {
+        !mapFile.demCombinedCoverageKnown -> Color.White.copy(alpha = 0.68f)
+        mapFile.demCombinedRequiredTiles == 0 -> Color.White.copy(alpha = 0.68f)
+        mapFile.demCombinedAvailableTiles >= mapFile.demCombinedRequiredTiles -> Color(0xFF76E36A)
+        mapFile.demCombinedAvailableTiles > 0 -> Color(0xFFFFCA5C)
+        else -> Color.White.copy(alpha = 0.68f)
+    }
+
+private fun demTileSummary(files: List<DemTileFileState>): String {
+    if (files.isEmpty()) return "none installed"
+    val totalBytes = files.sumOf { it.sizeBytes }
+    return when (files.size) {
+        1 -> "1 tile · ${formatRoutingStorageSize(totalBytes)}"
+        else -> "${files.size} tiles · ${formatRoutingStorageSize(totalBytes)}"
+    }
 }
 
 private fun formatRoutingStorageSize(bytes: Long): String {

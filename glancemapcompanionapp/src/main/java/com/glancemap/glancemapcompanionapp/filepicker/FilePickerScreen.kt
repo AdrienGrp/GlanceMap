@@ -749,7 +749,7 @@ fun FilePickerScreen(
                             Spacer(modifier = Modifier.height(adaptive.sectionGap))
 
                             SectionCard(
-                                title = "2. Select files (.gpx / .map / .poi / .rd5 / .hgt)",
+                                title = "2. Select files (.gpx / .map / .poi / .rd5 / .hgt / .hgt.gz)",
                                 headerAction = {
                                     TextButton(
                                         onClick = { viewModel.clearSelectedFiles() },

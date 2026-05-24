@@ -11,13 +11,17 @@ package com.glancemap.glancemapwearos.presentation.features.download
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -52,6 +56,7 @@ class DownloadViewModel(
     private val downloader: OamBundleDownloader,
     private val notificationController: OamDownloadNotificationController,
     private val networkMonitor: OamDownloadNetworkMonitor,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DownloadUiState())
     val uiState: StateFlow<DownloadUiState> = _uiState.asStateFlow()
@@ -62,6 +67,12 @@ class DownloadViewModel(
 
     init {
         refreshInstalledBundles()
+        settingsRepository.demSource
+            .onEach { source ->
+                _uiState.update { state ->
+                    state.copy(selection = state.selection.copy(demSource = source))
+                }
+            }.launchIn(viewModelScope)
     }
 
     fun toggleArea(areaId: String) {
@@ -145,6 +156,13 @@ class DownloadViewModel(
                 errorMessage = null,
                 networkWarningMessage = null,
             )
+        }
+    }
+
+    fun setDemSource(source: DemSource) {
+        if (_uiState.value.isDownloading) return
+        viewModelScope.launch {
+            settingsRepository.setDemSource(source)
         }
     }
 
@@ -866,5 +884,6 @@ private fun OamInstalledBundle.toDownloadSelection(): OamDownloadSelection =
         includePoi = poiFileName != null,
         includeRouting = routingFileNames.isNotEmpty(),
         includeDem = demTileIds.isNotEmpty(),
+        demSource = demSource,
         includeRefugesInfo = refugesInfoFileName != null,
     )

@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.maps.MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES
 import com.glancemap.glancemapwearos.core.maps.MAP_ZOOM_REPRESENTATIVE_VIEWPORT_WIDTH_PX
 import com.glancemap.glancemapwearos.core.maps.sanitizeMapZoomScaleMeters
@@ -69,6 +70,7 @@ class SettingsRepositoryImpl private constructor(
         val LIVE_ELEVATION = booleanPreferencesKey("live_elevation")
         val LIVE_DISTANCE = booleanPreferencesKey("live_distance")
         val OFFLINE_MODE = booleanPreferencesKey("offline_mode")
+        val DEM_SOURCE = stringPreferencesKey("dem_source")
         val CROWN_ZOOM_ENABLED = booleanPreferencesKey("crown_zoom_enabled")
         val CROWN_ZOOM_INVERTED = booleanPreferencesKey("crown_zoom_inverted")
         val GPX_TRACK_COLOR = intPreferencesKey("gpx_track_color")
@@ -442,6 +444,15 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setOfflineMode(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.OFFLINE_MODE] = enabled }
+    }
+
+    override val demSource: Flow<DemSource> =
+        context.dataStore.data.map {
+            DemSource.fromId(it[PrefKeys.DEM_SOURCE])
+        }
+
+    override suspend fun setDemSource(source: DemSource) {
+        context.dataStore.edit { it[PrefKeys.DEM_SOURCE] = source.id }
     }
 
     override val crownZoomEnabled: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.CROWN_ZOOM_ENABLED] ?: true }

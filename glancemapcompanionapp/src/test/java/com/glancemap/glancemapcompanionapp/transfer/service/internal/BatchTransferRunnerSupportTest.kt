@@ -151,6 +151,8 @@ class BatchTransferRunnerSupportTest {
     fun `supports watch dem tile file names on companion`() {
         assertTrue(isSupportedTransferFileName("N45E006.hgt"))
         assertTrue(isSupportedTransferFileName("N45E006.hgt.zip"))
+        assertTrue(isSupportedTransferFileName("N45E006.hgt.gz"))
+        assertTrue(isDemTransferFile("s01w002.HGT.GZ"))
         assertTrue(isDemTransferFile("s01w002.HGT.ZIP"))
         assertFalse(isMapLikeTransferFile("N45E006.hgt.zip"))
         assertFalse(isSupportedTransferFileName("N45E006.zip"))

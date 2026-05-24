@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount")
+
 package com.glancemap.glancemapwearos.core.maps
 
 import android.content.Context
@@ -20,7 +22,6 @@ data class DemCoverageSummary(
 
 object Dem3CoverageUtils {
     private const val TAG = "Dem3CoverageUtils"
-    private const val DEM3_DIR_NAME = "dem3"
     private const val DEM_SCAN_MAX_DEPTH = 6
     private const val DEM_SIGNATURE_NONE = "DEM:NONE"
     private const val MAX_REQUIRED_TILE_CACHE_ENTRIES = 64
@@ -28,6 +29,7 @@ object Dem3CoverageUtils {
 
     private data class CoverageCacheKey(
         val mapSignature: String,
+        val sourceKey: String,
         val demSignature: String,
     )
 
@@ -44,13 +46,19 @@ object Dem3CoverageUtils {
             true,
         )
 
-    fun demRootDir(context: Context): File =
-        context.getExternalFilesDir(DEM3_DIR_NAME)
-            ?: File(context.getDir("maps", Context.MODE_PRIVATE), DEM3_DIR_NAME)
+    fun demRootDir(context: Context): File = demRootDir(context, DemSource.MAPSFORGE_DEM3)
+
+    fun demRootDir(
+        context: Context,
+        source: DemSource,
+    ): File = source.rootDir(context)
+
+    fun demRootDirs(context: Context): List<File> = DemSource.LOAD_PRIORITY.map { it.rootDir(context) }
 
     fun coverageForMap(
         context: Context,
         mapFile: File,
+        sources: List<DemSource> = DemSource.LOAD_PRIORITY,
     ): DemCoverageSummary {
         val mapSignature =
             mapSignatureOf(mapFile)
@@ -62,16 +70,17 @@ object Dem3CoverageUtils {
             return DemCoverageSummary(0, 0, isCoverageKnown = true)
         }
 
-        val demRoot = demRootDir(context)
+        val demRoots = sources.map { demRootDir(context, it) }
         val demSignature =
             DemSignatureStore.resolveSignature(
                 context = context,
-                demRootDir = demRoot,
+                demRootDirs = demRoots,
                 maxDepth = DEM_SCAN_MAX_DEPTH,
             ) ?: DEM_SIGNATURE_NONE
         val cacheKey =
             CoverageCacheKey(
                 mapSignature = mapSignature,
+                sourceKey = sources.joinToString(",") { it.id },
                 demSignature = demSignature,
             )
 
@@ -84,7 +93,7 @@ object Dem3CoverageUtils {
                 0
             } else {
                 requiredTileIds.count { tileId ->
-                    tileCoverageCandidates(demRoot, tileId).any { it.exists() && it.isFile }
+                    tileCoverageCandidates(demRoots, tileId).any { it.exists() && it.isFile }
                 }
             }
 
@@ -103,10 +112,11 @@ object Dem3CoverageUtils {
     fun isReadyForMap(
         context: Context,
         mapPath: String?,
+        sources: List<DemSource> = DemSource.LOAD_PRIORITY,
     ): Boolean {
         val file = mapPath?.takeIf { it.isNotBlank() }?.let(::File) ?: return false
         if (!file.exists() || !file.isFile) return false
-        return coverageForMap(context, file).isReady
+        return coverageForMap(context, file, sources).isReady
     }
 
     fun requiredTileIdsForMap(mapFile: File): Set<String>? {
@@ -131,27 +141,28 @@ object Dem3CoverageUtils {
     fun deleteTiles(
         context: Context,
         tileIds: Set<String>,
+        sources: List<DemSource> = DemSource.entries,
     ): Int {
         if (tileIds.isEmpty()) return 0
 
-        val demRoot = demRootDir(context)
+        val demRoots = sources.map { demRootDir(context, it) }
         var deletedFiles = 0
         var demChanged = false
 
         tileIds.forEach { tileId ->
-            tileFileCandidates(demRoot, tileId)
+            tileFileCandidates(demRoots, tileId)
                 .toSet()
                 .forEach { target ->
                     if (target.exists() && target.isFile && target.delete()) {
                         deletedFiles += 1
                         demChanged = true
                     }
-                    val part = File(target.parentFile ?: demRoot, ".${target.name}.part")
+                    val part = File(target.parentFile ?: target, ".${target.name}.part")
                     if (part.exists() && part.delete()) {
                         demChanged = true
                     }
                 }
-            missingTileMarkerCandidates(demRoot, tileId)
+            missingTileMarkerCandidates(demRoots, tileId)
                 .toSet()
                 .forEach { marker ->
                     if (marker.exists() && marker.delete()) {
@@ -210,23 +221,41 @@ object Dem3CoverageUtils {
     }
 
     private fun tileFileCandidates(
+        demRoots: List<File>,
+        tileId: String,
+    ): List<File> =
+        demRoots.flatMap { demRoot ->
+            tileFileCandidates(demRoot, tileId)
+        }
+
+    private fun tileFileCandidates(
         demRoot: File,
         tileId: String,
     ): List<File> {
         val upperTileId = tileId.uppercase(Locale.ROOT)
         val folder = upperTileId.substring(0, 3)
         return listOf(
+            File(File(demRoot, folder), "$upperTileId.hgt.gz"),
             File(File(demRoot, folder), "$upperTileId.hgt.zip"),
             File(File(demRoot, folder), "$upperTileId.hgt"),
+            File(demRoot, "$upperTileId.hgt.gz"),
             File(demRoot, "$upperTileId.hgt.zip"),
             File(demRoot, "$upperTileId.hgt"),
         )
     }
 
     private fun tileCoverageCandidates(
-        demRoot: File,
+        demRoots: List<File>,
         tileId: String,
-    ): List<File> = tileFileCandidates(demRoot, tileId) + missingTileMarkerCandidates(demRoot, tileId)
+    ): List<File> = tileFileCandidates(demRoots, tileId) + missingTileMarkerCandidates(demRoots, tileId)
+
+    fun missingTileMarkerCandidates(
+        demRoots: List<File>,
+        tileId: String,
+    ): List<File> =
+        demRoots.flatMap { demRoot ->
+            missingTileMarkerCandidates(demRoot, tileId)
+        }
 
     fun missingTileMarkerCandidates(
         demRoot: File,

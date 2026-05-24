@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Process
 import android.util.Log
+import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
@@ -96,7 +97,6 @@ class MapRenderer(
         private const val CONSTRAINED_FIRST_LEVEL_MAX_TILES = 80
         private const val CONSTRAINED_MEMORY_BUDGET_FRACTION = 1.0 / 20.0
         private const val CONSTRAINED_MEMORY_BUDGET_CAP_BYTES = 8L * 1024L * 1024L // 8MB
-        private const val DEM_DIRECTORY_NAME = "dem3"
         private const val DEM_SCAN_MAX_DEPTH = 6
         private const val STARTUP_PREWARM_ZOOM_STEPS = 2
         private const val STARTUP_PREWARM_TILE_MARGIN = 1
@@ -122,8 +122,10 @@ class MapRenderer(
     private var currentDemSignature: String? = null
 
     private val demRootDir: File by lazy {
-        context.getExternalFilesDir(DEM_DIRECTORY_NAME)
-            ?: File(context.getDir("maps", Context.MODE_PRIVATE), DEM_DIRECTORY_NAME)
+        Dem3CoverageUtils.demRootDir(context)
+    }
+    private val demRootDirs: List<File> by lazy {
+        Dem3CoverageUtils.demRootDirs(context)
     }
     private val reliefOverlayCacheRootDir: File by lazy {
         val root = context.externalCacheDir ?: context.cacheDir
@@ -953,7 +955,7 @@ class MapRenderer(
         if (!currentHillShadingEnabled && !currentReliefOverlayEnabled) return null
         return DemSignatureStore.resolveSignature(
             context = context,
-            demRootDir = demRootDir,
+            demRootDirs = demRootDirs,
             maxDepth = DEM_SCAN_MAX_DEPTH,
         )
     }
@@ -976,6 +978,7 @@ class MapRenderer(
             reliefOverlayLayer =
                 ReliefOverlayLayer(
                     demRootDir = demRootDir,
+                    demRootDirs = demRootDirs,
                     diskCacheRootDir = reliefOverlayCacheRootDir,
                     cacheNamespace = cacheNamespace,
                     onProcessingStateChanged = { publishReliefOverlayState() },
@@ -992,7 +995,7 @@ class MapRenderer(
 
     private fun getOrCreateLiveElevationSampler(): ReliefOverlayLayer? {
         if (liveElevationSampler == null) {
-            liveElevationSampler = ReliefOverlayLayer(demRootDir = demRootDir)
+            liveElevationSampler = ReliefOverlayLayer(demRootDir = demRootDir, demRootDirs = demRootDirs)
         }
         return liveElevationSampler
     }

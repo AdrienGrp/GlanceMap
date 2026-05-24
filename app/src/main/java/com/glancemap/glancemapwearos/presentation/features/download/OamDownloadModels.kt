@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.download
 
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import java.io.File
 import java.net.URI
 import java.util.Locale
@@ -34,6 +35,7 @@ data class OamDownloadSelection(
     val includePoi: Boolean = true,
     val includeRouting: Boolean = true,
     val includeDem: Boolean = true,
+    val demSource: DemSource = DemSource.DEFAULT,
     val includeRefugesInfo: Boolean = false,
 ) {
     val canDownload: Boolean
@@ -52,7 +54,7 @@ data class OamDownloadSelection(
             "Map".takeIf { includeMap },
             "POI".takeIf { includePoi },
             "Routing".takeIf { includeRouting },
-            "DEM".takeIf { includeDem },
+            "${demSource.shortLabel} elevation".takeIf { includeDem },
             "Refuges.info".takeIf { includeRefugesInfo },
         ).joinToString(" + ").ifBlank { "Nothing selected" }
 }
@@ -66,6 +68,7 @@ data class OamInstalledBundle(
     val refugesInfoFileName: String? = null,
     val routingFileNames: List<String> = emptyList(),
     val downloadedRoutingFileNames: List<String> = emptyList(),
+    val demSource: DemSource = DemSource.DEFAULT,
     val demTileIds: List<String> = emptyList(),
     val downloadedDemTileIds: List<String> = emptyList(),
     val installedAtMillis: Long,
@@ -136,7 +139,7 @@ internal fun OamBundleUpdateCheck.refreshForces(area: OamDownloadArea): OamBundl
         forceDemTileIds =
             bundle.demTileIds
                 .map { it.uppercase(Locale.ROOT) }
-                .filter { "$it.hgt.zip" in changedNames }
+                .filter { bundle.demSource.remoteFileName(it) in changedNames }
                 .toSet(),
     )
 }

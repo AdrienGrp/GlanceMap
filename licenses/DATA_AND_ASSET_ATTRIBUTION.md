@@ -188,12 +188,17 @@ Usage note:
 
 ## 10) DEM elevation data (slope/hill rendering)
 
-- Build/runtime flows use DEM3-style `.hgt.zip` tiles.
+- Build/runtime flows use DEM3-style `.hgt.zip` tiles and optional 1 arcsecond `.hgt.gz` tiles.
 - Default source in app/build pipeline:
   - `https://download.mapsforge.org/maps/dem/dem3`
+- Optional 1 arcsecond source:
+  - Mapzen Terrain Tiles / AWS `skadi`
+  - `https://s3.amazonaws.com/elevation-tiles-prod/skadi`
 - References:
   - https://download.mapsforge.org/maps/dem/
   - https://download.mapsforge.org/maps/dem/ReadMe.md
+  - https://www.mapzen.com/blog/terrain-tile-service/
+  - https://www.mapzen.com/rights/
 
 ## 11) POI icon assets
 

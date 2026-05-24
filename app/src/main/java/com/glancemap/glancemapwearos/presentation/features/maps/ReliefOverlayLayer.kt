@@ -28,6 +28,7 @@ import kotlin.math.min
  */
 internal class ReliefOverlayLayer(
     private val demRootDir: File,
+    private val demRootDirs: List<File> = listOf(demRootDir),
     private val diskCacheRootDir: File? = null,
     cacheNamespace: String = "default",
     private val onProcessingStateChanged: () -> Unit = {},
@@ -61,7 +62,7 @@ internal class ReliefOverlayLayer(
         private const val IDLE_FINE_PRIORITY_TILES = 8
     }
 
-    private val demRepository = ReliefDemRepository(demRootDir = demRootDir, tag = TAG)
+    private val demRepository = ReliefDemRepository(demRootDirs = demRootDirs, tag = TAG)
     private val diskCache =
         ReliefOverlayDiskCache(
             diskCacheRootDir = diskCacheRootDir,
@@ -164,7 +165,7 @@ internal class ReliefOverlayLayer(
             suspendOverlayWork()
             return
         }
-        if (!demRootDir.exists() || !demRootDir.isDirectory) {
+        if (demRootDirs.none { it.exists() && it.isDirectory }) {
             suspendOverlayWork()
             return
         }
@@ -447,7 +448,7 @@ internal class ReliefOverlayLayer(
         lon: Double,
     ): Double? {
         if (isDestroyed) return null
-        if (!demRootDir.exists() || !demRootDir.isDirectory) return null
+        if (demRootDirs.none { it.exists() && it.isDirectory }) return null
         val nowElapsedMs = SystemClock.elapsedRealtime()
         val key =
             quantizedElevationSampleKey(
