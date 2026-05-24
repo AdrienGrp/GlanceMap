@@ -353,8 +353,8 @@ private fun String.toSafeFileName(): String =
         .replace(Regex("[/:*?\"<>|]"), "_")
         .trim()
 
-private fun String.ensureGpxExtension(): String =
-    if (endsWith(".gpx", ignoreCase = true)) this else "${ifBlank { "shared-route" }}.gpx"
+@Suppress("MaxLineLength")
+private fun String.ensureGpxExtension(): String = if (endsWith(".gpx", ignoreCase = true)) this else "${ifBlank { "shared-route" }}.gpx"
 
 private fun String.isGenericSharedGpxName(): Boolean {
     val base = substringBeforeLast('.').lowercase(Locale.ROOT).replace('_', '-').trim()

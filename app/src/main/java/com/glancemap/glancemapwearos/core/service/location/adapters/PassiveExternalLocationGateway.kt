@@ -34,6 +34,7 @@ internal class PassiveExternalLocationGateway(
     }
 
     @SuppressLint("MissingPermission")
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun requestLocationUpdates(
         request: LocationUpdateRequestParams,
         sink: LocationUpdateSink,
@@ -78,7 +79,7 @@ internal class PassiveExternalLocationGateway(
                 synchronized(activeListeners) {
                     activeListeners += listener
                 }
-            } catch (error: Exception) {
+            } catch (error: RuntimeException) {
                 runCatching { locationManager.removeUpdates(listener) }
                 synchronized(activeListeners) {
                     activeListeners.remove(listener)
@@ -114,13 +115,14 @@ internal class PassiveExternalLocationGateway(
             locationManager.allProviders.contains(LocationManager.PASSIVE_PROVIDER)
         }.getOrDefault(false)
 
+    @Suppress("TooGenericExceptionCaught")
     private fun removeLocationUpdatesLocked() {
         val listeners = drainListeners(includeRegisteringListener = true)
-        var firstError: Exception? = null
+        var firstError: RuntimeException? = null
         listeners.forEach { listener ->
             try {
                 locationManager.removeUpdates(listener)
-            } catch (error: Exception) {
+            } catch (error: RuntimeException) {
                 if (firstError == null) {
                     firstError = error
                 }
@@ -147,8 +149,6 @@ internal class PassiveExternalLocationGateway(
     }
 
     private fun ensurePassiveProviderPresent() {
-        if (!isPassiveProviderPresent()) {
-            throw IllegalStateException("Passive location provider is not present")
-        }
+        check(isPassiveProviderPresent()) { "Passive location provider is not present" }
     }
 }

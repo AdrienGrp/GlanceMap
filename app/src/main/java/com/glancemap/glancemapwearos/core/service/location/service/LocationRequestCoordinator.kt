@@ -41,6 +41,7 @@ internal data class ResolvedRequestPlan(
     val spec: RequestSpec?,
 )
 
+@Suppress("LongParameterList")
 internal class LocationRequestCoordinator(
     private val serviceScope: CoroutineScope,
     private val engine: LocationEngine,

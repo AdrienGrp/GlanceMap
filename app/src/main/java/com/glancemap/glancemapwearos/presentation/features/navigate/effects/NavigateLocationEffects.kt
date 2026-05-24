@@ -58,6 +58,7 @@ internal data class WakeAnchorSeed(
 )
 
 @Composable
+@Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
 internal fun rememberNavigateLocationUiState(
     mapView: MapView,
     locationViewModel: LocationViewModel,

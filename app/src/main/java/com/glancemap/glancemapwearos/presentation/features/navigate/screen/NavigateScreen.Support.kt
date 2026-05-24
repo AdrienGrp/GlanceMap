@@ -157,6 +157,7 @@ internal fun latLongOrNull(
     return LatLong(latitude, longitude)
 }
 
+@Suppress("ReturnCount")
 internal fun trackPositionOrNull(
     segmentIndex: Any?,
     t: Any?,

@@ -1,3 +1,11 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+    "ReturnCount",
+)
+
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import android.hardware.SensorManager

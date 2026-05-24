@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount", "TooManyFunctions")
+
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails

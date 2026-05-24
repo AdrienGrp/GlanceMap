@@ -91,5 +91,4 @@ internal object LocationUpdatePolicy {
             sourceMode = sourceMode,
         )
     }
-
 }

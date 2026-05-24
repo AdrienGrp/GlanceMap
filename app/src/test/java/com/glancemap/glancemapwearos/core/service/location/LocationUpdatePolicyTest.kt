@@ -215,7 +215,7 @@ class LocationUpdatePolicyTest {
                 highAccuracyBurstIntervalMs = 1_000L,
                 foregroundMinDistanceM = 1f,
                 backgroundMinDistanceM = 5f,
-        )
+            )
 
         assertNotNull(config)
         assertEquals(Priority.PRIORITY_PASSIVE, config?.priority)

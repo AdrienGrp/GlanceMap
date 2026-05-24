@@ -621,7 +621,11 @@ object DiagnosticsExporter {
             writer.appendLine("passiveExternalMinAgeMs=${telemetryInsights.passiveExternalMinAgeMs ?: "na"}")
             writer.appendLine("passiveExternalMaxAgeMs=${telemetryInsights.passiveExternalMaxAgeMs ?: "na"}")
             writer.appendLine("passiveExternalLastMaxAgeMs=${telemetryInsights.passiveExternalLastMaxAgeMs ?: "na"}")
-            writer.appendLine("passiveExternalLastAccuracyM=${formatOneDecimal(telemetryInsights.passiveExternalLastAccuracyM)}")
+            writer.appendLine(
+                "passiveExternalLastAccuracyM=${
+                    formatOneDecimal(telemetryInsights.passiveExternalLastAccuracyM)
+                }",
+            )
             writer.appendLine("passiveExternalLastProvider=${telemetryInsights.passiveExternalLastProvider ?: "na"}")
             writer.appendLine(
                 "watchGpsDegradedEnteredCount=${telemetryInsights.watchGpsDegradedEnteredCount}",
@@ -1193,7 +1197,8 @@ object DiagnosticsExporter {
                 insights.passiveExternalSignalSampleCount == 0 -> "listening_no_callbacks"
             insights.passiveExternalSignalSampleCount == 0 -> "callbacks_no_valid_samples"
             insights.passiveExternalAcceptedSampleCount > 0 -> "fresh_fixes_accepted"
-            insights.passiveExternalStaleSampleCount == insights.passiveExternalSignalSampleCount -> "only_stale_samples"
+            insights.passiveExternalStaleSampleCount ==
+                insights.passiveExternalSignalSampleCount -> "only_stale_samples"
             insights.passiveExternalRejectedSampleCount > 0 -> "samples_rejected"
             else -> "unknown"
         }

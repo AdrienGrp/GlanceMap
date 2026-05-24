@@ -12,6 +12,7 @@ internal fun MapView.setCenterForNavigationMarker(
     setCenter(resolveMapCenterForNavigationMarker(markerLatLong, markerAnchorMode))
 }
 
+@Suppress("ReturnCount")
 internal fun MapView.resolveMapCenterForNavigationMarker(
     markerLatLong: LatLong,
     markerAnchorMode: String,

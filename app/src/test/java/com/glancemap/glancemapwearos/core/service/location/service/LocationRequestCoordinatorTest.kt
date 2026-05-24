@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod")
+
 package com.glancemap.glancemapwearos.core.service.location.service
 
 import com.glancemap.glancemapwearos.core.service.location.adapters.CurrentLocationRequestParams

@@ -840,15 +840,17 @@ private fun GpxAndInspectionOverlayEffect(
         mapView.post {
             var changed = false
             // remove old layers
-            (trackedGpxOverlayIds(
-                polylinesById = polylinesById,
-                elevationPolylinesById = elevationPolylinesById,
-                startMarkersById = startMarkersById,
-                endMarkersById = endMarkersById,
-                directionArrowMarkersById = directionArrowMarkersById,
-                lodById = lodById,
-                displayedLodBucketById = displayedLodBucketById,
-            ) - wantedIds).forEach { id ->
+            val staleOverlayIds =
+                trackedGpxOverlayIds(
+                    polylinesById = polylinesById,
+                    elevationPolylinesById = elevationPolylinesById,
+                    startMarkersById = startMarkersById,
+                    endMarkersById = endMarkersById,
+                    directionArrowMarkersById = directionArrowMarkersById,
+                    lodById = lodById,
+                    displayedLodBucketById = displayedLodBucketById,
+                ) - wantedIds
+            staleOverlayIds.forEach { id ->
                 if (polylinesById.remove(id)?.let {
                         layers.remove(it)
                         true
@@ -1146,6 +1148,7 @@ private fun GpxAndInspectionOverlayEffect(
     }
 }
 
+@Suppress("LongParameterList")
 private fun trackedGpxOverlayIds(
     polylinesById: Map<String, Polyline>,
     elevationPolylinesById: Map<String, List<Polyline>>,

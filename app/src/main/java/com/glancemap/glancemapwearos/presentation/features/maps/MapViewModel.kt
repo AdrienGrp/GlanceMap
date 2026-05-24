@@ -74,13 +74,11 @@ internal fun buildOfflineStartCenterContextKey(
             .sorted()
             .joinToString(separator = "|")
 
-    if (normalizedMapPath.isEmpty()) {
-        return "gpx=$gpxIds"
+    return when {
+        normalizedMapPath.isEmpty() -> "gpx=$gpxIds"
+        gpxIds.isEmpty() -> "map=$normalizedMapPath"
+        else -> "map=$normalizedMapPath;gpx=$gpxIds"
     }
-    if (gpxIds.isEmpty()) {
-        return "map=$normalizedMapPath"
-    }
-    return "map=$normalizedMapPath;gpx=$gpxIds"
 }
 
 class MapViewModel(

@@ -277,16 +277,7 @@ internal class SelfHealFailoverCoordinator(
             )
             return
         }
-        if (
-            maybeTriggerPassiveExperimentNoFixFailover(
-                nowElapsedMs = nowElapsedMs,
-                fixGapMs = fixGapMs,
-                thresholdMs =
-                    resolvePassiveExperimentNoFixFailoverThresholdMs(
-                        defaultThresholdMs = timingProfile.autoFusedNoFixFailoverGapMs,
-                    ),
-            )
-        ) {
+        if (maybeTriggerPassiveExperimentNoFixFailover()) {
             return
         }
         if (
@@ -383,11 +374,7 @@ internal class SelfHealFailoverCoordinator(
             else -> false
         }
 
-    private fun maybeTriggerPassiveExperimentNoFixFailover(
-        nowElapsedMs: Long,
-        fixGapMs: Long,
-        thresholdMs: Long,
-    ): Boolean {
+    private fun maybeTriggerPassiveExperimentNoFixFailover(): Boolean {
         if (!passiveLocationExperiment() || watchGpsOnly()) return false
         return true
     }

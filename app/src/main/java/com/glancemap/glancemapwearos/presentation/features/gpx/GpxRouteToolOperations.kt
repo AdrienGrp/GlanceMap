@@ -29,8 +29,8 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.reshapeCan
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveReplaceSectionEndpoints
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteReshapeCandidateBounds
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteReshapeWaypoint
-import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteToolTrackPosition
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteToolTrackMatch
+import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteToolTrackPosition
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeToolSnapThresholdMeters
 import com.glancemap.glancemapwearos.presentation.features.routetools.toPlannerPreset
 import com.glancemap.glancemapwearos.presentation.features.routetools.toRoutePlannerRequest
@@ -41,6 +41,7 @@ import org.mapsforge.core.model.LatLong
 import java.io.ByteArrayInputStream
 import java.io.File
 
+@Suppress("LargeClass")
 internal class GpxRouteToolOperations(
     private val gpxRepository: GpxRepository,
     private val routePlanner: RoutePlanner,

@@ -84,11 +84,13 @@ internal class WatchGpsLocationGateway(
     ) {
         requestMutex.withLock {
             ensureGpsProviderAvailable()
-            val listener = activeListenerOrNull()?.also { it.sink = sink } ?: run {
-                removeLocationUpdatesLocked()
-                clearRecentLocationSignatures()
-                WatchGpsLocationListener(sink)
-            }
+            val listener =
+                activeListenerOrNull()?.also { it.sink = sink }
+                    ?: run {
+                        removeLocationUpdatesLocked()
+                        clearRecentLocationSignatures()
+                        WatchGpsLocationListener(sink)
+                    }
 
             sink.onLocationAvailability(isGpsProviderEnabled())
             registeringListener = listener
