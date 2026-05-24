@@ -360,7 +360,7 @@ internal fun FilePickerQuickGuideDialog(
                                     ".poi = points of interest",
                                     ".gpx = route/track",
                                     ".rd5 = offline routing tile",
-                                    ".hgt = elevation data for hill shading / slope",
+                                    ".hgt / .hgt.zip / .hgt.gz = elevation data for hill shading / slope",
                                 ),
                         ),
                         QuickGuidePage(

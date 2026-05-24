@@ -59,6 +59,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
@@ -90,8 +91,10 @@ fun MapsScreen(
     val adaptive = rememberWearAdaptiveSpec()
     val mapFiles by mapViewModel.mapFiles.collectAsState()
     val routingPackFiles by mapViewModel.routingPackFiles.collectAsState()
+    val demTileFiles by mapViewModel.demTileFiles.collectAsState()
     val selectedMapPath by mapViewModel.selectedMapPath.collectAsState()
     val demDownloadState by themeViewModel.demDownloadUiState.collectAsState()
+    val selectedDemSource by themeViewModel.demSource.collectAsState()
 
     // Explicit state (no "by" delegation to avoid the error you saw)
     val showDeleteDialogState = remember { mutableStateOf(false) }
@@ -109,6 +112,9 @@ fun MapsScreen(
     var renameInProgress by remember { mutableStateOf(false) }
     var renameError by remember { mutableStateOf<String?>(null) }
     var routingInfoMap by remember { mutableStateOf<MapFileState?>(null) }
+    var showDemDataDialog by remember { mutableStateOf(false) }
+    var demTileToDelete by remember { mutableStateOf<DemTileFileState?>(null) }
+    var demSourceToDeleteAll by remember { mutableStateOf<DemSource?>(null) }
     var showRoutingDataDialog by remember { mutableStateOf(false) }
     var routingPackToDelete by remember { mutableStateOf<RoutingPackFileState?>(null) }
     var showDeleteAllRoutingDialog by remember { mutableStateOf(false) }
@@ -369,6 +375,30 @@ fun MapsScreen(
         )
 
         DeleteConfirmationDialog(
+            visible = demTileToDelete != null,
+            title = "Delete DEM tile?",
+            message = demTileToDelete?.name ?: "",
+            onConfirm = {
+                demTileToDelete?.let { mapViewModel.deleteDemTileFile(it.path) }
+                demTileToDelete = null
+            },
+            onDismiss = { demTileToDelete = null },
+        )
+
+        DeleteConfirmationDialog(
+            visible = demSourceToDeleteAll != null,
+            title = "Delete DEM source?",
+            message = demSourceToDeleteAll?.let { source ->
+                "Delete all ${source.displayName} DEM files from the watch?"
+            } ?: "",
+            onConfirm = {
+                demSourceToDeleteAll?.let { mapViewModel.deleteAllDemTileFiles(it) }
+                demSourceToDeleteAll = null
+            },
+            onDismiss = { demSourceToDeleteAll = null },
+        )
+
+        DeleteConfirmationDialog(
             visible = showDeleteAllRoutingDialog,
             title = "Delete all routing data?",
             message = routingDeleteAllMessage(routingPackFiles),
@@ -469,6 +499,100 @@ fun MapsScreen(
         )
 
         AlertDialog(
+            visible = showDemDataDialog,
+            onDismissRequest = { showDemDataDialog = false },
+            title = { Text("DEM data") },
+            text = {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = adaptive.helpDialogMaxHeight)
+                            .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "1 arcsecond is more detailed but much heavier. 3 arcsecond is lighter and less detailed.",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                    )
+                    DemSource.entries.forEach { source ->
+                        SwitchButton(
+                            checked = selectedDemSource == source,
+                            onCheckedChange = { checked ->
+                                if (checked) themeViewModel.setDemSource(source)
+                            },
+                            label = { Text(source.displayName) },
+                            secondaryLabel = { Text(source.detailLabel) },
+                        )
+                    }
+                    DemSource.entries.forEach { source ->
+                        val files = demTileFiles.filter { it.source == source }
+                        Text(
+                            text = "${source.shortLabel}: ${demTileSummary(files)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            textAlign = TextAlign.Center,
+                        )
+                        files.forEach { tile ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = tile.name,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = formatRoutingStorageSize(tile.sizeBytes),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.68f),
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { demTileToDelete = tile },
+                                    modifier = Modifier.size(26.dp),
+                                    colors =
+                                        IconButtonDefaults.iconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                        ),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete DEM tile",
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                }
+                            }
+                        }
+                        if (files.isNotEmpty()) {
+                            Button(
+                                onClick = { demSourceToDeleteAll = source },
+                                colors =
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    ),
+                            ) {
+                                Text("Delete ${source.shortLabel}")
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showDemDataDialog = false }) {
+                    Text("Done")
+                }
+            },
+        )
+
+        AlertDialog(
             visible = showHelpDialog,
             onDismissRequest = { showHelpDialog = false },
             title = { Text("Map Actions") },
@@ -540,6 +664,25 @@ fun MapsScreen(
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = "Map actions help",
+                                modifier = Modifier.size(headerActionIconSize),
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                mapViewModel.loadDemTileFiles()
+                                showDemDataDialog = true
+                            },
+                            modifier = Modifier.size(headerActionButtonSize),
+                            colors =
+                                IconButtonDefaults.iconButtonColors(
+                                    containerColor = Color.Black.copy(alpha = 0.7f),
+                                    contentColor = Color.White,
+                                ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Landscape,
+                                contentDescription = "DEM data",
                                 modifier = Modifier.size(headerActionIconSize),
                             )
                         }
@@ -857,11 +1000,11 @@ private fun MapItem(
             ) {
                 IconButton(
                     onClick = {
-                        if (!mapFile.demReady && !isDemDownloadRunning) {
+                        if (!isDemDownloadRunning) {
                             onDownloadDem()
                         }
                     },
-                    enabled = !isDemDownloadRunning || mapFile.demReady,
+                    enabled = !isDemDownloadRunning,
                     modifier = Modifier.size(MAP_DATA_BADGE_SIZE),
                     colors =
                         IconButtonDefaults.iconButtonColors(
@@ -955,6 +1098,15 @@ private fun routingPackSummary(packs: List<RoutingPackFileState>): String {
 private fun routingDeleteAllMessage(packs: List<RoutingPackFileState>): String {
     if (packs.isEmpty()) return "No routing packs installed."
     return "Deletes ${routingPackSummary(packs)} from the watch."
+}
+
+private fun demTileSummary(files: List<DemTileFileState>): String {
+    if (files.isEmpty()) return "none installed"
+    val totalBytes = files.sumOf { it.sizeBytes }
+    return when (files.size) {
+        1 -> "1 tile · ${formatRoutingStorageSize(totalBytes)}"
+        else -> "${files.size} tiles · ${formatRoutingStorageSize(totalBytes)}"
+    }
 }
 
 private fun formatRoutingStorageSize(bytes: Long): String {

@@ -5,6 +5,7 @@ import android.util.Log
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.routing.isRoutingSegmentFileName
 import com.glancemap.glancemapwearos.core.routing.routingSegmentBounds
 import com.glancemap.glancemapwearos.core.routing.routingSegmentPartFile
@@ -42,7 +43,6 @@ internal class WatchFileOps(
     private val app: GlanceMapWearApp,
 ) {
     companion object {
-        private const val DEM_DIR_NAME = "dem3"
         private const val CHECKSUM_READ_BUFFER_SIZE = 2 * 1024 * 1024
         private const val CHECKSUM_PROGRESS_STEP_BYTES = 8L * 1024L * 1024L
         private val DEM_TILE_ID_REGEX = Regex("^([NS]\\d{2}[EW]\\d{3})$", RegexOption.IGNORE_CASE)
@@ -427,7 +427,7 @@ internal class WatchFileOps(
 
     private fun isDemFileName(fileName: String): Boolean {
         val lower = fileName.lowercase()
-        return lower.endsWith(".hgt") || lower.endsWith(".hgt.zip")
+        return lower.endsWith(".hgt") || lower.endsWith(".hgt.zip") || lower.endsWith(".hgt.gz")
     }
 
     private fun targetFileForName(fileName: String): File? =
@@ -508,13 +508,12 @@ internal class WatchFileOps(
         return digest.digest().joinToString("") { b -> "%02x".format(b) }
     }
 
-    private fun demRootDir(): File =
-        app.getExternalFilesDir(DEM_DIR_NAME)
-            ?: File(app.getDir("maps", Context.MODE_PRIVATE), DEM_DIR_NAME)
+    private fun demRootDir(source: DemSource = DemSource.DEFAULT): File = source.rootDir(app.applicationContext)
 
     private fun demTargetFileForName(fileName: String): File {
         val safeName = sanitizeFileName(fileName)
-        val root = demRootDir()
+        val source = demSourceForFileName(safeName)
+        val root = demRootDir(source)
         val tileId = demTileIdFromFileName(safeName)
         val parent = if (tileId != null) File(root, tileId.substring(0, 3)) else root
         return File(parent, safeName)
@@ -522,14 +521,22 @@ internal class WatchFileOps(
 
     private fun demPartFileForName(fileName: String): File {
         val target = demTargetFileForName(fileName)
-        return File(target.parentFile ?: demRootDir(), ".${target.name}.part")
+        return File(target.parentFile ?: demRootDir(demSourceForFileName(fileName)), ".${target.name}.part")
     }
+
+    private fun demSourceForFileName(fileName: String): DemSource =
+        if (fileName.endsWith(".hgt.gz", ignoreCase = true)) {
+            DemSource.MAPZEN_SKADI_1S
+        } else {
+            DemSource.MAPSFORGE_DEM3
+        }
 
     private fun demTileIdFromFileName(fileName: String): String? {
         val upper = fileName.uppercase()
         val base =
             when {
                 upper.endsWith(".HGT.ZIP") -> upper.removeSuffix(".HGT.ZIP")
+                upper.endsWith(".HGT.GZ") -> upper.removeSuffix(".HGT.GZ")
                 upper.endsWith(".HGT") -> upper.removeSuffix(".HGT")
                 else -> return null
             }

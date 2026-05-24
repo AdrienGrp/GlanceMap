@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.cache.AppDerivedCacheCleaner
 import com.glancemap.glancemapwearos.core.cache.AppDerivedCacheCleanupResult
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
+import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.maps.GeoBounds
 import com.glancemap.glancemapwearos.core.routing.RoutingCoverageUtils
 import com.glancemap.glancemapwearos.core.routing.isRoutingSegmentFileName
@@ -40,6 +42,7 @@ import kotlinx.coroutines.withContext
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.view.MapView
 import java.io.File
+import java.util.Locale
 
 data class MapFileState(
     val name: String,
@@ -61,6 +64,19 @@ data class RoutingPackFileState(
     val modifiedAtMillis: Long,
     val bounds: GeoBounds? = null,
 )
+
+data class DemTileFileState(
+    val name: String,
+    val path: String,
+    val sizeBytes: Long,
+    val source: DemSource,
+)
+
+private fun isDemTileFileName(name: String): Boolean {
+    val lower = name.lowercase(Locale.ROOT)
+    return lower.endsWith(".hgt") || lower.endsWith(".hgt.zip") || lower.endsWith(".hgt.gz") ||
+        lower.endsWith(".hgt.missing")
+}
 
 private data class OfflineViewportSnapshot(
     val contextKey: String,
@@ -86,6 +102,8 @@ class MapViewModel(
 
     private val _mapFiles = MutableStateFlow<List<MapFileState>>(emptyList())
     val mapFiles: StateFlow<List<MapFileState>> = _mapFiles.asStateFlow()
+    private val _demTileFiles = MutableStateFlow<List<DemTileFileState>>(emptyList())
+    val demTileFiles: StateFlow<List<DemTileFileState>> = _demTileFiles.asStateFlow()
     private val _reliefOverlayToggleEnabled = MutableStateFlow(false)
     val reliefOverlayToggleEnabled: StateFlow<Boolean> = _reliefOverlayToggleEnabled.asStateFlow()
 
@@ -480,6 +498,33 @@ class MapViewModel(
         }
     }
 
+    fun loadDemTileFiles() {
+        viewModelScope.launch {
+            val states =
+                withContext(Dispatchers.IO) {
+                    DemSource.entries.flatMap { source ->
+                        val root = Dem3CoverageUtils.demRootDir(context, source)
+                        root
+                            .walkTopDown()
+                            .maxDepth(3)
+                            .filter { it.isFile && isDemTileFileName(it.name) }
+                            .map { file ->
+                                DemTileFileState(
+                                    name = file.name,
+                                    path = file.absolutePath,
+                                    sizeBytes = file.length(),
+                                    source = source,
+                                )
+                            }.toList()
+                    }.sortedWith(
+                        compareBy<DemTileFileState> { it.source.ordinal }
+                            .thenBy { it.name.lowercase() },
+                    )
+                }
+            _demTileFiles.value = states
+        }
+    }
+
     fun deleteMapFile(path: String) {
         viewModelScope.launch {
             val mapToDelete = File(path)
@@ -542,6 +587,41 @@ class MapViewModel(
             RoutingCoverageUtils.clearCaches()
             loadRoutingPackFiles()
             loadMapFiles()
+        }
+    }
+
+    fun deleteDemTileFile(path: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                val file = File(path)
+                if (file.exists() && isDemTileFileName(file.name)) {
+                    file.delete()
+                    File(file.parentFile, ".${file.name}.part").delete()
+                    DemSignatureStore.markDirty(context)
+                }
+            }
+            Dem3CoverageUtils.clearCaches()
+            loadDemTileFiles()
+            loadMapFiles()
+            mapRenderer?.invalidateTileCache()
+        }
+    }
+
+    fun deleteAllDemTileFiles(source: DemSource) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                val root = Dem3CoverageUtils.demRootDir(context, source)
+                root
+                    .walkTopDown()
+                    .maxDepth(3)
+                    .filter { it.isFile && (isDemTileFileName(it.name) || it.name.endsWith(".part")) }
+                    .forEach { it.delete() }
+                DemSignatureStore.markDirty(context)
+            }
+            Dem3CoverageUtils.clearCaches()
+            loadDemTileFiles()
+            loadMapFiles()
+            mapRenderer?.invalidateTileCache()
         }
     }
 

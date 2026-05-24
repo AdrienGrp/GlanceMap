@@ -15,6 +15,7 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsToggleChip
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsListTokens
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -78,8 +79,22 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
                     checked = uiState.selection.includeDem,
                     onCheckedChanged = viewModel::setIncludeDem,
                     label = "DEM",
-                    secondaryLabel = "Elevation tiles",
+                    secondaryLabel = "${uiState.selection.demSource.shortLabel} elevation tiles",
                 )
+            }
+            if (uiState.selection.includeDem) {
+                DemSource.entries.forEach { source ->
+                    item {
+                        SettingsToggleChip(
+                            checked = uiState.selection.demSource == source,
+                            onCheckedChanged = { checked ->
+                                if (checked) viewModel.setDemSource(source)
+                            },
+                            label = source.displayName,
+                            secondaryLabel = source.detailLabel,
+                        )
+                    }
+                }
             }
             item {
                 SettingsToggleChip(

@@ -27,6 +27,17 @@ object DemSignatureStore {
         context: Context,
         demRootDir: File,
         maxDepth: Int,
+    ): String? =
+        resolveSignature(
+            context = context,
+            demRootDirs = listOf(demRootDir),
+            maxDepth = maxDepth,
+        )
+
+    fun resolveSignature(
+        context: Context,
+        demRootDirs: List<File>,
+        maxDepth: Int,
     ): String? {
         val now = System.currentTimeMillis()
         val sharedPrefs = prefs(context)
@@ -39,7 +50,7 @@ object DemSignatureStore {
             return cachedSignature.takeUnless { it == EMPTY_SIGNATURE_SENTINEL }
         }
 
-        val scannedSignature = scanDemSignature(demRootDir = demRootDir, maxDepth = maxDepth)
+        val scannedSignature = scanDemSignature(demRootDirs = demRootDirs, maxDepth = maxDepth)
         sharedPrefs
             .edit()
             .putString(KEY_SIGNATURE, scannedSignature ?: EMPTY_SIGNATURE_SENTINEL)
@@ -50,30 +61,32 @@ object DemSignatureStore {
     }
 
     private fun scanDemSignature(
-        demRootDir: File,
+        demRootDirs: List<File>,
         maxDepth: Int,
     ): String? {
-        if (!demRootDir.exists() || !demRootDir.isDirectory) return null
-
         var count = 0
         var totalBytes = 0L
         var latestModified = 0L
-        demRootDir
-            .walkTopDown()
-            .maxDepth(maxDepth)
-            .forEach { file ->
-                if (!file.isFile) return@forEach
-                val lowerName = file.name.lowercase(Locale.ROOT)
-                val isDem =
-                    lowerName.endsWith(".hgt") ||
-                        lowerName.endsWith(".hgt.zip") ||
-                        lowerName.endsWith(".hgt.missing")
-                if (!isDem) return@forEach
+        demRootDirs.forEach { demRootDir ->
+            if (!demRootDir.exists() || !demRootDir.isDirectory) return@forEach
+            demRootDir
+                .walkTopDown()
+                .maxDepth(maxDepth)
+                .forEach { file ->
+                    if (!file.isFile) return@forEach
+                    val lowerName = file.name.lowercase(Locale.ROOT)
+                    val isDem =
+                        lowerName.endsWith(".hgt") ||
+                            lowerName.endsWith(".hgt.zip") ||
+                            lowerName.endsWith(".hgt.gz") ||
+                            lowerName.endsWith(".hgt.missing")
+                    if (!isDem) return@forEach
 
-                count += 1
-                totalBytes += file.length()
-                latestModified = maxOf(latestModified, file.lastModified())
-            }
+                    count += 1
+                    totalBytes += file.length()
+                    latestModified = maxOf(latestModified, file.lastModified())
+                }
+        }
 
         if (count == 0) return null
         return "count=$count|bytes=$totalBytes|lm=$latestModified"

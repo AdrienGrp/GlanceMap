@@ -51,7 +51,7 @@ internal fun createMissingDemMarker(
     target: File,
     demRoot: File,
 ) {
-    val tileId = target.name.removeSuffix(".hgt.zip").removeSuffix(".hgt")
+    val tileId = target.name.removeSuffix(".hgt.zip").removeSuffix(".hgt.gz").removeSuffix(".hgt")
     val marker =
         Dem3CoverageUtils
             .missingTileMarkerCandidates(demRoot = demRoot, tileId = tileId)

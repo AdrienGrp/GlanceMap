@@ -9,7 +9,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadDiagnostics
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepository
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepositoryImpl
 import com.glancemap.glancemapwearos.domain.model.maps.theme.ThemeListItem
@@ -68,10 +70,10 @@ private data class DemTileDownloadOutcome(
 class ThemeViewModel(
     private val themeRepository: ThemeRepository,
     private val context: Context,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
     companion object {
-        private const val DEM3_BASE_URL = "https://download.mapsforge.org/maps/dem/dem3"
-        private const val DEM3_USER_AGENT = "GlanceMap-DEM3/1.0"
+        private const val DEM_USER_AGENT = "GlanceMap-DEM/1.0"
         private const val TAG = "ThemeViewModel"
         private const val DEM_TILE_MAX_ATTEMPTS = 3
         private const val DEM_TILE_RETRY_BASE_DELAY_MS = 1_500L
@@ -83,6 +85,12 @@ class ThemeViewModel(
 
     private val _demDownloadUiState = MutableStateFlow(DemDownloadUiState())
     val demDownloadUiState: StateFlow<DemDownloadUiState> = _demDownloadUiState.asStateFlow()
+    val demSource: StateFlow<DemSource> =
+        settingsRepository.demSource.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = DemSource.DEFAULT,
+        )
 
     val themeItems: StateFlow<List<ThemeListItem>> =
         themeRepository
@@ -405,7 +413,8 @@ class ThemeViewModel(
             )
         }
 
-        val outputRoot = getDemOutputRoot()
+        val source = demSource.value
+        val outputRoot = getDemOutputRoot(source)
         outputRoot.mkdirs()
 
         var downloaded = 0
@@ -430,7 +439,8 @@ class ThemeViewModel(
                     statusMessage = "Downloading...",
                 )
 
-            val (folder, fileName) = tilePathSegments(tileId)
+            val folder = source.folderForTile(tileId)
+            val fileName = source.localFileName(tileId)
             val localDir = File(outputRoot, folder).apply { mkdirs() }
             val localFile = File(localDir, fileName)
             if (localFile.exists()) {
@@ -454,11 +464,12 @@ class ThemeViewModel(
                 }
             }
 
-            val url = "$DEM3_BASE_URL/$folder/$fileName"
+            val url = source.remoteUrl(tileId)
             val outcome =
                 downloadTileWithRetries(
                     url = url,
                     target = localFile,
+                    source = source,
                     processed = processed,
                     total = tileIds.size,
                 )
@@ -551,11 +562,18 @@ class ThemeViewModel(
                 "DEM download incomplete."
         }
 
-    private fun getDemOutputRoot(): File = Dem3CoverageUtils.demRootDir(appContext)
+    fun setDemSource(source: DemSource) {
+        viewModelScope.launch {
+            settingsRepository.setDemSource(source)
+        }
+    }
+
+    private fun getDemOutputRoot(source: DemSource): File = Dem3CoverageUtils.demRootDir(appContext, source)
 
     private suspend fun downloadTileWithRetries(
         url: String,
         target: File,
+        source: DemSource,
         processed: Int,
         total: Int,
     ): DemTileDownloadOutcome {
@@ -583,8 +601,8 @@ class ThemeViewModel(
                     downloadDemFile(
                         url = url,
                         target = target,
-                        demRoot = getDemOutputRoot(),
-                        userAgent = DEM3_USER_AGENT,
+                        demRoot = getDemOutputRoot(source),
+                        userAgent = DEM_USER_AGENT,
                     )
                     true
                 }.getOrElse { error ->
@@ -645,13 +663,6 @@ class ThemeViewModel(
                     )
                 } == true,
         )
-    }
-
-    private fun tilePathSegments(tileId: String): Pair<String, String> {
-        val upper = tileId.uppercase(Locale.ROOT)
-        val folder = upper.substring(0, 3)
-        val file = "$upper.hgt.zip"
-        return folder to file
     }
 
     private suspend fun waitForWatchInternetConnection(): Boolean {

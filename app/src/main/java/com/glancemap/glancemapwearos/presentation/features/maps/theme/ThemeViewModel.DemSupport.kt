@@ -9,6 +9,7 @@ import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.Locale
+import java.util.zip.GZIPInputStream
 import java.util.zip.ZipException
 import java.util.zip.ZipFile
 import kotlin.math.sqrt
@@ -78,10 +79,27 @@ internal fun validateDemTileFile(file: File) {
         invalidDemTile("DEM tile is empty.")
     }
 
-    if (file.name.endsWith(".zip", ignoreCase = true)) {
-        validateDemZip(file)
-    } else if (!isPlausibleHgtByteSize(file.length())) {
-        invalidDemTile("DEM tile has invalid HGT size: ${file.length()} bytes.")
+    when {
+        file.name.endsWith(".zip", ignoreCase = true) -> validateDemZip(file)
+        file.name.endsWith(".gz", ignoreCase = true) -> validateDemGzip(file)
+        !isPlausibleHgtByteSize(file.length()) -> invalidDemTile("DEM tile has invalid HGT size: ${file.length()} bytes.")
+    }
+}
+
+private fun validateDemGzip(file: File) {
+    val uncompressedSize =
+        GZIPInputStream(file.inputStream().buffered()).use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var total = 0L
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                if (read > 0) total += read
+            }
+            total
+        }
+    if (!isPlausibleHgtByteSize(uncompressedSize)) {
+        invalidDemTile("DEM GZIP contains invalid HGT size: $uncompressedSize bytes.")
     }
 }
 

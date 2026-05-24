@@ -114,6 +114,7 @@ class DefaultAppContainer(
                 ),
             notificationController = OamDownloadNotificationController(applicationContext),
             networkMonitor = OamDownloadNetworkMonitor(applicationContext),
+            settingsRepository = settingsRepository,
         )
     }
 
@@ -121,6 +122,7 @@ class DefaultAppContainer(
         ThemeViewModel(
             themeRepository = themeRepository,
             context = applicationContext,
+            settingsRepository = settingsRepository,
         )
     }
 

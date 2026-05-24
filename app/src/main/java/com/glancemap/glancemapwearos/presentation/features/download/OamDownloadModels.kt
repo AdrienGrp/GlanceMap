@@ -1,5 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.download
 
+import com.glancemap.glancemapwearos.core.maps.DemSource
+
 data class OamDownloadArea(
     val id: String,
     val continent: String,
@@ -30,6 +32,7 @@ data class OamDownloadSelection(
     val includePoi: Boolean = true,
     val includeRouting: Boolean = true,
     val includeDem: Boolean = true,
+    val demSource: DemSource = DemSource.DEFAULT,
     val includeRefugesInfo: Boolean = false,
 ) {
     val canDownload: Boolean
@@ -48,7 +51,7 @@ data class OamDownloadSelection(
             "Map".takeIf { includeMap },
             "POI".takeIf { includePoi },
             "Routing".takeIf { includeRouting },
-            "DEM".takeIf { includeDem },
+            "${demSource.shortLabel} DEM".takeIf { includeDem },
             "Refuges.info".takeIf { includeRefugesInfo },
         ).joinToString(" + ").ifBlank { "Nothing selected" }
 }
@@ -62,6 +65,7 @@ data class OamInstalledBundle(
     val refugesInfoFileName: String? = null,
     val routingFileNames: List<String> = emptyList(),
     val downloadedRoutingFileNames: List<String> = emptyList(),
+    val demSource: DemSource = DemSource.DEFAULT,
     val demTileIds: List<String> = emptyList(),
     val downloadedDemTileIds: List<String> = emptyList(),
     val installedAtMillis: Long,

@@ -86,5 +86,6 @@ internal class HttpTransferProgressCallbacks(
             fileName.endsWith(".poi", ignoreCase = true) ||
             fileName.endsWith(".rd5", ignoreCase = true) ||
             fileName.endsWith(".hgt", ignoreCase = true) ||
-            fileName.endsWith(".hgt.zip", ignoreCase = true)
+            fileName.endsWith(".hgt.zip", ignoreCase = true) ||
+            fileName.endsWith(".hgt.gz", ignoreCase = true)
 }
