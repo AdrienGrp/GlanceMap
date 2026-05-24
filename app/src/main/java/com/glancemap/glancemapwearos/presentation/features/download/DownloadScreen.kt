@@ -38,6 +38,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,7 @@ import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.material.Chip
+import kotlinx.coroutines.launch
 import androidx.wear.compose.material3.Icon as Material3Icon
 
 @OptIn(ExperimentalHorologistApi::class)
@@ -100,6 +102,7 @@ fun DownloadScreen(
             context.getSharedPreferences(DOWNLOAD_INFO_PREFS, android.content.Context.MODE_PRIVATE)
         }
     val listState = rememberScalingLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     var wasAreaPickerOpen by remember { mutableStateOf(showAreaPicker) }
     val selectedAreas = uiState.selectedAreas
     val estimatedSize =
@@ -319,12 +322,16 @@ fun DownloadScreen(
                 actionSpacing = headerActionSpacing,
                 onInfoClick = { showOamInfoDialog = true },
                 onRefreshModeClick = {
-                    refreshMode = !refreshMode
-                    if (!refreshMode) {
+                    val nextRefreshMode = !refreshMode
+                    refreshMode = nextRefreshMode
+                    if (!nextRefreshMode) {
                         viewModel.clearRefreshBundleSelection()
                     }
-                    if (refreshMode) {
+                    if (nextRefreshMode) {
                         deleteMode = false
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(DOWNLOAD_INSTALLED_BUNDLES_ITEM_INDEX)
+                        }
                     }
                 },
                 onDeleteModeClick = {
@@ -957,3 +964,4 @@ private val SelectedChipIcon = Color(0xFF7FE4C8)
 private const val DOWNLOAD_INFO_PREFS = "download_screen_info_prefs"
 private const val DOWNLOAD_INFO_SHOWN_KEY = "oam_info_shown"
 private const val DOWNLOAD_MAIN_ACTION_ITEM_INDEX = 2
+private const val DOWNLOAD_INSTALLED_BUNDLES_ITEM_INDEX = 3
