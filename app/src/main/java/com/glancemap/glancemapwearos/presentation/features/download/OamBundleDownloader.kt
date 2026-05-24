@@ -41,6 +41,8 @@ import java.util.Locale
 import java.util.zip.ZipInputStream
 import kotlin.coroutines.coroutineContext
 
+private const val OAM_REMOTE_BROUTER_SEGMENTS_BASE_URL = "https://brouter.de/brouter/segments4"
+
 data class OamDownloadProgress(
     val phase: String,
     val detail: String,
@@ -59,10 +61,49 @@ private data class DemTileDownloadResult(
     val stored: Boolean,
 )
 
-private data class RemoteFileRequest(
+internal data class RemoteFileRequest(
     val url: String,
     val fileName: String,
 )
+
+internal fun buildRemoteFileRequestsForBundle(
+    area: OamDownloadArea,
+    bundle: OamInstalledBundle,
+    demRemoteFileRequest: (String) -> RemoteFileRequest,
+    shouldSkipKnownMissingDemTile: (String) -> Boolean = { false },
+): List<RemoteFileRequest> =
+    buildList {
+        if (bundle.mapFileName != null) {
+            add(
+                RemoteFileRequest(
+                    url = area.mapZipUrl,
+                    fileName = oamRemoteFileName(area.mapZipUrl),
+                ),
+            )
+        }
+        if (bundle.poiFileName != null) {
+            add(
+                RemoteFileRequest(
+                    url = area.poiZipUrl,
+                    fileName = oamRemoteFileName(area.poiZipUrl),
+                ),
+            )
+        }
+        bundle.routingFileNames.forEach { fileName ->
+            val safeName = File(fileName).name
+            add(
+                RemoteFileRequest(
+                    url = "$OAM_REMOTE_BROUTER_SEGMENTS_BASE_URL/$safeName",
+                    fileName = safeName,
+                ),
+            )
+        }
+        bundle.demTileIds
+            .filterNot(shouldSkipKnownMissingDemTile)
+            .forEach { tileId ->
+                add(demRemoteFileRequest(tileId))
+            }
+    }
 
 class OamBundleDownloader(
     private val context: Context,
@@ -120,17 +161,27 @@ class OamBundleDownloader(
                 }
             }
 
+            val distinctChangedFileNames = changedFileNames.distinct()
+            val distinctUnknownFileNames = unknownFileNames.distinct()
+            val status =
+                when {
+                    distinctChangedFileNames.isNotEmpty() -> OamBundleUpdateStatus.UPDATE_AVAILABLE
+                    requests.isEmpty() -> OamBundleUpdateStatus.UP_TO_DATE
+                    distinctUnknownFileNames.isNotEmpty() || checkedFileCount == 0 -> OamBundleUpdateStatus.UNKNOWN
+                    else -> OamBundleUpdateStatus.UP_TO_DATE
+                }
+            DebugTelemetry.log(
+                OAM_DOWNLOAD_TELEMETRY_TAG,
+                "event=update_check_result area=${bundle.areaId} status=$status checked=$checkedFileCount " +
+                    "changed=${distinctChangedFileNames.joinToString(limit = 5)} " +
+                    "unknown=${distinctUnknownFileNames.joinToString(limit = 5)}",
+            )
             OamBundleUpdateCheck(
                 bundle = bundle,
-                status =
-                    when {
-                        changedFileNames.isNotEmpty() -> OamBundleUpdateStatus.UPDATE_AVAILABLE
-                        unknownFileNames.isNotEmpty() || checkedFileCount == 0 -> OamBundleUpdateStatus.UNKNOWN
-                        else -> OamBundleUpdateStatus.UP_TO_DATE
-                    },
+                status = status,
                 checkedFileCount = checkedFileCount,
-                changedFileNames = changedFileNames.distinct(),
-                unknownFileNames = unknownFileNames.distinct(),
+                changedFileNames = distinctChangedFileNames,
+                unknownFileNames = distinctUnknownFileNames,
             )
         }
 
@@ -188,8 +239,13 @@ class OamBundleDownloader(
         area: OamDownloadArea,
         selection: OamDownloadSelection,
         forceMapAndPoi: Boolean = false,
+        forceMap: Boolean = forceMapAndPoi,
+        forcePoi: Boolean = forceMapAndPoi,
+        forceRefugesInfo: Boolean = forceMap,
         forceRoutingSegments: Boolean = false,
+        forceRoutingFileNames: Set<String> = emptySet(),
         forceDemTiles: Boolean = false,
+        forceDemTileIds: Set<String> = emptySet(),
         onProgress: (OamDownloadProgress) -> Unit,
     ): OamInstalledBundle {
         require(selection.canDownload) { "Select at least one download item." }
@@ -204,7 +260,7 @@ class OamBundleDownloader(
         var mapFileName: String? = existingBundle?.mapFileName
         if (selection.includeMap) {
             val existingMapFile =
-                if (forceMapAndPoi) {
+                if (forceMap) {
                     null
                 } else {
                     existingMapFileForArea(area = area, knownFileName = existingBundle?.mapFileName)
@@ -267,7 +323,7 @@ class OamBundleDownloader(
         var poiFileName: String? = existingBundle?.poiFileName
         if (selection.includePoi) {
             val existingPoiFile =
-                if (forceMapAndPoi) {
+                if (forcePoi) {
                     null
                 } else {
                     existingPoiFileForArea(area = area, knownFileName = existingBundle?.poiFileName)
@@ -329,7 +385,7 @@ class OamBundleDownloader(
         var refugesInfoFileName: String? = existingBundle?.refugesInfoFileName
         if (selection.includeRefugesInfo) {
             val existingRefugesInfoFile =
-                if (forceMapAndPoi) {
+                if (forceRefugesInfo) {
                     null
                 } else {
                     existingRefugesInfoFileForArea(
@@ -384,7 +440,7 @@ class OamBundleDownloader(
                         )?.let { remoteFilesByUrl[it.url] = it }
                         downloadRoutingSegment(
                             fileName = fileName,
-                            forceDownload = forceRoutingSegments,
+                            forceDownload = forceRoutingSegments || File(fileName).name in forceRoutingFileNames,
                             onProgress = onProgress,
                         )
                     }
@@ -409,7 +465,7 @@ class OamBundleDownloader(
                         downloadDemTile(
                             tileId = tileId,
                             source = selection.demSource,
-                            forceDownload = forceDemTiles,
+                            forceDownload = forceDemTiles || tileId.uppercase(Locale.ROOT) in forceDemTileIds,
                             onProgress = onProgress,
                         )
                     }
@@ -788,6 +844,7 @@ class OamBundleDownloader(
                     .onFailure {
                         file.delete()
                     }.getOrThrow()
+                clearMissingDemMarkers(safeTileId, source)
                 DemTileDownloadResult(tileId = safeTileId, stored = true)
             }.getOrElse { error ->
                 if (error.isHttpNotFound()) {
@@ -824,6 +881,7 @@ class OamBundleDownloader(
     ): Boolean {
         val demRoot = targetFile.parentFile?.parentFile ?: Dem3CoverageUtils.demRootDir(context)
         if (targetFile.exists() && targetFile.isFile && runCatching { validateDemTileFile(targetFile) }.isSuccess) {
+            clearMissingDemMarkers(tileId, demRoot)
             return true
         }
         return Dem3CoverageUtils
@@ -867,36 +925,39 @@ class OamBundleDownloader(
         area: OamDownloadArea,
         bundle: OamInstalledBundle,
     ): List<RemoteFileRequest> =
-        buildList {
-            if (bundle.mapFileName != null) {
-                add(
-                    RemoteFileRequest(
-                        url = area.mapZipUrl,
-                        fileName = remoteFileName(area.mapZipUrl),
-                    ),
-                )
-            }
-            if (bundle.poiFileName != null) {
-                add(
-                    RemoteFileRequest(
-                        url = area.poiZipUrl,
-                        fileName = remoteFileName(area.poiZipUrl),
-                    ),
-                )
-            }
-            bundle.routingFileNames.forEach { fileName ->
-                val safeName = File(fileName).name
-                add(
-                    RemoteFileRequest(
-                        url = "$BROUTER_SEGMENTS_BASE_URL/$safeName",
-                        fileName = safeName,
-                    ),
-                )
-            }
-            bundle.demTileIds.forEach { tileId ->
-                add(demRemoteFileRequest(tileId, bundle.demSource))
-            }
-        }
+        buildRemoteFileRequestsForBundle(
+            area = area,
+            bundle = bundle,
+            demRemoteFileRequest = { tileId -> demRemoteFileRequest(tileId, bundle.demSource) },
+            shouldSkipKnownMissingDemTile = { tileId -> isKnownMissingDemTile(tileId, bundle.demSource) },
+        )
+
+    private fun isKnownMissingDemTile(
+        tileId: String,
+        source: DemSource,
+    ): Boolean =
+        Dem3CoverageUtils
+            .missingTileMarkerCandidates(demRoot = Dem3CoverageUtils.demRootDir(context, source), tileId = tileId)
+            .any { it.exists() && it.isFile }
+
+    private fun clearMissingDemMarkers(
+        tileId: String,
+        source: DemSource,
+    ) {
+        clearMissingDemMarkers(
+            tileId = tileId,
+            demRoot = Dem3CoverageUtils.demRootDir(context, source),
+        )
+    }
+
+    private fun clearMissingDemMarkers(
+        tileId: String,
+        demRoot: File,
+    ) {
+        Dem3CoverageUtils
+            .missingTileMarkerCandidates(demRoot = demRoot, tileId = tileId)
+            .forEach { it.delete() }
+    }
 
     private suspend fun fetchRemoteMetadataOrNull(
         request: RemoteFileRequest,
@@ -1348,23 +1409,17 @@ private fun OamRemoteFileMetadata.isComparable(): Boolean = metadataValues.any {
 internal fun OamRemoteFileMetadata.compareWith(other: OamRemoteFileMetadata): RemoteMetadataComparison =
     when {
         url != other.url -> RemoteMetadataComparison.CHANGED
+        contentLengthBytes != null &&
+            other.contentLengthBytes != null &&
+            contentLengthBytes == other.contentLengthBytes -> RemoteMetadataComparison.SAME
+        contentLengthBytes != null &&
+            other.contentLengthBytes != null -> RemoteMetadataComparison.CHANGED
         entityTag != null && other.entityTag != null && entityTag == other.entityTag -> RemoteMetadataComparison.SAME
-        hasSameStableIdentity(other) -> RemoteMetadataComparison.SAME
         entityTag != null && other.entityTag != null -> RemoteMetadataComparison.CHANGED
         lastModifiedMillis != null && other.lastModifiedMillis != null ->
             compareNullableValues(lastModifiedMillis, other.lastModifiedMillis)
-        contentLengthBytes != null && other.contentLengthBytes != null ->
-            compareNullableValues(contentLengthBytes, other.contentLengthBytes)
         else -> RemoteMetadataComparison.UNKNOWN
     }
-
-private fun OamRemoteFileMetadata.hasSameStableIdentity(other: OamRemoteFileMetadata): Boolean =
-    lastModifiedMillis != null &&
-        other.lastModifiedMillis != null &&
-        contentLengthBytes != null &&
-        other.contentLengthBytes != null &&
-        lastModifiedMillis == other.lastModifiedMillis &&
-        contentLengthBytes == other.contentLengthBytes
 
 private fun Throwable.isHttpNotFound(): Boolean = message?.contains("HTTP 404", ignoreCase = true) == true
 

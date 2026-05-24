@@ -69,8 +69,14 @@ object TransferUtils {
                 if (!cursor.moveToFirst()) return@use null
                 val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                if (nameIndex == -1 || sizeIndex == -1) return@use null
-                cursor.getString(nameIndex) to cursor.getLong(sizeIndex)
+                if (nameIndex == -1) return@use null
+                val size =
+                    if (sizeIndex == -1 || cursor.isNull(sizeIndex)) {
+                        -1L
+                    } else {
+                        cursor.getLong(sizeIndex)
+                    }
+                cursor.getString(nameIndex).orEmpty() to size
             }
         if (queried != null) return queried
 
@@ -82,6 +88,27 @@ object TransferUtils {
             }
         }
         return null
+    }
+
+    fun getTransferFileDetails(
+        context: Context,
+        uri: Uri,
+    ): Pair<String, Long>? {
+        val (rawName, size) = getFileDetails(context, uri) ?: return null
+        return resolveTransferDisplayName(rawName, context.contentResolver.getType(uri)) to size
+    }
+
+    internal fun resolveTransferDisplayName(
+        rawName: String,
+        mimeType: String?,
+    ): String {
+        val name = rawName.trim()
+        val lowerName = name.lowercase(Locale.ROOT)
+        val lowerMime = mimeType.orEmpty().lowercase(Locale.ROOT)
+        if (lowerMime == "application/gpx+xml" && !lowerName.endsWith(".gpx")) {
+            return "${name.ifBlank { "shared-route" }}.gpx"
+        }
+        return name
     }
 
     suspend fun computeSha256(

@@ -46,6 +46,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentW
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
+import com.glancemap.glancemapwearos.presentation.features.maps.MapLayerMutationCoordinator
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
@@ -112,6 +113,7 @@ internal fun NavigateContent(
     onMenuClick: () -> Unit,
     onPermissionLaunch: () -> Unit,
     mapRotationDeg: Float,
+    navigationMarkerAnchorMode: String,
     compassHeadingDeg: Float,
     liveElevationEnabled: Boolean,
     liveDistanceEnabled: Boolean,
@@ -127,6 +129,8 @@ internal fun NavigateContent(
     watchGpsDegradedWarning: Boolean,
     isOfflineMode: Boolean,
     isGpxInspectionEnabled: Boolean,
+    selectingGpxPointB: Boolean,
+    onCancelSelectingGpxPointB: () -> Unit,
     activeGpxDetails: List<GpxTrackDetails>,
     gpxTrackColor: Int,
     routeToolSession: RouteToolSession?,
@@ -427,6 +431,7 @@ internal fun NavigateContent(
     val latestOnViewportChanged = rememberUpdatedState(onViewportChanged)
     val latestVisiblePoiMarkers = rememberUpdatedState(visiblePoiMarkers)
     val latestLastKnownLocation = rememberUpdatedState(lastKnownLocation)
+    val latestNavigationMarkerAnchorMode = rememberUpdatedState(navigationMarkerAnchorMode)
     var rotaryScrollAccumulator by remember(mapView, crownZoomEnabled, crownZoomInverted) {
         mutableStateOf(0f)
     }
@@ -500,7 +505,13 @@ internal fun NavigateContent(
             if (
                 shouldEnterPanningAfterDoubleTap(
                     center = mv.model.mapViewPosition.center,
-                    marker = latestLastKnownLocation.value,
+                    marker =
+                        latestLastKnownLocation.value?.let { marker ->
+                            mv.resolveMapCenterForNavigationMarker(
+                                markerLatLong = marker,
+                                markerAnchorMode = latestNavigationMarkerAnchorMode.value,
+                            )
+                        },
                 )
             ) {
                 latestOnUserPanStarted.value.invoke()
@@ -524,13 +535,14 @@ internal fun NavigateContent(
 
                     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                         val mv = latestMapView.value ?: return false
+                        val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
                         val (x, y) =
                             unrotateTouchToMapSpace(
-                                x = e.x.toDouble(),
-                                y = e.y.toDouble(),
+                                point = ScreenAnchor(e.x.toDouble(), e.y.toDouble()),
                                 mapWidth = mv.width.toDouble(),
                                 mapHeight = mv.height.toDouble(),
                                 mapRotationDeg = mv.mapRotation.degrees.toDouble(),
+                                pivot = anchor,
                             )
                         val ll = runCatching { mv.mapViewProjection.fromPixels(x, y) }.getOrNull() ?: return false
                         if (latestRouteToolSession.value != null) return false
@@ -561,13 +573,14 @@ internal fun NavigateContent(
                     override fun onLongPress(e: MotionEvent) {
                         if (!latestInspectionEnabled.value) return
                         val mv = latestMapView.value ?: return
+                        val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
                         val (x, y) =
                             unrotateTouchToMapSpace(
-                                x = e.x.toDouble(),
-                                y = e.y.toDouble(),
+                                point = ScreenAnchor(e.x.toDouble(), e.y.toDouble()),
                                 mapWidth = mv.width.toDouble(),
                                 mapHeight = mv.height.toDouble(),
                                 mapRotationDeg = mv.mapRotation.degrees.toDouble(),
+                                pivot = anchor,
                             )
                         val ll =
                             runCatching {
@@ -841,12 +854,46 @@ internal fun NavigateContent(
             }
 
             var isDragging by remember { mutableStateOf(false) }
+            var isMultiTouchGestureSuppressed by remember { mutableStateOf(false) }
 
             AndroidView(
                 factory = {
                     (mapView.parent as? ViewGroup)?.removeView(mapView)
                     mapView.apply {
                         setOnTouchListener { v, event ->
+                            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                                isMultiTouchGestureSuppressed = false
+                                MapLayerMutationCoordinator.setGestureActive(mapView, true)
+                            }
+                            if (
+                                event.pointerCount > 1 ||
+                                event.actionMasked == MotionEvent.ACTION_POINTER_DOWN ||
+                                event.actionMasked == MotionEvent.ACTION_POINTER_UP
+                            ) {
+                                if (!isMultiTouchGestureSuppressed) {
+                                    isMultiTouchGestureSuppressed = true
+                                    MotionEvent.obtain(event).run {
+                                        action = MotionEvent.ACTION_CANCEL
+                                        v.onTouchEvent(this)
+                                        recycle()
+                                    }
+                                }
+                                isDragging = false
+                                v.parent?.requestDisallowInterceptTouchEvent(true)
+                                return@setOnTouchListener true
+                            }
+                            if (isMultiTouchGestureSuppressed) {
+                                if (
+                                    event.actionMasked == MotionEvent.ACTION_UP ||
+                                    event.actionMasked == MotionEvent.ACTION_CANCEL
+                                ) {
+                                    isMultiTouchGestureSuppressed = false
+                                    MapLayerMutationCoordinator.setGestureActive(mapView, false)
+                                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                                }
+                                return@setOnTouchListener true
+                            }
+
                             doubleTapGestureDetector.onTouchEvent(event)
                             if (latestInspectionEnabled.value) {
                                 gestureDetector.onTouchEvent(event)
@@ -865,6 +912,7 @@ internal fun NavigateContent(
                                 MotionEvent.ACTION_CANCEL,
                                 -> {
                                     isDragging = false
+                                    MapLayerMutationCoordinator.setGestureActive(mapView, false)
                                     v.parent?.requestDisallowInterceptTouchEvent(false)
                                 }
                                 else -> Unit
@@ -901,6 +949,7 @@ internal fun NavigateContent(
                 liveElevationIconSize = liveElevationIconSize,
                 northIndicatorMode = northIndicatorMode,
                 mapRotationDeg = mapRotationDeg,
+                navigationMarkerAnchorMode = navigationMarkerAnchorMode,
                 compassHeadingDeg = compassHeadingDeg,
                 northIndicatorButtonSize = northIndicatorButtonSize,
                 northIndicatorIconSize = northIndicatorIconSize,
@@ -963,6 +1012,8 @@ internal fun NavigateContent(
                 onRecenterRequested = onRecenterRequested,
                 onToggleOrientation = onToggleOrientation,
                 isOfflineMode = isOfflineMode,
+                selectingGpxPointB = selectingGpxPointB,
+                onCancelSelectingGpxPointB = onCancelSelectingGpxPointB,
             )
 
             MarkerMotionDebugOverlay(

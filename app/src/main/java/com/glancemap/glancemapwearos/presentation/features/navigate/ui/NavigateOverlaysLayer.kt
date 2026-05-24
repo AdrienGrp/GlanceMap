@@ -72,6 +72,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     liveElevationIconSize: Dp,
     northIndicatorMode: String,
     mapRotationDeg: Float,
+    navigationMarkerAnchorMode: String,
     compassHeadingDeg: Float,
     northIndicatorButtonSize: Dp,
     northIndicatorIconSize: Dp,
@@ -117,6 +118,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onRecenterRequested: () -> Unit,
     onToggleOrientation: () -> Unit,
     isOfflineMode: Boolean,
+    selectingGpxPointB: Boolean,
+    onCancelSelectingGpxPointB: () -> Unit,
 ) {
     var liveDistanceLineStart by
         remember(mapView, locationMarker, lastKnownLocation) {
@@ -163,10 +166,12 @@ internal fun BoxScope.NavigateOverlaysLayer(
                 )
             liveDistanceLineStart =
                 liveDistanceOrigin?.let { origin ->
+                    val anchor = mapView.resolveNavigationMarkerScreenAnchor(navigationMarkerAnchorMode)
                     projectLatLongToScreenOffset(
                         mapView = mapView,
                         latLong = origin,
                         mapRotationDeg = mapRotationDeg,
+                        rotationPivot = anchor,
                     )
                 }
             delay(80L)
@@ -351,6 +356,14 @@ internal fun BoxScope.NavigateOverlaysLayer(
         navButtonSize = navButtonSize,
     )
 
+    GpxInspectionBSelectionPromptOverlay(
+        visible = selectingGpxPointB,
+        screenSize = screenSize,
+        navButtonBottomPadding = navButtonBottomPadding,
+        navButtonSize = navButtonSize,
+        onCancel = onCancelSelectingGpxPointB,
+    )
+
     IconButton(
         onClick = onMenuClick,
         modifier =
@@ -397,5 +410,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onRecenter = onRecenter,
         onRecenterRequested = onRecenterRequested,
         onToggleOrientation = onToggleOrientation,
+        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
     )
 }

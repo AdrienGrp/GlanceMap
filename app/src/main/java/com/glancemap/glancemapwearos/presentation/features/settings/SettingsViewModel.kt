@@ -276,6 +276,19 @@ class SettingsViewModel(
             settingsRepository.setNavigationMarkerStyle(style)
         }
 
+    val navigationMarkerAnchorMode: StateFlow<String> =
+        settingsRepository.navigationMarkerAnchorMode
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER,
+            )
+
+    fun setNavigationMarkerAnchorMode(mode: String) =
+        viewModelScope.launch {
+            settingsRepository.setNavigationMarkerAnchorMode(mode)
+        }
+
     val mapDoubleTapAction: StateFlow<String> =
         settingsRepository.mapDoubleTapAction
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "zoom_in")
@@ -372,6 +385,19 @@ class SettingsViewModel(
     fun setGpxTrackOpacityPercent(opacityPercent: Int) =
         viewModelScope.launch {
             settingsRepository.setGpxTrackOpacityPercent(opacityPercent)
+        }
+
+    val gpxTrackDirectionArrowsEnabled: StateFlow<Boolean> =
+        settingsRepository.gpxTrackDirectionArrowsEnabled
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TRACK_DIRECTION_ARROWS_ENABLED,
+            )
+
+    fun setGpxTrackDirectionArrowsEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setGpxTrackDirectionArrowsEnabled(enabled)
         }
 
     val autoRecenterEnabled: StateFlow<Boolean> =
@@ -550,6 +576,15 @@ class SettingsViewModel(
     fun setMetric(isMetric: Boolean) =
         viewModelScope.launch {
             settingsRepository.setMetric(isMetric)
+        }
+
+    val backButtonExitsNavigation: StateFlow<Boolean> =
+        settingsRepository.backButtonExitsNavigation
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setBackButtonExitsNavigation(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setBackButtonExitsNavigation(enabled)
         }
 
     val poiIconSizePx: StateFlow<Int> =

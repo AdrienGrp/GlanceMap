@@ -1,11 +1,23 @@
+@file:Suppress("ReturnCount", "TooManyFunctions")
+
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.util.MercatorProjection
+import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
+
+private const val GPX_DIRECTION_ARROW_SPACING_PX = 190.0
+private const val GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX = 150.0
+private const val GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX = 24.0
+private const val GPX_DIRECTION_ARROW_HEADING_SAMPLE_PX = 42.0
+private const val GPX_DIRECTION_ARROW_MIN_SCREEN_SEPARATION_PX = 86.0
+private const val MAX_GPX_DIRECTION_ARROWS_PER_TRACK = 36
+internal const val MAX_VISIBLE_GPX_DIRECTION_ARROWS_PER_TRACK = 10
 
 internal data class TrackLodLevels(
     val sourceSignature: Long,
@@ -25,6 +37,30 @@ private data class XY(
     val x: Double,
     val y: Double,
 )
+
+private data class ProjectedViewportBounds(
+    val left: Double,
+    val top: Double,
+    val right: Double,
+    val bottom: Double,
+) {
+    fun contains(point: XY): Boolean =
+        point.x in left..right &&
+            point.y in top..bottom
+}
+
+internal data class GpxDirectionArrow(
+    val latLong: LatLong,
+    val headingDeg: Float,
+)
+
+private data class DistanceInterval(
+    val start: Double,
+    val end: Double,
+) {
+    val length: Double
+        get() = end - start
+}
 
 internal fun zoomBucketFor(zoom: Int): Int =
     when {
@@ -55,6 +91,358 @@ internal fun buildTrackLodLevels(points: List<TrackPoint>): TrackLodLevels {
 }
 
 internal fun List<TrackPoint>.latLongs(): List<LatLong> = map { it.latLong }
+
+internal fun buildGpxDirectionArrows(
+    points: List<TrackPoint>,
+    zoom: Int,
+    tileSize: Int,
+): List<GpxDirectionArrow> {
+    if (points.size < 2) return emptyList()
+
+    val zoomLevel = zoom.coerceIn(0, 30).toByte()
+    val mapSize = MercatorProjection.getMapSize(zoomLevel, tileSize)
+    val projectedPoints =
+        points.map { point ->
+            val latLong = point.latLong
+            XY(
+                x = MercatorProjection.longitudeToPixelX(latLong.longitude, mapSize),
+                y = MercatorProjection.latitudeToPixelY(latLong.latitude, mapSize),
+            )
+        }
+    val cumulativeDistances = DoubleArray(projectedPoints.size)
+    for (i in 0 until projectedPoints.lastIndex) {
+        val start = projectedPoints[i]
+        val end = projectedPoints[i + 1]
+        cumulativeDistances[i + 1] =
+            cumulativeDistances[i] + kotlin.math.hypot(end.x - start.x, end.y - start.y)
+    }
+    val totalDistance = cumulativeDistances.lastOrNull() ?: 0.0
+    if (totalDistance <= 0.0) return emptyList()
+
+    val arrows = ArrayList<GpxDirectionArrow>()
+    val arrowPixels = ArrayList<XY>()
+    var nextArrowDistance = min(GPX_DIRECTION_ARROW_SPACING_PX * 0.6, totalDistance * 0.5)
+
+    while (
+        arrows.size < MAX_GPX_DIRECTION_ARROWS_PER_TRACK &&
+        nextArrowDistance < totalDistance
+    ) {
+        val arrowPoint =
+            pointAtDistance(
+                projectedPoints = projectedPoints,
+                cumulativeDistances = cumulativeDistances,
+                distance = nextArrowDistance,
+            )
+        if (!hasNearbyDirectionArrow(arrowPixels, arrowPoint.x, arrowPoint.y)) {
+            arrows.add(
+                GpxDirectionArrow(
+                    latLong =
+                        LatLong(
+                            MercatorProjection.pixelYToLatitude(arrowPoint.y, mapSize),
+                            MercatorProjection.pixelXToLongitude(arrowPoint.x, mapSize),
+                        ),
+                    headingDeg =
+                        headingAtDistance(
+                            projectedPoints = projectedPoints,
+                            cumulativeDistances = cumulativeDistances,
+                            distance = nextArrowDistance,
+                        ),
+                ),
+            )
+            arrowPixels.add(arrowPoint)
+        }
+        nextArrowDistance += GPX_DIRECTION_ARROW_SPACING_PX
+    }
+
+    return arrows
+}
+
+@Suppress("NestedBlockDepth")
+internal fun buildVisibleGpxDirectionArrows(
+    points: List<TrackPoint>,
+    zoom: Int,
+    tileSize: Int,
+    boundingBox: org.mapsforge.core.model.BoundingBox,
+    maxArrows: Int = MAX_VISIBLE_GPX_DIRECTION_ARROWS_PER_TRACK,
+): List<GpxDirectionArrow> {
+    if (points.size < 2 || maxArrows <= 0) return emptyList()
+
+    val zoomLevel = zoom.coerceIn(0, 30).toByte()
+    val mapSize = MercatorProjection.getMapSize(zoomLevel, tileSize)
+    val viewport = projectedViewportBounds(boundingBox, mapSize)
+    val projectedPoints =
+        points.map { point ->
+            project(point.latLong, mapSize)
+        }
+    val cumulativeDistances = cumulativeDistances(projectedPoints)
+    val visibleIntervals = visibleDistanceIntervals(projectedPoints, cumulativeDistances, viewport)
+    if (visibleIntervals.isEmpty()) return emptyList()
+
+    val candidates = ArrayList<GpxDirectionArrow>()
+    val arrowPixels = ArrayList<XY>(maxArrows)
+    visibleIntervals.forEach { interval ->
+        var distance =
+            if (interval.length <= GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX) {
+                interval.start + interval.length * 0.5
+            } else {
+                interval.start + GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX * 0.5
+            }
+
+        while (distance < interval.end) {
+            val arrowPoint =
+                pointAtDistance(
+                    projectedPoints = projectedPoints,
+                    cumulativeDistances = cumulativeDistances,
+                    distance = distance,
+                )
+            if (
+                viewport.contains(arrowPoint) &&
+                !hasNearbyDirectionArrow(arrowPixels, arrowPoint.x, arrowPoint.y)
+            ) {
+                candidates +=
+                    GpxDirectionArrow(
+                        latLong =
+                            LatLong(
+                                MercatorProjection.pixelYToLatitude(arrowPoint.y, mapSize),
+                                MercatorProjection.pixelXToLongitude(arrowPoint.x, mapSize),
+                            ),
+                        headingDeg =
+                            headingAtDistance(
+                                projectedPoints = projectedPoints,
+                                cumulativeDistances = cumulativeDistances,
+                                distance = distance,
+                            ),
+                    )
+                arrowPixels += arrowPoint
+            }
+            distance += GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX
+        }
+    }
+
+    return downsampleEvenly(candidates, maxArrows)
+}
+
+private fun pointAtDistance(
+    projectedPoints: List<XY>,
+    cumulativeDistances: DoubleArray,
+    distance: Double,
+): XY {
+    if (distance <= 0.0) return projectedPoints.first()
+    val totalDistance = cumulativeDistances.last()
+    if (distance >= totalDistance) return projectedPoints.last()
+
+    val segmentIndex =
+        cumulativeDistances
+            .indexOfFirst { it >= distance }
+            .let { index -> max(1, index) - 1 }
+    val segmentStartDistance = cumulativeDistances[segmentIndex]
+    val segmentEndDistance = cumulativeDistances[segmentIndex + 1]
+    val segmentLength = segmentEndDistance - segmentStartDistance
+    if (segmentLength <= 0.0) return projectedPoints[segmentIndex]
+
+    val start = projectedPoints[segmentIndex]
+    val end = projectedPoints[segmentIndex + 1]
+    val t = ((distance - segmentStartDistance) / segmentLength).coerceIn(0.0, 1.0)
+    return XY(
+        x = start.x + (end.x - start.x) * t,
+        y = start.y + (end.y - start.y) * t,
+    )
+}
+
+private fun headingAtDistance(
+    projectedPoints: List<XY>,
+    cumulativeDistances: DoubleArray,
+    distance: Double,
+): Float {
+    val totalDistance = cumulativeDistances.last()
+    val before =
+        pointAtDistance(
+            projectedPoints = projectedPoints,
+            cumulativeDistances = cumulativeDistances,
+            distance = max(0.0, distance - GPX_DIRECTION_ARROW_HEADING_SAMPLE_PX),
+        )
+    val after =
+        pointAtDistance(
+            projectedPoints = projectedPoints,
+            cumulativeDistances = cumulativeDistances,
+            distance = min(totalDistance, distance + GPX_DIRECTION_ARROW_HEADING_SAMPLE_PX),
+        )
+    val dx = after.x - before.x
+    val dy = after.y - before.y
+    return Math.toDegrees(atan2(dx, -dy)).toFloat()
+}
+
+private fun cumulativeDistances(projectedPoints: List<XY>): DoubleArray {
+    val cumulativeDistances = DoubleArray(projectedPoints.size)
+    for (i in 0 until projectedPoints.lastIndex) {
+        val start = projectedPoints[i]
+        val end = projectedPoints[i + 1]
+        cumulativeDistances[i + 1] =
+            cumulativeDistances[i] + kotlin.math.hypot(end.x - start.x, end.y - start.y)
+    }
+    return cumulativeDistances
+}
+
+private fun visibleDistanceIntervals(
+    projectedPoints: List<XY>,
+    cumulativeDistances: DoubleArray,
+    viewport: ProjectedViewportBounds,
+): List<DistanceInterval> {
+    val intervals = ArrayList<DistanceInterval>()
+    for (index in 0 until projectedPoints.lastIndex) {
+        visibleDistanceIntervalForSegment(
+            start = projectedPoints[index],
+            end = projectedPoints[index + 1],
+            startDistance = cumulativeDistances[index],
+            endDistance = cumulativeDistances[index + 1],
+            viewport = viewport,
+        )?.let { interval ->
+            val last = intervals.lastOrNull()
+            if (last != null && interval.start <= last.end + 1e-6) {
+                intervals[intervals.lastIndex] = DistanceInterval(last.start, max(last.end, interval.end))
+            } else {
+                intervals += interval
+            }
+        }
+    }
+    return intervals
+}
+
+private fun visibleDistanceIntervalForSegment(
+    start: XY,
+    end: XY,
+    startDistance: Double,
+    endDistance: Double,
+    viewport: ProjectedViewportBounds,
+): DistanceInterval? {
+    val segmentLength = endDistance - startDistance
+    if (segmentLength <= 1e-6) return null
+
+    val clipped = clipSegmentToViewport(start, end, viewport) ?: return null
+    val interval =
+        DistanceInterval(
+            start = startDistance + segmentLength * clipped.start,
+            end = startDistance + segmentLength * clipped.end,
+        )
+    return interval.takeIf { it.length > 1e-6 }
+}
+
+private fun clipSegmentToViewport(
+    start: XY,
+    end: XY,
+    viewport: ProjectedViewportBounds,
+): DistanceInterval? {
+    val dx = end.x - start.x
+    val dy = end.y - start.y
+    var t0 = 0.0
+    var t1 = 1.0
+
+    fun clip(
+        p: Double,
+        q: Double,
+    ): Boolean {
+        if (p == 0.0) return q >= 0.0
+        val r = q / p
+        return if (p < 0.0) {
+            if (r > t1) {
+                false
+            } else {
+                if (r > t0) t0 = r
+                true
+            }
+        } else {
+            if (r < t0) {
+                false
+            } else {
+                if (r < t1) t1 = r
+                true
+            }
+        }
+    }
+
+    val leftVisible = clip(-dx, start.x - viewport.left)
+    val rightVisible = leftVisible && clip(dx, viewport.right - start.x)
+    val topVisible = rightVisible && clip(-dy, start.y - viewport.top)
+    val bottomVisible = topVisible && clip(dy, viewport.bottom - start.y)
+    return if (bottomVisible) {
+        DistanceInterval(t0, t1)
+    } else {
+        null
+    }
+}
+
+private fun downsampleEvenly(
+    candidates: List<GpxDirectionArrow>,
+    maxArrows: Int,
+): List<GpxDirectionArrow> {
+    if (candidates.size <= maxArrows) return candidates
+    if (maxArrows <= 1) return candidates.take(1)
+
+    return List(maxArrows) { index ->
+        val sourceIndex =
+            (index * candidates.lastIndex.toDouble() / (maxArrows - 1))
+                .roundToInt()
+                .coerceIn(candidates.indices)
+        candidates[sourceIndex]
+    }
+}
+
+private fun hasNearbyDirectionArrow(
+    arrowPixels: List<XY>,
+    x: Double,
+    y: Double,
+): Boolean {
+    val minDistanceSq =
+        GPX_DIRECTION_ARROW_MIN_SCREEN_SEPARATION_PX *
+            GPX_DIRECTION_ARROW_MIN_SCREEN_SEPARATION_PX
+    return arrowPixels.any { arrow ->
+        val dx = arrow.x - x
+        val dy = arrow.y - y
+        dx * dx + dy * dy < minDistanceSq
+    }
+}
+
+private fun project(
+    latLong: LatLong,
+    mapSize: Long,
+): XY =
+    XY(
+        x = MercatorProjection.longitudeToPixelX(latLong.longitude, mapSize),
+        y = MercatorProjection.latitudeToPixelY(latLong.latitude, mapSize),
+    )
+
+private fun projectedViewportBounds(
+    boundingBox: org.mapsforge.core.model.BoundingBox,
+    mapSize: Long,
+): ProjectedViewportBounds {
+    val left =
+        MercatorProjection.longitudeToPixelX(
+            boundingBox.minLongitude,
+            mapSize,
+        ) - GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX
+    val right =
+        MercatorProjection.longitudeToPixelX(
+            boundingBox.maxLongitude,
+            mapSize,
+        ) + GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX
+    val top =
+        MercatorProjection.latitudeToPixelY(
+            boundingBox.maxLatitude,
+            mapSize,
+        ) - GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX
+    val bottom =
+        MercatorProjection.latitudeToPixelY(
+            boundingBox.minLatitude,
+            mapSize,
+        ) + GPX_VISIBLE_DIRECTION_ARROW_VIEWPORT_PADDING_PX
+
+    return ProjectedViewportBounds(
+        left = min(left, right),
+        top = min(top, bottom),
+        right = max(left, right),
+        bottom = max(top, bottom),
+    )
+}
 
 private fun latLongListSignature(points: List<TrackPoint>): Long {
     var h = 1_469_598_103_934_665_603L

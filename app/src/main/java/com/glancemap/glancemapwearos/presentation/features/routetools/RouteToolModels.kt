@@ -1,6 +1,9 @@
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
+import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPosition
 import org.mapsforge.core.model.LatLong
+
+internal const val ROUTE_TOOL_TRACK_END_SENTINEL_SEGMENT_INDEX = -1
 
 internal enum class RouteToolKind(
     val title: String,
@@ -235,6 +238,8 @@ internal data class RouteToolSession(
     val options: RouteToolOptions,
     val pointA: LatLong? = null,
     val pointB: LatLong? = null,
+    val pointATrackPosition: TrackPosition? = null,
+    val pointBTrackPosition: TrackPosition? = null,
     val destination: LatLong? = null,
     val loopCenter: LatLong? = null,
     val chainPoints: List<LatLong> = emptyList(),
@@ -380,8 +385,36 @@ internal data class RouteToolSession(
                     copy(destination = point, loopVariationIndex = 0)
                 }
             }
-            RouteSelectionTarget.POINT_A -> copy(pointA = point, loopVariationIndex = 0)
-            RouteSelectionTarget.POINT_B -> copy(pointB = point, loopVariationIndex = 0)
+            RouteSelectionTarget.POINT_A ->
+                copy(
+                    pointA = point,
+                    pointATrackPosition =
+                        if (
+                            options.toolKind == RouteToolKind.MODIFY &&
+                            options.modifyMode == RouteModifyMode.TRIM_START_TO_HERE
+                        ) {
+                            routeToolTrackStartPosition()
+                        } else {
+                            null
+                        },
+                    loopVariationIndex = 0,
+                )
+
+            RouteSelectionTarget.POINT_B ->
+                copy(
+                    pointB = point,
+                    pointBTrackPosition =
+                        if (
+                            options.toolKind == RouteToolKind.MODIFY &&
+                            options.modifyMode == RouteModifyMode.TRIM_END_FROM_HERE
+                        ) {
+                            routeToolTrackEndPosition()
+                        } else {
+                            null
+                        },
+                    loopVariationIndex = 0,
+                )
+
             RouteSelectionTarget.LOOP_CENTER -> copy(loopCenter = point, loopVariationIndex = 0)
             null -> this
         }
@@ -427,6 +460,20 @@ private fun sameRouteToolLocation(
 ): Boolean =
     kotlin.math.abs(a.latitude - b.latitude) < 1e-9 &&
         kotlin.math.abs(a.longitude - b.longitude) < 1e-9
+
+internal fun routeToolTrackStartPosition(): TrackPosition =
+    TrackPosition(
+        trackId = "",
+        segmentIndex = 0,
+        t = 0.0,
+    )
+
+internal fun routeToolTrackEndPosition(): TrackPosition =
+    TrackPosition(
+        trackId = "",
+        segmentIndex = ROUTE_TOOL_TRACK_END_SENTINEL_SEGMENT_INDEX,
+        t = 1.0,
+    )
 
 internal fun LatLong.toRoutePointLabel(): String = String.format("%.5f, %.5f", latitude, longitude)
 

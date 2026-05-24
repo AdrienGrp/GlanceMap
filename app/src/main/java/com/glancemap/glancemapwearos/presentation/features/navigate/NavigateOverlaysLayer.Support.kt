@@ -58,8 +58,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -576,6 +580,111 @@ internal fun BoxScope.PoiTapMessageOverlay(
     }
 }
 
+@Composable
+@Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod")
+internal fun BoxScope.GpxInspectionBSelectionPromptOverlay(
+    visible: Boolean,
+    screenSize: WearScreenSize,
+    navButtonBottomPadding: Dp,
+    navButtonSize: Dp,
+    onCancel: () -> Unit,
+) {
+    if (!visible) return
+
+    val promptBottomPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 8.dp
+            WearScreenSize.MEDIUM -> 7.dp
+            WearScreenSize.SMALL -> 6.dp
+        }
+    val promptHorizontalPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 10.dp
+            WearScreenSize.MEDIUM -> 9.dp
+            WearScreenSize.SMALL -> 8.dp
+        }
+    val promptVerticalPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 4.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
+    val closeButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 24.dp
+            WearScreenSize.MEDIUM -> 22.dp
+            WearScreenSize.SMALL -> 20.dp
+        }
+    val closeIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 12.dp
+            WearScreenSize.MEDIUM -> 11.dp
+            WearScreenSize.SMALL -> 10.dp
+        }
+    val textSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 9.sp
+        }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(120)),
+        exit = fadeOut(tween(120)),
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = navButtonBottomPadding + navButtonSize + promptBottomPadding),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(12.dp))
+                    .padding(start = promptHorizontalPadding, end = 3.dp)
+                    .padding(vertical = promptVerticalPadding),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text =
+                    buildAnnotatedString {
+                        append("Select 2")
+                        withStyle(
+                            SpanStyle(
+                                baselineShift = BaselineShift.Superscript,
+                                fontSize = textSize * 0.72f,
+                            ),
+                        ) {
+                            append("nd")
+                        }
+                        append(" point")
+                    },
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = textSize,
+                lineHeight = textSize,
+                maxLines = 1,
+            )
+            IconButton(
+                onClick = onCancel,
+                modifier = Modifier.size(closeButtonSize),
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.16f),
+                        contentColor = Color.White,
+                    ),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Cancel point B selection",
+                    modifier = Modifier.size(closeIconSize),
+                )
+            }
+        }
+    }
+}
+
 private enum class NavButtonTrustState {
     GOOD,
     SEARCHING,
@@ -583,7 +692,7 @@ private enum class NavButtonTrustState {
     UNAVAILABLE,
 }
 
-@Suppress("FunctionName")
+@Suppress("CyclomaticComplexMethod", "FunctionName", "FunctionNaming", "LongMethod", "LongParameterList")
 @Composable
 internal fun BoxScope.NavModeButtonOverlay(
     mapView: MapView,
@@ -599,6 +708,7 @@ internal fun BoxScope.NavModeButtonOverlay(
     onRecenter: () -> Unit,
     onRecenterRequested: () -> Unit,
     onToggleOrientation: () -> Unit,
+    navigationMarkerAnchorMode: String,
 ) {
     val navIcon =
         when {
@@ -670,7 +780,9 @@ internal fun BoxScope.NavModeButtonOverlay(
                             if (isOfflineMode) return@detectTapGestures
                             triggerHaptic()
                             if (navMode == NavMode.PANNING) {
-                                lastKnownLocation?.let { mapView.setCenter(it) }
+                                lastKnownLocation?.let {
+                                    mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode)
+                                }
                                 onRecenter()
                                 onRecenterRequested()
                             } else {
@@ -949,46 +1061,43 @@ internal fun projectLatLongToScreenOffset(
     mapView: MapView,
     latLong: LatLong,
     mapRotationDeg: Float,
+    rotationPivot: ScreenAnchor = ScreenAnchor(mapView.width / 2.0, mapView.height / 2.0),
 ): Offset? {
     if (mapView.width <= 0 || mapView.height <= 0) return null
 
-    val mapPoint =
-        runCatching {
-            mapView.mapViewProjection.toPixels(latLong)
-        }.getOrNull() ?: return null
-
-    val (screenX, screenY) =
-        rotateMapSpaceToScreen(
-            x = mapPoint.x,
-            y = mapPoint.y,
-            mapWidth = mapView.width.toDouble(),
-            mapHeight = mapView.height.toDouble(),
-            mapRotationDeg = mapRotationDeg.toDouble(),
-        )
-    return Offset(screenX.toFloat(), screenY.toFloat())
+    return runCatching {
+        mapView.mapViewProjection.toPixels(latLong)
+    }.getOrNull()?.let { mapPoint ->
+        val screen =
+            rotateMapSpaceToScreen(
+                point = ScreenAnchor(mapPoint.x, mapPoint.y),
+                mapWidth = mapView.width.toDouble(),
+                mapHeight = mapView.height.toDouble(),
+                mapRotationDeg = mapRotationDeg.toDouble(),
+                pivot = rotationPivot,
+            )
+        Offset(screen.x.toFloat(), screen.y.toFloat())
+    }
 }
 
 internal fun rotateMapSpaceToScreen(
-    x: Double,
-    y: Double,
+    point: ScreenAnchor,
     mapWidth: Double,
     mapHeight: Double,
     mapRotationDeg: Double,
-): Pair<Double, Double> {
-    if (mapWidth <= 0.0 || mapHeight <= 0.0) return x to y
-    if (kotlin.math.abs(mapRotationDeg) < 0.001) return x to y
+    pivot: ScreenAnchor = ScreenAnchor(mapWidth / 2.0, mapHeight / 2.0),
+): ScreenAnchor {
+    if (mapWidth <= 0.0 || mapHeight <= 0.0 || kotlin.math.abs(mapRotationDeg) < 0.001) return point
 
-    val cx = mapWidth / 2.0
-    val cy = mapHeight / 2.0
     val rad = Math.toRadians(mapRotationDeg)
     val c = cos(rad)
     val s = sin(rad)
 
-    val dx = x - cx
-    val dy = y - cy
+    val dx = point.x - pivot.x
+    val dy = point.y - pivot.y
 
     val rx = dx * c - dy * s
     val ry = dx * s + dy * c
 
-    return (cx + rx) to (cy + ry)
+    return ScreenAnchor(pivot.x + rx, pivot.y + ry)
 }

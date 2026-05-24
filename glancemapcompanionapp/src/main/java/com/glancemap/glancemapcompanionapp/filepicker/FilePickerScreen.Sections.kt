@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -300,6 +301,12 @@ internal fun FilePickerDownloadSection(
                         if (canRefreshLastRefuges) {
                             DropdownMenuItem(
                                 text = { Text("Refresh last import") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Filled.Update,
+                                        contentDescription = null,
+                                    )
+                                },
                                 onClick = {
                                     onShowRefugesMenuChange(false)
                                     onRefreshLastRefuges()
@@ -342,6 +349,12 @@ internal fun FilePickerDownloadSection(
                         if (canRefreshLastRouting) {
                             DropdownMenuItem(
                                 text = { Text("Refresh last download") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Filled.Update,
+                                        contentDescription = null,
+                                    )
+                                },
                                 onClick = {
                                     onShowRoutingMenuChange(false)
                                     onRefreshLastRouting()

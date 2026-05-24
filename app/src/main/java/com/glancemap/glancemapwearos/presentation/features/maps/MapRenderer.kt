@@ -532,7 +532,7 @@ class MapRenderer(
                 )
             skipNextStartupTilePrewarm = false
             currentLayer = tileRendererLayer
-            mapView.layerManager.layers.add(0, tileRendererLayer)
+            mapView.mutateLayers { layers -> layers.add(0, tileRendererLayer) }
             currentMapPath = mapPath
             currentMapSignature = newMapSignature
             currentDemSignature = newDemSignature
@@ -647,20 +647,24 @@ class MapRenderer(
     }
 
     private fun clearCurrentLayer(reason: String = "unspecified"): Boolean {
-        var removed = false
+        val hadCurrentLayer = currentLayer != null
         val storeOwnedByCurrentLayer = currentLayer?.mapDataStore === currentStore
 
         currentLayer?.let { layer ->
             disableLayerTileExpansion(layer, reason)
-            removed = mapView.layerManager.layers.remove(layer)
-            runCatching { layer.onDestroy() }
-                .onFailure { Log.w(TAG, "clearCurrentLayer: Failed to destroy TileRendererLayer", it) }
+            mapView.mutateLayers { layers ->
+                layers.remove(layer)
+                runCatching { layer.onDestroy() }
+                    .onFailure { Log.w(TAG, "clearCurrentLayer: Failed to destroy TileRendererLayer", it) }
+            }
         }
         currentLayer = null
 
         reliefOverlayLayer?.let { layer ->
-            mapView.layerManager.layers.remove(layer)
-            runCatching { layer.onDestroy() }
+            mapView.mutateLayers { layers ->
+                layers.remove(layer)
+                runCatching { layer.onDestroy() }
+            }
         }
         reliefOverlayLayer = null
 
@@ -678,7 +682,7 @@ class MapRenderer(
         currentStore = null
         publishReliefOverlayState(force = true)
 
-        return removed
+        return hadCurrentLayer
     }
 
     private fun disableLayerTileExpansion(
@@ -726,8 +730,10 @@ class MapRenderer(
         val mapDataStore = currentStore ?: return false
         return runCatching {
             currentLayer?.let { layer ->
-                mapView.layerManager.layers.remove(layer)
-                releaseTileRendererLayerForStoreReuse(layer)
+                mapView.mutateLayers { layers ->
+                    layers.remove(layer)
+                    releaseTileRendererLayerForStoreReuse(layer)
+                }
             }
             currentLayer = null
 
@@ -739,7 +745,7 @@ class MapRenderer(
                     warmStartupCache = false,
                 )
             currentLayer = tileRendererLayer
-            mapView.layerManager.layers.add(0, tileRendererLayer)
+            mapView.mutateLayers { layers -> layers.add(0, tileRendererLayer) }
             currentDemSignature = demSignature
             updateReliefOverlayLayer()
             publishReliefOverlayState(force = true)
@@ -957,8 +963,10 @@ class MapRenderer(
     private fun updateReliefOverlayLayer() {
         if (!currentReliefOverlayEnabled || currentMapPath.isNullOrBlank()) {
             reliefOverlayLayer?.let { existing ->
-                mapView.layerManager.layers.remove(existing)
-                runCatching { existing.onDestroy() }
+                mapView.mutateLayers { layers ->
+                    layers.remove(existing)
+                    runCatching { existing.onDestroy() }
+                }
             }
             reliefOverlayLayer = null
             publishReliefOverlayState(force = true)
@@ -976,8 +984,10 @@ class MapRenderer(
                     onProcessingStateChanged = { publishReliefOverlayState() },
                 ).also { layer ->
                     // Keep above rendered map but below interactive overlays.
-                    val index = if (mapView.layerManager.layers.size() > 0) 1 else 0
-                    mapView.layerManager.layers.add(index, layer)
+                    mapView.mutateLayers { layers ->
+                        val index = if (layers.size() > 0) 1 else 0
+                        layers.add(index, layer)
+                    }
                 }
         }
         publishReliefOverlayState(force = true)

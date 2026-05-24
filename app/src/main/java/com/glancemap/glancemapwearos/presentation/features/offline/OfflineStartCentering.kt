@@ -66,11 +66,7 @@ internal fun OfflineStartCenteringEffect(
 
         val targetCenter =
             withContext(Dispatchers.IO) {
-                if (forceStartupCenter && !selectedMapPath.isNullOrBlank()) {
-                    resolveSelectedMapCenter(selectedMapPath)
-                } else {
-                    resolveOfflineStartCenter(selectedMapPath, activeGpxDetails)
-                }
+                resolveOfflineStartCenter(selectedMapPath, activeGpxDetails)
             }
         targetCenter?.let { mapView.setCenter(it) }
         mapViewModel.markOfflineStartCenterHandled(selectedMapPath, activeGpxDetails)
@@ -86,7 +82,7 @@ internal fun OfflineStartCenteringEffect(
 private fun resolveOfflineStartCenter(
     selectedMapPath: String?,
     activeGpxDetails: List<GpxTrackDetails>,
-): LatLong? = resolveSelectedMapCenter(selectedMapPath) ?: resolveActiveGpxCenter(activeGpxDetails)
+): LatLong? = resolveActiveGpxCenter(activeGpxDetails) ?: resolveSelectedMapCenter(selectedMapPath)
 
 private fun resolveSelectedMapCenter(selectedMapPath: String?): LatLong? {
     val path = selectedMapPath?.takeIf { it.isNotBlank() } ?: return null

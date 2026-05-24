@@ -29,15 +29,16 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,7 @@ import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.material.Chip
+import kotlinx.coroutines.launch
 import androidx.wear.compose.material3.Icon as Material3Icon
 
 @OptIn(ExperimentalHorologistApi::class)
@@ -100,6 +102,7 @@ fun DownloadScreen(
             context.getSharedPreferences(DOWNLOAD_INFO_PREFS, android.content.Context.MODE_PRIVATE)
         }
     val listState = rememberScalingLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     var wasAreaPickerOpen by remember { mutableStateOf(showAreaPicker) }
     val selectedAreas = uiState.selectedAreas
     val estimatedSize =
@@ -338,18 +341,23 @@ fun DownloadScreen(
                 actionSpacing = headerActionSpacing,
                 onInfoClick = { showOamInfoDialog = true },
                 onRefreshModeClick = {
-                    refreshMode = !refreshMode
-                    if (!refreshMode) {
+                    val nextRefreshMode = !refreshMode
+                    refreshMode = nextRefreshMode
+                    if (!nextRefreshMode) {
                         viewModel.clearRefreshBundleSelection()
                     }
-                    if (refreshMode) {
+                    if (nextRefreshMode) {
                         deleteMode = false
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(DOWNLOAD_FIRST_REFRESH_BUNDLE_ITEM_INDEX)
+                        }
                     }
                 },
                 onDeleteModeClick = {
                     deleteMode = !deleteMode
                     if (deleteMode) {
                         refreshMode = false
+                        viewModel.clearRefreshBundleSelection()
                     }
                 },
             )
@@ -470,8 +478,13 @@ fun DownloadScreen(
                         if (refreshMode) {
                             item {
                                 DownloadActionButton(
-                                    label = refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size),
-                                    icon = Icons.Filled.Refresh,
+                                    label =
+                                        if (uiState.isCheckingUpdates) {
+                                            "Checking updates..."
+                                        } else {
+                                            refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size)
+                                        },
+                                    icon = Icons.Filled.Update,
                                     enabled =
                                         uiState.selectedRefreshBundleIds.isNotEmpty() &&
                                             !uiState.isCheckingUpdates,
@@ -655,7 +668,7 @@ private fun DownloadHeader(
                     onClick = onInfoClick,
                 )
                 HeaderActionButton(
-                    icon = Icons.Filled.Refresh,
+                    icon = Icons.Filled.Update,
                     contentDescription = if (refreshMode) "Exit refresh mode" else "Enter refresh mode",
                     buttonSize = actionButtonSize,
                     iconSize = actionIconSize,
@@ -840,11 +853,11 @@ private fun InstalledBundleRow(
         icon =
             when {
                 refreshMode && refreshSelected -> Icons.Filled.Check
-                refreshMode -> Icons.Filled.Refresh
+                refreshMode -> Icons.Filled.Update
                 deleteMode -> Icons.Filled.Delete
                 else -> Icons.Filled.Check
             },
-        selected = refreshSelected || (!deleteMode && !refreshMode),
+        selected = (refreshMode && refreshSelected) || (!deleteMode && !refreshMode),
         onClick =
             when {
                 refreshMode -> onRefresh
@@ -1007,3 +1020,4 @@ private val SelectedChipIcon = Color(0xFF7FE4C8)
 private const val DOWNLOAD_INFO_PREFS = "download_screen_info_prefs"
 private const val DOWNLOAD_INFO_SHOWN_KEY = "oam_info_shown"
 private const val DOWNLOAD_MAIN_ACTION_ITEM_INDEX = 2
+private const val DOWNLOAD_FIRST_REFRESH_BUNDLE_ITEM_INDEX = 5

@@ -57,13 +57,17 @@ internal fun buildRouteToolEditOutput(
 
             RouteModifyMode.TRIM_START_TO_HERE -> {
                 val a = session.pointA ?: error("Point A is required.")
-                val posA = snapToTrackPosition(target = a, sourceTrack = sourceTrack, profile = profile)
+                val posA =
+                    session.pointATrackPosition?.resolveRouteToolTrackPosition(profile)
+                        ?: snapToTrackPosition(target = a, sourceTrack = sourceTrack, profile = profile)
                 trimTrackStart(profile.points, posA)
             }
 
             RouteModifyMode.TRIM_END_FROM_HERE -> {
                 val b = session.pointB ?: error("Point B is required.")
-                val posB = snapToTrackPosition(target = b, sourceTrack = sourceTrack, profile = profile)
+                val posB =
+                    session.pointBTrackPosition?.resolveRouteToolTrackPosition(profile)
+                        ?: snapToTrackPosition(target = b, sourceTrack = sourceTrack, profile = profile)
                 trimTrackEnd(profile.points, posB)
             }
 

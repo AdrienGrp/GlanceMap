@@ -51,6 +51,7 @@ fun SettingsScreen(
     }
     val listState = rememberScalingLazyListState()
     val isMetric by viewModel.isMetric.collectAsState()
+    val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
     val unitOptions =
         remember {
             listOf(
@@ -149,6 +150,14 @@ fun SettingsScreen(
                 SettingsSectionChip(
                     label = "Debugging",
                     onClick = { navController.navigate(WatchRoutes.DEBUG_SETTINGS) },
+                )
+            }
+            item {
+                SettingsToggleChip(
+                    checked = backButtonExitsNavigation,
+                    onCheckedChanged = viewModel::setBackButtonExitsNavigation,
+                    label = "Back button",
+                    secondaryLabel = "Exits for compatible watches",
                 )
             }
             item {

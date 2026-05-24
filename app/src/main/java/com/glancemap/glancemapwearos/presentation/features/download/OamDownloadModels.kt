@@ -1,6 +1,9 @@
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import com.glancemap.glancemapwearos.core.maps.DemSource
+import java.io.File
+import java.net.URI
+import java.util.Locale
 
 data class OamDownloadArea(
     val id: String,
@@ -109,12 +112,43 @@ data class OamBundleRefreshSummary(
     val unknownCount: Int
         get() = checks.count { it.status == OamBundleUpdateStatus.UNKNOWN }
 
+    val checksToRefresh: List<OamBundleUpdateCheck>
+        get() = checks.filter { it.status == OamBundleUpdateStatus.UPDATE_AVAILABLE }
+
     val bundlesToRefresh: List<OamInstalledBundle>
-        get() =
-            checks
-                .filterNot { it.status == OamBundleUpdateStatus.UP_TO_DATE }
-                .map { it.bundle }
+        get() = checksToRefresh.map { it.bundle }
 }
+
+internal data class OamBundleRefreshForces(
+    val forceMap: Boolean = false,
+    val forcePoi: Boolean = false,
+    val forceRoutingFileNames: Set<String> = emptySet(),
+    val forceDemTileIds: Set<String> = emptySet(),
+)
+
+internal fun OamBundleUpdateCheck.refreshForces(area: OamDownloadArea): OamBundleRefreshForces {
+    val changedNames = changedFileNames.map { File(it).name }.toSet()
+    return OamBundleRefreshForces(
+        forceMap = oamRemoteFileName(area.mapZipUrl) in changedNames,
+        forcePoi = oamRemoteFileName(area.poiZipUrl) in changedNames,
+        forceRoutingFileNames =
+            bundle.routingFileNames
+                .map { File(it).name }
+                .filter { it in changedNames }
+                .toSet(),
+        forceDemTileIds =
+            bundle.demTileIds
+                .map { it.uppercase(Locale.ROOT) }
+                .filter { bundle.demSource.remoteFileName(it) in changedNames }
+                .toSet(),
+    )
+}
+
+internal fun oamRemoteFileName(url: String): String =
+    runCatching { File(URI(url).path).name }
+        .getOrNull()
+        ?.takeIf { it.isNotBlank() }
+        ?: url.substringAfterLast('/').ifBlank { "download" }
 
 object OamDownloadCatalog {
     val areas: List<OamDownloadArea> =

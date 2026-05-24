@@ -29,6 +29,7 @@ private data class ModeSample(
 
 private enum class RequestBackendMode {
     AUTO_FUSED,
+    PASSIVE_EXTERNAL,
     WATCH_GPS,
 }
 
@@ -53,6 +54,7 @@ private data class ModeDurations(
 
 private data class BackendDurations(
     val autoFusedMs: Long,
+    val passiveExternalMs: Long,
     val watchGpsMs: Long,
     val coverageMs: Long,
     val switchCount: Int,
@@ -91,12 +93,24 @@ internal fun deriveTelemetryInsights(
     var immediateRequestDeferredWakeBurstCount = 0
     var gpsFreshTrueCount = 0
     var gpsFreshFalseCount = 0
+    var passiveExternalSignalSampleCount = 0
+    var passiveExternalFreshSampleCount = 0
+    var passiveExternalStaleSampleCount = 0
+    var passiveExternalAcceptedSampleCount = 0
+    var passiveExternalRejectedSampleCount = 0
+    var passiveExternalLastAgeMs: Long? = null
+    var passiveExternalMinAgeMs: Long? = null
+    var passiveExternalMaxAgeMs: Long? = null
+    var passiveExternalLastMaxAgeMs: Long? = null
+    var passiveExternalLastAccuracyM: Float? = null
+    var passiveExternalLastProvider: String? = null
     var watchGpsDegradedEnteredCount = 0
     var watchGpsDegradedClearedCount = 0
     var watchGpsDegradedSampleCount = 0
     var watchGpsDegradedLastObserved: Boolean? = null
     var batchEventCount = 0
     var batchOriginAutoFusedCount = 0
+    var batchOriginPassiveExternalCount = 0
     var batchOriginWatchGpsCount = 0
     var batchFallbackCount = 0
     var batchDuplicateCandidatesDroppedTotal = 0
@@ -108,8 +122,10 @@ internal fun deriveTelemetryInsights(
     var callbackAcceptedFixCount = 0
     var immediateAcceptedFixCount = 0
     var acceptedFixOriginAutoFusedCount = 0
+    var acceptedFixOriginPassiveExternalCount = 0
     var acceptedFixOriginWatchGpsCount = 0
     var requestBackendAutoFusedCount = 0
+    var requestBackendPassiveExternalCount = 0
     var requestBackendWatchGpsCount = 0
     var failoverAutoToWatchAccuracyCount = 0
     var failoverAutoToWatchNoFixCount = 0
@@ -146,6 +162,7 @@ internal fun deriveTelemetryInsights(
             val backendMode = parseBackendMode(extractTokenValue(line, "backend="))
             when (backendMode) {
                 RequestBackendMode.AUTO_FUSED -> requestBackendAutoFusedCount += 1
+                RequestBackendMode.PASSIVE_EXTERNAL -> requestBackendPassiveExternalCount += 1
                 RequestBackendMode.WATCH_GPS -> requestBackendWatchGpsCount += 1
                 null -> Unit
             }
@@ -179,6 +196,7 @@ internal fun deriveTelemetryInsights(
             }
             when (extractTokenValue(line, "origin=")) {
                 "auto_fused" -> batchOriginAutoFusedCount += 1
+                "passive_external" -> batchOriginPassiveExternalCount += 1
                 "watch_gps" -> batchOriginWatchGpsCount += 1
             }
             batchDuplicateCandidatesDroppedTotal += duplicateCandidatesDropped
@@ -197,6 +215,7 @@ internal fun deriveTelemetryInsights(
             }
             when (extractTokenValue(line, "origin=")) {
                 "auto_fused" -> acceptedFixOriginAutoFusedCount += 1
+                "passive_external" -> acceptedFixOriginPassiveExternalCount += 1
                 "watch_gps" -> acceptedFixOriginWatchGpsCount += 1
             }
             when (extractTokenValue(line, "provider=")?.lowercase()) {
@@ -217,6 +236,34 @@ internal fun deriveTelemetryInsights(
         }
 
         if ("gpsSignal: sample" in line) {
+            if (extractTokenValue(line, "sourceMode=") == "passive_external") {
+                passiveExternalSignalSampleCount += 1
+                val ageMs = parseLongToken(line, "ageMs=")
+                val maxAgeMs = parseLongToken(line, "maxAgeMs=")
+                val accuracyM = parseFloatToken(line, "accuracyM=")
+                val provider = extractTokenValue(line, "provider=")?.takeIf { it != "unknown" }
+                val fresh = parseBooleanToken(line, "fresh=")
+                val accepted = parseBooleanToken(line, "accepted=")
+
+                when (fresh) {
+                    true -> passiveExternalFreshSampleCount += 1
+                    false -> passiveExternalStaleSampleCount += 1
+                    null -> Unit
+                }
+                when (accepted) {
+                    true -> passiveExternalAcceptedSampleCount += 1
+                    false -> passiveExternalRejectedSampleCount += 1
+                    null -> Unit
+                }
+                ageMs?.let { age ->
+                    passiveExternalLastAgeMs = age
+                    passiveExternalMinAgeMs = minOf(passiveExternalMinAgeMs ?: age, age)
+                    passiveExternalMaxAgeMs = maxOf(passiveExternalMaxAgeMs ?: age, age)
+                }
+                passiveExternalLastMaxAgeMs = maxAgeMs ?: passiveExternalLastMaxAgeMs
+                passiveExternalLastAccuracyM = accuracyM ?: passiveExternalLastAccuracyM
+                passiveExternalLastProvider = provider ?: passiveExternalLastProvider
+            }
             when (extractTokenValue(line, "watchGpsDegraded=")) {
                 "true" -> {
                     watchGpsDegradedSampleCount += 1
@@ -335,12 +382,24 @@ internal fun deriveTelemetryInsights(
         immediateRequestDeferredWakeBurstCount = immediateRequestDeferredWakeBurstCount,
         gpsFreshTrueCount = gpsFreshTrueCount,
         gpsFreshFalseCount = gpsFreshFalseCount,
+        passiveExternalSignalSampleCount = passiveExternalSignalSampleCount,
+        passiveExternalFreshSampleCount = passiveExternalFreshSampleCount,
+        passiveExternalStaleSampleCount = passiveExternalStaleSampleCount,
+        passiveExternalAcceptedSampleCount = passiveExternalAcceptedSampleCount,
+        passiveExternalRejectedSampleCount = passiveExternalRejectedSampleCount,
+        passiveExternalLastAgeMs = passiveExternalLastAgeMs,
+        passiveExternalMinAgeMs = passiveExternalMinAgeMs,
+        passiveExternalMaxAgeMs = passiveExternalMaxAgeMs,
+        passiveExternalLastMaxAgeMs = passiveExternalLastMaxAgeMs,
+        passiveExternalLastAccuracyM = passiveExternalLastAccuracyM,
+        passiveExternalLastProvider = passiveExternalLastProvider,
         watchGpsDegradedEnteredCount = watchGpsDegradedEnteredCount,
         watchGpsDegradedClearedCount = watchGpsDegradedClearedCount,
         watchGpsDegradedSampleCount = watchGpsDegradedSampleCount,
         watchGpsDegradedLastObserved = watchGpsDegradedLastObserved,
         batchEventCount = batchEventCount,
         batchOriginAutoFusedCount = batchOriginAutoFusedCount,
+        batchOriginPassiveExternalCount = batchOriginPassiveExternalCount,
         batchOriginWatchGpsCount = batchOriginWatchGpsCount,
         batchFallbackCount = batchFallbackCount,
         batchDuplicateCandidatesDroppedTotal = batchDuplicateCandidatesDroppedTotal,
@@ -352,11 +411,14 @@ internal fun deriveTelemetryInsights(
         callbackAcceptedFixCount = callbackAcceptedFixCount,
         immediateAcceptedFixCount = immediateAcceptedFixCount,
         acceptedFixOriginAutoFusedCount = acceptedFixOriginAutoFusedCount,
+        acceptedFixOriginPassiveExternalCount = acceptedFixOriginPassiveExternalCount,
         acceptedFixOriginWatchGpsCount = acceptedFixOriginWatchGpsCount,
         requestBackendAutoFusedCount = requestBackendAutoFusedCount,
+        requestBackendPassiveExternalCount = requestBackendPassiveExternalCount,
         requestBackendWatchGpsCount = requestBackendWatchGpsCount,
         requestBackendSwitchCount = backendDurations.switchCount,
         requestBackendAutoFusedDurationMs = backendDurations.autoFusedMs,
+        requestBackendPassiveExternalDurationMs = backendDurations.passiveExternalMs,
         requestBackendWatchGpsDurationMs = backendDurations.watchGpsMs,
         requestBackendDurationCoverageMs = backendDurations.coverageMs,
         failoverAutoToWatchAccuracyCount = failoverAutoToWatchAccuracyCount,
@@ -547,6 +609,7 @@ private fun parseLegacyTrackingEnabled(line: String): Boolean? =
 private fun parseBackendMode(token: String?): RequestBackendMode? =
     when (token?.lowercase()) {
         "auto_fused" -> RequestBackendMode.AUTO_FUSED
+        "passive_external" -> RequestBackendMode.PASSIVE_EXTERNAL
         "watch_gps" -> RequestBackendMode.WATCH_GPS
         else -> null
     }
@@ -587,6 +650,11 @@ private fun parseFloatToken(
     line: String,
     key: String,
 ): Float? = extractTokenValue(line, key)?.toFloatOrNull()
+
+private fun parseLongToken(
+    line: String,
+    key: String,
+): Long? = extractTokenValue(line, key)?.toLongOrNull()
 
 internal fun formatBooleanToken(value: Boolean?): String = value?.toString() ?: "na"
 
@@ -1020,6 +1088,7 @@ private fun accumulateBackendDurations(
     if (samples.isEmpty()) {
         return BackendDurations(
             autoFusedMs = 0L,
+            passiveExternalMs = 0L,
             watchGpsMs = 0L,
             coverageMs = 0L,
             switchCount = 0,
@@ -1027,6 +1096,7 @@ private fun accumulateBackendDurations(
     }
 
     var autoFusedMs = 0L
+    var passiveExternalMs = 0L
     var watchGpsMs = 0L
     var switchCount = 0
     val sortedStopSamples = requestStopSamples.sorted()
@@ -1051,14 +1121,16 @@ private fun accumulateBackendDurations(
         val deltaMs = (nextAtMs - current.atEpochMs).coerceAtLeast(0L)
         when (current.backend) {
             RequestBackendMode.AUTO_FUSED -> autoFusedMs += deltaMs
+            RequestBackendMode.PASSIVE_EXTERNAL -> passiveExternalMs += deltaMs
             RequestBackendMode.WATCH_GPS -> watchGpsMs += deltaMs
         }
     }
 
     return BackendDurations(
         autoFusedMs = autoFusedMs,
+        passiveExternalMs = passiveExternalMs,
         watchGpsMs = watchGpsMs,
-        coverageMs = autoFusedMs + watchGpsMs,
+        coverageMs = autoFusedMs + passiveExternalMs + watchGpsMs,
         switchCount = switchCount,
     )
 }

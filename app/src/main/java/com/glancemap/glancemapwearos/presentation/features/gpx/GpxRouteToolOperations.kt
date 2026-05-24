@@ -24,11 +24,13 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.buildRoute
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolReshapeOutput
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolReshapePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.encodeTrackAsGpx
+import com.glancemap.glancemapwearos.presentation.features.routetools.pointAt
 import com.glancemap.glancemapwearos.presentation.features.routetools.reshapeCandidateMatchesUserIntent
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveReplaceSectionEndpoints
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteReshapeCandidateBounds
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteReshapeWaypoint
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteToolTrackMatch
+import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteToolTrackPosition
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeToolSnapThresholdMeters
 import com.glancemap.glancemapwearos.presentation.features.routetools.toPlannerPreset
 import com.glancemap.glancemapwearos.presentation.features.routetools.toRoutePlannerRequest
@@ -39,6 +41,7 @@ import org.mapsforge.core.model.LatLong
 import java.io.ByteArrayInputStream
 import java.io.File
 
+@Suppress("LargeClass")
 internal class GpxRouteToolOperations(
     private val gpxRepository: GpxRepository,
     private val routePlanner: RoutePlanner,
@@ -119,13 +122,35 @@ internal class GpxRouteToolOperations(
                             profile = source.profile,
                             target = startTarget,
                         )
+                    val endpointPosition =
+                        session.pointATrackPosition?.resolveRouteToolTrackPosition(source.profile)
                     if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
                         buildRouteToolEditOutput(
                             sourcePath = source.file.absolutePath,
                             sourceFileName = source.file.name,
                             sourceTitle = source.fileState.title ?: source.parsed.title,
                             profile = source.profile,
+                            session = session.copy(pointATrackPosition = match.position),
+                        )
+                    } else if (endpointPosition != null) {
+                        val originalStart = pointAt(source.profile.points, endpointPosition).latLong
+                        val route =
+                            routePlanner.createRoute(
+                                RoutePlannerRequest(
+                                    origin = startTarget,
+                                    destination = originalStart,
+                                    preset = session.options.routeStyle.toPlannerPreset(),
+                                    useElevation = session.options.useElevation,
+                                    allowFerries = session.options.allowFerries,
+                                ),
+                            )
+                        buildRouteToolEndpointChangeOutput(
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
                             session = session,
+                            snappedPosition = endpointPosition,
+                            routedPoints = route.points,
                         )
                     } else {
                         val route =
@@ -161,13 +186,35 @@ internal class GpxRouteToolOperations(
                             profile = source.profile,
                             target = endTarget,
                         )
+                    val endpointPosition =
+                        session.pointBTrackPosition?.resolveRouteToolTrackPosition(source.profile)
                     if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
                         buildRouteToolEditOutput(
                             sourcePath = source.file.absolutePath,
                             sourceFileName = source.file.name,
                             sourceTitle = source.fileState.title ?: source.parsed.title,
                             profile = source.profile,
+                            session = session.copy(pointBTrackPosition = match.position),
+                        )
+                    } else if (endpointPosition != null) {
+                        val originalEnd = pointAt(source.profile.points, endpointPosition).latLong
+                        val route =
+                            routePlanner.createRoute(
+                                RoutePlannerRequest(
+                                    origin = originalEnd,
+                                    destination = endTarget,
+                                    preset = session.options.routeStyle.toPlannerPreset(),
+                                    useElevation = session.options.useElevation,
+                                    allowFerries = session.options.allowFerries,
+                                ),
+                            )
+                        buildRouteToolEndpointChangeOutput(
+                            sourceFileName = source.file.name,
+                            sourceTitle = source.fileState.title ?: source.parsed.title,
+                            profile = source.profile,
                             session = session,
+                            snappedPosition = endpointPosition,
+                            routedPoints = route.points,
                         )
                     } else {
                         val route =
@@ -221,9 +268,7 @@ internal class GpxRouteToolOperations(
                 .firstOrNull { it.name == editOutput.fileName }
                 ?: error("The edited GPX was not found after saving.")
 
-        val currentActive = gpxRepository.getActiveGpxFiles().first()
-        val updatedActive = (currentActive - source.file.absolutePath) + savedFile.absolutePath
-        gpxRepository.setActiveGpxFiles(updatedActive)
+        gpxRepository.setActiveGpxFiles(setOf(savedFile.absolutePath))
 
         reportProgress(onProgress, "Preparing stats...")
         return buildRouteToolSaveResult(

@@ -38,10 +38,10 @@ internal class WatchGpsLocationGateway(
         private const val MAX_RECENT_LOCATION_SIGNATURES = 64
     }
 
-    private val activeListeners = LinkedHashSet<LocationListener>()
+    private val activeListeners = LinkedHashSet<WatchGpsLocationListener>()
     private val requestMutex = Mutex()
 
-    @Volatile private var registeringListener: LocationListener? = null
+    @Volatile private var registeringListener: WatchGpsLocationListener? = null
     private val recentLocationSignatures = LinkedHashSet<LocationSignature>()
     private val recentLocationSignatureOrder = ArrayDeque<LocationSignature>()
 
@@ -84,40 +84,13 @@ internal class WatchGpsLocationGateway(
     ) {
         requestMutex.withLock {
             ensureGpsProviderAvailable()
-            removeLocationUpdatesLocked()
-            clearRecentLocationSignatures()
             val listener =
-                object : LocationListener {
-                    override fun onLocationChanged(location: Location) {
-                        sink.onLocationAvailability(true)
-                        emitLocations(
-                            sink = sink,
-                            rawLocations = listOf(location),
-                        )
+                activeListenerOrNull()?.also { it.sink = sink }
+                    ?: run {
+                        removeLocationUpdatesLocked()
+                        clearRecentLocationSignatures()
+                        WatchGpsLocationListener(sink)
                     }
-
-                    override fun onLocationChanged(locations: MutableList<Location>) {
-                        if (locations.isNotEmpty()) {
-                            sink.onLocationAvailability(true)
-                            emitLocations(
-                                sink = sink,
-                                rawLocations = locations.toList(),
-                            )
-                        }
-                    }
-
-                    override fun onProviderEnabled(provider: String) {
-                        if (provider == LocationManager.GPS_PROVIDER) {
-                            sink.onLocationAvailability(true)
-                        }
-                    }
-
-                    override fun onProviderDisabled(provider: String) {
-                        if (provider == LocationManager.GPS_PROVIDER) {
-                            sink.onLocationAvailability(false)
-                        }
-                    }
-                }
 
             sink.onLocationAvailability(isGpsProviderEnabled())
             registeringListener = listener
@@ -135,6 +108,9 @@ internal class WatchGpsLocationGateway(
             } catch (error: Exception) {
                 // Request registration may have succeeded before a cancellation/exception surfaced.
                 runCatching { locationManager.removeUpdates(listener) }
+                synchronized(activeListeners) {
+                    activeListeners.remove(listener)
+                }
                 throw error
             } finally {
                 if (registeringListener === listener) {
@@ -189,6 +165,40 @@ internal class WatchGpsLocationGateway(
             isGpsProviderEnabled = isGpsProviderEnabled(),
         )
 
+    private inner class WatchGpsLocationListener(
+        @Volatile var sink: LocationUpdateSink,
+    ) : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            sink.onLocationAvailability(true)
+            emitLocations(
+                sink = sink,
+                rawLocations = listOf(location),
+            )
+        }
+
+        override fun onLocationChanged(locations: MutableList<Location>) {
+            if (locations.isNotEmpty()) {
+                sink.onLocationAvailability(true)
+                emitLocations(
+                    sink = sink,
+                    rawLocations = locations.toList(),
+                )
+            }
+        }
+
+        override fun onProviderEnabled(provider: String) {
+            if (provider == LocationManager.GPS_PROVIDER) {
+                sink.onLocationAvailability(true)
+            }
+        }
+
+        override fun onProviderDisabled(provider: String) {
+            if (provider == LocationManager.GPS_PROVIDER) {
+                sink.onLocationAvailability(false)
+            }
+        }
+    }
+
     private fun emitLocations(
         sink: LocationUpdateSink,
         rawLocations: List<Location>,
@@ -205,9 +215,15 @@ internal class WatchGpsLocationGateway(
         )
     }
 
+    private fun activeListenerOrNull(): WatchGpsLocationListener? {
+        synchronized(activeListeners) {
+            return activeListeners.singleOrNull()
+        }
+    }
+
     private fun drainListeners(includeRegisteringListener: Boolean): List<LocationListener> {
         synchronized(activeListeners) {
-            val listeners = LinkedHashSet<LocationListener>()
+            val listeners = LinkedHashSet<WatchGpsLocationListener>()
             if (activeListeners.isNotEmpty()) {
                 listeners += activeListeners
                 activeListeners.clear()

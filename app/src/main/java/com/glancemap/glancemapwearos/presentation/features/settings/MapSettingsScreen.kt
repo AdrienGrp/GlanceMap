@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,6 +20,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.maps.theme.ThemeRepositoryImpl
 import com.glancemap.glancemapwearos.domain.model.maps.theme.ThemeListItem
 import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupBottomSheet
@@ -42,11 +44,13 @@ fun MapSettingsScreen(
     val autoRecenterDelay by viewModel.autoRecenterDelay.collectAsState(initial = 5)
     val liveElevation by viewModel.liveElevation.collectAsState()
     val liveDistance by viewModel.liveDistance.collectAsState()
+    val navigationMarkerAnchorMode by viewModel.navigationMarkerAnchorMode.collectAsState()
     val themeItems by themeViewModel.themeItems.collectAsState()
     val selectedMapPath by viewModel.selectedMapPath.collectAsState()
     val scope = rememberCoroutineScope()
     var showDemSetupDialog by remember { mutableStateOf(false) }
     var demSetupReason by remember { mutableStateOf(DemSetupReason.GENERIC) }
+    var showMarkerPositionPicker by remember { mutableStateOf(false) }
     val hillShadingEnabled =
         remember(themeItems) {
             themeItems
@@ -107,6 +111,20 @@ fun MapSettingsScreen(
         ) {
             item {
                 GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            }
+            item {
+                SettingsPickerChip(
+                    modifier = Modifier.fillMaxWidth(),
+                    label = "Position marker",
+                    iconImageVector = Icons.Filled.UnfoldMore,
+                    secondaryLabel =
+                        if (navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) {
+                            "Bottom"
+                        } else {
+                            "Middle"
+                        },
+                    onClick = { showMarkerPositionPicker = true },
+                )
             }
             item {
                 SettingsToggleChip(
@@ -225,6 +243,19 @@ fun MapSettingsScreen(
             }
         }
     }
+
+    OptionPickerDialog(
+        visible = showMarkerPositionPicker,
+        title = "Position marker",
+        selectedValue = navigationMarkerAnchorMode,
+        options =
+            listOf(
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER to "Middle",
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER to "Bottom",
+            ),
+        onDismiss = { showMarkerPositionPicker = false },
+        onSelect = { anchorMode -> viewModel.setNavigationMarkerAnchorMode(anchorMode) },
+    )
 }
 
 @Composable

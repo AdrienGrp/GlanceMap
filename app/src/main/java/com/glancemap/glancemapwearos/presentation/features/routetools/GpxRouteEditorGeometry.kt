@@ -156,6 +156,17 @@ internal fun positionAtDistance(
     return TrackPosition(trackId = "", segmentIndex = segmentIndex, t = t)
 }
 
+internal fun TrackPosition.resolveRouteToolTrackPosition(profile: TrackProfile): TrackPosition =
+    if (segmentIndex == ROUTE_TOOL_TRACK_END_SENTINEL_SEGMENT_INDEX) {
+        TrackPosition(
+            trackId = trackId,
+            segmentIndex = (profile.points.lastIndex - 1).coerceAtLeast(0),
+            t = 1.0,
+        )
+    } else {
+        this
+    }
+
 internal fun orderedPositions(
     a: TrackPosition,
     b: TrackPosition,

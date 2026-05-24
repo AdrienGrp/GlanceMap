@@ -9,7 +9,7 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -267,8 +267,8 @@ internal fun RoutingDownloadDialog(
                             modifier = Modifier.size(30.dp),
                         ) {
                             Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = "Refresh Watch List",
+                                Icons.Default.Update,
+                                contentDescription = "Update Watch List",
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -384,8 +384,8 @@ internal fun RoutingDownloadDialog(
                                     modifier = Modifier.size(30.dp),
                                 ) {
                                     Icon(
-                                        Icons.Default.Refresh,
-                                        contentDescription = "Refresh Watch Maps",
+                                        Icons.Default.Update,
+                                        contentDescription = "Update Watch Maps",
                                         modifier = Modifier.size(18.dp),
                                     )
                                 }

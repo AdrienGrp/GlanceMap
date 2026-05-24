@@ -27,14 +27,50 @@ class OamRemoteFileMetadataComparisonTest {
         val previous =
             metadata(
                 entityTag = "\"first\"",
+                lastModifiedMillis = null,
+                contentLengthBytes = null,
+            )
+        val current =
+            metadata(
+                entityTag = "\"second\"",
+                lastModifiedMillis = null,
+                contentLengthBytes = null,
+            )
+
+        assertEquals(RemoteMetadataComparison.CHANGED, previous.compareWith(current))
+    }
+
+    @Test
+    fun sameSizeWithDifferentLastModifiedStaysUpToDate() {
+        val previous =
+            metadata(
+                entityTag = null,
                 lastModifiedMillis = 1_769_977_800_000L,
                 contentLengthBytes = 12_108_242L,
             )
         val current =
             metadata(
-                entityTag = "\"second\"",
+                entityTag = null,
                 lastModifiedMillis = 1_769_977_900_000L,
                 contentLengthBytes = 12_108_242L,
+            )
+
+        assertEquals(RemoteMetadataComparison.SAME, previous.compareWith(current))
+    }
+
+    @Test
+    fun differentSizeMarksChanged() {
+        val previous =
+            metadata(
+                entityTag = null,
+                lastModifiedMillis = 1_769_977_800_000L,
+                contentLengthBytes = 12_108_242L,
+            )
+        val current =
+            metadata(
+                entityTag = null,
+                lastModifiedMillis = 1_769_977_800_000L,
+                contentLengthBytes = 12_108_243L,
             )
 
         assertEquals(RemoteMetadataComparison.CHANGED, previous.compareWith(current))

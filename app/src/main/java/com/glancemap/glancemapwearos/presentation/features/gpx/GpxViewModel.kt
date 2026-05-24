@@ -49,6 +49,9 @@ class GpxViewModel(
     private val _selectedPointB = MutableStateFlow<LatLong?>(null)
     val selectedPointB: StateFlow<LatLong?> = _selectedPointB.asStateFlow()
 
+    private val _selectingPointB = MutableStateFlow(false)
+    val selectingPointB: StateFlow<Boolean> = _selectingPointB.asStateFlow()
+
     private val _elevationProfileUiState = MutableStateFlow<GpxElevationProfileUiState?>(null)
     val elevationProfileUiState: StateFlow<GpxElevationProfileUiState?> =
         _elevationProfileUiState.asStateFlow()
@@ -547,6 +550,7 @@ class GpxViewModel(
                 aPos = pos
                 bPos = null
                 selectingB = false
+                _selectingPointB.value = false
                 selectBTimeoutJob?.cancel()
 
                 _selectedPointB.value = null
@@ -560,6 +564,7 @@ class GpxViewModel(
             } else {
                 val a = aPos ?: return@launch
                 selectingB = false
+                _selectingPointB.value = false
                 selectBTimeoutJob?.cancel()
                 bPos = pos
 
@@ -577,6 +582,7 @@ class GpxViewModel(
     fun startSelectingB() {
         val a = aPos ?: return
         selectingB = true
+        _selectingPointB.value = true
         bPos = null
 
         // Hide popup for B selection
@@ -594,13 +600,26 @@ class GpxViewModel(
                 delay(15_000L)
                 if (selectingB && aPos == a) {
                     selectingB = false
+                    _selectingPointB.value = false
                     publishA(a.trackId, a)
                 }
             }
     }
 
+    fun cancelSelectingB() {
+        val a = aPos ?: return
+        selectingB = false
+        _selectingPointB.value = false
+        bPos = null
+        selectBTimeoutJob?.cancel()
+        popupDelayJob?.cancel()
+        _selectedPointB.value = null
+        publishA(a.trackId, a)
+    }
+
     fun dismissInspection() {
         selectingB = false
+        _selectingPointB.value = false
         aPos = null
         bPos = null
         selectBTimeoutJob?.cancel()
@@ -631,8 +650,8 @@ class GpxViewModel(
                 profileCache.clear()
                 etaCache.clear()
                 dismissInspection()
+                reloadFromDisk()
                 onComplete(result)
-                launch { reloadFromDisk() }
             } else {
                 onComplete(result)
             }

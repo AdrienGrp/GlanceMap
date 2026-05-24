@@ -37,6 +37,7 @@ data class DiagnosticsSettingsSnapshot(
     val gpsInAmbientMode: Boolean,
     val gpsDebugTelemetry: Boolean,
     val gpsPassiveLocationExperiment: Boolean,
+    val backButtonExitsNavigation: Boolean,
 )
 
 @Suppress("TooManyFunctions")
@@ -76,12 +77,24 @@ object DiagnosticsExporter {
         val immediateRequestDeferredWakeBurstCount: Int = 0,
         val gpsFreshTrueCount: Int = 0,
         val gpsFreshFalseCount: Int = 0,
+        val passiveExternalSignalSampleCount: Int = 0,
+        val passiveExternalFreshSampleCount: Int = 0,
+        val passiveExternalStaleSampleCount: Int = 0,
+        val passiveExternalAcceptedSampleCount: Int = 0,
+        val passiveExternalRejectedSampleCount: Int = 0,
+        val passiveExternalLastAgeMs: Long? = null,
+        val passiveExternalMinAgeMs: Long? = null,
+        val passiveExternalMaxAgeMs: Long? = null,
+        val passiveExternalLastMaxAgeMs: Long? = null,
+        val passiveExternalLastAccuracyM: Float? = null,
+        val passiveExternalLastProvider: String? = null,
         val watchGpsDegradedEnteredCount: Int = 0,
         val watchGpsDegradedClearedCount: Int = 0,
         val watchGpsDegradedSampleCount: Int = 0,
         val watchGpsDegradedLastObserved: Boolean? = null,
         val batchEventCount: Int = 0,
         val batchOriginAutoFusedCount: Int = 0,
+        val batchOriginPassiveExternalCount: Int = 0,
         val batchOriginWatchGpsCount: Int = 0,
         val batchFallbackCount: Int = 0,
         val batchDuplicateCandidatesDroppedTotal: Int = 0,
@@ -93,11 +106,14 @@ object DiagnosticsExporter {
         val callbackAcceptedFixCount: Int = 0,
         val immediateAcceptedFixCount: Int = 0,
         val acceptedFixOriginAutoFusedCount: Int = 0,
+        val acceptedFixOriginPassiveExternalCount: Int = 0,
         val acceptedFixOriginWatchGpsCount: Int = 0,
         val requestBackendAutoFusedCount: Int = 0,
+        val requestBackendPassiveExternalCount: Int = 0,
         val requestBackendWatchGpsCount: Int = 0,
         val requestBackendSwitchCount: Int = 0,
         val requestBackendAutoFusedDurationMs: Long = 0L,
+        val requestBackendPassiveExternalDurationMs: Long = 0L,
         val requestBackendWatchGpsDurationMs: Long = 0L,
         val requestBackendDurationCoverageMs: Long = 0L,
         val failoverAutoToWatchAccuracyCount: Int = 0,
@@ -398,6 +414,7 @@ object DiagnosticsExporter {
             writer.appendLine("gpsInAmbientMode=${settings.gpsInAmbientMode}")
             writer.appendLine("gpsDebugTelemetry=${settings.gpsDebugTelemetry}")
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
+            writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
             writer.appendLine("continuousLocationGranularity=permission_level")
             writer.appendLine("currentLocationGranularity=permission_level")
             writer.appendLine("locationFinePermissionGranted=${locationPermission.hasFinePermission}")
@@ -513,10 +530,16 @@ object DiagnosticsExporter {
             writer.appendLine("requestModeStationaryBackgroundCount=${telemetryInsights.requestModeStationaryBackgroundCount}")
             writer.appendLine("requestModeOtherwiseCount=${telemetryInsights.requestModeOtherwiseCount}")
             writer.appendLine("requestBackendAutoFusedCount=${telemetryInsights.requestBackendAutoFusedCount}")
+            writer.appendLine(
+                "requestBackendPassiveExternalCount=${telemetryInsights.requestBackendPassiveExternalCount}",
+            )
             writer.appendLine("requestBackendWatchGpsCount=${telemetryInsights.requestBackendWatchGpsCount}")
             writer.appendLine("requestBackendSwitchCount=${telemetryInsights.requestBackendSwitchCount}")
             writer.appendLine(
                 "requestBackendAutoFusedDurationMs=${telemetryInsights.requestBackendAutoFusedDurationMs}",
+            )
+            writer.appendLine(
+                "requestBackendPassiveExternalDurationMs=${telemetryInsights.requestBackendPassiveExternalDurationMs}",
             )
             writer.appendLine(
                 "requestBackendWatchGpsDurationMs=${telemetryInsights.requestBackendWatchGpsDurationMs}",
@@ -578,6 +601,33 @@ object DiagnosticsExporter {
             writer.appendLine("gpsFreshTrueCount=${telemetryInsights.gpsFreshTrueCount}")
             writer.appendLine("gpsFreshFalseCount=${telemetryInsights.gpsFreshFalseCount}")
             writer.appendLine(
+                "passiveExternalStatus=${
+                    formatPassiveExternalStatus(
+                        settings = settings,
+                        insights = telemetryInsights,
+                    )
+                }",
+            )
+            writer.appendLine("passiveExternalSignalSampleCount=${telemetryInsights.passiveExternalSignalSampleCount}")
+            writer.appendLine("passiveExternalFreshSampleCount=${telemetryInsights.passiveExternalFreshSampleCount}")
+            writer.appendLine("passiveExternalStaleSampleCount=${telemetryInsights.passiveExternalStaleSampleCount}")
+            writer.appendLine(
+                "passiveExternalAcceptedSampleCount=${telemetryInsights.passiveExternalAcceptedSampleCount}",
+            )
+            writer.appendLine(
+                "passiveExternalRejectedSampleCount=${telemetryInsights.passiveExternalRejectedSampleCount}",
+            )
+            writer.appendLine("passiveExternalLastAgeMs=${telemetryInsights.passiveExternalLastAgeMs ?: "na"}")
+            writer.appendLine("passiveExternalMinAgeMs=${telemetryInsights.passiveExternalMinAgeMs ?: "na"}")
+            writer.appendLine("passiveExternalMaxAgeMs=${telemetryInsights.passiveExternalMaxAgeMs ?: "na"}")
+            writer.appendLine("passiveExternalLastMaxAgeMs=${telemetryInsights.passiveExternalLastMaxAgeMs ?: "na"}")
+            writer.appendLine(
+                "passiveExternalLastAccuracyM=${
+                    formatOneDecimal(telemetryInsights.passiveExternalLastAccuracyM)
+                }",
+            )
+            writer.appendLine("passiveExternalLastProvider=${telemetryInsights.passiveExternalLastProvider ?: "na"}")
+            writer.appendLine(
                 "watchGpsDegradedEnteredCount=${telemetryInsights.watchGpsDegradedEnteredCount}",
             )
             writer.appendLine(
@@ -630,6 +680,9 @@ object DiagnosticsExporter {
             )
             writer.appendLine("batchEventCount=${telemetryInsights.batchEventCount}")
             writer.appendLine("batchOriginAutoFusedCount=${telemetryInsights.batchOriginAutoFusedCount}")
+            writer.appendLine(
+                "batchOriginPassiveExternalCount=${telemetryInsights.batchOriginPassiveExternalCount}",
+            )
             writer.appendLine("batchOriginWatchGpsCount=${telemetryInsights.batchOriginWatchGpsCount}")
             writer.appendLine("batchFallbackCount=${telemetryInsights.batchFallbackCount}")
             writer.appendLine(
@@ -644,6 +697,11 @@ object DiagnosticsExporter {
             writer.appendLine("immediateAcceptedFixCount=${telemetryInsights.immediateAcceptedFixCount}")
             writer.appendLine(
                 "acceptedFixOriginAutoFusedCount=${telemetryInsights.acceptedFixOriginAutoFusedCount}",
+            )
+            writer.appendLine(
+                "acceptedFixOriginPassiveExternalCount=${
+                    telemetryInsights.acceptedFixOriginPassiveExternalCount
+                }",
             )
             writer.appendLine(
                 "acceptedFixOriginWatchGpsCount=${telemetryInsights.acceptedFixOriginWatchGpsCount}",
@@ -1124,6 +1182,26 @@ object DiagnosticsExporter {
         )
 
     private fun formatOneDecimal(value: Double?): String = value?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
+
+    private fun formatOneDecimal(value: Float?): String = value?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
+
+    private fun formatPassiveExternalStatus(
+        settings: DiagnosticsSettingsSnapshot,
+        insights: TelemetryInsights,
+    ): String =
+        when {
+            !settings.gpsPassiveLocationExperiment &&
+                insights.requestBackendPassiveExternalCount == 0 -> "disabled"
+            insights.requestBackendPassiveExternalCount == 0 -> "not_requested"
+            insights.batchOriginPassiveExternalCount == 0 &&
+                insights.passiveExternalSignalSampleCount == 0 -> "listening_no_callbacks"
+            insights.passiveExternalSignalSampleCount == 0 -> "callbacks_no_valid_samples"
+            insights.passiveExternalAcceptedSampleCount > 0 -> "fresh_fixes_accepted"
+            insights.passiveExternalStaleSampleCount ==
+                insights.passiveExternalSignalSampleCount -> "only_stale_samples"
+            insights.passiveExternalRejectedSampleCount > 0 -> "samples_rejected"
+            else -> "unknown"
+        }
 
     private fun formatMarkerMotionBlockedReasons(reasonCounts: Map<String, Int>): String =
         if (reasonCounts.isEmpty()) {

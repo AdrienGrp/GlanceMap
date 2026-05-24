@@ -7,8 +7,18 @@ import org.junit.Test
 
 class PassiveLocationExperimentPolicyTest {
     @Test
-    fun suppressesActiveImmediateRequestsOnlyForAutoFusedPassiveExperiment() {
+    fun suppressesActiveImmediateRequestsOnlyForPassiveExternalExperiment() {
         assertTrue(
+            shouldSuppressActiveImmediateLocationForPassiveExperiment(
+                passiveLocationExperiment = true,
+                sourceMode = LocationSourceMode.PASSIVE_EXTERNAL,
+            ),
+        )
+    }
+
+    @Test
+    fun keepsImmediateRequestsForAutoFusedEvenWhenPassiveExperimentIsEnabled() {
+        assertFalse(
             shouldSuppressActiveImmediateLocationForPassiveExperiment(
                 passiveLocationExperiment = true,
                 sourceMode = LocationSourceMode.AUTO_FUSED,

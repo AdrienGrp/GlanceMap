@@ -117,7 +117,7 @@ class SelfHealFailoverCoordinatorTest {
     }
 
     @Test
-    fun passiveExperimentNoFixFallsBackToWatchGpsWithoutGenericRefreshLoop() {
+    fun passiveExperimentNoFixStaysPassiveWithoutFallback() {
         val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
         telemetry.setDebugEnabled(false)
         val engine = LocationEngine(telemetry)
@@ -127,7 +127,7 @@ class SelfHealFailoverCoordinatorTest {
                 intervalMs = 3_000L,
                 minDistanceMeters = 1f,
                 mode = LocationRuntimeMode.INTERACTIVE,
-                sourceMode = LocationSourceMode.AUTO_FUSED,
+                sourceMode = LocationSourceMode.PASSIVE_EXTERNAL,
             ),
         )
         var requestRefreshes = 0
@@ -159,8 +159,9 @@ class SelfHealFailoverCoordinatorTest {
             expectedIntervalMs = 3_000L,
         )
 
-        assertTrue(coordinator.isAutoFusedFallbackToWatchGps())
-        assertEquals(1, requestRefreshes)
+        assertFalse(coordinator.isAutoFusedFallbackToWatchGps())
+        assertEquals(LocationSourceMode.PASSIVE_EXTERNAL, coordinator.currentLocationSourceMode())
+        assertEquals(0, requestRefreshes)
     }
 
     @Test

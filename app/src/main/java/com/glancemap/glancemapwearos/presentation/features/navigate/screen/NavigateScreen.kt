@@ -109,18 +109,36 @@ fun NavigateScreen(
     var isScreenResumed by remember(lifecycleOwner) {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
     }
+    var lastScreenResumeElapsedMs by remember(lifecycleOwner) {
+        mutableLongStateOf(SystemClock.elapsedRealtime())
+    }
+    var menuClickGuardUntilElapsedMs by remember(lifecycleOwner) {
+        mutableLongStateOf(lastScreenResumeElapsedMs + NAVIGATE_MENU_CLICK_RESUME_GUARD_MS)
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer =
             LifecycleEventObserver { _, event ->
                 when (event) {
-                    Lifecycle.Event.ON_RESUME -> isScreenResumed = true
+                    Lifecycle.Event.ON_RESUME -> {
+                        val nowElapsedMs = SystemClock.elapsedRealtime()
+                        isScreenResumed = true
+                        lastScreenResumeElapsedMs = nowElapsedMs
+                        menuClickGuardUntilElapsedMs = nowElapsedMs + NAVIGATE_MENU_CLICK_RESUME_GUARD_MS
+                    }
                     Lifecycle.Event.ON_PAUSE -> isScreenResumed = false
                     else -> Unit
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(isScreenResumed, isDeviceInteractive) {
+        if (isScreenResumed && isDeviceInteractive) {
+            val nowElapsedMs = SystemClock.elapsedRealtime()
+            lastScreenResumeElapsedMs = nowElapsedMs
+            menuClickGuardUntilElapsedMs = nowElapsedMs + NAVIGATE_MENU_CLICK_RESUME_GUARD_MS
+        }
     }
 
     // ---- UI STATE ----
@@ -182,6 +200,7 @@ fun NavigateScreen(
     val gpxTrackColorMode by settingsViewModel.gpxTrackColorMode.collectAsState()
     val gpxTrackWidth by settingsViewModel.gpxTrackWidth.collectAsState()
     val gpxTrackOpacityPercent by settingsViewModel.gpxTrackOpacityPercent.collectAsState()
+    val gpxTrackDirectionArrowsEnabled by settingsViewModel.gpxTrackDirectionArrowsEnabled.collectAsState()
     val autoRecenterEnabled by settingsViewModel.autoRecenterEnabled.collectAsState()
     val autoRecenterDelay by settingsViewModel.autoRecenterDelay.collectAsState(initial = 5)
     val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
@@ -191,6 +210,7 @@ fun NavigateScreen(
     val navigateTimeFormat by settingsViewModel.navigateTimeFormat.collectAsState()
     val mapZoomButtonsMode by settingsViewModel.mapZoomButtonsMode.collectAsState()
     val navigationMarkerStyleSetting by settingsViewModel.navigationMarkerStyle.collectAsState()
+    val navigationMarkerAnchorMode by settingsViewModel.navigationMarkerAnchorMode.collectAsState()
     val gpsAccuracyCircleEnabled by settingsViewModel.gpsAccuracyCircleEnabled.collectAsState(initial = false)
     val liveElevationEnabled by settingsViewModel.liveElevation.collectAsState(initial = false)
     val liveDistanceEnabled by settingsViewModel.liveDistance.collectAsState(initial = false)
@@ -199,6 +219,7 @@ fun NavigateScreen(
     val gpsDebugTelemetryPopupEnabled by settingsViewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
     val isGpxInspectionEnabled by settingsViewModel.isGpxInspectionEnabled.collectAsState()
     val isMetric by settingsViewModel.isMetric.collectAsState()
+    val backButtonExitsNavigation by settingsViewModel.backButtonExitsNavigation.collectAsState()
     val poiIconSizePx by settingsViewModel.poiIconSizePx.collectAsState()
     val poiMarkerStyle by settingsViewModel.poiMarkerStyle.collectAsState()
     val poiPopupTimeoutSeconds by settingsViewModel.poiPopupTimeoutSeconds.collectAsState(
@@ -259,6 +280,7 @@ fun NavigateScreen(
     // A/B marker points
     val selectedPointA by gpxViewModel.selectedPointA.collectAsState()
     val selectedPointB by gpxViewModel.selectedPointB.collectAsState()
+    val selectingGpxPointB by gpxViewModel.selectingPointB.collectAsState()
     var shortcutTrayExpanded by rememberSaveable { mutableStateOf(false) }
     var showRouteToolsPanel by rememberSaveable { mutableStateOf(false) }
     var routeToolOptions by rememberSaveable(stateSaver = routeToolOptionsSaver) {
@@ -671,6 +693,7 @@ fun NavigateScreen(
             expectedGpsIntervalMs = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
             navigationMarkerBitmap = navigationMarkerBitmap,
             suppressLocationMarker = offlineMode,
+            navigationMarkerAnchorMode = navigationMarkerAnchorMode,
         )
 
     val locationMarker = locationUiState.locationMarker
@@ -751,6 +774,7 @@ fun NavigateScreen(
         gpxTrackColorMode = gpxTrackColorMode,
         gpxTrackWidth = gpxTrackWidth,
         gpxTrackOpacityPercent = gpxTrackOpacityPercent,
+        gpxTrackDirectionArrowsEnabled = gpxTrackDirectionArrowsEnabled,
         compassRenderStateFlow = compassViewModel.renderState,
         navMode = effectiveNavMode,
         forceNorthUpInPanning = offlineMode,
@@ -766,6 +790,7 @@ fun NavigateScreen(
         gpsFixBearingDeg = locationUiState.lastFixBearingDeg,
         renderedHeadingDeg = renderedCompassHeadingDeg,
         locationMarker = locationMarker,
+        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
         inspectionUiState = inspectionUiState,
         selectedPointA = selectedPointA,
         selectedPointB = selectedPointB,
@@ -813,13 +838,18 @@ fun NavigateScreen(
             }
             shortcutTrayExpanded -> shortcutTrayExpanded = false
             else -> {
-                // Samsung Galaxy Watch can route the physical Back button here when users set it
-                // to "Go to previous screen"; make it a hardware shortcut to the existing menu.
-                DebugTelemetry.log(
-                    "NavigationTelemetry",
-                    "event=navigate_back_to_menu route=navigate_screen reason=no_overlay_open",
-                )
-                onMenuClick()
+                if (backButtonExitsNavigation) {
+                    DebugTelemetry.log(
+                        "NavigationTelemetry",
+                        "event=navigate_back_to_menu route=navigate_screen reason=no_overlay_open compat=true",
+                    )
+                    onMenuClick()
+                } else {
+                    DebugTelemetry.log(
+                        "NavigationTelemetry",
+                        "event=navigate_back_ignored route=navigate_screen reason=no_overlay_open compat=false",
+                    )
+                }
             }
         }
     }
@@ -856,8 +886,10 @@ fun NavigateScreen(
                 pendingPoiFocusTarget == null
         }
 
-    LaunchedEffect(gpsStartupLastKnownCenter, mapView) {
-        gpsStartupLastKnownCenter?.let { mapView.setCenter(it) }
+    LaunchedEffect(gpsStartupLastKnownCenter, mapView, navigationMarkerAnchorMode) {
+        gpsStartupLastKnownCenter?.let {
+            mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode)
+        }
     }
 
     OfflineStartCenteringEffect(
@@ -876,6 +908,17 @@ fun NavigateScreen(
         } else {
             locationMarker?.latLong ?: uiState.lastKnownLocation
         }
+
+    LaunchedEffect(
+        navigationMarkerAnchorMode,
+        effectiveNavMode,
+        recenterTarget,
+        mapView,
+    ) {
+        if (!offlineMode && effectiveNavMode != NavMode.PANNING) {
+            recenterTarget?.let { mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode) }
+        }
+    }
 
     val routeToolActions =
         rememberNavigateRouteToolActions(
@@ -1138,9 +1181,22 @@ fun NavigateScreen(
             }
         },
         triggerHaptic = screenActions.triggerHaptic,
-        onMenuClick = onMenuClick,
+        onMenuClick = {
+            val nowElapsedMs = SystemClock.elapsedRealtime()
+            if (nowElapsedMs < menuClickGuardUntilElapsedMs) {
+                DebugTelemetry.log(
+                    "NavigationTelemetry",
+                    "event=menu_click_ignored route=navigate_screen reason=recent_resume " +
+                        "ageMs=${nowElapsedMs - lastScreenResumeElapsedMs} " +
+                        "remainingMs=${menuClickGuardUntilElapsedMs - nowElapsedMs}",
+                )
+            } else {
+                onMenuClick()
+            }
+        },
         onPermissionLaunch = { locationPermissionState.launchPermissions() },
         mapRotationDeg = renderedMapRotationDeg,
+        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
         compassHeadingDeg = renderedCompassHeadingDeg,
         liveElevationEnabled = liveElevationEnabled,
         liveDistanceEnabled = liveDistanceEnabled && !offlineMode,
@@ -1156,6 +1212,8 @@ fun NavigateScreen(
         watchGpsDegradedWarning = watchGpsDegradedWarning,
         isOfflineMode = offlineMode,
         isGpxInspectionEnabled = isGpxInspectionEnabled,
+        selectingGpxPointB = selectingGpxPointB,
+        onCancelSelectingGpxPointB = { gpxViewModel.cancelSelectingB() },
         activeGpxDetails = activeGpxDetails,
         gpxTrackColor = gpxTrackColor,
         routeToolSession = routeToolSession,
@@ -1239,3 +1297,4 @@ private fun shouldUpdateZoomReferenceLatitude(
 
 private const val MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES = 0.25
 private const val NORMAL_STARTUP_MAP_FALLBACK_GRACE_MS = 15_000L
+private const val NAVIGATE_MENU_CLICK_RESUME_GUARD_MS = 1_500L

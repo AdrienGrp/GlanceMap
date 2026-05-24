@@ -22,7 +22,14 @@ class LocationSourceGuardTest {
                 callbackOrigin = LocationSourceMode.WATCH_GPS,
             ),
         )
+        assertTrue(
+            LocationSourceGuard.acceptsCallbackOrigin(
+                expectedSourceMode = LocationSourceMode.PASSIVE_EXTERNAL,
+                callbackOrigin = LocationSourceMode.PASSIVE_EXTERNAL,
+            ),
+        )
         assertEquals("auto_fused", LocationSourceGuard.expectedOrigin(LocationSourceMode.AUTO_FUSED))
+        assertEquals("passive_external", LocationSourceGuard.expectedOrigin(LocationSourceMode.PASSIVE_EXTERNAL))
         assertEquals("watch_gps", LocationSourceGuard.expectedOrigin(LocationSourceMode.WATCH_GPS))
     }
 
@@ -38,6 +45,12 @@ class LocationSourceGuardTest {
             LocationSourceGuard.acceptsCallbackOrigin(
                 expectedSourceMode = LocationSourceMode.AUTO_FUSED,
                 callbackOrigin = LocationSourceMode.WATCH_GPS,
+            ),
+        )
+        assertFalse(
+            LocationSourceGuard.acceptsCallbackOrigin(
+                expectedSourceMode = LocationSourceMode.PASSIVE_EXTERNAL,
+                callbackOrigin = LocationSourceMode.AUTO_FUSED,
             ),
         )
     }

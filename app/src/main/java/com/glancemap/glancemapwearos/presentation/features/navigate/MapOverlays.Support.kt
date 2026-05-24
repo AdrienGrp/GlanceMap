@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import com.caverock.androidsvg.PreserveAspectRatio
@@ -240,6 +241,38 @@ internal fun createPoiThemeIconMarkerBitmap(
     canvas.drawBitmap(iconBitmap, null, iconRect.offsetCopy(dx = sizePx * 0.04f, dy = sizePx * 0.05f), shadowPaint)
     canvas.drawBitmap(iconBitmap, null, iconRect, iconPaint)
 
+    return bitmap
+}
+
+internal fun createGpxDirectionArrowBitmap(sizePx: Int = 16): Bitmap {
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+
+    val arrow =
+        Path().apply {
+            moveTo(sizePx * 0.5f, sizePx * 0.12f)
+            lineTo(sizePx * 0.82f, sizePx * 0.82f)
+            lineTo(sizePx * 0.5f, sizePx * 0.66f)
+            lineTo(sizePx * 0.18f, sizePx * 0.82f)
+            close()
+        }
+    val haloPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeWidth = sizePx * 0.14f
+            alpha = 225
+        }
+    val fillPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.BLACK
+            style = Paint.Style.FILL
+        }
+
+    canvas.drawPath(arrow, haloPaint)
+    canvas.drawPath(arrow, fillPaint)
     return bitmap
 }
 

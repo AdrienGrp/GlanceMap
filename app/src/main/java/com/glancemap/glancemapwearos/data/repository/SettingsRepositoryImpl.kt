@@ -65,6 +65,7 @@ class SettingsRepositoryImpl private constructor(
         val COMPASS_CONE_ACCURACY_COLORS_ENABLED =
             booleanPreferencesKey("compass_cone_accuracy_colors_enabled")
         val NAVIGATION_MARKER_STYLE = stringPreferencesKey("navigation_marker_style")
+        val NAVIGATION_MARKER_ANCHOR_MODE = stringPreferencesKey("navigation_marker_anchor_mode")
         val MAP_DOUBLE_TAP_ACTION = stringPreferencesKey("map_double_tap_action")
         val LIVE_ELEVATION = booleanPreferencesKey("live_elevation")
         val LIVE_DISTANCE = booleanPreferencesKey("live_distance")
@@ -76,6 +77,8 @@ class SettingsRepositoryImpl private constructor(
         val GPX_TRACK_COLOR_MODE = stringPreferencesKey("gpx_track_color_mode")
         val GPX_TRACK_WIDTH = floatPreferencesKey("gpx_track_width")
         val GPX_TRACK_OPACITY_PERCENT = intPreferencesKey("gpx_track_opacity_percent")
+        val GPX_TRACK_DIRECTION_ARROWS_ENABLED =
+            booleanPreferencesKey("gpx_track_direction_arrows_enabled")
         val AUTO_RECENTER_ENABLED = booleanPreferencesKey("auto_recenter_enabled")
         val AUTO_RECENTER_DELAY = intPreferencesKey("auto_recenter_delay")
         val SELECTED_MAP_PATH = stringPreferencesKey("selected_map_path")
@@ -99,6 +102,7 @@ class SettingsRepositoryImpl private constructor(
             booleanPreferencesKey("gpx_elevation_auto_adjust_per_gpx")
         val GPX_LONG_PRESS_TIP_SHOWN = booleanPreferencesKey("gpx_long_press_tip_shown")
         val IS_METRIC = booleanPreferencesKey("is_metric")
+        val BACK_BUTTON_EXITS_NAVIGATION = booleanPreferencesKey("back_button_exits_navigation")
         val POI_ICON_SIZE_PX = intPreferencesKey("poi_icon_size_px")
         val POI_MARKER_STYLE = stringPreferencesKey("poi_marker_style")
         val POI_TAP_TO_CENTER_ENABLED = booleanPreferencesKey("poi_tap_to_center_enabled")
@@ -388,6 +392,27 @@ class SettingsRepositoryImpl private constructor(
         writeCachedNavigationMarkerStyle(resolved)
     }
 
+    override val navigationMarkerAnchorMode: Flow<String> =
+        context.dataStore.data.map {
+            val stored = it[PrefKeys.NAVIGATION_MARKER_ANCHOR_MODE]
+            if (stored != null && stored in allowedMarkerAnchorModes) {
+                stored
+            } else {
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER
+            }
+        }
+
+    override suspend fun setNavigationMarkerAnchorMode(mode: String) {
+        context.dataStore.edit {
+            it[PrefKeys.NAVIGATION_MARKER_ANCHOR_MODE] =
+                if (mode in allowedMarkerAnchorModes) {
+                    mode
+                } else {
+                    SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER
+                }
+        }
+    }
+
     override val mapDoubleTapAction: Flow<String> = context.dataStore.data.map { it[PrefKeys.MAP_DOUBLE_TAP_ACTION] ?: "zoom_in" }
 
     override suspend fun setMapDoubleTapAction(action: String) {
@@ -489,6 +514,16 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit {
             it[PrefKeys.GPX_TRACK_OPACITY_PERCENT] = sanitizeGpxTrackOpacityPercent(opacityPercent)
         }
+    }
+
+    override val gpxTrackDirectionArrowsEnabled: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.GPX_TRACK_DIRECTION_ARROWS_ENABLED]
+                ?: SettingsRepository.DEFAULT_GPX_TRACK_DIRECTION_ARROWS_ENABLED
+        }
+
+    override suspend fun setGpxTrackDirectionArrowsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.GPX_TRACK_DIRECTION_ARROWS_ENABLED] = enabled }
     }
 
     override val autoRecenterEnabled: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.AUTO_RECENTER_ENABLED] ?: false }
@@ -660,6 +695,13 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit { it[PrefKeys.IS_METRIC] = isMetric }
     }
 
+    override val backButtonExitsNavigation: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.BACK_BUTTON_EXITS_NAVIGATION] ?: false }
+
+    override suspend fun setBackButtonExitsNavigation(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.BACK_BUTTON_EXITS_NAVIGATION] = enabled }
+    }
+
     override val poiIconSizePx: Flow<Int> =
         context.dataStore.data.map {
             val stored = it[PrefKeys.POI_ICON_SIZE_PX]
@@ -762,6 +804,11 @@ class SettingsRepositoryImpl private constructor(
             setOf(
                 SettingsRepository.MARKER_STYLE_DOT,
                 SettingsRepository.MARKER_STYLE_TRIANGLE,
+            )
+        private val allowedMarkerAnchorModes =
+            setOf(
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER,
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER,
             )
         private val allowedNorthReferenceModes =
             setOf(

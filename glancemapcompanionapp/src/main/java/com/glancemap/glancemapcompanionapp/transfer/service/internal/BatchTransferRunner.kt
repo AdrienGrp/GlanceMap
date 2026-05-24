@@ -79,7 +79,7 @@ internal class BatchTransferRunner(
 
         val supportedItems =
             uris.mapNotNull { uri ->
-                val details = TransferUtils.getFileDetails(ctx, uri) ?: return@mapNotNull null
+                val details = TransferUtils.getTransferFileDetails(ctx, uri) ?: return@mapNotNull null
                 val (rawName, size) = details
                 val name = rawName.ifBlank { "file.bin" }
                 if (!isSupportedTransferFileName(name)) return@mapNotNull null
@@ -888,7 +888,7 @@ internal class BatchTransferRunner(
         val items = mutableListOf<FileItem>()
         for (uri in fileUris) {
             val details =
-                TransferUtils.getFileDetails(context, uri)
+                TransferUtils.getTransferFileDetails(context, uri)
                     ?: throw IllegalStateException("Could not read file details")
 
             val (rawName, size) = details

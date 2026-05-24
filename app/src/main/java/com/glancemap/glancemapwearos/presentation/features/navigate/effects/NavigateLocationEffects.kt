@@ -21,6 +21,7 @@ import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPol
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
+import com.glancemap.glancemapwearos.presentation.features.maps.mutateLayers
 import com.glancemap.glancemapwearos.presentation.features.navigate.GpsFixIndicatorState
 import com.glancemap.glancemapwearos.presentation.features.navigate.LocationViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateViewModel
@@ -30,6 +31,8 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.motion.Marke
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionReading
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionSeed
 import com.glancemap.glancemapwearos.presentation.features.navigate.requestLayerRedrawSafely
+import com.glancemap.glancemapwearos.presentation.features.navigate.resolveMapCenterForNavigationMarker
+import com.glancemap.glancemapwearos.presentation.features.navigate.setCenterForNavigationMarker
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.isActive
@@ -57,6 +60,7 @@ internal data class WakeAnchorSeed(
 )
 
 @Composable
+@Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
 internal fun rememberNavigateLocationUiState(
     mapView: MapView,
     locationViewModel: LocationViewModel,
@@ -68,6 +72,7 @@ internal fun rememberNavigateLocationUiState(
     expectedGpsIntervalMs: Long,
     navigationMarkerBitmap: AndroidBitmap,
     suppressLocationMarker: Boolean,
+    navigationMarkerAnchorMode: String,
 ): NavigateLocationUiState {
     val timingProfile =
         remember(expectedGpsIntervalMs) {
@@ -85,6 +90,7 @@ internal fun rememberNavigateLocationUiState(
     val latestSuppressLocationMarker = rememberUpdatedState(suppressLocationMarker)
     val latestShouldTrackLocation = rememberUpdatedState(shouldTrackLocation)
     val latestScreenState = rememberUpdatedState(screenState)
+    val latestNavigationMarkerAnchorMode = rememberUpdatedState(navigationMarkerAnchorMode)
 
     var locationMarker by remember { mutableStateOf<RotatableMarker?>(null) }
     var lastRenderedMarkerLatLong by remember { mutableStateOf<LatLong?>(null) }
@@ -198,7 +204,7 @@ internal fun rememberNavigateLocationUiState(
                         -navigationMarkerBitmap.width / 2,
                         -navigationMarkerBitmap.height / 2,
                     ).also { marker ->
-                        mapView.layerManager.layers.add(marker)
+                        mapView.mutateLayers { layers -> layers.add(marker) }
                         lastMarkerVisualUpdateAtElapsedMs = nowElapsedMs
                         lastMarkerMotionAdvanceAtElapsedMs = nowElapsedMs
                         mapView.requestLayerRedrawSafely()
@@ -315,7 +321,9 @@ internal fun rememberNavigateLocationUiState(
 
     LaunchedEffect(mapView, navigationMarkerBitmap) {
         if (latestSuppressLocationMarker.value) {
-            locationMarker?.let { marker -> mapView.layerManager.layers.remove(marker) }
+            locationMarker?.let { marker ->
+                mapView.mutateLayers { layers -> layers.remove(marker) }
+            }
             locationMarker = null
             lastRenderedMarkerLatLong = null
             mapView.requestLayerRedrawSafely()
@@ -331,7 +339,7 @@ internal fun rememberNavigateLocationUiState(
                     -navigationMarkerBitmap.width / 2,
                     -navigationMarkerBitmap.height / 2,
                 ).also { marker ->
-                    mapView.layerManager.layers.add(marker)
+                    mapView.mutateLayers { layers -> layers.add(marker) }
                     lastMarkerVisualUpdateAtElapsedMs = android.os.SystemClock.elapsedRealtime()
                     lastMarkerMotionAdvanceAtElapsedMs = android.os.SystemClock.elapsedRealtime()
                     mapView.requestLayerRedrawSafely()
@@ -342,7 +350,7 @@ internal fun rememberNavigateLocationUiState(
         val latLong = currentMarker.latLong ?: return@LaunchedEffect
         val heading = currentMarker.heading
         val isVisible = currentMarker.isVisible
-        mapView.layerManager.layers.remove(currentMarker)
+        mapView.mutateLayers { layers -> layers.remove(currentMarker) }
         locationMarker =
             RotatableMarker(
                 latLong,
@@ -352,7 +360,7 @@ internal fun rememberNavigateLocationUiState(
             ).also { marker ->
                 marker.heading = heading
                 marker.isVisible = isVisible
-                mapView.layerManager.layers.add(marker)
+                mapView.mutateLayers { layers -> layers.add(marker) }
                 lastMarkerVisualUpdateAtElapsedMs = android.os.SystemClock.elapsedRealtime()
                 mapView.requestLayerRedrawSafely()
             }
@@ -361,7 +369,7 @@ internal fun rememberNavigateLocationUiState(
     LaunchedEffect(suppressLocationMarker, mapView) {
         if (!suppressLocationMarker) return@LaunchedEffect
         locationMarker?.let { marker ->
-            mapView.layerManager.layers.remove(marker)
+            mapView.mutateLayers { layers -> layers.remove(marker) }
         }
         locationMarker = null
         lastRenderedMarkerLatLong = null
@@ -545,7 +553,7 @@ internal fun rememberNavigateLocationUiState(
                             -navigationMarkerBitmap.width / 2,
                             -navigationMarkerBitmap.height / 2,
                         ).also { marker ->
-                            mapView.layerManager.layers.add(marker)
+                            mapView.mutateLayers { layers -> layers.add(marker) }
                         }
                 } else {
                     locationMarker?.latLong = displayLatLong
@@ -565,13 +573,15 @@ internal fun rememberNavigateLocationUiState(
                 }
 
                 if (
-                    shouldCenterOnRenderedMarker(
+                    shouldCenterOnNavigationMarker(
+                        mapView = mapView,
                         shouldFollowPosition = latestShouldFollowPosition.value,
                         target = displayLatLong,
+                        markerAnchorMode = latestNavigationMarkerAnchorMode.value,
                         currentCenter = mapView.model.mapViewPosition.center,
                     )
                 ) {
-                    mapView.setCenter(displayLatLong)
+                    mapView.setCenterForNavigationMarker(displayLatLong, latestNavigationMarkerAnchorMode.value)
                 }
 
                 mapView.requestLayerRedrawSafely()
@@ -581,7 +591,9 @@ internal fun rememberNavigateLocationUiState(
     // Cleanup marker when leaving screen.
     DisposableEffect(mapView) {
         onDispose {
-            locationMarker?.let { marker -> mapView.layerManager.layers.remove(marker) }
+            locationMarker?.let { marker ->
+                mapView.mutateLayers { layers -> layers.remove(marker) }
+            }
             locationMarker = null
             lastRenderedMarkerLatLong = null
             holdMarkerUntilFreshFix = false
@@ -654,13 +666,15 @@ internal fun rememberNavigateLocationUiState(
 
             marker.latLong = predicted
             if (
-                shouldCenterOnRenderedMarker(
+                shouldCenterOnNavigationMarker(
+                    mapView = mapView,
                     shouldFollowPosition = latestShouldFollowPosition.value,
                     target = predicted,
+                    markerAnchorMode = latestNavigationMarkerAnchorMode.value,
                     currentCenter = mapView.model.mapViewPosition.center,
                 )
             ) {
-                mapView.setCenter(predicted)
+                mapView.setCenterForNavigationMarker(predicted, latestNavigationMarkerAnchorMode.value)
             }
             mapView.requestLayerRedrawSafely()
         }
@@ -752,11 +766,12 @@ private const val NAV_MARKER_TELEMETRY_TAG = "MarkerMotion"
 private const val UI_INTERACTIVE_STALE_REFRESH_SOURCE = "ui_interactive_stale_refresh"
 
 private fun removeAllRotatableMarkers(mapView: MapView) {
-    val layers = mapView.layerManager.layers
-    for (i in layers.size() - 1 downTo 0) {
-        val layer = layers[i]
-        if (layer is RotatableMarker) {
-            layers.remove(layer)
+    mapView.mutateLayers { layers ->
+        for (i in layers.size() - 1 downTo 0) {
+            val layer = layers[i]
+            if (layer is RotatableMarker) {
+                layers.remove(layer)
+            }
         }
     }
 }
@@ -792,6 +807,19 @@ internal fun shouldCenterOnRenderedMarker(
     val dLon = target.longitude - center.longitude
     return (dLat * dLat + dLon * dLon) >= MARKER_UPDATE_EPSILON_DEG2
 }
+
+private fun shouldCenterOnNavigationMarker(
+    mapView: MapView,
+    shouldFollowPosition: Boolean,
+    target: LatLong,
+    markerAnchorMode: String,
+    currentCenter: LatLong?,
+): Boolean =
+    shouldCenterOnRenderedMarker(
+        shouldFollowPosition = shouldFollowPosition,
+        target = mapView.resolveMapCenterForNavigationMarker(target, markerAnchorMode),
+        currentCenter = currentCenter,
+    )
 
 internal fun resolveWakeAnchorSeedOrNull(
     location: android.location.Location?,

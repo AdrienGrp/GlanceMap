@@ -56,4 +56,26 @@ class TransferUtilsLocalIpCandidateTest {
         assertFalse(TransferUtils.isLocalPeerInterfaceName("rmnet_data0"))
         assertFalse(TransferUtils.isLocalPeerInterfaceName("ccmni0"))
     }
+
+    @Test
+    fun `adds gpx extension when provider exposes gpx mime without extension`() {
+        assertEquals(
+            "shared-route.gpx",
+            TransferUtils.resolveTransferDisplayName(
+                rawName = "shared-route",
+                mimeType = "application/gpx+xml",
+            ),
+        )
+    }
+
+    @Test
+    fun `keeps existing gpx display name`() {
+        assertEquals(
+            "track.gpx",
+            TransferUtils.resolveTransferDisplayName(
+                rawName = "track.gpx",
+                mimeType = "application/gpx+xml",
+            ),
+        )
+    }
 }

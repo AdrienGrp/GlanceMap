@@ -41,6 +41,7 @@ internal data class ResolvedRequestPlan(
     val spec: RequestSpec?,
 )
 
+@Suppress("LongParameterList")
 internal class LocationRequestCoordinator(
     private val serviceScope: CoroutineScope,
     private val engine: LocationEngine,
@@ -64,6 +65,7 @@ internal class LocationRequestCoordinator(
     private val locationGatewayFor: (LocationSourceMode) -> LocationGateway,
     private val locationUpdateSink: () -> LocationUpdateSink,
     private val removeAllLocationUpdates: suspend () -> Unit,
+    private val removeInactiveLocationUpdates: suspend (activeSourceMode: LocationSourceMode) -> Unit,
     private val onNoPermissions: (nowElapsedMs: Long) -> Unit,
     private val onNoRequestSpec: (keepOpen: Boolean, tracking: Boolean) -> Unit,
     private val onRequestApplied: (nowElapsedMs: Long, intervalMs: Long) -> Unit,
@@ -158,13 +160,18 @@ internal class LocationRequestCoordinator(
 
                 try {
                     if (isSuperseded(generation)) return@launch
+                    val previousSourceMode = engine.currentAppliedSourceMode()
                     // Reject any in-flight callbacks until the new request is fully applied.
                     engine.forceRequestRefresh()
                     setSourceModeWarmup(
                         requestSpec.sourceMode,
                         nowElapsedMs + strictSourceWarmupMs,
                     )
-                    removeAllLocationUpdates()
+                    if (previousSourceMode == requestSpec.sourceMode) {
+                        removeInactiveLocationUpdates(requestSpec.sourceMode)
+                    } else {
+                        removeAllLocationUpdates()
+                    }
                     if (isSuperseded(generation)) return@launch
                     val locationGateway = locationGatewayFor(requestSpec.sourceMode)
                     val maxUpdateDelayMs =
@@ -280,7 +287,11 @@ internal class LocationRequestCoordinator(
         state: RequestUpdateState,
         permissions: LocationPermissionSnapshot,
     ): ResolvedRequestPlan {
-        val passiveTracking = state.tracking && state.screenState.isNonInteractive && state.backgroundGps
+        val passiveExperimentListening =
+            state.passiveLocationExperiment && !state.watchOnlyEffective && state.keepOpen
+        val passiveTracking =
+            (state.tracking && state.screenState.isNonInteractive && state.backgroundGps) ||
+                passiveExperimentListening
         val interactiveTracking = state.tracking && state.screenState.isInteractive
         val spec =
             engine.resolveRequestSpec(

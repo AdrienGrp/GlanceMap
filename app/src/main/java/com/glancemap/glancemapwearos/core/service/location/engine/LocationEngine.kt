@@ -259,6 +259,9 @@ internal class LocationEngine(
 
     fun hasAppliedRequest(): Boolean = synchronized(requestStateLock) { appliedRequestState != null }
 
+    @Suppress("MaxLineLength")
+    fun currentAppliedSourceMode(): LocationSourceMode? = synchronized(requestStateLock) { appliedRequestState?.sourceMode }
+
     fun markRequestFailed() {
         synchronized(requestStateLock) {
             clearRequestStateLocked()

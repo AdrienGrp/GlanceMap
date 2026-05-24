@@ -31,6 +31,8 @@ interface SettingsRepository {
 
         const val MARKER_STYLE_DOT = "DOT"
         const val MARKER_STYLE_TRIANGLE = "TRIANGLE"
+        const val NAVIGATION_MARKER_ANCHOR_CENTER = "CENTER"
+        const val NAVIGATION_MARKER_ANCHOR_LOWER = "LOWER"
 
         const val DEFAULT_GPX_FLAT_SPEED_MPS = 3.5f / 3.6f
         const val MAX_GPX_FLAT_SPEED_MPS = 20f / 3.6f
@@ -55,6 +57,7 @@ interface SettingsRepository {
         const val GPX_TRACK_COLOR_MODE_SOLID = "SOLID"
         const val GPX_TRACK_COLOR_MODE_ELEVATION = "ELEVATION"
         const val DEFAULT_GPX_TRACK_COLOR_MODE = GPX_TRACK_COLOR_MODE_SOLID
+        const val DEFAULT_GPX_TRACK_DIRECTION_ARROWS_ENABLED = false
 
         const val POI_ICON_SIZE_SMALL_PX = 18
         const val POI_ICON_SIZE_DEFAULT_PX = 22
@@ -173,6 +176,10 @@ interface SettingsRepository {
 
     suspend fun setNavigationMarkerStyle(style: String)
 
+    val navigationMarkerAnchorMode: Flow<String>
+
+    suspend fun setNavigationMarkerAnchorMode(mode: String)
+
     val mapDoubleTapAction: Flow<String>
 
     suspend fun setMapDoubleTapAction(action: String)
@@ -216,6 +223,10 @@ interface SettingsRepository {
     val gpxTrackOpacityPercent: Flow<Int>
 
     suspend fun setGpxTrackOpacityPercent(opacityPercent: Int)
+
+    val gpxTrackDirectionArrowsEnabled: Flow<Boolean>
+
+    suspend fun setGpxTrackDirectionArrowsEnabled(enabled: Boolean)
 
     // Auto-recenter settings
     val autoRecenterEnabled: Flow<Boolean>
@@ -286,6 +297,10 @@ interface SettingsRepository {
     val isMetric: Flow<Boolean>
 
     suspend fun setMetric(isMetric: Boolean)
+
+    val backButtonExitsNavigation: Flow<Boolean>
+
+    suspend fun setBackButtonExitsNavigation(enabled: Boolean)
 
     val poiIconSizePx: Flow<Int>
 
