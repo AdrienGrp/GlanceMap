@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
@@ -37,6 +38,7 @@ internal fun ScalingLazyListScope.downloadAreaPickerItems(
     onClearAreaSelection: () -> Unit,
     onSelectedAreaFolderChange: (String?) -> Unit,
     onToggleArea: (String) -> Unit,
+    onDownloadSelectedAreas: () -> Unit,
 ) {
     item {
         DownloadChip(
@@ -73,6 +75,18 @@ internal fun ScalingLazyListScope.downloadAreaPickerItems(
                 }
             },
         )
+    }
+
+    if (selectedAreaIds.isNotEmpty()) {
+        item {
+            DownloadChip(
+                label = "Download",
+                secondaryLabel = selectedAreaLabel,
+                icon = Icons.Filled.Download,
+                selected = true,
+                onClick = onDownloadSelectedAreas,
+            )
+        }
     }
 
     item {

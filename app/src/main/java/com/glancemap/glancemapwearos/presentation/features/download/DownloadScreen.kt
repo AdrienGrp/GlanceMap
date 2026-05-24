@@ -366,6 +366,10 @@ fun DownloadScreen(
                         onClearAreaSelection = viewModel::clearAreaSelection,
                         onSelectedAreaFolderChange = onSelectedAreaFolderChange,
                         onToggleArea = viewModel::toggleArea,
+                        onDownloadSelectedAreas = {
+                            onAreaPickerOpenChange(false)
+                            viewModel.downloadSelectedBundle()
+                        },
                     )
                 } else {
                     item {
