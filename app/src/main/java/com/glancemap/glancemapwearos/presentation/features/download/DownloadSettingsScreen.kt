@@ -153,7 +153,7 @@ private fun ElevationDownloadSetting(
         },
         secondaryLabel = {
             Text(
-                text = "${source.displayName} · ${source.detailLabel}",
+                text = source.shortLabel,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
