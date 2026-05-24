@@ -290,27 +290,41 @@ private fun visibleDistanceIntervals(
 ): List<DistanceInterval> {
     val intervals = ArrayList<DistanceInterval>()
     for (index in 0 until projectedPoints.lastIndex) {
-        val start = projectedPoints[index]
-        val end = projectedPoints[index + 1]
-        val segmentLength = cumulativeDistances[index + 1] - cumulativeDistances[index]
-        if (segmentLength <= 1e-6) continue
-
-        val clipped = clipSegmentToViewport(start, end, viewport) ?: continue
-        val interval =
-            DistanceInterval(
-                start = cumulativeDistances[index] + segmentLength * clipped.start,
-                end = cumulativeDistances[index] + segmentLength * clipped.end,
-            )
-        if (interval.length <= 1e-6) continue
-
-        val last = intervals.lastOrNull()
-        if (last != null && interval.start <= last.end + 1e-6) {
-            intervals[intervals.lastIndex] = DistanceInterval(last.start, max(last.end, interval.end))
-        } else {
-            intervals += interval
+        visibleDistanceIntervalForSegment(
+            start = projectedPoints[index],
+            end = projectedPoints[index + 1],
+            startDistance = cumulativeDistances[index],
+            endDistance = cumulativeDistances[index + 1],
+            viewport = viewport,
+        )?.let { interval ->
+            val last = intervals.lastOrNull()
+            if (last != null && interval.start <= last.end + 1e-6) {
+                intervals[intervals.lastIndex] = DistanceInterval(last.start, max(last.end, interval.end))
+            } else {
+                intervals += interval
+            }
         }
     }
     return intervals
+}
+
+private fun visibleDistanceIntervalForSegment(
+    start: XY,
+    end: XY,
+    startDistance: Double,
+    endDistance: Double,
+    viewport: ProjectedViewportBounds,
+): DistanceInterval? {
+    val segmentLength = endDistance - startDistance
+    if (segmentLength <= 1e-6) return null
+
+    val clipped = clipSegmentToViewport(start, end, viewport) ?: return null
+    val interval =
+        DistanceInterval(
+            start = startDistance + segmentLength * clipped.start,
+            end = startDistance + segmentLength * clipped.end,
+        )
+    return interval.takeIf { it.length > 1e-6 }
 }
 
 private fun clipSegmentToViewport(
@@ -346,12 +360,11 @@ private fun clipSegmentToViewport(
         }
     }
 
-    return if (
-        clip(-dx, start.x - viewport.left) &&
-        clip(dx, viewport.right - start.x) &&
-        clip(-dy, start.y - viewport.top) &&
-        clip(dy, viewport.bottom - start.y)
-    ) {
+    val leftVisible = clip(-dx, start.x - viewport.left)
+    val rightVisible = leftVisible && clip(dx, viewport.right - start.x)
+    val topVisible = rightVisible && clip(-dy, start.y - viewport.top)
+    val bottomVisible = topVisible && clip(dy, viewport.bottom - start.y)
+    return if (bottomVisible) {
         DistanceInterval(t0, t1)
     } else {
         null
@@ -430,16 +443,6 @@ private fun projectedViewportBounds(
         bottom = max(top, bottom),
     )
 }
-
-private fun segmentMayTouchViewport(
-    start: XY,
-    end: XY,
-    viewport: ProjectedViewportBounds,
-): Boolean =
-    max(start.x, end.x) >= viewport.left &&
-        min(start.x, end.x) <= viewport.right &&
-        max(start.y, end.y) >= viewport.top &&
-        min(start.y, end.y) <= viewport.bottom
 
 private fun latLongListSignature(points: List<TrackPoint>): Long {
     var h = 1_469_598_103_934_665_603L

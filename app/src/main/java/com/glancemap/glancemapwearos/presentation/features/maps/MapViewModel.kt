@@ -117,11 +117,12 @@ internal fun shouldForceOfflineStartCenterForContext(
     appliedContextKey: String?,
     forcedContextKey: String?,
     savedViewportContextKey: String?,
-): Boolean {
-    if (savedViewportContextKey == contextKey) return false
-    if (forcedContextKey == contextKey) return true
-    return hasActiveGpx && appliedContextKey != contextKey
-}
+): Boolean =
+    when {
+        savedViewportContextKey == contextKey -> false
+        forcedContextKey == contextKey -> true
+        else -> hasActiveGpx && appliedContextKey != contextKey
+    }
 
 class MapViewModel(
     private val context: Context,
