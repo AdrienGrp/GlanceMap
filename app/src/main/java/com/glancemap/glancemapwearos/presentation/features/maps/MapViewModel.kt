@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.view.MapView
 import java.io.File
@@ -60,6 +61,12 @@ data class RoutingPackFileState(
     val sizeBytes: Long,
     val modifiedAtMillis: Long,
     val bounds: GeoBounds? = null,
+)
+
+private data class OfflineViewportSnapshot(
+    val contextKey: String,
+    val center: LatLong,
+    val zoomLevel: Int,
 )
 
 internal fun buildOfflineStartCenterContextKey(
@@ -139,6 +146,7 @@ class MapViewModel(
     private var initialMapLoadIndicatorPending: Boolean = true
     private var offlineStartCenterContextKey: String? = null
     private var offlineStartCenterApplied: Boolean = false
+    private var offlineViewportSnapshot: OfflineViewportSnapshot? = null
     private var lastObservedSelectedMapPath: String? = null
     private var forcedOfflineStartCenterContextKey: String? = null
 
@@ -286,6 +294,7 @@ class MapViewModel(
     fun resetOfflineStartCenterTracking() {
         offlineStartCenterContextKey = null
         offlineStartCenterApplied = false
+        offlineViewportSnapshot = null
     }
 
     fun shouldForceOfflineStartCenter(
@@ -313,12 +322,49 @@ class MapViewModel(
         }
     }
 
-    fun getCurrentMapCenter(): org.mapsforge.core.model.LatLong? =
+    fun saveOfflineViewport(
+        selectedMapPath: String?,
+        activeGpxDetails: List<GpxTrackDetails>,
+        center: LatLong?,
+        zoomLevel: Int,
+    ) {
+        val canSave = activeGpxDetails.isEmpty() && center?.hasFiniteCoordinates() == true
+        if (canSave) {
+            offlineViewportSnapshot =
+                OfflineViewportSnapshot(
+                    contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails),
+                    center = checkNotNull(center),
+                    zoomLevel = zoomLevel,
+                )
+        }
+    }
+
+    fun restoreOfflineViewport(
+        selectedMapPath: String?,
+        activeGpxDetails: List<GpxTrackDetails>,
+    ): Pair<LatLong, Int>? {
+        val snapshot = offlineViewportSnapshot
+        val contextKey = buildOfflineStartCenterContextKey(selectedMapPath, activeGpxDetails)
+        return if (
+            activeGpxDetails.isEmpty() &&
+            snapshot != null &&
+            snapshot.contextKey == contextKey
+        ) {
+            snapshot.center to snapshot.zoomLevel
+        } else {
+            null
+        }
+    }
+
+    fun getCurrentMapCenter(): LatLong? =
         mapHolder
             ?.mapView
             ?.model
             ?.mapViewPosition
             ?.center
+            ?: offlineViewportSnapshot?.center
+
+    private fun LatLong.hasFiniteCoordinates(): Boolean = latitude.isFinite() && longitude.isFinite()
 
     private fun applyLatestZoomBounds(reason: String) {
         val zoomMin = latestZoomMin

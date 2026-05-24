@@ -1155,6 +1155,14 @@ fun NavigateScreen(
             if (mapView.width > 0 && mapView.width != zoomViewportWidthPx) {
                 zoomViewportWidthPx = mapView.width
             }
+            if (offlineMode) {
+                mapViewModel.saveOfflineViewport(
+                    selectedMapPath = selectedMapPath,
+                    activeGpxDetails = activeGpxDetails,
+                    center = center,
+                    zoomLevel = zoomLevel,
+                )
+            }
         },
         isMetric = isMetric,
         navMode = effectiveNavMode,
@@ -1261,6 +1269,21 @@ fun NavigateScreen(
     LaunchedEffect(isScreenResumed) {
         if (isScreenResumed) {
             focusRequester.requestFocus()
+        }
+    }
+
+    DisposableEffect(mapView, offlineMode, selectedMapPath, activeGpxDetails) {
+        onDispose {
+            if (offlineMode) {
+                mapViewModel.saveOfflineViewport(
+                    selectedMapPath = selectedMapPath,
+                    activeGpxDetails = activeGpxDetails,
+                    center = mapView.model.mapViewPosition.center,
+                    zoomLevel =
+                        mapView.model.mapViewPosition.zoomLevel
+                            .toInt(),
+                )
+            }
         }
     }
 }
