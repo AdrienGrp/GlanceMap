@@ -150,7 +150,7 @@ private fun ScrollbarIndicator(
 
 @Composable
 internal fun TrackingPanel(
-    title: String,
+    title: String?,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
@@ -166,7 +166,9 @@ internal fun TrackingPanel(
                     .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(text = title, style = MaterialTheme.typography.titleSmall)
+            title?.let {
+                Text(text = it, style = MaterialTheme.typography.titleSmall)
+            }
             content()
         }
     }
