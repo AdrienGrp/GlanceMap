@@ -108,6 +108,22 @@ internal fun PoiFileRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (compactMode) 8.dp else 10.dp),
         ) {
+            Icon(
+                imageVector =
+                    if (isUserPoiFile(file.path)) {
+                        Icons.Default.Star
+                    } else {
+                        Icons.Filled.Folder
+                    },
+                contentDescription = null,
+                modifier = Modifier.size(if (compactMode) 14.dp else 16.dp),
+                tint =
+                    if (isUserPoiFile(file.path)) {
+                        Color(0xFFFFD54F)
+                    } else {
+                        Color(0xFFFFB74D)
+                    },
+            )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
