@@ -13,7 +13,6 @@
 
 package com.glancemap.glancemapwearos.presentation.features.maps
 
-import android.content.Context
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Landscape
@@ -48,7 +48,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -83,8 +82,6 @@ import com.google.android.horologist.compose.layout.rememberResponsiveColumnStat
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-private const val MAPS_HELP_PREFS = "maps_screen_help_prefs"
-private const val DEM_INTRO_SHOWN_KEY = "dem_intro_shown"
 private val MAP_DATA_BADGE_SIZE = 26.dp
 private val MAP_DATA_ICON_SIZE = 15.dp
 
@@ -94,7 +91,6 @@ fun MapsScreen(
     mapViewModel: MapViewModel,
     themeViewModel: ThemeViewModel,
 ) {
-    val context = LocalContext.current
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val mapFiles by mapViewModel.mapFiles.collectAsState()
@@ -108,7 +104,6 @@ fun MapsScreen(
     val showDeleteDialogState = remember { mutableStateOf(false) }
     val mapToDeleteState = remember { mutableStateOf<MapFileState?>(null) }
     var showHelpDialog by remember { mutableStateOf(false) }
-    var showFirstEntryDemDialog by remember { mutableStateOf(false) }
     var isDeleteMode by remember { mutableStateOf(false) }
     var isRenameMode by remember { mutableStateOf(false) }
     var visibleDemStatusMessage by remember { mutableStateOf("") }
@@ -127,10 +122,6 @@ fun MapsScreen(
     var routingPackToDelete by remember { mutableStateOf<RoutingPackFileState?>(null) }
     var showDeleteAllRoutingDialog by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
-    val helpPrefs =
-        remember(context) {
-            context.getSharedPreferences(MAPS_HELP_PREFS, Context.MODE_PRIVATE)
-        }
     val listHorizontalPadding =
         when (screenSize) {
             WearScreenSize.LARGE -> 16.dp
@@ -221,12 +212,6 @@ fun MapsScreen(
     LaunchedEffect(Unit) {
         mapViewModel.loadMapFiles()
     }
-    LaunchedEffect(helpPrefs) {
-        val alreadyShown = helpPrefs.getBoolean(DEM_INTRO_SHOWN_KEY, false)
-        if (!alreadyShown) {
-            showFirstEntryDemDialog = true
-        }
-    }
     LaunchedEffect(mapFiles.size) {
         if (mapFiles.isEmpty()) {
             isDeleteMode = false
@@ -274,11 +259,6 @@ fun MapsScreen(
         visibleDemStatusMessage = message
         delay(5_000L)
         visibleDemStatusMessage = ""
-    }
-
-    fun dismissFirstEntryDemDialog() {
-        showFirstEntryDemDialog = false
-        helpPrefs.edit().putBoolean(DEM_INTRO_SHOWN_KEY, true).apply()
     }
 
     ScreenScaffold(scrollState = columnState) {
@@ -596,32 +576,52 @@ fun MapsScreen(
                             .fillMaxWidth()
                             .heightIn(max = adaptive.helpDialogMaxHeight)
                             .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        "Toggle a map to activate/deactivate.\n" +
-                            ".map: the offline map you see on screen.\n" +
-                            ".poi: searchable places and map points.\n" +
-                            "Routing: offline route calculation files.\n" +
-                            "Elevation: height data for altitude, slope and terrain shading.\n" +
-                            "Refuges.info: huts, shelters and water points.\n" +
-                            "Elevation badge: tap icon to download data.\n" +
-                            "Route badge: tap icon to view routing coverage.\n" +
-                            "Use the elevation and route buttons at the top to manage data.\n" +
-                            "Grey = missing.\n" +
-                            "Amber = partial.\n" +
-                            "Green = ready.\n" +
-                            "Use rename mode to rename maps.\n" +
-                            "Use delete mode to remove maps.\n" +
-                            "Use the gear for map settings.",
-                    )
+                    Text("Toggle a map to use it on Navigate.")
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            "Use the download bundle or the phone app to send .map and " +
+                                "routing to the watch.",
+                        )
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Landscape,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            "Click on Elevation icon to download elevation that adds " +
+                                "altitude, slope, and terrain shading.",
+                        )
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.CallSplit,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text("Routing enables offline route calculation.")
+                    }
+                    Text("Grey means missing, amber partial, green ready.")
                 }
             },
         )
-        DemSetupBottomSheet(
-            visible = showFirstEntryDemDialog,
-            onDismiss = { dismissFirstEntryDemDialog() },
-        )
-
         Column(
             modifier = Modifier.fillMaxSize(),
         ) {

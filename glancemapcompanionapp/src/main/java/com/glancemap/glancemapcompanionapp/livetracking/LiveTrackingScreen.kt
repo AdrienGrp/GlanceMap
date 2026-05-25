@@ -486,7 +486,7 @@ fun LiveTrackingScreen(
                                 page = LiveTrackingPage.SETTINGS
                                 headerMessage = null
                             } else {
-                                headerMessage = "Login / Join first to open settings."
+                                headerMessage = "Create / Join first to open settings."
                             }
                         },
                         onOpenGuide = onOpenQuickGuide,

@@ -22,7 +22,8 @@ This document covers open-source software and assets used by the watch app (`app
 | MapLibre Native Android | `org.maplibre.gl:*` (`android-sdk`, `android-sdk-geojson`, `android-sdk-turf`, `maplibre-android-gestures`) | BSD 2-Clause License | https://github.com/maplibre/maplibre-native |
 | BRouter | Vendored modules `:brouter-core`, `:brouter-codec`, `:brouter-expressions`, `:brouter-mapaccess`, `:brouter-util` from `third_party/brouter/*` | MIT License | https://github.com/abrensch/brouter |
 | kXML2 | `net.sf.kxml:kxml2` | BSD-style / very permissive (per project and POM metadata) | https://kobjects.org/kxml/ |
-| Maki icons (build-time downloaded POI icons) | SVG icon set from Mapbox Maki | CC0 1.0 Universal | https://github.com/mapbox/maki |
+| Maki icons | SVG POI icons from Mapbox Maki | CC0 1.0 Universal | https://github.com/mapbox/maki |
+| Temaki icons | SVG POI icons from Temaki | CC0 1.0 Universal | https://github.com/rapideditor/temaki |
 
 ## Important non-open-source runtime dependency
 

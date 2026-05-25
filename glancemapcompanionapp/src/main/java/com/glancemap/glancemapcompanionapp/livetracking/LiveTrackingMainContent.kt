@@ -137,108 +137,6 @@ internal fun ColumnScope.MainTrackingContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
-        TrackingPanel(title = "Planned route") {
-            OutlinedButton(
-                onClick = onPickGpx,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Route,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text("Select GPX")
-            }
-            Text(
-                text = "Selected GPX",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = selectedGpxName.ifBlank { "No GPX selected" },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (hasSelectedGpx) {
-                    IconButton(
-                        onClick = onClearGpx,
-                        modifier = Modifier.size(36.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "Clear selected GPX",
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-            if (sessionState.isTracking) {
-                Text(
-                    text = "Choose another GPX anytime, then tap Send update to update the planned route.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        TrackingPanel(title = "Comments to send in notification email") {
-            OutlinedTextField(
-                value = comments,
-                onValueChange = onCommentsChange,
-                label = { Text("Comments") },
-                placeholder = { Text("Estimated time of arrival") },
-                minLines = if (isCompactLayout) 2 else 4,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            if (sessionState.isTracking) {
-                Text(
-                    text = "Tracking is active. You can change the GPX or comment, then tap Send update.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (showSendPlan) {
-                Button(
-                    onClick = onSendPlan,
-                    enabled = canSendPlan && !isSendingPlan,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(if (isSendingPlan) "Sending" else "Send update")
-                }
-            }
-            sendStatusMessage?.let { message ->
-                val isSendError = message.startsWith("Send failed", ignoreCase = true)
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color =
-                        if (isSendError) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-                if (isSendError) {
-                    OutlinedButton(
-                        onClick = { emailArkluzSupport(context, message) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Email Arkluz")
-                    }
-                }
-            }
-        }
-
         TrackingPanel(title = "Session") {
             Text(
                 text = "GPS update frequency: every ${formatUpdateInterval(updateIntervalSeconds)}",
@@ -299,6 +197,110 @@ internal fun ColumnScope.MainTrackingContent(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Email Arkluz")
+                }
+            }
+        }
+
+        TrackingPanel(title = "Planned route & comments (optional)") {
+            Text(
+                text = "Add a GPX route or comments only when you want to include them with tracking.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = onPickGpx,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Route,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text("Select GPX")
+            }
+            Text(
+                text = "Selected GPX",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = selectedGpxName.ifBlank { "No GPX selected" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (hasSelectedGpx) {
+                    IconButton(
+                        onClick = onClearGpx,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Clear selected GPX",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            if (sessionState.isTracking) {
+                Text(
+                    text = "Choose another GPX anytime, then tap Send update to update the planned route.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            OutlinedTextField(
+                value = comments,
+                onValueChange = onCommentsChange,
+                label = { Text("Comments") },
+                placeholder = { Text("Estimated time of arrival") },
+                minLines = if (isCompactLayout) 2 else 4,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (sessionState.isTracking) {
+                Text(
+                    text = "Tracking is active. You can change the GPX or comment, then tap Send update.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (showSendPlan) {
+                Button(
+                    onClick = onSendPlan,
+                    enabled = canSendPlan && !isSendingPlan,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (isSendingPlan) "Sending" else "Send update")
+                }
+            }
+            sendStatusMessage?.let { message ->
+                val isSendError = message.startsWith("Send failed", ignoreCase = true)
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (isSendError) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+                if (isSendError) {
+                    OutlinedButton(
+                        onClick = { emailArkluzSupport(context, message) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Email Arkluz")
+                    }
                 }
             }
         }
@@ -378,7 +380,7 @@ internal fun ColumnScope.MainTrackingContent(
     ) {
         Button(onClick = onOpenLogin, modifier = Modifier.weight(1f)) {
             Text(
-                text = if (isConnected) group.ifBlank { "Connected" } else "Login / Join",
+                text = if (isConnected) group.ifBlank { "Connected" } else "Create / Join",
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

@@ -9,10 +9,14 @@ package com.glancemap.glancemapwearos.presentation.features.download
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,6 +38,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -147,14 +152,38 @@ internal fun OamAttributionDialog(
         onDismissRequest = onDismiss,
         title = { Text("Download") },
         text = {
-            Text(
-                text =
-                    "Connect watch to Wi-Fi &\n" +
-                        "Keep the watch on its charger for the download.\n\n" +
-                        "Thanks to OpenAndroMaps for providing the offline maps and POIs.\n\n" +
-                        "https://www.openandromaps.org",
-                textAlign = TextAlign.Center,
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "Connect the watch to Wi-Fi and keep it on the charger.",
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "Thank you to OpenAndroMaps for providing the offline maps and POIs.",
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "Routing enables offline route calculation.",
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "Elevation adds altitude, slope, and terrain shading.",
+                    textAlign = TextAlign.Center,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Update,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text("Use update button to refresh bundles.")
+                }
+            }
         },
         confirmButton = {
             Button(onClick = onDismiss) {

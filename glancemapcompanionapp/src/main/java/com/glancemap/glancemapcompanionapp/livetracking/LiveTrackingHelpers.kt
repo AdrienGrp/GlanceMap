@@ -31,7 +31,7 @@ internal fun validateAccountSettings(
     when {
         group.isBlank() -> "Private group is required."
         participantPassword.isBlank() -> "Participant password is required."
-        followerPassword.isBlank() -> "Login / Join first."
+        followerPassword.isBlank() -> "Create / Join first."
         else -> null
     }
 
@@ -44,7 +44,7 @@ internal fun validateStartSettings(
     when {
         group.isBlank() -> "Private group is required."
         participantPassword.isBlank() -> "Participant password is required."
-        followerPassword.isBlank() -> "Login / Join in settings first."
+        followerPassword.isBlank() -> "Create / Join in settings first."
         userName.isBlank() -> "Participant name is required."
         else -> null
     }
@@ -57,7 +57,7 @@ internal fun validateRecordedTrackDownloadSettings(
 ): String? =
     when {
         group.isBlank() -> "Private group is required."
-        followerPassword.isBlank() -> "Login / Join first."
+        followerPassword.isBlank() -> "Create / Join first."
         userOnly && userName.isBlank() -> "Participant name is required."
         else -> null
     }

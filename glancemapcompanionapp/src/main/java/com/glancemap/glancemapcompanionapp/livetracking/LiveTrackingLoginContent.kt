@@ -50,7 +50,7 @@ internal fun ColumnScope.LoginJoinContent(
 
     HeaderRow(onBack = onBack) {
         Text(
-            text = "Login / Join",
+            text = "Create / Join",
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.weight(1f),
         )
@@ -60,7 +60,7 @@ internal fun ColumnScope.LoginJoinContent(
         scrollState = scrollState,
         contentSpacing = contentSpacing,
     ) {
-        TrackingPanel(title = "Login / Join") {
+        TrackingPanel(title = null) {
             OutlinedTextField(
                 value = group,
                 onValueChange = onGroupChange,

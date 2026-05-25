@@ -1083,9 +1083,9 @@ private fun CompanionHomeScreen(
                 text = "GlanceMap Companion",
                 style =
                     if (adaptive.isCompactScreen) {
-                        MaterialTheme.typography.titleMedium
+                        MaterialTheme.typography.titleLarge
                     } else {
-                        MaterialTheme.typography.headlineSmall
+                        MaterialTheme.typography.headlineMedium
                     },
                 textAlign = TextAlign.Center,
                 maxLines = 1,

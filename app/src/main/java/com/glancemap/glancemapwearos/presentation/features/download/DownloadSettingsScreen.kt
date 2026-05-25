@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -24,6 +25,7 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SplitSwitchButton
+import androidx.wear.compose.material3.SwitchButtonDefaults
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
@@ -138,6 +140,17 @@ private fun ElevationDownloadSetting(
         onContainerClick = onPickSource,
         containerClickLabel = "Choose elevation quality",
         modifier = Modifier.fillMaxWidth(),
+        colors =
+            SwitchButtonDefaults.splitSwitchButtonColors(
+                checkedContainerColor = Color(0xFF5E6B7F),
+                checkedContentColor = Color.White,
+                checkedSecondaryContentColor = Color(0xFFE5E7EB),
+                checkedSplitContainerColor = Color.Black.copy(alpha = 0.10f),
+                uncheckedContainerColor = Color(0xFF2B2F36),
+                uncheckedContentColor = Color(0xFFF1F5FB),
+                uncheckedSecondaryContentColor = Color(0xFFBAC5D4),
+                uncheckedSplitContainerColor = Color.Black.copy(alpha = 0.18f),
+            ),
         label = {
             Text(
                 text = "Elevation",

@@ -27,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 interface AppContainer {
     val settingsRepository: SettingsRepository
     val gpxRepository: GpxRepository
+    val gpxExportRepository: GpxExportRepository
     val mapRepository: MapRepository
     val poiRepository: PoiRepository
     val userPoiRepository: UserPoiRepository
@@ -56,6 +57,10 @@ class DefaultAppContainer(
         GpxRepositoryImpl(applicationContext)
     }
 
+    override val gpxExportRepository: GpxExportRepository by lazy {
+        GpxExportRepositoryImpl(applicationContext)
+    }
+
     override val mapRepository: MapRepository by lazy {
         MapRepositoryImpl(applicationContext)
     }
@@ -81,7 +86,7 @@ class DefaultAppContainer(
     }
 
     override val gpxViewModel: GpxViewModel by lazy {
-        GpxViewModel(gpxRepository, syncManager, settingsRepository, routePlanner)
+        GpxViewModel(gpxRepository, gpxExportRepository, syncManager, settingsRepository, routePlanner)
     }
 
     override val mapViewModel: MapViewModel by lazy {

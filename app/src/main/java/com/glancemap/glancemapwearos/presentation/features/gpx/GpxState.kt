@@ -23,6 +23,12 @@ data class GpxFileState(
     fun formattedEtaShort(): String = DurationFormatter.formatDurationShort(estimatedDurationSec)
 }
 
+data class GpxExportUiState(
+    val filePath: String? = null,
+    val isSending: Boolean = false,
+    val message: String? = null,
+)
+
 data class TrackPoint(
     val latLong: LatLong,
     val elevation: Double?,

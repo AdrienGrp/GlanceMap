@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterConfig
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
 import com.glancemap.glancemapwearos.core.routing.RoutePlanner
+import com.glancemap.glancemapwearos.data.repository.GpxExportRepository
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.SyncManager
@@ -30,6 +31,7 @@ import java.io.File
 
 class GpxViewModel(
     private val gpxRepository: GpxRepository,
+    private val gpxExportRepository: GpxExportRepository,
     private val syncManager: SyncManager,
     private val settingsRepository: SettingsRepository,
     private val routePlanner: RoutePlanner,
@@ -58,6 +60,9 @@ class GpxViewModel(
 
     private val _showLongPressTip = MutableStateFlow(false)
     val showLongPressTip: StateFlow<Boolean> = _showLongPressTip.asStateFlow()
+
+    private val _exportUiState = MutableStateFlow(GpxExportUiState())
+    val exportUiState: StateFlow<GpxExportUiState> = _exportUiState.asStateFlow()
 
     // ----------------------------
     // Internal inspection session state
@@ -349,6 +354,106 @@ class GpxViewModel(
                 reloadFromDisk()
             }
             onComplete(result.map { })
+        }
+    }
+
+    fun sendGpxToPhone(path: String) {
+        val fileState = _gpxFiles.value.firstOrNull { it.path == path }
+        val displayName = fileState?.displayTitle ?: File(path).nameWithoutExtension
+        viewModelScope.launch {
+            _exportUiState.value =
+                GpxExportUiState(
+                    filePath = path,
+                    isSending = true,
+                    message = "Sending ${displayName.take(18)}…",
+                )
+            val result =
+                withContext(Dispatchers.IO) {
+                    gpxExportRepository.sendGpxToPhone(
+                        file = File(path),
+                        displayName = displayName,
+                    )
+                }
+            _exportUiState.value =
+                result.fold(
+                    onSuccess = {
+                        GpxExportUiState(
+                            filePath = path,
+                            message = "Sent to phone",
+                        )
+                    },
+                    onFailure = { error ->
+                        GpxExportUiState(
+                            filePath = path,
+                            message =
+                                error.localizedMessage
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?: "Send failed",
+                        )
+                    },
+                )
+            delay(3_000L)
+            if (_exportUiState.value.filePath == path && !_exportUiState.value.isSending) {
+                _exportUiState.value = GpxExportUiState()
+            }
+        }
+    }
+
+    fun sendGpxFilesToPhone(paths: List<String>) {
+        val uniquePaths = paths.distinct().filter { path -> _gpxFiles.value.any { it.path == path } }
+        if (uniquePaths.isEmpty()) return
+        viewModelScope.launch {
+            var sentCount = 0
+            var failedCount = 0
+            uniquePaths.forEachIndexed { index, path ->
+                val fileState = _gpxFiles.value.firstOrNull { it.path == path }
+                val displayName = fileState?.displayTitle ?: File(path).nameWithoutExtension
+                _exportUiState.value =
+                    GpxExportUiState(
+                        filePath = path,
+                        isSending = true,
+                        message = "Sending ${index + 1}/${uniquePaths.size}…",
+                    )
+                val result =
+                    withContext(Dispatchers.IO) {
+                        gpxExportRepository.sendGpxToPhone(
+                            file = File(path),
+                            displayName = displayName,
+                        )
+                    }
+                result.fold(
+                    onSuccess = {
+                        sentCount += 1
+                        _exportUiState.value =
+                            GpxExportUiState(
+                                filePath = path,
+                                message = "Sent ${index + 1}/${uniquePaths.size}",
+                            )
+                    },
+                    onFailure = { error ->
+                        failedCount += 1
+                        _exportUiState.value =
+                            GpxExportUiState(
+                                filePath = path,
+                                message =
+                                    error.localizedMessage
+                                        ?.takeIf { it.isNotBlank() }
+                                        ?: "Send failed",
+                            )
+                    },
+                )
+                delay(500L)
+            }
+
+            _exportUiState.value =
+                GpxExportUiState(
+                    filePath = uniquePaths.last(),
+                    message = batchSendSummary(sentCount = sentCount, failedCount = failedCount),
+                )
+            delay(3_000L)
+            if (!_exportUiState.value.isSending) {
+                _exportUiState.value = GpxExportUiState()
+            }
         }
     }
 
@@ -795,3 +900,19 @@ class GpxViewModel(
             )
     }
 }
+
+private fun batchSendSummary(
+    sentCount: Int,
+    failedCount: Int,
+): String =
+    when {
+        failedCount == 0 -> {
+            if (sentCount == 1) {
+                "Sent 1 GPX"
+            } else {
+                "Sent $sentCount GPX"
+            }
+        }
+        sentCount == 0 -> "Send failed"
+        else -> "Sent $sentCount, failed $failedCount"
+    }

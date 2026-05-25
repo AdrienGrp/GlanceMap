@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ViewComfyAlt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -38,8 +41,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.AlertDialog
@@ -533,16 +540,40 @@ fun PoiScreen(
                             .fillMaxWidth()
                             .heightIn(max = adaptive.helpDialogMaxHeight)
                             .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        "Create custom POI from Navigate with the + POI tool.\n" +
-                            "Toggle a POI file to show/hide it on Navigate.\n" +
-                            "Open a file to enable categories one by one.\n" +
-                            "Use arrows to expand files and categories and preview POI.\n" +
-                            "Tap a POI row to open Navigate centered on it (if enabled in POI settings).\n" +
-                            "Map symbols: star mycreation, W water, H hut, M peak, C camp, F food, T toilets.\n" +
-                            "Use delete mode to remove POI files or individual mycreation places.\n" +
-                            "Use the gear for POI settings.",
+                        "Toggle POI files or categories to show them on the map.",
+                    )
+                    Text("Expand a category to preview its POIs.")
+                    Text("Tap a POI on the map to see details.")
+                    Text(
+                        text =
+                            buildAnnotatedString {
+                                append("Create POI by using the tool button (")
+                                appendInlineContent("toolButton", "[tool]")
+                                append(").")
+                            },
+                        textAlign = TextAlign.Center,
+                        inlineContent =
+                            mapOf(
+                                "toolButton" to
+                                    InlineTextContent(
+                                        placeholder =
+                                            Placeholder(
+                                                width = 16.sp,
+                                                height = 16.sp,
+                                                placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+                                            ),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ViewComfyAlt,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color.White,
+                                        )
+                                    },
+                            ),
                     )
                 }
             },

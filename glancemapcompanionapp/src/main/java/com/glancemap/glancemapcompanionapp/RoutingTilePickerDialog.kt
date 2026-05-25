@@ -5,6 +5,7 @@ package com.glancemap.glancemapcompanionapp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -215,16 +217,31 @@ private fun RoutingTilePickerMap(
             }
         }
         if (state.mapReady) {
-            MapPickerZoomControls(
-                onZoomIn = { pickerView?.zoomIn() },
-                onZoomOut = { pickerView?.zoomOut() },
-                modifier =
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(5.dp),
-            )
+            RoutingTilePickerMapOverlays(pickerView)
         }
     }
+}
+
+@Composable
+private fun BoxScope.RoutingTilePickerMapOverlays(
+    pickerView: MapLibreRoutingTilePickerView?,
+) {
+    MapPickerCoverageLegend(
+        text = "Darker square: routing already on watch",
+        color = Color(0x665A80FF),
+        modifier =
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(5.dp),
+    )
+    MapPickerZoomControls(
+        onZoomIn = { pickerView?.zoomIn() },
+        onZoomOut = { pickerView?.zoomOut() },
+        modifier =
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(5.dp),
+    )
 }
 
 @Composable

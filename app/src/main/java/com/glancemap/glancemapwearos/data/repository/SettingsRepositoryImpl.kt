@@ -875,7 +875,7 @@ class SettingsRepositoryImpl private constructor(
             if (style in allowedPoiMarkerStyles) {
                 style.orEmpty()
             } else {
-                SettingsRepository.POI_MARKER_STYLE_BADGE
+                SettingsRepository.POI_MARKER_STYLE_THEME_ICON
             }
 
         private fun sanitizeGpxTrackOpacityPercent(opacityPercent: Int): Int =

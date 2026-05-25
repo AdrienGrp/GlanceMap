@@ -256,6 +256,14 @@ private fun BboxMapPickerMap(
             }
         }
         if (mapState.mapReady) {
+            MapPickerCoverageLegend(
+                text = "Darker square: POI already imported",
+                color = Color(0x662AB16D),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(5.dp),
+            )
             MapPickerZoomControls(
                 onZoomIn = { pickerView?.zoomIn() },
                 onZoomOut = { pickerView?.zoomOut() },

@@ -731,7 +731,13 @@ tasks.register("prepareElevateThemeAssets") {
 
 tasks.register("prepareOsmPoiIcons") {
     group = "build setup"
-    description = "Prepares generated POI icons from bundled themes or Maki."
+    description = "Prepares generated POI icons from bundled themes or map icon sources."
+    inputs.dir(project.file("src/main/assets/poi/source"))
+    inputs.property("osmPoiIconsDownloadEnabled", osmPoiIconsDownloadEnabled)
+    inputs.property("osmPoiIconsAllowFallback", osmPoiIconsAllowFallback)
+    inputs.property("osmPoiIconsOverwrite", osmPoiIconsOverwrite)
+    inputs.property("osmPoiIconsFailOnMissing", osmPoiIconsFailOnMissing)
+    inputs.property("makiIconsBaseUrl", makiIconsBaseUrl)
     outputs.dir(generatedOsmPoiIconsAssetsDir)
 
     doLast {

@@ -16,7 +16,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Attractions
+import androidx.compose.material.icons.filled.Castle
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Church
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.Edit
@@ -25,13 +29,19 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material.icons.filled.LocalParking
+import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Mosque
+import androidx.compose.material.icons.filled.Museum
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Wc
 import androidx.compose.runtime.Composable
@@ -40,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -73,13 +84,6 @@ internal fun PoiFileRow(
             isUserPoiFile(file.path) -> Color(0xFF392F58)
             else -> Color(0xFF312B45)
         }
-    val secondaryTint =
-        if (isUserPoiFile(file.path)) {
-            Color(0xFFFFD54F)
-        } else {
-            Color(0xFFFFB74D)
-        }
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -109,11 +113,16 @@ internal fun PoiFileRow(
                     if (isUserPoiFile(file.path)) {
                         Icons.Default.Star
                     } else {
-                        Icons.Default.LocationOn
+                        Icons.Filled.Folder
                     },
                 contentDescription = null,
                 modifier = Modifier.size(if (compactMode) 14.dp else 16.dp),
-                tint = secondaryTint,
+                tint =
+                    if (isUserPoiFile(file.path)) {
+                        Color(0xFFFFD54F)
+                    } else {
+                        Color(0xFFFFB74D)
+                    },
             )
             Column(
                 modifier = Modifier.weight(1f),
@@ -209,6 +218,8 @@ internal fun PoiCategoryRow(
 ) {
     val cappedDepth = category.depth.coerceIn(0, 4)
     val indent = (cappedDepth * categoryIndentStep.value).dp
+    val isTopLevel = cappedDepth == 0
+    val isNested = cappedDepth > 0
     val isSyntheticGroup = category.id < 0
     val inferredType = inferPoiTypeFromCategoryName(category.name)
     val syntheticType =
@@ -218,14 +229,18 @@ internal fun PoiCategoryRow(
             null
         }
     val iconType = syntheticType ?: inferredType
+    val namedCategoryIcon = poiCategoryNameIcon(category.name)
     val categoryIcon =
         when {
+            namedCategoryIcon != null -> namedCategoryIcon
             syntheticType != null -> poiTypeCategoryIcon(iconType)
             category.hasChildren -> if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder
+            iconType == PoiType.GENERIC -> null
             else -> poiTypeCategoryIcon(iconType)
         }
     val categoryTint =
         when {
+            namedCategoryIcon != null -> poiCategoryNameTint(category.name)
             syntheticType != null -> poiTypeCategoryTint(iconType)
             category.hasChildren -> Color(0xFF8FB2FF)
             else -> poiTypeCategoryTint(iconType)
@@ -236,13 +251,47 @@ internal fun PoiCategoryRow(
             categoryCount.errorMessage != null -> "Count unavailable"
             else -> "${categoryCount.enabledPoiCount}/${categoryCount.totalPoiCount} POI"
         }
-    val cardShape = RoundedCornerShape(if (compactMode) 18.dp else 20.dp)
+    val cardShape =
+        when {
+            isTopLevel -> RoundedCornerShape(if (compactMode) 22.dp else 24.dp)
+            category.hasChildren -> RoundedCornerShape(if (compactMode) 16.dp else 18.dp)
+            else -> RoundedCornerShape(if (compactMode) 14.dp else 16.dp)
+        }
     val cardColor =
         when {
-            category.hasChildren && category.enabled -> Color(0xFF373F63)
-            category.hasChildren -> Color(0xFF262D39)
-            category.enabled -> Color(0xFF2F3547)
-            else -> Color(0xFF20242C)
+            isTopLevel && isExpanded && category.enabled -> Color(0xFF46527A)
+            isTopLevel && isExpanded -> Color(0xFF343D5C)
+            isTopLevel && category.enabled -> Color(0xFF3D4567)
+            isTopLevel -> Color(0xFF252B3A)
+            category.hasChildren && isExpanded && category.enabled -> Color(0xFF313A58)
+            category.hasChildren && isExpanded -> Color(0xFF242B3A)
+            category.hasChildren && category.enabled -> Color(0xFF2E3447)
+            category.hasChildren -> Color(0xFF1D2330)
+            category.enabled -> Color(0xFF2A3040)
+            else -> Color(0xFF1C2028)
+        }
+    val rowHorizontalPadding =
+        when {
+            isTopLevel -> if (compactMode) 12.dp else 14.dp
+            else -> if (compactMode) 9.dp else 10.dp
+        }
+    val rowVerticalPadding =
+        when {
+            isTopLevel -> if (compactMode) 9.dp else 11.dp
+            category.hasChildren -> if (compactMode) 7.dp else 8.dp
+            else -> if (compactMode) 6.dp else 7.dp
+        }
+    val titleSize =
+        when {
+            isTopLevel -> if (compactMode) 15.sp else 16.sp
+            category.hasChildren -> if (compactMode) 12.sp else 13.sp
+            else -> if (compactMode) 11.sp else 12.sp
+        }
+    val accentColor =
+        when {
+            category.enabled -> categoryTint.copy(alpha = 0.95f)
+            isExpanded -> Color(0xFF8FB2FF).copy(alpha = 0.75f)
+            else -> Color(0xFF6E7890).copy(alpha = 0.55f)
         }
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -256,53 +305,78 @@ internal fun PoiCategoryRow(
                     .padding(start = indent),
         ) {
             Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(cardShape)
-                        .background(cardColor)
-                        .clickable { onToggle(!category.enabled) }
-                        .padding(
-                            horizontal = if (compactMode) 10.dp else 12.dp,
-                            vertical = if (compactMode) 7.dp else 8.dp,
-                        ),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(if (compactMode) 6.dp else 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (compactMode) 5.dp else 6.dp),
             ) {
-                if (categoryIcon != null) {
-                    Icon(
-                        imageVector = categoryIcon,
-                        contentDescription = null,
-                        modifier = Modifier.size(if (compactMode) 12.dp else 14.dp),
-                        tint = categoryTint,
+                if (isNested) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .width(if (compactMode) 2.dp else 3.dp)
+                                .height(if (category.hasChildren) 38.dp else 32.dp)
+                                .clip(RoundedCornerShape(100))
+                                .background(accentColor),
                     )
                 }
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(1.dp),
+                Row(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .clip(cardShape)
+                            .background(cardColor)
+                            .clickable { onToggle(!category.enabled) }
+                            .padding(
+                                horizontal = rowHorizontalPadding,
+                                vertical = rowVerticalPadding,
+                            ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(if (compactMode) 6.dp else 8.dp),
                 ) {
-                    Text(
-                        text = category.name,
-                        modifier = Modifier.basicMarquee(),
-                        maxLines = 1,
-                        overflow = TextOverflow.Visible,
-                        color = Color(0xFFF0F2FF),
-                    )
-                    Text(
-                        text = countLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontSize = if (compactMode) 8.sp else 9.sp,
-                        color = if (category.hasChildren) Color(0xFFAFC2F5) else Color(0xFF9FB0CD),
-                        maxLines = 1,
+                    if (categoryIcon != null) {
+                        Icon(
+                            imageVector = categoryIcon,
+                            contentDescription = null,
+                            modifier =
+                                Modifier.size(
+                                    when {
+                                        isTopLevel -> 15.dp
+                                        compactMode -> 12.dp
+                                        else -> 14.dp
+                                    },
+                                ),
+                            tint = categoryTint,
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(1.dp),
+                    ) {
+                        Text(
+                            text = category.name,
+                            modifier = Modifier.basicMarquee(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Visible,
+                            color = if (isTopLevel) Color.White else Color(0xFFE1E7F8),
+                            fontSize = titleSize,
+                            fontWeight = if (isTopLevel) FontWeight.SemiBold else FontWeight.Medium,
+                        )
+                        Text(
+                            text = countLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = if (compactMode) 8.sp else 9.sp,
+                            color = if (category.hasChildren) Color(0xFFAFC2F5) else Color(0xFF9FB0CD),
+                            maxLines = 1,
+                        )
+                    }
+
+                    TogglePillIndicator(
+                        checked = category.enabled,
+                        compactMode = compactMode,
+                        large = isTopLevel && !compactMode,
                     )
                 }
-
-                TogglePillIndicator(
-                    checked = category.enabled,
-                    compactMode = compactMode,
-                    large = false,
-                )
             }
         }
 
@@ -560,6 +634,7 @@ internal fun inferPoiTypeFromCategoryName(categoryName: String): PoiType {
             "water" in normalized ||
             "spring" in normalized ||
             "well" in normalized ||
+            "fountain" in normalized ||
             "point d'eau" in normalized ||
             "source" in normalized ||
             "eau" in normalized -> PoiType.WATER
@@ -576,7 +651,14 @@ internal fun inferPoiTypeFromCategoryName(categoryName: String): PoiType {
             "gite" in normalized ||
             "gîte" in normalized -> PoiType.HUT
         "camp" in normalized -> PoiType.CAMP
-        "restaurant" in normalized || "cafe" in normalized || "food" in normalized || "bar" in normalized || "pub" in normalized || "grill" in normalized || "bbq" in normalized -> PoiType.FOOD
+        "restaurant" in normalized ||
+            "cafe" in normalized ||
+            "food" in normalized ||
+            "picnic" in normalized ||
+            "bar" in normalized ||
+            "pub" in normalized ||
+            "grill" in normalized ||
+            "bbq" in normalized -> PoiType.FOOD
         "toilet" in normalized || "wc" in normalized -> PoiType.TOILET
         "bus" in normalized ||
             "transport" in normalized ||
@@ -639,7 +721,7 @@ internal fun poiTypeCategoryIcon(type: PoiType): ImageVector? =
         PoiType.TOILET -> Icons.Default.Wc
         PoiType.TRANSPORT -> Icons.Default.DirectionsBus
         PoiType.BIKE -> Icons.AutoMirrored.Filled.DirectionsBike
-        PoiType.VIEWPOINT -> Icons.Default.Info
+        PoiType.VIEWPOINT -> Icons.Default.Visibility
         PoiType.PARKING -> Icons.Default.LocalParking
         PoiType.SHOP -> Icons.Default.Storefront
         PoiType.GENERIC -> Icons.Default.LocationOn
@@ -656,11 +738,56 @@ internal fun poiTypeCategoryTint(type: PoiType): Color =
         PoiType.TOILET -> Color(0xFFBA68C8)
         PoiType.TRANSPORT -> Color(0xFF64B5F6)
         PoiType.BIKE -> Color(0xFF4DD0E1)
-        PoiType.VIEWPOINT -> Color(0xFFFFD54F)
+        PoiType.VIEWPOINT -> Color(0xFFAFC2F5)
         PoiType.PARKING -> Color(0xFF7986CB)
         PoiType.SHOP -> Color(0xFF90A4AE)
         PoiType.GENERIC -> Color(0xFFBDBDBD)
         PoiType.CUSTOM -> Color(0xFFFFD54F)
     }
+
+internal fun poiCategoryNameIcon(categoryName: String): ImageVector? {
+    val normalized = normalizedPoiCategoryName(categoryName)
+    return when {
+        normalized.containsAny("village", "hamlet", "city", "town", "suburb") -> Icons.Default.LocationCity
+        normalized.containsAny("park", "garden", "picnic") && "parking" !in normalized -> Icons.Default.Park
+        normalized.containsAny("attraction", "theme park") -> Icons.Default.Attractions
+        normalized.containsAny("ruin", "castle", "chateau", "fort") -> Icons.Default.Castle
+        normalized.containsAny("museum", "memorial", "monument") -> Icons.Default.Museum
+        normalized.containsAny("church", "cathedral", "basilika") -> Icons.Default.Church
+        normalized.containsAny("mosque") -> Icons.Default.Mosque
+        normalized.containsAny("temple", "townhall", "town hall") -> Icons.Default.AccountBalance
+        normalized.containsAny("artwork", "art ", "gallery") -> Icons.Default.Palette
+        normalized.containsAny("viewpoint", "view", "lookout") -> Icons.Default.Visibility
+        normalized.containsAny("scenic", "panorama", "belved") -> Icons.Default.Landscape
+        else -> null
+    }
+}
+
+internal fun poiCategoryNameTint(categoryName: String): Color {
+    val normalized = normalizedPoiCategoryName(categoryName)
+    return when {
+        normalized.containsAny("village", "hamlet", "city", "town", "suburb") -> Color(0xFF8FB2FF)
+        normalized.containsAny("park", "garden", "picnic") && "parking" !in normalized -> Color(0xFF81C784)
+        normalized.containsAny("attraction", "theme park") -> Color(0xFFFFB74D)
+        normalized.containsAny("ruin", "castle", "chateau", "fort") -> Color(0xFFC7A17A)
+        normalized.containsAny("museum", "memorial", "monument") -> Color(0xFFB0BEC5)
+        normalized.containsAny("church", "cathedral", "basilika", "mosque", "temple", "townhall", "town hall") -> {
+            Color(0xFFB0BEC5)
+        }
+        normalized.containsAny("artwork", "art ", "gallery") -> Color(0xFFF48FB1)
+        normalized.containsAny("viewpoint", "view", "lookout", "scenic", "panorama", "belved") -> Color(0xFFAFC2F5)
+        else -> Color(0xFFBDBDBD)
+    }
+}
+
+private fun normalizedPoiCategoryName(categoryName: String): String =
+    categoryName
+        .lowercase(Locale.ROOT)
+        .replace('’', '\'')
+        .replace('_', ' ')
+        .replace('-', ' ')
+        .trim()
+
+private fun String.containsAny(vararg needles: String): Boolean = needles.any { it in this }
 
 internal fun isUserPoiFile(path: String): Boolean = path == USER_POI_SOURCE_PATH

@@ -605,7 +605,7 @@ class SettingsViewModel(
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5000),
-                SettingsRepository.POI_MARKER_STYLE_BADGE,
+                SettingsRepository.POI_MARKER_STYLE_THEME_ICON,
             )
 
     fun setPoiMarkerStyle(style: String) =
