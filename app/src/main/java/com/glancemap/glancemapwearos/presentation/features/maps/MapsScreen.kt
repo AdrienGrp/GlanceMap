@@ -13,7 +13,6 @@
 
 package com.glancemap.glancemapwearos.presentation.features.maps
 
-import android.content.Context
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,7 +48,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -84,8 +82,6 @@ import com.google.android.horologist.compose.layout.rememberResponsiveColumnStat
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-private const val MAPS_HELP_PREFS = "maps_screen_help_prefs"
-private const val DEM_INTRO_SHOWN_KEY = "dem_intro_shown"
 private val MAP_DATA_BADGE_SIZE = 26.dp
 private val MAP_DATA_ICON_SIZE = 15.dp
 
@@ -95,7 +91,6 @@ fun MapsScreen(
     mapViewModel: MapViewModel,
     themeViewModel: ThemeViewModel,
 ) {
-    val context = LocalContext.current
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val mapFiles by mapViewModel.mapFiles.collectAsState()
@@ -109,7 +104,6 @@ fun MapsScreen(
     val showDeleteDialogState = remember { mutableStateOf(false) }
     val mapToDeleteState = remember { mutableStateOf<MapFileState?>(null) }
     var showHelpDialog by remember { mutableStateOf(false) }
-    var showFirstEntryDemDialog by remember { mutableStateOf(false) }
     var isDeleteMode by remember { mutableStateOf(false) }
     var isRenameMode by remember { mutableStateOf(false) }
     var visibleDemStatusMessage by remember { mutableStateOf("") }
@@ -128,10 +122,6 @@ fun MapsScreen(
     var routingPackToDelete by remember { mutableStateOf<RoutingPackFileState?>(null) }
     var showDeleteAllRoutingDialog by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
-    val helpPrefs =
-        remember(context) {
-            context.getSharedPreferences(MAPS_HELP_PREFS, Context.MODE_PRIVATE)
-        }
     val listHorizontalPadding =
         when (screenSize) {
             WearScreenSize.LARGE -> 16.dp
@@ -222,12 +212,6 @@ fun MapsScreen(
     LaunchedEffect(Unit) {
         mapViewModel.loadMapFiles()
     }
-    LaunchedEffect(helpPrefs) {
-        val alreadyShown = helpPrefs.getBoolean(DEM_INTRO_SHOWN_KEY, false)
-        if (!alreadyShown) {
-            showFirstEntryDemDialog = true
-        }
-    }
     LaunchedEffect(mapFiles.size) {
         if (mapFiles.isEmpty()) {
             isDeleteMode = false
@@ -275,11 +259,6 @@ fun MapsScreen(
         visibleDemStatusMessage = message
         delay(5_000L)
         visibleDemStatusMessage = ""
-    }
-
-    fun dismissFirstEntryDemDialog() {
-        showFirstEntryDemDialog = false
-        helpPrefs.edit().putBoolean(DEM_INTRO_SHOWN_KEY, true).apply()
     }
 
     ScreenScaffold(scrollState = columnState) {
@@ -637,11 +616,6 @@ fun MapsScreen(
                 }
             },
         )
-        DemSetupBottomSheet(
-            visible = showFirstEntryDemDialog,
-            onDismiss = { dismissFirstEntryDemDialog() },
-        )
-
         Column(
             modifier = Modifier.fillMaxSize(),
         ) {
