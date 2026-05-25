@@ -10,15 +10,66 @@ internal fun resolveLiveDistanceOrigin(
     fallbackLatLong: LatLong?,
 ): LatLong? = currentMarkerLatLong ?: fallbackLatLong
 
-internal fun resolveVisibleScreenCenterLatLong(mapView: MapView): LatLong? {
+internal fun resolveLiveDistanceMeters(
+    origin: LatLong,
+    target: LatLong,
+): Double =
+    navigateHaversineMeters(
+        lat1 = origin.latitude,
+        lon1 = origin.longitude,
+        lat2 = target.latitude,
+        lon2 = target.longitude,
+    )
+
+internal fun resolveVisibleScreenCenterLatLong(
+    mapView: MapView,
+    visibleHeightPx: Int = mapView.height,
+    mapRotationDeg: Double = mapView.mapRotation.degrees.toDouble(),
+    rotationPivot: ScreenAnchor = ScreenAnchor(mapView.width / 2.0, mapView.height / 2.0),
+): LatLong? {
     if (mapView.width <= 0 || mapView.height <= 0) return null
+    val resolvedVisibleHeightPx =
+        if (visibleHeightPx > 0) {
+            visibleHeightPx
+        } else {
+            mapView.height
+        }
+    val mapSpacePoint =
+        visibleScreenCenterToMapSpace(
+            mapWidthPx = mapView.width.toDouble(),
+            mapHeightPx = mapView.height.toDouble(),
+            visibleHeightPx = resolvedVisibleHeightPx,
+            mapRotationDeg = mapRotationDeg,
+            rotationPivot = rotationPivot,
+        )
 
     return runCatching {
         mapView.mapViewProjection.fromPixels(
-            mapView.width / 2.0,
-            mapView.height / 2.0,
+            mapSpacePoint.x,
+            mapSpacePoint.y,
         )
     }.getOrNull()
+}
+
+internal fun visibleScreenCenterToMapSpace(
+    mapWidthPx: Double,
+    mapHeightPx: Double,
+    visibleHeightPx: Int,
+    mapRotationDeg: Double,
+    rotationPivot: ScreenAnchor = ScreenAnchor(mapWidthPx / 2.0, mapHeightPx / 2.0),
+): ScreenAnchor {
+    val screenPoint =
+        ScreenAnchor(
+            x = mapWidthPx / 2.0,
+            y = visibleHeightPx.coerceIn(1, maxOf(1, mapHeightPx.toInt())) / 2.0,
+        )
+    return unrotateTouchToMapSpace(
+        point = screenPoint,
+        mapWidth = mapWidthPx,
+        mapHeight = mapHeightPx,
+        mapRotationDeg = mapRotationDeg,
+        pivot = rotationPivot,
+    )
 }
 
 internal fun formatLiveDistance(

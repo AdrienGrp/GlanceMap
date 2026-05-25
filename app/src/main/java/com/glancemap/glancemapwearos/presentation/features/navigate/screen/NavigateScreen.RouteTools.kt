@@ -32,6 +32,7 @@ internal data class NavigateRouteToolActions(
     val openRouteToolsPanel: () -> Unit,
     val startPoiCreationSelection: () -> Unit,
     val savePoiAtCurrentMapCenter: () -> Unit,
+    val savePoiAt: (LatLong) -> Unit,
     val startRouteToolSelection: (RouteToolSession) -> Unit,
     val undoRouteToolPoint: () -> Unit,
     val createRouteToPoi: (PoiOverlayMarker) -> Unit,
@@ -252,9 +253,8 @@ internal fun rememberNavigateRouteToolActions(
         setPoiCreationSelectionActive(true)
     }
 
-    fun savePoiAtCurrentMapCenter() {
+    fun savePoiAt(center: LatLong) {
         if (createdPoiCreateInProgress) return
-        val center = mapView.model.mapViewPosition.center
         triggerHaptic()
         setCreatedPoiCreateInProgress(true)
         scope.launch {
@@ -276,6 +276,10 @@ internal fun rememberNavigateRouteToolActions(
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    fun savePoiAtCurrentMapCenter() {
+        savePoiAt(mapView.model.mapViewPosition.center)
     }
 
     fun startRouteToolSelection(session: RouteToolSession) {
@@ -617,6 +621,7 @@ internal fun rememberNavigateRouteToolActions(
         openRouteToolsPanel = ::openRouteToolsPanel,
         startPoiCreationSelection = ::startPoiCreationSelection,
         savePoiAtCurrentMapCenter = ::savePoiAtCurrentMapCenter,
+        savePoiAt = ::savePoiAt,
         startRouteToolSelection = ::startRouteToolSelection,
         undoRouteToolPoint = ::undoRouteToolPoint,
         createRouteToPoi = ::createRouteToPoi,

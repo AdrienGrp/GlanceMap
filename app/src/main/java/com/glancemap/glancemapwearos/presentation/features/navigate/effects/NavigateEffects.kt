@@ -126,6 +126,7 @@ fun NavigationOrientationEffect(
         navMode,
         mv,
         forceNorthUpInPanning,
+        navigationMarkerAnchorMode,
     ) {
         val renderStateNow = renderStateFlow.value
         val headingNow = normalize360(renderStateNow.headingDeg)
@@ -195,6 +196,7 @@ fun NavigationOrientationEffect(
         requestMapRedraw,
         showRealMarkerInCompassMode,
         forceNorthUpInPanning,
+        navigationMarkerAnchorMode,
     ) {
         // Local var: safe because both coroutines run on Main (single-threaded).
         var liveTarget = normalize360(renderStateFlow.value.headingDeg)
