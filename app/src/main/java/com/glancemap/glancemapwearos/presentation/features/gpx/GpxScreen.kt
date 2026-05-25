@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
@@ -77,8 +78,10 @@ fun GpxScreen(
     val gpxFiles by gpxViewModel.gpxFiles.collectAsState()
     val elevationProfileUiState by gpxViewModel.elevationProfileUiState.collectAsState()
     val showLongPressTip by gpxViewModel.showLongPressTip.collectAsState()
+    val exportUiState by gpxViewModel.exportUiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
+    var isSendMode by remember { mutableStateOf(false) }
     var isDeleteMode by remember { mutableStateOf(false) }
     var isRenameMode by remember { mutableStateOf(false) }
     var fileToDelete by remember { mutableStateOf<GpxFileState?>(null) }
@@ -187,6 +190,7 @@ fun GpxScreen(
 
     LaunchedEffect(gpxFiles.size) {
         if (gpxFiles.isEmpty()) {
+            isSendMode = false
             isDeleteMode = false
             isRenameMode = false
         }
@@ -337,9 +341,48 @@ fun GpxScreen(
                             IconButton(
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val nextSendMode = !isSendMode
+                                    isSendMode = nextSendMode
+                                    if (nextSendMode) {
+                                        isRenameMode = false
+                                        isDeleteMode = false
+                                    }
+                                },
+                                modifier = Modifier.size(headerActionButtonSize),
+                                colors =
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor =
+                                            if (isSendMode) {
+                                                MaterialTheme.colorScheme.secondaryContainer
+                                            } else {
+                                                Color.Black.copy(alpha = 0.7f)
+                                            },
+                                        contentColor =
+                                            if (isSendMode) {
+                                                MaterialTheme.colorScheme.onSecondaryContainer
+                                            } else {
+                                                Color.White
+                                            },
+                                    ),
+                            ) {
+                                Icon(
+                                    imageVector = if (isSendMode) Icons.Default.Close else Icons.Default.FileUpload,
+                                    contentDescription =
+                                        if (isSendMode) {
+                                            "Exit send mode"
+                                        } else {
+                                            "Send GPX to phone"
+                                        },
+                                    modifier = Modifier.size(headerActionIconSize),
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     val nextRenameMode = !isRenameMode
                                     isRenameMode = nextRenameMode
                                     if (nextRenameMode) {
+                                        isSendMode = false
                                         isDeleteMode = false
                                     }
                                 },
@@ -377,6 +420,7 @@ fun GpxScreen(
                                     val nextDeleteMode = !isDeleteMode
                                     isDeleteMode = nextDeleteMode
                                     if (nextDeleteMode) {
+                                        isSendMode = false
                                         isRenameMode = false
                                     }
                                 },
@@ -410,7 +454,13 @@ fun GpxScreen(
                             }
                         }
                     }
-                    if (isRenameMode) {
+                    if (isSendMode) {
+                        Text(
+                            text = "Send mode",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    } else if (isRenameMode) {
                         Text(
                             text = "Rename mode",
                             style = MaterialTheme.typography.labelSmall,
@@ -463,12 +513,18 @@ fun GpxScreen(
                                 showRenameDialog = true
                                 renameError = null
                             },
+                            onSend = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                gpxViewModel.sendGpxToPhone(gpxFile.path)
+                            },
                             onLongPress = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 gpxViewModel.showElevationProfile(gpxFile.path)
                             },
+                            showSend = isSendMode,
                             showDelete = isDeleteMode,
                             showRename = isRenameMode,
+                            exportState = exportUiState.takeIf { it.filePath == gpxFile.path },
                             isMetric = isMetric,
                             rowSpacing = rowSpacing,
                             secondaryTextSize = secondaryTextSize,
@@ -510,9 +566,12 @@ private fun GpxTrackItem(
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
     onRename: () -> Unit,
+    onSend: () -> Unit,
     onLongPress: () -> Unit,
+    showSend: Boolean,
     showDelete: Boolean,
     showRename: Boolean,
+    exportState: GpxExportUiState?,
     isMetric: Boolean,
     rowSpacing: Dp,
     secondaryTextSize: TextUnit,
@@ -566,7 +625,7 @@ private fun GpxTrackItem(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement =
-            if (showDelete || showRename) {
+            if (showSend || showDelete || showRename) {
                 Arrangement.spacedBy(rowSpacing)
             } else {
                 Arrangement.Start
@@ -595,8 +654,9 @@ private fun GpxTrackItem(
                 val (distValue, distUnit) = gpxFile.formattedDistance(isMetric)
                 val (elevValue, elevUnit) = gpxFile.formattedElevation(isMetric)
                 val eta = gpxFile.formattedEtaShort()
+                val exportMessage = exportState?.message
                 Text(
-                    text = "$distValue $distUnit, D+ $elevValue $elevUnit, $eta",
+                    text = exportMessage ?: "$distValue $distUnit, D+ $elevValue $elevUnit, $eta",
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontSize = secondaryTextSize,
@@ -604,7 +664,20 @@ private fun GpxTrackItem(
             },
         )
 
-        if (showRename) {
+        if (showSend) {
+            IconButton(
+                onClick = onSend,
+                enabled = exportState?.isSending != true,
+                modifier = Modifier.size(deleteButtonSize),
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    ),
+            ) {
+                Icon(Icons.Default.FileUpload, contentDescription = "Send to phone")
+            }
+        } else if (showRename) {
             IconButton(
                 onClick = onRename,
                 modifier = Modifier.size(deleteButtonSize),

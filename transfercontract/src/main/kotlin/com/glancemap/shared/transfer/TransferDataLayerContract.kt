@@ -7,6 +7,7 @@ object TransferDataLayerContract {
     const val DIAGNOSTICS_SUBJECT_PREFIX = "[GlanceMap-Diagnostics]"
 
     const val CHANNEL_PREFIX = "/glancemap/file"
+    const val CHANNEL_WATCH_GPX_EXPORT_PREFIX = "/glancemap/watch_gpx_export"
     const val PATH_START_WIFI_TRANSFER = "/glancemap/start_wifi_transfer"
     const val PATH_SMALL_FILE_PREFIX = "/glancemap/small_file"
     const val PATH_PREPARE_CHANNEL = "/glancemap/prepare_channel"

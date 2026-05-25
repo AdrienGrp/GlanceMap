@@ -83,7 +83,8 @@ fun GpxHelpBottomSheet(
                 text =
                     "Toggle a track to activate or deactivate.\n" +
                         "Long press a track to open elevation profile.\n" +
-                        "Use edit mode to delete tracks.\n" +
+                        "Use send mode to send a GPX to your phone.\n" +
+                        "Use edit or delete mode to manage tracks.\n" +
                         "Use the gear for GPX settings.",
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,

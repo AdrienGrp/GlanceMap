@@ -1,0 +1,292 @@
+package com.glancemap.glancemapcompanionapp.transfer
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.content.FileProvider
+import com.glancemap.glancemapcompanionapp.MainActivityMobile
+import com.glancemap.glancemapcompanionapp.R
+import com.glancemap.shared.transfer.TransferDataLayerContract
+import com.google.android.gms.wearable.ChannelClient
+import com.google.android.gms.wearable.Wearable
+import com.google.android.gms.wearable.WearableListenerService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.io.File
+import java.security.MessageDigest
+
+class WatchGpxExportListenerService : WearableListenerService() {
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val channelClient by lazy { Wearable.getChannelClient(this) }
+    private val notificationManager by lazy {
+        getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        ensureNotificationChannel()
+    }
+
+    override fun onChannelOpened(channel: ChannelClient.Channel) {
+        super.onChannelOpened(channel)
+        val exportPrefix = "${TransferDataLayerContract.CHANNEL_WATCH_GPX_EXPORT_PREFIX}/"
+        if (!channel.path.startsWith(exportPrefix)) {
+            return
+        }
+
+        serviceScope.launch {
+            runCatching { receiveGpx(channel) }
+                .onFailure { error ->
+                    Log.e(TAG, "Watch GPX export failed", error)
+                    showError(error.localizedMessage?.takeIf { it.isNotBlank() } ?: "Could not receive GPX")
+                }
+        }
+    }
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
+    }
+
+    private suspend fun receiveGpx(channel: ChannelClient.Channel) {
+        val request =
+            parseChannelPath(channel.path)
+                ?: throw IllegalArgumentException("Invalid GPX export request.")
+        val exportDir = File(filesDir, EXPORT_DIR_NAME).apply { mkdirs() }
+        val tempFile = File(exportDir, ".${request.transferId}.part")
+        val finalFile = uniqueFile(exportDir, request.fileName)
+
+        try {
+            channelClient.getInputStream(channel).await().use { input ->
+                tempFile.outputStream().use { output ->
+                    input.copyTo(output, COPY_BUFFER_BYTES)
+                }
+            }
+
+            val actualSha256 = tempFile.sha256()
+            if (!actualSha256.equals(request.sha256, ignoreCase = true)) {
+                tempFile.delete()
+                throw IllegalStateException("Received GPX checksum did not match.")
+            }
+
+            if (!tempFile.renameTo(finalFile)) {
+                tempFile.copyTo(finalFile, overwrite = true)
+                tempFile.delete()
+            }
+
+            val downloadsUri = runCatching { copyToDownloads(finalFile) }.getOrNull()
+            showCompletion(finalFile, downloadsUri)
+        } finally {
+            tempFile.delete()
+            runCatching { channelClient.close(channel).await() }
+        }
+    }
+
+    private fun copyToDownloads(file: File): Uri? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+
+        val values =
+            ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, file.name)
+                put(MediaStore.MediaColumns.MIME_TYPE, GPX_MIME_TYPE)
+                put(
+                    MediaStore.MediaColumns.RELATIVE_PATH,
+                    "${Environment.DIRECTORY_DOWNLOADS}/GlanceMap",
+                )
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+
+        val resolver = contentResolver
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return null
+        runCatching {
+            resolver.openOutputStream(uri)?.use { output ->
+                file.inputStream().use { input ->
+                    input.copyTo(output, COPY_BUFFER_BYTES)
+                }
+            } ?: throw IllegalStateException("Unable to open Downloads destination.")
+
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+        }.onFailure {
+            resolver.delete(uri, null, null)
+            throw it
+        }
+        return uri
+    }
+
+    private fun showCompletion(
+        file: File,
+        downloadsUri: Uri?,
+    ) {
+        val fileUri = file.shareUri()
+        val openIntent =
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(downloadsUri ?: fileUri, GPX_MIME_TYPE)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        val openPendingIntent =
+            PendingIntent.getActivity(
+                this,
+                file.name.hashCode(),
+                openIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        val shareIntent =
+            Intent(Intent.ACTION_SEND).apply {
+                type = GPX_MIME_TYPE
+                putExtra(Intent.EXTRA_STREAM, fileUri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        val sharePendingIntent =
+            PendingIntent.getActivity(
+                this,
+                file.name.hashCode() + SHARE_REQUEST_OFFSET,
+                Intent.createChooser(shareIntent, "Share GPX"),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        val location =
+            if (downloadsUri != null) {
+                "Saved to Downloads/GlanceMap"
+            } else {
+                "Received from watch"
+            }
+
+        val notification =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher_companionapp_foreground)
+                .setContentTitle("GPX ready")
+                .setContentText("$location: ${file.name}")
+                .setStyle(NotificationCompat.BigTextStyle().bigText("$location\n${file.name}"))
+                .setAutoCancel(true)
+                .setContentIntent(openPendingIntent)
+                .addAction(android.R.drawable.ic_menu_share, "Share", sharePendingIntent)
+                .build()
+
+        runCatching { notificationManager.notify(file.name.hashCode(), notification) }
+    }
+
+    private fun showError(message: String) {
+        val intent = Intent(this, MainActivityMobile::class.java)
+        val pendingIntent =
+            PendingIntent.getActivity(
+                this,
+                ERROR_NOTIFICATION_ID,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        val notification =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher_companionapp_foreground)
+                .setContentTitle("GPX transfer failed")
+                .setContentText(message)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .build()
+
+        runCatching { notificationManager.notify(ERROR_NOTIFICATION_ID, notification) }
+    }
+
+    private fun ensureNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                "Watch GPX exports",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
+    }
+
+    private fun parseChannelPath(path: String): WatchGpxExportRequest? {
+        val parts = path.split('/').filter { it.isNotBlank() }
+        if (parts.size < 5) return null
+        val transferId = parts[2].takeIf { it.isNotBlank() } ?: return null
+        val sha256 = parts[3].takeIf { it.isNotBlank() } ?: return null
+        val fileName = sanitizeGpxFileName(Uri.decode(parts[4]))
+        return WatchGpxExportRequest(transferId, sha256, fileName)
+    }
+
+    private fun sanitizeGpxFileName(name: String): String {
+        val clean =
+            name
+                .substringAfterLast('/')
+                .substringAfterLast('\\')
+                .replace(Regex("[\\r\\n\\t]"), " ")
+                .trim()
+                .ifBlank { "watch-track.gpx" }
+        return if (clean.endsWith(".gpx", ignoreCase = true)) clean else "$clean.gpx"
+    }
+
+    private fun uniqueFile(
+        dir: File,
+        fileName: String,
+    ): File {
+        val base = fileName.substringBeforeLast('.', fileName)
+        val extension = fileName.substringAfterLast('.', "")
+        var candidate = File(dir, fileName)
+        var index = 2
+        while (candidate.exists()) {
+            val indexedName =
+                if (extension.isBlank()) {
+                    "$base-$index"
+                } else {
+                    "$base-$index.$extension"
+                }
+            candidate = File(dir, indexedName)
+            index += 1
+        }
+        return candidate
+    }
+
+    private fun File.shareUri(): Uri =
+        FileProvider.getUriForFile(
+            this@WatchGpxExportListenerService,
+            "$packageName.fileprovider",
+            this,
+        )
+
+    private fun File.sha256(): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        inputStream().use { input ->
+            val buffer = ByteArray(COPY_BUFFER_BYTES)
+            while (true) {
+                val read = input.read(buffer)
+                if (read <= 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private data class WatchGpxExportRequest(
+        val transferId: String,
+        val sha256: String,
+        val fileName: String,
+    )
+
+    private companion object {
+        const val TAG = "WatchGpxExport"
+        const val CHANNEL_ID = "watch_gpx_exports"
+        const val GPX_MIME_TYPE = "application/gpx+xml"
+        const val EXPORT_DIR_NAME = "watch-gpx-exports"
+        const val COPY_BUFFER_BYTES = 64 * 1024
+        const val ERROR_NOTIFICATION_ID = 57_230
+        const val SHARE_REQUEST_OFFSET = 10_000
+    }
+}
