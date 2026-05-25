@@ -16,7 +16,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Attractions
+import androidx.compose.material.icons.filled.Castle
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Church
 import androidx.compose.material.icons.filled.Delete
@@ -27,8 +29,6 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.Castle
 import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material.icons.filled.LocalParking
 import androidx.compose.material.icons.filled.LocationCity
@@ -337,7 +337,14 @@ internal fun PoiCategoryRow(
                         Icon(
                             imageVector = categoryIcon,
                             contentDescription = null,
-                            modifier = Modifier.size(if (isTopLevel) 15.dp else if (compactMode) 12.dp else 14.dp),
+                            modifier =
+                                Modifier.size(
+                                    when {
+                                        isTopLevel -> 15.dp
+                                        compactMode -> 12.dp
+                                        else -> 14.dp
+                                    },
+                                ),
                             tint = categoryTint,
                         )
                     }
