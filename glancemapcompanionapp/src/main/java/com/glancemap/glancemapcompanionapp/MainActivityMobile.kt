@@ -17,16 +17,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.glancemap.glancemapcompanionapp.filepicker.FilePickerScreen
+import com.glancemap.glancemapcompanionapp.transfer.WatchGpxSaveIntentContract
 import com.glancemap.glancemapcompanionapp.ui.theme.GlanceMapTheme
 
 class MainActivityMobile : ComponentActivity() {
     private var incomingUris by mutableStateOf<List<Uri>>(emptyList())
     private var incomingIntentToken by mutableStateOf(0L)
+    private var pendingWatchGpxSaveFiles by mutableStateOf<List<GeneratedPhoneFile>>(emptyList())
+    private var pendingWatchGpxSaveToken by mutableStateOf(0L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        updateIncomingSelection(intent)
+        handleLaunchIntent(intent)
 
         setContent {
             GlanceMapTheme {
@@ -66,6 +69,8 @@ class MainActivityMobile : ComponentActivity() {
                     FilePickerScreen(
                         viewModel = vm,
                         openSendToWatchToken = incomingIntentToken,
+                        watchGpxSaveToken = pendingWatchGpxSaveToken,
+                        watchGpxSaveFiles = pendingWatchGpxSaveFiles,
                     )
                 }
             }
@@ -75,7 +80,27 @@ class MainActivityMobile : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        updateIncomingSelection(intent)
+        handleLaunchIntent(intent)
+    }
+
+    private fun handleLaunchIntent(intent: Intent?) {
+        if (intent?.action == WatchGpxSaveIntentContract.ACTION_SAVE_WATCH_GPX) {
+            updateWatchGpxSaveRequest(intent)
+        } else {
+            updateIncomingSelection(intent)
+        }
+    }
+
+    private fun updateWatchGpxSaveRequest(intent: Intent) {
+        val uri = intent.data ?: return
+        val fileName =
+            intent
+                .getStringExtra(WatchGpxSaveIntentContract.EXTRA_FILE_NAME)
+                ?.takeIf { it.isNotBlank() }
+                ?: uri.lastPathSegment
+                ?: "watch-track.gpx"
+        pendingWatchGpxSaveFiles = listOf(GeneratedPhoneFile(uri = uri, fileName = fileName))
+        pendingWatchGpxSaveToken = SystemClock.elapsedRealtimeNanos()
     }
 
     private fun updateIncomingSelection(intent: Intent?) {

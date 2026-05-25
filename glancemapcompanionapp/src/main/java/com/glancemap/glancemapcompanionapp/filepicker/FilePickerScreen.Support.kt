@@ -249,6 +249,7 @@ internal fun saveGeneratedFilesToTree(
 
 internal fun guessGeneratedFileMimeType(fileName: String): String =
     when {
+        fileName.endsWith(".gpx", ignoreCase = true) -> "application/gpx+xml"
         fileName.endsWith(".poi", ignoreCase = true) -> "application/octet-stream"
         fileName.endsWith(".rd5", ignoreCase = true) -> "application/octet-stream"
         else -> "application/octet-stream"
