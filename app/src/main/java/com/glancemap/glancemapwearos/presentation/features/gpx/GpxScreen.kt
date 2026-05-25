@@ -20,10 +20,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -53,6 +54,7 @@ import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
@@ -84,6 +86,7 @@ fun GpxScreen(
     var isSendMode by remember { mutableStateOf(false) }
     var isDeleteMode by remember { mutableStateOf(false) }
     var isRenameMode by remember { mutableStateOf(false) }
+    var selectedSendPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
     var fileToDelete by remember { mutableStateOf<GpxFileState?>(null) }
     var fileToRename by remember { mutableStateOf<GpxFileState?>(null) }
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -193,7 +196,12 @@ fun GpxScreen(
             isSendMode = false
             isDeleteMode = false
             isRenameMode = false
+            selectedSendPaths = emptySet()
         }
+    }
+    LaunchedEffect(gpxFiles) {
+        val existingPaths = gpxFiles.mapTo(mutableSetOf()) { it.path }
+        selectedSendPaths = selectedSendPaths.filterTo(mutableSetOf()) { it in existingPaths }
     }
     LaunchedEffect(showLongPressTip, gpxFiles.isNotEmpty()) {
         if (showLongPressTip && gpxFiles.isNotEmpty()) {
@@ -346,6 +354,8 @@ fun GpxScreen(
                                     if (nextSendMode) {
                                         isRenameMode = false
                                         isDeleteMode = false
+                                    } else {
+                                        selectedSendPaths = emptySet()
                                     }
                                 },
                                 modifier = Modifier.size(headerActionButtonSize),
@@ -365,16 +375,19 @@ fun GpxScreen(
                                             },
                                     ),
                             ) {
-                                Icon(
-                                    imageVector = if (isSendMode) Icons.Default.Close else Icons.Default.FileUpload,
-                                    contentDescription =
-                                        if (isSendMode) {
-                                            "Exit send mode"
-                                        } else {
-                                            "Send GPX to phone"
-                                        },
-                                    modifier = Modifier.size(headerActionIconSize),
-                                )
+                                if (isSendMode) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Exit send mode",
+                                        modifier = Modifier.size(headerActionIconSize),
+                                    )
+                                } else {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_mobile_arrow_right),
+                                        contentDescription = "Send GPX to phone",
+                                        modifier = Modifier.size(headerActionIconSize),
+                                    )
+                                }
                             }
                             IconButton(
                                 onClick = {
@@ -383,6 +396,7 @@ fun GpxScreen(
                                     isRenameMode = nextRenameMode
                                     if (nextRenameMode) {
                                         isSendMode = false
+                                        selectedSendPaths = emptySet()
                                         isDeleteMode = false
                                     }
                                 },
@@ -421,6 +435,7 @@ fun GpxScreen(
                                     isDeleteMode = nextDeleteMode
                                     if (nextDeleteMode) {
                                         isSendMode = false
+                                        selectedSendPaths = emptySet()
                                         isRenameMode = false
                                     }
                                 },
@@ -456,7 +471,12 @@ fun GpxScreen(
                     }
                     if (isSendMode) {
                         Text(
-                            text = "Send mode",
+                            text =
+                                if (selectedSendPaths.isEmpty()) {
+                                    "Select GPX"
+                                } else {
+                                    "${selectedSendPaths.size} selected"
+                                },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.secondary,
                         )
@@ -515,13 +535,19 @@ fun GpxScreen(
                             },
                             onSend = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                gpxViewModel.sendGpxToPhone(gpxFile.path)
+                                selectedSendPaths =
+                                    if (gpxFile.path in selectedSendPaths) {
+                                        selectedSendPaths - gpxFile.path
+                                    } else {
+                                        selectedSendPaths + gpxFile.path
+                                    }
                             },
                             onLongPress = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 gpxViewModel.showElevationProfile(gpxFile.path)
                             },
                             showSend = isSendMode,
+                            isSendSelected = gpxFile.path in selectedSendPaths,
                             showDelete = isDeleteMode,
                             showRename = isRenameMode,
                             exportState = exportUiState.takeIf { it.filePath == gpxFile.path },
@@ -542,18 +568,50 @@ fun GpxScreen(
                         .padding(bottom = settingsBottomPadding),
             ) {
                 IconButton(
-                    onClick = { navController.navigate(WatchRoutes.GPX_SETTINGS) },
+                    onClick = {
+                        if (isSendMode) {
+                            val paths = selectedSendPaths.toList()
+                            if (paths.isNotEmpty()) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                selectedSendPaths = emptySet()
+                                isSendMode = false
+                                gpxViewModel.sendGpxFilesToPhone(paths)
+                            }
+                        } else {
+                            navController.navigate(WatchRoutes.GPX_SETTINGS)
+                        }
+                    },
+                    enabled = !isSendMode || (selectedSendPaths.isNotEmpty() && exportUiState.isSending != true),
                     modifier =
                         Modifier
                             .align(Alignment.Center)
                             .size(settingsButtonSize),
                     colors =
                         IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.8f),
-                            contentColor = Color.White,
+                            containerColor =
+                                if (isSendMode) {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (isSendMode) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                } else {
+                                    Color.White
+                                },
+                            disabledContainerColor = Color.Black.copy(alpha = 0.5f),
+                            disabledContentColor = Color.White.copy(alpha = 0.45f),
                         ),
                 ) {
-                    Icon(Icons.Default.Settings, contentDescription = "GPX Settings")
+                    if (isSendMode) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_mobile_arrow_right),
+                            contentDescription = "Send selected GPX to phone",
+                        )
+                    } else {
+                        Icon(Icons.Default.Settings, contentDescription = "GPX Settings")
+                    }
                 }
             }
         }
@@ -569,6 +627,7 @@ private fun GpxTrackItem(
     onSend: () -> Unit,
     onLongPress: () -> Unit,
     showSend: Boolean,
+    isSendSelected: Boolean,
     showDelete: Boolean,
     showRename: Boolean,
     exportState: GpxExportUiState?,
@@ -633,13 +692,17 @@ private fun GpxTrackItem(
     ) {
         SwitchButton(
             modifier = Modifier.weight(1f),
-            checked = gpxFile.isActive,
+            checked = if (showSend) isSendSelected else gpxFile.isActive,
             onCheckedChange = { checked ->
                 if (suppressNextToggle) {
                     suppressNextToggle = false
                     return@SwitchButton
                 }
-                onToggle(checked)
+                if (showSend) {
+                    onSend()
+                } else {
+                    onToggle(checked)
+                }
             },
             interactionSource = interactionSource,
             label = {
@@ -671,11 +734,28 @@ private fun GpxTrackItem(
                 modifier = Modifier.size(deleteButtonSize),
                 colors =
                     IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        containerColor =
+                            if (isSendSelected) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                Color.Black.copy(alpha = 0.72f)
+                            },
+                        contentColor =
+                            if (isSendSelected) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                Color.White
+                            },
                     ),
             ) {
-                Icon(Icons.Default.FileUpload, contentDescription = "Send to phone")
+                if (isSendSelected) {
+                    Icon(Icons.Default.Check, contentDescription = "Selected for send")
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_mobile_arrow_right),
+                        contentDescription = "Select for send",
+                    )
+                }
             }
         } else if (showRename) {
             IconButton(
