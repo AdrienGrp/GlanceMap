@@ -210,7 +210,6 @@ fun NavigateScreen(
     val navigateTimeFormat by settingsViewModel.navigateTimeFormat.collectAsState()
     val mapZoomButtonsMode by settingsViewModel.mapZoomButtonsMode.collectAsState()
     val navigationMarkerStyleSetting by settingsViewModel.navigationMarkerStyle.collectAsState()
-    val navigationMarkerAnchorMode by settingsViewModel.navigationMarkerAnchorMode.collectAsState()
     val gpsAccuracyCircleEnabled by settingsViewModel.gpsAccuracyCircleEnabled.collectAsState(initial = false)
     val liveElevationEnabled by settingsViewModel.liveElevation.collectAsState(initial = false)
     val liveDistanceEnabled by settingsViewModel.liveDistance.collectAsState(initial = false)
@@ -693,7 +692,6 @@ fun NavigateScreen(
             expectedGpsIntervalMs = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
             navigationMarkerBitmap = navigationMarkerBitmap,
             suppressLocationMarker = offlineMode,
-            navigationMarkerAnchorMode = navigationMarkerAnchorMode,
         )
 
     val locationMarker = locationUiState.locationMarker
@@ -790,7 +788,6 @@ fun NavigateScreen(
         gpsFixBearingDeg = locationUiState.lastFixBearingDeg,
         renderedHeadingDeg = renderedCompassHeadingDeg,
         locationMarker = locationMarker,
-        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
         inspectionUiState = inspectionUiState,
         selectedPointA = selectedPointA,
         selectedPointB = selectedPointB,
@@ -886,9 +883,9 @@ fun NavigateScreen(
                 pendingPoiFocusTarget == null
         }
 
-    LaunchedEffect(gpsStartupLastKnownCenter, mapView, navigationMarkerAnchorMode) {
+    LaunchedEffect(gpsStartupLastKnownCenter, mapView) {
         gpsStartupLastKnownCenter?.let {
-            mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode)
+            mapView.setCenterForNavigationMarker(it)
         }
     }
 
@@ -910,13 +907,12 @@ fun NavigateScreen(
         }
 
     LaunchedEffect(
-        navigationMarkerAnchorMode,
         effectiveNavMode,
         recenterTarget,
         mapView,
     ) {
         if (!offlineMode && effectiveNavMode != NavMode.PANNING) {
-            recenterTarget?.let { mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode) }
+            recenterTarget?.let { mapView.setCenterForNavigationMarker(it) }
         }
     }
 
@@ -1196,7 +1192,6 @@ fun NavigateScreen(
         },
         onPermissionLaunch = { locationPermissionState.launchPermissions() },
         mapRotationDeg = renderedMapRotationDeg,
-        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
         compassHeadingDeg = renderedCompassHeadingDeg,
         liveElevationEnabled = liveElevationEnabled,
         liveDistanceEnabled = liveDistanceEnabled && !offlineMode,

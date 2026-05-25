@@ -72,7 +72,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
     liveElevationIconSize: Dp,
     northIndicatorMode: String,
     mapRotationDeg: Float,
-    navigationMarkerAnchorMode: String,
     compassHeadingDeg: Float,
     northIndicatorButtonSize: Dp,
     northIndicatorIconSize: Dp,
@@ -166,12 +165,10 @@ internal fun BoxScope.NavigateOverlaysLayer(
                 )
             liveDistanceLineStart =
                 liveDistanceOrigin?.let { origin ->
-                    val anchor = mapView.resolveNavigationMarkerScreenAnchor(navigationMarkerAnchorMode)
                     projectLatLongToScreenOffset(
                         mapView = mapView,
                         latLong = origin,
                         mapRotationDeg = mapRotationDeg,
-                        rotationPivot = anchor,
                     )
                 }
             delay(80L)
@@ -410,6 +407,5 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onRecenter = onRecenter,
         onRecenterRequested = onRecenterRequested,
         onToggleOrientation = onToggleOrientation,
-        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
     )
 }

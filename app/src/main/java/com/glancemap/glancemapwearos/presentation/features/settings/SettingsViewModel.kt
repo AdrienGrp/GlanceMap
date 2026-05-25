@@ -276,19 +276,6 @@ class SettingsViewModel(
             settingsRepository.setNavigationMarkerStyle(style)
         }
 
-    val navigationMarkerAnchorMode: StateFlow<String> =
-        settingsRepository.navigationMarkerAnchorMode
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER,
-            )
-
-    fun setNavigationMarkerAnchorMode(mode: String) =
-        viewModelScope.launch {
-            settingsRepository.setNavigationMarkerAnchorMode(mode)
-        }
-
     val mapDoubleTapAction: StateFlow<String> =
         settingsRepository.mapDoubleTapAction
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "zoom_in")

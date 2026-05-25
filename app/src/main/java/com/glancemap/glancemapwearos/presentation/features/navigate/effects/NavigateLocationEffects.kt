@@ -31,7 +31,6 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.motion.Marke
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionReading
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionSeed
 import com.glancemap.glancemapwearos.presentation.features.navigate.requestLayerRedrawSafely
-import com.glancemap.glancemapwearos.presentation.features.navigate.resolveMapCenterForNavigationMarker
 import com.glancemap.glancemapwearos.presentation.features.navigate.setCenterForNavigationMarker
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
@@ -72,7 +71,6 @@ internal fun rememberNavigateLocationUiState(
     expectedGpsIntervalMs: Long,
     navigationMarkerBitmap: AndroidBitmap,
     suppressLocationMarker: Boolean,
-    navigationMarkerAnchorMode: String,
 ): NavigateLocationUiState {
     val timingProfile =
         remember(expectedGpsIntervalMs) {
@@ -90,7 +88,6 @@ internal fun rememberNavigateLocationUiState(
     val latestSuppressLocationMarker = rememberUpdatedState(suppressLocationMarker)
     val latestShouldTrackLocation = rememberUpdatedState(shouldTrackLocation)
     val latestScreenState = rememberUpdatedState(screenState)
-    val latestNavigationMarkerAnchorMode = rememberUpdatedState(navigationMarkerAnchorMode)
 
     var locationMarker by remember { mutableStateOf<RotatableMarker?>(null) }
     var lastRenderedMarkerLatLong by remember { mutableStateOf<LatLong?>(null) }
@@ -574,14 +571,12 @@ internal fun rememberNavigateLocationUiState(
 
                 if (
                     shouldCenterOnNavigationMarker(
-                        mapView = mapView,
                         shouldFollowPosition = latestShouldFollowPosition.value,
                         target = displayLatLong,
-                        markerAnchorMode = latestNavigationMarkerAnchorMode.value,
                         currentCenter = mapView.model.mapViewPosition.center,
                     )
                 ) {
-                    mapView.setCenterForNavigationMarker(displayLatLong, latestNavigationMarkerAnchorMode.value)
+                    mapView.setCenterForNavigationMarker(displayLatLong)
                 }
 
                 mapView.requestLayerRedrawSafely()
@@ -667,14 +662,12 @@ internal fun rememberNavigateLocationUiState(
             marker.latLong = predicted
             if (
                 shouldCenterOnNavigationMarker(
-                    mapView = mapView,
                     shouldFollowPosition = latestShouldFollowPosition.value,
                     target = predicted,
-                    markerAnchorMode = latestNavigationMarkerAnchorMode.value,
                     currentCenter = mapView.model.mapViewPosition.center,
                 )
             ) {
-                mapView.setCenterForNavigationMarker(predicted, latestNavigationMarkerAnchorMode.value)
+                mapView.setCenterForNavigationMarker(predicted)
             }
             mapView.requestLayerRedrawSafely()
         }
@@ -809,15 +802,13 @@ internal fun shouldCenterOnRenderedMarker(
 }
 
 private fun shouldCenterOnNavigationMarker(
-    mapView: MapView,
     shouldFollowPosition: Boolean,
     target: LatLong,
-    markerAnchorMode: String,
     currentCenter: LatLong?,
 ): Boolean =
     shouldCenterOnRenderedMarker(
         shouldFollowPosition = shouldFollowPosition,
-        target = mapView.resolveMapCenterForNavigationMarker(target, markerAnchorMode),
+        target = target,
         currentCenter = currentCenter,
     )
 

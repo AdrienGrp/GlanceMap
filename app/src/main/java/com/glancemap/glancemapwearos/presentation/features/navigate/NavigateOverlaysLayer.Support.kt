@@ -708,7 +708,6 @@ internal fun BoxScope.NavModeButtonOverlay(
     onRecenter: () -> Unit,
     onRecenterRequested: () -> Unit,
     onToggleOrientation: () -> Unit,
-    navigationMarkerAnchorMode: String,
 ) {
     val navIcon =
         when {
@@ -781,7 +780,7 @@ internal fun BoxScope.NavModeButtonOverlay(
                             triggerHaptic()
                             if (navMode == NavMode.PANNING) {
                                 lastKnownLocation?.let {
-                                    mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode)
+                                    mapView.setCenterForNavigationMarker(it)
                                 }
                                 onRecenter()
                                 onRecenterRequested()

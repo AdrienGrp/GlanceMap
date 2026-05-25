@@ -113,7 +113,6 @@ internal fun NavigateContent(
     onMenuClick: () -> Unit,
     onPermissionLaunch: () -> Unit,
     mapRotationDeg: Float,
-    navigationMarkerAnchorMode: String,
     compassHeadingDeg: Float,
     liveElevationEnabled: Boolean,
     liveDistanceEnabled: Boolean,
@@ -431,7 +430,6 @@ internal fun NavigateContent(
     val latestOnViewportChanged = rememberUpdatedState(onViewportChanged)
     val latestVisiblePoiMarkers = rememberUpdatedState(visiblePoiMarkers)
     val latestLastKnownLocation = rememberUpdatedState(lastKnownLocation)
-    val latestNavigationMarkerAnchorMode = rememberUpdatedState(navigationMarkerAnchorMode)
     var rotaryScrollAccumulator by remember(mapView, crownZoomEnabled, crownZoomInverted) {
         mutableStateOf(0f)
     }
@@ -505,13 +503,7 @@ internal fun NavigateContent(
             if (
                 shouldEnterPanningAfterDoubleTap(
                     center = mv.model.mapViewPosition.center,
-                    marker =
-                        latestLastKnownLocation.value?.let { marker ->
-                            mv.resolveMapCenterForNavigationMarker(
-                                markerLatLong = marker,
-                                markerAnchorMode = latestNavigationMarkerAnchorMode.value,
-                            )
-                        },
+                    marker = latestLastKnownLocation.value,
                 )
             ) {
                 latestOnUserPanStarted.value.invoke()
@@ -535,14 +527,12 @@ internal fun NavigateContent(
 
                     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                         val mv = latestMapView.value ?: return false
-                        val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
                         val (x, y) =
                             unrotateTouchToMapSpace(
                                 point = ScreenAnchor(e.x.toDouble(), e.y.toDouble()),
                                 mapWidth = mv.width.toDouble(),
                                 mapHeight = mv.height.toDouble(),
                                 mapRotationDeg = mv.mapRotation.degrees.toDouble(),
-                                pivot = anchor,
                             )
                         val ll = runCatching { mv.mapViewProjection.fromPixels(x, y) }.getOrNull() ?: return false
                         if (latestRouteToolSession.value != null) return false
@@ -573,14 +563,12 @@ internal fun NavigateContent(
                     override fun onLongPress(e: MotionEvent) {
                         if (!latestInspectionEnabled.value) return
                         val mv = latestMapView.value ?: return
-                        val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
                         val (x, y) =
                             unrotateTouchToMapSpace(
                                 point = ScreenAnchor(e.x.toDouble(), e.y.toDouble()),
                                 mapWidth = mv.width.toDouble(),
                                 mapHeight = mv.height.toDouble(),
                                 mapRotationDeg = mv.mapRotation.degrees.toDouble(),
-                                pivot = anchor,
                             )
                         val ll =
                             runCatching {
@@ -949,7 +937,6 @@ internal fun NavigateContent(
                 liveElevationIconSize = liveElevationIconSize,
                 northIndicatorMode = northIndicatorMode,
                 mapRotationDeg = mapRotationDeg,
-                navigationMarkerAnchorMode = navigationMarkerAnchorMode,
                 compassHeadingDeg = compassHeadingDeg,
                 northIndicatorButtonSize = northIndicatorButtonSize,
                 northIndicatorIconSize = northIndicatorIconSize,
