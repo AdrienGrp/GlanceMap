@@ -84,13 +84,6 @@ internal fun PoiFileRow(
             isUserPoiFile(file.path) -> Color(0xFF392F58)
             else -> Color(0xFF312B45)
         }
-    val secondaryTint =
-        if (isUserPoiFile(file.path)) {
-            Color(0xFFFFD54F)
-        } else {
-            Color(0xFFFFB74D)
-        }
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -115,17 +108,6 @@ internal fun PoiFileRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (compactMode) 8.dp else 10.dp),
         ) {
-            Icon(
-                imageVector =
-                    if (isUserPoiFile(file.path)) {
-                        Icons.Default.Star
-                    } else {
-                        Icons.Default.LocationOn
-                    },
-                contentDescription = null,
-                modifier = Modifier.size(if (compactMode) 14.dp else 16.dp),
-                tint = secondaryTint,
-            )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -234,7 +216,6 @@ internal fun PoiCategoryRow(
     val namedCategoryIcon = poiCategoryNameIcon(category.name)
     val categoryIcon =
         when {
-            isTopLevel -> null
             namedCategoryIcon != null -> namedCategoryIcon
             syntheticType != null -> poiTypeCategoryIcon(iconType)
             category.hasChildren -> if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder
