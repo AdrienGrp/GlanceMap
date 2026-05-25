@@ -445,6 +445,40 @@ class MapViewModel(
             Log.w("MapViewModel", "Failed reading map bounds for ${file.absolutePath}", error)
         }.getOrNull()
 
+    private fun buildMapFileState(
+        file: File,
+        demSource: DemSource,
+    ): MapFileState {
+        val coverage =
+            Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(demSource))
+        val detailedCoverage =
+            Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(DemSource.MAPZEN_SKADI_1S))
+        val standardCoverage =
+            Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(DemSource.MAPSFORGE_DEM3))
+        val combinedCoverage =
+            Dem3CoverageUtils.coverageForMap(context, file, sources = DemSource.LOAD_PRIORITY)
+        val routingCoverage = RoutingCoverageUtils.coverageForMap(context, file)
+
+        return MapFileState(
+            name = file.name,
+            path = file.absolutePath,
+            bounds = readMapBounds(file),
+            demCoverageKnown = coverage.isCoverageKnown,
+            demRequiredTiles = coverage.requiredTiles,
+            demAvailableTiles = coverage.availableTiles,
+            demReady = coverage.isReady,
+            demCombinedCoverageKnown = combinedCoverage.isCoverageKnown,
+            demCombinedRequiredTiles = combinedCoverage.requiredTiles,
+            demCombinedAvailableTiles = combinedCoverage.availableTiles,
+            demDetailedAvailableTiles = detailedCoverage.availableTiles,
+            demStandardAvailableTiles = standardCoverage.availableTiles,
+            routingCoverageKnown = routingCoverage.isCoverageKnown,
+            routingRequiredSegments = routingCoverage.requiredSegments,
+            routingAvailableSegments = routingCoverage.availableSegments,
+            routingReady = routingCoverage.isReady,
+        )
+    }
+
     private fun applyLatestZoomBounds(reason: String) {
         val zoomMin = latestZoomMin
         val zoomMax = latestZoomMax
@@ -536,52 +570,7 @@ class MapViewModel(
             val demSource = selectedDemSourceForCoverage
             val states =
                 withContext(Dispatchers.IO) {
-                    files.map { file ->
-                        val coverage =
-                            Dem3CoverageUtils.coverageForMap(
-                                context = context,
-                                mapFile = file,
-                                sources = listOf(demSource),
-                            )
-                        val detailedCoverage =
-                            Dem3CoverageUtils.coverageForMap(
-                                context = context,
-                                mapFile = file,
-                                sources = listOf(DemSource.MAPZEN_SKADI_1S),
-                            )
-                        val standardCoverage =
-                            Dem3CoverageUtils.coverageForMap(
-                                context = context,
-                                mapFile = file,
-                                sources = listOf(DemSource.MAPSFORGE_DEM3),
-                            )
-                        val combinedCoverage =
-                            Dem3CoverageUtils.coverageForMap(
-                                context = context,
-                                mapFile = file,
-                                sources = DemSource.LOAD_PRIORITY,
-                            )
-                        val routingCoverage = RoutingCoverageUtils.coverageForMap(context, file)
-                        val bounds = readMapBounds(file)
-                        MapFileState(
-                            name = file.name,
-                            path = file.absolutePath,
-                            bounds = bounds,
-                            demCoverageKnown = coverage.isCoverageKnown,
-                            demRequiredTiles = coverage.requiredTiles,
-                            demAvailableTiles = coverage.availableTiles,
-                            demReady = coverage.isReady,
-                            demCombinedCoverageKnown = combinedCoverage.isCoverageKnown,
-                            demCombinedRequiredTiles = combinedCoverage.requiredTiles,
-                            demCombinedAvailableTiles = combinedCoverage.availableTiles,
-                            demDetailedAvailableTiles = detailedCoverage.availableTiles,
-                            demStandardAvailableTiles = standardCoverage.availableTiles,
-                            routingCoverageKnown = routingCoverage.isCoverageKnown,
-                            routingRequiredSegments = routingCoverage.requiredSegments,
-                            routingAvailableSegments = routingCoverage.availableSegments,
-                            routingReady = routingCoverage.isReady,
-                        )
-                    }
+                    files.map { file -> buildMapFileState(file, demSource) }
                 }
             _mapFiles.value = states
 
