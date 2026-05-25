@@ -622,7 +622,6 @@ fun MapsScreen(
                         )
                         Text("Click on Elevation icon to download elevation that adds altitude, slope, and terrain shading.")
                     }
-                    Text("Grey means missing, amber partial, green ready.")
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -634,6 +633,7 @@ fun MapsScreen(
                         )
                         Text("Routing enables offline route calculation.")
                     }
+                    Text("Grey means missing, amber partial, green ready.")
                 }
             },
         )

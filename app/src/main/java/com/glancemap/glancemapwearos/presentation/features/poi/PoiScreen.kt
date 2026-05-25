@@ -550,7 +550,7 @@ fun PoiScreen(
                     Text(
                         text =
                             buildAnnotatedString {
-                                append("MyCreation can be added from the tool button (")
+                                append("Create POI by using the tool button (")
                                 appendInlineContent("toolButton", "[tool]")
                                 append(").")
                             },
