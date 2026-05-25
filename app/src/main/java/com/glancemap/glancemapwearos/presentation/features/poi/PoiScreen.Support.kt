@@ -25,13 +25,16 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.LocalParking
+import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Wc
 import androidx.compose.runtime.Composable
@@ -218,14 +221,18 @@ internal fun PoiCategoryRow(
             null
         }
     val iconType = syntheticType ?: inferredType
+    val namedCategoryIcon = poiCategoryNameIcon(category.name)
     val categoryIcon =
         when {
+            namedCategoryIcon != null -> namedCategoryIcon
             syntheticType != null -> poiTypeCategoryIcon(iconType)
             category.hasChildren -> if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder
+            iconType == PoiType.GENERIC -> null
             else -> poiTypeCategoryIcon(iconType)
         }
     val categoryTint =
         when {
+            namedCategoryIcon != null -> poiCategoryNameTint(category.name)
             syntheticType != null -> poiTypeCategoryTint(iconType)
             category.hasChildren -> Color(0xFF8FB2FF)
             else -> poiTypeCategoryTint(iconType)
@@ -560,6 +567,7 @@ internal fun inferPoiTypeFromCategoryName(categoryName: String): PoiType {
             "water" in normalized ||
             "spring" in normalized ||
             "well" in normalized ||
+            "fountain" in normalized ||
             "point d'eau" in normalized ||
             "source" in normalized ||
             "eau" in normalized -> PoiType.WATER
@@ -576,7 +584,14 @@ internal fun inferPoiTypeFromCategoryName(categoryName: String): PoiType {
             "gite" in normalized ||
             "gîte" in normalized -> PoiType.HUT
         "camp" in normalized -> PoiType.CAMP
-        "restaurant" in normalized || "cafe" in normalized || "food" in normalized || "bar" in normalized || "pub" in normalized || "grill" in normalized || "bbq" in normalized -> PoiType.FOOD
+        "restaurant" in normalized ||
+            "cafe" in normalized ||
+            "food" in normalized ||
+            "picnic" in normalized ||
+            "bar" in normalized ||
+            "pub" in normalized ||
+            "grill" in normalized ||
+            "bbq" in normalized -> PoiType.FOOD
         "toilet" in normalized || "wc" in normalized -> PoiType.TOILET
         "bus" in normalized ||
             "transport" in normalized ||
@@ -639,7 +654,7 @@ internal fun poiTypeCategoryIcon(type: PoiType): ImageVector? =
         PoiType.TOILET -> Icons.Default.Wc
         PoiType.TRANSPORT -> Icons.Default.DirectionsBus
         PoiType.BIKE -> Icons.AutoMirrored.Filled.DirectionsBike
-        PoiType.VIEWPOINT -> Icons.Default.Info
+        PoiType.VIEWPOINT -> Icons.Default.Visibility
         PoiType.PARKING -> Icons.Default.LocalParking
         PoiType.SHOP -> Icons.Default.Storefront
         PoiType.GENERIC -> Icons.Default.LocationOn
@@ -656,11 +671,63 @@ internal fun poiTypeCategoryTint(type: PoiType): Color =
         PoiType.TOILET -> Color(0xFFBA68C8)
         PoiType.TRANSPORT -> Color(0xFF64B5F6)
         PoiType.BIKE -> Color(0xFF4DD0E1)
-        PoiType.VIEWPOINT -> Color(0xFFFFD54F)
+        PoiType.VIEWPOINT -> Color(0xFFAFC2F5)
         PoiType.PARKING -> Color(0xFF7986CB)
         PoiType.SHOP -> Color(0xFF90A4AE)
         PoiType.GENERIC -> Color(0xFFBDBDBD)
         PoiType.CUSTOM -> Color(0xFFFFD54F)
     }
+
+internal fun poiCategoryNameIcon(categoryName: String): ImageVector? {
+    val normalized = normalizedPoiCategoryName(categoryName)
+    return when {
+        normalized.containsAny("village", "hamlet", "city", "town", "suburb") -> Icons.Default.LocationCity
+        normalized.containsAny("park", "garden", "picnic") && "parking" !in normalized -> Icons.Default.Park
+        normalized.containsAny(
+            "townhall",
+            "town hall",
+            "church",
+            "mosque",
+            "temple",
+            "basilika",
+            "castle",
+            "museum",
+            "memorial",
+        ) -> Icons.Default.AccountBalance
+        normalized.containsAny("viewpoint", "view", "scenic", "lookout", "panorama", "belved") -> Icons.Default.Visibility
+        else -> null
+    }
+}
+
+internal fun poiCategoryNameTint(categoryName: String): Color {
+    val normalized = normalizedPoiCategoryName(categoryName)
+    return when {
+        normalized.containsAny("village", "hamlet", "city", "town", "suburb") -> Color(0xFF8FB2FF)
+        normalized.containsAny("park", "garden", "picnic") && "parking" !in normalized -> Color(0xFF81C784)
+        normalized.containsAny(
+            "townhall",
+            "town hall",
+            "church",
+            "mosque",
+            "temple",
+            "basilika",
+            "castle",
+            "museum",
+            "memorial",
+        ) -> Color(0xFFB0BEC5)
+        normalized.containsAny("viewpoint", "view", "scenic", "lookout", "panorama", "belved") -> Color(0xFFAFC2F5)
+        else -> Color(0xFFBDBDBD)
+    }
+}
+
+private fun normalizedPoiCategoryName(categoryName: String): String =
+    categoryName
+        .lowercase(Locale.ROOT)
+        .replace('’', '\'')
+        .replace('_', ' ')
+        .replace('-', ' ')
+        .trim()
+
+private fun String.containsAny(vararg needles: String): Boolean = needles.any { it in this }
 
 internal fun isUserPoiFile(path: String): Boolean = path == USER_POI_SOURCE_PATH

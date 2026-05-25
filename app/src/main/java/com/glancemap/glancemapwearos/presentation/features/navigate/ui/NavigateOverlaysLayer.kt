@@ -144,6 +144,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         } else {
             0.dp
         }
+    val suppressLiveMetricsForPoi = poiTapMessage != null
 
     LaunchedEffect(shortcutTrayExpanded, routeToolModeActive) {
         if (!shortcutTrayExpanded || routeToolModeActive) return@LaunchedEffect
@@ -161,8 +162,9 @@ internal fun BoxScope.NavigateOverlaysLayer(
         mapView,
         mapRotationDeg,
         navigationMarkerAnchorMode,
+        suppressLiveMetricsForPoi,
     ) {
-        if (navMode != NavMode.PANNING || !liveDistanceEnabled) {
+        if (navMode != NavMode.PANNING || !liveDistanceEnabled || suppressLiveMetricsForPoi) {
             liveDistanceLineStart = null
             return@LaunchedEffect
         }
@@ -188,7 +190,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
 
     PanningDistanceGuide(
         navMode = navMode,
-        liveDistanceEnabled = liveDistanceEnabled,
+        liveDistanceEnabled = liveDistanceEnabled && !suppressLiveMetricsForPoi,
         liveDistanceLineStart = liveDistanceLineStart,
     )
 
@@ -212,9 +214,9 @@ internal fun BoxScope.NavigateOverlaysLayer(
 
     PanningLiveMetricsOverlay(
         navMode = navMode,
-        liveElevationEnabled = liveElevationEnabled,
+        liveElevationEnabled = liveElevationEnabled && !suppressLiveMetricsForPoi,
         liveElevationLabel = liveElevationLabel,
-        liveDistanceEnabled = liveDistanceEnabled,
+        liveDistanceEnabled = liveDistanceEnabled && !suppressLiveMetricsForPoi,
         liveDistanceLabel = liveDistanceLabel,
         zoomLabelTopPadding = zoomLabelTopPadding,
         liveElevationIconSize = liveElevationIconSize,

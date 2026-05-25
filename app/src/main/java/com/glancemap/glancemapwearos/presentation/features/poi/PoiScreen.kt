@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -533,17 +534,25 @@ fun PoiScreen(
                             .fillMaxWidth()
                             .heightIn(max = adaptive.helpDialogMaxHeight)
                             .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        "Create custom POI from Navigate with the + POI tool.\n" +
-                            "Toggle a POI file to show/hide it on Navigate.\n" +
-                            "Open a file to enable categories one by one.\n" +
-                            "Use arrows to expand files and categories and preview POI.\n" +
-                            "Tap a POI row to open Navigate centered on it (if enabled in POI settings).\n" +
-                            "Map symbols: star mycreation, W water, H hut, M peak, C camp, F food, T toilets.\n" +
-                            "Use delete mode to remove POI files or individual mycreation places.\n" +
-                            "Use the gear for POI settings.",
+                        "Toggle POI files or categories to show them on the map.",
                     )
+                    Text("Expand a category to preview its POIs.")
+                    Text("Tap a POI on the map to see details.")
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color(0xFFFFD54F),
+                        )
+                        Text("MyCreation can be added from the tool button.")
+                    }
                 }
             },
         )
