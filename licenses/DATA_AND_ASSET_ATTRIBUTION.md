@@ -202,7 +202,10 @@ Usage note:
 
 ## 11) POI icon assets
 
-- Build pipeline downloads Maki SVG icons from:
+- Local POI source icons are derived from Maki and Temaki SVG icon sets:
+  - https://github.com/mapbox/maki
+  - https://github.com/rapideditor/temaki
+- The build pipeline may also download Maki SVG fallbacks from:
   - https://github.com/mapbox/maki
 - License:
   - CC0 1.0 Universal
