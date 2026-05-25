@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Landscape
@@ -596,24 +597,43 @@ fun MapsScreen(
                             .fillMaxWidth()
                             .heightIn(max = adaptive.helpDialogMaxHeight)
                             .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        "Toggle a map to activate/deactivate.\n" +
-                            ".map: the offline map you see on screen.\n" +
-                            ".poi: searchable places and map points.\n" +
-                            "Routing: offline route calculation files.\n" +
-                            "Elevation: height data for altitude, slope and terrain shading.\n" +
-                            "Refuges.info: huts, shelters and water points.\n" +
-                            "Elevation badge: tap icon to download data.\n" +
-                            "Route badge: tap icon to view routing coverage.\n" +
-                            "Use the elevation and route buttons at the top to manage data.\n" +
-                            "Grey = missing.\n" +
-                            "Amber = partial.\n" +
-                            "Green = ready.\n" +
-                            "Use rename mode to rename maps.\n" +
-                            "Use delete mode to remove maps.\n" +
-                            "Use the gear for map settings.",
-                    )
+                    Text("Toggle a map to use it on Navigate.")
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text("Use the download bundle or the phone app to send .map and routing to the watch.")
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Landscape,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text("Click on Elevation icon to download elevation that adds altitude, slope, and terrain shading.")
+                    }
+                    Text("Grey means missing, amber partial, green ready.")
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.CallSplit,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text("Routing enables offline route calculation.")
+                    }
                 }
             },
         )

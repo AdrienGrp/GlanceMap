@@ -16,14 +16,16 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ViewComfyAlt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,8 +41,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.AlertDialog
@@ -541,18 +547,34 @@ fun PoiScreen(
                     )
                     Text("Expand a category to preview its POIs.")
                     Text("Tap a POI on the map to see details.")
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color(0xFFFFD54F),
-                        )
-                        Text("MyCreation can be added from the tool button.")
-                    }
+                    Text(
+                        text =
+                            buildAnnotatedString {
+                                append("MyCreation can be added from the tool button (")
+                                appendInlineContent("toolButton", "[tool]")
+                                append(").")
+                            },
+                        textAlign = TextAlign.Center,
+                        inlineContent =
+                            mapOf(
+                                "toolButton" to
+                                    InlineTextContent(
+                                        placeholder =
+                                            Placeholder(
+                                                width = 16.sp,
+                                                height = 16.sp,
+                                                placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+                                            ),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ViewComfyAlt,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color.White,
+                                        )
+                                    },
+                            ),
+                    )
                 }
             },
         )
