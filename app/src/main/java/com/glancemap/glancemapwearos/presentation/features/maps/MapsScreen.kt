@@ -588,7 +588,10 @@ fun MapsScreen(
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                         )
-                        Text("Use the download bundle or the phone app to send .map and routing to the watch.")
+                        Text(
+                            "Use the download bundle or the phone app to send .map and " +
+                                "routing to the watch.",
+                        )
                     }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -599,7 +602,10 @@ fun MapsScreen(
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                         )
-                        Text("Click on Elevation icon to download elevation that adds altitude, slope, and terrain shading.")
+                        Text(
+                            "Click on Elevation icon to download elevation that adds " +
+                                "altitude, slope, and terrain shading.",
+                        )
                     }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),

@@ -28,6 +28,8 @@ import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.security.MessageDigest
 
+private const val WATCH_GPX_COPY_BUFFER_BYTES = 64 * 1024
+
 class WatchGpxExportListenerService : WearableListenerService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val channelClient by lazy { Wearable.getChannelClient(this) }
@@ -72,14 +74,14 @@ class WatchGpxExportListenerService : WearableListenerService() {
         try {
             channelClient.getInputStream(channel).await().use { input ->
                 tempFile.outputStream().use { output ->
-                    input.copyTo(output, COPY_BUFFER_BYTES)
+                    input.copyTo(output, WATCH_GPX_COPY_BUFFER_BYTES)
                 }
             }
 
             val actualSha256 = tempFile.sha256()
             if (!actualSha256.equals(request.sha256, ignoreCase = true)) {
                 tempFile.delete()
-                throw IllegalStateException("Received GPX checksum did not match.")
+                error("Received GPX checksum did not match.")
             }
 
             if (!tempFile.renameTo(finalFile)) {
@@ -95,44 +97,45 @@ class WatchGpxExportListenerService : WearableListenerService() {
         }
     }
 
-    private fun copyToDownloads(file: File): Uri? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
-
-        val values =
-            ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, file.name)
-                put(MediaStore.MediaColumns.MIME_TYPE, GPX_MIME_TYPE)
-                put(
-                    MediaStore.MediaColumns.RELATIVE_PATH,
-                    "${Environment.DIRECTORY_DOWNLOADS}/GlanceMap",
-                )
-                put(MediaStore.MediaColumns.IS_PENDING, 1)
-            }
-
-        val resolver = contentResolver
-        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return null
-        runCatching {
-            resolver.openOutputStream(uri)?.use { output ->
-                file.inputStream().use { input ->
-                    input.copyTo(output, COPY_BUFFER_BYTES)
+    private fun copyToDownloads(file: File): Uri? =
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            null
+        } else {
+            val values =
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, file.name)
+                    put(MediaStore.MediaColumns.MIME_TYPE, GPX_MIME_TYPE)
+                    put(
+                        MediaStore.MediaColumns.RELATIVE_PATH,
+                        "${Environment.DIRECTORY_DOWNLOADS}/GlanceMap",
+                    )
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
-            } ?: throw IllegalStateException("Unable to open Downloads destination.")
 
-            values.clear()
-            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
-            resolver.update(uri, values, null, null)
-        }.onFailure {
-            resolver.delete(uri, null, null)
-            throw it
+            val resolver = contentResolver
+            resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)?.also { uri ->
+                runCatching {
+                    resolver.openOutputStream(uri)?.use { output ->
+                        file.inputStream().use { input ->
+                            input.copyTo(output, WATCH_GPX_COPY_BUFFER_BYTES)
+                        }
+                    } ?: error("Unable to open Downloads destination.")
+
+                    values.clear()
+                    values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, values, null, null)
+                }.onFailure {
+                    resolver.delete(uri, null, null)
+                    throw it
+                }
+            }
         }
-        return uri
-    }
 
     private fun showCompletion(
         file: File,
         downloadsUri: Uri?,
     ) {
-        val fileUri = file.shareUri()
+        val fileUri = file.shareUri(this)
         val openIntent =
             Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(downloadsUri ?: fileUri, GPX_MIME_TYPE)
@@ -215,22 +218,14 @@ class WatchGpxExportListenerService : WearableListenerService() {
 
     private fun parseChannelPath(path: String): WatchGpxExportRequest? {
         val parts = path.split('/').filter { it.isNotBlank() }
-        if (parts.size < 5) return null
-        val transferId = parts[2].takeIf { it.isNotBlank() } ?: return null
-        val sha256 = parts[3].takeIf { it.isNotBlank() } ?: return null
-        val fileName = sanitizeGpxFileName(Uri.decode(parts[4]))
-        return WatchGpxExportRequest(transferId, sha256, fileName)
-    }
-
-    private fun sanitizeGpxFileName(name: String): String {
-        val clean =
-            name
-                .substringAfterLast('/')
-                .substringAfterLast('\\')
-                .replace(Regex("[\\r\\n\\t]"), " ")
-                .trim()
-                .ifBlank { "watch-track.gpx" }
-        return if (clean.endsWith(".gpx", ignoreCase = true)) clean else "$clean.gpx"
+        val transferId = parts.getOrNull(2)?.takeIf { it.isNotBlank() }
+        val sha256 = parts.getOrNull(3)?.takeIf { it.isNotBlank() }
+        val fileName = parts.getOrNull(4)?.let { sanitizeGpxFileName(Uri.decode(it)) }
+        return if (transferId != null && sha256 != null && fileName != null) {
+            WatchGpxExportRequest(transferId, sha256, fileName)
+        } else {
+            null
+        }
     }
 
     private fun uniqueFile(
@@ -254,26 +249,6 @@ class WatchGpxExportListenerService : WearableListenerService() {
         return candidate
     }
 
-    private fun File.shareUri(): Uri =
-        FileProvider.getUriForFile(
-            this@WatchGpxExportListenerService,
-            "$packageName.fileprovider",
-            this,
-        )
-
-    private fun File.sha256(): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        inputStream().use { input ->
-            val buffer = ByteArray(COPY_BUFFER_BYTES)
-            while (true) {
-                val read = input.read(buffer)
-                if (read <= 0) break
-                digest.update(buffer, 0, read)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it) }
-    }
-
     private data class WatchGpxExportRequest(
         val transferId: String,
         val sha256: String,
@@ -285,8 +260,38 @@ class WatchGpxExportListenerService : WearableListenerService() {
         const val CHANNEL_ID = "watch_gpx_exports"
         const val GPX_MIME_TYPE = "application/gpx+xml"
         const val EXPORT_DIR_NAME = "watch-gpx-exports"
-        const val COPY_BUFFER_BYTES = 64 * 1024
         const val ERROR_NOTIFICATION_ID = 57_230
         const val SHARE_REQUEST_OFFSET = 10_000
     }
+}
+
+private fun File.shareUri(context: Context): Uri =
+    FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        this,
+    )
+
+private fun sanitizeGpxFileName(name: String): String {
+    val clean =
+        name
+            .substringAfterLast('/')
+            .substringAfterLast('\\')
+            .replace(Regex("[\\r\\n\\t]"), " ")
+            .trim()
+            .ifBlank { "watch-track.gpx" }
+    return if (clean.endsWith(".gpx", ignoreCase = true)) clean else "$clean.gpx"
+}
+
+private fun File.sha256(): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    inputStream().use { input ->
+        val buffer = ByteArray(WATCH_GPX_COPY_BUFFER_BYTES)
+        while (true) {
+            val read = input.read(buffer)
+            if (read <= 0) break
+            digest.update(buffer, 0, read)
+        }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
 }

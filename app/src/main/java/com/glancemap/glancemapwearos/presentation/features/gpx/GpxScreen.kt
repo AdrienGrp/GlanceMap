@@ -618,6 +618,7 @@ fun GpxScreen(
     }
 }
 
+@Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 @Composable
 private fun GpxTrackItem(
     gpxFile: GpxFileState,

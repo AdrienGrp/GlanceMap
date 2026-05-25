@@ -40,7 +40,7 @@ class GpxExportRepositoryImpl(
                         .await()
                         .sortedByDescending { it.isNearby }
                         .firstOrNull()
-                        ?: throw IllegalStateException("No phone connected.")
+                        ?: error("No phone connected.")
 
                 sendFileToNode(
                     nodeId = targetNode.id,

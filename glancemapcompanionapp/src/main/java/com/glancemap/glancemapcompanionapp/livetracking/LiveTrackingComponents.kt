@@ -148,6 +148,7 @@ private fun ScrollbarIndicator(
     }
 }
 
+@Suppress("FunctionNaming")
 @Composable
 internal fun TrackingPanel(
     title: String?,
