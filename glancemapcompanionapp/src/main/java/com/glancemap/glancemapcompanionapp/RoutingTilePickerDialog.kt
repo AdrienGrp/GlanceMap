@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -215,6 +216,14 @@ private fun RoutingTilePickerMap(
             }
         }
         if (state.mapReady) {
+            MapPickerCoverageLegend(
+                text = "Darker square: routing already on watch",
+                color = Color(0x665A80FF),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(5.dp),
+            )
             MapPickerZoomControls(
                 onZoomIn = { pickerView?.zoomIn() },
                 onZoomOut = { pickerView?.zoomOut() },
