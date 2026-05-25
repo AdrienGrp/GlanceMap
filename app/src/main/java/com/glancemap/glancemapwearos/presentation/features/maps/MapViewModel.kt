@@ -11,6 +11,7 @@ import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
 import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.maps.GeoBounds
+import com.glancemap.glancemapwearos.core.maps.geoBoundsOrNull
 import com.glancemap.glancemapwearos.core.routing.RoutingCoverageUtils
 import com.glancemap.glancemapwearos.core.routing.isRoutingSegmentFileName
 import com.glancemap.glancemapwearos.core.routing.routingSegmentBounds
@@ -42,12 +43,14 @@ import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.view.MapView
+import org.mapsforge.map.reader.MapFile
 import java.io.File
 import java.util.Locale
 
 data class MapFileState(
     val name: String,
     val path: String,
+    val bounds: GeoBounds? = null,
     val demCoverageKnown: Boolean = false,
     val demRequiredTiles: Int = 0,
     val demAvailableTiles: Int = 0,
@@ -199,6 +202,14 @@ class MapViewModel(
                 requestMapLayerUpdate(newPath)
             }.launchIn(viewModelScope)
 
+        settingsRepository.offlineMode
+            .distinctUntilChanged()
+            .onEach { offlineMode ->
+                if (!offlineMode) {
+                    clearOfflineViewportMemory()
+                }
+            }.launchIn(viewModelScope)
+
         settingsRepository.isMetric
             .distinctUntilChanged()
             .onEach { isMetric ->
@@ -342,6 +353,12 @@ class MapViewModel(
         offlineStartCenterApplied = false
     }
 
+    private fun clearOfflineViewportMemory() {
+        offlineViewportSnapshot = null
+        forcedOfflineStartCenterContextKey = null
+        resetOfflineStartCenterTracking()
+    }
+
     fun shouldForceOfflineStartCenter(
         selectedMapPath: String?,
         activeGpxDetails: List<GpxTrackDetails>,
@@ -372,7 +389,7 @@ class MapViewModel(
         center: LatLong?,
         zoomLevel: Int,
     ) {
-        val canSave = center?.hasFiniteCoordinates() == true
+        val canSave = offlineStartCenterApplied && center?.hasFiniteCoordinates() == true
         if (canSave) {
             offlineViewportSnapshot =
                 OfflineViewportSnapshot(
@@ -408,6 +425,59 @@ class MapViewModel(
             ?: offlineViewportSnapshot?.center
 
     private fun LatLong.hasFiniteCoordinates(): Boolean = latitude.isFinite() && longitude.isFinite()
+
+    private fun readMapBounds(file: File): GeoBounds? =
+        runCatching {
+            val map = MapFile(file)
+            val bbox =
+                try {
+                    map.boundingBox()
+                } finally {
+                    runCatching { map.close() }
+                }
+            geoBoundsOrNull(
+                minLat = bbox.minLatitude,
+                maxLat = bbox.maxLatitude,
+                minLon = bbox.minLongitude,
+                maxLon = bbox.maxLongitude,
+            )
+        }.onFailure { error ->
+            Log.w("MapViewModel", "Failed reading map bounds for ${file.absolutePath}", error)
+        }.getOrNull()
+
+    private fun buildMapFileState(
+        file: File,
+        demSource: DemSource,
+    ): MapFileState {
+        val coverage =
+            Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(demSource))
+        val detailedCoverage =
+            Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(DemSource.MAPZEN_SKADI_1S))
+        val standardCoverage =
+            Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(DemSource.MAPSFORGE_DEM3))
+        val combinedCoverage =
+            Dem3CoverageUtils.coverageForMap(context, file, sources = DemSource.LOAD_PRIORITY)
+        val routingCoverage = RoutingCoverageUtils.coverageForMap(context, file)
+
+        return MapFileState(
+            name = file.name,
+            path = file.absolutePath,
+            bounds = readMapBounds(file),
+            demCoverageKnown = coverage.isCoverageKnown,
+            demRequiredTiles = coverage.requiredTiles,
+            demAvailableTiles = coverage.availableTiles,
+            demReady = coverage.isReady,
+            demCombinedCoverageKnown = combinedCoverage.isCoverageKnown,
+            demCombinedRequiredTiles = combinedCoverage.requiredTiles,
+            demCombinedAvailableTiles = combinedCoverage.availableTiles,
+            demDetailedAvailableTiles = detailedCoverage.availableTiles,
+            demStandardAvailableTiles = standardCoverage.availableTiles,
+            routingCoverageKnown = routingCoverage.isCoverageKnown,
+            routingRequiredSegments = routingCoverage.requiredSegments,
+            routingAvailableSegments = routingCoverage.availableSegments,
+            routingReady = routingCoverage.isReady,
+        )
+    }
 
     private fun applyLatestZoomBounds(reason: String) {
         val zoomMin = latestZoomMin
@@ -500,50 +570,7 @@ class MapViewModel(
             val demSource = selectedDemSourceForCoverage
             val states =
                 withContext(Dispatchers.IO) {
-                    files.map { file ->
-                        val coverage =
-                            Dem3CoverageUtils.coverageForMap(
-                                context = context,
-                                mapFile = file,
-                                sources = listOf(demSource),
-                            )
-                        val detailedCoverage =
-                            Dem3CoverageUtils.coverageForMap(
-                                context = context,
-                                mapFile = file,
-                                sources = listOf(DemSource.MAPZEN_SKADI_1S),
-                            )
-                        val standardCoverage =
-                            Dem3CoverageUtils.coverageForMap(
-                                context = context,
-                                mapFile = file,
-                                sources = listOf(DemSource.MAPSFORGE_DEM3),
-                            )
-                        val combinedCoverage =
-                            Dem3CoverageUtils.coverageForMap(
-                                context = context,
-                                mapFile = file,
-                                sources = DemSource.LOAD_PRIORITY,
-                            )
-                        val routingCoverage = RoutingCoverageUtils.coverageForMap(context, file)
-                        MapFileState(
-                            name = file.name,
-                            path = file.absolutePath,
-                            demCoverageKnown = coverage.isCoverageKnown,
-                            demRequiredTiles = coverage.requiredTiles,
-                            demAvailableTiles = coverage.availableTiles,
-                            demReady = coverage.isReady,
-                            demCombinedCoverageKnown = combinedCoverage.isCoverageKnown,
-                            demCombinedRequiredTiles = combinedCoverage.requiredTiles,
-                            demCombinedAvailableTiles = combinedCoverage.availableTiles,
-                            demDetailedAvailableTiles = detailedCoverage.availableTiles,
-                            demStandardAvailableTiles = standardCoverage.availableTiles,
-                            routingCoverageKnown = routingCoverage.isCoverageKnown,
-                            routingRequiredSegments = routingCoverage.requiredSegments,
-                            routingAvailableSegments = routingCoverage.availableSegments,
-                            routingReady = routingCoverage.isReady,
-                        )
-                    }
+                    files.map { file -> buildMapFileState(file, demSource) }
                 }
             _mapFiles.value = states
 

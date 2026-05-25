@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.ContactsContract
 import android.util.Patterns
 import androidx.core.content.ContextCompat
@@ -149,6 +150,22 @@ internal fun hasLocationPermission(context: Context): Boolean =
         PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED
+
+internal fun hasLiveTrackingNotificationPermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+
+internal fun missingLiveTrackingRuntimePermissions(context: Context): Array<String> =
+    buildList {
+        if (!hasLocationPermission(context)) {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        if (!hasLiveTrackingNotificationPermission(context)) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }.toTypedArray()
 
 internal fun sessionStatusText(state: LiveTrackingUiState): String {
     val lastUpdate = state.lastSuccessfulUpdateEpochMs

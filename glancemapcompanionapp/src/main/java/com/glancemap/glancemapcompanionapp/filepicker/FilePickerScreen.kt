@@ -1,4 +1,5 @@
 @file:Suppress(
+    "CyclomaticComplexMethod",
     "FunctionName",
     "FunctionNaming",
     "LongMethod",
@@ -68,6 +69,8 @@ private enum class CompanionHomeArea {
 fun FilePickerScreen(
     viewModel: FileTransferViewModel,
     openSendToWatchToken: Long = 0L,
+    watchGpxSaveToken: Long = 0L,
+    watchGpxSaveFiles: List<GeneratedPhoneFile> = emptyList(),
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -389,6 +392,12 @@ fun FilePickerScreen(
                 }
             }
         }
+
+    LaunchedEffect(watchGpxSaveToken) {
+        if (watchGpxSaveToken != 0L && watchGpxSaveFiles.isNotEmpty()) {
+            saveGeneratedFilesOnPhone(watchGpxSaveFiles)
+        }
+    }
 
     val requestMissingPermissions = {
         if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission) {

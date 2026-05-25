@@ -102,6 +102,8 @@ fun LiveTrackingScreen(
     }
     var selectedGpxName by remember { mutableStateOf(savedDraft.gpxName) }
     var hasLocationPermission by remember { mutableStateOf(hasLocationPermission(context)) }
+    var hasNotificationPermission by remember { mutableStateOf(hasLiveTrackingNotificationPermission(context)) }
+    var startAfterPermissionGrant by remember { mutableStateOf(false) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
     var headerMessage by remember { mutableStateOf<String?>(null) }
     var sendStatusMessage by remember { mutableStateOf<String?>(null) }
@@ -269,6 +271,13 @@ fun LiveTrackingScreen(
                 result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 result[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
                 hasLocationPermission(context)
+            hasNotificationPermission =
+                result[Manifest.permission.POST_NOTIFICATIONS] == true ||
+                hasLiveTrackingNotificationPermission(context)
+            if (startAfterPermissionGrant && !hasLocationPermission) {
+                startAfterPermissionGrant = false
+                validationMessage = "Location permission is required to start live tracking."
+            }
         }
 
     LaunchedEffect(
@@ -457,6 +466,85 @@ fun LiveTrackingScreen(
             }
         }
 
+        fun uploadPlanThenStart(settings: LiveTrackingSettings) {
+            isStartingSession = true
+            isSendingPlan = true
+            sendStatusMessage = "Sending planned route"
+            coroutineScope.launch {
+                runCatching {
+                    val client = ArkluzLiveTrackingClient(context)
+                    client
+                        .registerOrJoinGroup(settings)
+                        .viewerPassword
+                        ?.let { followerPassword = it }
+                    client.uploadPlannedRoute(settings)
+                }.onSuccess {
+                    planSent = true
+                    sendStatusMessage = null
+                    delay(START_AFTER_UPLOAD_DELAY_MS)
+                    LiveTrackingService.start(
+                        context = context,
+                        settings = settings,
+                    )
+                }.onFailure { error ->
+                    sendStatusMessage = "Send failed: ${error.toArkluzFailureDetail()}"
+                }
+                isSendingPlan = false
+                isStartingSession = false
+            }
+        }
+
+        fun startLiveTracking(requestMissingPermissions: Boolean) {
+            validationMessage =
+                validateStartSettings(
+                    group = group,
+                    participantPassword = participantPassword,
+                    followerPassword = followerPassword,
+                    userName = userName,
+                )
+                    ?: validatePendingEmailInputs(
+                        notificationEmailInput = notificationEmailInput,
+                        alertEmailInput = alertEmailInput,
+                    )
+            if (validationMessage != null) {
+                startAfterPermissionGrant = false
+                return
+            }
+            if (!canStart) {
+                startAfterPermissionGrant = false
+                return
+            }
+            if (isSendingPlan) {
+                startAfterPermissionGrant = false
+                sendStatusMessage = "Please wait for the current send to finish before starting."
+                return
+            }
+            if (!hasLocationPermission) {
+                if (requestMissingPermissions) {
+                    startAfterPermissionGrant = true
+                    locationPermissionLauncher.launch(missingLiveTrackingRuntimePermissions(context))
+                }
+                return
+            }
+            if (!hasNotificationPermission && requestMissingPermissions) {
+                locationPermissionLauncher.launch(missingLiveTrackingRuntimePermissions(context))
+            }
+            startAfterPermissionGrant = false
+            validationMessage = null
+            sendStatusMessage = null
+            if (hasPlanContent && !planSent) {
+                uploadPlanThenStart(settings)
+            } else {
+                LiveTrackingService.start(context = context, settings = settings)
+            }
+        }
+
+        LaunchedEffect(startAfterPermissionGrant, hasLocationPermission) {
+            if (startAfterPermissionGrant && hasLocationPermission) {
+                startLiveTracking(requestMissingPermissions = false)
+            }
+        }
+
         BackHandler(enabled = page == LiveTrackingPage.SETTINGS) {
             requestLeaveSettings()
         }
@@ -557,65 +645,7 @@ fun LiveTrackingScreen(
                         isStartingSession = isStartingSession,
                         validationMessage = validationMessage,
                         sendStatusMessage = sendStatusMessage,
-                        onStart = {
-                            validationMessage =
-                                validateStartSettings(
-                                    group = group,
-                                    participantPassword = participantPassword,
-                                    followerPassword = followerPassword,
-                                    userName = userName,
-                                )
-                                    ?: validatePendingEmailInputs(
-                                        notificationEmailInput = notificationEmailInput,
-                                        alertEmailInput = alertEmailInput,
-                                    )
-                            if (validationMessage != null) return@MainTrackingContent
-                            if (!canStart) return@MainTrackingContent
-                            if (isSendingPlan) {
-                                sendStatusMessage = "Please wait for the current send to finish before starting."
-                                return@MainTrackingContent
-                            }
-                            if (!hasLocationPermission) {
-                                locationPermissionLauncher.launch(
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION,
-                                    ),
-                                )
-                                return@MainTrackingContent
-                            }
-                            validationMessage = null
-                            sendStatusMessage = null
-                            if (hasPlanContent && !planSent) {
-                                isStartingSession = true
-                                isSendingPlan = true
-                                sendStatusMessage = "Sending planned route"
-                                coroutineScope.launch {
-                                    runCatching {
-                                        val client = ArkluzLiveTrackingClient(context)
-                                        client
-                                            .registerOrJoinGroup(settings)
-                                            .viewerPassword
-                                            ?.let { followerPassword = it }
-                                        client.uploadPlannedRoute(settings)
-                                    }.onSuccess {
-                                        planSent = true
-                                        sendStatusMessage = null
-                                        delay(START_AFTER_UPLOAD_DELAY_MS)
-                                        LiveTrackingService.start(
-                                            context = context,
-                                            settings = settings,
-                                        )
-                                    }.onFailure { error ->
-                                        sendStatusMessage = "Send failed: ${error.toArkluzFailureDetail()}"
-                                    }
-                                    isSendingPlan = false
-                                    isStartingSession = false
-                                }
-                            } else {
-                                LiveTrackingService.start(context = context, settings = settings)
-                            }
-                        },
+                        onStart = { startLiveTracking(requestMissingPermissions = true) },
                         onStop = { LiveTrackingService.stop(context) },
                         userName = userName,
                         groupTrackUrl = groupTrackUrl,

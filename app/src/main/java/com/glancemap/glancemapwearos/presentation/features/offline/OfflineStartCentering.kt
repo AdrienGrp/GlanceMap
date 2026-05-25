@@ -2,14 +2,15 @@ package com.glancemap.glancemapwearos.presentation.features.offline
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import com.glancemap.glancemapwearos.core.maps.GeoBounds
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
+import com.glancemap.glancemapwearos.presentation.features.maps.MapFileState
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.view.MapView
-import org.mapsforge.map.reader.MapFile
-import java.io.File
 
 @Suppress("FunctionNaming", "LongParameterList")
 @Composable
@@ -22,6 +23,12 @@ internal fun OfflineStartCenteringEffect(
     skipInitialCentering: Boolean = false,
     enabled: Boolean = isOfflineMode,
 ) {
+    val mapFiles by mapViewModel.mapFiles.collectAsState()
+    val selectedMapArea =
+        remember(mapFiles, selectedMapPath) {
+            mapFiles.selectedOfflineMapArea(selectedMapPath)
+        }
+
     LaunchedEffect(enabled) {
         if (!enabled) {
             mapViewModel.resetOfflineStartCenterTracking()
@@ -31,6 +38,7 @@ internal fun OfflineStartCenteringEffect(
     LaunchedEffect(
         enabled,
         selectedMapPath,
+        selectedMapArea,
         activeGpxDetails,
         skipInitialCentering,
         mapViewModel,
@@ -54,55 +62,73 @@ internal fun OfflineStartCenteringEffect(
             return@LaunchedEffect
         }
         if (skipInitialCentering) {
-            mapViewModel.markOfflineStartCenterHandled(selectedMapPath, activeGpxDetails)
-            if (forceStartupCenter) {
-                mapViewModel.consumeForcedOfflineStartCenter(
-                    selectedMapPath = selectedMapPath,
-                    activeGpxDetails = activeGpxDetails,
-                )
-            }
+            mapViewModel.finishOfflineStartCenter(selectedMapPath, activeGpxDetails, forceStartupCenter)
             return@LaunchedEffect
         }
 
-        val targetCenter =
-            withContext(Dispatchers.IO) {
-                resolveOfflineStartCenter(selectedMapPath, activeGpxDetails)
-            }
-        targetCenter?.let { mapView.setCenter(it) }
-        mapViewModel.markOfflineStartCenterHandled(selectedMapPath, activeGpxDetails)
-        if (forceStartupCenter) {
-            mapViewModel.consumeForcedOfflineStartCenter(
-                selectedMapPath = selectedMapPath,
-                activeGpxDetails = activeGpxDetails,
-            )
+        if (selectedMapPath?.isNotBlank() == true && selectedMapArea == null) {
+            return@LaunchedEffect
         }
+
+        val targetCenter = resolveOfflineStartCenter(selectedMapArea, activeGpxDetails)
+        targetCenter?.let { mapView.setCenter(it) }
+        mapViewModel.finishOfflineStartCenter(selectedMapPath, activeGpxDetails, forceStartupCenter)
     }
 }
 
-private fun resolveOfflineStartCenter(
+private fun MapViewModel.finishOfflineStartCenter(
     selectedMapPath: String?,
     activeGpxDetails: List<GpxTrackDetails>,
-): LatLong? = resolveActiveGpxCenter(activeGpxDetails) ?: resolveSelectedMapCenter(selectedMapPath)
-
-private fun resolveSelectedMapCenter(selectedMapPath: String?): LatLong? {
-    val path = selectedMapPath?.takeIf { it.isNotBlank() } ?: return null
-    val mapFile = File(path)
-    if (!mapFile.exists() || !mapFile.isFile) return null
-
-    return runCatching {
-        val map = MapFile(mapFile)
-        val bbox =
-            try {
-                map.boundingBox()
-            } finally {
-                runCatching { map.close() }
-            }
-        LatLong(
-            (bbox.minLatitude + bbox.maxLatitude) * 0.5,
-            (bbox.minLongitude + bbox.maxLongitude) * 0.5,
-        )
-    }.getOrNull()
+    forceStartupCenter: Boolean,
+) {
+    markOfflineStartCenterHandled(selectedMapPath, activeGpxDetails)
+    if (forceStartupCenter) {
+        consumeForcedOfflineStartCenter(selectedMapPath, activeGpxDetails)
+    }
 }
+
+internal data class SelectedOfflineMapArea(
+    val bounds: GeoBounds,
+    val center: LatLong,
+)
+
+internal fun resolveOfflineStartCenter(
+    selectedMapArea: SelectedOfflineMapArea?,
+    activeGpxDetails: List<GpxTrackDetails>,
+): LatLong? {
+    val mapCenter = selectedMapArea?.center
+    val activeGpxOnSelectedMap =
+        if (selectedMapArea != null) {
+            activeGpxDetails.filter { it.overlaps(selectedMapArea.bounds) }
+        } else {
+            activeGpxDetails
+        }
+
+    return resolveActiveGpxCenter(activeGpxOnSelectedMap) ?: mapCenter
+}
+
+private fun List<MapFileState>.selectedOfflineMapArea(selectedMapPath: String?): SelectedOfflineMapArea? =
+    firstOrNull { it.path == selectedMapPath }
+        ?.bounds
+        ?.toSelectedOfflineMapArea()
+
+private fun GeoBounds.toSelectedOfflineMapArea(): SelectedOfflineMapArea =
+    SelectedOfflineMapArea(
+        bounds = this,
+        center =
+            LatLong(
+                (minLat + maxLat) * 0.5,
+                (minLon + maxLon) * 0.5,
+            ),
+    )
+
+private fun GpxTrackDetails.overlaps(bounds: GeoBounds): Boolean =
+    points.any { point ->
+        point.latitude.isFinite() &&
+            point.longitude.isFinite() &&
+            point.latitude in bounds.minLat..bounds.maxLat &&
+            point.longitude in bounds.minLon..bounds.maxLon
+    }
 
 private fun resolveActiveGpxCenter(activeGpxDetails: List<GpxTrackDetails>): LatLong? {
     if (activeGpxDetails.isEmpty()) return null

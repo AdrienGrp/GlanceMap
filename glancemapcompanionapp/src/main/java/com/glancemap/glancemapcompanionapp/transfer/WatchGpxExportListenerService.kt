@@ -29,6 +29,7 @@ import java.io.File
 import java.security.MessageDigest
 
 private const val WATCH_GPX_COPY_BUFFER_BYTES = 64 * 1024
+private const val WATCH_GPX_MIME_TYPE = "application/gpx+xml"
 
 class WatchGpxExportListenerService : WearableListenerService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -104,7 +105,7 @@ class WatchGpxExportListenerService : WearableListenerService() {
             val values =
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, file.name)
-                    put(MediaStore.MediaColumns.MIME_TYPE, GPX_MIME_TYPE)
+                    put(MediaStore.MediaColumns.MIME_TYPE, WATCH_GPX_MIME_TYPE)
                     put(
                         MediaStore.MediaColumns.RELATIVE_PATH,
                         "${Environment.DIRECTORY_DOWNLOADS}/GlanceMap",
@@ -138,7 +139,7 @@ class WatchGpxExportListenerService : WearableListenerService() {
         val fileUri = file.shareUri(this)
         val openIntent =
             Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(downloadsUri ?: fileUri, GPX_MIME_TYPE)
+                setDataAndType(downloadsUri ?: fileUri, WATCH_GPX_MIME_TYPE)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
         val openPendingIntent =
@@ -148,9 +149,20 @@ class WatchGpxExportListenerService : WearableListenerService() {
                 openIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
+        val savePendingIntent =
+            PendingIntent.getActivity(
+                this,
+                file.name.hashCode() + SAVE_REQUEST_OFFSET,
+                buildWatchGpxSaveIntent(
+                    context = this,
+                    fileUri = fileUri,
+                    fileName = file.name,
+                ),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
         val shareIntent =
             Intent(Intent.ACTION_SEND).apply {
-                type = GPX_MIME_TYPE
+                type = WATCH_GPX_MIME_TYPE
                 putExtra(Intent.EXTRA_STREAM, fileUri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
@@ -173,10 +185,11 @@ class WatchGpxExportListenerService : WearableListenerService() {
                 .Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher_companionapp_foreground)
                 .setContentTitle("GPX ready")
-                .setContentText("$location: ${file.name}")
-                .setStyle(NotificationCompat.BigTextStyle().bigText("$location\n${file.name}"))
+                .setContentText("$location. Tap to save a copy: ${file.name}")
+                .setStyle(NotificationCompat.BigTextStyle().bigText("$location\nTap to save a copy.\n${file.name}"))
                 .setAutoCancel(true)
-                .setContentIntent(openPendingIntent)
+                .setContentIntent(savePendingIntent)
+                .addAction(android.R.drawable.ic_menu_view, "Open", openPendingIntent)
                 .addAction(android.R.drawable.ic_menu_share, "Share", sharePendingIntent)
                 .build()
 
@@ -258,12 +271,25 @@ class WatchGpxExportListenerService : WearableListenerService() {
     private companion object {
         const val TAG = "WatchGpxExport"
         const val CHANNEL_ID = "watch_gpx_exports"
-        const val GPX_MIME_TYPE = "application/gpx+xml"
         const val EXPORT_DIR_NAME = "watch-gpx-exports"
         const val ERROR_NOTIFICATION_ID = 57_230
         const val SHARE_REQUEST_OFFSET = 10_000
+        const val SAVE_REQUEST_OFFSET = 20_000
     }
 }
+
+private fun buildWatchGpxSaveIntent(
+    context: Context,
+    fileUri: Uri,
+    fileName: String,
+): Intent =
+    Intent(context, MainActivityMobile::class.java).apply {
+        action = WatchGpxSaveIntentContract.ACTION_SAVE_WATCH_GPX
+        setDataAndType(fileUri, WATCH_GPX_MIME_TYPE)
+        putExtra(WatchGpxSaveIntentContract.EXTRA_FILE_NAME, fileName)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
 
 private fun File.shareUri(context: Context): Uri =
     FileProvider.getUriForFile(
