@@ -381,6 +381,137 @@ internal fun RefugesImportDialog(
 
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
+                        "Source",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilterChip(
+                            selected = selectedSource == PoiImportSource.OSM,
+                            onClick = {
+                                selectSource(PoiImportSource.OSM)
+                            },
+                            label = { Text("OSM") },
+                            colors = companionFilterChipColors(),
+                        )
+                        FilterChip(
+                            selected = selectedSource == PoiImportSource.REFUGES,
+                            onClick = {
+                                selectSource(PoiImportSource.REFUGES)
+                            },
+                            label = { Text("Refuges.info") },
+                            colors = companionFilterChipColors(),
+                        )
+                    }
+                    if (selectedSource == PoiImportSource.REFUGES) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "refuges.info POIs for France, the Alps, and the Pyrenees.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "Enrich with OSM",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Switch(
+                                checked = enrichWithOsm,
+                                onCheckedChange = { enrichWithOsm = it },
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "All OSM categories are shown below. Essentials = huts, water, peaks.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    if (requiresOsmTypeSelection) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            "OSM categories",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OsmPoiCategoryPresetChips(
+                            presets = osmCategoryPresets,
+                            selectedIds = selectedOsmCategoryIds,
+                            onPresetSelected = { presetIds ->
+                                selectedOsmCategoryIds = presetIds
+                            },
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OsmPoiCategorySelectionGroup(
+                            options = osmCategoryOptions,
+                            selectedIds = selectedOsmCategoryIds,
+                            onCheckedChange = { categoryId, isChecked ->
+                                selectedOsmCategoryIds =
+                                    if (isChecked) {
+                                        selectedOsmCategoryIds + categoryId
+                                    } else {
+                                        selectedOsmCategoryIds - categoryId
+                                    }
+                            },
+                        )
+                        if (selectedOsmCategoryIds.isEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Select at least one OSM category.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                    if (selectedSource == PoiImportSource.REFUGES) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            "Point types",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        RefugesTypePresetChips(
+                            presets = pointTypePresets,
+                            selectedIds = selectedTypeIds,
+                            onPresetSelected = { presetIds ->
+                                selectedTypeIds = presetIds
+                            },
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        RefugesTypeSelectionGroup(
+                            options = pointTypeOptions,
+                            selectedIds = selectedTypeIds,
+                            onCheckedChange = { typeId, isChecked ->
+                                selectedTypeIds =
+                                    if (isChecked) {
+                                        selectedTypeIds + typeId
+                                    } else {
+                                        selectedTypeIds - typeId
+                                    }
+                            },
+                        )
+                        if (selectedTypeIds.isEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Select at least one type.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
                         "Select area source",
                         style = MaterialTheme.typography.labelSmall,
                     )
@@ -667,136 +798,6 @@ internal fun RefugesImportDialog(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        "Source",
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilterChip(
-                            selected = selectedSource == PoiImportSource.OSM,
-                            onClick = {
-                                selectSource(PoiImportSource.OSM)
-                            },
-                            label = { Text("OSM") },
-                            colors = companionFilterChipColors(),
-                        )
-                        FilterChip(
-                            selected = selectedSource == PoiImportSource.REFUGES,
-                            onClick = {
-                                selectSource(PoiImportSource.REFUGES)
-                            },
-                            label = { Text("Refuges.info") },
-                            colors = companionFilterChipColors(),
-                        )
-                    }
-                    if (selectedSource == PoiImportSource.REFUGES) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            "refuges.info POIs for France, the Alps, and the Pyrenees.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(
-                                text = "Enrich with OSM",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Switch(
-                                checked = enrichWithOsm,
-                                onCheckedChange = { enrichWithOsm = it },
-                            )
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            "All OSM categories are shown below. Essentials = huts, water, peaks.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    if (requiresOsmTypeSelection) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            "OSM categories",
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        OsmPoiCategoryPresetChips(
-                            presets = osmCategoryPresets,
-                            selectedIds = selectedOsmCategoryIds,
-                            onPresetSelected = { presetIds ->
-                                selectedOsmCategoryIds = presetIds
-                            },
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        OsmPoiCategorySelectionGroup(
-                            options = osmCategoryOptions,
-                            selectedIds = selectedOsmCategoryIds,
-                            onCheckedChange = { categoryId, isChecked ->
-                                selectedOsmCategoryIds =
-                                    if (isChecked) {
-                                        selectedOsmCategoryIds + categoryId
-                                    } else {
-                                        selectedOsmCategoryIds - categoryId
-                                    }
-                            },
-                        )
-                        if (selectedOsmCategoryIds.isEmpty()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Select at least one OSM category.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
-                    if (selectedSource == PoiImportSource.REFUGES) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            "Point types",
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        RefugesTypePresetChips(
-                            presets = pointTypePresets,
-                            selectedIds = selectedTypeIds,
-                            onPresetSelected = { presetIds ->
-                                selectedTypeIds = presetIds
-                            },
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        RefugesTypeSelectionGroup(
-                            options = pointTypeOptions,
-                            selectedIds = selectedTypeIds,
-                            onCheckedChange = { typeId, isChecked ->
-                                selectedTypeIds =
-                                    if (isChecked) {
-                                        selectedTypeIds + typeId
-                                    } else {
-                                        selectedTypeIds - typeId
-                                    }
-                            },
-                        )
-                        if (selectedTypeIds.isEmpty()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Select at least one type.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = fileNameInput,
