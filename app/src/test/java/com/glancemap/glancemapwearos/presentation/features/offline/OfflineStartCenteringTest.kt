@@ -1,9 +1,9 @@
 package com.glancemap.glancemapwearos.presentation.features.offline
 
+import com.glancemap.glancemapwearos.core.maps.GeoBounds
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.mapsforge.core.model.BoundingBox
 import org.mapsforge.core.model.LatLong
 
 class OfflineStartCenteringTest {
@@ -71,12 +71,12 @@ class OfflineStartCenteringTest {
 
     private fun alpsMapArea(): SelectedOfflineMapArea =
         SelectedOfflineMapArea(
-            boundingBox =
-                BoundingBox(
-                    44.0,
-                    5.0,
-                    46.0,
-                    7.0,
+            bounds =
+                GeoBounds(
+                    minLat = 44.0,
+                    maxLat = 46.0,
+                    minLon = 5.0,
+                    maxLon = 7.0,
                 ),
             center = LatLong(45.0, 6.0),
         )

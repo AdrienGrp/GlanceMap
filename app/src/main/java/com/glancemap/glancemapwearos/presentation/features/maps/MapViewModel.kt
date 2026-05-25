@@ -11,6 +11,7 @@ import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
 import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.maps.GeoBounds
+import com.glancemap.glancemapwearos.core.maps.geoBoundsOrNull
 import com.glancemap.glancemapwearos.core.routing.RoutingCoverageUtils
 import com.glancemap.glancemapwearos.core.routing.isRoutingSegmentFileName
 import com.glancemap.glancemapwearos.core.routing.routingSegmentBounds
@@ -42,12 +43,14 @@ import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.mapsforge.map.android.view.MapView
+import org.mapsforge.map.reader.MapFile
 import java.io.File
 import java.util.Locale
 
 data class MapFileState(
     val name: String,
     val path: String,
+    val bounds: GeoBounds? = null,
     val demCoverageKnown: Boolean = false,
     val demRequiredTiles: Int = 0,
     val demAvailableTiles: Int = 0,
@@ -386,7 +389,7 @@ class MapViewModel(
         center: LatLong?,
         zoomLevel: Int,
     ) {
-        val canSave = center?.hasFiniteCoordinates() == true
+        val canSave = offlineStartCenterApplied && center?.hasFiniteCoordinates() == true
         if (canSave) {
             offlineViewportSnapshot =
                 OfflineViewportSnapshot(
@@ -422,6 +425,25 @@ class MapViewModel(
             ?: offlineViewportSnapshot?.center
 
     private fun LatLong.hasFiniteCoordinates(): Boolean = latitude.isFinite() && longitude.isFinite()
+
+    private fun readMapBounds(file: File): GeoBounds? =
+        runCatching {
+            val map = MapFile(file)
+            val bbox =
+                try {
+                    map.boundingBox()
+                } finally {
+                    runCatching { map.close() }
+                }
+            geoBoundsOrNull(
+                minLat = bbox.minLatitude,
+                maxLat = bbox.maxLatitude,
+                minLon = bbox.minLongitude,
+                maxLon = bbox.maxLongitude,
+            )
+        }.onFailure { error ->
+            Log.w("MapViewModel", "Failed reading map bounds for ${file.absolutePath}", error)
+        }.getOrNull()
 
     private fun applyLatestZoomBounds(reason: String) {
         val zoomMin = latestZoomMin
@@ -540,9 +562,11 @@ class MapViewModel(
                                 sources = DemSource.LOAD_PRIORITY,
                             )
                         val routingCoverage = RoutingCoverageUtils.coverageForMap(context, file)
+                        val bounds = readMapBounds(file)
                         MapFileState(
                             name = file.name,
                             path = file.absolutePath,
+                            bounds = bounds,
                             demCoverageKnown = coverage.isCoverageKnown,
                             demRequiredTiles = coverage.requiredTiles,
                             demAvailableTiles = coverage.availableTiles,
