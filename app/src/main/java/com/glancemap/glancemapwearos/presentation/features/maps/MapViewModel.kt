@@ -199,6 +199,14 @@ class MapViewModel(
                 requestMapLayerUpdate(newPath)
             }.launchIn(viewModelScope)
 
+        settingsRepository.offlineMode
+            .distinctUntilChanged()
+            .onEach { offlineMode ->
+                if (!offlineMode) {
+                    clearOfflineViewportMemory()
+                }
+            }.launchIn(viewModelScope)
+
         settingsRepository.isMetric
             .distinctUntilChanged()
             .onEach { isMetric ->
@@ -340,6 +348,12 @@ class MapViewModel(
     fun resetOfflineStartCenterTracking() {
         offlineStartCenterContextKey = null
         offlineStartCenterApplied = false
+    }
+
+    private fun clearOfflineViewportMemory() {
+        offlineViewportSnapshot = null
+        forcedOfflineStartCenterContextKey = null
+        resetOfflineStartCenterTracking()
     }
 
     fun shouldForceOfflineStartCenter(
