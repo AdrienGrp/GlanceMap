@@ -14,6 +14,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,7 +52,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
@@ -486,6 +489,35 @@ internal fun FilePickerQuickGuideDialog(
             adaptive.quickGuideDialogMaxHeight
         }
     val bodyScrollState = rememberScrollState()
+    val density = LocalDensity.current
+    val pageSwipeThresholdPx = with(density) { QUICK_GUIDE_PAGE_SWIPE_THRESHOLD_DP.dp.toPx() }
+    val pageSwipeModifier =
+        if (pages.size > 1) {
+            Modifier.pointerInput(pages.size, pageIndex) {
+                var horizontalDragTotal = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { horizontalDragTotal = 0f },
+                    onHorizontalDrag = { change, dragAmount ->
+                        horizontalDragTotal += dragAmount
+                        change.consume()
+                    },
+                    onDragEnd = {
+                        when {
+                            horizontalDragTotal < -pageSwipeThresholdPx && pageIndex < pages.lastIndex -> {
+                                pageIndex += 1
+                            }
+
+                            horizontalDragTotal > pageSwipeThresholdPx && pageIndex > 0 -> {
+                                pageIndex -= 1
+                            }
+                        }
+                    },
+                    onDragCancel = { horizontalDragTotal = 0f },
+                )
+            }
+        } else {
+            Modifier
+        }
     LaunchedEffect(mode, pageIndex) {
         bodyScrollState.scrollTo(0)
     }
@@ -533,6 +565,7 @@ internal fun FilePickerQuickGuideDialog(
             Column(
                 modifier =
                     Modifier
+                        .then(pageSwipeModifier)
                         .fillMaxWidth()
                         .heightIn(max = bodyMaxHeight),
                 verticalArrangement = Arrangement.spacedBy(if (isWelcomePage) 8.dp else 12.dp),
@@ -807,6 +840,7 @@ private const val GUIDE_TOOLS_ICON_ID = "guide_tools_icon"
 private const val GUIDE_STAY_ICON_ID = "guide_stay_icon"
 private const val GUIDE_BOOK_ICON_ID = "guide_book_icon"
 private const val GUIDE_DOWNLOAD_ICON_ID = "guide_download_icon"
+private const val QUICK_GUIDE_PAGE_SWIPE_THRESHOLD_DP = 64
 private const val WELCOME_WATCH_DOWNLOAD_INTRO =
     "Start on the watch: direct bundle downloads are the easiest way to get offline maps."
 private const val STAY_OPEN_GUIDE_LINE = "__stay_open_guide_line__"
