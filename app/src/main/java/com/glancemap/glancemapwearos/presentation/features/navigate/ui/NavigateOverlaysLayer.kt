@@ -153,7 +153,15 @@ internal fun BoxScope.NavigateOverlaysLayer(
         }
     }
 
-    LaunchedEffect(navMode, liveDistanceEnabled, locationMarker, lastKnownLocation, mapView, mapRotationDeg) {
+    LaunchedEffect(
+        navMode,
+        liveDistanceEnabled,
+        locationMarker,
+        lastKnownLocation,
+        mapView,
+        mapRotationDeg,
+        navigationMarkerAnchorMode,
+    ) {
         if (navMode != NavMode.PANNING || !liveDistanceEnabled) {
             liveDistanceLineStart = null
             return@LaunchedEffect

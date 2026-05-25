@@ -2,8 +2,8 @@ package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import org.mapsforge.core.model.LatLong
-import org.mapsforge.core.util.MercatorProjection
 import org.mapsforge.map.android.view.MapView
+import kotlin.math.ceil
 
 internal fun MapView.setCenterForNavigationMarker(
     markerLatLong: LatLong,
@@ -17,35 +17,10 @@ internal fun MapView.resolveMapCenterForNavigationMarker(
     markerLatLong: LatLong,
     markerAnchorMode: String,
 ): LatLong {
-    if (markerAnchorMode != SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) {
+    if (markerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) {
         return markerLatLong
     }
-    val widthPx = width.toDouble()
-    val heightPx = height.toDouble()
-    if (widthPx <= 0.0 || heightPx <= 0.0) return markerLatLong
-
-    val anchor = resolveNavigationMarkerScreenAnchor(markerAnchorMode)
-    val desiredMarker =
-        unrotateTouchToMapSpace(
-            point = anchor,
-            mapWidth = widthPx,
-            mapHeight = heightPx,
-            mapRotationDeg = mapRotation.degrees.toDouble(),
-            pivot = anchor,
-        )
-
-    val zoomLevel = model.mapViewPosition.zoomLevel
-    val tileSize = model.displayModel.tileSize
-    val mapSize = MercatorProjection.getMapSize(zoomLevel, tileSize)
-    val markerPixelX = MercatorProjection.longitudeToPixelX(markerLatLong.longitude, mapSize)
-    val markerPixelY = MercatorProjection.latitudeToPixelY(markerLatLong.latitude, mapSize)
-    val centerPixelX = markerPixelX - desiredMarker.x + widthPx / 2.0
-    val centerPixelY = markerPixelY - desiredMarker.y + heightPx / 2.0
-
-    return LatLong(
-        MercatorProjection.pixelYToLatitude(centerPixelY, mapSize),
-        MercatorProjection.pixelXToLongitude(centerPixelX, mapSize),
-    )
+    return markerLatLong
 }
 
 internal fun MapView.resolveNavigationMarkerScreenAnchor(markerAnchorMode: String): ScreenAnchor {
@@ -61,13 +36,34 @@ internal fun MapView.resolveNavigationMarkerScreenAnchor(markerAnchorMode: Strin
         return ScreenAnchor(centerX, centerY)
     }
 
-    val lowerMarkerRaisePx = LOWER_MARKER_RAISE_DP * resources.displayMetrics.density
-    val lowerY =
-        (heightPx * LOWER_MARKER_SCREEN_FRACTION - lowerMarkerRaisePx).coerceIn(
-            heightPx * LOWER_MARKER_MIN_SCREEN_FRACTION,
-            heightPx * LOWER_MARKER_MAX_SCREEN_FRACTION,
-        )
-    return ScreenAnchor(centerX, lowerY)
+    return ScreenAnchor(centerX, centerY)
+}
+
+internal fun navigationMarkerMapSurfaceHeightPx(
+    visibleHeightPx: Int,
+    density: Float,
+    markerAnchorMode: String,
+): Int {
+    if (
+        visibleHeightPx <= 0 ||
+        markerAnchorMode != SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER
+    ) {
+        return visibleHeightPx.coerceAtLeast(0)
+    }
+    val lowerY = lowerNavigationMarkerAnchorY(visibleHeightPx.toDouble(), density)
+    return ceil(lowerY * 2.0).toInt().coerceAtLeast(visibleHeightPx)
+}
+
+internal fun lowerNavigationMarkerAnchorY(
+    visibleHeightPx: Double,
+    density: Float,
+): Double {
+    if (visibleHeightPx <= 0.0) return 0.0
+    val lowerMarkerRaisePx = LOWER_MARKER_RAISE_DP * density
+    return (visibleHeightPx * LOWER_MARKER_SCREEN_FRACTION - lowerMarkerRaisePx).coerceIn(
+        visibleHeightPx * LOWER_MARKER_MIN_SCREEN_FRACTION,
+        visibleHeightPx * LOWER_MARKER_MAX_SCREEN_FRACTION,
+    )
 }
 
 private const val LOWER_MARKER_SCREEN_FRACTION = 0.82

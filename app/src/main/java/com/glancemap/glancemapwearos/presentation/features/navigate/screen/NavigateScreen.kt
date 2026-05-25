@@ -1254,7 +1254,7 @@ fun NavigateScreen(
                 routeToolActions.executeModifyDraft(draft, false)
             }
         },
-        onCrosshairSelectionPickHere = routeToolActions.savePoiAtCurrentMapCenter,
+        onCrosshairSelectionPickHere = routeToolActions.savePoiAt,
         onCancelCrosshairSelection = { poiCreationSelectionActive = false },
         onInspectTrack = { latLong -> gpxViewModel.onMapLongPress(latLong) },
         visiblePoiMarkers = visiblePoiMarkers,

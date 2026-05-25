@@ -259,6 +259,7 @@ internal fun MapOverlays(
 }
 
 @Composable
+@Suppress("FunctionNaming", "LongParameterList")
 private fun GpsAccuracyCircleLayerEffect(
     mapView: MapView,
     gpsAccuracyCircleEnabled: Boolean,
