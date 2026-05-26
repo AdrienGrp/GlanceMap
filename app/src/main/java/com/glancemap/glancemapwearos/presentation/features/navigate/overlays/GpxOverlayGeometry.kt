@@ -7,6 +7,7 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.util.MercatorProjection
 import kotlin.math.atan2
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -181,12 +182,7 @@ internal fun buildVisibleGpxDirectionArrows(
     val candidates = ArrayList<GpxDirectionArrow>()
     val arrowPixels = ArrayList<XY>(maxArrows)
     visibleIntervals.forEach { interval ->
-        var distance =
-            if (interval.length <= GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX) {
-                interval.start + interval.length * 0.5
-            } else {
-                interval.start + GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX * 0.5
-            }
+        var distance = firstAnchoredArrowDistanceInInterval(interval)
 
         while (distance < interval.end) {
             val arrowPoint =
@@ -220,6 +216,14 @@ internal fun buildVisibleGpxDirectionArrows(
     }
 
     return downsampleEvenly(candidates, maxArrows)
+}
+
+private fun firstAnchoredArrowDistanceInInterval(interval: DistanceInterval): Double {
+    val spacing = GPX_VISIBLE_DIRECTION_ARROW_SPACING_PX
+    val firstAnchor = spacing * 0.5
+    if (interval.end <= firstAnchor) return firstAnchor
+    val steps = ceil((interval.start - firstAnchor) / spacing).coerceAtLeast(0.0)
+    return firstAnchor + steps * spacing
 }
 
 private fun pointAtDistance(
