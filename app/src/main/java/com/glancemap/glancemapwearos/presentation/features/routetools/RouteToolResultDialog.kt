@@ -39,6 +39,7 @@ import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
+import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 
 @Composable
 internal fun RouteToolResultDialog(
@@ -97,7 +98,7 @@ internal fun RouteToolResultDialog(
             Column(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .wearDialogWidth(roundFraction = 0.9f, squareFraction = 0.94f)
                         .padding(
                             horizontal = adaptive.dialogHorizontalPadding,
                             vertical = adaptive.dialogVerticalPadding,

@@ -61,6 +61,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -575,6 +576,7 @@ fun PoiScreen(
                                     },
                             ),
                     )
+                    WearDialogScrollBottomSpacer()
                 }
             },
         )

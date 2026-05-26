@@ -63,8 +63,10 @@ fun RenameValueDialog(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth(dialogWidthFraction)
-                    .background(
+                    .wearDialogWidth(
+                        roundFraction = dialogWidthFraction,
+                        squareFraction = dialogWidthFraction,
+                    ).background(
                         Color.Black,
                         RoundedCornerShape(adaptive.dialogCornerRadius),
                     ).padding(

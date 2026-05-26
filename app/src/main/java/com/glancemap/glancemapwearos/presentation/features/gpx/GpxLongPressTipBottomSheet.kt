@@ -21,6 +21,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
+import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 
 private const val GPX_TIP_DRAG_DISMISS_PX = 55f
 
@@ -36,7 +37,7 @@ fun GpxLongPressTipBottomSheet(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .wearDialogWidth()
                     .background(
                         Color.Black.copy(alpha = 0.82f),
                         RoundedCornerShape(adaptive.dialogCornerRadius),

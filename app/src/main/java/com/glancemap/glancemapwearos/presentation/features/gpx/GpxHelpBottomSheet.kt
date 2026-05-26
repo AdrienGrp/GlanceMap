@@ -21,6 +21,7 @@ import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 
 @Composable
@@ -73,6 +74,7 @@ fun GpxHelpBottomSheet(
                         ),
                 )
                 Text("Use edit or delete mode to rename or remove tracks.")
+                WearDialogScrollBottomSpacer()
             }
         },
     )

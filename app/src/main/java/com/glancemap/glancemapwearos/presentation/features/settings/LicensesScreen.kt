@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,7 +39,9 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
+import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.material.Chip
@@ -336,7 +337,7 @@ private fun LicenseDocumentDialog(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .wearDialogWidth()
                     .background(
                         Color.Black.copy(alpha = 0.82f),
                         RoundedCornerShape(adaptive.dialogCornerRadius),
@@ -395,7 +396,7 @@ private fun LicenseDocumentDialog(
                     text = documentText,
                     style = MaterialTheme.typography.bodySmall,
                 )
-                Spacer(modifier = Modifier.height(adaptive.dialogVerticalPadding + 28.dp))
+                WearDialogScrollBottomSpacer()
             }
         }
     }
