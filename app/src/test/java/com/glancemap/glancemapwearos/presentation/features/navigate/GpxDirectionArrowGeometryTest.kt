@@ -6,6 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mapsforge.core.model.BoundingBox
 import org.mapsforge.core.model.LatLong
+import kotlin.math.roundToInt
 
 class GpxDirectionArrowGeometryTest {
     @Test
@@ -190,6 +191,49 @@ class GpxDirectionArrowGeometryTest {
         assertTrue(arrows.first().latLong.longitude in 6.49..6.51)
     }
 
+    @Test
+    fun keepsVisibleArrowPositionsAnchoredWhenViewportPans() {
+        val points =
+            (0..2400).map { index ->
+                trackPoint(
+                    lat = 45.0,
+                    lon = 6.0 + index * 0.000025,
+                )
+            }
+
+        val firstViewport =
+            buildVisibleGpxDirectionArrows(
+                points = points,
+                zoom = 16,
+                tileSize = 256,
+                boundingBox =
+                    BoundingBox(
+                        44.999,
+                        6.0,
+                        45.001,
+                        6.03,
+                    ),
+            )
+        val slightlyPannedViewport =
+            buildVisibleGpxDirectionArrows(
+                points = points,
+                zoom = 16,
+                tileSize = 256,
+                boundingBox =
+                    BoundingBox(
+                        44.999,
+                        6.001,
+                        45.001,
+                        6.031,
+                    ),
+            )
+
+        val firstKeys = firstViewport.map { it.latLong.longitude.roundKey() }.toSet()
+        val pannedKeys = slightlyPannedViewport.map { it.latLong.longitude.roundKey() }.toSet()
+
+        assertTrue(firstKeys.intersect(pannedKeys).isNotEmpty())
+    }
+
     private fun trackPoint(
         lat: Double,
         lon: Double,
@@ -197,4 +241,6 @@ class GpxDirectionArrowGeometryTest {
         latLong = LatLong(lat, lon),
         elevation = null,
     )
+
+    private fun Double.roundKey(): Int = (this * 1_000_000).roundToInt()
 }

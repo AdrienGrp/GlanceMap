@@ -32,7 +32,6 @@ internal class GpxDirectionArrowLayer(
         val zoom = zoomLevel.toInt()
         val tileSize = displayModel.tileSize
         val mapSize = getCachedMapSize(zoomLevel, tileSize)
-        val mapDeg = mapViewRotation.degrees
         trackLods.values.forEach { lod ->
             val arrows =
                 buildVisibleGpxDirectionArrows(
@@ -47,7 +46,6 @@ internal class GpxDirectionArrowLayer(
                     canvas = canvas,
                     topLeft = topLeft,
                     mapSize = mapSize,
-                    mapRotationDeg = mapDeg,
                 )
             }
         }
@@ -58,7 +56,6 @@ internal class GpxDirectionArrowLayer(
         canvas: Canvas,
         topLeft: Point,
         mapSize: Long,
-        mapRotationDeg: Float,
     ) {
         val pixelX = MercatorProjection.longitudeToPixelX(arrow.latLong.longitude, mapSize) - topLeft.x
         val pixelY = MercatorProjection.latitudeToPixelY(arrow.latLong.latitude, mapSize) - topLeft.y
@@ -66,7 +63,7 @@ internal class GpxDirectionArrowLayer(
         val drawY = floor(pixelY - bitmap.height / 2f).toInt()
         val pivotX = drawX + bitmap.width / 2f
         val pivotY = drawY + bitmap.height / 2f
-        val effective = normalize360(arrow.headingDeg - mapRotationDeg)
+        val effective = normalize360(arrow.headingDeg)
 
         canvas.save()
         if (effective != 0f) {
