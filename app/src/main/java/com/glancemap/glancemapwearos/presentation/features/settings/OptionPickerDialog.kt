@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
+import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
@@ -59,7 +61,7 @@ internal fun <T> OptionPickerDialog(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .wearDialogWidth()
                     .background(
                         Color.Black.copy(alpha = 0.82f),
                         RoundedCornerShape(adaptive.dialogCornerRadius),
@@ -112,6 +114,7 @@ internal fun <T> OptionPickerDialog(
                         }.focusRequester(focusRequester)
                         .focusable(),
                 state = listState,
+                contentPadding = PaddingValues(bottom = adaptive.dialogVerticalPadding + 24.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 userScrollEnabled = true,
             ) {

@@ -34,7 +34,9 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchResultUiState
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
+import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 
 @Composable
 internal fun RoutePoiSearchDialog(
@@ -71,7 +73,7 @@ internal fun RoutePoiSearchDialog(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .wearDialogWidth()
                     .background(
                         Color.Black.copy(alpha = 0.92f),
                         RoundedCornerShape(adaptive.dialogCornerRadius),
@@ -180,6 +182,7 @@ internal fun RoutePoiSearchDialog(
                             }
                         }
                     }
+                    WearDialogScrollBottomSpacer()
                 }
             }
 

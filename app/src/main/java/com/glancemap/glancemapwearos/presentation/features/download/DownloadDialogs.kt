@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.Composable
@@ -41,7 +44,9 @@ import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
+import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 
 @Composable
 internal fun AreaSearchDialog(
@@ -69,7 +74,7 @@ internal fun AreaSearchDialog(
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth(0.86f)
+                    .wearDialogWidth(roundFraction = 0.86f, squareFraction = 0.86f)
                     .background(
                         Color.Black,
                         RoundedCornerShape(adaptive.dialogCornerRadius),
@@ -146,6 +151,7 @@ internal fun OamAttributionDialog(
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
+    val adaptive = rememberWearAdaptiveSpec()
 
     AlertDialog(
         visible = visible,
@@ -153,6 +159,11 @@ internal fun OamAttributionDialog(
         title = { Text("Download") },
         text = {
             Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = adaptive.helpDialogMaxHeight)
+                        .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -183,6 +194,7 @@ internal fun OamAttributionDialog(
                     )
                     Text("Use update button to refresh bundles.")
                 }
+                WearDialogScrollBottomSpacer()
             }
         },
         confirmButton = {
