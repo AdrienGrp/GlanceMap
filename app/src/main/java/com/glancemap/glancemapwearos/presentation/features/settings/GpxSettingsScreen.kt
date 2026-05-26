@@ -77,18 +77,7 @@ fun GpxSettingsScreen(
     onOpenGeneralSettings: () -> Unit,
 ) {
     val screenSize = rememberWearScreenSize()
-    val listTokens =
-        rememberSettingsListTokens(
-            compactTop = 12.dp,
-            standardTop = 14.dp,
-            expandedTop = 16.dp,
-            compactBottom = 12.dp,
-            standardBottom = 14.dp,
-            expandedBottom = 16.dp,
-            compactItemSpacing = 12.dp,
-            standardItemSpacing = 14.dp,
-            expandedItemSpacing = 16.dp,
-        )
+    val listTokens = rememberSettingsListTokens()
     val adaptive = rememberWearAdaptiveSpec()
     val trackColor by viewModel.gpxTrackColor.collectAsState()
     val trackColorMode by viewModel.gpxTrackColorMode.collectAsState()
