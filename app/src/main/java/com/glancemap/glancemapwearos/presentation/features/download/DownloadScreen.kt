@@ -573,7 +573,7 @@ fun DownloadScreen(
                 }
             } else {
                 Text(
-                    text = "Bundle: ${uiState.selection.compactLabel()}",
+                    text = "Bundle: ${uiState.selection.itemCountLabel()}",
                     style =
                         MaterialTheme.typography.labelSmall.copy(
                             fontSize = footerTextSize,
@@ -883,14 +883,18 @@ private fun installedBundleSubtitle(bundle: OamInstalledBundle): String =
         "${bundle.demSource.shortLabel} elevation".takeIf { bundle.demTileIds.isNotEmpty() },
     ).joinToString(" + ").ifBlank { bundle.bundleChoice.label }
 
-private fun OamDownloadSelection.compactLabel(): String =
-    listOfNotNull(
-        "Maps".takeIf { includeMap },
-        "POI".takeIf { includePoi },
-        "Route".takeIf { includeRouting },
-        "${demSource.shortLabel} elevation".takeIf { includeDem },
-        "Refuges".takeIf { includeRefugesInfo },
-    ).joinToString(" + ").ifBlank { "None" }
+private fun OamDownloadSelection.itemCountLabel(): String {
+    val itemCount =
+        listOf(
+            includeMap,
+            includePoi,
+            includeRouting,
+            includeDem,
+            includeRefugesInfo,
+        ).count { it }
+    val noun = if (itemCount == 1) "item" else "items"
+    return "$itemCount $noun"
+}
 
 private fun List<OamDownloadArea>.estimatedSizeLabel(
     selection: OamDownloadSelection,
