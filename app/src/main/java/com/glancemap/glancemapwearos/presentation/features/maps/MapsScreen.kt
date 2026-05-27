@@ -143,9 +143,9 @@ fun MapsScreen(
         }
     val headerTopPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 6.dp
-            WearScreenSize.SMALL -> 4.dp
+            WearScreenSize.LARGE -> 14.dp
+            WearScreenSize.MEDIUM -> 12.dp
+            WearScreenSize.SMALL -> 10.dp
         }
     val headerBottomPadding =
         when (screenSize) {
