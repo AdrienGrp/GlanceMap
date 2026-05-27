@@ -88,5 +88,4 @@ internal fun rememberSettingsListTokens(
 }
 
 @Composable
-internal fun rememberSettingsScalingLazyListState(): ScalingLazyListState =
-    rememberScalingLazyListState(initialCenterItemIndex = 0)
+internal fun rememberSettingsScalingLazyListState(): ScalingLazyListState = rememberScalingLazyListState(initialCenterItemIndex = 0)
