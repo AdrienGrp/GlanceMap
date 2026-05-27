@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
@@ -24,6 +25,7 @@ fun MapDisplaySettingsScreen(
     viewModel: SettingsViewModel,
 ) {
     val listTokens = rememberSettingsListTokens()
+    val firstItemTopPadding = rememberSettingsFirstItemTopPadding()
     val northIndicatorMode by viewModel.northIndicatorMode.collectAsState()
     val navigationMarkerStyle by viewModel.navigationMarkerStyle.collectAsState()
     val showTimeInNavigate by viewModel.showTimeInNavigate.collectAsState()
@@ -86,6 +88,7 @@ fun MapDisplaySettingsScreen(
         ) {
             item {
                 SettingsToggleChip(
+                    modifier = Modifier.padding(top = firstItemTopPadding),
                     checked = showTimeInNavigate,
                     onCheckedChanged = { viewModel.setShowTimeInNavigate(it) },
                     label = "Show time on map",

@@ -29,12 +29,7 @@ internal fun GeneralSettingsShortcutChip(
             useCompactLabels -> 84.dp
             else -> 52.dp
         }
-    val topPadding =
-        if (useCompactLabels) {
-            20.dp
-        } else {
-            0.dp
-        }
+    val topPadding = rememberSettingsFirstItemTopPadding()
     val label =
         if (useCompactLabels) {
             "General"

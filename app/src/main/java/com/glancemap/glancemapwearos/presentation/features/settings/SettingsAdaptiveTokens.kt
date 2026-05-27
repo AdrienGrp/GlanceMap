@@ -17,6 +17,18 @@ internal data class SettingsListTokens(
 )
 
 @Composable
+internal fun rememberSettingsFirstItemTopPadding(): Dp {
+    val adaptive = rememberWearAdaptiveSpec()
+    return remember(adaptive.fontScale, adaptive.isRound) {
+        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
+            40.dp
+        } else {
+            0.dp
+        }
+    }
+}
+
+@Composable
 internal fun rememberSettingsListTokens(
     compactHorizontal: Dp = 12.dp,
     standardHorizontal: Dp = 14.dp,
@@ -31,17 +43,9 @@ internal fun rememberSettingsListTokens(
     standardItemSpacing: Dp = 7.dp,
     expandedItemSpacing: Dp = 8.dp,
 ): SettingsListTokens {
-    val adaptive = rememberWearAdaptiveSpec()
-    val windowClass = adaptive.windowClass
-    val largeTextTopExtra =
-        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
-            24.dp
-        } else {
-            0.dp
-        }
+    val windowClass = rememberWearAdaptiveSpec().windowClass
     return remember(
         windowClass,
-        largeTextTopExtra,
         compactHorizontal,
         standardHorizontal,
         expandedHorizontal,
@@ -59,7 +63,7 @@ internal fun rememberSettingsListTokens(
             WearWindowClass.COMPACT ->
                 SettingsListTokens(
                     horizontalPadding = compactHorizontal,
-                    topPadding = compactTop + largeTextTopExtra,
+                    topPadding = compactTop,
                     bottomPadding = compactBottom,
                     itemSpacing = compactItemSpacing,
                 )
@@ -67,7 +71,7 @@ internal fun rememberSettingsListTokens(
             WearWindowClass.STANDARD ->
                 SettingsListTokens(
                     horizontalPadding = standardHorizontal,
-                    topPadding = standardTop + largeTextTopExtra,
+                    topPadding = standardTop,
                     bottomPadding = standardBottom,
                     itemSpacing = standardItemSpacing,
                 )
@@ -75,7 +79,7 @@ internal fun rememberSettingsListTokens(
             WearWindowClass.EXPANDED ->
                 SettingsListTokens(
                     horizontalPadding = expandedHorizontal,
-                    topPadding = expandedTop + largeTextTopExtra,
+                    topPadding = expandedTop,
                     bottomPadding = expandedBottom,
                     itemSpacing = expandedItemSpacing,
                 )
