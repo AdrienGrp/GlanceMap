@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavHostController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
@@ -84,7 +83,7 @@ fun MapSettingsScreen(
         }
     val reliefOverlaySecondaryLabel = if (reliefOverlayEnabled) "On" else "Off"
 
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
 
     DemSetupBottomSheet(
         visible = showDemSetupDialog,

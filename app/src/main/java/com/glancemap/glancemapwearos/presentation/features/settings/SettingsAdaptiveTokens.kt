@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.foundation.lazy.ScalingLazyListState
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import com.glancemap.glancemapwearos.presentation.ui.WearWindowClass
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 
@@ -13,6 +15,18 @@ internal data class SettingsListTokens(
     val bottomPadding: Dp,
     val itemSpacing: Dp,
 )
+
+@Composable
+internal fun rememberSettingsFirstItemTopPadding(): Dp {
+    val adaptive = rememberWearAdaptiveSpec()
+    return remember(adaptive.fontScale, adaptive.isRound) {
+        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
+            64.dp
+        } else {
+            0.dp
+        }
+    }
+}
 
 @Composable
 internal fun rememberSettingsListTokens(
@@ -71,4 +85,10 @@ internal fun rememberSettingsListTokens(
                 )
         }
     }
+}
+
+@Composable
+@Suppress("ktlint:standard:function-expression-body")
+internal fun rememberSettingsScalingLazyListState(): ScalingLazyListState {
+    return rememberScalingLazyListState(initialCenterItemIndex = 0)
 }

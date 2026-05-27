@@ -20,7 +20,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
@@ -46,7 +45,7 @@ fun CompassSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val adaptive = rememberWearAdaptiveSpec()
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
     var showCalibrationDialog by remember { mutableStateOf(false) }
     var showCompassModePicker by remember { mutableStateOf(false) }
     var showProviderPicker by remember { mutableStateOf(false) }

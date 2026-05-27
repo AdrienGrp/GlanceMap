@@ -143,9 +143,9 @@ fun MapsScreen(
         }
     val headerTopPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 6.dp
-            WearScreenSize.SMALL -> 4.dp
+            WearScreenSize.LARGE -> 14.dp
+            WearScreenSize.MEDIUM -> 12.dp
+            WearScreenSize.SMALL -> 10.dp
         }
     val headerBottomPadding =
         when (screenSize) {
@@ -469,21 +469,29 @@ fun MapsScreen(
                 }
             },
             confirmButton = {
-                Button(onClick = { showRoutingDataDialog = false }) {
-                    Text("Done")
-                }
-            },
-            dismissButton = {
-                if (routingPackFiles.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (routingPackFiles.isNotEmpty()) {
+                        Button(
+                            onClick = { showDeleteAllRoutingDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                ),
+                        ) {
+                            Text("Delete all")
+                        }
+                    }
                     Button(
-                        onClick = { showDeleteAllRoutingDialog = true },
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                            ),
+                        onClick = { showRoutingDataDialog = false },
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Delete all")
+                        Text("Done")
                     }
                 }
             },

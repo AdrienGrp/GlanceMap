@@ -43,7 +43,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
@@ -119,7 +118,7 @@ fun GpxSettingsScreen(
             Color.Red,
         )
 
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
     val groupSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 8.dp

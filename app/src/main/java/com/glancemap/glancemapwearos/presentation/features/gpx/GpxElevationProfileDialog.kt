@@ -1,7 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.gpx
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,7 +41,6 @@ import com.glancemap.glancemapwearos.presentation.ui.WearWindowClass
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 
 private data class ElevationProfileDialogSizing(
-    val cornerRadius: Dp,
     val outerPadding: Dp,
     val surfaceWidthFraction: Float,
     val horizontalPadding: Dp,
@@ -67,7 +64,6 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
         WearWindowClass.EXPANDED -> {
             if (adaptive.isRound) {
                 ElevationProfileDialogSizing(
-                    cornerRadius = 18.dp,
                     outerPadding = 12.dp,
                     surfaceWidthFraction = 0.90f,
                     horizontalPadding = 14.dp,
@@ -85,7 +81,6 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
                 )
             } else {
                 ElevationProfileDialogSizing(
-                    cornerRadius = 18.dp,
                     outerPadding = 8.dp,
                     surfaceWidthFraction = 0.94f,
                     horizontalPadding = 14.dp,
@@ -107,7 +102,6 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
         WearWindowClass.STANDARD -> {
             if (adaptive.isRound) {
                 ElevationProfileDialogSizing(
-                    cornerRadius = 16.dp,
                     outerPadding = 11.dp,
                     surfaceWidthFraction = 0.92f,
                     horizontalPadding = 12.dp,
@@ -125,7 +119,6 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
                 )
             } else {
                 ElevationProfileDialogSizing(
-                    cornerRadius = 16.dp,
                     outerPadding = 8.dp,
                     surfaceWidthFraction = 0.96f,
                     horizontalPadding = 12.dp,
@@ -147,7 +140,6 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
         WearWindowClass.COMPACT -> {
             if (adaptive.isRound) {
                 ElevationProfileDialogSizing(
-                    cornerRadius = 14.dp,
                     outerPadding = 10.dp,
                     surfaceWidthFraction = 0.94f,
                     horizontalPadding = 11.dp,
@@ -165,7 +157,6 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
                 )
             } else {
                 ElevationProfileDialogSizing(
-                    cornerRadius = 14.dp,
                     outerPadding = 7.dp,
                     surfaceWidthFraction = 0.97f,
                     horizontalPadding = 10.dp,
@@ -193,7 +184,6 @@ fun GpxElevationProfileDialog(
     onDismiss: () -> Unit,
 ) {
     val sizing = rememberElevationProfileDialogSizing()
-    val surfaceShape = remember(sizing.cornerRadius) { RoundedCornerShape(sizing.cornerRadius) }
     val samples = profile.samples
 
     var selectedIndex by remember(profile.trackPath, samples.size) {
@@ -316,14 +306,7 @@ fun GpxElevationProfileDialog(
                                 }
                             }
                         }.padding(sizing.outerPadding)
-                        .background(
-                            color = Color.Black.copy(alpha = 0.985f),
-                            shape = surfaceShape,
-                        ).border(
-                            width = 1.dp,
-                            color = Color.White.copy(alpha = 0.14f),
-                            shape = surfaceShape,
-                        ).padding(
+                        .padding(
                             horizontal = sizing.horizontalPadding,
                             vertical = sizing.verticalPadding,
                         ),

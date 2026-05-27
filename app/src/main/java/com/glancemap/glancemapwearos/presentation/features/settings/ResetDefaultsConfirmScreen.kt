@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -21,7 +20,7 @@ fun ResetDefaultsConfirmScreen(
     onConfirmReset: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(

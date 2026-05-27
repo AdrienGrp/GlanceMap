@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
@@ -14,7 +15,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
@@ -25,6 +25,7 @@ fun MapDisplaySettingsScreen(
     viewModel: SettingsViewModel,
 ) {
     val listTokens = rememberSettingsListTokens()
+    val firstItemTopPadding = rememberSettingsFirstItemTopPadding()
     val northIndicatorMode by viewModel.northIndicatorMode.collectAsState()
     val navigationMarkerStyle by viewModel.navigationMarkerStyle.collectAsState()
     val showTimeInNavigate by viewModel.showTimeInNavigate.collectAsState()
@@ -32,7 +33,7 @@ fun MapDisplaySettingsScreen(
     val mapZoomButtonsMode by viewModel.mapZoomButtonsMode.collectAsState()
     val gpsAccuracyCircleEnabled by viewModel.gpsAccuracyCircleEnabled.collectAsState()
 
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
     val northIndicatorModes = listOf("ALWAYS", "COMPASS_ONLY", "NORTH_UP_ONLY", "NEVER")
     val markerStyles =
         listOf(
@@ -87,6 +88,7 @@ fun MapDisplaySettingsScreen(
         ) {
             item {
                 SettingsToggleChip(
+                    modifier = Modifier.padding(top = firstItemTopPadding),
                     checked = showTimeInNavigate,
                     onCheckedChanged = { viewModel.setShowTimeInNavigate(it) },
                     label = "Show time on map",

@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
@@ -68,7 +67,7 @@ fun PoiSettingsScreen(
             )
         }
 
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
