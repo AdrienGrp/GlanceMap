@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Shortcut
@@ -10,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
+import com.glancemap.glancemapwearos.presentation.ui.WearWindowClass
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
@@ -21,27 +23,36 @@ internal fun GeneralSettingsShortcutChip(
     modifier: Modifier = Modifier,
 ) {
     val adaptive = rememberWearAdaptiveSpec()
+    val useCompactLabels = adaptive.windowClass == WearWindowClass.COMPACT || adaptive.fontScale >= 1.25f
     val minHeight =
         when {
-            adaptive.fontScale >= 1.45f -> 84.dp
-            adaptive.fontScale >= 1.25f -> 68.dp
+            useCompactLabels -> 84.dp
             else -> 52.dp
         }
+    val topPadding =
+        if (useCompactLabels) {
+            20.dp
+        } else {
+            0.dp
+        }
     val label =
-        if (adaptive.fontScale >= 1.45f) {
+        if (useCompactLabels) {
             "General"
         } else {
             "General Settings"
         }
     val secondaryLabel =
-        if (adaptive.fontScale >= 1.45f) {
+        if (useCompactLabels) {
             "Settings menu"
         } else {
             "Back to settings menu"
         }
 
     Chip(
-        modifier = modifier.heightIn(min = minHeight),
+        modifier =
+            modifier
+                .padding(top = topPadding)
+                .heightIn(min = minHeight),
         label = label,
         secondaryLabel = secondaryLabel,
         icon = {
