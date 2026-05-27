@@ -76,7 +76,7 @@ import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
-import com.glancemap.glancemapwearos.presentation.ui.CappedFontScale
+import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -207,7 +207,7 @@ internal fun BoxScope.PanningLiveMetricsOverlay(
     navButtonBottomPadding: Dp,
     navButtonSize: Dp,
 ) {
-    CappedFontScale {
+    cappedFontScale {
         if (navMode == NavMode.PANNING && liveElevationEnabled) {
             Row(
                 modifier =

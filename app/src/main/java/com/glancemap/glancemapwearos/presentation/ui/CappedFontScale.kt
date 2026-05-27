@@ -6,7 +6,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 
 @Composable
-fun CappedFontScale(
+fun cappedFontScale(
     maxFontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {

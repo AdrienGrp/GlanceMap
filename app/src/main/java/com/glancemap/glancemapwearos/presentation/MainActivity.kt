@@ -52,7 +52,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefault
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
-import com.glancemap.glancemapwearos.presentation.ui.CappedFontScale
+import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.google.android.horologist.compose.layout.AppScaffold
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
@@ -155,7 +155,7 @@ class MainActivity : ComponentActivity() {
                 AppScaffold(
                     timeText = {
                         if (showTimeInNavigate && isNavigateScreen && !isAmbient) {
-                            CappedFontScale {
+                            cappedFontScale {
                                 val context = LocalContext.current
                                 TimeText(
                                     modifier = Modifier.padding(top = 2.dp),
