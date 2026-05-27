@@ -1,13 +1,16 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Shortcut
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
 
@@ -17,8 +20,16 @@ internal fun GeneralSettingsShortcutChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val adaptive = rememberWearAdaptiveSpec()
+    val minHeight =
+        when {
+            adaptive.fontScale >= 1.45f -> 76.dp
+            adaptive.fontScale >= 1.25f -> 68.dp
+            else -> 52.dp
+        }
+
     Chip(
-        modifier = modifier,
+        modifier = modifier.heightIn(min = minHeight),
         label = "General Settings",
         secondaryLabel = "Back to settings menu",
         icon = {
