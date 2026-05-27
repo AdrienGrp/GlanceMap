@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.foundation.lazy.ScalingLazyListState
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import com.glancemap.glancemapwearos.presentation.ui.WearWindowClass
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 
@@ -72,3 +74,7 @@ internal fun rememberSettingsListTokens(
         }
     }
 }
+
+@Composable
+internal fun rememberSettingsScalingLazyListState(): ScalingLazyListState =
+    rememberScalingLazyListState(initialCenterItemIndex = 0)

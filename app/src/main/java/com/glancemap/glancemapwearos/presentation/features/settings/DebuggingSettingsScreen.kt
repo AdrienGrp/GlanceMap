@@ -44,7 +44,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
@@ -140,7 +139,7 @@ fun DebuggingSettingsScreen(
         }
     val hasExportedDiagnostics = exportedDiagnosticsCount > 0
 
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
     val infoButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 24.dp

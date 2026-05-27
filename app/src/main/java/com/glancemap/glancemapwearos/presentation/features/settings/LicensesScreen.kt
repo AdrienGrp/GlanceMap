@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
@@ -61,7 +60,7 @@ fun LicensesScreen(onOpenGeneralSettings: () -> Unit) {
             expandedBottom = 32.dp,
         )
     var selectedDocument by remember { mutableStateOf<LicenseDocument?>(null) }
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(

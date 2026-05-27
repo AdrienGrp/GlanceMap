@@ -23,7 +23,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
@@ -156,7 +155,7 @@ fun ThemeSettingsScreen(
             expandedBottom = 16.dp,
         )
     val themeItems by themeViewModel.themeItems.collectAsState()
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
     var showThemePicker by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }

@@ -15,13 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -35,15 +33,7 @@ fun GpsSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenGeneralSettings: () -> Unit,
 ) {
-    val listTokens =
-        rememberSettingsListTokens(
-            compactTop = 12.dp,
-            standardTop = 14.dp,
-            expandedTop = 16.dp,
-            compactBottom = 12.dp,
-            standardBottom = 14.dp,
-            expandedBottom = 16.dp,
-        )
+    val listTokens = rememberSettingsListTokens()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -85,7 +75,7 @@ fun GpsSettingsScreen(
             },
         )
 
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(

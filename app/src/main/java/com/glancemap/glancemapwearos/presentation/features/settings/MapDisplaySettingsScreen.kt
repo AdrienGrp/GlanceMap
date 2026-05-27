@@ -14,7 +14,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
@@ -32,7 +31,7 @@ fun MapDisplaySettingsScreen(
     val mapZoomButtonsMode by viewModel.mapZoomButtonsMode.collectAsState()
     val gpsAccuracyCircleEnabled by viewModel.gpsAccuracyCircleEnabled.collectAsState()
 
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
     val northIndicatorModes = listOf("ALWAYS", "COMPASS_ONLY", "NORTH_UP_ONLY", "NEVER")
     val markerStyles =
         listOf(

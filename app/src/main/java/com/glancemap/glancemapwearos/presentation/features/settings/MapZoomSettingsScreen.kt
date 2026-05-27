@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
@@ -46,7 +45,7 @@ fun MapZoomSettingsScreen(
     val isMetric by viewModel.isMetric.collectAsState()
     var showCrownDirectionPicker by remember { mutableStateOf(false) }
 
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(

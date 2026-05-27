@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SplitSwitchButton
@@ -31,6 +30,7 @@ import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsToggleChip
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsListTokens
+import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsScalingLazyListState
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
 
@@ -38,7 +38,7 @@ import com.google.android.horologist.compose.layout.ScreenScaffold
 @Composable
 fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState()
     val listTokens = rememberSettingsListTokens()
     var showDemSourcePicker by remember { mutableStateOf(false) }
 
