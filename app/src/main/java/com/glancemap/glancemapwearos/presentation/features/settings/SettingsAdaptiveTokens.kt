@@ -31,9 +31,17 @@ internal fun rememberSettingsListTokens(
     standardItemSpacing: Dp = 7.dp,
     expandedItemSpacing: Dp = 8.dp,
 ): SettingsListTokens {
-    val windowClass = rememberWearAdaptiveSpec().windowClass
+    val adaptive = rememberWearAdaptiveSpec()
+    val windowClass = adaptive.windowClass
+    val largeTextTopExtra =
+        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
+            24.dp
+        } else {
+            0.dp
+        }
     return remember(
         windowClass,
+        largeTextTopExtra,
         compactHorizontal,
         standardHorizontal,
         expandedHorizontal,
@@ -51,7 +59,7 @@ internal fun rememberSettingsListTokens(
             WearWindowClass.COMPACT ->
                 SettingsListTokens(
                     horizontalPadding = compactHorizontal,
-                    topPadding = compactTop,
+                    topPadding = compactTop + largeTextTopExtra,
                     bottomPadding = compactBottom,
                     itemSpacing = compactItemSpacing,
                 )
@@ -59,7 +67,7 @@ internal fun rememberSettingsListTokens(
             WearWindowClass.STANDARD ->
                 SettingsListTokens(
                     horizontalPadding = standardHorizontal,
-                    topPadding = standardTop,
+                    topPadding = standardTop + largeTextTopExtra,
                     bottomPadding = standardBottom,
                     itemSpacing = standardItemSpacing,
                 )
@@ -67,7 +75,7 @@ internal fun rememberSettingsListTokens(
             WearWindowClass.EXPANDED ->
                 SettingsListTokens(
                     horizontalPadding = expandedHorizontal,
-                    topPadding = expandedTop,
+                    topPadding = expandedTop + largeTextTopExtra,
                     bottomPadding = expandedBottom,
                     itemSpacing = expandedItemSpacing,
                 )
