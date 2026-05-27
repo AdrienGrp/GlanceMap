@@ -21,7 +21,7 @@ internal fun rememberSettingsFirstItemTopPadding(): Dp {
     val adaptive = rememberWearAdaptiveSpec()
     return remember(adaptive.fontScale, adaptive.isRound) {
         if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
-            40.dp
+            64.dp
         } else {
             0.dp
         }

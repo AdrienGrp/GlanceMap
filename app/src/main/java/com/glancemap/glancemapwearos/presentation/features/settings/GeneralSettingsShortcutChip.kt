@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,11 +43,18 @@ internal fun GeneralSettingsShortcutChip(
         } else {
             "Back to settings menu"
         }
+    val widthFraction =
+        if (adaptive.isRound && useCompactLabels) {
+            0.78f
+        } else {
+            1f
+        }
 
     Chip(
         modifier =
             modifier
                 .padding(top = topPadding)
+                .fillMaxWidth(widthFraction)
                 .heightIn(min = minHeight),
         label = label,
         secondaryLabel = secondaryLabel,
