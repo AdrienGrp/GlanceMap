@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -414,6 +417,12 @@ internal fun NavigateContent(
                 WearScreenSize.MEDIUM -> 16.dp
                 WearScreenSize.SMALL -> 14.dp
             }
+        }
+    val permissionButtonMinHeight =
+        when {
+            adaptive.fontScale >= 1.45f -> 56.dp
+            adaptive.fontScale >= 1.25f -> 50.dp
+            else -> 0.dp
         }
     val latestNavMode = rememberUpdatedState(navMode)
     val latestOnUserPanStarted = rememberUpdatedState(onUserPanStarted)
@@ -1208,7 +1217,8 @@ internal fun NavigateContent(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .padding(permissionContentPadding),
+                        .padding(permissionContentPadding)
+                        .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
@@ -1216,7 +1226,10 @@ internal fun NavigateContent(
                     "Location permission required for this screen.",
                     textAlign = TextAlign.Center,
                 )
-                Button(onClick = onPermissionLaunch) {
+                Button(
+                    onClick = onPermissionLaunch,
+                    modifier = Modifier.heightIn(min = permissionButtonMinHeight),
+                ) {
                     Text("Grant Permission")
                 }
             }
