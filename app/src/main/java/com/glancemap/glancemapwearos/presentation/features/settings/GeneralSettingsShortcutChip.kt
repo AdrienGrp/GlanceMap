@@ -23,15 +23,27 @@ internal fun GeneralSettingsShortcutChip(
     val adaptive = rememberWearAdaptiveSpec()
     val minHeight =
         when {
-            adaptive.fontScale >= 1.45f -> 76.dp
+            adaptive.fontScale >= 1.45f -> 84.dp
             adaptive.fontScale >= 1.25f -> 68.dp
             else -> 52.dp
+        }
+    val label =
+        if (adaptive.fontScale >= 1.45f) {
+            "General"
+        } else {
+            "General Settings"
+        }
+    val secondaryLabel =
+        if (adaptive.fontScale >= 1.45f) {
+            "Settings menu"
+        } else {
+            "Back to settings menu"
         }
 
     Chip(
         modifier = modifier.heightIn(min = minHeight),
-        label = "General Settings",
-        secondaryLabel = "Back to settings menu",
+        label = label,
+        secondaryLabel = secondaryLabel,
         icon = {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Shortcut,
