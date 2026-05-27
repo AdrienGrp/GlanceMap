@@ -88,4 +88,7 @@ internal fun rememberSettingsListTokens(
 }
 
 @Composable
-internal fun rememberSettingsScalingLazyListState(): ScalingLazyListState = rememberScalingLazyListState(initialCenterItemIndex = 0)
+@Suppress("ktlint:standard:function-expression-body")
+internal fun rememberSettingsScalingLazyListState(): ScalingLazyListState {
+    return rememberScalingLazyListState(initialCenterItemIndex = 0)
+}
