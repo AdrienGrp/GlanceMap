@@ -43,6 +43,7 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteShortcutTray
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolInlineProgressBanner
+import com.glancemap.glancemapwearos.presentation.ui.CappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import kotlinx.coroutines.delay
 import org.mapsforge.core.model.LatLong
@@ -329,23 +330,25 @@ internal fun BoxScope.NavigateOverlaysLayer(
                     .align(Alignment.TopCenter)
                     .padding(top = zoomLabelTopPadding),
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = indicator.label,
-                    modifier =
-                        Modifier
-                            .padding(top = 2.dp)
-                            .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(5.dp))
-                            .padding(horizontal = 5.dp, vertical = 1.dp),
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 10.sp,
-                    lineHeight = 10.sp,
-                )
-                StandardScaleBar(
-                    width = zoomScaleBarWidth,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
+            CappedFontScale {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = indicator.label,
+                        modifier =
+                            Modifier
+                                .padding(top = 2.dp)
+                                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(5.dp))
+                                .padding(horizontal = 5.dp, vertical = 1.dp),
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 10.sp,
+                        lineHeight = 10.sp,
+                    )
+                    StandardScaleBar(
+                        width = zoomScaleBarWidth,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
         }
     }

@@ -76,6 +76,7 @@ import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
+import com.glancemap.glancemapwearos.presentation.ui.CappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -206,84 +207,86 @@ internal fun BoxScope.PanningLiveMetricsOverlay(
     navButtonBottomPadding: Dp,
     navButtonSize: Dp,
 ) {
-    if (navMode == NavMode.PANNING && liveElevationEnabled) {
-        Row(
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = zoomLabelTopPadding + 28.dp)
-                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_live_elevation_altitude),
-                contentDescription = "live_elevation",
-                modifier = Modifier.size(10.dp),
-                tint = Color(0xFF34D399),
-            )
-            Text(
-                text = " ${liveElevationLabel ?: "--"}",
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 10.sp,
-                lineHeight = 10.sp,
-            )
-        }
-    }
-
-    if (navMode == NavMode.PANNING && (liveElevationEnabled || liveDistanceEnabled)) {
-        Box(
-            modifier =
-                Modifier
-                    .align(Alignment.Center)
-                    .size(liveElevationIconSize),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
+    CappedFontScale {
+        if (navMode == NavMode.PANNING && liveElevationEnabled) {
+            Row(
                 modifier =
                     Modifier
-                        .size(14.dp)
-                        .background(Color.Black.copy(alpha = 0.34f), CircleShape),
-                contentAlignment = Alignment.Center,
+                        .align(Alignment.TopCenter)
+                        .padding(top = zoomLabelTopPadding + 28.dp)
+                        .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = Icons.Default.Adjust,
-                    contentDescription = "live_elevation_center",
-                    modifier = Modifier.size(9.dp),
-                    tint = Color(0xFF8B5CF6),
+                    painter = painterResource(id = R.drawable.ic_live_elevation_altitude),
+                    contentDescription = "live_elevation",
+                    modifier = Modifier.size(10.dp),
+                    tint = Color(0xFF34D399),
+                )
+                Text(
+                    text = " ${liveElevationLabel ?: "--"}",
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                    lineHeight = 10.sp,
                 )
             }
         }
-    }
 
-    if (navMode == NavMode.PANNING && liveDistanceEnabled && !liveDistanceLabel.isNullOrBlank()) {
-        Row(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = navButtonBottomPadding + navButtonSize + 8.dp)
-                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_live_distance_step_out),
-                contentDescription = "live_distance",
+        if (navMode == NavMode.PANNING && (liveElevationEnabled || liveDistanceEnabled)) {
+            Box(
                 modifier =
                     Modifier
-                        .size(10.dp)
-                        .rotate(90f),
-                tint = Color.White.copy(alpha = 0.92f),
-            )
-            Text(
-                text = liveDistanceLabel,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 10.sp,
-                lineHeight = 10.sp,
-            )
+                        .align(Alignment.Center)
+                        .size(liveElevationIconSize),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(14.dp)
+                            .background(Color.Black.copy(alpha = 0.34f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Adjust,
+                        contentDescription = "live_elevation_center",
+                        modifier = Modifier.size(9.dp),
+                        tint = Color(0xFF8B5CF6),
+                    )
+                }
+            }
+        }
+
+        if (navMode == NavMode.PANNING && liveDistanceEnabled && !liveDistanceLabel.isNullOrBlank()) {
+            Row(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = navButtonBottomPadding + navButtonSize + 8.dp)
+                        .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_live_distance_step_out),
+                    contentDescription = "live_distance",
+                    modifier =
+                        Modifier
+                            .size(10.dp)
+                            .rotate(90f),
+                    tint = Color.White.copy(alpha = 0.92f),
+                )
+                Text(
+                    text = liveDistanceLabel,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                    lineHeight = 10.sp,
+                )
+            }
         }
     }
 }
