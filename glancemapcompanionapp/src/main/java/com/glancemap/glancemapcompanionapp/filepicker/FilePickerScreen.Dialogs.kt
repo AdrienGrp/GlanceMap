@@ -460,6 +460,7 @@ internal fun FilePickerQuickGuideDialog(
     val titleHeight =
         when {
             isWelcomePage -> 88.dp
+            mode == QuickGuideMode.LIVE_TRACKING -> 88.dp
             pages.size > 1 -> 72.dp
             else -> 48.dp
         }
@@ -510,7 +511,7 @@ internal fun FilePickerQuickGuideDialog(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(titleHeight),
+                        .heightIn(min = titleHeight),
                 contentAlignment =
                     if (isWelcomePage) {
                         Alignment.Center
@@ -538,6 +539,7 @@ internal fun FilePickerQuickGuideDialog(
                             Text(
                                 text = dialogTitle,
                                 modifier = Modifier.weight(1f),
+                                maxLines = 2,
                             )
                             if (mode == QuickGuideMode.LIVE_TRACKING) {
                                 IconButton(onClick = { showLiveTrackingPrivacyDialog = true }) {
@@ -945,7 +947,7 @@ private fun quickGuideDialogTitle(mode: QuickGuideMode): String =
     when (mode) {
         QuickGuideMode.GENERAL -> "Quick guide"
         QuickGuideMode.TRANSFER -> "Send to Watch Guide"
-        QuickGuideMode.LIVE_TRACKING -> "Live Tracking Guide"
+        QuickGuideMode.LIVE_TRACKING -> "Live Tracking"
         QuickGuideMode.MAP_LEGEND -> "Map Legend Guide"
     }
 
