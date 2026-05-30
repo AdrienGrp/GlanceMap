@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.Composable
@@ -64,6 +63,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnost
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -625,18 +625,20 @@ private fun DiagnosticsExportInfoDialog(
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
-            Box(
+            WearDialogScrollableColumn(
+                maxHeight = adaptive.dialogBodyMaxHeight,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = adaptive.dialogBodyMaxHeight)
+                        .fillMaxWidth(),
+                contentModifier =
+                    Modifier
                         .onPreRotaryScrollEvent { event ->
                             val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
                             abs(consumed) > 0.5f
                         }.focusRequester(focusRequester)
-                        .focusable()
-                        .verticalScroll(scrollState),
-                contentAlignment = Alignment.Center,
+                        .focusable(),
+                scrollState = scrollState,
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     text =

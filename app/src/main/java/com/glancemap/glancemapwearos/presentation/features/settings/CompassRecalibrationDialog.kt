@@ -50,6 +50,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.compassQuali
 import com.glancemap.glancemapwearos.presentation.features.navigate.compassQualityTransitionHoldMs
 import com.glancemap.glancemapwearos.presentation.features.navigate.coneColorArgbForQuality
 import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
+import com.glancemap.glancemapwearos.presentation.ui.WearVerticalScrollIndicator
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -550,6 +551,13 @@ fun CompassRecalibrationDialog(
                     }
                 }
             }
+            WearVerticalScrollIndicator(
+                scrollState = scrollState,
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 2.dp),
+            )
         }
     }
 }

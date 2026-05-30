@@ -9,13 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Landscape
@@ -35,6 +33,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import kotlin.math.abs
 
@@ -135,17 +134,19 @@ fun DemSetupBottomSheet(
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
-            Column(
+            WearDialogScrollableColumn(
+                maxHeight = adaptive.dialogBodyMaxHeight,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = adaptive.dialogBodyMaxHeight)
+                        .fillMaxWidth(),
+                contentModifier =
+                    Modifier
                         .onPreRotaryScrollEvent { event ->
                             val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
                             abs(consumed) > 0.5f
                         }.focusRequester(focusRequester)
-                        .focusable()
-                        .verticalScroll(scrollState),
+                        .focusable(),
+                scrollState = scrollState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {

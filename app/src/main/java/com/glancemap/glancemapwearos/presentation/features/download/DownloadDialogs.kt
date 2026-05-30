@@ -11,13 +11,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.Composable
@@ -45,6 +42,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 
@@ -158,12 +156,11 @@ internal fun OamAttributionDialog(
         onDismissRequest = onDismiss,
         title = { Text("Download") },
         text = {
-            Column(
+            WearDialogScrollableColumn(
+                maxHeight = adaptive.helpDialogMaxHeight,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = adaptive.helpDialogMaxHeight)
-                        .verticalScroll(rememberScrollState()),
+                        .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {

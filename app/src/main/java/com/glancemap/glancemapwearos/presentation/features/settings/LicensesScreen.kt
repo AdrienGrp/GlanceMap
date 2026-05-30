@@ -11,12 +11,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,6 +37,7 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -379,17 +378,19 @@ private fun LicenseDocumentDialog(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Column(
+            WearDialogScrollableColumn(
+                maxHeight = adaptive.helpDialogMaxHeight,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 96.dp, max = adaptive.helpDialogMaxHeight)
+                        .fillMaxWidth(),
+                contentModifier =
+                    Modifier
                         .onPreRotaryScrollEvent { event ->
                             val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
                             abs(consumed) > 0.5f
                         }.focusRequester(focusRequester)
-                        .focusable()
-                        .verticalScroll(scrollState),
+                        .focusable(),
+                scrollState = scrollState,
             ) {
                 Text(
                     text = documentText,

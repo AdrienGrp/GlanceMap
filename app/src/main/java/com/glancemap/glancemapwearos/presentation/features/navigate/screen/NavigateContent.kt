@@ -72,6 +72,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolO
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.WearVerticalScrollIndicator
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import kotlinx.coroutines.Dispatchers
@@ -1213,25 +1214,35 @@ internal fun NavigateContent(
             }
         } else {
             scaleIndicator = null
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(permissionContentPadding)
-                        .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    "Location permission required for this screen.",
-                    textAlign = TextAlign.Center,
-                )
-                Button(
-                    onClick = onPermissionLaunch,
-                    modifier = Modifier.heightIn(min = permissionButtonMinHeight),
+            val permissionScrollState = rememberScrollState()
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(permissionContentPadding)
+                            .verticalScroll(permissionScrollState),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    Text("Grant Permission")
+                    Text(
+                        "Location permission required for this screen.",
+                        textAlign = TextAlign.Center,
+                    )
+                    Button(
+                        onClick = onPermissionLaunch,
+                        modifier = Modifier.heightIn(min = permissionButtonMinHeight),
+                    ) {
+                        Text("Grant Permission")
+                    }
                 }
+                WearVerticalScrollIndicator(
+                    scrollState = permissionScrollState,
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 2.dp),
+                )
             }
         }
     }

@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -52,6 +51,7 @@ import androidx.wear.compose.material3.Slider
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -519,17 +519,19 @@ fun GpxSettingsScreen(
         onDismissRequest = { showInspectionHelpDialog = false },
         title = { Text("Route Analyzer") },
         text = {
-            Column(
+            WearDialogScrollableColumn(
+                maxHeight = adaptive.dialogBodyMaxHeight,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = adaptive.dialogBodyMaxHeight)
+                        .fillMaxWidth(),
+                contentModifier =
+                    Modifier
                         .onPreRotaryScrollEvent { event ->
                             val consumed = helpDialogScrollState.dispatchRawDelta(event.verticalScrollPixels)
                             abs(consumed) > 0.5f
                         }.focusRequester(helpDialogFocusRequester)
-                        .focusable()
-                        .verticalScroll(helpDialogScrollState),
+                        .focusable(),
+                scrollState = helpDialogScrollState,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(

@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearLazyListScrollIndicator
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -103,38 +104,46 @@ internal fun <T> OptionPickerDialog(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
-            LazyColumn(
+            Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 64.dp, max = adaptive.helpDialogMaxHeight)
-                        .onPreRotaryScrollEvent { event ->
-                            val consumed = listState.dispatchRawDelta(event.verticalScrollPixels)
-                            abs(consumed) > 0.5f
-                        }.focusRequester(focusRequester)
-                        .focusable(),
-                state = listState,
-                contentPadding = PaddingValues(bottom = adaptive.dialogVerticalPadding + 24.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                userScrollEnabled = true,
+                        .heightIn(min = 64.dp, max = adaptive.helpDialogMaxHeight),
             ) {
-                items(options) { (value, label) ->
-                    ToggleChip(
-                        modifier = Modifier.fillMaxWidth(),
-                        checked = value == selectedValue,
-                        onCheckedChanged = { checked ->
-                            if (value == selectedValue) {
+                LazyColumn(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .onPreRotaryScrollEvent { event ->
+                                val consumed = listState.dispatchRawDelta(event.verticalScrollPixels)
+                                abs(consumed) > 0.5f
+                            }.focusRequester(focusRequester)
+                            .focusable()
+                            .padding(end = 10.dp),
+                    state = listState,
+                    contentPadding = PaddingValues(bottom = adaptive.dialogVerticalPadding + 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    userScrollEnabled = true,
+                ) {
+                    items(options) { (value, label) ->
+                        ToggleChip(
+                            modifier = Modifier.fillMaxWidth(),
+                            checked = value == selectedValue,
+                            onCheckedChanged = { checked ->
+                                if (value == selectedValue) {
+                                    onDismiss()
+                                    return@ToggleChip
+                                }
+                                if (!checked) return@ToggleChip
+                                onSelect(value)
                                 onDismiss()
-                                return@ToggleChip
-                            }
-                            if (!checked) return@ToggleChip
-                            onSelect(value)
-                            onDismiss()
-                        },
-                        label = label,
-                        toggleControl = ToggleChipToggleControl.Radio,
-                    )
+                            },
+                            label = label,
+                            toggleControl = ToggleChipToggleControl.Radio,
+                        )
+                    }
                 }
+                WearLazyListScrollIndicator(listState = listState)
             }
         }
     }

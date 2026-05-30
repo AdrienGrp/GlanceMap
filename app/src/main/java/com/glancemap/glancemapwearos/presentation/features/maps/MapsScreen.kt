@@ -25,8 +25,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.Check
@@ -73,6 +71,7 @@ import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -404,12 +403,11 @@ fun MapsScreen(
             onDismissRequest = { showRoutingDataDialog = false },
             title = { Text("Routing data") },
             text = {
-                Column(
+                WearDialogScrollableColumn(
+                    maxHeight = adaptive.helpDialogMaxHeight,
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = adaptive.helpDialogMaxHeight)
-                            .verticalScroll(rememberScrollState()),
+                            .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -502,12 +500,11 @@ fun MapsScreen(
             onDismissRequest = { showDemDataDialog = false },
             title = { Text("Elevation data") },
             text = {
-                Column(
+                WearDialogScrollableColumn(
+                    maxHeight = adaptive.helpDialogMaxHeight,
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = adaptive.helpDialogMaxHeight)
-                            .verticalScroll(rememberScrollState()),
+                            .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
@@ -581,12 +578,11 @@ fun MapsScreen(
             onDismissRequest = { showHelpDialog = false },
             title = { Text("Map Actions") },
             text = {
-                Column(
+                WearDialogScrollableColumn(
+                    maxHeight = adaptive.helpDialogMaxHeight,
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = adaptive.helpDialogMaxHeight)
-                            .verticalScroll(rememberScrollState()),
+                            .fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text("Toggle a map to use it on Navigate.")

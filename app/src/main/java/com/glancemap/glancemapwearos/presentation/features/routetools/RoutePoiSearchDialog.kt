@@ -4,12 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,6 +32,7 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchResultUiState
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 
@@ -139,12 +137,11 @@ internal fun RoutePoiSearchDialog(
             }
 
             if (state.results.isNotEmpty()) {
-                Column(
+                WearDialogScrollableColumn(
+                    maxHeight = adaptive.helpDialogMaxHeight * 0.72f,
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = adaptive.helpDialogMaxHeight * 0.72f)
-                            .verticalScroll(rememberScrollState()),
+                            .fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     state.results.forEach { result ->
