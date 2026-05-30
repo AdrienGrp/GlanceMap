@@ -37,6 +37,13 @@ internal val SmallRoundWatchLargeText =
         fontScale = 1.2f,
     )
 
+internal val SmallRoundWatchMaxText =
+    WearDeviceTestConfig(
+        size = DpSize(192.dp, 192.dp),
+        isRound = true,
+        fontScale = 1.6f,
+    )
+
 internal val MediumRoundWatch =
     WearDeviceTestConfig(
         size = DpSize(208.dp, 208.dp),
@@ -53,6 +60,19 @@ internal val LargeRoundWatch =
     WearDeviceTestConfig(
         size = DpSize(240.dp, 240.dp),
         isRound = true,
+    )
+
+internal val PlayLargeRoundWatch =
+    WearDeviceTestConfig(
+        size = DpSize(227.dp, 227.dp),
+        isRound = true,
+    )
+
+internal val PlayLargeRoundWatchMaxText =
+    WearDeviceTestConfig(
+        size = DpSize(227.dp, 227.dp),
+        isRound = true,
+        fontScale = 1.6f,
     )
 
 @Composable
