@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.Button
@@ -156,7 +159,7 @@ private fun ShortcutActionChip(
         modifier =
             Modifier
                 .width(82.dp)
-                .size(height = height, width = 82.dp),
+                .heightIn(min = height.coerceAtLeast(48.dp)),
         colors =
             ButtonDefaults.buttonColors(
                 containerColor = Color.Black.copy(alpha = 0.78f),
@@ -169,7 +172,12 @@ private fun ShortcutActionChip(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             icon?.invoke()
-            Text(text = text, maxLines = 1)
+            Text(
+                text = text,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }

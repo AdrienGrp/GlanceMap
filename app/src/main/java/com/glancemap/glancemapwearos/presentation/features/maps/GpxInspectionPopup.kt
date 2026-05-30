@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -341,7 +342,7 @@ fun GpxInspectionPopupA(
             ) {
                 Button(
                     onClick = onSelectB,
-                    modifier = Modifier.height(sizing.selectBButtonHeight),
+                    modifier = Modifier.heightIn(min = sizing.selectBButtonHeight.coerceAtLeast(48.dp)),
                     contentPadding =
                         PaddingValues(
                             horizontal = sizing.selectBButtonContentHorizontalPadding,
@@ -373,7 +374,7 @@ fun GpxInspectionPopupA(
                         style =
                             MaterialTheme.typography.labelMedium
                                 .withSize(sizing.buttonTextSize),
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
