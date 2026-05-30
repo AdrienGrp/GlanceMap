@@ -76,7 +76,7 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
-    fun stableRestartSamplesConfirmAfterEnoughSamples() {
+    fun stableRestartSamplesWaitForSettleTimeWhenConfidenceIsWeak() {
         val decision =
             resolveFusedRestartHeadingDecision(
                 pendingHeadingDeg = 4.2f,
@@ -89,9 +89,30 @@ class FusedOrientationProviderAdapterSupportTest {
                 conservativeHeadingErrorDeg = 180f,
             )
 
+        assertEquals(FusedRestartHeadingAction.AWAIT_PENDING, decision.action)
+        assertEquals(4.2f, decision.nextPendingHeadingDeg)
+        assertEquals(3, decision.sampleCount)
+        assertNull(decision.confirmReason)
+        assertTrue(decision.deltaDeg < 15f)
+    }
+
+    @Test
+    fun stableRestartSamplesConfirmAfterSettleTimeWhenConfidenceIsWeak() {
+        val decision =
+            resolveFusedRestartHeadingDecision(
+                pendingHeadingDeg = 4.2f,
+                displayHeadingDeg = 5.0f,
+                pendingAtElapsedMs = 100L,
+                nowElapsedMs = 280L,
+                pendingSampleCount = 2,
+                timeoutMs = 160L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
         assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
         assertEquals(3, decision.sampleCount)
-        assertEquals("stable", decision.confirmReason)
+        assertEquals("timeout", decision.confirmReason)
         assertTrue(decision.deltaDeg < 15f)
     }
 

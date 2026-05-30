@@ -497,7 +497,12 @@ internal fun NavigateContent(
                 .toInt()
         val next = (current + step).coerceIn(zoomMin, zoomMax)
         if (next == current) return false
-        mv.model.mapViewPosition.setZoomLevel(next.toByte(), false)
+        MapLayerMutationCoordinator.setGestureActive(mv, true)
+        try {
+            mv.model.mapViewPosition.setZoomLevel(next.toByte(), false)
+        } finally {
+            MapLayerMutationCoordinator.setGestureActive(mv, false)
+        }
         triggerHaptic()
         return true
     }
