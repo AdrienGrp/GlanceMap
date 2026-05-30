@@ -51,6 +51,7 @@ import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.BuildConfig
 import com.glancemap.glancemapwearos.core.service.diagnostics.CrashDiagnosticsStore
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadDiagnostics
@@ -495,6 +496,19 @@ fun DebuggingSettingsScreen(
                         }
                     },
                 )
+            }
+
+            if (BuildConfig.DEBUG) {
+                item {
+                    Chip(
+                        label = "Force close app",
+                        secondaryLabel = "Debug crash test",
+                        onClick = {
+                            DebugTelemetry.log("DiagnosticsFlow", "manual_force_close_requested")
+                            throw IllegalStateException("Manual force close from debugging settings")
+                        },
+                    )
+                }
             }
         }
     }
