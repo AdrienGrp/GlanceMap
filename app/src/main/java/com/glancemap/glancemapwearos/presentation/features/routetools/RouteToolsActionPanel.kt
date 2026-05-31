@@ -421,7 +421,11 @@ internal fun RouteToolsActionPanel(
                     modifier =
                         Modifier
                             .align(Alignment.CenterEnd)
-                            .padding(end = 1.dp),
+                            .padding(
+                                top = 2.dp,
+                                end = 1.dp,
+                                bottom = routeToolsContentBottomInset,
+                            ),
                 )
             }
             Box(

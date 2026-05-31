@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -397,19 +398,17 @@ fun MapsScreen(
             onDismissRequest = { showRoutingDataDialog = false },
             edgeButton = {
                 if (routingPackFiles.isNotEmpty()) {
-                    IconButton(
+                    CompactIconHitTargetButton(
                         onClick = { showDeleteAllRoutingDialog = true },
-                        modifier = Modifier.size(48.dp),
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                            ),
+                        visualSize = 38.dp,
+                        visualOffsetY = (-9).dp,
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete all routing packs",
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(16.dp),
                         )
                     }
                 }
@@ -981,48 +980,6 @@ private fun MapItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.wrapContentWidth(),
             ) {
-                CompactIconHitTargetButton(
-                    onClick = {
-                        if (isDemDownloadingForThisMap) {
-                            onCancelDemDownload()
-                        } else if (!isDemDownloadRunning) {
-                            onDownloadDem()
-                        }
-                    },
-                    enabled = !isDemDownloadRunning || isDemDownloadingForThisMap,
-                    visualSize = MAP_DATA_BADGE_SIZE,
-                    containerColor = Color.Black.copy(alpha = 0.72f),
-                    contentColor = demIconTint,
-                    disabledContainerColor = Color.Black.copy(alpha = 0.42f),
-                    disabledContentColor = demIconTint.copy(alpha = 0.6f),
-                ) {
-                    when {
-                        isDemDownloadingForThisMap -> {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Cancel elevation download",
-                                modifier = Modifier.size(MAP_DATA_ICON_SIZE),
-                            )
-                        }
-
-                        mapFile.demReady -> {
-                            Icon(
-                                imageVector = Icons.Default.Landscape,
-                                contentDescription = "DEM downloaded",
-                                modifier = Modifier.size(MAP_DATA_ICON_SIZE),
-                            )
-                        }
-
-                        else -> {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_dem_download),
-                                contentDescription = "Download DEM",
-                                modifier = Modifier.size(MAP_DATA_ICON_SIZE),
-                            )
-                        }
-                    }
-                }
-
                 Box(
                     modifier = Modifier.size(MAP_DATA_BADGE_SIZE),
                     contentAlignment = Alignment.Center,
@@ -1033,6 +990,58 @@ private fun MapItem(
                         modifier = Modifier.size(MAP_DATA_ICON_SIZE),
                         tint = routingIconTint,
                     )
+                }
+
+                Box(
+                    modifier =
+                        Modifier.size(
+                            width = MAP_DATA_BADGE_SIZE,
+                            height = 48.dp,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CompactIconHitTargetButton(
+                        onClick = {
+                            if (isDemDownloadingForThisMap) {
+                                onCancelDemDownload()
+                            } else if (!isDemDownloadRunning) {
+                                onDownloadDem()
+                            }
+                        },
+                        enabled = !isDemDownloadRunning || isDemDownloadingForThisMap,
+                        modifier = Modifier.offset(x = 11.dp),
+                        visualSize = MAP_DATA_BADGE_SIZE,
+                        containerColor = Color.Black.copy(alpha = 0.72f),
+                        contentColor = demIconTint,
+                        disabledContainerColor = Color.Black.copy(alpha = 0.42f),
+                        disabledContentColor = demIconTint.copy(alpha = 0.6f),
+                    ) {
+                        when {
+                            isDemDownloadingForThisMap -> {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Cancel elevation download",
+                                    modifier = Modifier.size(MAP_DATA_ICON_SIZE),
+                                )
+                            }
+
+                            mapFile.demReady -> {
+                                Icon(
+                                    imageVector = Icons.Default.Landscape,
+                                    contentDescription = "DEM downloaded",
+                                    modifier = Modifier.size(MAP_DATA_ICON_SIZE),
+                                )
+                            }
+
+                            else -> {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_dem_download),
+                                    contentDescription = "Download DEM",
+                                    modifier = Modifier.size(MAP_DATA_ICON_SIZE),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

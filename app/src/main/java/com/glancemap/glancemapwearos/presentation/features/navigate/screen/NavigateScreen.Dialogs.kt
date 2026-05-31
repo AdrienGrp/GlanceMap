@@ -129,6 +129,7 @@ internal fun NavigateCreatedPoiRenameDialog(
         isSaving = isSaving,
         error = error,
         autoFocusInput = false,
+        fullScreen = true,
         onDismiss = onDismiss,
         onConfirm = onConfirm,
     )

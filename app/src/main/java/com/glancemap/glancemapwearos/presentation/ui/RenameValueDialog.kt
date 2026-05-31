@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,7 @@ fun RenameValueDialog(
     isSaving: Boolean,
     error: String?,
     autoFocusInput: Boolean = true,
+    fullScreen: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
@@ -70,8 +72,16 @@ fun RenameValueDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Column(
-            modifier =
+        val dialogModifier =
+            if (fullScreen) {
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .padding(
+                        horizontal = adaptive.dialogHorizontalPadding,
+                        vertical = adaptive.dialogVerticalPadding,
+                    ).verticalScroll(scrollState)
+            } else {
                 Modifier
                     .wearDialogWidth(
                         roundFraction = dialogWidthFraction,
@@ -83,9 +93,18 @@ fun RenameValueDialog(
                         horizontal = adaptive.dialogHorizontalPadding,
                         vertical = adaptive.dialogVerticalPadding,
                     ).heightIn(max = maxDialogHeight)
-                    .verticalScroll(scrollState),
+                    .verticalScroll(scrollState)
+            }
+
+        Column(
+            modifier = dialogModifier,
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement =
+                if (fullScreen) {
+                    Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+                } else {
+                    Arrangement.spacedBy(6.dp)
+                },
         ) {
             Text(
                 text = title,

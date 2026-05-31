@@ -54,9 +54,9 @@ fun LicensesScreen(onOpenGeneralSettings: () -> Unit) {
             compactTop = 24.dp,
             standardTop = 28.dp,
             expandedTop = 32.dp,
-            compactBottom = 24.dp,
-            standardBottom = 28.dp,
-            expandedBottom = 32.dp,
+            compactBottom = 56.dp,
+            standardBottom = 60.dp,
+            expandedBottom = 68.dp,
         )
     var selectedDocument by remember { mutableStateOf<LicenseDocument?>(null) }
     val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
