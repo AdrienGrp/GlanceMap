@@ -137,9 +137,9 @@ fun GpxScreen(
         }
     val headerVerticalSpacing =
         when (screenSize) {
-            WearScreenSize.LARGE -> (-12).dp
-            WearScreenSize.MEDIUM -> (-13).dp
-            WearScreenSize.SMALL -> (-14).dp
+            WearScreenSize.LARGE -> (-14).dp
+            WearScreenSize.MEDIUM -> (-15).dp
+            WearScreenSize.SMALL -> (-16).dp
         }
     val emptyStatePadding =
         when (screenSize) {
