@@ -60,6 +60,7 @@ import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -353,13 +354,6 @@ fun DownloadScreen(
                         }
                     }
                 },
-                onDeleteModeClick = {
-                    deleteMode = !deleteMode
-                    if (deleteMode) {
-                        refreshMode = false
-                        viewModel.clearRefreshBundleSelection()
-                    }
-                },
             )
 
             ScalingLazyColumn(
@@ -595,25 +589,64 @@ fun DownloadScreen(
                             .fillMaxWidth()
                             .padding(bottom = settingsBottomPadding),
                 ) {
-                    IconButton(
-                        onClick = onOpenSettings,
-                        enabled = !uiState.isDownloading,
-                        modifier =
-                            Modifier
-                                .align(Alignment.Center)
-                                .size(settingsButtonSize),
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.8f),
-                                contentColor = Color.White,
+                    Row(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CompactIconHitTargetButton(
+                            onClick = onOpenSettings,
+                            enabled = !uiState.isDownloading,
+                            visualSize = settingsButtonSize,
+                            containerColor = Color.Black.copy(alpha = 0.8f),
+                            contentColor = Color.White,
+                            disabledContainerColor = Color.Black.copy(alpha = 0.32f),
+                            disabledContentColor = Color.White.copy(alpha = 0.38f),
+                        ) {
+                            Material3Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "Download settings",
+                            )
+                        }
+                        if (uiState.installedBundles.isNotEmpty()) {
+                            CompactIconHitTargetButton(
+                                onClick = {
+                                    val nextDeleteMode = !deleteMode
+                                    deleteMode = nextDeleteMode
+                                    if (nextDeleteMode) {
+                                        refreshMode = false
+                                        viewModel.clearRefreshBundleSelection()
+                                    }
+                                },
+                                enabled = !uiState.isDownloading,
+                                visualSize = headerActionButtonSize,
+                                containerColor =
+                                    if (deleteMode) {
+                                        MaterialTheme.colorScheme.errorContainer
+                                    } else {
+                                        Color.Black.copy(alpha = 0.8f)
+                                    },
+                                contentColor =
+                                    if (deleteMode) {
+                                        MaterialTheme.colorScheme.onErrorContainer
+                                    } else {
+                                        Color.White
+                                    },
                                 disabledContainerColor = Color.Black.copy(alpha = 0.32f),
                                 disabledContentColor = Color.White.copy(alpha = 0.38f),
-                            ),
-                    ) {
-                        Material3Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = "Download settings",
-                        )
+                            ) {
+                                Material3Icon(
+                                    imageVector = if (deleteMode) Icons.Filled.Close else Icons.Filled.Delete,
+                                    contentDescription =
+                                        if (deleteMode) {
+                                            "Exit delete mode"
+                                        } else {
+                                            "Enter delete mode"
+                                        },
+                                    modifier = Modifier.size(headerActionIconSize),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -636,7 +669,6 @@ private fun DownloadHeader(
     actionSpacing: Dp,
     onInfoClick: () -> Unit,
     onRefreshModeClick: () -> Unit,
-    onDeleteModeClick: () -> Unit,
 ) {
     Box(
         modifier =
@@ -675,16 +707,6 @@ private fun DownloadHeader(
                     enabled = hasInstalledBundles && !isDownloading && !isCheckingUpdates,
                     selected = refreshMode,
                     onClick = onRefreshModeClick,
-                )
-                HeaderActionButton(
-                    icon = Icons.Filled.Delete,
-                    contentDescription = if (deleteMode) "Exit delete mode" else "Enter delete mode",
-                    buttonSize = actionButtonSize,
-                    iconSize = actionIconSize,
-                    enabled = hasInstalledBundles && !isDownloading,
-                    selected = deleteMode,
-                    danger = true,
-                    onClick = onDeleteModeClick,
                 )
             }
             if (refreshMode) {
