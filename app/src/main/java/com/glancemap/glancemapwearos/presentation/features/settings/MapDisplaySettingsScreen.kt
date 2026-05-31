@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -95,6 +96,7 @@ fun MapDisplaySettingsScreen(
                     checked = showTimeInNavigate,
                     onCheckedChanged = { viewModel.setShowTimeInNavigate(it) },
                     label = "Show time on map",
+                    modifier = Modifier.testTag(TAG_MAP_DISPLAY_SHOW_TIME_CHIP),
                 )
             }
             if (showTimeInNavigate) {
@@ -175,6 +177,8 @@ fun MapDisplaySettingsScreen(
         onSelect = { selected -> viewModel.setMapZoomButtonsMode(selected) },
     )
 }
+
+internal const val TAG_MAP_DISPLAY_SHOW_TIME_CHIP = "map_display_show_time_chip"
 
 private fun timeFormatLabel(format: String): String =
     when (format) {
