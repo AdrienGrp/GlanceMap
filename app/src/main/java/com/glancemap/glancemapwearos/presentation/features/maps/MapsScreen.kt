@@ -395,6 +395,25 @@ fun MapsScreen(
         AlertDialog(
             visible = showRoutingDataDialog,
             onDismissRequest = { showRoutingDataDialog = false },
+            edgeButton = {
+                if (routingPackFiles.isNotEmpty()) {
+                    IconButton(
+                        onClick = { showDeleteAllRoutingDialog = true },
+                        modifier = Modifier.size(48.dp),
+                        colors =
+                            IconButtonDefaults.iconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete all routing packs",
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            },
             title = { Text("Routing data") },
             text = {
                 WearDialogScrollableColumn(
@@ -459,30 +478,6 @@ fun MapsScreen(
                         }
                     }
                     WearDialogScrollBottomSpacer()
-                }
-            },
-            confirmButton = {
-                if (routingPackFiles.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        IconButton(
-                            onClick = { showDeleteAllRoutingDialog = true },
-                            modifier = Modifier.size(48.dp),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                ),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete all routing packs",
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                    }
                 }
             },
         )
