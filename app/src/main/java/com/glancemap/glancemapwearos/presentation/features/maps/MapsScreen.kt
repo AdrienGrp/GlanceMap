@@ -1019,7 +1019,7 @@ private fun MapItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.wrapContentWidth(),
             ) {
-                IconButton(
+                CompactIconHitTargetButton(
                     onClick = {
                         if (isDemDownloadingForThisMap) {
                             onCancelDemDownload()
@@ -1028,14 +1028,11 @@ private fun MapItem(
                         }
                     },
                     enabled = !isDemDownloadRunning || isDemDownloadingForThisMap,
-                    modifier = Modifier.size(MAP_DATA_BADGE_SIZE),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.72f),
-                            contentColor = demIconTint,
-                            disabledContainerColor = Color.Black.copy(alpha = 0.42f),
-                            disabledContentColor = demIconTint.copy(alpha = 0.6f),
-                        ),
+                    visualSize = MAP_DATA_BADGE_SIZE,
+                    containerColor = Color.Black.copy(alpha = 0.72f),
+                    contentColor = demIconTint,
+                    disabledContainerColor = Color.Black.copy(alpha = 0.42f),
+                    disabledContentColor = demIconTint.copy(alpha = 0.6f),
                 ) {
                     when {
                         isDemDownloadingForThisMap -> {
@@ -1064,14 +1061,11 @@ private fun MapItem(
                     }
                 }
 
-                IconButton(
+                CompactIconHitTargetButton(
                     onClick = onShowRoutingInfo,
-                    modifier = Modifier.size(MAP_DATA_BADGE_SIZE),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.72f),
-                            contentColor = routingIconTint,
-                        ),
+                    visualSize = MAP_DATA_BADGE_SIZE,
+                    containerColor = Color.Black.copy(alpha = 0.72f),
+                    contentColor = routingIconTint,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.CallSplit,

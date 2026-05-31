@@ -744,27 +744,24 @@ private fun HeaderActionButton(
     selected: Boolean = false,
     danger: Boolean = false,
 ) {
-    IconButton(
+    CompactIconHitTargetButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.size(buttonSize),
-        colors =
-            IconButtonDefaults.iconButtonColors(
-                containerColor =
-                    when {
-                        selected && danger -> MaterialTheme.colorScheme.errorContainer
-                        selected -> MaterialTheme.colorScheme.primaryContainer
-                        else -> Color.Black.copy(alpha = 0.7f)
-                    },
-                contentColor =
-                    when {
-                        selected && danger -> MaterialTheme.colorScheme.onErrorContainer
-                        selected -> MaterialTheme.colorScheme.onPrimaryContainer
-                        else -> Color.White
-                    },
-                disabledContainerColor = Color.Black.copy(alpha = 0.32f),
-                disabledContentColor = Color.White.copy(alpha = 0.38f),
-            ),
+        visualSize = buttonSize,
+        containerColor =
+            when {
+                selected && danger -> MaterialTheme.colorScheme.errorContainer
+                selected -> MaterialTheme.colorScheme.primaryContainer
+                else -> Color.Black.copy(alpha = 0.7f)
+            },
+        contentColor =
+            when {
+                selected && danger -> MaterialTheme.colorScheme.onErrorContainer
+                selected -> MaterialTheme.colorScheme.onPrimaryContainer
+                else -> Color.White
+            },
+        disabledContainerColor = Color.Black.copy(alpha = 0.32f),
+        disabledContentColor = Color.White.copy(alpha = 0.38f),
     ) {
         Material3Icon(
             imageVector = icon,

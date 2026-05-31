@@ -62,6 +62,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.PoiType
 import com.glancemap.glancemapwearos.data.repository.USER_POI_SOURCE_PATH
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import java.util.Locale
 
 @Composable
@@ -380,14 +381,11 @@ internal fun PoiCategoryRow(
             }
         }
 
-        IconButton(
+        CompactIconHitTargetButton(
             onClick = onToggleExpanded,
-            modifier = Modifier.size(actionButtonSize),
-            colors =
-                IconButtonDefaults.iconButtonColors(
-                    containerColor = Color.Black.copy(alpha = 0.72f),
-                    contentColor = Color.White,
-                ),
+            visualSize = actionButtonSize,
+            containerColor = Color.Black.copy(alpha = 0.72f),
+            contentColor = Color.White,
         ) {
             Icon(
                 imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,

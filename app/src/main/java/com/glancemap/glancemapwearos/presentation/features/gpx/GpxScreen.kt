@@ -730,25 +730,22 @@ private fun GpxTrackItem(
         )
 
         if (showSend) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onSend,
                 enabled = exportState?.isSending != true,
-                modifier = Modifier.size(deleteButtonSize),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor =
-                            if (isSendSelected) {
-                                MaterialTheme.colorScheme.secondaryContainer
-                            } else {
-                                Color.Black.copy(alpha = 0.72f)
-                            },
-                        contentColor =
-                            if (isSendSelected) {
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                            } else {
-                                Color.White
-                            },
-                    ),
+                visualSize = deleteButtonSize,
+                containerColor =
+                    if (isSendSelected) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        Color.Black.copy(alpha = 0.72f)
+                    },
+                contentColor =
+                    if (isSendSelected) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        Color.White
+                    },
             ) {
                 if (isSendSelected) {
                     Icon(Icons.Default.Check, contentDescription = "Selected for send")
@@ -760,26 +757,20 @@ private fun GpxTrackItem(
                 }
             }
         } else if (showRename) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onRename,
-                modifier = Modifier.size(deleteButtonSize),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
+                visualSize = deleteButtonSize,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Icon(Icons.Default.Edit, contentDescription = "Rename")
             }
         } else if (showDelete) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onDelete,
-                modifier = Modifier.size(deleteButtonSize),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
+                visualSize = deleteButtonSize,
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
             ) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete")
             }
