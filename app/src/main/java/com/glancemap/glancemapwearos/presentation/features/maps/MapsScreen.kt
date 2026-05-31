@@ -86,6 +86,9 @@ import java.util.Locale
 
 private val MAP_DATA_BADGE_SIZE = 26.dp
 private val MAP_DATA_ICON_SIZE = 15.dp
+private val MAP_ROUTING_BADGE_SLOT_WIDTH = 22.dp
+private val MAP_DEM_BADGE_SLOT_WIDTH = 16.dp
+private val MAP_DEM_EDGE_OFFSET_X = 16.dp
 
 @Composable
 fun MapsScreen(
@@ -982,7 +985,11 @@ private fun MapItem(
                 modifier = Modifier.wrapContentWidth(),
             ) {
                 Box(
-                    modifier = Modifier.size(MAP_DATA_BADGE_SIZE),
+                    modifier =
+                        Modifier.size(
+                            width = MAP_ROUTING_BADGE_SLOT_WIDTH,
+                            height = MAP_DATA_BADGE_SIZE,
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -996,7 +1003,7 @@ private fun MapItem(
                 Box(
                     modifier =
                         Modifier.size(
-                            width = MAP_DATA_BADGE_SIZE,
+                            width = MAP_DEM_BADGE_SLOT_WIDTH,
                             height = 48.dp,
                         ),
                     contentAlignment = Alignment.Center,
@@ -1010,7 +1017,7 @@ private fun MapItem(
                             }
                         },
                         enabled = !isDemDownloadRunning || isDemDownloadingForThisMap,
-                        modifier = Modifier.offset(x = 11.dp),
+                        modifier = Modifier.offset(x = MAP_DEM_EDGE_OFFSET_X),
                         visualSize = MAP_DATA_BADGE_SIZE,
                         containerColor = Color.Black.copy(alpha = 0.72f),
                         contentColor = demIconTint,
