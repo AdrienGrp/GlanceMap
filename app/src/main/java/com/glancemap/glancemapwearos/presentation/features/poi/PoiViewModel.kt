@@ -884,9 +884,10 @@ class PoiViewModel(
             withContext(Dispatchers.IO) {
                 userPoiRepository.readSourceState()
             }
+        val isExpanded = wasExpanded ?: userPoiSourceState.points.isNotEmpty()
         val syntheticUserFile =
             buildUserPoiFileUiState(
-                isExpanded = wasExpanded ?: userPoiSourceState.points.isNotEmpty(),
+                isExpanded = isExpanded,
             )
         _poiFiles.update { files ->
             if (files.any { isUserPoiPath(it.path) }) {
@@ -897,12 +898,53 @@ class PoiViewModel(
                 listOf(syntheticUserFile) + files
             }
         }
+        val userPoiKey =
+            PoiCategoryPreviewKey(
+                filePath = USER_POI_SOURCE_PATH,
+                categoryId = USER_POI_CATEGORY_ID,
+            )
         _categoryPreviews.update { previews ->
-            previews.filterKeys { key -> key.filePath != USER_POI_SOURCE_PATH }
+            val withoutUserPoi = previews.filterKeys { key -> key.filePath != USER_POI_SOURCE_PATH }
+            if (isExpanded) {
+                withoutUserPoi + (userPoiKey to buildUserPoiPreviewUiState())
+            } else {
+                withoutUserPoi
+            }
         }
         _categoryCounts.update { counts ->
-            counts.filterKeys { key -> key.filePath != USER_POI_SOURCE_PATH }
+            val withoutUserPoi = counts.filterKeys { key -> key.filePath != USER_POI_SOURCE_PATH }
+            if (isExpanded) {
+                withoutUserPoi + (userPoiKey to buildUserPoiCountUiState(syntheticUserFile))
+            } else {
+                withoutUserPoi
+            }
         }
+    }
+
+    private fun buildUserPoiPreviewUiState(): PoiCategoryPreviewUiState {
+        val points = userPoiSourceState.points.take(CATEGORY_PREVIEW_LIMIT)
+        return PoiCategoryPreviewUiState(
+            isLoading = false,
+            isLoaded = true,
+            totalPoiCount = userPoiSourceState.points.size,
+            points = points.map { point -> point.toPreviewUiState() },
+        )
+    }
+
+    private fun buildUserPoiCountUiState(file: PoiFileUiState): PoiCategoryCountUiState {
+        val totalPoiCount = userPoiSourceState.points.size
+        val enabledPoiCount =
+            if (file.isEnabled && file.categories.any { it.enabled }) {
+                totalPoiCount
+            } else {
+                0
+            }
+        return PoiCategoryCountUiState(
+            isLoading = false,
+            isLoaded = true,
+            enabledPoiCount = enabledPoiCount,
+            totalPoiCount = totalPoiCount,
+        )
     }
 
     private fun buildUserPoiFileUiState(isExpanded: Boolean): PoiFileUiState {
