@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -589,63 +590,62 @@ fun DownloadScreen(
                             .fillMaxWidth()
                             .padding(bottom = settingsBottomPadding),
                 ) {
-                    Row(
+                    CompactIconHitTargetButton(
+                        onClick = onOpenSettings,
+                        enabled = !uiState.isDownloading,
+                        visualSize = settingsButtonSize,
+                        containerColor = Color.Black.copy(alpha = 0.8f),
+                        contentColor = Color.White,
+                        disabledContainerColor = Color.Black.copy(alpha = 0.32f),
+                        disabledContentColor = Color.White.copy(alpha = 0.38f),
                         modifier = Modifier.align(Alignment.Center),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        Material3Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = "Download settings",
+                        )
+                    }
+                    if (uiState.installedBundles.isNotEmpty()) {
                         CompactIconHitTargetButton(
-                            onClick = onOpenSettings,
+                            onClick = {
+                                val nextDeleteMode = !deleteMode
+                                deleteMode = nextDeleteMode
+                                if (nextDeleteMode) {
+                                    refreshMode = false
+                                    viewModel.clearRefreshBundleSelection()
+                                }
+                            },
                             enabled = !uiState.isDownloading,
-                            visualSize = settingsButtonSize,
-                            containerColor = Color.Black.copy(alpha = 0.8f),
-                            contentColor = Color.White,
+                            visualSize = headerActionButtonSize,
+                            containerColor =
+                                if (deleteMode) {
+                                    MaterialTheme.colorScheme.errorContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (deleteMode) {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                } else {
+                                    Color.White
+                                },
                             disabledContainerColor = Color.Black.copy(alpha = 0.32f),
                             disabledContentColor = Color.White.copy(alpha = 0.38f),
+                            modifier =
+                                Modifier
+                                    .align(Alignment.Center)
+                                    .offset(x = 52.dp),
                         ) {
                             Material3Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = "Download settings",
+                                imageVector = if (deleteMode) Icons.Filled.Close else Icons.Filled.Delete,
+                                contentDescription =
+                                    if (deleteMode) {
+                                        "Exit delete mode"
+                                    } else {
+                                        "Enter delete mode"
+                                    },
+                                modifier = Modifier.size(headerActionIconSize),
                             )
-                        }
-                        if (uiState.installedBundles.isNotEmpty()) {
-                            CompactIconHitTargetButton(
-                                onClick = {
-                                    val nextDeleteMode = !deleteMode
-                                    deleteMode = nextDeleteMode
-                                    if (nextDeleteMode) {
-                                        refreshMode = false
-                                        viewModel.clearRefreshBundleSelection()
-                                    }
-                                },
-                                enabled = !uiState.isDownloading,
-                                visualSize = headerActionButtonSize,
-                                containerColor =
-                                    if (deleteMode) {
-                                        MaterialTheme.colorScheme.errorContainer
-                                    } else {
-                                        Color.Black.copy(alpha = 0.8f)
-                                    },
-                                contentColor =
-                                    if (deleteMode) {
-                                        MaterialTheme.colorScheme.onErrorContainer
-                                    } else {
-                                        Color.White
-                                    },
-                                disabledContainerColor = Color.Black.copy(alpha = 0.32f),
-                                disabledContentColor = Color.White.copy(alpha = 0.38f),
-                            ) {
-                                Material3Icon(
-                                    imageVector = if (deleteMode) Icons.Filled.Close else Icons.Filled.Delete,
-                                    contentDescription =
-                                        if (deleteMode) {
-                                            "Exit delete mode"
-                                        } else {
-                                            "Enter delete mode"
-                                        },
-                                    modifier = Modifier.size(headerActionIconSize),
-                                )
-                            }
                         }
                     }
                 }
