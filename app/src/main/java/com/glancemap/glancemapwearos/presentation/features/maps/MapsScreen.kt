@@ -492,16 +492,22 @@ fun MapsScreen(
         AlertDialog(
             visible = showDemDataDialog,
             onDismissRequest = { showDemDataDialog = false },
-            title = { Text("Elevation data") },
+            title = {},
             text = {
                 WearDialogScrollableColumn(
                     maxHeight = adaptive.helpDialogMaxHeight,
                     modifier =
                         Modifier
                             .fillMaxWidth(),
+                    showScrollIndicator = true,
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
+                    Text(
+                        text = "Elevation data",
+                        style = MaterialTheme.typography.titleMedium,
+                        textAlign = TextAlign.Center,
+                    )
                     Text(
                         text = "Used for hill shading, slope and altitude.",
                         style = MaterialTheme.typography.bodySmall,
@@ -539,30 +545,6 @@ fun MapsScreen(
                         }
                     }
                     WearDialogScrollBottomSpacer()
-                }
-            },
-            confirmButton = {
-                IconButton(
-                    onClick = { showDemDataDialog = false },
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Done",
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            },
-            dismissButton = {
-                IconButton(
-                    onClick = { showDemDataDialog = false },
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        modifier = Modifier.size(18.dp),
-                    )
                 }
             },
         )
