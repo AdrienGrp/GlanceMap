@@ -687,10 +687,10 @@ private fun LiveTrackingPrivacyPolicyDialog(onDismiss: () -> Unit) {
         title = { Text("Privacy policy") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Tracks and positions are automatically deleted after 7 days.")
-                Text("Email addresses are only used to send notification emails when tracking starts or unexpectedly stops.")
-                Text("Email addresses are not stored.")
-                Text("No data is processed, stored, or shared for any other purpose.")
+                Text("Live Tracking is optional and uses Arkluz.")
+                Text("When tracking is active, GPS positions, group details, participant name, battery level, and optional GPX/comments are sent to Arkluz.")
+                Text("Notification and alert emails are saved locally for convenience and sent to Arkluz only when you configure them.")
+                Text("If the network is unavailable, GPS points may be stored locally for retry. Arkluz tracks are expected to be deleted after 7 days.")
             }
         },
         confirmButton = {

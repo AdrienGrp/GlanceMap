@@ -4,6 +4,7 @@ import android.content.Context
 import android.location.Location
 import android.net.Uri
 import android.os.BatteryManager
+import com.glancemap.glancemapcompanionapp.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -23,7 +24,7 @@ import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 data class LiveTrackingSettings(
-    val trackingUrl: String = ArkluzTrackingEndpoint.DEVELOPMENT.url,
+    val trackingUrl: String = ArkluzTrackingEndpoint.defaultUrl,
     val updateIntervalSeconds: Int = 60,
     val group: String,
     val participantPassword: String,
@@ -64,7 +65,13 @@ enum class ArkluzTrackingEndpoint(
     val url: String,
 ) {
     PRODUCTION("Production", "https://arkluz.com/trk"),
-    DEVELOPMENT("Development", "https://arkluz.com/dev/trk"),
+    DEVELOPMENT("Development", "https://arkluz.com/dev/trk");
+
+    companion object {
+        val defaultUrl: String = BuildConfig.ARKLUZ_TRACKING_URL.ifBlank { PRODUCTION.url }
+        val defaultEndpoint: ArkluzTrackingEndpoint =
+            entries.firstOrNull { it.url == defaultUrl } ?: PRODUCTION
+    }
 }
 
 internal class ArkluzLiveTrackingClient(
@@ -111,7 +118,7 @@ internal class ArkluzLiveTrackingClient(
                 execute(
                     Request
                         .Builder()
-                        .url(settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url })
+                        .url(settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.defaultUrl })
                         .post(body)
                         .build(),
                 )
@@ -126,7 +133,7 @@ internal class ArkluzLiveTrackingClient(
             val url =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
+                    .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "register")
@@ -149,7 +156,7 @@ internal class ArkluzLiveTrackingClient(
             val url =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
+                    .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "check")
@@ -171,7 +178,7 @@ internal class ArkluzLiveTrackingClient(
             val url =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
+                    .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "cleanup")
@@ -197,7 +204,7 @@ internal class ArkluzLiveTrackingClient(
             val urlBuilder =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
+                    .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "gpx")
@@ -225,7 +232,7 @@ internal class ArkluzLiveTrackingClient(
             val urlBuilder =
                 settings.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
+                    .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("q", "check")
@@ -268,7 +275,7 @@ internal class ArkluzLiveTrackingClient(
         stop: Boolean,
     ): ArkluzLocationUpdate =
         ArkluzLocationUpdate(
-            trackingUrl = settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url },
+            trackingUrl = settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.defaultUrl },
             latitude = location.latitude,
             longitude = location.longitude,
             altitudeMeters = location.altitude.takeIf { location.hasAltitude() },
@@ -292,7 +299,7 @@ internal class ArkluzLiveTrackingClient(
             val urlBuilder =
                 update.trackingUrl
                     .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.DEVELOPMENT.url }
+                    .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
                     .toHttpUrl()
                     .newBuilder()
                     .addQueryParameter("lat", update.latitude.toString())

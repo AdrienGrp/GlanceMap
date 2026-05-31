@@ -1,6 +1,6 @@
 # Google Play Privacy Release Checklist
 
-Last reviewed: 2026-04-26
+Last reviewed: 2026-05-31
 
 This checklist is a repo-side release aid for GlanceMap. It is not the public privacy policy.
 
@@ -40,6 +40,7 @@ Repo-specific inference:
 - Watch app requests location permissions for foreground navigation features.
 - Companion app requests Bluetooth and notification permissions for watch discovery and transfer UX.
 - Third-party network requests exist for user-requested POI, routing, and terrain downloads.
+- Optional companion Live Tracking sends location, participant/group settings, optional emails, optional GPX route, and optional comments to Arkluz when the user starts or updates a tracking session.
 - User-initiated diagnostics export exists and may include device, crash, transfer, and location-related troubleshooting details.
 - Firebase release setup documentation exists, but `google-services.json` was not found in either app module in the checked-in repo state.
 
@@ -61,8 +62,9 @@ Repo-specific inference:
 5. Re-review the Data safety form before release if you add `google-services.json`, enable Firebase, add any new SDK, or start transmitting new data off-device.
 6. Re-review whether user-initiated diagnostics export changes your Data safety answers, especially for crash logs, app info, and any location-related telemetry captured in support files.
 7. Re-review whether any user-selected or location-derived bounding box requests to third-party services should be reflected in your Play disclosures for the exact shipped flow.
-8. Do not claim stronger security than the app actually provides. In particular, the current local phone-to-watch Wi-Fi transfer is token-protected but uses local HTTP, not end-to-end encrypted internet transport.
-9. If Play Console shows the native debug symbols warning, check
+8. Re-review Live Tracking Data safety answers when Arkluz payloads, retention, or configured endpoint change.
+9. Do not claim stronger security than the app actually provides. In particular, the current local phone-to-watch Wi-Fi transfer is token-protected but uses local HTTP, not end-to-end encrypted internet transport.
+10. If Play Console shows the native debug symbols warning, check
    `docs/GOOGLE_PLAY_NATIVE_SYMBOLS.md`. The current Gradle release config
    already enables `SYMBOL_TABLE`; Play may still warn when the only bundled
    native library is the already-stripped AndroidX `libandroidx.graphics.path.so`.
