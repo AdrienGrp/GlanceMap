@@ -32,12 +32,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
@@ -130,33 +129,27 @@ internal fun RouteToolResultDialog(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = onDelete,
-                            modifier = Modifier.size(34.dp),
+                            visualSize = 34.dp,
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
                             enabled = !renameInProgress,
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                ),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Delete GPX",
                             )
                         }
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 onRenameOpen()
                                 showRenameDialog = true
                             },
-                            modifier = Modifier.size(34.dp),
+                            visualSize = 34.dp,
+                            containerColor = Color.White.copy(alpha = 0.10f),
+                            contentColor = Color.White,
                             enabled = !renameInProgress,
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = Color.White.copy(alpha = 0.10f),
-                                    contentColor = Color.White,
-                                ),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
