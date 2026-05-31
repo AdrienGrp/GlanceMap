@@ -240,7 +240,7 @@ internal fun ColumnScope.MainTrackingContent(
                 if (hasSelectedGpx) {
                     IconButton(
                         onClick = onClearGpx,
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(48.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Close,
@@ -447,7 +447,7 @@ private fun TrackLinkRow(
         FilledTonalIconButton(
             onClick = onView,
             enabled = url.isNotBlank(),
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(48.dp),
             colors = companionTonalIconButtonColors(),
         ) {
             Icon(
@@ -459,7 +459,7 @@ private fun TrackLinkRow(
         FilledTonalIconButton(
             onClick = onShare,
             enabled = url.isNotBlank(),
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(48.dp),
             colors = companionTonalIconButtonColors(),
         ) {
             Icon(

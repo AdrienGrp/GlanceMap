@@ -802,7 +802,7 @@ fun FilePickerScreen(
                                     IconButton(
                                         onClick = { viewModel.findWatchNodes() },
                                         enabled = !uiLocked,
-                                        modifier = Modifier.size(30.dp),
+                                        modifier = Modifier.size(48.dp),
                                     ) {
                                         Icon(
                                             Icons.Default.Refresh,
