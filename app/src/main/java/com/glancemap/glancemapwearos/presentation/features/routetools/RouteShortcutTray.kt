@@ -62,7 +62,7 @@ internal fun BoxScope.RouteShortcutTray(
             modifier =
                 Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = anchorSize + adjacentAccessoryWidth + 8.dp),
+                    .padding(end = anchorSize + adjacentAccessoryWidth + 18.dp),
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
