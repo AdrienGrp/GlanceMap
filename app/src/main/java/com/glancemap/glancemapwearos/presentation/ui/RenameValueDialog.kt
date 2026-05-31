@@ -1,9 +1,12 @@
 package com.glancemap.glancemapwearos.presentation.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -48,6 +51,13 @@ fun RenameValueDialog(
     var draftValue by remember(initialValue) { mutableStateOf(initialValue) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollState = rememberScrollState()
+    val maxDialogHeight =
+        (
+            adaptive.heightDp.dp -
+                adaptive.dialogVerticalPadding * 2 -
+                18.dp
+        ).coerceAtLeast(132.dp)
 
     LaunchedEffect(visible, isSaving) {
         if (visible && !isSaving && autoFocusInput) {
@@ -72,9 +82,10 @@ fun RenameValueDialog(
                     ).padding(
                         horizontal = adaptive.dialogHorizontalPadding,
                         vertical = adaptive.dialogVerticalPadding,
-                    ),
+                    ).heightIn(max = maxDialogHeight)
+                    .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
                 text = title,
