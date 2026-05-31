@@ -92,7 +92,7 @@ class OamDownloadForegroundService : Service() {
             val wifiManager = applicationContext.getSystemService(WifiManager::class.java)
             wifiLock =
                 wifiManager
-                    ?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, WIFI_LOCK_TAG)
+                    ?.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, WIFI_LOCK_TAG)
                     ?.apply {
                         setReferenceCounted(false)
                         runCatching { acquire() }
