@@ -22,7 +22,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SplitSwitchButton
 import androidx.wear.compose.material3.SwitchButtonDefaults
 import androidx.wear.compose.material3.Text
@@ -40,7 +39,12 @@ import com.google.android.horologist.compose.layout.ScreenScaffold
 @Composable
 fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-    val listTokens = rememberSettingsListTokens()
+    val listTokens =
+        rememberSettingsListTokens(
+            compactTop = 40.dp,
+            standardTop = 44.dp,
+            expandedTop = 48.dp,
+        )
     val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     var showDemSourcePicker by remember { mutableStateOf(false) }
 
@@ -69,14 +73,6 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
             autoCentering = SettingsListAutoCentering,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            item {
-                Text(
-                    text = "Download settings",
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
             item {
                 SettingsToggleChip(
                     checked = uiState.selection.includeMap,
