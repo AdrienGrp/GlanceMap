@@ -3,16 +3,18 @@ package com.glancemap.glancemapwearos.presentation.features.routetools
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -24,12 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.material3.Button
-import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
@@ -154,26 +155,36 @@ private fun ShortcutActionChip(
     onClick: () -> Unit,
     icon: (@Composable () -> Unit)? = null,
 ) {
-    Button(
-        onClick = onClick,
+    val hitTargetHeight = height.coerceAtLeast(48.dp)
+    val visualHeight = (height + 10.dp).coerceIn(36.dp, 40.dp)
+
+    Box(
         modifier =
             Modifier
                 .width(82.dp)
-                .heightIn(min = height.coerceAtLeast(48.dp)),
-        colors =
-            ButtonDefaults.buttonColors(
-                containerColor = Color.Black.copy(alpha = 0.78f),
-                contentColor = Color.White,
-            ),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                .height(hitTargetHeight)
+                .clickable(
+                    role = Role.Button,
+                    onClick = onClick,
+                ),
+        contentAlignment = Alignment.CenterEnd,
     ) {
         Row(
+            modifier =
+                Modifier
+                    .width(72.dp)
+                    .height(visualHeight)
+                    .background(
+                        color = Color.Black.copy(alpha = 0.78f),
+                        shape = RoundedCornerShape(percent = 50),
+                    ).padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             icon?.invoke()
             Text(
                 text = text,
+                color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
