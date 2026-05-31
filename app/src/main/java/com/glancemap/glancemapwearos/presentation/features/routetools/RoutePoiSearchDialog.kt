@@ -31,8 +31,8 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchResultUiState
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
+import com.glancemap.glancemapwearos.presentation.ui.WearCustomDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 
@@ -137,12 +137,11 @@ internal fun RoutePoiSearchDialog(
             }
 
             if (state.results.isNotEmpty()) {
-                WearDialogScrollableColumn(
+                WearCustomDialogScrollableColumn(
                     maxHeight = adaptive.helpDialogMaxHeight * 0.72f,
                     modifier =
                         Modifier
                             .fillMaxWidth(),
-                    showScrollIndicator = true,
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     state.results.forEach { result ->

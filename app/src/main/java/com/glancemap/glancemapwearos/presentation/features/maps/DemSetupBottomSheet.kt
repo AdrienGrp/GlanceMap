@@ -33,7 +33,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
+import com.glancemap.glancemapwearos.presentation.ui.WearCustomDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import kotlin.math.abs
 
@@ -134,7 +134,7 @@ fun DemSetupBottomSheet(
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
-            WearDialogScrollableColumn(
+            WearCustomDialogScrollableColumn(
                 maxHeight = adaptive.dialogBodyMaxHeight,
                 modifier =
                     Modifier
@@ -147,7 +147,6 @@ fun DemSetupBottomSheet(
                         }.focusRequester(focusRequester)
                         .focusable(),
                 scrollState = scrollState,
-                showScrollIndicator = true,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {

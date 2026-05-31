@@ -64,6 +64,30 @@ fun WearDialogScrollableColumn(
 }
 
 @Composable
+fun WearCustomDialogScrollableColumn(
+    maxHeight: Dp,
+    modifier: Modifier = Modifier,
+    contentModifier: Modifier = Modifier,
+    scrollState: ScrollState = rememberScrollState(),
+    contentEndPadding: Dp = 10.dp,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    WearDialogScrollableColumn(
+        maxHeight = maxHeight,
+        modifier = modifier,
+        contentModifier = contentModifier,
+        scrollState = scrollState,
+        contentEndPadding = contentEndPadding,
+        showScrollIndicator = true,
+        horizontalAlignment = horizontalAlignment,
+        verticalArrangement = verticalArrangement,
+        content = content,
+    )
+}
+
+@Composable
 fun WearVerticalScrollIndicator(
     scrollState: ScrollState,
     modifier: Modifier = Modifier,

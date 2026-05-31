@@ -62,8 +62,8 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnost
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
+import com.glancemap.glancemapwearos.presentation.ui.WearCustomDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -589,7 +589,7 @@ private fun DiagnosticsExportStatusDialog(
                 )
             }
 
-            WearDialogScrollableColumn(
+            WearCustomDialogScrollableColumn(
                 maxHeight = adaptive.helpDialogMaxHeight,
                 modifier = Modifier.fillMaxWidth(),
                 contentModifier =
@@ -600,7 +600,6 @@ private fun DiagnosticsExportStatusDialog(
                         }.focusRequester(focusRequester)
                         .focusable(),
                 scrollState = scrollState,
-                showScrollIndicator = true,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -697,7 +696,7 @@ private fun DiagnosticsExportInfoDialog(
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
-            WearDialogScrollableColumn(
+            WearCustomDialogScrollableColumn(
                 maxHeight = adaptive.dialogBodyMaxHeight,
                 modifier =
                     Modifier
@@ -710,7 +709,6 @@ private fun DiagnosticsExportInfoDialog(
                         }.focusRequester(focusRequester)
                         .focusable(),
                 scrollState = scrollState,
-                showScrollIndicator = true,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(

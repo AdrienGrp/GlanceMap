@@ -36,8 +36,8 @@ import androidx.core.content.pm.PackageInfoCompat
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearCustomDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -374,7 +374,7 @@ private fun LicenseDocumentDialog(
                             .align(Alignment.Center),
                 )
             }
-            WearDialogScrollableColumn(
+            WearCustomDialogScrollableColumn(
                 maxHeight = adaptive.helpDialogMaxHeight,
                 modifier =
                     Modifier
@@ -387,7 +387,6 @@ private fun LicenseDocumentDialog(
                         }.focusRequester(focusRequester)
                         .focusable(),
                 scrollState = scrollState,
-                showScrollIndicator = true,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
