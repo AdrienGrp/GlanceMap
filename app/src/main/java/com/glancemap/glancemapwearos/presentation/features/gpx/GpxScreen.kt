@@ -129,6 +129,12 @@ fun GpxScreen(
             WearScreenSize.MEDIUM -> 13.dp
             WearScreenSize.SMALL -> 12.dp
         }
+    val headerActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 4.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
     val headerActionSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 4.dp
@@ -328,6 +334,7 @@ fun GpxScreen(
                                 showHelpDialog = true
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = headerActionVisualOffsetY,
                             containerColor = Color.Black.copy(alpha = 0.7f),
                             contentColor = Color.White,
                         ) {
@@ -351,6 +358,7 @@ fun GpxScreen(
                                     }
                                 },
                                 visualSize = headerActionButtonSize,
+                                visualOffsetY = headerActionVisualOffsetY,
                                 containerColor =
                                     if (isSendMode) {
                                         MaterialTheme.colorScheme.secondaryContainer

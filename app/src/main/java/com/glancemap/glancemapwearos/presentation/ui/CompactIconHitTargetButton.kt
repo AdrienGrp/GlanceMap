@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.presentation.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ fun CompactIconHitTargetButton(
     contentColor: Color,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    visualOffsetY: Dp = 0.dp,
     disabledContainerColor: Color = containerColor.copy(alpha = 0.5f),
     disabledContentColor: Color = contentColor.copy(alpha = 0.45f),
     content: @Composable BoxScope.() -> Unit,
@@ -44,6 +46,7 @@ fun CompactIconHitTargetButton(
             modifier =
                 Modifier
                     .size(visualSize)
+                    .offset(y = visualOffsetY)
                     .background(actualContainerColor, CircleShape),
             contentAlignment = Alignment.Center,
             content = content,
