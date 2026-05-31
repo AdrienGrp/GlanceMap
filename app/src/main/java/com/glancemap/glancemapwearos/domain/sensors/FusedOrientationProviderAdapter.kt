@@ -1026,7 +1026,6 @@ private const val FUSED_UNUSABLE_HEADING_FALLBACK_MIN_DURATION_MS = 1_200L
 private const val FUSED_RESTART_CONFIRM_TIMEOUT_HIGH_POWER_MS = 160L
 private const val FUSED_RESTART_CONFIRM_TIMEOUT_LOW_POWER_MS = 350L
 private const val FUSED_RESTART_STABLE_DELTA_DEG = 15f
-private const val FUSED_RESTART_MIN_CONFIRM_SAMPLES = 3
 private const val FUSED_RESTART_MIN_CONFIDENT_SAMPLES = 2
 private const val FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG = 12f
 private const val FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG = 45f
@@ -1090,9 +1089,9 @@ internal fun resolveFusedRestartHeadingDecision(
             headingErrorDeg in 0f..FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG
     val hasTrustedHeadingError = hasTrustedConservativeError || hasTrustedLiveError
     val hasUsableHeadingError = isUsableGoogleFusedHeadingError(headingErrorDeg)
-    val hasEnoughStableSamples = sampleCount >= FUSED_RESTART_MIN_CONFIRM_SAMPLES
+    val hasEnoughWeakConfidenceSettleTime = pendingAgeMs >= timeoutMs
     val hasStableConfirmationBudget =
-        hasTrustedHeadingError || hasEnoughStableSamples || pendingAgeMs >= timeoutMs
+        hasTrustedHeadingError || hasEnoughWeakConfidenceSettleTime
     if (stableWithPending && hasUsableHeadingError && hasStableConfirmationBudget) {
         return FusedRestartHeadingDecision(
             action = FusedRestartHeadingAction.CONFIRM,
@@ -1105,7 +1104,6 @@ internal fun resolveFusedRestartHeadingDecision(
             confirmReason =
                 when {
                     hasTrustedHeadingError -> "confidence"
-                    hasEnoughStableSamples -> "stable"
                     else -> "timeout"
                 },
         )
