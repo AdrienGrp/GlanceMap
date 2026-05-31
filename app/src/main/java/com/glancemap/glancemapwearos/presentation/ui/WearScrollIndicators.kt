@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun WearDialogScrollableColumn(
@@ -33,6 +33,7 @@ fun WearDialogScrollableColumn(
     contentModifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(),
     contentEndPadding: Dp = 10.dp,
+    showScrollIndicator: Boolean = false,
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: @Composable ColumnScope.() -> Unit,
@@ -53,6 +54,12 @@ fun WearDialogScrollableColumn(
             verticalArrangement = verticalArrangement,
             content = content,
         )
+        if (showScrollIndicator) {
+            WearVerticalScrollIndicator(
+                scrollState = scrollState,
+                modifier = Modifier.align(Alignment.CenterEnd),
+            )
+        }
     }
 }
 

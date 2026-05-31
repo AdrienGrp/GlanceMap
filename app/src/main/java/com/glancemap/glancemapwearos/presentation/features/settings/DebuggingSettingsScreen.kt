@@ -600,6 +600,7 @@ private fun DiagnosticsExportStatusDialog(
                         }.focusRequester(focusRequester)
                         .focusable(),
                 scrollState = scrollState,
+                showScrollIndicator = true,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -709,6 +710,7 @@ private fun DiagnosticsExportInfoDialog(
                         }.focusRequester(focusRequester)
                         .focusable(),
                 scrollState = scrollState,
+                showScrollIndicator = true,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(

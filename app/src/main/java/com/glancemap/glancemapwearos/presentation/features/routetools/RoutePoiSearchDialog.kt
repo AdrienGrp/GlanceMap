@@ -142,6 +142,7 @@ internal fun RoutePoiSearchDialog(
                     modifier =
                         Modifier
                             .fillMaxWidth(),
+                    showScrollIndicator = true,
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     state.results.forEach { result ->

@@ -56,8 +56,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.PoiType
@@ -155,14 +153,11 @@ internal fun PoiFileRow(
         }
 
         if (showDelete) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onDelete,
-                modifier = Modifier.size(actionButtonSize),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
+                visualSize = actionButtonSize,
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
@@ -180,14 +175,11 @@ internal fun PoiFileRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                IconButton(
+                CompactIconHitTargetButton(
                     onClick = onToggleExpanded,
-                    modifier = Modifier.size(actionButtonSize),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.72f),
-                            contentColor = Color.White,
-                        ),
+                    visualSize = actionButtonSize,
+                    containerColor = Color.Black.copy(alpha = 0.72f),
+                    contentColor = Color.White,
                 ) {
                     Icon(
                         imageVector = if (file.isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -469,26 +461,20 @@ internal fun PoiCategoryPoiRow(
             )
         }
         if (showRename) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onRename,
-                modifier = Modifier.size(if (compactMode) 28.dp else 32.dp),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
+                visualSize = if (compactMode) 28.dp else 32.dp,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Icon(Icons.Default.Edit, contentDescription = "Rename saved place")
             }
         } else if (showDelete) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onDelete,
-                modifier = Modifier.size(if (compactMode) 28.dp else 32.dp),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
+                visualSize = if (compactMode) 28.dp else 32.dp,
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
             ) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete saved place")
             }

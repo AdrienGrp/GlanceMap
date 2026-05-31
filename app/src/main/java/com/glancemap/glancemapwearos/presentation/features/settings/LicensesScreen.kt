@@ -387,6 +387,7 @@ private fun LicenseDocumentDialog(
                         }.focusRequester(focusRequester)
                         .focusable(),
                 scrollState = scrollState,
+                showScrollIndicator = true,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
