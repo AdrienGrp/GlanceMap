@@ -24,10 +24,10 @@ internal data class SettingsListTokens(
 internal fun rememberSettingsFirstItemTopPadding(): Dp {
     val adaptive = rememberWearAdaptiveSpec()
     return remember(adaptive.fontScale, adaptive.isRound) {
-        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
-            64.dp
-        } else {
-            0.dp
+        when {
+            adaptive.isRound && adaptive.fontScale >= 1.25f -> 72.dp
+            adaptive.isRound -> 48.dp
+            else -> 0.dp
         }
     }
 }
