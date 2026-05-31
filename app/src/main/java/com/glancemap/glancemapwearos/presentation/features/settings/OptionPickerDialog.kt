@@ -143,7 +143,10 @@ internal fun <T> OptionPickerDialog(
                         )
                     }
                 }
-                WearLazyListScrollIndicator(listState = listState)
+                WearLazyListScrollIndicator(
+                    listState = listState,
+                    showWhenNotScrollable = true,
+                )
             }
         }
     }

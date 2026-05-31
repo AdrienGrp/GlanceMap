@@ -105,11 +105,21 @@ fun WearVerticalScrollIndicator(
 fun BoxScope.WearLazyListScrollIndicator(
     listState: LazyListState,
     modifier: Modifier = Modifier,
+    showWhenNotScrollable: Boolean = false,
 ) {
     val layoutInfo = listState.layoutInfo
     val totalItems = layoutInfo.totalItemsCount
     val visibleItems = layoutInfo.visibleItemsInfo
-    if (totalItems <= 0 || visibleItems.isEmpty() || visibleItems.size >= totalItems) return
+    if (totalItems <= 0 || visibleItems.isEmpty()) return
+    if (visibleItems.size >= totalItems) {
+        if (!showWhenNotScrollable || totalItems <= 1) return
+        WearScrollIndicatorTrack(
+            modifier = modifier.align(Alignment.CenterEnd),
+            progress = 0f,
+            thumbFraction = 0.85f,
+        )
+        return
+    }
 
     val firstVisible = visibleItems.first()
     val itemSpan = (firstVisible.size + layoutInfo.mainAxisItemSpacing).coerceAtLeast(1)
