@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.InlineTextContent
@@ -226,11 +225,23 @@ fun PoiScreen(
             WearScreenSize.MEDIUM -> 13.dp
             WearScreenSize.SMALL -> 12.dp
         }
+    val headerActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 4.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
     val headerActionSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 4.dp
             WearScreenSize.MEDIUM -> 3.dp
             WearScreenSize.SMALL -> 2.dp
+        }
+    val headerVerticalSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-14).dp
+            WearScreenSize.MEDIUM -> (-15).dp
+            WearScreenSize.SMALL -> (-16).dp
         }
     val rowSpacing =
         when (screenSize) {
@@ -581,24 +592,29 @@ fun PoiScreen(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(headerActionSpacing),
+                    verticalArrangement = Arrangement.spacedBy(headerVerticalSpacing),
                 ) {
+                    Text(
+                        text = "POI",
+                        style =
+                            if (adaptive.isCompact) {
+                                MaterialTheme.typography.titleSmall
+                            } else {
+                                MaterialTheme.typography.titleMedium
+                            },
+                        textAlign = TextAlign.Center,
+                    )
                     Row(
-                        modifier = Modifier.height(48.dp),
                         horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = "POI",
-                            style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Center,
-                        )
                         CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 showHelpDialog = true
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = headerActionVisualOffsetY,
                             containerColor = Color.Black.copy(alpha = 0.7f),
                             contentColor = Color.White,
                         ) {
