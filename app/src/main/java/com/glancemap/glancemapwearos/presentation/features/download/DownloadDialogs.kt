@@ -194,11 +194,6 @@ internal fun OamAttributionDialog(
                 WearDialogScrollBottomSpacer()
             }
         },
-        confirmButton = {
-            Button(onClick = onDismiss) {
-                Text("OK")
-            }
-        },
     )
 }
 

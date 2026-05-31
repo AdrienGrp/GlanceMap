@@ -117,15 +117,6 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
                     secondaryLabel = "All refuge POIs",
                 )
             }
-            item {
-                Text(
-                    text = "Bundle: ${uiState.selection.label()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.82f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
     }
 }

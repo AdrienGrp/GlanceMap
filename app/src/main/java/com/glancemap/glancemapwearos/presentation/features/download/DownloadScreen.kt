@@ -52,7 +52,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material3.Button
@@ -64,6 +63,9 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
+import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAnchorType
+import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAutoCentering
+import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsScalingLazyListState
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -103,7 +105,6 @@ fun DownloadScreen(
         remember(context) {
             context.getSharedPreferences(DOWNLOAD_INFO_PREFS, android.content.Context.MODE_PRIVATE)
         }
-    val listState = rememberScalingLazyListState()
     val coroutineScope = rememberCoroutineScope()
     var wasAreaPickerOpen by remember { mutableStateOf(showAreaPicker) }
     val selectedAreas = uiState.selectedAreas
@@ -129,6 +130,7 @@ fun DownloadScreen(
             WearScreenSize.MEDIUM -> 7.dp
             WearScreenSize.SMALL -> 6.dp
         }
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTopPadding)
     val rowSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 8.dp
@@ -371,6 +373,8 @@ fun DownloadScreen(
                         bottom = listBottomPadding,
                     ),
                 verticalArrangement = Arrangement.spacedBy(rowSpacing),
+                anchorType = SettingsListAnchorType,
+                autoCentering = SettingsListAutoCentering,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (showAreaPicker) {
