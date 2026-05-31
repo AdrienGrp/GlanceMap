@@ -115,7 +115,6 @@ fun MapsScreen(
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameInProgress by remember { mutableStateOf(false) }
     var renameError by remember { mutableStateOf<String?>(null) }
-    var routingInfoMap by remember { mutableStateOf<MapFileState?>(null) }
     var showDemDataDialog by remember { mutableStateOf(false) }
     var demTileToDelete by remember { mutableStateOf<DemTileFileState?>(null) }
     var demSourceToDeleteAll by remember { mutableStateOf<DemSource?>(null) }
@@ -335,20 +334,6 @@ fun MapsScreen(
             },
             confirmButton = {
                 Button(onClick = { showDemNetworkErrorDialog = false }) {
-                    Text("OK")
-                }
-            },
-        )
-
-        AlertDialog(
-            visible = routingInfoMap != null,
-            onDismissRequest = { routingInfoMap = null },
-            title = { Text("Routing coverage") },
-            text = {
-                Text(routingCoverageMessage(routingInfoMap))
-            },
-            confirmButton = {
-                Button(onClick = { routingInfoMap = null }) {
                     Text("OK")
                 }
             },
@@ -775,9 +760,6 @@ fun MapsScreen(
                             onCancelDemDownload = {
                                 themeViewModel.cancelDemDownload()
                             },
-                            onShowRoutingInfo = {
-                                routingInfoMap = mapFile
-                            },
                         )
                     }
                 }
@@ -945,7 +927,6 @@ private fun MapItem(
     isDemDownloadingForThisMap: Boolean,
     onDownloadDem: () -> Unit,
     onCancelDemDownload: () -> Unit,
-    onShowRoutingInfo: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1012,7 +993,7 @@ private fun MapItem(
                     else -> Color(0xFFFFC857)
                 }
             Row(
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.wrapContentWidth(),
             ) {
@@ -1058,16 +1039,15 @@ private fun MapItem(
                     }
                 }
 
-                CompactIconHitTargetButton(
-                    onClick = onShowRoutingInfo,
-                    visualSize = MAP_DATA_BADGE_SIZE,
-                    containerColor = Color.Black.copy(alpha = 0.72f),
-                    contentColor = routingIconTint,
+                Box(
+                    modifier = Modifier.size(MAP_DATA_BADGE_SIZE),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.CallSplit,
-                        contentDescription = "Routing coverage",
+                        contentDescription = routingIconContentDescription(mapFile),
                         modifier = Modifier.size(MAP_DATA_ICON_SIZE),
+                        tint = routingIconTint,
                     )
                 }
             }
@@ -1075,28 +1055,13 @@ private fun MapItem(
     }
 }
 
-private fun routingCoverageMessage(mapFile: MapFileState?): String {
-    mapFile ?: return "Routing coverage unavailable."
-    if (!mapFile.routingCoverageKnown) {
-        return "Routing coverage is unavailable for this map."
-    }
-    if (mapFile.routingRequiredSegments == 0) {
-        return "No routing packs are required for this map."
-    }
-
-    val summary = "${mapFile.routingAvailableSegments}/${mapFile.routingRequiredSegments} routing packs available."
+private fun routingIconContentDescription(mapFile: MapFileState): String {
     return when {
-        mapFile.routingReady -> {
-            "Routing is ready for this map.\n$summary"
-        }
-
-        mapFile.routingAvailableSegments > 0 -> {
-            "Routing is partially available for this map.\n$summary\nTransfer the missing .rd5 packs from the phone to complete coverage."
-        }
-
-        else -> {
-            "Routing is not available for this map yet.\n$summary\nTransfer .rd5 packs from the phone to enable route creation in this area."
-        }
+        !mapFile.routingCoverageKnown -> "Routing coverage unavailable"
+        mapFile.routingRequiredSegments == 0 -> "No routing packs required"
+        mapFile.routingReady -> "Routing ready"
+        mapFile.routingAvailableSegments > 0 -> "Routing partially available"
+        else -> "Routing unavailable"
     }
 }
 
