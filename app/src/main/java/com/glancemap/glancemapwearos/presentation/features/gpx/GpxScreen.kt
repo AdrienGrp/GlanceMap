@@ -100,15 +100,15 @@ fun GpxScreen(
         }
     val listTopPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 6.dp
-            WearScreenSize.MEDIUM -> 5.dp
-            WearScreenSize.SMALL -> 4.dp
+            WearScreenSize.LARGE -> 1.dp
+            WearScreenSize.MEDIUM -> 0.dp
+            WearScreenSize.SMALL -> 0.dp
         }
     val listBottomPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 7.dp
-            WearScreenSize.SMALL -> 6.dp
+            WearScreenSize.LARGE -> 2.dp
+            WearScreenSize.MEDIUM -> 1.dp
+            WearScreenSize.SMALL -> 0.dp
         }
     val headerTopPadding =
         when (screenSize) {
@@ -116,12 +116,7 @@ fun GpxScreen(
             WearScreenSize.MEDIUM -> 6.dp
             WearScreenSize.SMALL -> 4.dp
         }
-    val headerBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 2.dp
-            WearScreenSize.MEDIUM -> 2.dp
-            WearScreenSize.SMALL -> 1.dp
-        }
+    val headerBottomPadding = 0.dp
     val headerActionButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 24.dp
@@ -167,7 +162,7 @@ fun GpxScreen(
     val bottomActionBottomPadding =
         settingsBottomPadding.coerceAtLeast(
             if (adaptive.isRound) {
-                8.dp
+                4.dp
             } else {
                 4.dp
             },
