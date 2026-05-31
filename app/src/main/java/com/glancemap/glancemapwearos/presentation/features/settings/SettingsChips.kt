@@ -1,11 +1,15 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -115,6 +119,7 @@ internal fun SettingsSectionChip(
     label: String,
     onClick: () -> Unit,
     iconImageVector: ImageVector = Icons.Filled.Folder,
+    iconContent: (@Composable () -> Unit)? = null,
     secondaryLabel: String? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -128,11 +133,15 @@ internal fun SettingsSectionChip(
         label = label,
         secondaryLabel = secondaryLabel,
         icon = {
-            Icon(
-                imageVector = iconImageVector,
-                contentDescription = null,
-                modifier = Modifier.size(ChipDefaults.IconSize),
-            )
+            if (iconContent != null) {
+                iconContent()
+            } else {
+                Icon(
+                    imageVector = iconImageVector,
+                    contentDescription = null,
+                    modifier = Modifier.size(ChipDefaults.IconSize),
+                )
+            }
         },
         colors =
             ChipDefaults.secondaryChipColors(
@@ -143,6 +152,30 @@ internal fun SettingsSectionChip(
             ),
         onClick = onClick,
     )
+}
+
+@Composable
+internal fun DownloadSettingsSectionIcon() {
+    Box(
+        modifier = Modifier.size(ChipDefaults.IconSize),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Folder,
+            contentDescription = null,
+            modifier = Modifier.size(ChipDefaults.IconSize),
+            tint = SectionChipIcon,
+        )
+        Icon(
+            imageVector = Icons.Filled.Download,
+            contentDescription = null,
+            modifier =
+                Modifier
+                    .size(13.dp)
+                    .offset(y = (-1).dp),
+            tint = Color.White,
+        )
+    }
 }
 
 @Composable

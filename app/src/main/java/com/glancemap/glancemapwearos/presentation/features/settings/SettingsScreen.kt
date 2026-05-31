@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.*
@@ -149,7 +148,7 @@ fun SettingsScreen(
             item {
                 SettingsSectionChip(
                     label = "Settings",
-                    iconImageVector = Icons.Filled.Download,
+                    iconContent = { DownloadSettingsSectionIcon() },
                     onClick = { navController.navigate(WatchRoutes.DOWNLOAD_SETTINGS) },
                 )
             }
