@@ -57,6 +57,7 @@ import com.glancemap.glancemapwearos.data.repository.USER_POI_CATEGORY_ID
 import com.glancemap.glancemapwearos.data.repository.USER_POI_SOURCE_PATH
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
@@ -262,7 +263,6 @@ fun PoiScreen(
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
         }
-    val bottomActionButtonSize = settingsButtonSize.coerceAtLeast(48.dp)
     val bottomActionBottomPadding =
         settingsBottomPadding.coerceAtLeast(
             if (adaptive.isRound) {
@@ -794,7 +794,7 @@ fun PoiScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (poiFiles.isNotEmpty()) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val nextRenameMode = !isRenameMode
@@ -803,22 +803,19 @@ fun PoiScreen(
                                     isDeleteMode = false
                                 }
                             },
-                            modifier = Modifier.size(bottomActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor =
-                                        if (isRenameMode) {
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        } else {
-                                            Color.Black.copy(alpha = 0.8f)
-                                        },
-                                    contentColor =
-                                        if (isRenameMode) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        } else {
-                                            Color.White
-                                        },
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor =
+                                if (isRenameMode) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (isRenameMode) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    Color.White
+                                },
                         ) {
                             Icon(
                                 imageVector = if (isRenameMode) Icons.Default.Close else Icons.Default.Edit,
@@ -828,22 +825,20 @@ fun PoiScreen(
                                     } else {
                                         "Enter rename mode"
                                     },
+                                modifier = Modifier.size(headerActionIconSize),
                             )
                         }
                     }
-                    IconButton(
+                    CompactIconHitTargetButton(
                         onClick = { navController.navigate(WatchRoutes.POI_SETTINGS) },
-                        modifier = Modifier.size(bottomActionButtonSize),
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.8f),
-                                contentColor = Color.White,
-                            ),
+                        visualSize = settingsButtonSize,
+                        containerColor = Color.Black.copy(alpha = 0.8f),
+                        contentColor = Color.White,
                     ) {
                         Icon(Icons.Default.Settings, contentDescription = "POI Settings")
                     }
                     if (poiFiles.isNotEmpty()) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 isDeleteMode = !isDeleteMode
@@ -851,22 +846,19 @@ fun PoiScreen(
                                     isRenameMode = false
                                 }
                             },
-                            modifier = Modifier.size(bottomActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor =
-                                        if (isDeleteMode) {
-                                            MaterialTheme.colorScheme.errorContainer
-                                        } else {
-                                            Color.Black.copy(alpha = 0.8f)
-                                        },
-                                    contentColor =
-                                        if (isDeleteMode) {
-                                            MaterialTheme.colorScheme.onErrorContainer
-                                        } else {
-                                            Color.White
-                                        },
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor =
+                                if (isDeleteMode) {
+                                    MaterialTheme.colorScheme.errorContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (isDeleteMode) {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                } else {
+                                    Color.White
+                                },
                         ) {
                             Icon(
                                 imageVector = if (isDeleteMode) Icons.Default.Close else Icons.Default.Delete,
@@ -876,6 +868,7 @@ fun PoiScreen(
                                     } else {
                                         "Enter delete mode"
                                     },
+                                modifier = Modifier.size(headerActionIconSize),
                             )
                         }
                     }

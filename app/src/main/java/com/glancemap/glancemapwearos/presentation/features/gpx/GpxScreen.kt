@@ -56,6 +56,7 @@ import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -159,7 +160,6 @@ fun GpxScreen(
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
         }
-    val bottomActionButtonSize = settingsButtonSize.coerceAtLeast(48.dp)
     val bottomActionBottomPadding =
         settingsBottomPadding.coerceAtLeast(
             if (adaptive.isRound) {
@@ -504,7 +504,7 @@ fun GpxScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (gpxFiles.isNotEmpty()) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val nextRenameMode = !isRenameMode
@@ -515,22 +515,19 @@ fun GpxScreen(
                                     isDeleteMode = false
                                 }
                             },
-                            modifier = Modifier.size(bottomActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor =
-                                        if (isRenameMode) {
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        } else {
-                                            Color.Black.copy(alpha = 0.8f)
-                                        },
-                                    contentColor =
-                                        if (isRenameMode) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        } else {
-                                            Color.White
-                                        },
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor =
+                                if (isRenameMode) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (isRenameMode) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    Color.White
+                                },
                         ) {
                             Icon(
                                 imageVector = if (isRenameMode) Icons.Default.Close else Icons.Default.Edit,
@@ -540,10 +537,11 @@ fun GpxScreen(
                                     } else {
                                         "Enter rename mode"
                                     },
+                                modifier = Modifier.size(headerActionIconSize),
                             )
                         }
                     }
-                    IconButton(
+                    CompactIconHitTargetButton(
                         onClick = {
                             if (isSendMode) {
                                 val paths = selectedSendPaths.toList()
@@ -558,24 +556,21 @@ fun GpxScreen(
                             }
                         },
                         enabled = !isSendMode || (selectedSendPaths.isNotEmpty() && exportUiState.isSending != true),
-                        modifier = Modifier.size(bottomActionButtonSize),
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor =
-                                    if (isSendMode) {
-                                        MaterialTheme.colorScheme.secondaryContainer
-                                    } else {
-                                        Color.Black.copy(alpha = 0.8f)
-                                    },
-                                contentColor =
-                                    if (isSendMode) {
-                                        MaterialTheme.colorScheme.onSecondaryContainer
-                                    } else {
-                                        Color.White
-                                    },
-                                disabledContainerColor = Color.Black.copy(alpha = 0.5f),
-                                disabledContentColor = Color.White.copy(alpha = 0.45f),
-                            ),
+                        visualSize = settingsButtonSize,
+                        containerColor =
+                            if (isSendMode) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                Color.Black.copy(alpha = 0.8f)
+                            },
+                        contentColor =
+                            if (isSendMode) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                Color.White
+                            },
+                        disabledContainerColor = Color.Black.copy(alpha = 0.5f),
+                        disabledContentColor = Color.White.copy(alpha = 0.45f),
                     ) {
                         if (isSendMode) {
                             Icon(
@@ -587,7 +582,7 @@ fun GpxScreen(
                         }
                     }
                     if (gpxFiles.isNotEmpty()) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val nextDeleteMode = !isDeleteMode
@@ -598,22 +593,19 @@ fun GpxScreen(
                                     isRenameMode = false
                                 }
                             },
-                            modifier = Modifier.size(bottomActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor =
-                                        if (isDeleteMode) {
-                                            MaterialTheme.colorScheme.errorContainer
-                                        } else {
-                                            Color.Black.copy(alpha = 0.8f)
-                                        },
-                                    contentColor =
-                                        if (isDeleteMode) {
-                                            MaterialTheme.colorScheme.onErrorContainer
-                                        } else {
-                                            Color.White
-                                        },
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor =
+                                if (isDeleteMode) {
+                                    MaterialTheme.colorScheme.errorContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (isDeleteMode) {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                } else {
+                                    Color.White
+                                },
                         ) {
                             Icon(
                                 imageVector = if (isDeleteMode) Icons.Default.Close else Icons.Default.Delete,
@@ -623,6 +615,7 @@ fun GpxScreen(
                                     } else {
                                         "Enter delete mode"
                                     },
+                                modifier = Modifier.size(headerActionIconSize),
                             )
                         }
                     }

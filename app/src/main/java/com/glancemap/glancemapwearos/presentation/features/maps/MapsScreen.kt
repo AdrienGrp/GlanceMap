@@ -68,6 +68,7 @@ import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
@@ -188,7 +189,6 @@ fun MapsScreen(
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
         }
-    val bottomActionButtonSize = settingsButtonSize.coerceAtLeast(48.dp)
     val bottomActionBottomPadding =
         settingsBottomPadding.coerceAtLeast(
             if (adaptive.isRound) {
@@ -878,7 +878,7 @@ fun MapsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (mapFiles.isNotEmpty()) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val nextRenameMode = !isRenameMode
@@ -887,22 +887,19 @@ fun MapsScreen(
                                     isDeleteMode = false
                                 }
                             },
-                            modifier = Modifier.size(bottomActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor =
-                                        if (isRenameMode) {
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        } else {
-                                            Color.Black.copy(alpha = 0.8f)
-                                        },
-                                    contentColor =
-                                        if (isRenameMode) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        } else {
-                                            Color.White
-                                        },
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor =
+                                if (isRenameMode) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (isRenameMode) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    Color.White
+                                },
                         ) {
                             Icon(
                                 imageVector = if (isRenameMode) Icons.Default.Close else Icons.Default.Edit,
@@ -912,22 +909,20 @@ fun MapsScreen(
                                     } else {
                                         "Enter rename mode"
                                     },
+                                modifier = Modifier.size(headerActionIconSize),
                             )
                         }
                     }
-                    IconButton(
+                    CompactIconHitTargetButton(
                         onClick = { navController.navigate(WatchRoutes.MAP_SETTINGS) },
-                        modifier = Modifier.size(bottomActionButtonSize),
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.8f),
-                                contentColor = Color.White,
-                            ),
+                        visualSize = settingsButtonSize,
+                        containerColor = Color.Black.copy(alpha = 0.8f),
+                        contentColor = Color.White,
                     ) {
                         Icon(Icons.Default.Settings, contentDescription = "Map Settings")
                     }
                     if (mapFiles.isNotEmpty()) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val nextDeleteMode = !isDeleteMode
@@ -936,22 +931,19 @@ fun MapsScreen(
                                     isRenameMode = false
                                 }
                             },
-                            modifier = Modifier.size(bottomActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor =
-                                        if (isDeleteMode) {
-                                            MaterialTheme.colorScheme.errorContainer
-                                        } else {
-                                            Color.Black.copy(alpha = 0.8f)
-                                        },
-                                    contentColor =
-                                        if (isDeleteMode) {
-                                            MaterialTheme.colorScheme.onErrorContainer
-                                        } else {
-                                            Color.White
-                                        },
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor =
+                                if (isDeleteMode) {
+                                    MaterialTheme.colorScheme.errorContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (isDeleteMode) {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                } else {
+                                    Color.White
+                                },
                         ) {
                             Icon(
                                 imageVector = if (isDeleteMode) Icons.Default.Close else Icons.Default.Delete,
@@ -961,6 +953,7 @@ fun MapsScreen(
                                     } else {
                                         "Enter delete mode"
                                     },
+                                modifier = Modifier.size(headerActionIconSize),
                             )
                         }
                     }
