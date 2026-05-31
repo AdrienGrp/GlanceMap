@@ -137,9 +137,9 @@ fun GpxScreen(
         }
     val headerVerticalSpacing =
         when (screenSize) {
-            WearScreenSize.LARGE -> (-8).dp
-            WearScreenSize.MEDIUM -> (-9).dp
-            WearScreenSize.SMALL -> (-10).dp
+            WearScreenSize.LARGE -> (-12).dp
+            WearScreenSize.MEDIUM -> (-13).dp
+            WearScreenSize.SMALL -> (-14).dp
         }
     val emptyStatePadding =
         when (screenSize) {
@@ -147,26 +147,13 @@ fun GpxScreen(
             WearScreenSize.MEDIUM -> 14.dp
             WearScreenSize.SMALL -> 12.dp
         }
-    val settingsBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 5.dp
-            WearScreenSize.MEDIUM -> 4.dp
-            WearScreenSize.SMALL -> 3.dp
-        }
     val settingsButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 28.dp
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
         }
-    val bottomActionBottomPadding =
-        settingsBottomPadding.coerceAtLeast(
-            if (adaptive.isRound) {
-                4.dp
-            } else {
-                4.dp
-            },
-        )
+    val bottomActionBottomPadding = 0.dp
     val rowSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 8.dp
