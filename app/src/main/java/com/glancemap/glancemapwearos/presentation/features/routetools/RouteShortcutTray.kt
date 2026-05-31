@@ -67,7 +67,7 @@ internal fun BoxScope.RouteShortcutTray(
         ) {
             Column(
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 ShortcutActionChip(
                     text = "Stay",
