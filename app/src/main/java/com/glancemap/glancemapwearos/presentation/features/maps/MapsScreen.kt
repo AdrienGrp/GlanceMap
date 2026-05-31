@@ -131,28 +131,23 @@ fun MapsScreen(
         }
     val listTopPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 6.dp
-            WearScreenSize.MEDIUM -> 5.dp
-            WearScreenSize.SMALL -> 4.dp
+            WearScreenSize.LARGE -> 1.dp
+            WearScreenSize.MEDIUM -> 0.dp
+            WearScreenSize.SMALL -> 0.dp
         }
     val listBottomPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 7.dp
-            WearScreenSize.SMALL -> 6.dp
+            WearScreenSize.LARGE -> 2.dp
+            WearScreenSize.MEDIUM -> 1.dp
+            WearScreenSize.SMALL -> 0.dp
         }
     val headerTopPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 14.dp
-            WearScreenSize.MEDIUM -> 12.dp
-            WearScreenSize.SMALL -> 10.dp
+            WearScreenSize.LARGE -> 8.dp
+            WearScreenSize.MEDIUM -> 6.dp
+            WearScreenSize.SMALL -> 4.dp
         }
-    val headerBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 2.dp
-            WearScreenSize.MEDIUM -> 2.dp
-            WearScreenSize.SMALL -> 1.dp
-        }
+    val headerBottomPadding = 0.dp
     val headerActionButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 24.dp
@@ -165,11 +160,23 @@ fun MapsScreen(
             WearScreenSize.MEDIUM -> 13.dp
             WearScreenSize.SMALL -> 12.dp
         }
+    val headerActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 4.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
     val headerActionSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 4.dp
             WearScreenSize.MEDIUM -> 3.dp
             WearScreenSize.SMALL -> 2.dp
+        }
+    val headerVerticalSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-14).dp
+            WearScreenSize.MEDIUM -> (-15).dp
+            WearScreenSize.SMALL -> (-16).dp
         }
     val emptyStatePadding =
         when (screenSize) {
@@ -177,26 +184,13 @@ fun MapsScreen(
             WearScreenSize.MEDIUM -> 14.dp
             WearScreenSize.SMALL -> 12.dp
         }
-    val settingsBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 5.dp
-            WearScreenSize.MEDIUM -> 4.dp
-            WearScreenSize.SMALL -> 3.dp
-        }
     val settingsButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 28.dp
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
         }
-    val bottomActionBottomPadding =
-        settingsBottomPadding.coerceAtLeast(
-            if (adaptive.isRound) {
-                14.dp
-            } else {
-                4.dp
-            },
-        )
+    val bottomActionBottomPadding = 0.dp
     val rowSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 8.dp
@@ -652,7 +646,7 @@ fun MapsScreen(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(headerActionSpacing),
+                    verticalArrangement = Arrangement.spacedBy(headerVerticalSpacing),
                 ) {
                     Text(
                         text = "Offline maps",
@@ -669,6 +663,7 @@ fun MapsScreen(
                                 showHelpDialog = true
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = headerActionVisualOffsetY,
                             containerColor = Color.Black.copy(alpha = 0.7f),
                             contentColor = Color.White,
                         ) {
@@ -685,6 +680,7 @@ fun MapsScreen(
                                 showDemDataDialog = true
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = headerActionVisualOffsetY,
                             containerColor = Color.Black.copy(alpha = 0.7f),
                             contentColor = Color.White,
                         ) {
@@ -701,6 +697,7 @@ fun MapsScreen(
                                 showRoutingDataDialog = true
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = headerActionVisualOffsetY,
                             containerColor = Color.Black.copy(alpha = 0.7f),
                             contentColor = Color.White,
                         ) {

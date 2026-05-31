@@ -197,15 +197,15 @@ fun PoiScreen(
         }
     val listTopPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 6.dp
-            WearScreenSize.MEDIUM -> 5.dp
-            WearScreenSize.SMALL -> 4.dp
+            WearScreenSize.LARGE -> 1.dp
+            WearScreenSize.MEDIUM -> 0.dp
+            WearScreenSize.SMALL -> 0.dp
         }
     val listBottomPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 7.dp
-            WearScreenSize.SMALL -> 6.dp
+            WearScreenSize.LARGE -> 2.dp
+            WearScreenSize.MEDIUM -> 1.dp
+            WearScreenSize.SMALL -> 0.dp
         }
     val headerTopPadding =
         when (screenSize) {
@@ -213,12 +213,7 @@ fun PoiScreen(
             WearScreenSize.MEDIUM -> 6.dp
             WearScreenSize.SMALL -> 4.dp
         }
-    val headerBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 2.dp
-            WearScreenSize.MEDIUM -> 2.dp
-            WearScreenSize.SMALL -> 1.dp
-        }
+    val headerBottomPadding = 0.dp
     val headerActionButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 24.dp
@@ -249,26 +244,13 @@ fun PoiScreen(
             WearScreenSize.MEDIUM -> 14.dp
             WearScreenSize.SMALL -> 12.dp
         }
-    val settingsBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 5.dp
-            WearScreenSize.MEDIUM -> 4.dp
-            WearScreenSize.SMALL -> 3.dp
-        }
     val settingsButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 28.dp
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
         }
-    val bottomActionBottomPadding =
-        settingsBottomPadding.coerceAtLeast(
-            if (adaptive.isRound) {
-                8.dp
-            } else {
-                4.dp
-            },
-        )
+    val bottomActionBottomPadding = 0.dp
     val fileActionButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 32.dp
