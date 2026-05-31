@@ -807,48 +807,14 @@ fun MapsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    if (demDownloadState.isDownloading && demDownloadState.totalTiles > 0) {
+                    if (demDownloadState.isDownloading) {
                         RouteToolBusySpinner(size = 30.dp)
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
+                        if (demDownloadState.totalTiles > 0) {
                             Text(
                                 text = "Elevation ${demDownloadState.processedTiles}/${demDownloadState.totalTiles}",
                                 style = MaterialTheme.typography.labelSmall,
                                 textAlign = TextAlign.Center,
-                            )
-                            IconButton(
-                                onClick = { themeViewModel.cancelDemDownload() },
-                                modifier = Modifier.size(24.dp),
-                                colors =
-                                    IconButtonDefaults.iconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                    ),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Cancel elevation download",
-                                    modifier = Modifier.size(13.dp),
-                                )
-                            }
-                        }
-                    } else if (demDownloadState.isDownloading) {
-                        IconButton(
-                            onClick = { themeViewModel.cancelDemDownload() },
-                            modifier = Modifier.size(24.dp),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                ),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Cancel elevation download",
-                                modifier = Modifier.size(13.dp),
                             )
                         }
                     }
@@ -877,7 +843,7 @@ fun MapsScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (mapFiles.isNotEmpty()) {
+                    if (mapFiles.isNotEmpty() && !demDownloadState.isDownloading) {
                         CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -921,7 +887,21 @@ fun MapsScreen(
                     ) {
                         Icon(Icons.Default.Settings, contentDescription = "Map Settings")
                     }
-                    if (mapFiles.isNotEmpty()) {
+                    if (demDownloadState.isDownloading) {
+                        CompactIconHitTargetButton(
+                            onClick = { themeViewModel.cancelDemDownload() },
+                            visualSize = headerActionButtonSize,
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel elevation download",
+                                modifier = Modifier.size(headerActionIconSize),
+                            )
+                        }
+                    }
+                    if (mapFiles.isNotEmpty() && !demDownloadState.isDownloading) {
                         CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
