@@ -160,6 +160,12 @@ fun GpxScreen(
             WearScreenSize.SMALL -> 24.dp
         }
     val bottomActionBottomPadding = 0.dp
+    val bottomActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-6).dp
+            WearScreenSize.MEDIUM -> (-5).dp
+            WearScreenSize.SMALL -> (-4).dp
+        }
     val rowSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 8.dp
@@ -504,6 +510,7 @@ fun GpxScreen(
                                 }
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
                             containerColor =
                                 if (isRenameMode) {
                                     MaterialTheme.colorScheme.primaryContainer
@@ -545,6 +552,7 @@ fun GpxScreen(
                         },
                         enabled = !isSendMode || (selectedSendPaths.isNotEmpty() && exportUiState.isSending != true),
                         visualSize = settingsButtonSize,
+                        visualOffsetY = bottomActionVisualOffsetY,
                         containerColor =
                             if (isSendMode) {
                                 MaterialTheme.colorScheme.secondaryContainer
@@ -582,6 +590,7 @@ fun GpxScreen(
                                 }
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
                             containerColor =
                                 if (isDeleteMode) {
                                     MaterialTheme.colorScheme.errorContainer

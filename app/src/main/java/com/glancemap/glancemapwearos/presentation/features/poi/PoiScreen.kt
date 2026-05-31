@@ -262,6 +262,12 @@ fun PoiScreen(
             WearScreenSize.SMALL -> 24.dp
         }
     val bottomActionBottomPadding = 0.dp
+    val bottomActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-6).dp
+            WearScreenSize.MEDIUM -> (-5).dp
+            WearScreenSize.SMALL -> (-4).dp
+        }
     val fileActionButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 32.dp
@@ -798,6 +804,7 @@ fun PoiScreen(
                                 }
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
                             containerColor =
                                 if (isRenameMode) {
                                     MaterialTheme.colorScheme.primaryContainer
@@ -826,6 +833,7 @@ fun PoiScreen(
                     CompactIconHitTargetButton(
                         onClick = { navController.navigate(WatchRoutes.POI_SETTINGS) },
                         visualSize = settingsButtonSize,
+                        visualOffsetY = bottomActionVisualOffsetY,
                         containerColor = Color.Black.copy(alpha = 0.8f),
                         contentColor = Color.White,
                     ) {
@@ -841,6 +849,7 @@ fun PoiScreen(
                                 }
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
                             containerColor =
                                 if (isDeleteMode) {
                                     MaterialTheme.colorScheme.errorContainer

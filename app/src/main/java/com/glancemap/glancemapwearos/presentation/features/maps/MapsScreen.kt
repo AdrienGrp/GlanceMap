@@ -190,6 +190,12 @@ fun MapsScreen(
             WearScreenSize.SMALL -> 24.dp
         }
     val bottomActionBottomPadding = 0.dp
+    val bottomActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-6).dp
+            WearScreenSize.MEDIUM -> (-5).dp
+            WearScreenSize.SMALL -> (-4).dp
+        }
     val rowSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 8.dp
@@ -824,6 +830,7 @@ fun MapsScreen(
                                 }
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
                             containerColor =
                                 if (isRenameMode) {
                                     MaterialTheme.colorScheme.primaryContainer
@@ -852,6 +859,7 @@ fun MapsScreen(
                     CompactIconHitTargetButton(
                         onClick = { navController.navigate(WatchRoutes.MAP_SETTINGS) },
                         visualSize = settingsButtonSize,
+                        visualOffsetY = bottomActionVisualOffsetY,
                         containerColor = Color.Black.copy(alpha = 0.8f),
                         contentColor = Color.White,
                     ) {
@@ -861,6 +869,7 @@ fun MapsScreen(
                         CompactIconHitTargetButton(
                             onClick = { themeViewModel.cancelDemDownload() },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
                             containerColor = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ) {
@@ -882,6 +891,7 @@ fun MapsScreen(
                                 }
                             },
                             visualSize = headerActionButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
                             containerColor =
                                 if (isDeleteMode) {
                                     MaterialTheme.colorScheme.errorContainer
