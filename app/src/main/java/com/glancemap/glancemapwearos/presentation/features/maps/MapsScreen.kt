@@ -498,22 +498,16 @@ fun MapsScreen(
         AlertDialog(
             visible = showDemDataDialog,
             onDismissRequest = { showDemDataDialog = false },
-            title = {},
+            title = { Text("Elevation data") },
             text = {
                 WearDialogScrollableColumn(
                     maxHeight = adaptive.helpDialogMaxHeight,
                     modifier =
                         Modifier
                             .fillMaxWidth(),
-                    showScrollIndicator = true,
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    Text(
-                        text = "Elevation data",
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center,
-                    )
                     Text(
                         text = "Used for hill shading, slope and altitude.",
                         style = MaterialTheme.typography.bodySmall,
