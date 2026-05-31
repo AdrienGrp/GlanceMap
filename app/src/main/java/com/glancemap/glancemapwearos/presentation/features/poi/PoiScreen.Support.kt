@@ -142,7 +142,7 @@ internal fun PoiFileRow(
                 Text(
                     text = "${file.enabledPoiCount}/${file.totalPoiCount} POI",
                     style = MaterialTheme.typography.labelSmall,
-                    fontSize = if (compactMode) 8.sp else 9.sp,
+                    fontSize = 10.sp,
                     color = Color(0xFFD0D3F2),
                     maxLines = 1,
                 )
@@ -366,7 +366,7 @@ internal fun PoiCategoryRow(
                         Text(
                             text = countLabel,
                             style = MaterialTheme.typography.labelSmall,
-                            fontSize = if (compactMode) 8.sp else 9.sp,
+                            fontSize = 10.sp,
                             color = if (category.hasChildren) Color(0xFFAFC2F5) else Color(0xFF9FB0CD),
                             maxLines = 1,
                         )
@@ -571,7 +571,7 @@ internal fun PoiCategoryInfoRow(
     val cappedDepth = depth.coerceIn(0, 5)
     val indent = (cappedDepth * categoryIndentStep.value).dp
     val textColor = if (isError) MaterialTheme.colorScheme.error else Color(0xFF90A4AE)
-    val textSize = if (compactMode) 8.sp else 9.sp
+    val textSize = 10.sp
 
     Text(
         text = text,

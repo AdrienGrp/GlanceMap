@@ -69,26 +69,26 @@ internal fun BoxScope.RouteCrosshairOverlay(
     val multiPointTitleFontSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 10.5.sp
-            WearScreenSize.MEDIUM -> 9.5.sp
-            WearScreenSize.SMALL -> 8.5.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val multiPointTitleLineHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 10.sp
-            WearScreenSize.MEDIUM -> 9.sp
-            WearScreenSize.SMALL -> 8.sp
+            WearScreenSize.LARGE -> 11.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val multiPointStatusFontSize =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.5.sp
-            WearScreenSize.MEDIUM -> 8.sp
-            WearScreenSize.SMALL -> 7.5.sp
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val multiPointStatusLineHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 9.5.sp
-            WearScreenSize.MEDIUM -> 9.sp
-            WearScreenSize.SMALL -> 8.5.sp
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val popupVerticalPadding =
         if (multiPointMode) {
@@ -99,9 +99,9 @@ internal fun BoxScope.RouteCrosshairOverlay(
     val popupRowSpacing = if (multiPointMode) 0.dp else popupSpec.rowSpacing
     val saveChipFontSize =
         when (screenSize) {
-            WearScreenSize.LARGE -> 9.sp
-            WearScreenSize.MEDIUM -> 8.5.sp
-            WearScreenSize.SMALL -> 8.sp
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val actionButtonSize =
         when (screenSize) {
@@ -554,7 +554,7 @@ internal fun guidancePopupSpec(screenSize: WearScreenSize): GuidancePopupSpec =
                 cornerRadius = 7.dp,
                 rowSpacing = 2.dp,
                 modeTitleFontSize = 12.sp,
-                instructionFontSize = 9.sp,
+                instructionFontSize = 10.sp,
                 instructionLineHeight = 10.sp,
             )
 
@@ -567,8 +567,8 @@ internal fun guidancePopupSpec(screenSize: WearScreenSize): GuidancePopupSpec =
                 cornerRadius = 6.dp,
                 rowSpacing = 2.dp,
                 modeTitleFontSize = 11.sp,
-                instructionFontSize = 8.sp,
-                instructionLineHeight = 9.sp,
+                instructionFontSize = 10.sp,
+                instructionLineHeight = 10.sp,
             )
     }
 

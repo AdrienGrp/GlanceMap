@@ -358,15 +358,15 @@ internal fun BoxScope.PoiTapMessageOverlay(
             }
         val popupSecondaryActionFontSize =
             when (screenSize) {
-                WearScreenSize.LARGE -> 9.sp
-                WearScreenSize.MEDIUM -> 9.sp
-                WearScreenSize.SMALL -> 8.sp
+                WearScreenSize.LARGE -> 10.sp
+                WearScreenSize.MEDIUM -> 10.sp
+                WearScreenSize.SMALL -> 10.sp
             }
         val popupSecondaryActionLineHeight =
             when (screenSize) {
                 WearScreenSize.LARGE -> 10.sp
                 WearScreenSize.MEDIUM -> 10.sp
-                WearScreenSize.SMALL -> 9.sp
+                WearScreenSize.SMALL -> 10.sp
             }
         val popupPrimaryActionHorizontalPadding =
             when (screenSize) {
@@ -384,7 +384,7 @@ internal fun BoxScope.PoiTapMessageOverlay(
             when (screenSize) {
                 WearScreenSize.LARGE -> 10.sp
                 WearScreenSize.MEDIUM -> 10.sp
-                WearScreenSize.SMALL -> 9.sp
+                WearScreenSize.SMALL -> 10.sp
             }
         val popupPrimaryActionLineHeight =
             when (screenSize) {
@@ -628,7 +628,7 @@ internal fun BoxScope.GpxInspectionBSelectionPromptOverlay(
         when (screenSize) {
             WearScreenSize.LARGE -> 10.sp
             WearScreenSize.MEDIUM -> 10.sp
-            WearScreenSize.SMALL -> 9.sp
+            WearScreenSize.SMALL -> 10.sp
         }
 
     AnimatedVisibility(
@@ -924,8 +924,8 @@ internal fun NorthUpLockedModeIcon(
             text = "N",
             color = tint.copy(alpha = 0.98f),
             fontWeight = FontWeight.ExtraBold,
-            fontSize = 8.sp,
-            lineHeight = 8.sp,
+            fontSize = 10.sp,
+            lineHeight = 10.sp,
             textAlign = TextAlign.Center,
             maxLines = 1,
             modifier =

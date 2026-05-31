@@ -225,15 +225,15 @@ fun DownloadScreen(
         }
     val footerTextSize =
         when (screenSize) {
-            WearScreenSize.LARGE -> 9.sp
-            WearScreenSize.MEDIUM -> 8.sp
-            WearScreenSize.SMALL -> 7.sp
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val footerLineHeight =
         when (screenSize) {
             WearScreenSize.LARGE -> 10.sp
-            WearScreenSize.MEDIUM -> 9.sp
-            WearScreenSize.SMALL -> 8.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val footerHorizontalPadding =
         when (screenSize) {

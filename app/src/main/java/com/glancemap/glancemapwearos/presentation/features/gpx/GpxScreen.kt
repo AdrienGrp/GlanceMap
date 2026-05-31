@@ -176,9 +176,9 @@ fun GpxScreen(
         }
     val secondaryTextSize =
         when (screenSize) {
-            WearScreenSize.LARGE -> 9.sp
-            WearScreenSize.MEDIUM -> 8.sp
-            WearScreenSize.SMALL -> 8.sp
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val deleteButtonSize =
         when (screenSize) {

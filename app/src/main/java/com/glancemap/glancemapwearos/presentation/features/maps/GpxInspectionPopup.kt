@@ -187,10 +187,10 @@ private fun rememberInspectionPopupSizing(): InspectionPopupSizing {
                     handleBottomPadding = 1.dp,
                     showEtaInline = true,
                     tableWidthScale = 1f,
-                    headerTextSize = 7.sp,
-                    labelTextSize = 8.sp,
-                    valueTextSize = 9.sp,
-                    etaTextSize = 8.sp,
+                    headerTextSize = 10.sp,
+                    labelTextSize = 10.sp,
+                    valueTextSize = 10.sp,
+                    etaTextSize = 10.sp,
                     buttonTextSize = 10.sp,
                 )
             } else {
