@@ -336,17 +336,14 @@ fun GpxScreen(
                         horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 showHelpDialog = true
                             },
-                            modifier = Modifier.size(headerActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = Color.Black.copy(alpha = 0.7f),
-                                    contentColor = Color.White,
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
@@ -355,7 +352,7 @@ fun GpxScreen(
                             )
                         }
                         if (gpxFiles.isNotEmpty()) {
-                            IconButton(
+                            CompactIconHitTargetButton(
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     val nextSendMode = !isSendMode
@@ -367,22 +364,19 @@ fun GpxScreen(
                                         selectedSendPaths = emptySet()
                                     }
                                 },
-                                modifier = Modifier.size(headerActionButtonSize),
-                                colors =
-                                    IconButtonDefaults.iconButtonColors(
-                                        containerColor =
-                                            if (isSendMode) {
-                                                MaterialTheme.colorScheme.secondaryContainer
-                                            } else {
-                                                Color.Black.copy(alpha = 0.7f)
-                                            },
-                                        contentColor =
-                                            if (isSendMode) {
-                                                MaterialTheme.colorScheme.onSecondaryContainer
-                                            } else {
-                                                Color.White
-                                            },
-                                    ),
+                                visualSize = headerActionButtonSize,
+                                containerColor =
+                                    if (isSendMode) {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    } else {
+                                        Color.Black.copy(alpha = 0.7f)
+                                    },
+                                contentColor =
+                                    if (isSendMode) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    } else {
+                                        Color.White
+                                    },
                             ) {
                                 if (isSendMode) {
                                     Icon(

@@ -663,17 +663,14 @@ fun MapsScreen(
                         horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 showHelpDialog = true
                             },
-                            modifier = Modifier.size(headerActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = Color.Black.copy(alpha = 0.7f),
-                                    contentColor = Color.White,
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
@@ -681,18 +678,15 @@ fun MapsScreen(
                                 modifier = Modifier.size(headerActionIconSize),
                             )
                         }
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 mapViewModel.loadDemTileFiles()
                                 showDemDataDialog = true
                             },
-                            modifier = Modifier.size(headerActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = Color.Black.copy(alpha = 0.7f),
-                                    contentColor = Color.White,
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Landscape,
@@ -700,18 +694,15 @@ fun MapsScreen(
                                 modifier = Modifier.size(headerActionIconSize),
                             )
                         }
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 mapViewModel.loadRoutingPackFiles()
                                 showRoutingDataDialog = true
                             },
-                            modifier = Modifier.size(headerActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = Color.Black.copy(alpha = 0.7f),
-                                    contentColor = Color.White,
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.CallSplit,

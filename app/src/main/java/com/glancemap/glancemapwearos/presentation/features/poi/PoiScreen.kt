@@ -612,17 +612,14 @@ fun PoiScreen(
                         horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 showHelpDialog = true
                             },
-                            modifier = Modifier.size(headerActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = Color.Black.copy(alpha = 0.7f),
-                                    contentColor = Color.White,
-                                ),
+                            visualSize = headerActionButtonSize,
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
