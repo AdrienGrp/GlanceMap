@@ -505,7 +505,7 @@ fun DebuggingSettingsScreen(
                         secondaryLabel = "Debug crash test",
                         onClick = {
                             DebugTelemetry.log("DiagnosticsFlow", "manual_force_close_requested")
-                            throw IllegalStateException("Manual force close from debugging settings")
+                            error("Manual force close from debugging settings")
                         },
                     )
                 }
