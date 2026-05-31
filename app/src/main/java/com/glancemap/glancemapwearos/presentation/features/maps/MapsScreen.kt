@@ -400,15 +400,16 @@ fun MapsScreen(
                 if (routingPackFiles.isNotEmpty()) {
                     CompactIconHitTargetButton(
                         onClick = { showDeleteAllRoutingDialog = true },
-                        visualSize = 38.dp,
-                        visualOffsetY = (-9).dp,
+                        modifier = Modifier.offset(y = (-16).dp),
+                        visualSize = 32.dp,
+                        visualOffsetY = (-2).dp,
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete all routing packs",
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(15.dp),
                         )
                     }
                 }
