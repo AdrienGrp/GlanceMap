@@ -402,6 +402,7 @@ fun MapsScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth(),
+                    scrollable = false,
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -490,51 +491,55 @@ fun MapsScreen(
             visible = showDemDataDialog,
             onDismissRequest = { showDemDataDialog = false },
             title = { Text("Elevation data") },
-            text = {
-                WearDialogScrollableColumn(
-                    maxHeight = adaptive.helpDialogMaxHeight,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
-                ) {
+            content = {
+                item {
                     Text(
                         text = "Used for hill shading, slope and altitude.",
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
                     )
+                }
+                item {
                     Text(
                         text = "Choose quality for new elevation downloads.",
                         style = MaterialTheme.typography.labelMedium,
                         textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    DemSource.entries.forEach { source ->
-                        DemQualityChoiceRow(
-                            source = source,
-                            selected = selectedDemSource == source,
-                            onSelect = { themeViewModel.setDemSource(source) },
-                        )
-                    }
-                    DemSource.entries.forEach { source ->
-                        val files = demTileFiles.filter { it.source == source }
-                        DemStorageSummaryRow(
-                            source = source,
-                            files = files,
-                            onDeleteAll = { demSourceToDeleteAll = source },
-                        )
-                    }
-                    if (mapFiles.isNotEmpty()) {
+                }
+                items(DemSource.entries) { source ->
+                    DemQualityChoiceRow(
+                        source = source,
+                        selected = selectedDemSource == source,
+                        onSelect = { themeViewModel.setDemSource(source) },
+                    )
+                }
+                items(DemSource.entries) { source ->
+                    val files = demTileFiles.filter { it.source == source }
+                    DemStorageSummaryRow(
+                        source = source,
+                        files = files,
+                        onDeleteAll = { demSourceToDeleteAll = source },
+                    )
+                }
+                if (mapFiles.isNotEmpty()) {
+                    item {
                         Text(
                             text = "Map coverage",
                             style = MaterialTheme.typography.labelMedium,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 2.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 2.dp),
                         )
-                        mapFiles.forEach { mapFile ->
-                            DemMapCoverageRow(mapFile = mapFile)
-                        }
                     }
+                    items(mapFiles) { mapFile ->
+                        DemMapCoverageRow(mapFile = mapFile)
+                    }
+                }
+                item {
                     WearDialogScrollBottomSpacer()
                 }
             },
@@ -550,6 +555,7 @@ fun MapsScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth(),
+                    scrollable = false,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text("Toggle a map to use it on Navigate.")

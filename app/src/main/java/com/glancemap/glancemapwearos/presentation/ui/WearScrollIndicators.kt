@@ -34,6 +34,7 @@ fun WearDialogScrollableColumn(
     scrollState: ScrollState = rememberScrollState(),
     contentEndPadding: Dp = 10.dp,
     showScrollIndicator: Boolean = false,
+    scrollable: Boolean = true,
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: @Composable ColumnScope.() -> Unit,
@@ -42,19 +43,32 @@ fun WearDialogScrollableColumn(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(max = maxHeight),
+                .let { base ->
+                    if (scrollable) {
+                        base.heightIn(max = maxHeight)
+                    } else {
+                        base
+                    }
+                },
     ) {
         Column(
             modifier =
                 contentModifier
                     .fillMaxWidth()
-                    .padding(end = contentEndPadding)
-                    .verticalScroll(scrollState),
+                    .let { base ->
+                        if (scrollable) {
+                            base
+                                .padding(end = contentEndPadding)
+                                .verticalScroll(scrollState)
+                        } else {
+                            base
+                        }
+                    },
             horizontalAlignment = horizontalAlignment,
             verticalArrangement = verticalArrangement,
             content = content,
         )
-        if (showScrollIndicator) {
+        if (showScrollIndicator && scrollable) {
             WearVerticalScrollIndicator(
                 scrollState = scrollState,
                 modifier = Modifier.align(Alignment.CenterEnd),

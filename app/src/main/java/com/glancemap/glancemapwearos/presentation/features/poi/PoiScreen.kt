@@ -545,6 +545,7 @@ fun PoiScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth(),
+                    scrollable = false,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(

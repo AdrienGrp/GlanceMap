@@ -647,6 +647,7 @@ private fun DiagnosticsExportInfoDialog(
                 modifier =
                     Modifier
                         .fillMaxWidth(),
+                scrollable = false,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {

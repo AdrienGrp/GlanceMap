@@ -39,6 +39,7 @@ fun GpxHelpBottomSheet(
                 modifier =
                     Modifier
                         .fillMaxWidth(),
+                scrollable = false,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("Toggle tracks to show or hide them on the map.")
