@@ -161,7 +161,7 @@ private fun ShortcutActionChip(
     Box(
         modifier =
             Modifier
-                .width(82.dp)
+                .width(88.dp)
                 .height(hitTargetHeight)
                 .clickable(
                     role = Role.Button,
@@ -172,7 +172,7 @@ private fun ShortcutActionChip(
         Row(
             modifier =
                 Modifier
-                    .width(72.dp)
+                    .width(80.dp)
                     .height(visualHeight)
                     .background(
                         color = Color.Black.copy(alpha = 0.78f),
@@ -185,7 +185,7 @@ private fun ShortcutActionChip(
             Text(
                 text = text,
                 color = Color.White,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
             )
