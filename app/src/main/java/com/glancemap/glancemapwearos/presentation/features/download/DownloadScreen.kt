@@ -207,6 +207,12 @@ fun DownloadScreen(
             WearScreenSize.SMALL -> 16.dp
         }
     val bottomActionBottomPadding = 0.dp
+    val bottomActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-6).dp
+            WearScreenSize.MEDIUM -> (-5).dp
+            WearScreenSize.SMALL -> (-4).dp
+        }
     val settingsButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 28.dp
@@ -570,6 +576,7 @@ fun DownloadScreen(
                             onClick = onOpenSettings,
                             enabled = !uiState.isDownloading,
                             visualSize = settingsButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
                             containerColor = Color.Black.copy(alpha = 0.8f),
                             contentColor = Color.White,
                             disabledContainerColor = Color.Black.copy(alpha = 0.32f),
@@ -592,6 +599,7 @@ fun DownloadScreen(
                                 },
                                 enabled = !uiState.isDownloading,
                                 visualSize = headerActionButtonSize,
+                                visualOffsetY = bottomActionVisualOffsetY,
                                 containerColor =
                                     if (deleteMode) {
                                         MaterialTheme.colorScheme.errorContainer
