@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.*
@@ -143,6 +144,13 @@ fun SettingsScreen(
                 SettingsSectionChip(
                     label = "Map settings",
                     onClick = { navController.navigate(WatchRoutes.MAP_SETTINGS) },
+                )
+            }
+            item {
+                SettingsSectionChip(
+                    label = "Settings",
+                    iconImageVector = Icons.Filled.Download,
+                    onClick = { navController.navigate(WatchRoutes.DOWNLOAD_SETTINGS) },
                 )
             }
 

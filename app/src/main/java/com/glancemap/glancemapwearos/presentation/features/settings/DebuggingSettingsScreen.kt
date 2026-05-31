@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
@@ -64,6 +64,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.motion.Marke
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.ui.WearCustomDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -102,15 +103,7 @@ fun DebuggingSettingsScreen(
     onOpenGeneralSettings: () -> Unit,
 ) {
     val screenSize = rememberWearScreenSize()
-    val listTokens =
-        rememberSettingsListTokens(
-            compactTop = 12.dp,
-            standardTop = 14.dp,
-            expandedTop = 16.dp,
-            compactBottom = 12.dp,
-            standardBottom = 14.dp,
-            expandedBottom = 16.dp,
-        )
+    val listTokens = rememberSettingsListTokens()
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -226,6 +219,7 @@ fun DebuggingSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
             anchorType = SettingsListAnchorType,
             autoCentering = SettingsListAutoCentering,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {
                 Box(
@@ -642,74 +636,19 @@ private fun DiagnosticsExportInfoDialog(
 ) {
     if (!visible) return
     val adaptive = rememberWearAdaptiveSpec()
-    val scrollState = rememberScrollState()
-    val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
 
-    Dialog(onDismissRequest = onDismiss) {
-        androidx.compose.foundation.layout.Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .offset(y = 2.dp)
-                    .background(
-                        Color.Black.copy(alpha = 0.82f),
-                        RoundedCornerShape(adaptive.dialogCornerRadius),
-                    ).padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding,
-                    ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .pointerInput(Unit) {
-                            var totalDrag = 0f
-                            detectVerticalDragGestures(
-                                onDragEnd = { totalDrag = 0f },
-                                onDragCancel = { totalDrag = 0f },
-                            ) { _, dragAmount ->
-                                totalDrag += dragAmount
-                                if (totalDrag > DEBUG_INFO_DRAG_DISMISS_PX) {
-                                    onDismiss()
-                                    totalDrag = 0f
-                                }
-                            }
-                        },
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .width(26.dp)
-                            .height(3.dp)
-                            .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
-                )
-            }
-            Text(
-                text = "Diagnostics Export",
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-            )
-            WearCustomDialogScrollableColumn(
-                maxHeight = adaptive.dialogBodyMaxHeight,
+    AlertDialog(
+        visible = visible,
+        onDismissRequest = onDismiss,
+        title = { Text("Diagnostics Export") },
+        text = {
+            WearDialogScrollableColumn(
+                maxHeight = adaptive.helpDialogMaxHeight,
                 modifier =
                     Modifier
                         .fillMaxWidth(),
-                contentModifier =
-                    Modifier
-                        .onPreRotaryScrollEvent { event ->
-                            val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
-                            abs(consumed) > 0.5f
-                        }.focusRequester(focusRequester)
-                        .focusable(),
-                scrollState = scrollState,
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     text =
@@ -718,9 +657,10 @@ private fun DiagnosticsExportInfoDialog(
                             "If you closed the phone prompt, come back here and tap Resend.",
                     textAlign = TextAlign.Center,
                 )
+                WearDialogScrollBottomSpacer()
             }
-        }
-    }
+        },
+    )
 }
 
 private fun buildRetryReadyLabel(count: Int): String {
