@@ -395,16 +395,49 @@ fun MapsScreen(
         AlertDialog(
             visible = showRoutingDataDialog,
             onDismissRequest = { showRoutingDataDialog = false },
-            title = { Text("Routing data") },
+            title = {},
             text = {
                 WearDialogScrollableColumn(
                     maxHeight = adaptive.helpDialogMaxHeight,
                     modifier =
                         Modifier
                             .fillMaxWidth(),
+                    showScrollIndicator = true,
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Box(modifier = Modifier.size(48.dp))
+                        Text(
+                            text = "Routing data",
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (routingPackFiles.isNotEmpty()) {
+                            IconButton(
+                                onClick = { showDeleteAllRoutingDialog = true },
+                                modifier = Modifier.size(48.dp),
+                                colors =
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    ),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete all routing packs",
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        } else {
+                            Box(modifier = Modifier.size(48.dp))
+                        }
+                    }
                     Text(
                         text = routingPackSummary(routingPackFiles),
                         style = MaterialTheme.typography.bodySmall,
@@ -458,33 +491,6 @@ fun MapsScreen(
                         }
                     }
                     WearDialogScrollBottomSpacer()
-                }
-            },
-            confirmButton = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (routingPackFiles.isNotEmpty()) {
-                        Button(
-                            onClick = { showDeleteAllRoutingDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                ),
-                        ) {
-                            Text("Delete all")
-                        }
-                    }
-                    Button(
-                        onClick = { showRoutingDataDialog = false },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Done")
-                    }
                 }
             },
         )
