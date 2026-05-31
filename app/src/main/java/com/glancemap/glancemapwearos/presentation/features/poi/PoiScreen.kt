@@ -506,6 +506,7 @@ fun PoiScreen(
             initialValue = poiToRename?.name.orEmpty(),
             isSaving = renameInProgress,
             error = renameError,
+            fullScreen = true,
             onDismiss = {
                 if (!renameInProgress) {
                     showRenameDialog = false

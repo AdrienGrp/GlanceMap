@@ -71,11 +71,12 @@ internal fun RouteToolsActionPanel(
             8.dp
         } else {
             when (adaptive.screenSize) {
-                WearScreenSize.LARGE -> 12.dp
-                WearScreenSize.MEDIUM -> 14.dp
-                WearScreenSize.SMALL -> 16.dp
+                WearScreenSize.LARGE -> 18.dp
+                WearScreenSize.MEDIUM -> 22.dp
+                WearScreenSize.SMALL -> 26.dp
             }
         }
+    val routeToolsIndicatorBottomInset = routeToolsContentBottomInset + 22.dp
     val routeToolsContentMaxHeight =
         (
             adaptive.heightDp.dp -
@@ -422,9 +423,9 @@ internal fun RouteToolsActionPanel(
                         Modifier
                             .align(Alignment.CenterEnd)
                             .padding(
-                                top = 2.dp,
+                                top = 4.dp,
                                 end = 1.dp,
-                                bottom = routeToolsContentBottomInset,
+                                bottom = routeToolsIndicatorBottomInset,
                             ),
                 )
             }
