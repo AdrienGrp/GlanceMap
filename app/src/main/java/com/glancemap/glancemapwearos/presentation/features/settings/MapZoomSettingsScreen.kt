@@ -35,6 +35,7 @@ import kotlin.math.roundToInt
 @Composable
 fun MapZoomSettingsScreen(
     viewModel: SettingsViewModel,
+    onOpenGeneralSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
     val crownZoomEnabled by viewModel.crownZoomEnabled.collectAsState()
@@ -63,6 +64,9 @@ fun MapZoomSettingsScreen(
             autoCentering = SettingsListAutoCentering,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            item {
+                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            }
             item {
                 SettingsToggleChip(
                     checked = crownZoomEnabled,

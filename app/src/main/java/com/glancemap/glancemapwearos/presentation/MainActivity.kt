@@ -468,6 +468,13 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 MapZoomSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -500,6 +507,13 @@ class MainActivity : ComponentActivity() {
                                     mapViewModel = appContainer.mapViewModel,
                                     onOpenMaps = {
                                         navController.navigate(WatchRoutes.MAPS) {
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
                                             launchSingleTop = true
                                             restoreState = true
                                         }
