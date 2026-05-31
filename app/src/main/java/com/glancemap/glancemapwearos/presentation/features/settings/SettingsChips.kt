@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
@@ -8,8 +9,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
 import com.google.android.horologist.compose.material.ToggleChip
@@ -35,8 +39,13 @@ internal fun SettingsToggleChip(
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val minHeight = rememberSettingsChipMinHeight(hasSecondaryLabel = secondaryLabel != null)
+
     ToggleChip(
-        modifier = modifier,
+        modifier =
+            Modifier
+                .heightIn(min = minHeight)
+                .then(modifier),
         enabled = enabled,
         checked = checked,
         onCheckedChanged = onCheckedChanged,
@@ -55,9 +64,14 @@ internal fun SettingsPickerChip(
     iconImageVector: ImageVector? = Icons.Filled.UnfoldMore,
     modifier: Modifier = Modifier,
 ) {
+    val minHeight = rememberSettingsChipMinHeight(hasSecondaryLabel = secondaryLabel != null)
+
     if (iconImageVector != null) {
         Chip(
-            modifier = modifier,
+            modifier =
+                Modifier
+                    .heightIn(min = minHeight)
+                    .then(modifier),
             label = label,
             secondaryLabel = secondaryLabel,
             icon = {
@@ -78,7 +92,10 @@ internal fun SettingsPickerChip(
         )
     } else {
         Chip(
-            modifier = modifier,
+            modifier =
+                Modifier
+                    .heightIn(min = minHeight)
+                    .then(modifier),
             label = label,
             secondaryLabel = secondaryLabel,
             colors =
@@ -101,8 +118,13 @@ internal fun SettingsSectionChip(
     secondaryLabel: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val minHeight = rememberSettingsChipMinHeight(hasSecondaryLabel = secondaryLabel != null)
+
     Chip(
-        modifier = modifier,
+        modifier =
+            Modifier
+                .heightIn(min = minHeight)
+                .then(modifier),
         label = label,
         secondaryLabel = secondaryLabel,
         icon = {
@@ -121,4 +143,17 @@ internal fun SettingsSectionChip(
             ),
         onClick = onClick,
     )
+}
+
+@Composable
+private fun rememberSettingsChipMinHeight(hasSecondaryLabel: Boolean): Dp {
+    val adaptive = rememberWearAdaptiveSpec()
+    return when {
+        adaptive.fontScale >= 1.45f && hasSecondaryLabel -> 76.dp
+        adaptive.fontScale >= 1.45f -> 64.dp
+        adaptive.fontScale >= 1.25f && hasSecondaryLabel -> 68.dp
+        adaptive.fontScale >= 1.25f -> 56.dp
+        hasSecondaryLabel -> 52.dp
+        else -> 48.dp
+    }
 }

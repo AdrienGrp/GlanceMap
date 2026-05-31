@@ -59,7 +59,7 @@ fun LicensesScreen(onOpenGeneralSettings: () -> Unit) {
             expandedBottom = 32.dp,
         )
     var selectedDocument by remember { mutableStateOf<LicenseDocument?>(null) }
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
@@ -73,6 +73,8 @@ fun LicensesScreen(onOpenGeneralSettings: () -> Unit) {
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {
@@ -372,12 +374,6 @@ private fun LicenseDocumentDialog(
                             .align(Alignment.Center),
                 )
             }
-            Text(
-                text = document.title,
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
             WearDialogScrollableColumn(
                 maxHeight = adaptive.helpDialogMaxHeight,
                 modifier =
@@ -391,7 +387,14 @@ private fun LicenseDocumentDialog(
                         }.focusRequester(focusRequester)
                         .focusable(),
                 scrollState = scrollState,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Text(
+                    text = document.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Text(
                     text = documentText,
                     style = MaterialTheme.typography.bodySmall,

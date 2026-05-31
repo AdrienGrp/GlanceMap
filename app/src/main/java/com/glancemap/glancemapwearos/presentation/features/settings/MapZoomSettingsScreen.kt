@@ -45,7 +45,7 @@ fun MapZoomSettingsScreen(
     val isMetric by viewModel.isMetric.collectAsState()
     var showCrownDirectionPicker by remember { mutableStateOf(false) }
 
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
@@ -59,6 +59,8 @@ fun MapZoomSettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {

@@ -20,7 +20,7 @@ fun ResetDefaultsConfirmScreen(
     onConfirmReset: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
@@ -34,6 +34,8 @@ fun ResetDefaultsConfirmScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
         ) {
             item {
                 Text(

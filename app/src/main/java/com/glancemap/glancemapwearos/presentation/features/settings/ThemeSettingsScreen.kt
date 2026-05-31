@@ -155,7 +155,7 @@ fun ThemeSettingsScreen(
             expandedBottom = 16.dp,
         )
     val themeItems by themeViewModel.themeItems.collectAsState()
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
     var showThemePicker by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
@@ -238,6 +238,8 @@ fun ThemeSettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
         ) {
             item {
                 Button(onClick = { themeViewModel.resetToDefaults() }) {

@@ -45,7 +45,7 @@ fun CompassSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val adaptive = rememberWearAdaptiveSpec()
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     var showCalibrationDialog by remember { mutableStateOf(false) }
     var showCompassModePicker by remember { mutableStateOf(false) }
     var showProviderPicker by remember { mutableStateOf(false) }
@@ -330,6 +330,8 @@ fun CompassSettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
         ) {
             item { GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings) }
             item {

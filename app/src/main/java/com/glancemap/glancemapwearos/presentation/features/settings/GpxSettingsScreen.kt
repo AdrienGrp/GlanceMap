@@ -118,7 +118,7 @@ fun GpxSettingsScreen(
             Color.Red,
         )
 
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val groupSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 8.dp
@@ -174,6 +174,8 @@ fun GpxSettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {

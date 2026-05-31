@@ -479,6 +479,13 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 MapDisplaySettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
                                 )
                             }
                         }

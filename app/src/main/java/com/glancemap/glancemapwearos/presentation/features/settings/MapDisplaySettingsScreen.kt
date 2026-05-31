@@ -3,7 +3,6 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
@@ -23,9 +22,9 @@ import com.google.android.horologist.compose.layout.ScreenScaffold
 @Composable
 fun MapDisplaySettingsScreen(
     viewModel: SettingsViewModel,
+    onOpenGeneralSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
-    val firstItemTopPadding = rememberSettingsFirstItemTopPadding()
     val northIndicatorMode by viewModel.northIndicatorMode.collectAsState()
     val navigationMarkerStyle by viewModel.navigationMarkerStyle.collectAsState()
     val showTimeInNavigate by viewModel.showTimeInNavigate.collectAsState()
@@ -33,7 +32,7 @@ fun MapDisplaySettingsScreen(
     val mapZoomButtonsMode by viewModel.mapZoomButtonsMode.collectAsState()
     val gpsAccuracyCircleEnabled by viewModel.gpsAccuracyCircleEnabled.collectAsState()
 
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val northIndicatorModes = listOf("ALWAYS", "COMPASS_ONLY", "NORTH_UP_ONLY", "NEVER")
     val markerStyles =
         listOf(
@@ -84,11 +83,15 @@ fun MapDisplaySettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {
+                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            }
+            item {
                 SettingsToggleChip(
-                    modifier = Modifier.padding(top = firstItemTopPadding),
                     checked = showTimeInNavigate,
                     onCheckedChanged = { viewModel.setShowTimeInNavigate(it) },
                     label = "Show time on map",

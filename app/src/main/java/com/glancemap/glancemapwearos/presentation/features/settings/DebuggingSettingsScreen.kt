@@ -41,9 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
-import androidx.wear.compose.foundation.lazy.AutoCenteringParams
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
@@ -64,10 +62,12 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnost
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 import com.glancemap.shared.transfer.TransferDataLayerContract
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
@@ -140,7 +140,7 @@ fun DebuggingSettingsScreen(
         }
     val hasExportedDiagnostics = exportedDiagnosticsCount > 0
 
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val infoButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 24.dp
@@ -216,7 +216,6 @@ fun DebuggingSettingsScreen(
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            autoCentering = AutoCenteringParams(itemIndex = 2),
             contentPadding =
                 PaddingValues(
                     start = listTokens.horizontalPadding,
@@ -225,6 +224,8 @@ fun DebuggingSettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
         ) {
             item {
                 Box(
@@ -523,6 +524,8 @@ private fun DiagnosticsExportStatusDialog(
     if (mode == null) return
 
     val adaptive = rememberWearAdaptiveSpec()
+    val scrollState = rememberScrollState()
+    val focusRequester = remember { FocusRequester() }
     val dismissible = mode != DiagnosticsExportDialogMode.GENERATING
     val title =
         if (mode == DiagnosticsExportDialogMode.GENERATING) {
@@ -532,50 +535,104 @@ private fun DiagnosticsExportStatusDialog(
         } else {
             "Diagnostic ready - check your phone"
         }
+    LaunchedEffect(mode) {
+        focusRequester.requestFocus()
+    }
 
-    AlertDialog(
-        visible = true,
+    Dialog(
         onDismissRequest = {
             if (dismissible) {
                 onDismiss()
             }
         },
-        icon = {
-            if (mode == DiagnosticsExportDialogMode.GENERATING) {
-                RouteToolBusySpinner(size = 30.dp)
-            }
-        },
-        title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        text = {
+    ) {
+        androidx.compose.foundation.layout.Column(
+            modifier =
+                Modifier
+                    .wearDialogWidth()
+                    .background(
+                        Color.Black.copy(alpha = 0.82f),
+                        RoundedCornerShape(adaptive.dialogCornerRadius),
+                    ).padding(
+                        horizontal = adaptive.dialogHorizontalPadding,
+                        vertical = adaptive.dialogVerticalPadding,
+                    ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = adaptive.dialogHorizontalPadding),
+                        .pointerInput(dismissible) {
+                            if (!dismissible) return@pointerInput
+                            var totalDrag = 0f
+                            detectVerticalDragGestures(
+                                onDragEnd = { totalDrag = 0f },
+                                onDragCancel = { totalDrag = 0f },
+                            ) { _, dragAmount ->
+                                totalDrag += dragAmount
+                                if (totalDrag > DEBUG_INFO_DRAG_DISMISS_PX) {
+                                    onDismiss()
+                                    totalDrag = 0f
+                                }
+                            }
+                        },
                 contentAlignment = Alignment.Center,
             ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .width(26.dp)
+                            .height(3.dp)
+                            .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
+                )
+            }
+
+            WearDialogScrollableColumn(
+                maxHeight = adaptive.helpDialogMaxHeight,
+                modifier = Modifier.fillMaxWidth(),
+                contentModifier =
+                    Modifier
+                        .onPreRotaryScrollEvent { event ->
+                            val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
+                            abs(consumed) > 0.5f
+                        }.focusRequester(focusRequester)
+                        .focusable(),
+                scrollState = scrollState,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (mode == DiagnosticsExportDialogMode.GENERATING) {
+                    RouteToolBusySpinner(size = 30.dp)
+                }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Text(
                     text = message,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-            }
-        },
-        confirmButton = {
-            if (dismissible) {
-                Button(onClick = onDismiss) {
-                    Text("OK")
+                if (dismissible) {
+                    Button(
+                        onClick = onDismiss,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
+                    ) {
+                        Text("OK")
+                    }
                 }
+                WearDialogScrollBottomSpacer()
             }
-        },
-    )
+        }
+    }
 }
 
 @Composable
