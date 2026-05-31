@@ -232,7 +232,7 @@ internal fun ElevationProfileChart(
     plotBottomInset: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val backgroundColor = Color.White.copy(alpha = 0.16f)
+    val backgroundColor = Color.White.copy(alpha = 0.22f)
     val gridColor = Color.White.copy(alpha = 0.14f)
     val baselineColor = Color.White.copy(alpha = 0.24f)
     val axisColor = Color.White.copy(alpha = 0.30f)

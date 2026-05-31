@@ -233,7 +233,7 @@ fun GpxElevationProfileDialog(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.84f)),
+                    .background(Color.Black),
             contentAlignment = Alignment.Center,
         ) {
             Column(

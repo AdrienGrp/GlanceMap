@@ -1,10 +1,8 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
-import android.view.ViewConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,15 +13,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,17 +27,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
@@ -51,13 +42,10 @@ import androidx.wear.compose.material3.Slider
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private const val KMPH_TO_MPS = 1f / 3.6f
@@ -77,7 +65,6 @@ fun GpxSettingsScreen(
 ) {
     val screenSize = rememberWearScreenSize()
     val listTokens = rememberSettingsListTokens()
-    val adaptive = rememberWearAdaptiveSpec()
     val trackColor by viewModel.gpxTrackColor.collectAsState()
     val trackColorMode by viewModel.gpxTrackColorMode.collectAsState()
     val trackWidth by viewModel.gpxTrackWidth.collectAsState()
@@ -93,22 +80,8 @@ fun GpxSettingsScreen(
     val gpxElevationTrendActivationThresholdMeters by viewModel.gpxElevationTrendActivationThresholdMeters.collectAsState()
     val gpxElevationAutoAdjustPerGpx by viewModel.gpxElevationAutoAdjustPerGpx.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
-    var showInspectionHelpDialog by remember { mutableStateOf(false) }
     var showAdvancedElevationFilter by remember { mutableStateOf(false) }
     var showTrackColorModeDialog by remember { mutableStateOf(false) }
-    val helpDialogScrollState = rememberScrollState()
-    val helpDialogFocusRequester = remember { FocusRequester() }
-    val currentLocale = LocalLocale.current.platformLocale
-    val longPressSecondsLabel =
-        remember(currentLocale) {
-            val longPressSeconds = ViewConfiguration.getLongPressTimeout() / 1000f
-            String.format(currentLocale, "%.1f", longPressSeconds)
-        }
-    LaunchedEffect(showInspectionHelpDialog) {
-        if (showInspectionHelpDialog) {
-            helpDialogFocusRequester.requestFocus()
-        }
-    }
 
     val colorPalette =
         listOf(
@@ -149,19 +122,6 @@ fun GpxSettingsScreen(
             WearScreenSize.MEDIUM -> 3.dp
             WearScreenSize.SMALL -> 2.dp
         }
-    val helpButtonSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 30.dp
-            WearScreenSize.MEDIUM -> 28.dp
-            WearScreenSize.SMALL -> 26.dp
-        }
-    val helpIconSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 18.dp
-            WearScreenSize.MEDIUM -> 16.dp
-            WearScreenSize.SMALL -> 14.dp
-        }
-
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -496,52 +456,8 @@ fun GpxSettingsScreen(
                     )
                 }
             }
-            item {
-                IconButton(
-                    onClick = { showInspectionHelpDialog = true },
-                    modifier = Modifier.size(helpButtonSize),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = MaterialTheme.colorScheme.primary,
-                        ),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Info,
-                        contentDescription = "Route analyzer help",
-                        modifier = Modifier.size(helpIconSize),
-                    )
-                }
-            }
         }
     }
-
-    AlertDialog(
-        visible = showInspectionHelpDialog,
-        onDismissRequest = { showInspectionHelpDialog = false },
-        title = { Text("Route Analyzer") },
-        text = {
-            WearDialogScrollableColumn(
-                maxHeight = adaptive.dialogBodyMaxHeight,
-                modifier =
-                    Modifier
-                        .fillMaxWidth(),
-                contentModifier =
-                    Modifier
-                        .onPreRotaryScrollEvent { event ->
-                            val consumed = helpDialogScrollState.dispatchRawDelta(event.verticalScrollPixels)
-                            abs(consumed) > 0.5f
-                        }.focusRequester(helpDialogFocusRequester)
-                        .focusable(),
-                scrollState = helpDialogScrollState,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    "Hold $longPressSecondsLabel s on map to inspect distance and elevation gain.",
-                )
-            }
-        },
-    )
 
     OptionPickerDialog(
         visible = showTrackColorModeDialog,

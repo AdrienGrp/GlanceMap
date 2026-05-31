@@ -49,8 +49,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
@@ -142,6 +140,12 @@ fun GpxScreen(
             WearScreenSize.MEDIUM -> 3.dp
             WearScreenSize.SMALL -> 2.dp
         }
+    val headerVerticalSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-8).dp
+            WearScreenSize.MEDIUM -> (-9).dp
+            WearScreenSize.SMALL -> (-10).dp
+        }
     val emptyStatePadding =
         when (screenSize) {
             WearScreenSize.LARGE -> 16.dp
@@ -163,7 +167,7 @@ fun GpxScreen(
     val bottomActionBottomPadding =
         settingsBottomPadding.coerceAtLeast(
             if (adaptive.isRound) {
-                14.dp
+                8.dp
             } else {
                 4.dp
             },
@@ -320,7 +324,7 @@ fun GpxScreen(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(headerActionSpacing),
+                    verticalArrangement = Arrangement.spacedBy(headerVerticalSpacing),
                 ) {
                     Text(
                         text = "GPX Tracks",
@@ -721,9 +725,10 @@ private fun GpxTrackItem(
                 val eta = gpxFile.formattedEtaShort()
                 val exportMessage = exportState?.message
                 Text(
-                    text = exportMessage ?: "$distValue $distUnit, D+ $elevValue $elevUnit, $eta",
+                    text = exportMessage ?: "$distValue $distUnit · D+ $elevValue $elevUnit · $eta",
+                    modifier = Modifier.basicMarquee(),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow = TextOverflow.Visible,
                     fontSize = secondaryTextSize,
                 )
             },
