@@ -57,7 +57,7 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import androidx.wear.tooling.preview.devices.WearDevices
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
-import com.glancemap.glancemapwearos.presentation.ui.WearVerticalScrollIndicator
+import com.glancemap.glancemapwearos.presentation.ui.WearScreenEdgeScrollIndicator
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -236,12 +236,9 @@ fun MainScreen(
                     )
                 }
             }
-            WearVerticalScrollIndicator(
+            WearScreenEdgeScrollIndicator(
                 scrollState = centerScrollState,
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = rightReservedWidth),
+                modifier = Modifier.padding(end = navigateIconEdgePadding),
             )
 
             LeftHomeRail(

@@ -119,6 +119,22 @@ fun WearVerticalScrollIndicator(
 }
 
 @Composable
+fun BoxScope.WearScreenEdgeScrollIndicator(
+    scrollState: ScrollState,
+    modifier: Modifier = Modifier,
+) {
+    if (scrollState.maxValue <= MIN_VISIBLE_SCROLL_RANGE_PX) return
+
+    ScrollIndicator(
+        state = scrollState,
+        modifier =
+            modifier
+                .matchParentSize()
+                .align(Alignment.CenterEnd),
+    )
+}
+
+@Composable
 fun BoxScope.WearLazyListScrollIndicator(
     listState: LazyListState,
     modifier: Modifier = Modifier,
