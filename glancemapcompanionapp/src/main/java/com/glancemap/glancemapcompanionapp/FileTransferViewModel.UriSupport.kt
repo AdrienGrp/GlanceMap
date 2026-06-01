@@ -167,11 +167,39 @@ internal fun isGpxUri(
     uri: Uri,
 ): Boolean {
     val name = resolveUriDisplayName(context, uri)
-    if (name.lowercase().endsWith(".gpx")) return true
-    return context.contentResolver
-        .getType(uri)
-        .orEmpty()
-        .lowercase() == "application/gpx+xml"
+    val mimeType =
+        context.contentResolver
+            .getType(uri)
+            .orEmpty()
+            .lowercase()
+    return name.lowercase().endsWith(".gpx") ||
+        mimeType == "application/gpx+xml" ||
+        mimeType == "application/x-gpx+xml" ||
+        isLikelyGpxContent(context, uri)
+}
+
+private fun isLikelyGpxContent(
+    context: Context,
+    uri: Uri,
+): Boolean =
+    runCatching {
+        val input = context.contentResolver.openInputStream(uri) ?: return@runCatching false
+        input.use { stream ->
+            val buffer = ByteArray(GPX_SNIFF_MAX_BYTES)
+            val read = stream.read(buffer)
+            if (read <= 0) return@use false
+            isLikelyGpxTextPrefix(String(buffer, 0, read, Charsets.UTF_8))
+        }
+    }.getOrDefault(false)
+
+internal fun isLikelyGpxTextPrefix(text: String): Boolean {
+    val normalized =
+        text
+            .removePrefix("\uFEFF")
+            .trimStart()
+            .replace(Regex("""\A<\?xml[^>]*>\s*""", RegexOption.IGNORE_CASE), "")
+            .trimStart()
+    return Regex("""\A<\s*gpx(?:\s|>)""", RegexOption.IGNORE_CASE).containsMatchIn(normalized)
 }
 
 internal fun suggestPoiFileNameForGpxWaypoints(
@@ -372,6 +400,8 @@ private val GENERIC_SHARED_GPX_BASENAMES =
         "track",
         "unknown",
     )
+
+private const val GPX_SNIFF_MAX_BYTES = 8192
 
 internal fun queryUriSize(
     context: Context,

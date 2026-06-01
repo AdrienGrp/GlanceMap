@@ -53,4 +53,30 @@ class FileTransferViewModelUriSupportTest {
             ),
         )
     }
+
+    @Test
+    fun `recognizes gpx document prefix with xml declaration`() {
+        assertTrue(
+            isLikelyGpxTextPrefix(
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <gpx version="1.1" creator="WhatsApp">
+                    <trk><name>Tour du lac</name></trk>
+                </gpx>
+                """.trimIndent(),
+            ),
+        )
+    }
+
+    @Test
+    fun `does not recognize non gpx xml prefix`() {
+        assertFalse(
+            isLikelyGpxTextPrefix(
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <kml><Document /></kml>
+                """.trimIndent(),
+            ),
+        )
+    }
 }
