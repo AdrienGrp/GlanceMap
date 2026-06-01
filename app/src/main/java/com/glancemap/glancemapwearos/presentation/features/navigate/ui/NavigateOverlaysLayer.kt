@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -321,6 +322,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
     }
 
     scaleIndicator?.let { indicator ->
+        val scaleFontScale = LocalDensity.current.fontScale
+        val scaleTopPadding = zoomLabelTopPadding + if (scaleFontScale > 1f) 4.dp else 0.dp
         AnimatedVisibility(
             visible = showScaleBar,
             enter = fadeIn(tween(180)),
@@ -328,9 +331,9 @@ internal fun BoxScope.NavigateOverlaysLayer(
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = zoomLabelTopPadding),
+                    .padding(top = scaleTopPadding),
         ) {
-            cappedFontScale {
+            cappedFontScale(maxFontScale = 1f) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = indicator.label,

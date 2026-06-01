@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -71,6 +72,7 @@ fun MainScreen(
 ) {
     val offlineModeFlow = settingsViewModel?.offlineMode ?: flowOf(false)
     val offlineMode by offlineModeFlow.collectAsState(initial = false)
+    val fontScale = LocalDensity.current.fontScale
     var gpsStatusMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(gpsStatusMessage) {
@@ -110,6 +112,13 @@ fun MainScreen(
             WearScreenSize.LARGE -> 28.dp
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
+        }
+    val settingsButtonTouchTargetSize = 48.dp
+    val settingsIconYOffset =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 5.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
         }
     val navigateIconButtonSize =
         when (screenSize) {
@@ -182,9 +191,15 @@ fun MainScreen(
         val centerRowYOffset = 0.dp
         val centerScrollState = rememberScrollState()
         val centerScrollBottomInset =
-            settingsButtonSize +
-                settingsButtonBottomPadding +
-                if (compactScreen) 8.dp else 10.dp
+            if (fontScale > 1f) {
+                settingsButtonTouchTargetSize +
+                    settingsButtonBottomPadding +
+                    if (compactScreen) 6.dp else 8.dp
+            } else {
+                settingsButtonSize / 2 +
+                    settingsButtonBottomPadding +
+                    if (compactScreen) 3.dp else 5.dp
+            }
         val centerScrollTopInset =
             settingsButtonSize / 2 +
                 if (compactScreen) 4.dp else 6.dp
@@ -286,16 +301,20 @@ fun MainScreen(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = settingsButtonBottomPadding)
-                        .size(settingsButtonSize),
+                        .size(settingsButtonTouchTargetSize),
                 colors =
                     IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.72f),
+                        containerColor = Color.Transparent,
                         contentColor = Color.White,
                     ),
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings",
+                    modifier =
+                        Modifier
+                            .offset(y = settingsIconYOffset)
+                            .size(settingsButtonSize),
                 )
             }
 
