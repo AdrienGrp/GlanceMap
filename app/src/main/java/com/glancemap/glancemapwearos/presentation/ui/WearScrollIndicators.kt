@@ -141,8 +141,8 @@ fun BoxScope.WearScreenEdgeScrollIndicator(
     }
 
     val progress = scrollState.value.toFloat() / scrollState.maxValue.toFloat()
-    val trackSweep = 44f
-    val trackStartAngle = 36f
+    val trackSweep = 36f
+    val trackStartAngle = 30f
     val thumbFraction = 0.32f
 
     Canvas(
