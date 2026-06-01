@@ -184,6 +184,9 @@ fun MainScreen(
             settingsButtonSize +
                 settingsButtonBottomPadding +
                 if (compactScreen) 8.dp else 10.dp
+        val centerScrollTopInset =
+            settingsButtonSize / 2 +
+                if (compactScreen) 4.dp else 6.dp
 
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
@@ -191,7 +194,10 @@ fun MainScreen(
                     Modifier
                         .fillMaxSize()
                         .offset(x = centerColumnOffset)
-                        .padding(bottom = centerScrollBottomInset)
+                        .padding(
+                            top = centerScrollTopInset,
+                            bottom = centerScrollBottomInset,
+                        )
                         .verticalScroll(centerScrollState)
                         .padding(horizontal = contentHorizontalPadding),
                 contentAlignment = Alignment.Center,
