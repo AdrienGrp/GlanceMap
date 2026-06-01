@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -126,6 +127,11 @@ fun MapsScreen(
     var routingPackToDelete by remember { mutableStateOf<RoutingPackFileState?>(null) }
     var showDeleteAllRoutingDialog by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val helpPrefs =
+        remember(context) {
+            context.getSharedPreferences(MAPS_HELP_PREFS, android.content.Context.MODE_PRIVATE)
+        }
     val listHorizontalPadding =
         when (screenSize) {
             WearScreenSize.LARGE -> 16.dp
@@ -220,6 +226,11 @@ fun MapsScreen(
             },
         )
 
+    LaunchedEffect(helpPrefs) {
+        if (!helpPrefs.getBoolean(MAPS_HELP_SHOWN_KEY, false)) {
+            showHelpDialog = true
+        }
+    }
     // 🔁 Ensure we always reload when this screen is first shown
     LaunchedEffect(Unit) {
         mapViewModel.loadMapFiles()
@@ -279,6 +290,11 @@ fun MapsScreen(
         if (visibleDemStatusMessage == message) {
             visibleDemStatusMessage = ""
         }
+    }
+
+    fun dismissHelpDialog() {
+        showHelpDialog = false
+        helpPrefs.edit().putBoolean(MAPS_HELP_SHOWN_KEY, true).apply()
     }
 
     ScreenScaffold(scrollState = columnState) {
@@ -553,7 +569,7 @@ fun MapsScreen(
 
         AlertDialog(
             visible = showHelpDialog,
-            onDismissRequest = { showHelpDialog = false },
+            onDismissRequest = { dismissHelpDialog() },
             title = { Text("Map Actions") },
             text = {
                 WearDialogScrollableColumn(
@@ -1266,3 +1282,6 @@ private fun formatRoutingStorageSize(bytes: Long): String {
         else -> "${safeBytes.toLong()} B"
     }
 }
+
+private const val MAPS_HELP_PREFS = "maps_screen_help_prefs"
+private const val MAPS_HELP_SHOWN_KEY = "maps_help_shown"

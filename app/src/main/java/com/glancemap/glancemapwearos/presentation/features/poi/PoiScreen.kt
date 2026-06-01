@@ -162,6 +162,9 @@ private fun MutableList<PoiListRow>.addCategoryPreviewRows(
     }
 }
 
+private const val POI_HELP_PREFS = "poi_screen_help_prefs"
+private const val POI_HELP_SHOWN_KEY = "poi_help_shown"
+
 @Composable
 fun PoiScreen(
     navController: NavHostController,
@@ -187,6 +190,10 @@ fun PoiScreen(
     var renameError by remember { mutableStateOf<String?>(null) }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    val helpPrefs =
+        remember(context) {
+            context.getSharedPreferences(POI_HELP_PREFS, android.content.Context.MODE_PRIVATE)
+        }
 
     val listHorizontalPadding =
         when (screenSize) {
@@ -302,6 +309,12 @@ fun PoiScreen(
     val headerTopSafePadding = headerTopPadding + adaptive.headerTopSafeInset
     val expandedCategoryIdsByFile = remember { mutableStateMapOf<String, Set<Int>>() }
 
+    LaunchedEffect(helpPrefs) {
+        if (!helpPrefs.getBoolean(POI_HELP_SHOWN_KEY, false)) {
+            showHelpDialog = true
+        }
+    }
+
     fun toggleCategoryExpanded(
         filePath: String,
         categoryId: Int,
@@ -391,6 +404,11 @@ fun PoiScreen(
                 )
             },
         )
+
+    fun dismissHelpDialog() {
+        showHelpDialog = false
+        helpPrefs.edit().putBoolean(POI_HELP_SHOWN_KEY, true).apply()
+    }
 
     LaunchedEffect(Unit) {
         poiViewModel.loadPoiFiles()
@@ -538,7 +556,7 @@ fun PoiScreen(
 
         AlertDialog(
             visible = showHelpDialog,
-            onDismissRequest = { showHelpDialog = false },
+            onDismissRequest = { dismissHelpDialog() },
             title = { Text("POI Actions") },
             text = {
                 WearDialogScrollableColumn(

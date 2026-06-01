@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -78,7 +79,6 @@ fun GpxScreen(
     val adaptive = rememberWearAdaptiveSpec()
     val gpxFiles by gpxViewModel.gpxFiles.collectAsState()
     val elevationProfileUiState by gpxViewModel.elevationProfileUiState.collectAsState()
-    val showLongPressTip by gpxViewModel.showLongPressTip.collectAsState()
     val exportUiState by gpxViewModel.exportUiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
@@ -92,6 +92,11 @@ fun GpxScreen(
     var renameInProgress by remember { mutableStateOf(false) }
     var renameError by remember { mutableStateOf<String?>(null) }
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val helpPrefs =
+        remember(context) {
+            context.getSharedPreferences(GPX_HELP_PREFS, android.content.Context.MODE_PRIVATE)
+        }
     val listHorizontalPadding =
         when (screenSize) {
             WearScreenSize.LARGE -> 16.dp
@@ -198,6 +203,11 @@ fun GpxScreen(
         }
     val headerTopSafePadding = headerTopPadding + adaptive.headerTopSafeInset
 
+    LaunchedEffect(helpPrefs) {
+        if (!helpPrefs.getBoolean(GPX_HELP_SHOWN_KEY, false)) {
+            showHelpDialog = true
+        }
+    }
     LaunchedEffect(gpxFiles.size) {
         if (gpxFiles.isEmpty()) {
             isSendMode = false
@@ -210,11 +220,10 @@ fun GpxScreen(
         val existingPaths = gpxFiles.mapTo(mutableSetOf()) { it.path }
         selectedSendPaths = selectedSendPaths.filterTo(mutableSetOf()) { it in existingPaths }
     }
-    LaunchedEffect(showLongPressTip, gpxFiles.isNotEmpty()) {
-        if (showLongPressTip && gpxFiles.isNotEmpty()) {
-            delay(4000L)
-            gpxViewModel.dismissLongPressTipForever()
-        }
+
+    fun dismissHelpDialog() {
+        showHelpDialog = false
+        helpPrefs.edit().putBoolean(GPX_HELP_SHOWN_KEY, true).apply()
     }
 
     val columnState =
@@ -296,12 +305,7 @@ fun GpxScreen(
 
         GpxHelpBottomSheet(
             visible = showHelpDialog,
-            onDismiss = { showHelpDialog = false },
-        )
-
-        GpxLongPressTipBottomSheet(
-            visible = showLongPressTip && gpxFiles.isNotEmpty(),
-            onDismiss = { gpxViewModel.dismissLongPressTipForever() },
+            onDismiss = { dismissHelpDialog() },
         )
 
         Column(
@@ -622,6 +626,9 @@ fun GpxScreen(
         }
     }
 }
+
+private const val GPX_HELP_PREFS = "gpx_screen_help_prefs"
+private const val GPX_HELP_SHOWN_KEY = "gpx_help_shown"
 
 @Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 @Composable

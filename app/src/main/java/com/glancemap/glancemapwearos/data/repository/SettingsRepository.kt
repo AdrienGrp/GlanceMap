@@ -290,10 +290,6 @@ interface SettingsRepository {
 
     suspend fun setGpxElevationAutoAdjustPerGpx(enabled: Boolean)
 
-    val gpxLongPressTipShown: Flow<Boolean>
-
-    suspend fun setGpxLongPressTipShown(shown: Boolean)
-
     val isMetric: Flow<Boolean>
 
     suspend fun setMetric(isMetric: Boolean)
