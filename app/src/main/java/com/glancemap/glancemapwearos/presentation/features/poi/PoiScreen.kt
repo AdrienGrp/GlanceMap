@@ -412,7 +412,7 @@ fun PoiScreen(
     }
 
     LaunchedEffect(Unit) {
-        poiViewModel.loadPoiFiles()
+        poiViewModel.loadPoiFiles(collapseAll = true)
     }
     LaunchedEffect(poiFiles.size) {
         if (poiFiles.isEmpty()) {

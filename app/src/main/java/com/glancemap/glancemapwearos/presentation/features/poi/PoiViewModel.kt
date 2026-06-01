@@ -202,9 +202,9 @@ class PoiViewModel(
             }.launchIn(viewModelScope)
     }
 
-    fun loadPoiFiles() {
+    fun loadPoiFiles(collapseAll: Boolean = false) {
         viewModelScope.launch {
-            reloadFromDisk()
+            reloadFromDisk(collapseAll = collapseAll)
         }
     }
 
@@ -729,12 +729,17 @@ class PoiViewModel(
             markers
         }
 
-    private suspend fun reloadFromDisk() {
-        val previousExpanded = _poiFiles.value.associate { it.path to it.isExpanded }
+    private suspend fun reloadFromDisk(collapseAll: Boolean = false) {
+        val previousExpanded =
+            if (collapseAll) {
+                emptyMap()
+            } else {
+                _poiFiles.value.associate { it.path to it.isExpanded }
+            }
         userPoiSourceState = userPoiRepository.readSourceState()
         val earlySyntheticUserFile =
             buildUserPoiFileUiState(
-                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: userPoiSourceState.points.isNotEmpty(),
+                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: false,
             )
         publishSyntheticUserFile(earlySyntheticUserFile)
         val files = poiRepository.listPoiFiles()
@@ -779,7 +784,7 @@ class PoiViewModel(
 
         val syntheticUserFile =
             buildUserPoiFileUiState(
-                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: userPoiSourceState.points.isNotEmpty(),
+                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: false,
             )
 
         _poiFiles.value = listOf(syntheticUserFile) + importedFiles
