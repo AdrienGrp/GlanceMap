@@ -111,6 +111,7 @@ fun MapsScreen(
     var isDeleteMode by remember { mutableStateOf(false) }
     var isRenameMode by remember { mutableStateOf(false) }
     var visibleDemStatusMessage by remember { mutableStateOf("") }
+    var manualDemStatusMessageId by remember { mutableStateOf(0) }
     var lastShownDemCompletionAt by remember { mutableStateOf(demDownloadState.lastCompletedAtMillis) }
     var showDemNetworkErrorDialog by remember { mutableStateOf(false) }
     var demNetworkErrorMessage by remember { mutableStateOf("") }
@@ -270,6 +271,14 @@ fun MapsScreen(
         visibleDemStatusMessage = message
         delay(5_000L)
         visibleDemStatusMessage = ""
+    }
+    LaunchedEffect(manualDemStatusMessageId) {
+        if (manualDemStatusMessageId <= 0) return@LaunchedEffect
+        val message = visibleDemStatusMessage
+        delay(2_500L)
+        if (visibleDemStatusMessage == message) {
+            visibleDemStatusMessage = ""
+        }
     }
 
     ScreenScaffold(scrollState = columnState) {
@@ -736,6 +745,10 @@ fun MapsScreen(
                             isDemDownloadingForThisMap =
                                 demDownloadState.isDownloading &&
                                     demDownloadState.activeMapPath == mapFile.path,
+                            onDemAlreadyDownloaded = {
+                                visibleDemStatusMessage = "Elevation already downloaded."
+                                manualDemStatusMessageId += 1
+                            },
                             onDownloadDem = {
                                 themeViewModel.downloadDemForMap(mapFile.path)
                             },
@@ -911,6 +924,7 @@ private fun MapItem(
     rowSpacing: Dp,
     isDemDownloadRunning: Boolean,
     isDemDownloadingForThisMap: Boolean,
+    onDemAlreadyDownloaded: () -> Unit,
     onDownloadDem: () -> Unit,
     onCancelDemDownload: () -> Unit,
 ) {
@@ -995,6 +1009,8 @@ private fun MapItem(
                         onClick = {
                             if (isDemDownloadingForThisMap) {
                                 onCancelDemDownload()
+                            } else if (mapFile.demReady) {
+                                onDemAlreadyDownloaded()
                             } else if (!isDemDownloadRunning) {
                                 onDownloadDem()
                             }
