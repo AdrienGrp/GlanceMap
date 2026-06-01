@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -62,6 +63,7 @@ internal fun BoxScope.RouteShortcutTray(
             modifier =
                 Modifier
                     .align(Alignment.CenterEnd)
+                    .offset(y = (-6).dp)
                     .padding(end = anchorSize + adjacentAccessoryWidth + 18.dp),
             enter = fadeIn(),
             exit = fadeOut(),

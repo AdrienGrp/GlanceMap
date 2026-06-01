@@ -146,9 +146,7 @@ fun SettingsScreen(
                 )
             }
             item {
-                SettingsSectionChip(
-                    label = "Settings",
-                    iconContent = { DownloadSettingsSectionIcon() },
+                DownloadSettingsSectionChip(
                     onClick = { navController.navigate(WatchRoutes.DOWNLOAD_SETTINGS) },
                 )
             }

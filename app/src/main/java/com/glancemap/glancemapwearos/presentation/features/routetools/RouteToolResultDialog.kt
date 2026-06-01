@@ -1,6 +1,8 @@
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,6 +58,7 @@ internal fun RouteToolResultDialog(
     if (!visible || result == null) return
 
     val adaptive = rememberWearAdaptiveSpec()
+    val scrollState = rememberScrollState()
     var showRenameDialog by remember(result.filePath) { mutableStateOf(false) }
 
     if (showRenameDialog) {
@@ -99,6 +102,8 @@ internal fun RouteToolResultDialog(
                 modifier =
                     Modifier
                         .wearDialogWidth(roundFraction = 0.9f, squareFraction = 0.94f)
+                        .heightIn(max = adaptive.helpDialogMaxHeight)
+                        .verticalScroll(scrollState)
                         .padding(
                             horizontal = adaptive.dialogHorizontalPadding,
                             vertical = adaptive.dialogVerticalPadding,

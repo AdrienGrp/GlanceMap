@@ -792,7 +792,7 @@ fun PoiScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (poiFiles.isNotEmpty()) {

@@ -75,6 +75,7 @@ internal fun RouteToolBusySpinner(
 internal fun RouteToolProgressDialog(
     visible: Boolean,
     message: String,
+    fullScreenBackground: Boolean = false,
 ) {
     if (!visible) return
 
@@ -90,7 +91,14 @@ internal fun RouteToolProgressDialog(
         Box(
             modifier =
                 Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .let { base ->
+                        if (fullScreenBackground) {
+                            base.background(Color.Black.copy(alpha = 0.92f))
+                        } else {
+                            base
+                        }
+                    },
             contentAlignment = Alignment.Center,
         ) {
             BoxWithConstraints(

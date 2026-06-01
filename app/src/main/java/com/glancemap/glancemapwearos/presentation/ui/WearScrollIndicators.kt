@@ -155,10 +155,33 @@ private fun WearScrollIndicatorTrack(
     thumbFraction: Float,
     modifier: Modifier = Modifier,
 ) {
+    val adaptive = rememberWearAdaptiveSpec()
+    val topSafeInset =
+        if (adaptive.isRound) {
+            when (adaptive.screenSize) {
+                WearScreenSize.LARGE -> 4.dp
+                WearScreenSize.MEDIUM -> 5.dp
+                WearScreenSize.SMALL -> 6.dp
+            }
+        } else {
+            0.dp
+        }
+    val bottomSafeInset =
+        if (adaptive.isRound) {
+            when (adaptive.screenSize) {
+                WearScreenSize.LARGE -> 10.dp
+                WearScreenSize.MEDIUM -> 12.dp
+                WearScreenSize.SMALL -> 14.dp
+            }
+        } else {
+            0.dp
+        }
+
     BoxWithConstraints(
         modifier =
             modifier
                 .fillMaxHeight()
+                .padding(top = topSafeInset, bottom = bottomSafeInset)
                 .width(6.dp),
     ) {
         val thumbHeight = (maxHeight * thumbFraction).coerceIn(24.dp, 46.dp)

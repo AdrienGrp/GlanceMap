@@ -402,6 +402,7 @@ fun GpxScreen(
                                 } else {
                                     "${selectedSendPaths.size} selected"
                                 },
+                            modifier = Modifier.padding(top = 8.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.secondary,
                         )
@@ -494,7 +495,7 @@ fun GpxScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (gpxFiles.isNotEmpty()) {

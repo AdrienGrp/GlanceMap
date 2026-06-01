@@ -1,8 +1,9 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -17,6 +18,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
+import androidx.wear.compose.material.Text
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
@@ -154,28 +156,50 @@ internal fun SettingsSectionChip(
     )
 }
 
+@OptIn(ExperimentalHorologistApi::class)
 @Composable
-internal fun DownloadSettingsSectionIcon() {
-    Box(
-        modifier = Modifier.size(ChipDefaults.IconSize),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Folder,
-            contentDescription = null,
-            modifier = Modifier.size(ChipDefaults.IconSize),
-            tint = SectionChipIcon,
-        )
-        Icon(
-            imageVector = Icons.Filled.Download,
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .size(13.dp)
-                    .offset(y = (-1).dp),
-            tint = Color.White,
-        )
-    }
+internal fun DownloadSettingsSectionChip(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val minHeight = rememberSettingsChipMinHeight(hasSecondaryLabel = false)
+
+    Chip(
+        modifier =
+            Modifier
+                .heightIn(min = minHeight)
+                .then(modifier),
+        label = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(ChipDefaults.IconSize),
+                    tint = Color.White,
+                )
+                Text("settings")
+            }
+        },
+        icon = {
+            Icon(
+                imageVector = Icons.Filled.Folder,
+                contentDescription = null,
+                modifier = Modifier.size(ChipDefaults.IconSize),
+            )
+        },
+        colors =
+            ChipDefaults.secondaryChipColors(
+                backgroundColor = SectionChipBackground,
+                contentColor = SectionChipContent,
+                secondaryContentColor = SectionChipSecondary,
+                iconColor = SectionChipIcon,
+            ),
+        onClick = onClick,
+    )
 }
 
 @Composable
