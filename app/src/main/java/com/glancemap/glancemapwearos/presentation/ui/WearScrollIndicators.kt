@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.material3.ScrollIndicator
 
 private const val MIN_VISIBLE_SCROLL_RANGE_PX = 18
 
@@ -166,6 +167,36 @@ fun BoxScope.WearLazyListScrollIndicator(
         modifier = modifier.align(Alignment.CenterEnd),
         progress = progress,
         thumbFraction = thumbFraction,
+    )
+}
+
+@Composable
+fun BoxScope.WearLazyListScreenEdgeScrollIndicator(
+    listState: LazyListState,
+    modifier: Modifier = Modifier,
+    showWhenNotScrollable: Boolean = false,
+) {
+    val layoutInfo = listState.layoutInfo
+    val totalItems = layoutInfo.totalItemsCount
+    val visibleItems = layoutInfo.visibleItemsInfo
+    if (totalItems <= 0 || visibleItems.isEmpty()) return
+
+    val firstVisible = visibleItems.first()
+    val lastVisible = visibleItems.last()
+    val contentBefore =
+        firstVisible.index > 0 ||
+            firstVisible.offset < layoutInfo.viewportStartOffset
+    val contentAfter =
+        lastVisible.index < totalItems - 1 ||
+            lastVisible.offset + lastVisible.size > layoutInfo.viewportEndOffset
+    if (!contentBefore && !contentAfter && !showWhenNotScrollable) return
+
+    ScrollIndicator(
+        state = listState,
+        modifier =
+            modifier
+                .matchParentSize()
+                .align(Alignment.CenterEnd),
     )
 }
 
