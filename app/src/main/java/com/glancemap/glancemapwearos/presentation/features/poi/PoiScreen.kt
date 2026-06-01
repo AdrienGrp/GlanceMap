@@ -392,6 +392,7 @@ fun PoiScreen(
                 }
             }
         }
+    val hasDownloadedPoiFiles = remember(poiFiles) { poiFiles.any { it.path != USER_POI_SOURCE_PATH } }
 
     val columnState =
         rememberResponsiveColumnState(
@@ -411,7 +412,7 @@ fun PoiScreen(
     }
 
     LaunchedEffect(Unit) {
-        poiViewModel.loadPoiFiles()
+        poiViewModel.loadPoiFiles(collapseAll = true)
     }
     LaunchedEffect(poiFiles.size) {
         if (poiFiles.isEmpty()) {
@@ -677,10 +678,10 @@ fun PoiScreen(
                     modifier = Modifier.fillMaxSize(),
                     columnState = columnState,
                 ) {
-                    if (poiFiles.isEmpty()) {
+                    if (rows.isEmpty()) {
                         item {
                             Text(
-                                text = "Download POIs on the watch or send .poi files from the companion phone app.",
+                                text = "Loading POI...",
                                 modifier = Modifier.padding(emptyStatePadding),
                                 textAlign = TextAlign.Center,
                             )
@@ -796,6 +797,16 @@ fun PoiScreen(
                                     isError = row.isError,
                                 )
                             }
+                        }
+                    }
+
+                    if (rows.isNotEmpty() && !hasDownloadedPoiFiles) {
+                        item(key = "no-downloaded-poi-files") {
+                            Text(
+                                text = "Download POIs on the watch or send .poi files from the companion phone app.",
+                                modifier = Modifier.padding(emptyStatePadding),
+                                textAlign = TextAlign.Center,
+                            )
                         }
                     }
                 }

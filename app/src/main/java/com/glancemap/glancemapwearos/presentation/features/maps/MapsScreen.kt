@@ -87,7 +87,7 @@ import java.util.Locale
 private val MAP_DATA_BADGE_SIZE = 26.dp
 private val MAP_DATA_ICON_SIZE = 15.dp
 private val MAP_ROUTING_BADGE_SLOT_WIDTH = 22.dp
-private val MAP_DEM_BADGE_SLOT_WIDTH = 16.dp
+private val MAP_DEM_BADGE_SLOT_WIDTH = 18.dp
 
 @Composable
 fun MapsScreen(

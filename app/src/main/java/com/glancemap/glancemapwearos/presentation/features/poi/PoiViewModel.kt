@@ -202,9 +202,9 @@ class PoiViewModel(
             }.launchIn(viewModelScope)
     }
 
-    fun loadPoiFiles() {
+    fun loadPoiFiles(collapseAll: Boolean = false) {
         viewModelScope.launch {
-            reloadFromDisk()
+            reloadFromDisk(collapseAll = collapseAll)
         }
     }
 
@@ -729,52 +729,26 @@ class PoiViewModel(
             markers
         }
 
-    private suspend fun reloadFromDisk() {
-        val previousExpanded = _poiFiles.value.associate { it.path to it.isExpanded }
-        val files = poiRepository.listPoiFiles()
-        userPoiSourceState = userPoiRepository.readSourceState()
-
-        val (importedFiles, coverageAreas) =
-            withContext(Dispatchers.IO) {
-                val coverage = mutableListOf<PoiCoverageAreaUiState>()
-                files.map { file ->
-                    val categories = poiRepository.readCategories(file.absolutePath)
-                    poiRepository.readCoverageBounds(file.absolutePath)?.let { bounds ->
-                        coverage +=
-                            PoiCoverageAreaUiState(
-                                filePath = file.absolutePath,
-                                fileName = file.nameWithoutExtension,
-                                bounds = bounds,
-                            )
-                    }
-                    val categoryIds = categories.map { it.id }.toSet()
-                    val enabledIds = poiRepository.getEnabledCategories(file.absolutePath, categoryIds)
-                    val isEnabled = poiRepository.isFileEnabled(file.absolutePath)
-                    val (enabledPoiCount, totalPoiCount) =
-                        computePoiCounts(
-                            path = file.absolutePath,
-                            allCategoryIds = categoryIds,
-                            enabledCategoryIds = enabledIds,
-                        )
-
-                    PoiFileUiState(
-                        name = file.nameWithoutExtension,
-                        path = file.absolutePath,
-                        isEnabled = isEnabled,
-                        isExpanded = previousExpanded[file.absolutePath] ?: false,
-                        categories =
-                            categories.map { category ->
-                                category.toUiState(enabled = category.id in enabledIds)
-                            },
-                        enabledPoiCount = enabledPoiCount,
-                        totalPoiCount = totalPoiCount,
-                    )
-                } to coverage
+    private suspend fun reloadFromDisk(collapseAll: Boolean = false) {
+        val previousExpanded =
+            if (collapseAll) {
+                emptyMap()
+            } else {
+                _poiFiles.value.associate { it.path to it.isExpanded }
             }
+        userPoiSourceState = userPoiRepository.readSourceState()
+        val earlySyntheticUserFile =
+            buildUserPoiFileUiState(
+                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: false,
+            )
+        publishSyntheticUserFile(earlySyntheticUserFile)
+        val files = poiRepository.listPoiFiles()
+
+        val (importedFiles, coverageAreas) = loadImportedPoiFiles(files, previousExpanded)
 
         val syntheticUserFile =
             buildUserPoiFileUiState(
-                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: userPoiSourceState.points.isNotEmpty(),
+                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: false,
             )
 
         _poiFiles.value = listOf(syntheticUserFile) + importedFiles
@@ -782,6 +756,50 @@ class PoiViewModel(
         _categoryPreviews.value = emptyMap()
         _categoryCounts.value = emptyMap()
         updateUserPoiPreviewCache(syntheticUserFile)
+    }
+
+    private suspend fun loadImportedPoiFiles(
+        files: List<File>,
+        previousExpanded: Map<String, Boolean>,
+    ): Pair<List<PoiFileUiState>, List<PoiCoverageAreaUiState>> =
+        withContext(Dispatchers.IO) {
+            val coverage = mutableListOf<PoiCoverageAreaUiState>()
+            files.map { file ->
+                val categories = poiRepository.readCategories(file.absolutePath)
+                poiRepository.readCoverageBounds(file.absolutePath)?.let { bounds ->
+                    coverage +=
+                        PoiCoverageAreaUiState(
+                            filePath = file.absolutePath,
+                            fileName = file.nameWithoutExtension,
+                            bounds = bounds,
+                        )
+                }
+                val categoryIds = categories.map { it.id }.toSet()
+                val enabledIds = poiRepository.getEnabledCategories(file.absolutePath, categoryIds)
+                val (enabledPoiCount, totalPoiCount) =
+                    computePoiCounts(
+                        path = file.absolutePath,
+                        allCategoryIds = categoryIds,
+                        enabledCategoryIds = enabledIds,
+                    )
+
+                PoiFileUiState(
+                    name = file.nameWithoutExtension,
+                    path = file.absolutePath,
+                    isEnabled = poiRepository.isFileEnabled(file.absolutePath),
+                    isExpanded = previousExpanded[file.absolutePath] ?: false,
+                    categories = categories.map { it.toUiState(enabled = it.id in enabledIds) },
+                    enabledPoiCount = enabledPoiCount,
+                    totalPoiCount = totalPoiCount,
+                )
+            } to coverage
+        }
+
+    private fun publishSyntheticUserFile(file: PoiFileUiState) {
+        _poiFiles.update { files ->
+            listOf(file) + files.filterNot { isUserPoiPath(it.path) }
+        }
+        updateUserPoiPreviewCache(file)
     }
 
     private suspend fun refreshPoiCounts(path: String) {
