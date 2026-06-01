@@ -88,7 +88,6 @@ private val MAP_DATA_BADGE_SIZE = 26.dp
 private val MAP_DATA_ICON_SIZE = 15.dp
 private val MAP_ROUTING_BADGE_SLOT_WIDTH = 22.dp
 private val MAP_DEM_BADGE_SLOT_WIDTH = 16.dp
-private val MAP_DEM_EDGE_OFFSET_X = 16.dp
 
 @Composable
 fun MapsScreen(
@@ -617,7 +616,7 @@ fun MapsScreen(
                     verticalArrangement = Arrangement.spacedBy(headerVerticalSpacing),
                 ) {
                     Text(
-                        text = "Offline maps",
+                        text = "Maps",
                         style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Center,
                     )
@@ -987,22 +986,6 @@ private fun MapItem(
                 Box(
                     modifier =
                         Modifier.size(
-                            width = MAP_ROUTING_BADGE_SLOT_WIDTH,
-                            height = MAP_DATA_BADGE_SIZE,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.CallSplit,
-                        contentDescription = routingIconContentDescription(mapFile),
-                        modifier = Modifier.size(MAP_DATA_ICON_SIZE),
-                        tint = routingIconTint,
-                    )
-                }
-
-                Box(
-                    modifier =
-                        Modifier.size(
                             width = MAP_DEM_BADGE_SLOT_WIDTH,
                             height = 48.dp,
                         ),
@@ -1017,7 +1000,6 @@ private fun MapItem(
                             }
                         },
                         enabled = !isDemDownloadRunning || isDemDownloadingForThisMap,
-                        modifier = Modifier.offset(x = MAP_DEM_EDGE_OFFSET_X),
                         visualSize = MAP_DATA_BADGE_SIZE,
                         containerColor = Color.Black.copy(alpha = 0.72f),
                         contentColor = demIconTint,
@@ -1050,6 +1032,22 @@ private fun MapItem(
                             }
                         }
                     }
+                }
+
+                Box(
+                    modifier =
+                        Modifier.size(
+                            width = MAP_ROUTING_BADGE_SLOT_WIDTH,
+                            height = MAP_DATA_BADGE_SIZE,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.CallSplit,
+                        contentDescription = routingIconContentDescription(mapFile),
+                        modifier = Modifier.size(MAP_DATA_ICON_SIZE),
+                        tint = routingIconTint,
+                    )
                 }
             }
         }
