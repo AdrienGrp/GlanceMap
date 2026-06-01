@@ -209,10 +209,23 @@ class PoiViewModel(
     }
 
     fun toggleExpanded(path: String) {
-        _poiFiles.value =
-            _poiFiles.value.map { file ->
-                if (file.path == path) file.copy(isExpanded = !file.isExpanded) else file
+        var updatedUserPoiFile: PoiFileUiState? = null
+        _poiFiles.update { files ->
+            files.map { file ->
+                if (file.path == path) {
+                    file.copy(isExpanded = !file.isExpanded).also { updated ->
+                        if (isUserPoiPath(path)) {
+                            updatedUserPoiFile = updated
+                        }
+                    }
+                } else {
+                    file
+                }
             }
+        }
+        updatedUserPoiFile?.let { file ->
+            updateUserPoiPreviewCache(file)
+        }
     }
 
     fun setFileEnabled(
@@ -351,6 +364,11 @@ class PoiViewModel(
             val key = PoiCategoryPreviewKey(filePath = path, categoryId = categoryId)
             val current = _categoryPreviews.value[key]
             if (!forceRefresh && current != null && (current.isLoading || current.isLoaded)) {
+                return@launch
+            }
+
+            if (isUserPoiPath(path) && categoryId == USER_POI_CATEGORY_ID) {
+                updateUserPoiPreviewCache(file.copy(isExpanded = true))
                 return@launch
             }
 
@@ -763,6 +781,7 @@ class PoiViewModel(
         _poiCoverageAreas.value = coverageAreas
         _categoryPreviews.value = emptyMap()
         _categoryCounts.value = emptyMap()
+        updateUserPoiPreviewCache(syntheticUserFile)
     }
 
     private suspend fun refreshPoiCounts(path: String) {
@@ -898,6 +917,10 @@ class PoiViewModel(
                 listOf(syntheticUserFile) + files
             }
         }
+        updateUserPoiPreviewCache(syntheticUserFile)
+    }
+
+    private fun updateUserPoiPreviewCache(file: PoiFileUiState) {
         val userPoiKey =
             PoiCategoryPreviewKey(
                 filePath = USER_POI_SOURCE_PATH,
@@ -905,7 +928,7 @@ class PoiViewModel(
             )
         _categoryPreviews.update { previews ->
             val withoutUserPoi = previews.filterKeys { key -> key.filePath != USER_POI_SOURCE_PATH }
-            if (isExpanded) {
+            if (file.isExpanded) {
                 withoutUserPoi + (userPoiKey to buildUserPoiPreviewUiState())
             } else {
                 withoutUserPoi
@@ -913,8 +936,8 @@ class PoiViewModel(
         }
         _categoryCounts.update { counts ->
             val withoutUserPoi = counts.filterKeys { key -> key.filePath != USER_POI_SOURCE_PATH }
-            if (isExpanded) {
-                withoutUserPoi + (userPoiKey to buildUserPoiCountUiState(syntheticUserFile))
+            if (file.isExpanded) {
+                withoutUserPoi + (userPoiKey to buildUserPoiCountUiState(file))
             } else {
                 withoutUserPoi
             }
