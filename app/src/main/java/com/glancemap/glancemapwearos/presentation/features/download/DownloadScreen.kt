@@ -12,6 +12,7 @@
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material3.Button
@@ -70,7 +72,6 @@ import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScreenScaffold
-import com.google.android.horologist.compose.material.Chip
 import kotlinx.coroutines.launch
 import androidx.wear.compose.material3.Icon as Material3Icon
 
@@ -869,6 +870,7 @@ private fun InstalledBundleRow(
     DownloadChip(
         label = bundle.areaLabel,
         secondaryLabel = installedBundleSubtitle(bundle),
+        secondaryMarquee = true,
         icon =
             when {
                 refreshMode && refreshSelected -> Icons.Filled.Check
@@ -998,11 +1000,25 @@ internal fun DownloadChip(
     icon: ImageVector,
     onClick: () -> Unit,
     selected: Boolean = false,
+    secondaryMarquee: Boolean = false,
 ) {
     Chip(
         modifier = Modifier.fillMaxWidth(),
-        label = label,
-        secondaryLabel = secondaryLabel,
+        label = {
+            Text(
+                text = label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        secondaryLabel = {
+            Text(
+                text = secondaryLabel,
+                modifier = if (secondaryMarquee) Modifier.basicMarquee() else Modifier,
+                maxLines = 1,
+                overflow = if (secondaryMarquee) TextOverflow.Visible else TextOverflow.Ellipsis,
+            )
+        },
         icon = {
             Icon(
                 imageVector = icon,
