@@ -67,6 +67,14 @@ fun RenameValueDialog(
     val fullScreenBottomPadding =
         adaptive.dialogVerticalPadding +
             if (adaptive.isRound) 42.dp else 12.dp
+    val fullScreenControlWidthFraction =
+        if (fullScreen && adaptive.isRound) {
+            0.86f
+        } else {
+            1f
+        }
+    val textFieldVerticalPadding = if (fullScreen) 8.dp else 10.dp
+    val buttonMinHeight = if (fullScreen) 44.dp else 48.dp
 
     LaunchedEffect(visible, isSaving) {
         if (visible && !isSaving && autoFocusInput) {
@@ -134,12 +142,12 @@ fun RenameValueDialog(
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(fullScreenControlWidthFraction)
                         .focusRequester(focusRequester)
                         .background(
                             Color(0xFF1F1F1F),
                             RoundedCornerShape(12.dp),
-                        ).padding(horizontal = 12.dp, vertical = 10.dp),
+                        ).padding(horizontal = 12.dp, vertical = textFieldVerticalPadding),
                 decorationBox = { innerTextField ->
                     if (draftValue.isBlank()) {
                         Text(
@@ -165,7 +173,10 @@ fun RenameValueDialog(
 
             Button(
                 onClick = { onConfirm(draftValue) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth(fullScreenControlWidthFraction)
+                        .heightIn(min = buttonMinHeight),
                 enabled = !isSaving,
             ) {
                 Text(if (isSaving) "Saving..." else "Save")
@@ -173,7 +184,10 @@ fun RenameValueDialog(
 
             Button(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth(fullScreenControlWidthFraction)
+                        .heightIn(min = buttonMinHeight),
                 enabled = !isSaving,
                 colors =
                     ButtonDefaults.buttonColors(
