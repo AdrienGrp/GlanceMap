@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.ui
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,10 +23,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.ScrollIndicator
+import kotlin.math.min
 
 private const val MIN_VISIBLE_SCROLL_RANGE_PX = 18
 
@@ -125,13 +131,62 @@ fun BoxScope.WearScreenEdgeScrollIndicator(
 ) {
     if (scrollState.maxValue <= MIN_VISIBLE_SCROLL_RANGE_PX) return
 
-    ScrollIndicator(
-        state = scrollState,
+    val adaptive = rememberWearAdaptiveSpec()
+    if (!adaptive.isRound) {
+        WearVerticalScrollIndicator(
+            scrollState = scrollState,
+            modifier = modifier.align(Alignment.CenterEnd),
+        )
+        return
+    }
+
+    val progress = scrollState.value.toFloat() / scrollState.maxValue.toFloat()
+    val trackSweep = 70f
+    val trackStartAngle = -35f
+    val thumbFraction = 0.32f
+
+    Canvas(
         modifier =
             modifier
                 .matchParentSize()
                 .align(Alignment.CenterEnd),
-    )
+    ) {
+        val strokeWidth = 5.dp.toPx()
+        val edgeInset = 7.dp.toPx()
+        val diameter = min(size.width, size.height) - (edgeInset * 2f) - strokeWidth
+        if (diameter <= 0f) return@Canvas
+
+        val topLeft =
+            Offset(
+                x = (size.width - diameter) / 2f,
+                y = (size.height - diameter) / 2f,
+            )
+        val arcSize = Size(diameter, diameter)
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        val thumbSweep = trackSweep * thumbFraction
+        val thumbStartAngle =
+            trackStartAngle +
+                (trackSweep - thumbSweep) * progress.coerceIn(0f, 1f)
+
+        drawArc(
+            color = Color.White.copy(alpha = 0.24f),
+            startAngle = trackStartAngle,
+            sweepAngle = trackSweep,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = stroke,
+        )
+        drawArc(
+            color = Color.White.copy(alpha = 0.82f),
+            startAngle = thumbStartAngle,
+            sweepAngle = thumbSweep,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = stroke,
+        )
+    }
 }
 
 @Composable
