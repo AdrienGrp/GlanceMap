@@ -232,6 +232,17 @@ fun DownloadScreen(
             WearScreenSize.MEDIUM -> 18.dp
             WearScreenSize.SMALL -> 16.dp
         }
+    val areaPickerListBottomPadding =
+        listBottomPadding +
+            if (adaptive.isRound && adaptive.fontScale > 1f) {
+                when (screenSize) {
+                    WearScreenSize.LARGE -> 42.dp
+                    WearScreenSize.MEDIUM -> 36.dp
+                    WearScreenSize.SMALL -> 30.dp
+                }
+            } else {
+                0.dp
+            }
     LaunchedEffect(uiState.lastLibraryChangedAtMillis) {
         if (uiState.lastLibraryChangedAtMillis > 0L) {
             onLibraryChanged()
@@ -360,7 +371,7 @@ fun DownloadScreen(
                         start = listHorizontalPadding,
                         end = listHorizontalPadding,
                         top = listTopPadding,
-                        bottom = listBottomPadding,
+                        bottom = if (showAreaPicker) areaPickerListBottomPadding else listBottomPadding,
                     ),
                 verticalArrangement = Arrangement.spacedBy(rowSpacing),
                 anchorType = SettingsListAnchorType,
