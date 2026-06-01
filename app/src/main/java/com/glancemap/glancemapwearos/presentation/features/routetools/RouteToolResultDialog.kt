@@ -111,56 +111,45 @@ internal fun RouteToolResultDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Row(
+                Text(
+                    text = result.displayTitle,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.Top,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.Start,
-                        verticalArrangement = Arrangement.spacedBy(1.dp),
+                    CompactIconHitTargetButton(
+                        onClick = onDelete,
+                        visualSize = 34.dp,
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        enabled = !renameInProgress,
                     ) {
-                        Text(
-                            text = result.displayTitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Start,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete GPX",
                         )
                     }
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    CompactIconHitTargetButton(
+                        onClick = {
+                            onRenameOpen()
+                            showRenameDialog = true
+                        },
+                        visualSize = 34.dp,
+                        containerColor = Color.White.copy(alpha = 0.10f),
+                        contentColor = Color.White,
+                        enabled = !renameInProgress,
                     ) {
-                        CompactIconHitTargetButton(
-                            onClick = onDelete,
-                            visualSize = 34.dp,
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                            enabled = !renameInProgress,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete GPX",
-                            )
-                        }
-                        CompactIconHitTargetButton(
-                            onClick = {
-                                onRenameOpen()
-                                showRenameDialog = true
-                            },
-                            visualSize = 34.dp,
-                            containerColor = Color.White.copy(alpha = 0.10f),
-                            contentColor = Color.White,
-                            enabled = !renameInProgress,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Rename GPX",
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Rename GPX",
+                        )
                     }
                 }
 
