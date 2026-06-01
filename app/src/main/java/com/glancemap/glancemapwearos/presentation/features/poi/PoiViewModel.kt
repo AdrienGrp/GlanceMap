@@ -744,43 +744,7 @@ class PoiViewModel(
         publishSyntheticUserFile(earlySyntheticUserFile)
         val files = poiRepository.listPoiFiles()
 
-        val (importedFiles, coverageAreas) =
-            withContext(Dispatchers.IO) {
-                val coverage = mutableListOf<PoiCoverageAreaUiState>()
-                files.map { file ->
-                    val categories = poiRepository.readCategories(file.absolutePath)
-                    poiRepository.readCoverageBounds(file.absolutePath)?.let { bounds ->
-                        coverage +=
-                            PoiCoverageAreaUiState(
-                                filePath = file.absolutePath,
-                                fileName = file.nameWithoutExtension,
-                                bounds = bounds,
-                            )
-                    }
-                    val categoryIds = categories.map { it.id }.toSet()
-                    val enabledIds = poiRepository.getEnabledCategories(file.absolutePath, categoryIds)
-                    val isEnabled = poiRepository.isFileEnabled(file.absolutePath)
-                    val (enabledPoiCount, totalPoiCount) =
-                        computePoiCounts(
-                            path = file.absolutePath,
-                            allCategoryIds = categoryIds,
-                            enabledCategoryIds = enabledIds,
-                        )
-
-                    PoiFileUiState(
-                        name = file.nameWithoutExtension,
-                        path = file.absolutePath,
-                        isEnabled = isEnabled,
-                        isExpanded = previousExpanded[file.absolutePath] ?: false,
-                        categories =
-                            categories.map { category ->
-                                category.toUiState(enabled = category.id in enabledIds)
-                            },
-                        enabledPoiCount = enabledPoiCount,
-                        totalPoiCount = totalPoiCount,
-                    )
-                } to coverage
-            }
+        val (importedFiles, coverageAreas) = loadImportedPoiFiles(files, previousExpanded)
 
         val syntheticUserFile =
             buildUserPoiFileUiState(
@@ -793,6 +757,43 @@ class PoiViewModel(
         _categoryCounts.value = emptyMap()
         updateUserPoiPreviewCache(syntheticUserFile)
     }
+
+    private suspend fun loadImportedPoiFiles(
+        files: List<File>,
+        previousExpanded: Map<String, Boolean>,
+    ): Pair<List<PoiFileUiState>, List<PoiCoverageAreaUiState>> =
+        withContext(Dispatchers.IO) {
+            val coverage = mutableListOf<PoiCoverageAreaUiState>()
+            files.map { file ->
+                val categories = poiRepository.readCategories(file.absolutePath)
+                poiRepository.readCoverageBounds(file.absolutePath)?.let { bounds ->
+                    coverage +=
+                        PoiCoverageAreaUiState(
+                            filePath = file.absolutePath,
+                            fileName = file.nameWithoutExtension,
+                            bounds = bounds,
+                        )
+                }
+                val categoryIds = categories.map { it.id }.toSet()
+                val enabledIds = poiRepository.getEnabledCategories(file.absolutePath, categoryIds)
+                val (enabledPoiCount, totalPoiCount) =
+                    computePoiCounts(
+                        path = file.absolutePath,
+                        allCategoryIds = categoryIds,
+                        enabledCategoryIds = enabledIds,
+                    )
+
+                PoiFileUiState(
+                    name = file.nameWithoutExtension,
+                    path = file.absolutePath,
+                    isEnabled = poiRepository.isFileEnabled(file.absolutePath),
+                    isExpanded = previousExpanded[file.absolutePath] ?: false,
+                    categories = categories.map { it.toUiState(enabled = it.id in enabledIds) },
+                    enabledPoiCount = enabledPoiCount,
+                    totalPoiCount = totalPoiCount,
+                )
+            } to coverage
+        }
 
     private fun publishSyntheticUserFile(file: PoiFileUiState) {
         _poiFiles.update { files ->
