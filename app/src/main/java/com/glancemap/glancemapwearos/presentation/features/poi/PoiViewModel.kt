@@ -731,8 +731,13 @@ class PoiViewModel(
 
     private suspend fun reloadFromDisk() {
         val previousExpanded = _poiFiles.value.associate { it.path to it.isExpanded }
-        val files = poiRepository.listPoiFiles()
         userPoiSourceState = userPoiRepository.readSourceState()
+        val earlySyntheticUserFile =
+            buildUserPoiFileUiState(
+                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: userPoiSourceState.points.isNotEmpty(),
+            )
+        publishSyntheticUserFile(earlySyntheticUserFile)
+        val files = poiRepository.listPoiFiles()
 
         val (importedFiles, coverageAreas) =
             withContext(Dispatchers.IO) {
@@ -782,6 +787,13 @@ class PoiViewModel(
         _categoryPreviews.value = emptyMap()
         _categoryCounts.value = emptyMap()
         updateUserPoiPreviewCache(syntheticUserFile)
+    }
+
+    private fun publishSyntheticUserFile(file: PoiFileUiState) {
+        _poiFiles.update { files ->
+            listOf(file) + files.filterNot { isUserPoiPath(it.path) }
+        }
+        updateUserPoiPreviewCache(file)
     }
 
     private suspend fun refreshPoiCounts(path: String) {
