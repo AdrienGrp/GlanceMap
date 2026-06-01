@@ -584,7 +584,7 @@ fun DownloadScreen(
                         ) {
                             Material3Icon(
                                 imageVector = Icons.Filled.Settings,
-                                contentDescription = "Download settings",
+                                contentDescription = "Bundle settings",
                             )
                         }
                         if (uiState.installedBundles.isNotEmpty()) {
