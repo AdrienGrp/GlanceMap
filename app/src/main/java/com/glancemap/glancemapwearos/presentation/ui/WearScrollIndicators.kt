@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+private const val MIN_VISIBLE_SCROLL_RANGE_PX = 18
+
 @Composable
 fun WearDialogScrollableColumn(
     maxHeight: Dp,
@@ -106,7 +108,7 @@ fun WearVerticalScrollIndicator(
     scrollState: ScrollState,
     modifier: Modifier = Modifier,
 ) {
-    if (scrollState.maxValue <= 0) return
+    if (scrollState.maxValue <= MIN_VISIBLE_SCROLL_RANGE_PX) return
 
     WearScrollIndicatorTrack(
         modifier = modifier,

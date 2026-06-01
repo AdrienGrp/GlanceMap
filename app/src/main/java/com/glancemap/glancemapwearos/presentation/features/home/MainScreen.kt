@@ -3,6 +3,8 @@
 package com.glancemap.glancemapwearos.presentation.features.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -177,44 +179,58 @@ fun MainScreen(
                 0.dp
             }
         val centerRowYOffset = 0.dp
+        val centerScrollState = rememberScrollState()
+        val centerViewportMaxHeight =
+            (
+                maxHeight -
+                    settingsButtonSize -
+                    settingsButtonBottomPadding -
+                    16.dp
+            ).coerceAtLeast(112.dp)
 
         Box(modifier = Modifier.fillMaxSize()) {
-            Column(
+            Box(
                 modifier =
                     Modifier
                         .align(Alignment.Center)
                         .offset(x = centerColumnOffset)
+                        .heightIn(max = centerViewportMaxHeight)
+                        .verticalScroll(centerScrollState)
                         .padding(horizontal = contentHorizontalPadding),
-                verticalArrangement = Arrangement.spacedBy(centerVerticalSpacing, Alignment.CenterVertically),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                contentAlignment = Alignment.Center,
             ) {
-                HomeActionButton(
-                    label = "POI",
-                    icon = Icons.Filled.Place,
-                    width = centerButtonWidth,
-                    height = centerButtonHeight,
-                    iconSize = centerButtonIconSize,
-                    compact = compactScreen,
-                    onClick = { navController.navigate(WatchRoutes.POI) },
-                )
-                HomeActionButton(
-                    label = "GPX",
-                    icon = Icons.Filled.Timeline,
-                    width = centerButtonWidth,
-                    height = centerButtonHeight,
-                    iconSize = centerButtonIconSize,
-                    compact = compactScreen,
-                    onClick = { navController.navigate(WatchRoutes.GPX) },
-                )
-                HomeActionButton(
-                    label = "Maps",
-                    icon = Icons.Filled.Map,
-                    width = centerButtonWidth,
-                    height = centerButtonHeight,
-                    iconSize = centerButtonIconSize,
-                    compact = compactScreen,
-                    onClick = { navController.navigate(WatchRoutes.MAPS) },
-                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(centerVerticalSpacing, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    HomeActionButton(
+                        label = "POI",
+                        icon = Icons.Filled.Place,
+                        width = centerButtonWidth,
+                        height = centerButtonHeight,
+                        iconSize = centerButtonIconSize,
+                        compact = compactScreen,
+                        onClick = { navController.navigate(WatchRoutes.POI) },
+                    )
+                    HomeActionButton(
+                        label = "GPX",
+                        icon = Icons.Filled.Timeline,
+                        width = centerButtonWidth,
+                        height = centerButtonHeight,
+                        iconSize = centerButtonIconSize,
+                        compact = compactScreen,
+                        onClick = { navController.navigate(WatchRoutes.GPX) },
+                    )
+                    HomeActionButton(
+                        label = "Maps",
+                        icon = Icons.Filled.Map,
+                        width = centerButtonWidth,
+                        height = centerButtonHeight,
+                        iconSize = centerButtonIconSize,
+                        compact = compactScreen,
+                        onClick = { navController.navigate(WatchRoutes.MAPS) },
+                    )
+                }
             }
 
             LeftHomeRail(
