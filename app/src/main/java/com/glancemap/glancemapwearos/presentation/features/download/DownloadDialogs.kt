@@ -11,13 +11,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.Composable
@@ -151,41 +148,45 @@ internal fun OamAttributionDialog(
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
-    val adaptive = rememberWearAdaptiveSpec()
 
     AlertDialog(
         visible = visible,
         onDismissRequest = onDismiss,
         title = { Text("Download") },
-        text = {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = adaptive.helpDialogMaxHeight)
-                        .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+        content = {
+            item {
                 Text(
                     text = "Connect the watch to Wi-Fi and keep it on the charger.",
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
+            }
+            item {
                 Text(
                     text = "Thank you to OpenAndroMaps for providing the offline maps and POIs.",
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
+            }
+            item {
                 Text(
                     text = "Routing enables offline route calculation.",
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
+            }
+            item {
                 Text(
                     text = "Elevation adds altitude, slope, and terrain shading.",
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
+            }
+            item {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Update,
@@ -194,12 +195,9 @@ internal fun OamAttributionDialog(
                     )
                     Text("Use update button to refresh bundles.")
                 }
-                WearDialogScrollBottomSpacer()
             }
-        },
-        confirmButton = {
-            Button(onClick = onDismiss) {
-                Text("OK")
+            item {
+                WearDialogScrollBottomSpacer()
             }
         },
     )

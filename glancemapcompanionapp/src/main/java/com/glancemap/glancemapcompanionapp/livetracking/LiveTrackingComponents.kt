@@ -48,7 +48,7 @@ internal fun HeaderRow(
     ) {
         FilledTonalIconButton(
             onClick = onBack,
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(48.dp),
             colors =
                 IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
@@ -19,8 +20,16 @@ fun ResetDefaultsConfirmScreen(
     onCancel: () -> Unit,
     onConfirmReset: () -> Unit,
 ) {
-    val listTokens = rememberSettingsListTokens()
-    val listState = rememberSettingsScalingLazyListState()
+    val listTokens =
+        rememberSettingsListTokens(
+            compactTop = 48.dp,
+            standardTop = 52.dp,
+            expandedTop = 56.dp,
+            compactBottom = 76.dp,
+            standardBottom = 84.dp,
+            expandedBottom = 92.dp,
+        )
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
@@ -34,6 +43,8 @@ fun ResetDefaultsConfirmScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
         ) {
             item {
                 Text(

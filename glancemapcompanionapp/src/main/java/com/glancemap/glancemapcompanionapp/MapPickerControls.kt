@@ -122,7 +122,7 @@ private fun MapPickerZoomButton(
         shadowElevation = 3.dp,
         modifier =
             Modifier
-                .size(30.dp)
+                .size(48.dp)
                 .clickable(onClick = onClick),
     ) {
         Box(contentAlignment = Alignment.Center) {

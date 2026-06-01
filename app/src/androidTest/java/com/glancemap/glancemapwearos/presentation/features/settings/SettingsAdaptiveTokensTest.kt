@@ -3,12 +3,15 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
 import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
 import com.glancemap.glancemapwearos.test.SmallRoundWatch
+import com.glancemap.glancemapwearos.test.SmallRoundWatchLargeText
+import com.glancemap.glancemapwearos.test.SmallRoundWatchMaxText
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
 import com.glancemap.glancemapwearos.test.withWearDeviceConfig
 import org.junit.Assert.assertEquals
@@ -144,6 +147,18 @@ class SettingsAdaptiveTokensTest {
         )
     }
 
+    @Test
+    fun rememberSettingsFirstItemTopPadding_offsetsRoundScreensFromTopCurve() {
+        assertEquals(48.dp, captureFirstItemTopPadding(SmallRoundWatch))
+        assertEquals(48.dp, captureFirstItemTopPadding(SmallRoundWatchLargeText))
+        assertEquals(72.dp, captureFirstItemTopPadding(SmallRoundWatchMaxText))
+    }
+
+    @Test
+    fun rememberSettingsFirstItemTopPadding_doesNotOffsetSquareScreens() {
+        assertEquals(0.dp, captureFirstItemTopPadding(MediumSquareWatch))
+    }
+
     private fun captureTokens(
         config: WearDeviceTestConfig,
         tokenFactory: @Composable () -> SettingsListTokens = { rememberSettingsListTokens() },
@@ -154,6 +169,20 @@ class SettingsAdaptiveTokensTest {
                 GlanceMapTheme {
                     val tokens = tokenFactory()
                     SideEffect { captured = tokens }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        return requireNotNull(captured)
+    }
+
+    private fun captureFirstItemTopPadding(config: WearDeviceTestConfig): Dp {
+        var captured: Dp? = null
+        composeRule.setContent {
+            withWearDeviceConfig(config = config) {
+                GlanceMapTheme {
+                    val topPadding = rememberSettingsFirstItemTopPadding()
+                    SideEffect { captured = topPadding }
                 }
             }
         }

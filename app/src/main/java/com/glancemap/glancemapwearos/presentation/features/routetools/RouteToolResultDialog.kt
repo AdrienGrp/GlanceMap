@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -31,12 +33,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
@@ -56,6 +57,7 @@ internal fun RouteToolResultDialog(
     if (!visible || result == null) return
 
     val adaptive = rememberWearAdaptiveSpec()
+    val scrollState = rememberScrollState()
     var showRenameDialog by remember(result.filePath) { mutableStateOf(false) }
 
     if (showRenameDialog) {
@@ -99,6 +101,8 @@ internal fun RouteToolResultDialog(
                 modifier =
                     Modifier
                         .wearDialogWidth(roundFraction = 0.9f, squareFraction = 0.94f)
+                        .heightIn(max = adaptive.helpDialogMaxHeight)
+                        .verticalScroll(scrollState)
                         .padding(
                             horizontal = adaptive.dialogHorizontalPadding,
                             vertical = adaptive.dialogVerticalPadding,
@@ -106,62 +110,45 @@ internal fun RouteToolResultDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Row(
+                Text(
+                    text = result.displayTitle,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.Top,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.Start,
-                        verticalArrangement = Arrangement.spacedBy(1.dp),
+                    CompactIconHitTargetButton(
+                        onClick = onDelete,
+                        visualSize = 34.dp,
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        enabled = !renameInProgress,
                     ) {
-                        Text(
-                            text = result.displayTitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Start,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete GPX",
                         )
                     }
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    CompactIconHitTargetButton(
+                        onClick = {
+                            onRenameOpen()
+                            showRenameDialog = true
+                        },
+                        visualSize = 34.dp,
+                        containerColor = Color.White.copy(alpha = 0.10f),
+                        contentColor = Color.White,
+                        enabled = !renameInProgress,
                     ) {
-                        IconButton(
-                            onClick = onDelete,
-                            modifier = Modifier.size(34.dp),
-                            enabled = !renameInProgress,
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                ),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete GPX",
-                            )
-                        }
-                        IconButton(
-                            onClick = {
-                                onRenameOpen()
-                                showRenameDialog = true
-                            },
-                            modifier = Modifier.size(34.dp),
-                            enabled = !renameInProgress,
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = Color.White.copy(alpha = 0.10f),
-                                    contentColor = Color.White,
-                                ),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Rename GPX",
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Rename GPX",
+                        )
                     }
                 }
 
@@ -201,7 +188,7 @@ internal fun RouteToolResultDialog(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(34.dp),
+                            .heightIn(min = 48.dp),
                 ) {
                     Text("Done")
                 }

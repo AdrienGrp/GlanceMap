@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName", "FunctionNaming", "LongMethod")
+
 package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +37,7 @@ import kotlin.math.roundToInt
 @Composable
 fun MapZoomSettingsScreen(
     viewModel: SettingsViewModel,
+    onOpenGeneralSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
     val crownZoomEnabled by viewModel.crownZoomEnabled.collectAsState()
@@ -45,7 +48,7 @@ fun MapZoomSettingsScreen(
     val isMetric by viewModel.isMetric.collectAsState()
     var showCrownDirectionPicker by remember { mutableStateOf(false) }
 
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
@@ -59,8 +62,13 @@ fun MapZoomSettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            item {
+                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            }
             item {
                 SettingsToggleChip(
                     checked = crownZoomEnabled,

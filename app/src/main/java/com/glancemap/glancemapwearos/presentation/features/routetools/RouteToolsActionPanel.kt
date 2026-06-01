@@ -65,30 +65,28 @@ internal fun RouteToolsActionPanel(
                 WearScreenSize.MEDIUM -> 10.dp
                 WearScreenSize.SMALL -> 12.dp
             }
-        } / 2
+        }
     val routeToolsContentBottomInset =
         if (!adaptive.isRound) {
             8.dp
         } else {
             when (adaptive.screenSize) {
-                WearScreenSize.LARGE -> 12.dp
-                WearScreenSize.MEDIUM -> 14.dp
-                WearScreenSize.SMALL -> 16.dp
+                WearScreenSize.LARGE -> 18.dp
+                WearScreenSize.MEDIUM -> 22.dp
+                WearScreenSize.SMALL -> 26.dp
             }
         }
+    val routeToolsIndicatorBottomInset = routeToolsContentBottomInset + 22.dp
     val routeToolsContentMaxHeight =
         (
-            adaptive.helpDialogMaxHeight +
-                if (!adaptive.isRound) {
-                    28.dp
-                } else {
-                    when (adaptive.screenSize) {
-                        WearScreenSize.LARGE -> 22.dp
-                        WearScreenSize.MEDIUM -> 18.dp
-                        WearScreenSize.SMALL -> 14.dp
-                    }
-                }
-        ) - routeToolsBottomActionSafeInset
+            adaptive.heightDp.dp -
+                adaptive.dialogVerticalPadding * 2 -
+                3.dp -
+                32.dp -
+                24.dp -
+                routeToolsBottomActionSafeInset -
+                12.dp
+        ).coerceAtLeast(88.dp)
     var showCoordinateEditor by remember(visible) { mutableStateOf(false) }
     var showPoiSearchDialog by remember(visible) { mutableStateOf(false) }
     var coordinateDraftLat by remember(visible) { mutableStateOf(0.0) }
@@ -424,7 +422,11 @@ internal fun RouteToolsActionPanel(
                     modifier =
                         Modifier
                             .align(Alignment.CenterEnd)
-                            .padding(end = 1.dp),
+                            .padding(
+                                top = 4.dp,
+                                end = 1.dp,
+                                bottom = routeToolsIndicatorBottomInset,
+                            ),
                 )
             }
             Box(

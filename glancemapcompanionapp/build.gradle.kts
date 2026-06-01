@@ -70,6 +70,7 @@ android {
             useSupportLibrary = true
         }
         manifestPlaceholders["channelBufferSize"] = "8388608" // 8MB buffer
+        buildConfigField("String", "ARKLUZ_TRACKING_URL", "\"https://arkluz.com/trk\"")
     }
 
     signingConfigs {
@@ -112,6 +113,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
     bundle {

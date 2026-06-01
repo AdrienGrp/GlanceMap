@@ -1,14 +1,10 @@
 package com.glancemap.glancemapwearos.presentation.features.gpx
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -22,6 +18,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 
 @Composable
@@ -37,12 +34,12 @@ fun GpxHelpBottomSheet(
         onDismissRequest = onDismiss,
         title = { Text("GPX Actions") },
         text = {
-            Column(
+            WearDialogScrollableColumn(
+                maxHeight = adaptive.helpDialogMaxHeight,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = adaptive.helpDialogMaxHeight)
-                        .verticalScroll(rememberScrollState()),
+                        .fillMaxWidth(),
+                scrollable = false,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("Toggle tracks to show or hide them on the map.")

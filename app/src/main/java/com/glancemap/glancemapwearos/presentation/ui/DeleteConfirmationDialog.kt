@@ -3,10 +3,8 @@ package com.glancemap.glancemapwearos.presentation.ui
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -68,24 +66,31 @@ fun DeleteConfirmationDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = messageTopPadding, bottom = messageBottomPadding)
-                            .heightIn(max = adaptive.dialogBodyMaxHeight)
-                            .onPreRotaryScrollEvent { event ->
-                                val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
-                                abs(consumed) > 0.5f
-                            }.focusRequester(focusRequester)
-                            .focusable()
-                            .verticalScroll(scrollState),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        text = message,
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    WearDialogScrollableColumn(
+                        maxHeight = adaptive.dialogBodyMaxHeight,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = messageTopPadding, bottom = messageBottomPadding),
+                        contentModifier =
+                            Modifier
+                                .onPreRotaryScrollEvent { event ->
+                                    val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
+                                    abs(consumed) > 0.5f
+                                }.focusRequester(focusRequester)
+                                .focusable(),
+                        scrollState = scrollState,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = message,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
         },

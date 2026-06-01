@@ -100,7 +100,6 @@ class SettingsRepositoryImpl private constructor(
             floatPreferencesKey("gpx_elevation_trend_activation_threshold_meters")
         val GPX_ELEVATION_AUTO_ADJUST_PER_GPX =
             booleanPreferencesKey("gpx_elevation_auto_adjust_per_gpx")
-        val GPX_LONG_PRESS_TIP_SHOWN = booleanPreferencesKey("gpx_long_press_tip_shown")
         val IS_METRIC = booleanPreferencesKey("is_metric")
         val BACK_BUTTON_EXITS_NAVIGATION = booleanPreferencesKey("back_button_exits_navigation")
         val POI_ICON_SIZE_PX = intPreferencesKey("poi_icon_size_px")
@@ -680,13 +679,6 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setGpxElevationAutoAdjustPerGpx(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.GPX_ELEVATION_AUTO_ADJUST_PER_GPX] = enabled }
-    }
-
-    override val gpxLongPressTipShown: Flow<Boolean> =
-        context.dataStore.data.map { it[PrefKeys.GPX_LONG_PRESS_TIP_SHOWN] ?: false }
-
-    override suspend fun setGpxLongPressTipShown(shown: Boolean) {
-        context.dataStore.edit { it[PrefKeys.GPX_LONG_PRESS_TIP_SHOWN] = shown }
     }
 
     override val isMetric: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.IS_METRIC] ?: true }

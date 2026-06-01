@@ -6,6 +6,7 @@
     "LongParameterList",
     "ReturnCount",
     "TooManyFunctions",
+    "UnusedPrivateMember",
 )
 
 package com.glancemap.glancemapwearos.presentation.features.download
@@ -49,9 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material3.Button
@@ -60,6 +59,10 @@ import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAnchorType
+import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAutoCentering
+import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsScalingLazyListState
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -101,7 +104,6 @@ fun DownloadScreen(
         remember(context) {
             context.getSharedPreferences(DOWNLOAD_INFO_PREFS, android.content.Context.MODE_PRIVATE)
         }
-    val listState = rememberScalingLazyListState()
     val coroutineScope = rememberCoroutineScope()
     var wasAreaPickerOpen by remember { mutableStateOf(showAreaPicker) }
     val selectedAreas = uiState.selectedAreas
@@ -117,16 +119,17 @@ fun DownloadScreen(
         }
     val listTopPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 6.dp
-            WearScreenSize.MEDIUM -> 5.dp
-            WearScreenSize.SMALL -> 4.dp
+            WearScreenSize.LARGE -> 1.dp
+            WearScreenSize.MEDIUM -> 0.dp
+            WearScreenSize.SMALL -> 0.dp
         }
     val listBottomPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 7.dp
-            WearScreenSize.SMALL -> 6.dp
+            WearScreenSize.LARGE -> 2.dp
+            WearScreenSize.MEDIUM -> 1.dp
+            WearScreenSize.SMALL -> 0.dp
         }
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTopPadding)
     val rowSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 8.dp
@@ -160,12 +163,7 @@ fun DownloadScreen(
             WearScreenSize.MEDIUM -> 6.dp
             WearScreenSize.SMALL -> 4.dp
         }
-    val headerBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 2.dp
-            WearScreenSize.MEDIUM -> 2.dp
-            WearScreenSize.SMALL -> 1.dp
-        }
+    val headerBottomPadding = 0.dp
     val headerActionButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 24.dp
@@ -178,11 +176,23 @@ fun DownloadScreen(
             WearScreenSize.MEDIUM -> 13.dp
             WearScreenSize.SMALL -> 12.dp
         }
+    val headerActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 4.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
     val headerActionSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 4.dp
             WearScreenSize.MEDIUM -> 3.dp
             WearScreenSize.SMALL -> 2.dp
+        }
+    val headerVerticalSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-14).dp
+            WearScreenSize.MEDIUM -> (-15).dp
+            WearScreenSize.SMALL -> (-16).dp
         }
     val headerTopSafePadding = headerTopPadding + adaptive.headerTopSafeInset
     val actionButtonHeight =
@@ -197,11 +207,12 @@ fun DownloadScreen(
             WearScreenSize.MEDIUM -> 17.dp
             WearScreenSize.SMALL -> 16.dp
         }
-    val settingsBottomPadding =
+    val bottomActionBottomPadding = 0.dp
+    val bottomActionVisualOffsetY =
         when (screenSize) {
-            WearScreenSize.LARGE -> 5.dp
-            WearScreenSize.MEDIUM -> 4.dp
-            WearScreenSize.SMALL -> 3.dp
+            WearScreenSize.LARGE -> (-6).dp
+            WearScreenSize.MEDIUM -> (-5).dp
+            WearScreenSize.SMALL -> (-4).dp
         }
     val settingsButtonSize =
         when (screenSize) {
@@ -221,25 +232,6 @@ fun DownloadScreen(
             WearScreenSize.MEDIUM -> 18.dp
             WearScreenSize.SMALL -> 16.dp
         }
-    val footerTextSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 9.sp
-            WearScreenSize.MEDIUM -> 8.sp
-            WearScreenSize.SMALL -> 7.sp
-        }
-    val footerLineHeight =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 10.sp
-            WearScreenSize.MEDIUM -> 9.sp
-            WearScreenSize.SMALL -> 8.sp
-        }
-    val footerHorizontalPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 34.dp
-            WearScreenSize.MEDIUM -> 32.dp
-            WearScreenSize.SMALL -> 30.dp
-        }
-
     LaunchedEffect(uiState.lastLibraryChangedAtMillis) {
         if (uiState.lastLibraryChangedAtMillis > 0L) {
             onLibraryChanged()
@@ -338,7 +330,9 @@ fun DownloadScreen(
                 bottomPadding = headerBottomPadding,
                 actionButtonSize = headerActionButtonSize,
                 actionIconSize = headerActionIconSize,
+                actionVisualOffsetY = headerActionVisualOffsetY,
                 actionSpacing = headerActionSpacing,
+                verticalSpacing = headerVerticalSpacing,
                 onInfoClick = { showOamInfoDialog = true },
                 onRefreshModeClick = {
                     val nextRefreshMode = !refreshMode
@@ -351,13 +345,6 @@ fun DownloadScreen(
                         coroutineScope.launch {
                             listState.animateScrollToItem(DOWNLOAD_FIRST_REFRESH_BUNDLE_ITEM_INDEX)
                         }
-                    }
-                },
-                onDeleteModeClick = {
-                    deleteMode = !deleteMode
-                    if (deleteMode) {
-                        refreshMode = false
-                        viewModel.clearRefreshBundleSelection()
                     }
                 },
             )
@@ -376,6 +363,8 @@ fun DownloadScreen(
                         bottom = listBottomPadding,
                     ),
                 verticalArrangement = Arrangement.spacedBy(rowSpacing),
+                anchorType = SettingsListAnchorType,
+                autoCentering = SettingsListAutoCentering,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (showAreaPicker) {
@@ -542,9 +531,9 @@ fun DownloadScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(pickerDownloadButtonSize + settingsBottomPadding)
+                            .height(pickerDownloadButtonSize + bottomActionBottomPadding)
                             .padding(horizontal = listHorizontalPadding)
-                            .padding(bottom = settingsBottomPadding),
+                            .padding(bottom = bottomActionBottomPadding),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (uiState.selectedAreaIds.isNotEmpty()) {
@@ -572,48 +561,75 @@ fun DownloadScreen(
                     }
                 }
             } else {
-                Text(
-                    text = "Bundle: ${uiState.selection.itemCountLabel()}",
-                    style =
-                        MaterialTheme.typography.labelSmall.copy(
-                            fontSize = footerTextSize,
-                            lineHeight = footerLineHeight,
-                        ),
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = footerHorizontalPadding, vertical = 1.dp),
-                )
-
                 Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(bottom = settingsBottomPadding),
+                            .padding(bottom = bottomActionBottomPadding),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    IconButton(
-                        onClick = onOpenSettings,
-                        enabled = !uiState.isDownloading,
-                        modifier =
-                            Modifier
-                                .align(Alignment.Center)
-                                .size(settingsButtonSize),
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.8f),
-                                contentColor = Color.White,
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Spacer(modifier = Modifier.size(48.dp))
+                        CompactIconHitTargetButton(
+                            onClick = onOpenSettings,
+                            enabled = !uiState.isDownloading,
+                            visualSize = settingsButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
+                            containerColor = Color.Black.copy(alpha = 0.8f),
+                            contentColor = Color.White,
+                            disabledContainerColor = Color.Black.copy(alpha = 0.32f),
+                            disabledContentColor = Color.White.copy(alpha = 0.38f),
+                        ) {
+                            Material3Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "Bundle settings",
+                            )
+                        }
+                        if (uiState.installedBundles.isNotEmpty()) {
+                            CompactIconHitTargetButton(
+                                onClick = {
+                                    val nextDeleteMode = !deleteMode
+                                    deleteMode = nextDeleteMode
+                                    if (nextDeleteMode) {
+                                        refreshMode = false
+                                        viewModel.clearRefreshBundleSelection()
+                                    }
+                                },
+                                enabled = !uiState.isDownloading,
+                                visualSize = headerActionButtonSize,
+                                visualOffsetY = bottomActionVisualOffsetY,
+                                containerColor =
+                                    if (deleteMode) {
+                                        MaterialTheme.colorScheme.errorContainer
+                                    } else {
+                                        Color.Black.copy(alpha = 0.8f)
+                                    },
+                                contentColor =
+                                    if (deleteMode) {
+                                        MaterialTheme.colorScheme.onErrorContainer
+                                    } else {
+                                        Color.White
+                                    },
                                 disabledContainerColor = Color.Black.copy(alpha = 0.32f),
                                 disabledContentColor = Color.White.copy(alpha = 0.38f),
-                            ),
-                    ) {
-                        Material3Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = "Download settings",
-                        )
+                            ) {
+                                Material3Icon(
+                                    imageVector = if (deleteMode) Icons.Filled.Close else Icons.Filled.Delete,
+                                    contentDescription =
+                                        if (deleteMode) {
+                                            "Exit delete mode"
+                                        } else {
+                                            "Enter delete mode"
+                                        },
+                                    modifier = Modifier.size(headerActionIconSize),
+                                )
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.size(48.dp))
+                        }
                     }
                 }
             }
@@ -633,10 +649,11 @@ private fun DownloadHeader(
     bottomPadding: Dp,
     actionButtonSize: Dp,
     actionIconSize: Dp,
+    actionVisualOffsetY: Dp,
     actionSpacing: Dp,
+    verticalSpacing: Dp,
     onInfoClick: () -> Unit,
     onRefreshModeClick: () -> Unit,
-    onDeleteModeClick: () -> Unit,
 ) {
     Box(
         modifier =
@@ -647,7 +664,7 @@ private fun DownloadHeader(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(actionSpacing),
+            verticalArrangement = Arrangement.spacedBy(verticalSpacing),
         ) {
             Text(
                 text = "Download",
@@ -665,6 +682,7 @@ private fun DownloadHeader(
                     contentDescription = "OpenAndroMaps info",
                     buttonSize = actionButtonSize,
                     iconSize = actionIconSize,
+                    visualOffsetY = actionVisualOffsetY,
                     onClick = onInfoClick,
                 )
                 HeaderActionButton(
@@ -672,19 +690,10 @@ private fun DownloadHeader(
                     contentDescription = if (refreshMode) "Exit refresh mode" else "Enter refresh mode",
                     buttonSize = actionButtonSize,
                     iconSize = actionIconSize,
+                    visualOffsetY = actionVisualOffsetY,
                     enabled = hasInstalledBundles && !isDownloading && !isCheckingUpdates,
                     selected = refreshMode,
                     onClick = onRefreshModeClick,
-                )
-                HeaderActionButton(
-                    icon = Icons.Filled.Delete,
-                    contentDescription = if (deleteMode) "Exit delete mode" else "Enter delete mode",
-                    buttonSize = actionButtonSize,
-                    iconSize = actionIconSize,
-                    enabled = hasInstalledBundles && !isDownloading,
-                    selected = deleteMode,
-                    danger = true,
-                    onClick = onDeleteModeClick,
                 )
             }
             if (refreshMode) {
@@ -717,32 +726,31 @@ private fun HeaderActionButton(
     contentDescription: String,
     buttonSize: Dp,
     iconSize: Dp,
+    visualOffsetY: Dp = 0.dp,
     onClick: () -> Unit,
     enabled: Boolean = true,
     selected: Boolean = false,
     danger: Boolean = false,
 ) {
-    IconButton(
+    CompactIconHitTargetButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.size(buttonSize),
-        colors =
-            IconButtonDefaults.iconButtonColors(
-                containerColor =
-                    when {
-                        selected && danger -> MaterialTheme.colorScheme.errorContainer
-                        selected -> MaterialTheme.colorScheme.primaryContainer
-                        else -> Color.Black.copy(alpha = 0.7f)
-                    },
-                contentColor =
-                    when {
-                        selected && danger -> MaterialTheme.colorScheme.onErrorContainer
-                        selected -> MaterialTheme.colorScheme.onPrimaryContainer
-                        else -> Color.White
-                    },
-                disabledContainerColor = Color.Black.copy(alpha = 0.32f),
-                disabledContentColor = Color.White.copy(alpha = 0.38f),
-            ),
+        visualSize = buttonSize,
+        visualOffsetY = visualOffsetY,
+        containerColor =
+            when {
+                selected && danger -> MaterialTheme.colorScheme.errorContainer
+                selected -> MaterialTheme.colorScheme.primaryContainer
+                else -> Color.Black.copy(alpha = 0.7f)
+            },
+        contentColor =
+            when {
+                selected && danger -> MaterialTheme.colorScheme.onErrorContainer
+                selected -> MaterialTheme.colorScheme.onPrimaryContainer
+                else -> Color.White
+            },
+        disabledContainerColor = Color.Black.copy(alpha = 0.32f),
+        disabledContentColor = Color.White.copy(alpha = 0.38f),
     ) {
         Material3Icon(
             imageVector = icon,

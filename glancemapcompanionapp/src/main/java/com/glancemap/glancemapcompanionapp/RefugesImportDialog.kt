@@ -349,7 +349,7 @@ internal fun RefugesImportDialog(
                         IconButton(
                             onClick = { viewModel.findWatchNodes() },
                             enabled = !isImportingRefuges,
-                            modifier = Modifier.size(30.dp),
+                            modifier = Modifier.size(48.dp),
                         ) {
                             Icon(
                                 Icons.Default.Refresh,
@@ -619,7 +619,7 @@ internal fun RefugesImportDialog(
                                         )
                                     },
                                     enabled = selectedWatchReachable && !isLoadingWatchInstalledMaps,
-                                    modifier = Modifier.size(30.dp),
+                                    modifier = Modifier.size(48.dp),
                                 ) {
                                     Icon(
                                         Icons.Default.Refresh,
@@ -1001,7 +1001,7 @@ internal fun RefugesTypeSelectionGroup(
                     modifier =
                         Modifier
                             .weight(1f)
-                            .heightIn(min = 38.dp),
+                            .heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(
@@ -1092,7 +1092,7 @@ internal fun OsmPoiCategorySelectionGroup(
                     modifier =
                         Modifier
                             .weight(1f)
-                            .heightIn(min = 38.dp),
+                            .heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(

@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -155,7 +156,7 @@ class MainActivity : ComponentActivity() {
                 AppScaffold(
                     timeText = {
                         if (showTimeInNavigate && isNavigateScreen && !isAmbient) {
-                            cappedFontScale {
+                            cappedFontScale(maxFontScale = 0.85f) {
                                 val context = LocalContext.current
                                 TimeText(
                                     modifier = Modifier.padding(top = 2.dp),
@@ -166,7 +167,11 @@ class MainActivity : ComponentActivity() {
                                 ) { time ->
                                     timeTextCurvedText(
                                         time = time,
-                                        style = CurvedTextStyle(color = Color.White),
+                                        style =
+                                            CurvedTextStyle(
+                                                color = Color.White,
+                                                fontSize = 13.sp,
+                                            ),
                                     )
                                 }
                             }
@@ -468,6 +473,13 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 MapZoomSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -479,6 +491,13 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 MapDisplaySettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -493,6 +512,13 @@ class MainActivity : ComponentActivity() {
                                     mapViewModel = appContainer.mapViewModel,
                                     onOpenMaps = {
                                         navController.navigate(WatchRoutes.MAPS) {
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
                                             launchSingleTop = true
                                             restoreState = true
                                         }

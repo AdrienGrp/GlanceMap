@@ -1,3 +1,5 @@
+@file:Suppress("CyclomaticComplexMethod", "FunctionName", "FunctionNaming", "LongMethod")
+
 package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.foundation.background
@@ -18,6 +20,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -144,18 +147,11 @@ fun ThemeSettingsScreen(
     mapViewModel: MapViewModel,
     @Suppress("UNUSED_PARAMETER")
     onOpenMaps: () -> Unit,
+    onOpenGeneralSettings: () -> Unit,
 ) {
-    val listTokens =
-        rememberSettingsListTokens(
-            compactTop = 12.dp,
-            standardTop = 14.dp,
-            expandedTop = 16.dp,
-            compactBottom = 12.dp,
-            standardBottom = 14.dp,
-            expandedBottom = 16.dp,
-        )
+    val listTokens = rememberSettingsListTokens()
     val themeItems by themeViewModel.themeItems.collectAsState()
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
     var showThemePicker by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
@@ -238,7 +234,14 @@ fun ThemeSettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            item {
+                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            }
+
             item {
                 Button(onClick = { themeViewModel.resetToDefaults() }) {
                     Text(

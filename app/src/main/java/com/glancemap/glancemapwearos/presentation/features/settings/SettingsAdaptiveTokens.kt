@@ -2,10 +2,14 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.foundation.lazy.AutoCenteringParams
+import androidx.wear.compose.foundation.lazy.ScalingLazyListAnchorType
 import androidx.wear.compose.foundation.lazy.ScalingLazyListState
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import com.glancemap.glancemapwearos.presentation.ui.WearWindowClass
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 
@@ -20,10 +24,10 @@ internal data class SettingsListTokens(
 internal fun rememberSettingsFirstItemTopPadding(): Dp {
     val adaptive = rememberWearAdaptiveSpec()
     return remember(adaptive.fontScale, adaptive.isRound) {
-        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
-            64.dp
-        } else {
-            0.dp
+        when {
+            adaptive.isRound && adaptive.fontScale >= 1.25f -> 72.dp
+            adaptive.isRound -> 48.dp
+            else -> 0.dp
         }
     }
 }
@@ -87,8 +91,29 @@ internal fun rememberSettingsListTokens(
     }
 }
 
+internal val SettingsListAnchorType: ScalingLazyListAnchorType = ScalingLazyListAnchorType.ItemStart
+internal val SettingsListAutoCentering: AutoCenteringParams? = null
+
 @Composable
-@Suppress("ktlint:standard:function-expression-body")
-internal fun rememberSettingsScalingLazyListState(): ScalingLazyListState {
-    return rememberScalingLazyListState(initialCenterItemIndex = 0)
+internal fun rememberSettingsScalingLazyListState(topPadding: Dp): ScalingLazyListState {
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val initialTopOffsetPx =
+        remember(density, configuration.screenHeightDp, topPadding) {
+            with(density) {
+                val screenHeightPx = configuration.screenHeightDp.dp.roundToPx()
+                val topPaddingPx = topPadding.roundToPx()
+                (screenHeightPx / 2 - topPaddingPx).coerceAtLeast(0)
+            }
+        }
+
+    return rememberSaveable(
+        initialTopOffsetPx,
+        saver = ScalingLazyListState.Saver,
+    ) {
+        ScalingLazyListState(
+            initialCenterItemIndex = 0,
+            initialCenterItemScrollOffset = initialTopOffsetPx,
+        )
+    }
 }

@@ -115,7 +115,7 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
                     statsIconSize = 16.dp,
                     statsSummaryTextSize = 10.sp,
                     axisTextSize = 11.sp,
-                    yScaleTextSize = 9.sp,
+                    yScaleTextSize = 10.sp,
                 )
             } else {
                 ElevationProfileDialogSizing(
@@ -132,7 +132,7 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
                     statsIconSize = 16.dp,
                     statsSummaryTextSize = 10.sp,
                     axisTextSize = 11.sp,
-                    yScaleTextSize = 9.sp,
+                    yScaleTextSize = 10.sp,
                 )
             }
         }
@@ -151,9 +151,9 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
                     chartFingerSafeZone = 12.dp,
                     yScaleWidth = 32.dp,
                     statsIconSize = 15.dp,
-                    statsSummaryTextSize = 9.sp,
+                    statsSummaryTextSize = 10.sp,
                     axisTextSize = 10.sp,
-                    yScaleTextSize = 8.sp,
+                    yScaleTextSize = 10.sp,
                 )
             } else {
                 ElevationProfileDialogSizing(
@@ -168,9 +168,9 @@ private fun rememberElevationProfileDialogSizing(): ElevationProfileDialogSizing
                     chartFingerSafeZone = 10.dp,
                     yScaleWidth = 30.dp,
                     statsIconSize = 15.dp,
-                    statsSummaryTextSize = 9.sp,
+                    statsSummaryTextSize = 10.sp,
                     axisTextSize = 10.sp,
-                    yScaleTextSize = 8.sp,
+                    yScaleTextSize = 10.sp,
                 )
             }
         }
@@ -233,7 +233,7 @@ fun GpxElevationProfileDialog(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.84f)),
+                    .background(Color.Black),
             contentAlignment = Alignment.Center,
         ) {
             Column(

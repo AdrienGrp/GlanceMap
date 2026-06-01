@@ -82,7 +82,7 @@ internal fun ColumnScope.SettingsContent(
             modifier =
                 Modifier
                     .align(Alignment.CenterStart)
-                    .size(36.dp),
+                    .size(48.dp),
             colors = companionTonalIconButtonColors(),
         ) {
             Icon(
@@ -208,7 +208,7 @@ internal fun PasswordField(
         trailingIcon = {
             FilledTonalIconButton(
                 onClick = { onVisibilityChange(!isVisible) },
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier.size(48.dp),
                 colors = companionTonalIconButtonColors(),
             ) {
                 Icon(

@@ -22,12 +22,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SplitSwitchButton
 import androidx.wear.compose.material3.SwitchButtonDefaults
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
+import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAnchorType
+import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAutoCentering
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsToggleChip
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsListTokens
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsScalingLazyListState
@@ -38,8 +39,13 @@ import com.google.android.horologist.compose.layout.ScreenScaffold
 @Composable
 fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberSettingsScalingLazyListState()
-    val listTokens = rememberSettingsListTokens()
+    val listTokens =
+        rememberSettingsListTokens(
+            compactTop = 40.dp,
+            standardTop = 44.dp,
+            expandedTop = 48.dp,
+        )
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     var showDemSourcePicker by remember { mutableStateOf(false) }
 
     OptionPickerDialog(
@@ -63,16 +69,10 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            item {
-                Text(
-                    text = "Download settings",
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
             item {
                 SettingsToggleChip(
                     checked = uiState.selection.includeMap,
@@ -111,15 +111,6 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
                     onCheckedChanged = viewModel::setIncludeRefugesInfo,
                     label = "Refuges.info",
                     secondaryLabel = "All refuge POIs",
-                )
-            }
-            item {
-                Text(
-                    text = "Bundle: ${uiState.selection.label()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.82f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

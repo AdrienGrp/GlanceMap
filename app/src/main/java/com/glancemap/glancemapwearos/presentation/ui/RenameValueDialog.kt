@@ -1,12 +1,24 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionName",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+)
+
 package com.glancemap.glancemapwearos.presentation.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +50,7 @@ fun RenameValueDialog(
     isSaving: Boolean,
     error: String?,
     autoFocusInput: Boolean = true,
+    fullScreen: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
@@ -48,6 +61,28 @@ fun RenameValueDialog(
     var draftValue by remember(initialValue) { mutableStateOf(initialValue) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollState = rememberScrollState()
+    val maxDialogHeight =
+        (
+            adaptive.heightDp.dp -
+                adaptive.dialogVerticalPadding * 2 -
+                18.dp
+        ).coerceAtLeast(132.dp)
+    val fullScreenTopPadding =
+        adaptive.dialogVerticalPadding +
+            adaptive.headerTopSafeInset +
+            if (adaptive.isRound) 14.dp else 0.dp
+    val fullScreenBottomPadding =
+        adaptive.dialogVerticalPadding +
+            if (adaptive.isRound) 42.dp else 12.dp
+    val fullScreenControlWidthFraction =
+        if (fullScreen && adaptive.isRound) {
+            0.86f
+        } else {
+            1f
+        }
+    val textFieldVerticalPadding = if (fullScreen) 8.dp else 10.dp
+    val buttonMinHeight = if (fullScreen) 44.dp else 48.dp
 
     LaunchedEffect(visible, isSaving) {
         if (visible && !isSaving && autoFocusInput) {
@@ -60,8 +95,19 @@ fun RenameValueDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Column(
-            modifier =
+        val dialogModifier =
+            if (fullScreen) {
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .verticalScroll(scrollState)
+                    .padding(
+                        horizontal = adaptive.dialogHorizontalPadding,
+                    ).padding(
+                        top = fullScreenTopPadding,
+                        bottom = fullScreenBottomPadding,
+                    )
+            } else {
                 Modifier
                     .wearDialogWidth(
                         roundFraction = dialogWidthFraction,
@@ -72,9 +118,19 @@ fun RenameValueDialog(
                     ).padding(
                         horizontal = adaptive.dialogHorizontalPadding,
                         vertical = adaptive.dialogVerticalPadding,
-                    ),
+                    ).heightIn(max = maxDialogHeight)
+                    .verticalScroll(scrollState)
+            }
+
+        Column(
+            modifier = dialogModifier,
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement =
+                if (fullScreen) {
+                    Arrangement.spacedBy(8.dp, Alignment.Top)
+                } else {
+                    Arrangement.spacedBy(6.dp)
+                },
         ) {
             Text(
                 text = title,
@@ -94,12 +150,12 @@ fun RenameValueDialog(
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(fullScreenControlWidthFraction)
                         .focusRequester(focusRequester)
                         .background(
                             Color(0xFF1F1F1F),
                             RoundedCornerShape(12.dp),
-                        ).padding(horizontal = 12.dp, vertical = 10.dp),
+                        ).padding(horizontal = 12.dp, vertical = textFieldVerticalPadding),
                 decorationBox = { innerTextField ->
                     if (draftValue.isBlank()) {
                         Text(
@@ -125,7 +181,10 @@ fun RenameValueDialog(
 
             Button(
                 onClick = { onConfirm(draftValue) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth(fullScreenControlWidthFraction)
+                        .heightIn(min = buttonMinHeight),
                 enabled = !isSaving,
             ) {
                 Text(if (isSaving) "Saving..." else "Save")
@@ -133,7 +192,10 @@ fun RenameValueDialog(
 
             Button(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth(fullScreenControlWidthFraction)
+                        .heightIn(min = buttonMinHeight),
                 enabled = !isSaving,
                 colors =
                     ButtonDefaults.buttonColors(

@@ -32,12 +32,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 
 @Composable
@@ -69,26 +68,26 @@ internal fun BoxScope.RouteCrosshairOverlay(
     val multiPointTitleFontSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 10.5.sp
-            WearScreenSize.MEDIUM -> 9.5.sp
-            WearScreenSize.SMALL -> 8.5.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val multiPointTitleLineHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 10.sp
-            WearScreenSize.MEDIUM -> 9.sp
-            WearScreenSize.SMALL -> 8.sp
+            WearScreenSize.LARGE -> 11.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val multiPointStatusFontSize =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.5.sp
-            WearScreenSize.MEDIUM -> 8.sp
-            WearScreenSize.SMALL -> 7.5.sp
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val multiPointStatusLineHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 9.5.sp
-            WearScreenSize.MEDIUM -> 9.sp
-            WearScreenSize.SMALL -> 8.5.sp
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val popupVerticalPadding =
         if (multiPointMode) {
@@ -99,9 +98,9 @@ internal fun BoxScope.RouteCrosshairOverlay(
     val popupRowSpacing = if (multiPointMode) 0.dp else popupSpec.rowSpacing
     val saveChipFontSize =
         when (screenSize) {
-            WearScreenSize.LARGE -> 9.sp
-            WearScreenSize.MEDIUM -> 8.5.sp
-            WearScreenSize.SMALL -> 8.sp
+            WearScreenSize.LARGE -> 10.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
         }
     val actionButtonSize =
         when (screenSize) {
@@ -121,6 +120,9 @@ internal fun BoxScope.RouteCrosshairOverlay(
             WearScreenSize.MEDIUM -> 34.dp
             WearScreenSize.SMALL -> 30.dp
         }
+    val popupTopPadding = if (multiPointMode) popupSpec.topPadding + 2.dp else popupSpec.topPadding
+    val effectiveActionsBottomPadding = if (multiPointMode) actionsBottomPadding + 2.dp else actionsBottomPadding
+    val actionVisualOffsetY = if (multiPointMode) (-2).dp else 0.dp
     if (session.usesCrosshair) {
         Box(
             modifier =
@@ -174,7 +176,7 @@ internal fun BoxScope.RouteCrosshairOverlay(
         modifier =
             Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = popupSpec.topPadding),
+                .padding(top = popupTopPadding),
     ) {
         Column(
             modifier =
@@ -355,19 +357,17 @@ internal fun BoxScope.RouteCrosshairOverlay(
             modifier =
                 Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = actionsBottomPadding),
+                    .padding(bottom = effectiveActionsBottomPadding),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onCancel,
                 enabled = !busy,
-                modifier = Modifier.size(actionButtonSize),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.74f),
-                        contentColor = Color.White,
-                    ),
+                visualSize = actionButtonSize,
+                visualOffsetY = actionVisualOffsetY,
+                containerColor = Color.Black.copy(alpha = 0.74f),
+                contentColor = Color.White,
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -376,15 +376,13 @@ internal fun BoxScope.RouteCrosshairOverlay(
                 )
             }
             if (multiPointMode && onUndoLastPoint != null) {
-                IconButton(
+                CompactIconHitTargetButton(
                     onClick = onUndoLastPoint,
                     enabled = session.chainPoints.isNotEmpty() && !createPreviewInProgress && !busy,
-                    modifier = Modifier.size(actionButtonSize),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.74f),
-                            contentColor = Color.White,
-                        ),
+                    visualSize = actionButtonSize,
+                    visualOffsetY = actionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.74f),
+                    contentColor = Color.White,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Undo,
@@ -393,15 +391,13 @@ internal fun BoxScope.RouteCrosshairOverlay(
                     )
                 }
             } else if (loopPreviewMode && onRefreshCreatePreview != null) {
-                IconButton(
+                CompactIconHitTargetButton(
                     onClick = onRefreshCreatePreview,
                     enabled = !createPreviewInProgress && !busy,
-                    modifier = Modifier.size(actionButtonSize),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.74f),
-                            contentColor = Color.White,
-                        ),
+                    visualSize = actionButtonSize,
+                    visualOffsetY = actionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.74f),
+                    contentColor = Color.White,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Loop,
@@ -412,15 +408,13 @@ internal fun BoxScope.RouteCrosshairOverlay(
             }
             if (loopPreviewMode) {
                 if (createPreview != null && onSaveCreatePreview != null) {
-                    IconButton(
+                    CompactIconHitTargetButton(
                         onClick = onSaveCreatePreview,
                         enabled = !createPreviewInProgress && !busy,
-                        modifier = Modifier.size(actionButtonSize),
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color(0xFFF7C948),
-                                contentColor = Color.Black,
-                            ),
+                        visualSize = actionButtonSize,
+                        visualOffsetY = actionVisualOffsetY,
+                        containerColor = Color(0xFFF7C948),
+                        contentColor = Color.Black,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Check,
@@ -430,15 +424,13 @@ internal fun BoxScope.RouteCrosshairOverlay(
                     }
                 }
             } else {
-                IconButton(
+                CompactIconHitTargetButton(
                     onClick = onPickHere,
                     enabled = !createPreviewInProgress && !busy,
-                    modifier = Modifier.size(actionButtonSize),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color(0xFFF7C948),
-                            contentColor = Color.Black,
-                        ),
+                    visualSize = actionButtonSize,
+                    visualOffsetY = actionVisualOffsetY,
+                    containerColor = Color(0xFFF7C948),
+                    contentColor = Color.Black,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
@@ -554,7 +546,7 @@ internal fun guidancePopupSpec(screenSize: WearScreenSize): GuidancePopupSpec =
                 cornerRadius = 7.dp,
                 rowSpacing = 2.dp,
                 modeTitleFontSize = 12.sp,
-                instructionFontSize = 9.sp,
+                instructionFontSize = 10.sp,
                 instructionLineHeight = 10.sp,
             )
 
@@ -567,8 +559,8 @@ internal fun guidancePopupSpec(screenSize: WearScreenSize): GuidancePopupSpec =
                 cornerRadius = 6.dp,
                 rowSpacing = 2.dp,
                 modeTitleFontSize = 11.sp,
-                instructionFontSize = 8.sp,
-                instructionLineHeight = 9.sp,
+                instructionFontSize = 10.sp,
+                instructionLineHeight = 10.sp,
             )
     }
 

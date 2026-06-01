@@ -215,7 +215,7 @@ class DownloadViewModel(
             _uiState.update {
                 it.copy(
                     statusMessage = "Nothing selected",
-                    errorMessage = "Enable Maps, POI, Routing, DEM, or Refuges.info in Download settings.",
+                    errorMessage = "Enable Maps, POI, Routing, DEM, or Refuges.info in Bundle settings.",
                     networkWarningMessage = null,
                 )
             }

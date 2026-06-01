@@ -22,7 +22,9 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
 import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
+import com.glancemap.glancemapwearos.test.PlayLargeRoundWatchMaxText
 import com.glancemap.glancemapwearos.test.SmallRoundWatchLargeText
+import com.glancemap.glancemapwearos.test.SmallRoundWatchMaxText
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
 import com.glancemap.glancemapwearos.test.withWearDeviceConfig
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -39,6 +41,16 @@ class SettingsMenuDenseLayoutTest {
     @Test
     fun smallRoundLargeText_keepsBottomActionsReachable() {
         assertDenseMenuScrolls(config = SmallRoundWatchLargeText)
+    }
+
+    @Test
+    fun smallRoundMaxText_keepsBottomActionsReachable() {
+        assertDenseMenuScrolls(config = SmallRoundWatchMaxText)
+    }
+
+    @Test
+    fun playLargeRoundMaxText_keepsBottomActionsReachable() {
+        assertDenseMenuScrolls(config = PlayLargeRoundWatchMaxText)
     }
 
     @Test

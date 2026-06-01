@@ -58,9 +58,6 @@ class GpxViewModel(
     val elevationProfileUiState: StateFlow<GpxElevationProfileUiState?> =
         _elevationProfileUiState.asStateFlow()
 
-    private val _showLongPressTip = MutableStateFlow(false)
-    val showLongPressTip: StateFlow<Boolean> = _showLongPressTip.asStateFlow()
-
     private val _exportUiState = MutableStateFlow(GpxExportUiState())
     val exportUiState: StateFlow<GpxExportUiState> = _exportUiState.asStateFlow()
 
@@ -120,10 +117,6 @@ class GpxViewModel(
     private val pressThresholdMeters = 30.0
 
     init {
-        viewModelScope.launch {
-            _showLongPressTip.value = !settingsRepository.gpxLongPressTipShown.first()
-        }
-
         combine(
             settingsRepository.gpxFlatSpeedMps,
             settingsRepository.gpxAdvancedEtaEnabled,
@@ -505,13 +498,6 @@ class GpxViewModel(
 
     fun dismissElevationProfile() {
         _elevationProfileUiState.value = null
-    }
-
-    fun dismissLongPressTipForever() {
-        viewModelScope.launch {
-            settingsRepository.setGpxLongPressTipShown(true)
-            _showLongPressTip.value = false
-        }
     }
 
     private suspend fun updateActiveGpxDetails(activeFiles: List<GpxFileState>) {

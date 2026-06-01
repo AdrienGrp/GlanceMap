@@ -12,13 +12,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -51,17 +48,17 @@ import androidx.navigation.NavHostController
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.USER_POI_CATEGORY_ID
 import com.glancemap.glancemapwearos.data.repository.USER_POI_SOURCE_PATH
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
+import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -165,6 +162,9 @@ private fun MutableList<PoiListRow>.addCategoryPreviewRows(
     }
 }
 
+private const val POI_HELP_PREFS = "poi_screen_help_prefs"
+private const val POI_HELP_SHOWN_KEY = "poi_help_shown"
+
 @Composable
 fun PoiScreen(
     navController: NavHostController,
@@ -190,6 +190,10 @@ fun PoiScreen(
     var renameError by remember { mutableStateOf<String?>(null) }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    val helpPrefs =
+        remember(context) {
+            context.getSharedPreferences(POI_HELP_PREFS, android.content.Context.MODE_PRIVATE)
+        }
 
     val listHorizontalPadding =
         when (screenSize) {
@@ -199,15 +203,15 @@ fun PoiScreen(
         }
     val listTopPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 6.dp
-            WearScreenSize.MEDIUM -> 5.dp
-            WearScreenSize.SMALL -> 4.dp
+            WearScreenSize.LARGE -> 1.dp
+            WearScreenSize.MEDIUM -> 0.dp
+            WearScreenSize.SMALL -> 0.dp
         }
     val listBottomPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 7.dp
-            WearScreenSize.SMALL -> 6.dp
+            WearScreenSize.LARGE -> 2.dp
+            WearScreenSize.MEDIUM -> 1.dp
+            WearScreenSize.SMALL -> 0.dp
         }
     val headerTopPadding =
         when (screenSize) {
@@ -215,12 +219,7 @@ fun PoiScreen(
             WearScreenSize.MEDIUM -> 6.dp
             WearScreenSize.SMALL -> 4.dp
         }
-    val headerBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 2.dp
-            WearScreenSize.MEDIUM -> 2.dp
-            WearScreenSize.SMALL -> 1.dp
-        }
+    val headerBottomPadding = 0.dp
     val headerActionButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 24.dp
@@ -233,11 +232,23 @@ fun PoiScreen(
             WearScreenSize.MEDIUM -> 13.dp
             WearScreenSize.SMALL -> 12.dp
         }
+    val headerActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 4.dp
+            WearScreenSize.MEDIUM -> 4.dp
+            WearScreenSize.SMALL -> 3.dp
+        }
     val headerActionSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 4.dp
             WearScreenSize.MEDIUM -> 3.dp
             WearScreenSize.SMALL -> 2.dp
+        }
+    val headerVerticalSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-14).dp
+            WearScreenSize.MEDIUM -> (-15).dp
+            WearScreenSize.SMALL -> (-16).dp
         }
     val rowSpacing =
         when (screenSize) {
@@ -251,17 +262,18 @@ fun PoiScreen(
             WearScreenSize.MEDIUM -> 14.dp
             WearScreenSize.SMALL -> 12.dp
         }
-    val settingsBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 5.dp
-            WearScreenSize.MEDIUM -> 4.dp
-            WearScreenSize.SMALL -> 3.dp
-        }
     val settingsButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 28.dp
             WearScreenSize.MEDIUM -> 26.dp
             WearScreenSize.SMALL -> 24.dp
+        }
+    val bottomActionBottomPadding = 0.dp
+    val bottomActionVisualOffsetY =
+        when (screenSize) {
+            WearScreenSize.LARGE -> (-6).dp
+            WearScreenSize.MEDIUM -> (-5).dp
+            WearScreenSize.SMALL -> (-4).dp
         }
     val fileActionButtonSize =
         when (screenSize) {
@@ -296,6 +308,12 @@ fun PoiScreen(
     val compactMode = screenSize == WearScreenSize.SMALL
     val headerTopSafePadding = headerTopPadding + adaptive.headerTopSafeInset
     val expandedCategoryIdsByFile = remember { mutableStateMapOf<String, Set<Int>>() }
+
+    LaunchedEffect(helpPrefs) {
+        if (!helpPrefs.getBoolean(POI_HELP_SHOWN_KEY, false)) {
+            showHelpDialog = true
+        }
+    }
 
     fun toggleCategoryExpanded(
         filePath: String,
@@ -386,6 +404,11 @@ fun PoiScreen(
                 )
             },
         )
+
+    fun dismissHelpDialog() {
+        showHelpDialog = false
+        helpPrefs.edit().putBoolean(POI_HELP_SHOWN_KEY, true).apply()
+    }
 
     LaunchedEffect(Unit) {
         poiViewModel.loadPoiFiles()
@@ -501,6 +524,7 @@ fun PoiScreen(
             initialValue = poiToRename?.name.orEmpty(),
             isSaving = renameInProgress,
             error = renameError,
+            fullScreen = true,
             onDismiss = {
                 if (!renameInProgress) {
                     showRenameDialog = false
@@ -532,15 +556,15 @@ fun PoiScreen(
 
         AlertDialog(
             visible = showHelpDialog,
-            onDismissRequest = { showHelpDialog = false },
+            onDismissRequest = { dismissHelpDialog() },
             title = { Text("POI Actions") },
             text = {
-                Column(
+                WearDialogScrollableColumn(
+                    maxHeight = adaptive.helpDialogMaxHeight,
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = adaptive.helpDialogMaxHeight)
-                            .verticalScroll(rememberScrollState()),
+                            .fillMaxWidth(),
+                    scrollable = false,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
@@ -594,109 +618,37 @@ fun PoiScreen(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(headerActionSpacing),
+                    verticalArrangement = Arrangement.spacedBy(headerVerticalSpacing),
                 ) {
                     Text(
                         text = "POI",
-                        style = MaterialTheme.typography.titleMedium,
+                        style =
+                            if (adaptive.isCompact) {
+                                MaterialTheme.typography.titleSmall
+                            } else {
+                                MaterialTheme.typography.titleMedium
+                            },
                         textAlign = TextAlign.Center,
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(
+                        CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 showHelpDialog = true
                             },
-                            modifier = Modifier.size(headerActionButtonSize),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = Color.Black.copy(alpha = 0.7f),
-                                    contentColor = Color.White,
-                                ),
+                            visualSize = headerActionButtonSize,
+                            visualOffsetY = headerActionVisualOffsetY,
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = "POI actions help",
                                 modifier = Modifier.size(headerActionIconSize),
                             )
-                        }
-                        if (poiFiles.isNotEmpty()) {
-                            IconButton(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val nextRenameMode = !isRenameMode
-                                    isRenameMode = nextRenameMode
-                                    if (nextRenameMode) {
-                                        isDeleteMode = false
-                                    }
-                                },
-                                modifier = Modifier.size(headerActionButtonSize),
-                                colors =
-                                    IconButtonDefaults.iconButtonColors(
-                                        containerColor =
-                                            if (isRenameMode) {
-                                                MaterialTheme.colorScheme.primaryContainer
-                                            } else {
-                                                Color.Black.copy(alpha = 0.7f)
-                                            },
-                                        contentColor =
-                                            if (isRenameMode) {
-                                                MaterialTheme.colorScheme.onPrimaryContainer
-                                            } else {
-                                                Color.White
-                                            },
-                                    ),
-                            ) {
-                                Icon(
-                                    imageVector = if (isRenameMode) Icons.Default.Close else Icons.Default.Edit,
-                                    contentDescription =
-                                        if (isRenameMode) {
-                                            "Exit rename mode"
-                                        } else {
-                                            "Enter rename mode"
-                                        },
-                                    modifier = Modifier.size(headerActionIconSize),
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    isDeleteMode = !isDeleteMode
-                                    if (isDeleteMode) {
-                                        isRenameMode = false
-                                    }
-                                },
-                                modifier = Modifier.size(headerActionButtonSize),
-                                colors =
-                                    IconButtonDefaults.iconButtonColors(
-                                        containerColor =
-                                            if (isDeleteMode) {
-                                                MaterialTheme.colorScheme.errorContainer
-                                            } else {
-                                                Color.Black.copy(alpha = 0.7f)
-                                            },
-                                        contentColor =
-                                            if (isDeleteMode) {
-                                                MaterialTheme.colorScheme.onErrorContainer
-                                            } else {
-                                                Color.White
-                                            },
-                                    ),
-                            ) {
-                                Icon(
-                                    imageVector = if (isDeleteMode) Icons.Default.Close else Icons.Default.Delete,
-                                    contentDescription =
-                                        if (isDeleteMode) {
-                                            "Exit delete mode"
-                                        } else {
-                                            "Enter delete mode"
-                                        },
-                                    modifier = Modifier.size(headerActionIconSize),
-                                )
-                            }
                         }
                     }
                     if (isDeleteMode) {
@@ -841,7 +793,6 @@ fun PoiScreen(
                                     text = row.text,
                                     depth = row.depth,
                                     categoryIndentStep = categoryIndentStep,
-                                    compactMode = compactMode,
                                     isError = row.isError,
                                 )
                             }
@@ -854,21 +805,95 @@ fun PoiScreen(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(bottom = settingsBottomPadding),
+                        .padding(bottom = bottomActionBottomPadding),
+                contentAlignment = Alignment.Center,
             ) {
-                IconButton(
-                    onClick = { navController.navigate(WatchRoutes.POI_SETTINGS) },
-                    modifier =
-                        Modifier
-                            .align(Alignment.Center)
-                            .size(settingsButtonSize),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.8f),
-                            contentColor = Color.White,
-                        ),
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Default.Settings, contentDescription = "POI Settings")
+                    if (poiFiles.isNotEmpty()) {
+                        CompactIconHitTargetButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val nextRenameMode = !isRenameMode
+                                isRenameMode = nextRenameMode
+                                if (nextRenameMode) {
+                                    isDeleteMode = false
+                                }
+                            },
+                            visualSize = headerActionButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
+                            containerColor =
+                                if (isRenameMode) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (isRenameMode) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    Color.White
+                                },
+                        ) {
+                            Icon(
+                                imageVector = if (isRenameMode) Icons.Default.Close else Icons.Default.Edit,
+                                contentDescription =
+                                    if (isRenameMode) {
+                                        "Exit rename mode"
+                                    } else {
+                                        "Enter rename mode"
+                                    },
+                                modifier = Modifier.size(headerActionIconSize),
+                            )
+                        }
+                    }
+                    CompactIconHitTargetButton(
+                        onClick = { navController.navigate(WatchRoutes.POI_SETTINGS) },
+                        visualSize = settingsButtonSize,
+                        visualOffsetY = bottomActionVisualOffsetY,
+                        containerColor = Color.Black.copy(alpha = 0.8f),
+                        contentColor = Color.White,
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = "POI Settings")
+                    }
+                    if (poiFiles.isNotEmpty()) {
+                        CompactIconHitTargetButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                isDeleteMode = !isDeleteMode
+                                if (isDeleteMode) {
+                                    isRenameMode = false
+                                }
+                            },
+                            visualSize = headerActionButtonSize,
+                            visualOffsetY = bottomActionVisualOffsetY,
+                            containerColor =
+                                if (isDeleteMode) {
+                                    MaterialTheme.colorScheme.errorContainer
+                                } else {
+                                    Color.Black.copy(alpha = 0.8f)
+                                },
+                            contentColor =
+                                if (isDeleteMode) {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                } else {
+                                    Color.White
+                                },
+                        ) {
+                            Icon(
+                                imageVector = if (isDeleteMode) Icons.Default.Close else Icons.Default.Delete,
+                                contentDescription =
+                                    if (isDeleteMode) {
+                                        "Exit delete mode"
+                                    } else {
+                                        "Enter delete mode"
+                                    },
+                                modifier = Modifier.size(headerActionIconSize),
+                            )
+                        }
+                    }
                 }
             }
         }

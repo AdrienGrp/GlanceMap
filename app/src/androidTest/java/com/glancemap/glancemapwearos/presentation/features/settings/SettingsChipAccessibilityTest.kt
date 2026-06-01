@@ -24,7 +24,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
 import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
+import com.glancemap.glancemapwearos.test.PlayLargeRoundWatchMaxText
 import com.glancemap.glancemapwearos.test.SmallRoundWatchLargeText
+import com.glancemap.glancemapwearos.test.SmallRoundWatchMaxText
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
 import com.glancemap.glancemapwearos.test.withWearDeviceConfig
 import org.junit.Rule
@@ -39,6 +41,16 @@ class SettingsChipAccessibilityTest {
     @Test
     fun settingsChips_keepMinimumTouchTargetsOnSmallRoundLargeText() {
         assertChipTouchTargets(SmallRoundWatchLargeText)
+    }
+
+    @Test
+    fun settingsChips_keepMinimumTouchTargetsOnSmallRoundMaxText() {
+        assertChipTouchTargets(SmallRoundWatchMaxText)
+    }
+
+    @Test
+    fun settingsChips_keepMinimumTouchTargetsOnPlayLargeRoundMaxText() {
+        assertChipTouchTargets(PlayLargeRoundWatchMaxText)
     }
 
     @Test

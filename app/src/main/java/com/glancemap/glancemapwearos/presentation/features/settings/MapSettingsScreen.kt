@@ -83,7 +83,7 @@ fun MapSettingsScreen(
         }
     val reliefOverlaySecondaryLabel = if (reliefOverlayEnabled) "On" else "Off"
 
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
 
     DemSetupBottomSheet(
         visible = showDemSetupDialog,
@@ -106,6 +106,8 @@ fun MapSettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {

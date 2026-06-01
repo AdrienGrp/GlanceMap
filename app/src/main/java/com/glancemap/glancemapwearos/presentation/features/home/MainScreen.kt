@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Explore
@@ -37,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -53,6 +57,7 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import androidx.wear.tooling.preview.devices.WearDevices
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.presentation.ui.WearScreenEdgeScrollIndicator
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -175,45 +180,65 @@ fun MainScreen(
                 0.dp
             }
         val centerRowYOffset = 0.dp
+        val centerScrollState = rememberScrollState()
+        val centerScrollBottomInset =
+            settingsButtonSize +
+                settingsButtonBottomPadding +
+                if (compactScreen) 8.dp else 10.dp
+        val centerScrollTopInset =
+            settingsButtonSize / 2 +
+                if (compactScreen) 4.dp else 6.dp
 
         Box(modifier = Modifier.fillMaxSize()) {
-            Column(
+            Box(
                 modifier =
                     Modifier
-                        .align(Alignment.Center)
+                        .fillMaxSize()
                         .offset(x = centerColumnOffset)
+                        .padding(
+                            top = centerScrollTopInset,
+                            bottom = centerScrollBottomInset,
+                        ).verticalScroll(centerScrollState)
                         .padding(horizontal = contentHorizontalPadding),
-                verticalArrangement = Arrangement.spacedBy(centerVerticalSpacing, Alignment.CenterVertically),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                contentAlignment = Alignment.Center,
             ) {
-                HomeActionButton(
-                    label = "POI",
-                    icon = Icons.Filled.Place,
-                    width = centerButtonWidth,
-                    height = centerButtonHeight,
-                    iconSize = centerButtonIconSize,
-                    compact = compactScreen,
-                    onClick = { navController.navigate(WatchRoutes.POI) },
-                )
-                HomeActionButton(
-                    label = "GPX",
-                    icon = Icons.Filled.Timeline,
-                    width = centerButtonWidth,
-                    height = centerButtonHeight,
-                    iconSize = centerButtonIconSize,
-                    compact = compactScreen,
-                    onClick = { navController.navigate(WatchRoutes.GPX) },
-                )
-                HomeActionButton(
-                    label = "Maps",
-                    icon = Icons.Filled.Map,
-                    width = centerButtonWidth,
-                    height = centerButtonHeight,
-                    iconSize = centerButtonIconSize,
-                    compact = compactScreen,
-                    onClick = { navController.navigate(WatchRoutes.MAPS) },
-                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(centerVerticalSpacing, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    HomeActionButton(
+                        label = "POI",
+                        icon = Icons.Filled.Place,
+                        width = centerButtonWidth,
+                        height = centerButtonHeight,
+                        iconSize = centerButtonIconSize,
+                        compact = compactScreen,
+                        onClick = { navController.navigate(WatchRoutes.POI) },
+                    )
+                    HomeActionButton(
+                        label = "GPX",
+                        icon = Icons.Filled.Timeline,
+                        width = centerButtonWidth,
+                        height = centerButtonHeight,
+                        iconSize = centerButtonIconSize,
+                        compact = compactScreen,
+                        onClick = { navController.navigate(WatchRoutes.GPX) },
+                    )
+                    HomeActionButton(
+                        label = "Maps",
+                        icon = Icons.Filled.Map,
+                        width = centerButtonWidth,
+                        height = centerButtonHeight,
+                        iconSize = centerButtonIconSize,
+                        compact = compactScreen,
+                        onClick = { navController.navigate(WatchRoutes.MAPS) },
+                    )
+                }
             }
+            WearScreenEdgeScrollIndicator(
+                scrollState = centerScrollState,
+                modifier = Modifier.padding(end = navigateIconEdgePadding),
+            )
 
             LeftHomeRail(
                 offlineMode = offlineMode,
@@ -300,7 +325,8 @@ private fun GpsStatusOverlay(
         Text(
             text = message,
             color = Color.White,
-            maxLines = 1,
+            maxLines = 2,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -388,7 +414,7 @@ private fun HomeActionButton(
         modifier =
             Modifier
                 .width(width)
-                .height(height),
+                .heightIn(min = height.coerceAtLeast(48.dp)),
         contentPadding =
             when {
                 !showLabel -> PaddingValues(0.dp)
@@ -406,7 +432,6 @@ private fun HomeActionButton(
             Text(
                 text = label,
                 maxLines = 1,
-                softWrap = false,
                 overflow = TextOverflow.Ellipsis,
             )
         } else {

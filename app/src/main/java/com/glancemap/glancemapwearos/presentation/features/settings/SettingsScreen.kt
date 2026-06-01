@@ -48,7 +48,7 @@ fun SettingsScreen(
     var partialSummary by remember {
         mutableStateOf(StalePartialTransferCleaner.PartialFilesSummary(count = 0, totalBytes = 0L))
     }
-    val listState = rememberSettingsScalingLazyListState()
+    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val isMetric by viewModel.isMetric.collectAsState()
     val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
     val unitOptions =
@@ -94,6 +94,8 @@ fun SettingsScreen(
                     bottom = listTokens.bottomPadding,
                 ),
             verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
+            anchorType = SettingsListAnchorType,
+            autoCentering = SettingsListAutoCentering,
         ) {
             item {
                 Text(
@@ -141,6 +143,11 @@ fun SettingsScreen(
                 SettingsSectionChip(
                     label = "Map settings",
                     onClick = { navController.navigate(WatchRoutes.MAP_SETTINGS) },
+                )
+            }
+            item {
+                DownloadSettingsSectionChip(
+                    onClick = { navController.navigate(WatchRoutes.DOWNLOAD_SETTINGS) },
                 )
             }
 

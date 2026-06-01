@@ -264,7 +264,7 @@ internal fun RoutingDownloadDialog(
                         IconButton(
                             onClick = { viewModel.findWatchNodes() },
                             enabled = !isDownloadingRouting,
-                            modifier = Modifier.size(30.dp),
+                            modifier = Modifier.size(48.dp),
                         ) {
                             Icon(
                                 Icons.Default.Update,
@@ -381,7 +381,7 @@ internal fun RoutingDownloadDialog(
                                         )
                                     },
                                     enabled = selectedWatchReachable && !isLoadingWatchInstalledMaps,
-                                    modifier = Modifier.size(30.dp),
+                                    modifier = Modifier.size(48.dp),
                                 ) {
                                     Icon(
                                         Icons.Default.Update,

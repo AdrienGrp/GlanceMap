@@ -58,6 +58,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolK
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolLoopRetryOption
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolProgressDialog
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeToolMultiPointDraftConnectorPoints
@@ -1014,6 +1015,12 @@ fun NavigateScreen(
                 }
             }
         },
+    )
+
+    RouteToolProgressDialog(
+        visible = createdPoiCreateInProgress,
+        message = "Saving POI...",
+        fullScreenBackground = true,
     )
 
     NavigateRouteToolDialogs(

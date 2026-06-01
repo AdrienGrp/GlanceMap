@@ -48,4 +48,18 @@ class CompanionAdaptiveSpecTest {
         assertTrue(spec.enablePageScroll)
         assertFalse(spec.useCompactPageLayout)
     }
+
+    @Test
+    fun allLayoutsExposeAccessibleHeaderTouchTargets() {
+        val specs =
+            listOf(
+                companionAdaptiveSpec(windowWidth = 320.dp, windowHeight = 700.dp, fontScale = 1.2f),
+                companionAdaptiveSpec(windowWidth = 411.dp, windowHeight = 891.dp, fontScale = 1f),
+                companionAdaptiveSpec(windowWidth = 480.dp, windowHeight = 1_000.dp, fontScale = 1f),
+            )
+
+        specs.forEach { spec ->
+            assertEquals(48.dp, spec.helpIconButtonSize)
+        }
+    }
 }

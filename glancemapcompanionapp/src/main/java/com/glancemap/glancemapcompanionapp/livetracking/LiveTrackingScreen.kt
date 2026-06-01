@@ -95,7 +95,7 @@ fun LiveTrackingScreen(
     var alertEmailAddresses by remember { mutableStateOf(savedSettings.alertEmailAddresses) }
     var stuckAlarmMinutes by remember { mutableStateOf(savedSettings.stuckAlarmMinutes) }
     var comments by remember { mutableStateOf(savedDraft.comments) }
-    var trackingEndpoint by remember { mutableStateOf(ArkluzTrackingEndpoint.DEVELOPMENT) }
+    var trackingEndpoint by remember { mutableStateOf(ArkluzTrackingEndpoint.defaultEndpoint) }
     var updateIntervalSeconds by remember { mutableStateOf(savedSettings.updateIntervalSeconds) }
     var selectedGpxUri by remember {
         mutableStateOf(savedDraft.gpxUri.takeIf(String::isNotBlank)?.let(Uri::parse))

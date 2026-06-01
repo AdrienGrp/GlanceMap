@@ -15,7 +15,9 @@ import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.test.LargeRoundWatch
 import com.glancemap.glancemapwearos.test.MediumSquareWatch
+import com.glancemap.glancemapwearos.test.PlayLargeRoundWatchMaxText
 import com.glancemap.glancemapwearos.test.SmallRoundWatchLargeText
+import com.glancemap.glancemapwearos.test.SmallRoundWatchMaxText
 import com.glancemap.glancemapwearos.test.WearDeviceTestConfig
 import com.glancemap.glancemapwearos.test.withWearDeviceConfig
 import org.junit.Rule
@@ -31,6 +33,24 @@ class MainScreenResponsiveTest {
     fun smallRoundLargeText_keepsCoreActionsVisible() {
         launchMainScreen(config = SmallRoundWatchLargeText)
 
+        assertCoreActionsVisible()
+    }
+
+    @Test
+    fun smallRoundMaxText_keepsCoreActionsVisible() {
+        launchMainScreen(config = SmallRoundWatchMaxText)
+
+        assertCoreActionsVisible()
+    }
+
+    @Test
+    fun playLargeRoundMaxText_keepsCoreActionsVisible() {
+        launchMainScreen(config = PlayLargeRoundWatchMaxText)
+
+        assertCoreActionsVisible()
+    }
+
+    private fun assertCoreActionsVisible() {
         composeRule.onNodeWithText("POI").assertIsDisplayed()
         composeRule.onNodeWithText("GPX").assertIsDisplayed()
         composeRule.onNodeWithText("Maps").assertIsDisplayed()

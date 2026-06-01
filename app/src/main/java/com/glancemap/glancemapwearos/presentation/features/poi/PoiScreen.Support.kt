@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName", "FunctionNaming")
+
 package com.glancemap.glancemapwearos.presentation.features.poi
 
 import androidx.compose.foundation.background
@@ -56,12 +58,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.PoiType
 import com.glancemap.glancemapwearos.data.repository.USER_POI_SOURCE_PATH
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import java.util.Locale
 
 @Composable
@@ -141,7 +142,7 @@ internal fun PoiFileRow(
                 Text(
                     text = "${file.enabledPoiCount}/${file.totalPoiCount} POI",
                     style = MaterialTheme.typography.labelSmall,
-                    fontSize = if (compactMode) 8.sp else 9.sp,
+                    fontSize = 10.sp,
                     color = Color(0xFFD0D3F2),
                     maxLines = 1,
                 )
@@ -154,14 +155,11 @@ internal fun PoiFileRow(
         }
 
         if (showDelete) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onDelete,
-                modifier = Modifier.size(actionButtonSize),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
+                visualSize = actionButtonSize,
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
@@ -179,14 +177,11 @@ internal fun PoiFileRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                IconButton(
+                CompactIconHitTargetButton(
                     onClick = onToggleExpanded,
-                    modifier = Modifier.size(actionButtonSize),
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.72f),
-                            contentColor = Color.White,
-                        ),
+                    visualSize = actionButtonSize,
+                    containerColor = Color.Black.copy(alpha = 0.72f),
+                    contentColor = Color.White,
                 ) {
                     Icon(
                         imageVector = if (file.isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -365,7 +360,7 @@ internal fun PoiCategoryRow(
                         Text(
                             text = countLabel,
                             style = MaterialTheme.typography.labelSmall,
-                            fontSize = if (compactMode) 8.sp else 9.sp,
+                            fontSize = 10.sp,
                             color = if (category.hasChildren) Color(0xFFAFC2F5) else Color(0xFF9FB0CD),
                             maxLines = 1,
                         )
@@ -380,14 +375,11 @@ internal fun PoiCategoryRow(
             }
         }
 
-        IconButton(
+        CompactIconHitTargetButton(
             onClick = onToggleExpanded,
-            modifier = Modifier.size(actionButtonSize),
-            colors =
-                IconButtonDefaults.iconButtonColors(
-                    containerColor = Color.Black.copy(alpha = 0.72f),
-                    contentColor = Color.White,
-                ),
+            visualSize = actionButtonSize,
+            containerColor = Color.Black.copy(alpha = 0.72f),
+            contentColor = Color.White,
         ) {
             Icon(
                 imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -471,26 +463,20 @@ internal fun PoiCategoryPoiRow(
             )
         }
         if (showRename) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onRename,
-                modifier = Modifier.size(if (compactMode) 28.dp else 32.dp),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
+                visualSize = if (compactMode) 28.dp else 32.dp,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Icon(Icons.Default.Edit, contentDescription = "Rename saved place")
             }
         } else if (showDelete) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onDelete,
-                modifier = Modifier.size(if (compactMode) 28.dp else 32.dp),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
+                visualSize = if (compactMode) 28.dp else 32.dp,
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
             ) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete saved place")
             }
@@ -567,13 +553,12 @@ internal fun PoiCategoryInfoRow(
     text: String,
     depth: Int,
     categoryIndentStep: Dp,
-    compactMode: Boolean,
     isError: Boolean,
 ) {
     val cappedDepth = depth.coerceIn(0, 5)
     val indent = (cappedDepth * categoryIndentStep.value).dp
     val textColor = if (isError) MaterialTheme.colorScheme.error else Color(0xFF90A4AE)
-    val textSize = if (compactMode) 8.sp else 9.sp
+    val textSize = 10.sp
 
     Text(
         text = text,
