@@ -60,6 +60,13 @@ fun RenameValueDialog(
                 adaptive.dialogVerticalPadding * 2 -
                 18.dp
         ).coerceAtLeast(132.dp)
+    val fullScreenTopPadding =
+        adaptive.dialogVerticalPadding +
+            adaptive.headerTopSafeInset +
+            if (adaptive.isRound) 14.dp else 0.dp
+    val fullScreenBottomPadding =
+        adaptive.dialogVerticalPadding +
+            if (adaptive.isRound) 42.dp else 12.dp
 
     LaunchedEffect(visible, isSaving) {
         if (visible && !isSaving && autoFocusInput) {
@@ -77,10 +84,13 @@ fun RenameValueDialog(
                 Modifier
                     .fillMaxSize()
                     .background(Color.Black)
+                    .verticalScroll(scrollState)
                     .padding(
                         horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding,
-                    ).verticalScroll(scrollState)
+                    ).padding(
+                        top = fullScreenTopPadding,
+                        bottom = fullScreenBottomPadding,
+                    )
             } else {
                 Modifier
                     .wearDialogWidth(
@@ -101,7 +111,7 @@ fun RenameValueDialog(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement =
                 if (fullScreen) {
-                    Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+                    Arrangement.spacedBy(8.dp, Alignment.Top)
                 } else {
                     Arrangement.spacedBy(6.dp)
                 },
