@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName", "FunctionNaming", "LongParameterList")
+
 package com.glancemap.glancemapwearos.presentation.ui
 
 import androidx.compose.foundation.background

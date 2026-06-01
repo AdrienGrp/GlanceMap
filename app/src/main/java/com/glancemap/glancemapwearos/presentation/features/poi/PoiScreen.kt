@@ -793,7 +793,6 @@ fun PoiScreen(
                                     text = row.text,
                                     depth = row.depth,
                                     categoryIndentStep = categoryIndentStep,
-                                    compactMode = compactMode,
                                     isError = row.isError,
                                 )
                             }

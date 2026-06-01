@@ -78,9 +78,9 @@ fun DeleteConfirmationDialog(
                         contentModifier =
                             Modifier
                                 .onPreRotaryScrollEvent { event ->
-                                val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
-                                abs(consumed) > 0.5f
-                            }.focusRequester(focusRequester)
+                                    val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
+                                    abs(consumed) > 0.5f
+                                }.focusRequester(focusRequester)
                                 .focusable(),
                         scrollState = scrollState,
                         horizontalAlignment = Alignment.CenterHorizontally,

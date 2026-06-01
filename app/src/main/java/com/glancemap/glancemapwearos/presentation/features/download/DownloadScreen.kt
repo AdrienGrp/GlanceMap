@@ -6,6 +6,7 @@
     "LongParameterList",
     "ReturnCount",
     "TooManyFunctions",
+    "UnusedPrivateMember",
 )
 
 package com.glancemap.glancemapwearos.presentation.features.download
@@ -58,12 +59,12 @@ import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
-import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
-import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAnchorType
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAutoCentering
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsScalingLazyListState
+import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
+import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
+import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize

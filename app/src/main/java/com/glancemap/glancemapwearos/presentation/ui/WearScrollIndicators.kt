@@ -1,7 +1,9 @@
+@file:Suppress("FunctionName", "FunctionNaming", "LongParameterList", "ReturnCount")
+
 package com.glancemap.glancemapwearos.presentation.ui
 
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

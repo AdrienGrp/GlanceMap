@@ -1,3 +1,5 @@
+@file:Suppress("CyclomaticComplexMethod", "FunctionName", "FunctionNaming", "LongMethod")
+
 package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.foundation.background

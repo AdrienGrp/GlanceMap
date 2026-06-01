@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName", "FunctionNaming", "LongMethod")
+
 package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.foundation.layout.Arrangement

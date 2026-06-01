@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod")
+
 package com.glancemap.glancemapwearos.presentation.features.settings
 
 import android.content.ActivityNotFoundException

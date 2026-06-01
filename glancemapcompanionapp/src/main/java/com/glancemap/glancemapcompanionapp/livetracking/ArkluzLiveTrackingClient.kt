@@ -65,7 +65,8 @@ enum class ArkluzTrackingEndpoint(
     val url: String,
 ) {
     PRODUCTION("Production", "https://arkluz.com/trk"),
-    DEVELOPMENT("Development", "https://arkluz.com/dev/trk");
+    DEVELOPMENT("Development", "https://arkluz.com/dev/trk"),
+    ;
 
     companion object {
         val defaultUrl: String = BuildConfig.ARKLUZ_TRACKING_URL.ifBlank { PRODUCTION.url }

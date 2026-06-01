@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName", "FunctionNaming")
+
 package com.glancemap.glancemapwearos.presentation.features.poi
 
 import androidx.compose.foundation.background
@@ -551,7 +553,6 @@ internal fun PoiCategoryInfoRow(
     text: String,
     depth: Int,
     categoryIndentStep: Dp,
-    compactMode: Boolean,
     isError: Boolean,
 ) {
     val cappedDepth = depth.coerceIn(0, 5)

@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName", "FunctionNaming")
+
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
 import androidx.compose.animation.AnimatedVisibility
