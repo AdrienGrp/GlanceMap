@@ -52,6 +52,7 @@ internal fun SettingsToggleChip(
     ToggleChip(
         modifier =
             Modifier
+                .fillMaxWidth()
                 .heightIn(min = minHeight)
                 .then(modifier),
         enabled = enabled,
@@ -78,6 +79,7 @@ internal fun SettingsPickerChip(
         Chip(
             modifier =
                 Modifier
+                    .fillMaxWidth()
                     .heightIn(min = minHeight)
                     .then(modifier),
             label = label,
@@ -102,6 +104,7 @@ internal fun SettingsPickerChip(
         Chip(
             modifier =
                 Modifier
+                    .fillMaxWidth()
                     .heightIn(min = minHeight)
                     .then(modifier),
             label = label,
@@ -132,6 +135,7 @@ internal fun SettingsSectionChip(
     Chip(
         modifier =
             Modifier
+                .fillMaxWidth()
                 .heightIn(min = minHeight)
                 .then(modifier),
         label = label,
@@ -169,6 +173,7 @@ internal fun DownloadSettingsSectionChip(
     Chip(
         modifier =
             Modifier
+                .fillMaxWidth()
                 .heightIn(min = minHeight)
                 .then(modifier),
         label = {
