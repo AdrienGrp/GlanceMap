@@ -180,21 +180,18 @@ fun MainScreen(
             }
         val centerRowYOffset = 0.dp
         val centerScrollState = rememberScrollState()
-        val centerViewportMaxHeight =
-            (
-                maxHeight -
-                    settingsButtonSize -
-                    settingsButtonBottomPadding -
-                    16.dp
-            ).coerceAtLeast(112.dp)
+        val centerScrollBottomInset =
+            settingsButtonSize +
+                settingsButtonBottomPadding +
+                if (compactScreen) 8.dp else 10.dp
 
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier =
                     Modifier
-                        .align(Alignment.Center)
+                        .fillMaxSize()
                         .offset(x = centerColumnOffset)
-                        .heightIn(max = centerViewportMaxHeight)
+                        .padding(bottom = centerScrollBottomInset)
                         .verticalScroll(centerScrollState)
                         .padding(horizontal = contentHorizontalPadding),
                 contentAlignment = Alignment.Center,
