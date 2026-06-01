@@ -127,7 +127,17 @@ fun BoxScope.WearLazyListScrollIndicator(
     val totalItems = layoutInfo.totalItemsCount
     val visibleItems = layoutInfo.visibleItemsInfo
     if (totalItems <= 0 || visibleItems.isEmpty()) return
-    if (visibleItems.size >= totalItems) {
+
+    val firstVisible = visibleItems.first()
+    val lastVisible = visibleItems.last()
+    val viewportSpan = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(1)
+    val contentBefore =
+        firstVisible.index > 0 ||
+            firstVisible.offset < layoutInfo.viewportStartOffset
+    val contentAfter =
+        lastVisible.index < totalItems - 1 ||
+            lastVisible.offset + lastVisible.size > layoutInfo.viewportEndOffset
+    if (!contentBefore && !contentAfter) {
         if (!showWhenNotScrollable || totalItems <= 1) return
         WearScrollIndicatorTrack(
             modifier = modifier.align(Alignment.CenterEnd),
@@ -137,12 +147,20 @@ fun BoxScope.WearLazyListScrollIndicator(
         return
     }
 
-    val firstVisible = visibleItems.first()
-    val itemSpan = (firstVisible.size + layoutInfo.mainAxisItemSpacing).coerceAtLeast(1)
-    val offsetProgress = (-firstVisible.offset).toFloat() / itemSpan.toFloat()
-    val maxFirstIndex = (totalItems - visibleItems.size).coerceAtLeast(1)
-    val progress = ((listState.firstVisibleItemIndex + offsetProgress) / maxFirstIndex).coerceIn(0f, 1f)
-    val thumbFraction = (visibleItems.size.toFloat() / totalItems.toFloat()).coerceIn(0.22f, 0.85f)
+    val visibleContentExtent = (lastVisible.offset + lastVisible.size - firstVisible.offset).coerceAtLeast(1)
+    val averageItemSpan =
+        ((visibleContentExtent + layoutInfo.mainAxisItemSpacing * (visibleItems.size - 1)) / visibleItems.size)
+            .coerceAtLeast(1)
+    val estimatedContentExtent = (averageItemSpan * totalItems).coerceAtLeast(viewportSpan + 1)
+    val scrolledBefore =
+        (
+            firstVisible.index * averageItemSpan +
+                layoutInfo.viewportStartOffset -
+                firstVisible.offset
+        ).coerceAtLeast(0)
+    val maxScroll = (estimatedContentExtent - viewportSpan).coerceAtLeast(1)
+    val progress = (scrolledBefore.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
+    val thumbFraction = (viewportSpan.toFloat() / estimatedContentExtent.toFloat()).coerceIn(0.22f, 0.85f)
 
     WearScrollIndicatorTrack(
         modifier = modifier.align(Alignment.CenterEnd),

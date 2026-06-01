@@ -145,7 +145,6 @@ internal fun <T> OptionPickerDialog(
                 }
                 WearLazyListScrollIndicator(
                     listState = listState,
-                    showWhenNotScrollable = true,
                 )
             }
         }
