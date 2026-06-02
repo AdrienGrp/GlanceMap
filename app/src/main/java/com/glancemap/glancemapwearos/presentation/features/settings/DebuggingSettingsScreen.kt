@@ -5,20 +5,11 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.Composable
@@ -31,16 +22,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
-import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
@@ -61,13 +46,9 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnost
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
-import com.glancemap.glancemapwearos.presentation.ui.WearCustomDialogScrollableColumn
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
-import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 import com.glancemap.shared.transfer.TransferDataLayerContract
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
@@ -77,11 +58,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.abs
 
 private const val DEBUG_HELP_PREFS = "debug_settings_help_prefs"
 private const val DEBUG_EXPORT_INFO_SHOWN_KEY = "debug_export_info_shown"
-private const val DEBUG_INFO_DRAG_DISMISS_PX = 55f
 private const val CLEAN_CAPTURE_DEFAULT_LABEL = "Clear all captured logs"
 private const val CLEAN_CAPTURE_CLEARED_LABEL = "All captured logs have been cleared."
 private const val CLEAN_CAPTURE_RESET_DELAY_MS = 3500L
@@ -498,9 +477,6 @@ private fun DiagnosticsExportStatusDialog(
 ) {
     if (mode == null) return
 
-    val adaptive = rememberWearAdaptiveSpec()
-    val scrollState = rememberScrollState()
-    val focusRequester = remember { FocusRequester() }
     val dismissible = mode != DiagnosticsExportDialogMode.GENERATING
     val title =
         if (mode == DiagnosticsExportDialogMode.GENERATING) {
@@ -510,101 +486,37 @@ private fun DiagnosticsExportStatusDialog(
         } else {
             "Diagnostic ready - check your phone"
         }
-    LaunchedEffect(mode) {
-        focusRequester.requestFocus()
-    }
 
-    Dialog(
-        onDismissRequest = {
-            if (dismissible) {
-                onDismiss()
-            }
-        },
+    WearInfoDialog(
+        visible = true,
+        title = title,
+        onDismiss = onDismiss,
+        dismissible = dismissible,
     ) {
-        androidx.compose.foundation.layout.Column(
-            modifier =
-                Modifier
-                    .wearDialogWidth()
-                    .background(
-                        Color.Black.copy(alpha = 0.82f),
-                        RoundedCornerShape(adaptive.dialogCornerRadius),
-                    ).padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding,
-                    ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .pointerInput(dismissible) {
-                            if (!dismissible) return@pointerInput
-                            var totalDrag = 0f
-                            detectVerticalDragGestures(
-                                onDragEnd = { totalDrag = 0f },
-                                onDragCancel = { totalDrag = 0f },
-                            ) { _, dragAmount ->
-                                totalDrag += dragAmount
-                                if (totalDrag > DEBUG_INFO_DRAG_DISMISS_PX) {
-                                    onDismiss()
-                                    totalDrag = 0f
-                                }
-                            }
-                        },
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
+        if (mode == DiagnosticsExportDialogMode.GENERATING) {
+            item {
+                RouteToolBusySpinner(size = 30.dp)
+            }
+        }
+        item {
+            Text(
+                text = message,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (dismissible) {
+            item {
+                Button(
+                    onClick = onDismiss,
                     modifier =
                         Modifier
-                            .width(26.dp)
-                            .height(3.dp)
-                            .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
-                )
-            }
-
-            WearCustomDialogScrollableColumn(
-                maxHeight = adaptive.helpDialogMaxHeight,
-                modifier = Modifier.fillMaxWidth(),
-                contentModifier =
-                    Modifier
-                        .onPreRotaryScrollEvent { event ->
-                            val consumed = scrollState.dispatchRawDelta(event.verticalScrollPixels)
-                            abs(consumed) > 0.5f
-                        }.focusRequester(focusRequester)
-                        .focusable(),
-                scrollState = scrollState,
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (mode == DiagnosticsExportDialogMode.GENERATING) {
-                    RouteToolBusySpinner(size = 30.dp)
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                ) {
+                    Text("OK")
                 }
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = message,
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (dismissible) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp),
-                    ) {
-                        Text("OK")
-                    }
-                }
-                WearDialogScrollBottomSpacer()
             }
         }
     }
@@ -616,33 +528,23 @@ private fun DiagnosticsExportInfoDialog(
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
-    val adaptive = rememberWearAdaptiveSpec()
 
-    AlertDialog(
+    WearInfoDialog(
         visible = visible,
-        onDismissRequest = onDismiss,
-        title = { Text("Diagnostics Export") },
-        text = {
-            WearDialogScrollableColumn(
-                maxHeight = adaptive.helpDialogMaxHeight,
-                modifier =
-                    Modifier
-                        .fillMaxWidth(),
-                scrollable = false,
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text =
-                        "After export, check your phone.\n" +
-                            "It opens the email draft with diagnostics attached.\n" +
-                            "If you closed the phone prompt, come back here and tap Resend.",
-                    textAlign = TextAlign.Center,
-                )
-                WearDialogScrollBottomSpacer()
-            }
-        },
-    )
+        title = "Diagnostics Export",
+        onDismiss = onDismiss,
+    ) {
+        item {
+            Text(
+                text =
+                    "After export, check your phone.\n" +
+                        "It opens the email draft with diagnostics attached.\n" +
+                        "If you closed the phone prompt, come back here and tap Resend.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
 }
 
 private fun buildRetryReadyLabel(count: Int): String {

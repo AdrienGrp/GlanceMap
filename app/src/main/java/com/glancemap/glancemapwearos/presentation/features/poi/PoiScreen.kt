@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
@@ -57,8 +56,7 @@ import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -555,56 +553,64 @@ fun PoiScreen(
             },
         )
 
-        AlertDialog(
+        WearInfoDialog(
             visible = showHelpDialog,
-            onDismissRequest = { dismissHelpDialog() },
-            title = { Text("POI Actions") },
-            text = {
-                WearDialogScrollableColumn(
-                    maxHeight = adaptive.helpDialogMaxHeight,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth(),
-                    scrollable = false,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        "Toggle POI files or categories to show them on the map.",
-                    )
-                    Text("Expand a category to preview its POIs.")
-                    Text("Tap a POI on the map to see details.")
-                    Text(
-                        text =
-                            buildAnnotatedString {
-                                append("Create POI by using the tool button (")
-                                appendInlineContent("toolButton", "[tool]")
-                                append(").")
-                            },
-                        textAlign = TextAlign.Center,
-                        inlineContent =
-                            mapOf(
-                                "toolButton" to
-                                    InlineTextContent(
-                                        placeholder =
-                                            Placeholder(
-                                                width = 16.sp,
-                                                height = 16.sp,
-                                                placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
-                                            ),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.ViewComfyAlt,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = Color.White,
-                                        )
-                                    },
-                            ),
-                    )
-                    WearDialogScrollBottomSpacer()
-                }
-            },
-        )
+            title = "POI Actions",
+            onDismiss = { dismissHelpDialog() },
+        ) {
+            item {
+                Text(
+                    "Toggle POI files or categories to show them on the map.",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Text(
+                    "Expand a category to preview its POIs.",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Text(
+                    "Tap a POI on the map to see details.",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Text(
+                    text =
+                        buildAnnotatedString {
+                            append("Create POI by using the tool button (")
+                            appendInlineContent("toolButton", "[tool]")
+                            append(").")
+                        },
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                    inlineContent =
+                        mapOf(
+                            "toolButton" to
+                                InlineTextContent(
+                                    placeholder =
+                                        Placeholder(
+                                            width = 16.sp,
+                                            height = 16.sp,
+                                            placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+                                        ),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ViewComfyAlt,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color.White,
+                                    )
+                                },
+                        ),
+                )
+            }
+        }
 
         Column(
             modifier = Modifier.fillMaxSize(),

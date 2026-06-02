@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.Composable
@@ -12,6 +13,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -24,6 +27,7 @@ import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.sensors.CompassHeadingSourceMode
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
@@ -551,11 +555,12 @@ fun CompassSettingsScreen(
         },
     )
 
-    AlertDialog(
+    WearInfoDialog(
         visible = showInfoDialog,
-        onDismissRequest = { showInfoDialog = false },
-        title = { Text("Compass help") },
-        text = {
+        title = "Compass help",
+        onDismiss = { showInfoDialog = false },
+    ) {
+        item {
             Text(
                 "Recommended setup: Google Fused + True north.\n\n" +
                     "Quick test: stand still, face a clear landmark, then switch North-up / Compass.\n" +
@@ -568,12 +573,9 @@ fun CompassSettingsScreen(
                     "Custom mode prefers Rotation vector when available,\n" +
                     "and gives you Recalibrate Compass, source test,\n" +
                     "heading source selection, and accuracy-color options.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
-        },
-        confirmButton = {
-            Button(onClick = { showInfoDialog = false }) {
-                Text("Close")
-            }
-        },
-    )
+        }
+    }
 }
