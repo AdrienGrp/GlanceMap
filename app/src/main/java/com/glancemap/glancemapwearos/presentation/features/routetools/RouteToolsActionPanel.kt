@@ -26,12 +26,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import org.mapsforge.core.model.LatLong
@@ -439,21 +439,13 @@ internal fun RouteToolsActionPanel(
     }
 
     if (!preflightMessage.isNullOrBlank() && shouldUsePreflightPopup && showPreflightPopup) {
-        AlertDialog(
+        WearActionDialog(
             visible = true,
+            title = "Routing Missing",
+            message = preflightMessage,
+            confirmText = "OK",
+            onConfirm = { showPreflightPopup = false },
             onDismissRequest = { showPreflightPopup = false },
-            title = { Text("Routing Missing") },
-            text = {
-                Text(
-                    text = preflightMessage,
-                    textAlign = TextAlign.Center,
-                )
-            },
-            confirmButton = {
-                Button(onClick = { showPreflightPopup = false }) {
-                    Text("OK")
-                }
-            },
         )
     }
 

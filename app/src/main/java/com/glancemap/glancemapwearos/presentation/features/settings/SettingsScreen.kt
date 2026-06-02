@@ -8,14 +8,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavHostController
-import androidx.wear.compose.material3.AlertDialog
-import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.transfer.storage.StalePartialTransferCleaner
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -206,127 +205,107 @@ fun SettingsScreen(
         onSelect = { selectedMetric -> viewModel.setMetric(selectedMetric) },
     )
 
-    AlertDialog(
+    WearActionDialog(
         visible = showClearCacheDialog,
         onDismissRequest = {
             if (!isClearingCache) {
                 showClearCacheDialog = false
             }
         },
-        title = { Text("Clear cache") },
-        text = {
-            Text(
-                "Removes temporary map, GPX, relief and theme caches. Imported maps, GPX and DEM files stay on the watch.",
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (isClearingCache) return@Button
-                    isClearingCache = true
-                    scope.launch {
-                        runCatching {
-                            val result = mapViewModel.clearDerivedCaches()
-                            gpxViewModel.clearDerivedCaches()
-                            result
-                        }.onSuccess { result ->
-                            val deletedMb =
-                                if (result.deletedBytes > 0L) {
-                                    " (${(result.deletedBytes / (1024.0 * 1024.0)).let { String.format(java.util.Locale.US, "%.1f", it) }} MB)"
-                                } else {
-                                    ""
-                                }
-                            Toast
-                                .makeText(
-                                    context,
-                                    "Cache cleared$deletedMb",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                        }.onFailure {
-                            Toast
-                                .makeText(
-                                    context,
-                                    "Cache cleanup failed",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                        }
-                        isClearingCache = false
-                        showClearCacheDialog = false
+        title = "Clear cache",
+        message =
+            "Removes temporary map, GPX, relief and theme caches. " +
+                "Imported maps, GPX and DEM files stay on the watch.",
+        confirmText = if (isClearingCache) "Clearing..." else "Clear",
+        confirmEnabled = !isClearingCache,
+        onConfirm = {
+            if (!isClearingCache) {
+                isClearingCache = true
+                scope.launch {
+                    runCatching {
+                        val result = mapViewModel.clearDerivedCaches()
+                        gpxViewModel.clearDerivedCaches()
+                        result
+                    }.onSuccess { result ->
+                        val deletedMb =
+                            if (result.deletedBytes > 0L) {
+                                " (${(result.deletedBytes / (1024.0 * 1024.0)).let { String.format(java.util.Locale.US, "%.1f", it) }} MB)"
+                            } else {
+                                ""
+                            }
+                        Toast
+                            .makeText(
+                                context,
+                                "Cache cleared$deletedMb",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                    }.onFailure {
+                        Toast
+                            .makeText(
+                                context,
+                                "Cache cleanup failed",
+                                Toast.LENGTH_SHORT,
+                            ).show()
                     }
-                },
-            ) {
-                Text(if (isClearingCache) "Clearing..." else "Clear")
+                    isClearingCache = false
+                    showClearCacheDialog = false
+                }
             }
         },
-        dismissButton = {
-            Button(
-                onClick = { showClearCacheDialog = false },
-                enabled = !isClearingCache,
-            ) {
-                Text("Cancel")
-            }
-        },
+        dismissText = "Cancel",
+        dismissEnabled = !isClearingCache,
+        onDismiss = { showClearCacheDialog = false },
     )
 
-    AlertDialog(
+    WearActionDialog(
         visible = showClearPartialTransfersDialog,
         onDismissRequest = {
             if (!isClearingPartialFiles) {
                 showClearPartialTransfersDialog = false
             }
         },
-        title = { Text("Clear partial transfers") },
-        text = {
-            Text(
-                "Deletes ${partialSummary.count} partial transfer file(s) and frees ${formatStorageSize(partialSummary.totalBytes)}. Finished files stay on the watch.",
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (isClearingPartialFiles) return@Button
-                    isClearingPartialFiles = true
-                    scope.launch {
-                        runCatching {
-                            withContext(Dispatchers.IO) {
-                                StalePartialTransferCleaner.clearAll(context)
-                            }
-                        }.onSuccess { result ->
-                            Toast
-                                .makeText(
-                                    context,
-                                    if (result.removedFiles > 0) {
-                                        "Cleared ${result.removedFiles} partial file(s)"
-                                    } else {
-                                        "No partial transfer files"
-                                    },
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                        }.onFailure {
-                            Toast
-                                .makeText(
-                                    context,
-                                    "Partial transfer cleanup failed",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+        title = "Clear partial transfers",
+        message =
+            "Deletes ${partialSummary.count} partial transfer file(s) and frees " +
+                "${formatStorageSize(partialSummary.totalBytes)}. Finished files stay on the watch.",
+        confirmText = if (isClearingPartialFiles) "Clearing..." else "Clear",
+        confirmEnabled = !isClearingPartialFiles,
+        onConfirm = {
+            if (!isClearingPartialFiles) {
+                isClearingPartialFiles = true
+                scope.launch {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            StalePartialTransferCleaner.clearAll(context)
                         }
-                        isClearingPartialFiles = false
-                        showClearPartialTransfersDialog = false
-                        refreshPartialSummary()
+                    }.onSuccess { result ->
+                        Toast
+                            .makeText(
+                                context,
+                                if (result.removedFiles > 0) {
+                                    "Cleared ${result.removedFiles} partial file(s)"
+                                } else {
+                                    "No partial transfer files"
+                                },
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                    }.onFailure {
+                        Toast
+                            .makeText(
+                                context,
+                                "Partial transfer cleanup failed",
+                                Toast.LENGTH_SHORT,
+                            ).show()
                     }
-                },
-            ) {
-                Text(if (isClearingPartialFiles) "Clearing..." else "Clear")
+                    isClearingPartialFiles = false
+                    showClearPartialTransfersDialog = false
+                    refreshPartialSummary()
+                }
             }
         },
-        dismissButton = {
-            Button(
-                onClick = { showClearPartialTransfersDialog = false },
-                enabled = !isClearingPartialFiles,
-            ) {
-                Text("Cancel")
-            }
-        },
+        dismissText = "Cancel",
+        dismissEnabled = !isClearingPartialFiles,
+        onDismiss = { showClearPartialTransfersDialog = false },
     )
 }
 

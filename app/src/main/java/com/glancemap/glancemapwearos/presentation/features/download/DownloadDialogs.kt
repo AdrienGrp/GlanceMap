@@ -33,12 +33,12 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearFormDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 
@@ -186,33 +186,14 @@ internal fun DownloadNetworkWarningDialog(
 ) {
     if (message == null) return
 
-    AlertDialog(
+    WearActionDialog(
         visible = true,
+        title = "Wi-Fi recommended",
+        message = message,
+        confirmText = "Continue",
+        onConfirm = onContinue,
         onDismissRequest = onDismiss,
-        title = { Text("Wi-Fi recommended") },
-        text = {
-            Text(
-                text = message,
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = {
-            Button(onClick = onContinue) {
-                Text("Continue")
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = onDismiss,
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f),
-                        contentColor = Color.White,
-                    ),
-            ) {
-                Text("Cancel")
-            }
-        },
+        dismissText = "Cancel",
     )
 }
 
@@ -226,46 +207,20 @@ internal fun RefreshBundleDialog(
 
     val updateAvailable = check.status == OamBundleUpdateStatus.UPDATE_AVAILABLE
     val upToDate = check.status == OamBundleUpdateStatus.UP_TO_DATE
-    AlertDialog(
+    WearActionDialog(
         visible = true,
+        title =
+            when {
+                updateAvailable -> "Update available"
+                upToDate -> "Already up to date"
+                check.checkedFileCount == 0 -> "Update info missing"
+                else -> "Check incomplete"
+            },
+        message = refreshBundleDialogText(check),
+        confirmText = if (upToDate) "OK" else "Refresh",
+        onConfirm = if (upToDate) onDismiss else onConfirm,
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text =
-                    when {
-                        updateAvailable -> "Update available"
-                        upToDate -> "Already up to date"
-                        check.checkedFileCount == 0 -> "Update info missing"
-                        else -> "Check incomplete"
-                    },
-                textAlign = TextAlign.Center,
-            )
-        },
-        text = {
-            Text(
-                text = refreshBundleDialogText(check),
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = {
-            Button(onClick = if (upToDate) onDismiss else onConfirm) {
-                Text(if (upToDate) "OK" else "Refresh")
-            }
-        },
-        dismissButton = {
-            if (!upToDate) {
-                Button(
-                    onClick = onDismiss,
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = Color.White.copy(alpha = 0.12f),
-                            contentColor = Color.White,
-                        ),
-                ) {
-                    Text("Cancel")
-                }
-            }
-        },
+        dismissText = if (upToDate) null else "Cancel",
     )
 }
 
@@ -279,45 +234,19 @@ internal fun RefreshBundleSummaryDialog(
 
     val refreshCount = summary.bundlesToRefresh.size
     val hasUpdates = refreshCount > 0
-    AlertDialog(
+    WearActionDialog(
         visible = true,
+        title =
+            when {
+                hasUpdates -> "Refresh bundles?"
+                summary.unknownCount > 0 -> "Check incomplete"
+                else -> "All up to date"
+            },
+        message = refreshSummaryDialogText(summary),
+        confirmText = if (hasUpdates) "Refresh $refreshCount" else "OK",
+        onConfirm = if (hasUpdates) onConfirm else onDismiss,
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text =
-                    when {
-                        hasUpdates -> "Refresh bundles?"
-                        summary.unknownCount > 0 -> "Check incomplete"
-                        else -> "All up to date"
-                    },
-                textAlign = TextAlign.Center,
-            )
-        },
-        text = {
-            Text(
-                text = refreshSummaryDialogText(summary),
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = {
-            Button(onClick = if (hasUpdates) onConfirm else onDismiss) {
-                Text(if (hasUpdates) "Refresh $refreshCount" else "OK")
-            }
-        },
-        dismissButton = {
-            if (hasUpdates) {
-                Button(
-                    onClick = onDismiss,
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = Color.White.copy(alpha = 0.12f),
-                            contentColor = Color.White,
-                        ),
-                ) {
-                    Text("Cancel")
-                }
-            }
-        },
+        dismissText = if (hasUpdates) "Cancel" else null,
     )
 }
 

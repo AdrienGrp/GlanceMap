@@ -72,6 +72,7 @@ import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
@@ -355,22 +356,16 @@ fun MapsScreen(
             },
         )
 
-        AlertDialog(
+        WearActionDialog(
             visible = showDemNetworkErrorDialog,
+            title = "DEM download failed",
+            message =
+                demNetworkErrorMessage.ifBlank {
+                    "No internet on watch. Connect Wi-Fi or phone internet, then retry DEM download."
+                },
+            confirmText = "OK",
+            onConfirm = { showDemNetworkErrorDialog = false },
             onDismissRequest = { showDemNetworkErrorDialog = false },
-            title = { Text("DEM download failed") },
-            text = {
-                Text(
-                    demNetworkErrorMessage.ifBlank {
-                        "No internet on watch. Connect Wi-Fi or phone internet, then retry DEM download."
-                    },
-                )
-            },
-            confirmButton = {
-                Button(onClick = { showDemNetworkErrorDialog = false }) {
-                    Text("OK")
-                }
-            },
         )
 
         DeleteConfirmationDialog(
