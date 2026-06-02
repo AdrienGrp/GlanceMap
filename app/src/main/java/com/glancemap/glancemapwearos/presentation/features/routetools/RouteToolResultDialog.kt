@@ -2,17 +2,12 @@ package com.glancemap.glancemapwearos.presentation.features.routetools
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -29,9 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
@@ -39,8 +31,8 @@ import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
-import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
 
 @Composable
 internal fun RouteToolResultDialog(
@@ -56,8 +48,6 @@ internal fun RouteToolResultDialog(
 ) {
     if (!visible || result == null) return
 
-    val adaptive = rememberWearAdaptiveSpec()
-    val scrollState = rememberScrollState()
     var showRenameDialog by remember(result.filePath) { mutableStateOf(false) }
 
     if (showRenameDialog) {
@@ -82,117 +72,90 @@ internal fun RouteToolResultDialog(
     val (lossValue, lossUnit) = UnitFormatter.formatElevation(result.elevationLossMeters, isMetric)
     val etaValue = DurationFormatter.formatDurationShort(result.estimatedDurationSec)
 
-    Dialog(
+    WearActionDialog(
+        visible = true,
+        title = result.message,
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.90f))
-                    .padding(
-                        horizontal = if (adaptive.isRound) 18.dp else 14.dp,
-                        vertical = if (adaptive.isRound) 16.dp else 14.dp,
-                    ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                modifier =
-                    Modifier
-                        .wearDialogWidth(roundFraction = 0.9f, squareFraction = 0.94f)
-                        .heightIn(max = adaptive.helpDialogMaxHeight)
-                        .verticalScroll(scrollState)
-                        .padding(
-                            horizontal = adaptive.dialogHorizontalPadding,
-                            vertical = adaptive.dialogVerticalPadding,
-                        ),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = result.displayTitle,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CompactIconHitTargetButton(
-                        onClick = onDelete,
-                        visualSize = 34.dp,
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        enabled = !renameInProgress,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete GPX",
-                        )
-                    }
-                    CompactIconHitTargetButton(
-                        onClick = {
-                            onRenameOpen()
-                            showRenameDialog = true
-                        },
-                        visualSize = 34.dp,
-                        containerColor = Color.White.copy(alpha = 0.10f),
-                        contentColor = Color.White,
-                        enabled = !renameInProgress,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Rename GPX",
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    RouteStatTile(
-                        modifier = Modifier.weight(1f),
-                        label = "Dist",
-                        value = "$distanceValue $distanceUnit",
-                    )
-                    RouteStatTile(
-                        modifier = Modifier.weight(1f),
-                        label = "Time",
-                        value = etaValue,
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    RouteStatTile(
-                        modifier = Modifier.weight(1f),
-                        labelIcon = Icons.Default.ArrowUpward,
-                        value = "$gainValue $gainUnit",
-                    )
-                    RouteStatTile(
-                        modifier = Modifier.weight(1f),
-                        labelIcon = Icons.Default.ArrowDownward,
-                        value = "$lossValue $lossUnit",
-                    )
-                }
-
-                Button(
+        backgroundColor = Color.Black.copy(alpha = 0.92f),
+        buttons =
+            listOf(
+                WearActionDialogButton(
+                    text = "Done",
                     onClick = onDismiss,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp),
-                ) {
-                    Text("Done")
-                }
+                ),
+            ),
+    ) {
+        Text(
+            text = result.displayTitle,
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CompactIconHitTargetButton(
+                onClick = onDelete,
+                visualSize = 34.dp,
+                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                enabled = !renameInProgress,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete GPX",
+                )
             }
+            CompactIconHitTargetButton(
+                onClick = {
+                    onRenameOpen()
+                    showRenameDialog = true
+                },
+                visualSize = 34.dp,
+                containerColor = Color.White.copy(alpha = 0.10f),
+                contentColor = Color.White,
+                enabled = !renameInProgress,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Rename GPX",
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RouteStatTile(
+                modifier = Modifier.weight(1f),
+                label = "Dist",
+                value = "$distanceValue $distanceUnit",
+            )
+            RouteStatTile(
+                modifier = Modifier.weight(1f),
+                label = "Time",
+                value = etaValue,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RouteStatTile(
+                modifier = Modifier.weight(1f),
+                labelIcon = Icons.Default.ArrowUpward,
+                value = "$gainValue $gainUnit",
+            )
+            RouteStatTile(
+                modifier = Modifier.weight(1f),
+                labelIcon = Icons.Default.ArrowDownward,
+                value = "$lossValue $lossUnit",
+            )
         }
     }
 }

@@ -42,7 +42,9 @@ import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
-import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import org.mapsforge.core.model.LatLong
 
@@ -98,17 +100,6 @@ internal fun RouteToolDraftSummaryDialog(
 ) {
     if (!visible || session == null) return
 
-    val adaptive = rememberWearAdaptiveSpec()
-    val bottomActionSafeInset =
-        if (!adaptive.isRound) {
-            3.dp
-        } else {
-            when (adaptive.screenSize) {
-                WearScreenSize.LARGE -> 11.dp
-                WearScreenSize.MEDIUM -> 13.dp
-                WearScreenSize.SMALL -> 15.dp
-            }
-        }
     val isCreate = session.options.toolKind == RouteToolKind.CREATE
     val isReplaceCurrent = session.options.saveBehavior == RouteSaveBehavior.REPLACE_CURRENT
     val title =
@@ -136,180 +127,90 @@ internal fun RouteToolDraftSummaryDialog(
             }
         }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Color.Black.copy(alpha = 0.86f),
-                        RoundedCornerShape(adaptive.dialogCornerRadius),
-                    ).padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding,
-                    ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = supportingLine,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.84f),
-                textAlign = TextAlign.Center,
-            )
-
-            when {
-                executionMessage != null -> {
-                    Text(
-                        text = executionMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFFFFCC80),
+    val actionButtons =
+        when {
+            executionMessage != null &&
+                session.options.toolKind == RouteToolKind.CREATE &&
+                loopRetryOptions.isNotEmpty() &&
+                onSelectLoopRetryOption != null ->
+                loopRetryOptions.map { option ->
+                    WearActionDialogButton(
+                        text = option.label,
+                        onClick = { onSelectLoopRetryOption(option) },
+                        enabled = !isExecuting,
                     )
-                }
-
-                isCreate -> {
-                    Text(
-                        text = "Ready to generate the GPX.",
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFFFFCC80),
-                    )
-                }
-
-                else -> {
-                    Text(
-                        text =
-                            if (session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE) {
-                                "Preview the rerouted section, then save."
-                            } else if (isReplaceCurrent) {
-                                "This will replace the active GPX."
-                            } else {
-                                "Ready to save the GPX edit."
-                            },
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFFFFCC80),
-                    )
-                }
-            }
-            when {
-                executionMessage != null &&
-                    session.options.toolKind == RouteToolKind.CREATE &&
-                    loopRetryOptions.isNotEmpty() &&
-                    onSelectLoopRetryOption != null -> {
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = bottomActionSafeInset),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            loopRetryOptions.forEach { option ->
-                                Button(
-                                    onClick = { onSelectLoopRetryOption(option) },
-                                    enabled = !isExecuting,
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(option.label)
-                                }
-                            }
-                        }
-                        Button(
-                            onClick = onDismiss,
-                            modifier = Modifier.fillMaxWidth(0.46f),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                ),
-                        ) {
-                            Text("Back")
-                        }
-                    }
-                }
-
-                session.options.toolKind == RouteToolKind.CREATE && onConfirmCreate != null -> {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = bottomActionSafeInset),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Button(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                ),
-                        ) {
-                            Text("Back")
-                        }
-                        Button(
-                            onClick = onConfirmCreate,
-                            enabled = !isExecuting,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(actionLabel)
-                        }
-                    }
-                }
-
-                session.options.toolKind == RouteToolKind.MODIFY && onConfirmModify != null -> {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = bottomActionSafeInset),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Button(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                ),
-                        ) {
-                            Text("Back")
-                        }
-                        Button(
-                            onClick = onConfirmModify,
-                            enabled = !isExecuting,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(actionLabel)
-                        }
-                    }
-                }
-
-                else -> {
-                    Button(
+                } +
+                    WearActionDialogButton(
+                        text = "Back",
                         onClick = onDismiss,
-                        modifier = Modifier.padding(bottom = bottomActionSafeInset),
-                    ) {
-                        Text("Close")
-                    }
-                }
-            }
+                        role = WearActionButtonRole.Secondary,
+                    )
+
+            session.options.toolKind == RouteToolKind.CREATE && onConfirmCreate != null ->
+                listOf(
+                    WearActionDialogButton(
+                        text = actionLabel,
+                        onClick = onConfirmCreate,
+                        enabled = !isExecuting,
+                    ),
+                    WearActionDialogButton(
+                        text = "Back",
+                        onClick = onDismiss,
+                        role = WearActionButtonRole.Secondary,
+                    ),
+                )
+
+            session.options.toolKind == RouteToolKind.MODIFY && onConfirmModify != null ->
+                listOf(
+                    WearActionDialogButton(
+                        text = actionLabel,
+                        onClick = onConfirmModify,
+                        enabled = !isExecuting,
+                    ),
+                    WearActionDialogButton(
+                        text = "Back",
+                        onClick = onDismiss,
+                        role = WearActionButtonRole.Secondary,
+                    ),
+                )
+
+            else ->
+                listOf(
+                    WearActionDialogButton(
+                        text = "Close",
+                        onClick = onDismiss,
+                    ),
+                )
         }
+
+    WearActionDialog(
+        visible = true,
+        title = title,
+        onDismissRequest = onDismiss,
+        backgroundColor = Color.Black.copy(alpha = 0.92f),
+        buttons = actionButtons,
+    ) {
+        Text(
+            text = supportingLine,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.84f),
+            textAlign = TextAlign.Center,
+        )
+
+        Text(
+            text =
+                when {
+                    executionMessage != null -> executionMessage
+                    isCreate -> "Ready to generate the GPX."
+                    session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE ->
+                        "Preview the rerouted section, then save."
+                    isReplaceCurrent -> "This will replace the active GPX."
+                    else -> "Ready to save the GPX edit."
+                },
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFFFCC80),
+        )
     }
 }
 
