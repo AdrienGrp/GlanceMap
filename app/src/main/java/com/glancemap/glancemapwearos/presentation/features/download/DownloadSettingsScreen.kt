@@ -2,9 +2,6 @@
 
 package com.glancemap.glancemapwearos.presentation.features.download
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -20,20 +17,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.SplitSwitchButton
 import androidx.wear.compose.material3.SwitchButtonDefaults
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
-import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAnchorType
-import com.glancemap.glancemapwearos.presentation.features.settings.SettingsListAutoCentering
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsToggleChip
+import com.glancemap.glancemapwearos.presentation.features.settings.WearSettingsListScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsListTokens
-import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsScalingLazyListState
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
@@ -45,7 +38,6 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
             standardTop = 44.dp,
             expandedTop = 48.dp,
         )
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     var showDemSourcePicker by remember { mutableStateOf(false) }
 
     OptionPickerDialog(
@@ -57,62 +49,46 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
         onSelect = viewModel::setDemSource,
     )
 
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                SettingsToggleChip(
-                    checked = uiState.selection.includeMap,
-                    onCheckedChanged = viewModel::setIncludeMap,
-                    label = "Maps",
-                    secondaryLabel = "OpenAndroMaps",
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = uiState.selection.includePoi,
-                    onCheckedChanged = viewModel::setIncludePoi,
-                    label = "POI",
-                    secondaryLabel = "Mapsforge POI",
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = uiState.selection.includeRouting,
-                    onCheckedChanged = viewModel::setIncludeRouting,
-                    label = "Routing",
-                    secondaryLabel = "BRouter RD5",
-                )
-            }
-            item {
-                ElevationDownloadSetting(
-                    checked = uiState.selection.includeDem,
-                    source = uiState.selection.demSource,
-                    onCheckedChanged = viewModel::setIncludeDem,
-                    onPickSource = { showDemSourcePicker = true },
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = uiState.selection.includeRefugesInfo,
-                    onCheckedChanged = viewModel::setIncludeRefugesInfo,
-                    label = "Refuges.info",
-                    secondaryLabel = "All refuge POIs",
-                )
-            }
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            SettingsToggleChip(
+                checked = uiState.selection.includeMap,
+                onCheckedChanged = viewModel::setIncludeMap,
+                label = "Maps",
+                secondaryLabel = "OpenAndroMaps",
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = uiState.selection.includePoi,
+                onCheckedChanged = viewModel::setIncludePoi,
+                label = "POI",
+                secondaryLabel = "Mapsforge POI",
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = uiState.selection.includeRouting,
+                onCheckedChanged = viewModel::setIncludeRouting,
+                label = "Routing",
+                secondaryLabel = "BRouter RD5",
+            )
+        }
+        item {
+            ElevationDownloadSetting(
+                checked = uiState.selection.includeDem,
+                source = uiState.selection.demSource,
+                onCheckedChanged = viewModel::setIncludeDem,
+                onPickSource = { showDemSourcePicker = true },
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = uiState.selection.includeRefugesInfo,
+                onCheckedChanged = viewModel::setIncludeRefugesInfo,
+                label = "Refuges.info",
+                secondaryLabel = "All refuge POIs",
+            )
         }
     }
 }

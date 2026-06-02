@@ -10,8 +10,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -42,7 +40,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
@@ -73,7 +70,6 @@ import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 import com.glancemap.shared.transfer.TransferDataLayerContract
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.material.Chip
 import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
@@ -135,7 +131,6 @@ fun DebuggingSettingsScreen(
         }
     val hasExportedDiagnostics = exportedDiagnosticsCount > 0
 
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val infoButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 24.dp
@@ -197,315 +192,299 @@ fun DebuggingSettingsScreen(
         helpPrefs.edit().putBoolean(DEBUG_EXPORT_INFO_SHOWN_KEY, true).apply()
     }
 
-    ScreenScaffold(scrollState = listState) {
-        DiagnosticsExportInfoDialog(
-            visible = showExportInfoDialog,
-            onDismiss = { dismissExportInfoDialog() },
-        )
-        DiagnosticsExportStatusDialog(
-            mode = exportDialogMode,
-            message = exportDialogMessage,
-            onDismiss = { exportDialogMode = null },
-        )
+    DiagnosticsExportInfoDialog(
+        visible = showExportInfoDialog,
+        onDismiss = { dismissExportInfoDialog() },
+    )
+    DiagnosticsExportStatusDialog(
+        mode = exportDialogMode,
+        message = exportDialogMessage,
+        onDismiss = { exportDialogMode = null },
+    )
 
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                IconButton(
+                    onClick = { showExportInfoDialog = true },
+                    modifier =
+                        Modifier
+                            .size(infoButtonSize)
+                            .wrapContentSize(align = Alignment.Center),
+                    colors =
+                        IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.7f),
+                            contentColor = Color.White,
+                        ),
                 ) {
-                    IconButton(
-                        onClick = { showExportInfoDialog = true },
-                        modifier =
-                            Modifier
-                                .size(infoButtonSize)
-                                .wrapContentSize(align = Alignment.Center),
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.7f),
-                                contentColor = Color.White,
-                            ),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Info,
-                            contentDescription = "Diagnostics export info",
-                            modifier = Modifier.size(infoIconSize),
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = "Diagnostics export info",
+                        modifier = Modifier.size(infoIconSize),
+                    )
                 }
             }
+        }
 
-            item {
-                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
-            }
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
 
-            item {
-                Chip(
-                    label = "1. Clean Previous Logs",
-                    secondaryLabel =
-                        if (exportInProgress) {
-                            "Export in progress..."
-                        } else {
-                            cleanCaptureStatus
-                        },
-                    onClick = {
-                        if (exportInProgress) return@Chip
-                        DebugTelemetry.clear()
-                        MarkerMotionTelemetry.clear()
-                        EnergyDiagnostics.clear()
-                        DemDownloadDiagnostics.clear()
-                        FieldMarkerDiagnostics.clear()
-                        GnssDiagnostics.clear()
-                        MapHotPathDiagnostics.clear()
-                        CrashDiagnosticsStore.clear(context)
-                        DiagnosticsExporter.clearExportedFiles(context)
-                        exportedDiagnosticsCount = 0
-                        cleanCaptureStatus = CLEAN_CAPTURE_CLEARED_LABEL
-                        cleanCaptureResetToken += 1L
-                        diagnosticsExportStatus = "Cleared. Start capture."
+        item {
+            Chip(
+                label = "1. Clean Previous Logs",
+                secondaryLabel =
+                    if (exportInProgress) {
+                        "Export in progress..."
+                    } else {
+                        cleanCaptureStatus
                     },
-                )
-            }
+                onClick = {
+                    if (exportInProgress) return@Chip
+                    DebugTelemetry.clear()
+                    MarkerMotionTelemetry.clear()
+                    EnergyDiagnostics.clear()
+                    DemDownloadDiagnostics.clear()
+                    FieldMarkerDiagnostics.clear()
+                    GnssDiagnostics.clear()
+                    MapHotPathDiagnostics.clear()
+                    CrashDiagnosticsStore.clear(context)
+                    DiagnosticsExporter.clearExportedFiles(context)
+                    exportedDiagnosticsCount = 0
+                    cleanCaptureStatus = CLEAN_CAPTURE_CLEARED_LABEL
+                    cleanCaptureResetToken += 1L
+                    diagnosticsExportStatus = "Cleared. Start capture."
+                },
+            )
+        }
 
+        item {
+            ToggleChip(
+                checked = gpsDebugTelemetry,
+                onCheckedChanged = {
+                    if (exportInProgress) return@ToggleChip
+                    viewModel.setGpsDebugTelemetry(it)
+                    FieldMarkerDiagnostics.recordMarker(
+                        type = if (it) "capture_start" else "capture_stop",
+                        note = "source=capture_toggle",
+                    )
+                    diagnosticsExportStatus =
+                        if (it) {
+                            "Capturing..."
+                        } else if (hasExportedDiagnostics) {
+                            buildRetryReadyLabel(exportedDiagnosticsCount)
+                        } else if (DebugTelemetry.size() > 0) {
+                            "Send to phone"
+                        } else {
+                            "Capture off."
+                        }
+                },
+                label = "2. Start Capturing",
+                secondaryLabel =
+                    if (gpsDebugTelemetry) {
+                        "Capturing..."
+                    } else if (exportInProgress) {
+                        "Export in progress..."
+                    } else {
+                        "Off - tap to start"
+                    },
+                toggleControl = ToggleChipToggleControl.Switch,
+            )
+        }
+
+        if (gpsDebugTelemetry) {
             item {
                 ToggleChip(
-                    checked = gpsDebugTelemetry,
+                    checked = gpsDebugTelemetryPopupEnabled,
                     onCheckedChanged = {
                         if (exportInProgress) return@ToggleChip
-                        viewModel.setGpsDebugTelemetry(it)
-                        FieldMarkerDiagnostics.recordMarker(
-                            type = if (it) "capture_start" else "capture_stop",
-                            note = "source=capture_toggle",
-                        )
-                        diagnosticsExportStatus =
-                            if (it) {
-                                "Capturing..."
-                            } else if (hasExportedDiagnostics) {
-                                buildRetryReadyLabel(exportedDiagnosticsCount)
-                            } else if (DebugTelemetry.size() > 0) {
-                                "Send to phone"
-                            } else {
-                                "Capture off."
-                            }
+                        viewModel.setGpsDebugTelemetryPopupEnabled(it)
                     },
-                    label = "2. Start Capturing",
+                    label = "Debug popup",
                     secondaryLabel =
-                        if (gpsDebugTelemetry) {
-                            "Capturing..."
-                        } else if (exportInProgress) {
-                            "Export in progress..."
+                        if (gpsDebugTelemetryPopupEnabled) {
+                            "On while capturing"
                         } else {
-                            "Off - tap to start"
+                            "Off while capturing"
                         },
                     toggleControl = ToggleChipToggleControl.Switch,
                 )
             }
+        }
 
-            if (gpsDebugTelemetry) {
-                item {
-                    ToggleChip(
-                        checked = gpsDebugTelemetryPopupEnabled,
-                        onCheckedChanged = {
-                            if (exportInProgress) return@ToggleChip
-                            viewModel.setGpsDebugTelemetryPopupEnabled(it)
-                        },
-                        label = "Debug popup",
-                        secondaryLabel =
-                            if (gpsDebugTelemetryPopupEnabled) {
-                                "On while capturing"
-                            } else {
-                                "Off while capturing"
-                            },
-                        toggleControl = ToggleChipToggleControl.Switch,
-                    )
-                }
-            }
-
-            item {
-                Chip(
-                    label =
-                        if (hasExportedDiagnostics && !gpsDebugTelemetry) {
-                            "3. Resend Diagnostic"
-                        } else {
-                            "3. Export Diagnostic"
-                        },
-                    secondaryLabel =
-                        if (exportInProgress) {
-                            "Exporting..."
-                        } else if (gpsDebugTelemetry) {
-                            "Stop & export"
-                        } else {
-                            diagnosticsExportStatus
-                        },
-                    onClick = {
-                        if (exportInProgress) return@Chip
-                        coroutineScope.launch {
-                            exportInProgress = true
-                            exportDialogMode = DiagnosticsExportDialogMode.GENERATING
-                            exportDialogMessage = "Generating diagnostics file..."
-                            val captureWasEnabled = DebugTelemetry.isEnabled()
-                            try {
-                                val hasBufferedLogs = DebugTelemetry.size() > 0
-                                val hasExistingExport =
-                                    withContext(Dispatchers.IO) {
-                                        DiagnosticsExporter.latestExportFile(context) != null
-                                    }
-                                val canExport = captureWasEnabled || hasBufferedLogs || hasExistingExport
-                                if (!canExport) {
-                                    exportDialogMode = null
-                                    diagnosticsExportStatus = "No logs to export. Start capturing first."
-                                    return@launch
+        item {
+            Chip(
+                label =
+                    if (hasExportedDiagnostics && !gpsDebugTelemetry) {
+                        "3. Resend Diagnostic"
+                    } else {
+                        "3. Export Diagnostic"
+                    },
+                secondaryLabel =
+                    if (exportInProgress) {
+                        "Exporting..."
+                    } else if (gpsDebugTelemetry) {
+                        "Stop & export"
+                    } else {
+                        diagnosticsExportStatus
+                    },
+                onClick = {
+                    if (exportInProgress) return@Chip
+                    coroutineScope.launch {
+                        exportInProgress = true
+                        exportDialogMode = DiagnosticsExportDialogMode.GENERATING
+                        exportDialogMessage = "Generating diagnostics file..."
+                        val captureWasEnabled = DebugTelemetry.isEnabled()
+                        try {
+                            val hasBufferedLogs = DebugTelemetry.size() > 0
+                            val hasExistingExport =
+                                withContext(Dispatchers.IO) {
+                                    DiagnosticsExporter.latestExportFile(context) != null
                                 }
-
-                                diagnosticsExportStatus = "Preparing file..."
-
-                                // Freeze capture state immediately to avoid session churn while exporting.
-                                if (captureWasEnabled) {
-                                    viewModel.setGpsDebugTelemetry(false)
-                                    DebugTelemetry.setEnabled(false)
-                                }
-
-                                val diagnosticsFile =
-                                    withContext(Dispatchers.IO) {
-                                        DiagnosticsExporter.export(
-                                            context = context,
-                                            settings =
-                                                DiagnosticsSettingsSnapshot(
-                                                    gpsIntervalMs = gpsIntervalMs,
-                                                    watchGpsOnly = isWatchGpsOnly,
-                                                    keepAppOpen = keepAppOpen,
-                                                    gpsInAmbientMode = gpsInAmbientMode,
-                                                    gpsDebugTelemetry = captureWasEnabled,
-                                                    gpsPassiveLocationExperiment = gpsPassiveLocationExperiment,
-                                                    backButtonExitsNavigation = backButtonExitsNavigation,
-                                                ),
-                                            reuseLatestIfAvailable = !captureWasEnabled,
-                                        )
-                                    }
-                                exportedDiagnosticsCount =
-                                    withContext(Dispatchers.IO) {
-                                        DiagnosticsExporter.exportedFileCount(context)
-                                    }
-                                exportDialogMessage = "Sending diagnostics to your phone..."
-
-                                val subject =
-                                    "${TransferDataLayerContract.DIAGNOSTICS_SUBJECT_PREFIX} ${diagnosticsFile.nameWithoutExtension}"
-
-                                // Prefer phone handoff first because many watches have no mail/share app.
-                                val handedOff =
-                                    withContext(Dispatchers.IO) {
-                                        DiagnosticsEmailHandoff.sendToPhone(
-                                            context = context,
-                                            diagnosticsFile = diagnosticsFile,
-                                            subject = subject,
-                                        )
-                                    }
-                                if (handedOff) {
-                                    diagnosticsExportStatus = "Check phone. Use button 3 to resend."
-                                    exportDialogMode = DiagnosticsExportDialogMode.CHECK_PHONE
-                                    exportDialogMessage =
-                                        "If you closed the phone prompt, tap button 3 again to resend."
-                                    return@launch
-                                }
+                            val canExport = captureWasEnabled || hasBufferedLogs || hasExistingExport
+                            if (!canExport) {
                                 exportDialogMode = null
+                                diagnosticsExportStatus = "No logs to export. Start capturing first."
+                                return@launch
+                            }
 
-                                val uri =
-                                    FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        diagnosticsFile,
+                            diagnosticsExportStatus = "Preparing file..."
+
+                            // Freeze capture state immediately to avoid session churn while exporting.
+                            if (captureWasEnabled) {
+                                viewModel.setGpsDebugTelemetry(false)
+                                DebugTelemetry.setEnabled(false)
+                            }
+
+                            val diagnosticsFile =
+                                withContext(Dispatchers.IO) {
+                                    DiagnosticsExporter.export(
+                                        context = context,
+                                        settings =
+                                            DiagnosticsSettingsSnapshot(
+                                                gpsIntervalMs = gpsIntervalMs,
+                                                watchGpsOnly = isWatchGpsOnly,
+                                                keepAppOpen = keepAppOpen,
+                                                gpsInAmbientMode = gpsInAmbientMode,
+                                                gpsDebugTelemetry = captureWasEnabled,
+                                                gpsPassiveLocationExperiment = gpsPassiveLocationExperiment,
+                                                backButtonExitsNavigation = backButtonExitsNavigation,
+                                            ),
+                                        reuseLatestIfAvailable = !captureWasEnabled,
                                     )
+                                }
+                            exportedDiagnosticsCount =
+                                withContext(Dispatchers.IO) {
+                                    DiagnosticsExporter.exportedFileCount(context)
+                                }
+                            exportDialogMessage = "Sending diagnostics to your phone..."
 
-                                val shareIntent =
-                                    Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(
-                                            Intent.EXTRA_EMAIL,
-                                            arrayOf(TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL),
-                                        )
-                                        putExtra(Intent.EXTRA_SUBJECT, subject)
-                                        putExtra(Intent.EXTRA_TEXT, "Diagnostics export attached from watch.")
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
+                            val subject =
+                                "${TransferDataLayerContract.DIAGNOSTICS_SUBJECT_PREFIX} ${diagnosticsFile.nameWithoutExtension}"
 
-                                val hasWatchTargets =
-                                    context.packageManager.queryIntentActivities(shareIntent, 0).isNotEmpty()
-                                if (!hasWatchTargets) {
+                            // Prefer phone handoff first because many watches have no mail/share app.
+                            val handedOff =
+                                withContext(Dispatchers.IO) {
+                                    DiagnosticsEmailHandoff.sendToPhone(
+                                        context = context,
+                                        diagnosticsFile = diagnosticsFile,
+                                        subject = subject,
+                                    )
+                                }
+                            if (handedOff) {
+                                diagnosticsExportStatus = "Check phone. Use button 3 to resend."
+                                exportDialogMode = DiagnosticsExportDialogMode.CHECK_PHONE
+                                exportDialogMessage =
+                                    "If you closed the phone prompt, tap button 3 again to resend."
+                                return@launch
+                            }
+                            exportDialogMode = null
+
+                            val uri =
+                                FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    diagnosticsFile,
+                                )
+
+                            val shareIntent =
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(
+                                        Intent.EXTRA_EMAIL,
+                                        arrayOf(TransferDataLayerContract.DIAGNOSTICS_SUPPORT_EMAIL),
+                                    )
+                                    putExtra(Intent.EXTRA_SUBJECT, subject)
+                                    putExtra(Intent.EXTRA_TEXT, "Diagnostics export attached from watch.")
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+
+                            val hasWatchTargets =
+                                context.packageManager.queryIntentActivities(shareIntent, 0).isNotEmpty()
+                            if (!hasWatchTargets) {
+                                diagnosticsExportStatus = buildRetryReadyLabel(exportedDiagnosticsCount)
+                                exportDialogMode = DiagnosticsExportDialogMode.FAILED
+                                exportDialogMessage =
+                                    "Couldn't send diagnostics to your phone.\n" +
+                                    "Tap Resend Diagnostic to try again."
+                                return@launch
+                            }
+
+                            val chooser =
+                                Intent.createChooser(shareIntent, "Send diagnostics").apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            runCatching { context.startActivity(chooser) }
+                                .onSuccess {
+                                    diagnosticsExportStatus =
+                                        if (captureWasEnabled) {
+                                            "Confirm send on phone. Capture off."
+                                        } else {
+                                            "Confirm send on phone."
+                                        }
+                                }.onFailure {
                                     diagnosticsExportStatus = buildRetryReadyLabel(exportedDiagnosticsCount)
                                     exportDialogMode = DiagnosticsExportDialogMode.FAILED
                                     exportDialogMessage =
-                                        "Couldn't send diagnostics to your phone.\n" +
-                                        "Tap Resend Diagnostic to try again."
-                                    return@launch
+                                        "Export failed.\nTap Resend Diagnostic to try again."
                                 }
-
-                                val chooser =
-                                    Intent.createChooser(shareIntent, "Send diagnostics").apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                runCatching { context.startActivity(chooser) }
-                                    .onSuccess {
-                                        diagnosticsExportStatus =
-                                            if (captureWasEnabled) {
-                                                "Confirm send on phone. Capture off."
-                                            } else {
-                                                "Confirm send on phone."
-                                            }
-                                    }.onFailure {
-                                        diagnosticsExportStatus = buildRetryReadyLabel(exportedDiagnosticsCount)
-                                        exportDialogMode = DiagnosticsExportDialogMode.FAILED
-                                        exportDialogMessage =
-                                            "Export failed.\nTap Resend Diagnostic to try again."
-                                    }
-                            } catch (_: ActivityNotFoundException) {
-                                diagnosticsExportStatus = buildRetryReadyLabel(exportedDiagnosticsCount)
-                                exportDialogMode = DiagnosticsExportDialogMode.FAILED
-                                exportDialogMessage =
-                                    "Export failed.\nTap Resend Diagnostic to try again."
-                            } catch (_: Exception) {
-                                diagnosticsExportStatus = buildRetryReadyLabel(exportedDiagnosticsCount)
-                                exportDialogMode = DiagnosticsExportDialogMode.FAILED
-                                exportDialogMessage =
-                                    "Export failed.\nTap Resend Diagnostic to try again."
-                            } finally {
-                                viewModel.setGpsDebugTelemetry(false)
-                                DebugTelemetry.setEnabled(false)
-                                if (exportDialogMode == DiagnosticsExportDialogMode.GENERATING) {
-                                    exportDialogMode = null
-                                }
-                                exportInProgress = false
+                        } catch (_: ActivityNotFoundException) {
+                            diagnosticsExportStatus = buildRetryReadyLabel(exportedDiagnosticsCount)
+                            exportDialogMode = DiagnosticsExportDialogMode.FAILED
+                            exportDialogMessage =
+                                "Export failed.\nTap Resend Diagnostic to try again."
+                        } catch (_: Exception) {
+                            diagnosticsExportStatus = buildRetryReadyLabel(exportedDiagnosticsCount)
+                            exportDialogMode = DiagnosticsExportDialogMode.FAILED
+                            exportDialogMessage =
+                                "Export failed.\nTap Resend Diagnostic to try again."
+                        } finally {
+                            viewModel.setGpsDebugTelemetry(false)
+                            DebugTelemetry.setEnabled(false)
+                            if (exportDialogMode == DiagnosticsExportDialogMode.GENERATING) {
+                                exportDialogMode = null
                             }
+                            exportInProgress = false
                         }
+                    }
+                },
+            )
+        }
+
+        if (BuildConfig.DEBUG) {
+            item {
+                Chip(
+                    label = "Force close app",
+                    secondaryLabel = "Debug crash test",
+                    onClick = {
+                        DebugTelemetry.log("DiagnosticsFlow", "manual_force_close_requested")
+                        error("Manual force close from debugging settings")
                     },
                 )
-            }
-
-            if (BuildConfig.DEBUG) {
-                item {
-                    Chip(
-                        label = "Force close app",
-                        secondaryLabel = "Debug crash test",
-                        onClick = {
-                            DebugTelemetry.log("DiagnosticsFlow", "manual_force_close_requested")
-                            error("Manual force close from debugging settings")
-                        },
-                    )
-                }
             }
         }
     }
