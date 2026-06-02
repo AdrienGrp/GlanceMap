@@ -13,9 +13,12 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -425,6 +428,13 @@ internal fun NavigateContent(
             adaptive.fontScale >= 1.25f -> 50.dp
             else -> 0.dp
         }
+    val permissionScrollBottomPadding =
+        permissionContentPadding +
+            when {
+                adaptive.fontScale >= 1.45f -> 36.dp
+                adaptive.fontScale >= 1.25f -> 28.dp
+                else -> 20.dp
+            }
     val latestNavMode = rememberUpdatedState(navMode)
     val latestOnUserPanStarted = rememberUpdatedState(onUserPanStarted)
     val latestOnInspectTrack = rememberUpdatedState(onInspectTrack)
@@ -1221,24 +1231,39 @@ internal fun NavigateContent(
             scaleIndicator = null
             val permissionScrollState = rememberScrollState()
             Box(modifier = Modifier.fillMaxSize()) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(permissionContentPadding)
-                            .verticalScroll(permissionScrollState),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        "Location permission required for this screen.",
-                        textAlign = TextAlign.Center,
-                    )
-                    Button(
-                        onClick = onPermissionLaunch,
-                        modifier = Modifier.heightIn(min = permissionButtonMinHeight),
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = maxHeight)
+                                .verticalScroll(permissionScrollState)
+                                .padding(
+                                    start = permissionContentPadding,
+                                    top = permissionContentPadding,
+                                    end = permissionContentPadding,
+                                    bottom = permissionScrollBottomPadding,
+                                ),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
                     ) {
-                        Text("Grant Permission")
+                        Text(
+                            "Location permission required for this screen.",
+                            textAlign = TextAlign.Center,
+                        )
+                        Button(
+                            onClick = onPermissionLaunch,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = permissionButtonMinHeight),
+                        ) {
+                            Text(
+                                "Grant Permission",
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(1.dp))
                     }
                 }
                 WearVerticalScrollIndicator(
