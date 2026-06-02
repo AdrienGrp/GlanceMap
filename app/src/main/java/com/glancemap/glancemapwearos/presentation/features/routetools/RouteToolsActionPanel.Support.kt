@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming")
+
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
 import androidx.compose.foundation.ScrollState
@@ -8,11 +10,10 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,8 +33,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
@@ -45,7 +44,7 @@ import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
 import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
+import com.glancemap.glancemapwearos.presentation.ui.WearFormDialog
 import org.mapsforge.core.model.LatLong
 
 @Composable
@@ -647,120 +646,88 @@ internal fun CoordinateEntryDialog(
 ) {
     if (!visible) return
 
-    val adaptive = rememberWearAdaptiveSpec()
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.62f))
-                    .padding(horizontal = 18.dp),
-            contentAlignment = Alignment.Center,
+    WearFormDialog(
+        visible = true,
+        title = "Coordinates",
+        onDismiss = onDismiss,
+        backgroundColor = Color.Black.copy(alpha = 0.92f),
+    ) { formTokens ->
+        CoordinateValueEditorRow(
+            label = "Lat",
+            value = latitude,
+            onDecrease = { onLatitudeChange(latitude - step.delta) },
+            onIncrease = { onLatitudeChange(latitude + step.delta) },
+            modifier = formTokens.controlModifier,
+        )
+        CoordinateValueEditorRow(
+            label = "Lon",
+            value = longitude,
+            onDecrease = { onLongitudeChange(longitude - step.delta) },
+            onIncrease = { onLongitudeChange(longitude + step.delta) },
+            modifier = formTokens.controlModifier,
+        )
+        Row(
+            modifier = formTokens.controlModifier,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Color(0xFF141414).copy(alpha = 0.98f),
-                            RoundedCornerShape(adaptive.dialogCornerRadius),
-                        ).padding(
-                            horizontal = adaptive.dialogHorizontalPadding,
-                            vertical = adaptive.dialogVerticalPadding,
-                        ),
+                modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(
-                    text = "Coordinates",
-                    style = MaterialTheme.typography.titleSmall,
-                    textAlign = TextAlign.Center,
-                )
-                CoordinateValueEditorRow(
-                    label = "Lat",
-                    value = latitude,
-                    onDecrease = { onLatitudeChange(latitude - step.delta) },
-                    onIncrease = { onLatitudeChange(latitude + step.delta) },
-                )
-                CoordinateValueEditorRow(
-                    label = "Lon",
-                    value = longitude,
-                    onDecrease = { onLongitudeChange(longitude - step.delta) },
-                    onIncrease = { onLongitudeChange(longitude + step.delta) },
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(
-                        onClick = { onStepChange(step.previous()) },
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.White.copy(alpha = 0.14f),
-                                contentColor = Color.White,
-                            ),
-                    ) {
-                        Icon(Icons.Default.Remove, contentDescription = "Decrease coordinate step")
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text("Step", style = MaterialTheme.typography.labelMedium)
-                        Text(step.label, style = MaterialTheme.typography.bodySmall)
-                    }
-                    IconButton(
-                        onClick = { onStepChange(step.next()) },
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.White.copy(alpha = 0.14f),
-                                contentColor = Color.White,
-                            ),
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Increase coordinate step")
-                    }
-                }
-                if (hasSeed) {
-                    Button(
-                        onClick = onUseSeed,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = Color.White.copy(alpha = 0.10f),
-                                contentColor = Color.White,
-                            ),
-                    ) {
-                        Text("Use map center")
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            ),
-                    ) {
-                        Text("Cancel")
-                    }
-                    Button(
-                        onClick = onConfirm,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("Done")
-                    }
-                }
+                Text("Step", style = MaterialTheme.typography.labelMedium)
+                Text(step.label, style = MaterialTheme.typography.bodySmall)
             }
+            IconButton(
+                onClick = { onStepChange(step.previous()) },
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.14f),
+                        contentColor = Color.White,
+                    ),
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "Decrease coordinate step")
+            }
+            IconButton(
+                onClick = { onStepChange(step.next()) },
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.14f),
+                        contentColor = Color.White,
+                    ),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Increase coordinate step")
+            }
+        }
+        if (hasSeed) {
+            Button(
+                onClick = onUseSeed,
+                modifier = formTokens.controlModifier.heightIn(min = formTokens.buttonMinHeight),
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.10f),
+                        contentColor = Color.White,
+                    ),
+            ) {
+                Text("Use map center")
+            }
+        }
+        Button(
+            onClick = onConfirm,
+            modifier = formTokens.controlModifier.heightIn(min = formTokens.buttonMinHeight),
+        ) {
+            Text("Done")
+        }
+        Button(
+            onClick = onDismiss,
+            modifier = formTokens.controlModifier.heightIn(min = formTokens.buttonMinHeight),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+        ) {
+            Text("Cancel")
         }
     }
 }
@@ -771,9 +738,10 @@ internal fun CoordinateValueEditorRow(
     value: Double,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
