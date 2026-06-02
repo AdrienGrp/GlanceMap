@@ -153,6 +153,7 @@ fun NavigateScreen(
     val keepAppOpenTipShown by settingsViewModel.keepAppOpenTipShown.collectAsState(initial = false)
     var pendingKeepAppOpen by rememberSaveable { mutableStateOf(false) }
     var showKeepAppOpenInfoDialog by rememberSaveable { mutableStateOf(false) }
+    var showNotificationPermissionDialog by rememberSaveable { mutableStateOf(false) }
     var hasAppliedInitialKeepAppOpenSync by rememberSaveable { mutableStateOf(false) }
 
     // ---- PERMISSIONS ----
@@ -173,7 +174,7 @@ fun NavigateScreen(
                     notificationPermissionState.isPermissionRequired &&
                     !notificationPermissionState.hasNotificationPermission
                 ) {
-                    notificationPermissionState.launchPermissionRequest()
+                    showNotificationPermissionDialog = true
                 } else {
                     settingsViewModel.setKeepAppOpen(true)
                     pendingKeepAppOpen = false
@@ -182,6 +183,10 @@ fun NavigateScreen(
                 pendingKeepAppOpen = false
             }
         }
+    val notificationPermissionPromptState =
+        notificationPermissionState.copy(
+            launchPermissionRequest = { showNotificationPermissionDialog = true },
+        )
 
     // ---- SETTINGS ----
     val zoomDefaultScaleMeters by settingsViewModel.mapZoomDefaultScaleMeters.collectAsState()
@@ -621,7 +626,7 @@ fun NavigateScreen(
             context = context,
             settingsViewModel = settingsViewModel,
             locationPermissionState = locationPermissionState,
-            notificationPermissionState = notificationPermissionState,
+            notificationPermissionState = notificationPermissionPromptState,
             keepAppOpen = keepAppOpen,
             keepAppOpenTipShown = keepAppOpenTipShown,
             offlineMode = offlineMode,
@@ -977,6 +982,18 @@ fun NavigateScreen(
         },
         onDismiss = {
             showKeepAppOpenInfoDialog = false
+            pendingKeepAppOpen = false
+        },
+    )
+
+    NavigateNotificationPermissionDialog(
+        visible = showNotificationPermissionDialog,
+        onContinue = {
+            showNotificationPermissionDialog = false
+            notificationPermissionState.launchPermissionRequest()
+        },
+        onDismiss = {
+            showNotificationPermissionDialog = false
             pendingKeepAppOpen = false
         },
     )

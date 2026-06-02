@@ -199,9 +199,9 @@ fun DownloadScreen(
     val headerTopSafePadding = headerTopPadding + adaptive.headerTopSafeInset
     val actionButtonHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 44.dp
-            WearScreenSize.MEDIUM -> 42.dp
-            WearScreenSize.SMALL -> 38.dp
+            WearScreenSize.LARGE -> 48.dp
+            WearScreenSize.MEDIUM -> 46.dp
+            WearScreenSize.SMALL -> 44.dp
         }
     val actionButtonIconSize =
         when (screenSize) {
@@ -339,7 +339,7 @@ fun DownloadScreen(
                 refreshMode = refreshMode,
                 deleteMode = deleteMode,
                 selectedRefreshBundleCount = uiState.selectedRefreshBundleIds.size,
-                useLargeFontHeader = adaptive.isRound && adaptive.fontScale >= 1.25f,
+                useLargeFontHeader = adaptive.isRound && adaptive.fontScale > 1f,
                 topPadding = headerTopSafePadding,
                 bottomPadding = headerBottomPadding,
                 actionButtonSize = headerActionButtonSize,
@@ -356,6 +356,7 @@ fun DownloadScreen(
                     }
                     if (nextRefreshMode) {
                         deleteMode = false
+                        onAreaPickerOpenChange(false)
                         coroutineScope.launch {
                             listState.animateScrollToItem(DOWNLOAD_FIRST_REFRESH_BUNDLE_ITEM_INDEX)
                         }
@@ -398,73 +399,77 @@ fun DownloadScreen(
                         onToggleArea = viewModel::toggleArea,
                     )
                 } else {
-                    item {
-                        DownloadChip(
-                            label = selectedAreaLabel,
-                            secondaryLabel = selectedAreaSecondaryLabel,
-                            icon = Icons.Filled.UnfoldMore,
-                            onClick = {
-                                if (!uiState.isDownloading) {
-                                    onAreaPickerOpenChange(true)
-                                }
-                            },
-                        )
-                    }
-
-                    item {
-                        DownloadSummary(
-                            areas = selectedAreas,
-                            selection = uiState.selection,
-                            estimatedSize = estimatedSize,
-                        )
-                    }
-
-                    if (uiState.isDownloading) {
+                    if (!refreshMode) {
                         item {
-                            DownloadProgress(uiState)
-                        }
-                        item {
-                            DownloadActionButton(
-                                label = "Pause",
-                                icon = Icons.Filled.Pause,
-                                enabled = true,
-                                height = actionButtonHeight,
-                                iconSize = actionButtonIconSize,
-                                onClick = viewModel::pauseDownload,
+                            DownloadChip(
+                                label = selectedAreaLabel,
+                                secondaryLabel = selectedAreaSecondaryLabel,
+                                icon = Icons.Filled.UnfoldMore,
+                                onClick = {
+                                    if (!uiState.isDownloading) {
+                                        onAreaPickerOpenChange(true)
+                                    }
+                                },
                             )
                         }
+
                         item {
-                            DownloadActionButton(
-                                label = "Cancel",
-                                icon = Icons.Filled.Close,
-                                enabled = true,
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                height = actionButtonHeight,
-                                iconSize = actionButtonIconSize,
-                                onClick = viewModel::cancelDownload,
+                            DownloadSummary(
+                                areas = selectedAreas,
+                                selection = uiState.selection,
+                                estimatedSize = estimatedSize,
                             )
                         }
-                    } else {
-                        item {
-                            DownloadActionButton(
-                                label = if (uiState.isPausedDownload) "Resume" else "Download",
-                                icon = Icons.Filled.Download,
-                                enabled = uiState.selection.canDownload && selectedAreas.isNotEmpty(),
-                                height = actionButtonHeight,
-                                iconSize = actionButtonIconSize,
-                                onClick = viewModel::downloadSelectedBundle,
-                            )
+
+                        if (uiState.isDownloading) {
+                            item {
+                                DownloadProgress(uiState)
+                            }
+                            item {
+                                DownloadActionButton(
+                                    label = "Pause",
+                                    icon = Icons.Filled.Pause,
+                                    enabled = true,
+                                    height = actionButtonHeight,
+                                    iconSize = actionButtonIconSize,
+                                    onClick = viewModel::pauseDownload,
+                                )
+                            }
+                            item {
+                                DownloadActionButton(
+                                    label = "Cancel",
+                                    icon = Icons.Filled.Close,
+                                    enabled = true,
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    height = actionButtonHeight,
+                                    iconSize = actionButtonIconSize,
+                                    onClick = viewModel::cancelDownload,
+                                )
+                            }
+                        } else {
+                            item {
+                                DownloadActionButton(
+                                    label = if (uiState.isPausedDownload) "Resume" else "Download",
+                                    icon = Icons.Filled.Download,
+                                    enabled = uiState.selection.canDownload && selectedAreas.isNotEmpty(),
+                                    height = actionButtonHeight,
+                                    iconSize = actionButtonIconSize,
+                                    onClick = viewModel::downloadSelectedBundle,
+                                )
+                            }
                         }
                     }
 
-                    item {
-                        Text(
-                            text = "Installed bundles",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
-                            maxLines = 1,
-                        )
+                    if (!refreshMode) {
+                        item {
+                            Text(
+                                text = "Installed bundles",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
+                                maxLines = 1,
+                            )
+                        }
                     }
 
                     if (uiState.installedBundles.isEmpty()) {
@@ -478,7 +483,13 @@ fun DownloadScreen(
                             )
                         }
                     } else {
-                        if (refreshMode) {
+                        if (
+                            refreshMode &&
+                            (
+                                uiState.selectedRefreshBundleIds.isNotEmpty() ||
+                                    uiState.isCheckingUpdates
+                            )
+                        ) {
                             item {
                                 DownloadActionButton(
                                     label =
@@ -682,7 +693,7 @@ private fun DownloadHeader(
             verticalArrangement = Arrangement.spacedBy(verticalSpacing),
         ) {
             if (useLargeFontHeader) {
-                cappedFontScale(maxFontScale = 1.08f) {
+                cappedFontScale(maxFontScale = 1f) {
                     Text(
                         text = "Download",
                         style = MaterialTheme.typography.titleSmall,
@@ -726,18 +737,22 @@ private fun DownloadHeader(
             if (refreshMode) {
                 val refreshInstruction =
                     when {
+                        isCheckingUpdates && useLargeFontHeader -> "Checking"
                         isCheckingUpdates -> "Checking selected"
-                        selectedRefreshBundleCount == 0 && useLargeFontHeader -> "Select bundles"
+                        selectedRefreshBundleCount == 0 && useLargeFontHeader -> "Select"
                         selectedRefreshBundleCount == 0 -> "Select bundles to update"
                         else -> "$selectedRefreshBundleCount selected"
                     }
                 if (useLargeFontHeader) {
-                    cappedFontScale(maxFontScale = 1.08f) {
+                    cappedFontScale(maxFontScale = 1f) {
                         Text(
                             text = refreshInstruction,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 6.dp),
                         )
                     }
                 } else {
@@ -746,6 +761,7 @@ private fun DownloadHeader(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 6.dp),
                     )
                 }
             } else if (deleteMode) {
@@ -1087,4 +1103,4 @@ private val SelectedChipIcon = Color(0xFF7FE4C8)
 private const val DOWNLOAD_INFO_PREFS = "download_screen_info_prefs"
 private const val DOWNLOAD_INFO_SHOWN_KEY = "oam_info_shown"
 private const val DOWNLOAD_MAIN_ACTION_ITEM_INDEX = 2
-private const val DOWNLOAD_FIRST_REFRESH_BUNDLE_ITEM_INDEX = 5
+private const val DOWNLOAD_FIRST_REFRESH_BUNDLE_ITEM_INDEX = 0

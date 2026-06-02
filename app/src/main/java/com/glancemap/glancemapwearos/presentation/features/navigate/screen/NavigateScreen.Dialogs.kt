@@ -14,9 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.wear.compose.material3.AlertDialog
-import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
@@ -30,6 +27,9 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolS
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolsActionPanel
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
 import org.mapsforge.core.model.LatLong
 
 @Composable
@@ -41,52 +41,68 @@ internal fun NavigateKeepAppOpenDialog(
     onContinue: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    if (!visible) return
-
-    AlertDialog(
-        visible = true,
+    WearActionDialog(
+        visible = visible,
+        title = "Stay open",
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Stay open",
-                fontSize = 16.sp,
-                lineHeight = 18.sp,
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                KeepAppOpenInfoRow(
-                    imageVector = Icons.Filled.Visibility,
-                    text = "keeps GlanceMap active.",
-                )
-                KeepAppOpenInfoRow(
-                    imageVector = Icons.Filled.VisibilityOff,
-                    text = "lets the watch sleep and removes it from Recents.",
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = onContinue) {
-                Text(
+        buttons =
+            listOf(
+                WearActionDialogButton(
                     text = "Continue",
-                    fontSize = 12.sp,
-                    lineHeight = 14.sp,
-                )
-            }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text(
+                    onClick = onContinue,
+                ),
+                WearActionDialogButton(
                     text = "Later",
-                    fontSize = 12.sp,
-                    lineHeight = 14.sp,
-                )
-            }
-        },
-    )
+                    onClick = onDismiss,
+                    role = WearActionButtonRole.Secondary,
+                ),
+            ),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            KeepAppOpenInfoRow(
+                imageVector = Icons.Filled.Visibility,
+                text = "keeps GlanceMap active.",
+            )
+            KeepAppOpenInfoRow(
+                imageVector = Icons.Filled.VisibilityOff,
+                text = "lets the watch sleep and removes it from Recents.",
+            )
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionNaming")
+internal fun NavigateNotificationPermissionDialog(
+    visible: Boolean,
+    onContinue: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    WearActionDialog(
+        visible = visible,
+        title = "Notifications",
+        onDismissRequest = onDismiss,
+        buttons =
+            listOf(
+                WearActionDialogButton(
+                    text = "Continue",
+                    onClick = onContinue,
+                ),
+                WearActionDialogButton(
+                    text = "Later",
+                    onClick = onDismiss,
+                    role = WearActionButtonRole.Secondary,
+                ),
+            ),
+    ) {
+        KeepAppOpenInfoRow(
+            imageVector = Icons.Filled.Visibility,
+            text = "Stay uses notifications while GlanceMap remains active.",
+        )
+    }
 }
 
 @Composable
@@ -107,8 +123,6 @@ private fun KeepAppOpenInfoRow(
         )
         Text(
             text = text,
-            fontSize = 12.sp,
-            lineHeight = 14.sp,
         )
     }
 }
