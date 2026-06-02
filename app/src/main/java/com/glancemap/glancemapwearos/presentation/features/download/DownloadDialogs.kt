@@ -10,11 +10,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.Composable
@@ -43,7 +47,6 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
-import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 
 @Composable
 internal fun AreaSearchDialog(
@@ -58,6 +61,16 @@ internal fun AreaSearchDialog(
     var draftQuery by remember(visible, initialQuery) { mutableStateOf(initialQuery) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollState = rememberScrollState()
+    val topPadding =
+        adaptive.dialogVerticalPadding +
+            adaptive.headerTopSafeInset +
+            if (adaptive.isRound) 18.dp else 0.dp
+    val bottomPadding =
+        adaptive.dialogVerticalPadding +
+            if (adaptive.isRound) 42.dp else 12.dp
+    val controlWidthFraction = if (adaptive.isRound) 0.86f else 1f
+    val buttonMinHeight = 44.dp
 
     LaunchedEffect(visible) {
         focusRequester.requestFocus()
@@ -71,16 +84,17 @@ internal fun AreaSearchDialog(
         Column(
             modifier =
                 Modifier
-                    .wearDialogWidth(roundFraction = 0.86f, squareFraction = 0.86f)
-                    .background(
-                        Color.Black,
-                        RoundedCornerShape(adaptive.dialogCornerRadius),
-                    ).padding(
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .verticalScroll(scrollState)
+                    .padding(
                         horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding,
+                    ).padding(
+                        top = topPadding,
+                        bottom = bottomPadding,
                     ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top),
         ) {
             Text(
                 text = "Search area",
@@ -100,7 +114,7 @@ internal fun AreaSearchDialog(
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(controlWidthFraction)
                         .focusRequester(focusRequester)
                         .background(
                             Color(0xFF1F1F1F),
@@ -122,14 +136,20 @@ internal fun AreaSearchDialog(
 
             Button(
                 onClick = { onApply(draftQuery) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth(controlWidthFraction)
+                        .heightIn(min = buttonMinHeight),
             ) {
                 Text("Apply")
             }
 
             Button(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth(controlWidthFraction)
+                        .heightIn(min = buttonMinHeight),
                 colors =
                     ButtonDefaults.buttonColors(
                         containerColor = Color.White.copy(alpha = 0.12f),
