@@ -361,14 +361,14 @@ class PoiViewModel(
             val file = _poiFiles.value.firstOrNull { it.path == path } ?: return@launch
             if (file.categories.none { it.id == categoryId }) return@launch
 
-            val key = PoiCategoryPreviewKey(filePath = path, categoryId = categoryId)
-            val current = _categoryPreviews.value[key]
-            if (!forceRefresh && current != null && (current.isLoading || current.isLoaded)) {
+            if (isUserPoiPath(path) && categoryId == USER_POI_CATEGORY_ID) {
+                updateUserPoiPreviewCache(file.copy(isExpanded = true))
                 return@launch
             }
 
-            if (isUserPoiPath(path) && categoryId == USER_POI_CATEGORY_ID) {
-                updateUserPoiPreviewCache(file.copy(isExpanded = true))
+            val key = PoiCategoryPreviewKey(filePath = path, categoryId = categoryId)
+            val current = _categoryPreviews.value[key]
+            if (!forceRefresh && current != null && (current.isLoading || current.isLoaded)) {
                 return@launch
             }
 
