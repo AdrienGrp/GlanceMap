@@ -8,17 +8,13 @@ package com.glancemap.glancemapwearos.presentation.features.download
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.Composable
@@ -37,16 +33,14 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearFormDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 
 @Composable
 internal fun AreaSearchDialog(
@@ -57,107 +51,72 @@ internal fun AreaSearchDialog(
 ) {
     if (!visible) return
 
-    val adaptive = rememberWearAdaptiveSpec()
     var draftQuery by remember(visible, initialQuery) { mutableStateOf(initialQuery) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-    val scrollState = rememberScrollState()
-    val topPadding =
-        adaptive.dialogVerticalPadding +
-            adaptive.headerTopSafeInset +
-            if (adaptive.isRound) 18.dp else 0.dp
-    val bottomPadding =
-        adaptive.dialogVerticalPadding +
-            if (adaptive.isRound) 42.dp else 12.dp
-    val controlWidthFraction = if (adaptive.isRound) 0.86f else 1f
-    val buttonMinHeight = 44.dp
 
     LaunchedEffect(visible) {
         focusRequester.requestFocus()
         keyboardController?.show()
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Column(
+    WearFormDialog(
+        visible = visible,
+        title = "Search area",
+        onDismiss = onDismiss,
+    ) { formTokens ->
+        BasicTextField(
+            value = draftQuery,
+            onValueChange = { draftQuery = it.take(32) },
+            singleLine = true,
+            textStyle =
+                TextStyle(
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-                    .verticalScroll(scrollState)
-                    .padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                    ).padding(
-                        top = topPadding,
-                        bottom = bottomPadding,
-                    ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top),
-        ) {
-            Text(
-                text = "Search area",
-                style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center,
-            )
-
-            BasicTextField(
-                value = draftQuery,
-                onValueChange = { draftQuery = it.take(32) },
-                singleLine = true,
-                textStyle =
-                    TextStyle(
-                        color = Color.White,
+                formTokens.controlModifier
+                    .focusRequester(focusRequester)
+                    .background(
+                        Color(0xFF1F1F1F),
+                        RoundedCornerShape(12.dp),
+                    ).padding(horizontal = 12.dp, vertical = formTokens.textFieldVerticalPadding),
+            decorationBox = { innerTextField ->
+                if (draftQuery.isBlank()) {
+                    Text(
+                        text = "France, Alps...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.45f),
                         textAlign = TextAlign.Center,
-                    ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier =
-                    Modifier
-                        .fillMaxWidth(controlWidthFraction)
-                        .focusRequester(focusRequester)
-                        .background(
-                            Color(0xFF1F1F1F),
-                            RoundedCornerShape(12.dp),
-                        ).padding(horizontal = 12.dp, vertical = 10.dp),
-                decorationBox = { innerTextField ->
-                    if (draftQuery.isBlank()) {
-                        Text(
-                            text = "France, Alps...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.45f),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    innerTextField()
-                },
-            )
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                innerTextField()
+            },
+        )
 
-            Button(
-                onClick = { onApply(draftQuery) },
-                modifier =
-                    Modifier
-                        .fillMaxWidth(controlWidthFraction)
-                        .heightIn(min = buttonMinHeight),
-            ) {
-                Text("Apply")
-            }
+        Button(
+            onClick = { onApply(draftQuery) },
+            modifier =
+                formTokens.controlModifier
+                    .heightIn(min = formTokens.buttonMinHeight),
+        ) {
+            Text("Apply")
+        }
 
-            Button(
-                onClick = onDismiss,
-                modifier =
-                    Modifier
-                        .fillMaxWidth(controlWidthFraction)
-                        .heightIn(min = buttonMinHeight),
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f),
-                        contentColor = Color.White,
-                    ),
-            ) {
-                Text("Cancel")
-            }
+        Button(
+            onClick = onDismiss,
+            modifier =
+                formTokens.controlModifier
+                    .heightIn(min = formTokens.buttonMinHeight),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = Color.White.copy(alpha = 0.12f),
+                    contentColor = Color.White,
+                ),
+        ) {
+            Text("Cancel")
         }
     }
 }

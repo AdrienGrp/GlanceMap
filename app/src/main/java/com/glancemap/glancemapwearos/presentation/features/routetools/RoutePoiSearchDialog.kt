@@ -1,16 +1,12 @@
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,17 +23,13 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchResultUiState
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
-import com.glancemap.glancemapwearos.presentation.ui.WearCustomDialogScrollableColumn
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
+import com.glancemap.glancemapwearos.presentation.ui.WearFormDialog
 
 @Composable
 internal fun RoutePoiSearchDialog(
@@ -49,20 +41,9 @@ internal fun RoutePoiSearchDialog(
 ) {
     if (!visible) return
 
-    val adaptive = rememberWearAdaptiveSpec()
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     var draftQuery by remember(visible) { mutableStateOf(state.query) }
-    val scrollState = rememberScrollState()
-    val topPadding =
-        adaptive.dialogVerticalPadding +
-            adaptive.headerTopSafeInset +
-            if (adaptive.isRound) 18.dp else 0.dp
-    val bottomPadding =
-        adaptive.dialogVerticalPadding +
-            if (adaptive.isRound) 42.dp else 12.dp
-    val controlWidthFraction = if (adaptive.isRound) 0.86f else 1f
-    val buttonMinHeight = 44.dp
 
     LaunchedEffect(visible) {
         if (visible) {
@@ -77,143 +58,110 @@ internal fun RoutePoiSearchDialog(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.92f))
-                    .verticalScroll(scrollState)
-                    .padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                    ).padding(
-                        top = topPadding,
-                        bottom = bottomPadding,
-                    ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top),
-        ) {
-            Text(
-                text = "Search POI",
-                style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center,
-            )
-
-            BasicTextField(
-                value = draftQuery,
-                onValueChange = { draftQuery = it.take(48) },
-                singleLine = true,
-                textStyle =
-                    TextStyle(
-                        color = Color.White,
-                        textAlign = TextAlign.Center,
-                    ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier =
-                    Modifier
-                        .fillMaxWidth(controlWidthFraction)
-                        .focusRequester(focusRequester)
-                        .background(
-                            Color(0xFF1F1F1F),
-                            RoundedCornerShape(12.dp),
-                        ).padding(horizontal = 12.dp, vertical = 10.dp),
-                decorationBox = { innerTextField ->
-                    if (draftQuery.isBlank()) {
-                        Text(
-                            text = "Type a POI name",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.45f),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    innerTextField()
-                },
-            )
-
-            Button(
-                onClick = { onSearch(draftQuery) },
-                modifier =
-                    Modifier
-                        .fillMaxWidth(controlWidthFraction)
-                        .heightIn(min = buttonMinHeight),
-            ) {
-                Text(if (state.isLoading) "Searching..." else "Search")
-            }
-
-            state.errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFFFCC80),
+    WearFormDialog(
+        visible = visible,
+        title = "Search POI",
+        onDismiss = onDismiss,
+        backgroundColor = Color.Black.copy(alpha = 0.92f),
+    ) { formTokens ->
+        BasicTextField(
+            value = draftQuery,
+            onValueChange = { draftQuery = it.take(48) },
+            singleLine = true,
+            textStyle =
+                TextStyle(
+                    color = Color.White,
                     textAlign = TextAlign.Center,
-                )
-            }
-
-            if (state.results.isNotEmpty()) {
-                WearCustomDialogScrollableColumn(
-                    maxHeight = adaptive.helpDialogMaxHeight * 0.72f,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth(controlWidthFraction),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    state.results.forEach { result ->
-                        Button(
-                            onClick = { onSelectResult(result) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor = Color.White.copy(alpha = 0.10f),
-                                    contentColor = Color.White,
-                                ),
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = result.name,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    textAlign = TextAlign.Center,
-                                )
-                                Text(
-                                    text =
-                                        result.type.name
-                                            .lowercase()
-                                            .replace('_', ' ')
-                                            .replaceFirstChar { it.uppercase() },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.70f),
-                                    textAlign = TextAlign.Center,
-                                )
-                                Text(
-                                    text = result.fileName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.54f),
-                                    textAlign = TextAlign.Center,
-                                )
-                            }
-                        }
-                    }
-                    WearDialogScrollBottomSpacer()
+                ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier =
+                formTokens.controlModifier
+                    .focusRequester(focusRequester)
+                    .background(
+                        Color(0xFF1F1F1F),
+                        RoundedCornerShape(12.dp),
+                    ).padding(horizontal = 12.dp, vertical = formTokens.textFieldVerticalPadding),
+            decorationBox = { innerTextField ->
+                if (draftQuery.isBlank()) {
+                    Text(
+                        text = "Type a POI name",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.45f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-            }
+                innerTextField()
+            },
+        )
 
+        Button(
+            onClick = { onSearch(draftQuery) },
+            modifier =
+                formTokens.controlModifier
+                    .heightIn(min = formTokens.buttonMinHeight),
+        ) {
+            Text(if (state.isLoading) "Searching..." else "Search")
+        }
+
+        state.errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFFFCC80),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        state.results.forEach { result ->
             Button(
-                onClick = onDismiss,
-                modifier =
-                    Modifier
-                        .fillMaxWidth(controlWidthFraction)
-                        .heightIn(min = buttonMinHeight),
+                onClick = { onSelectResult(result) },
+                modifier = formTokens.controlModifier,
                 colors =
                     ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f),
+                        containerColor = Color.White.copy(alpha = 0.10f),
                         contentColor = Color.White,
                     ),
             ) {
-                Text("Close")
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = result.name,
+                        style = MaterialTheme.typography.labelMedium,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text =
+                            result.type.name
+                                .lowercase()
+                                .replace('_', ' ')
+                                .replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.70f),
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = result.fileName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.54f),
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
+        }
+
+        Button(
+            onClick = onDismiss,
+            modifier =
+                formTokens.controlModifier
+                    .heightIn(min = formTokens.buttonMinHeight),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = Color.White.copy(alpha = 0.12f),
+                    contentColor = Color.White,
+                ),
+        ) {
+            Text("Close")
         }
     }
 }

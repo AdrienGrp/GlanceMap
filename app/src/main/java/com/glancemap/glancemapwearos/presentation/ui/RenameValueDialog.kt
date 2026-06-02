@@ -11,7 +11,6 @@ package com.glancemap.glancemapwearos.presentation.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -34,6 +33,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -62,27 +62,13 @@ fun RenameValueDialog(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val scrollState = rememberScrollState()
+    val textFieldVerticalPadding = 10.dp
     val maxDialogHeight =
         (
             adaptive.heightDp.dp -
                 adaptive.dialogVerticalPadding * 2 -
                 18.dp
         ).coerceAtLeast(132.dp)
-    val fullScreenTopPadding =
-        adaptive.dialogVerticalPadding +
-            adaptive.headerTopSafeInset +
-            if (adaptive.isRound) 14.dp else 0.dp
-    val fullScreenBottomPadding =
-        adaptive.dialogVerticalPadding +
-            if (adaptive.isRound) 42.dp else 12.dp
-    val fullScreenControlWidthFraction =
-        if (fullScreen && adaptive.isRound) {
-            0.86f
-        } else {
-            1f
-        }
-    val textFieldVerticalPadding = if (fullScreen) 8.dp else 10.dp
-    val buttonMinHeight = if (fullScreen) 44.dp else 48.dp
 
     LaunchedEffect(visible, isSaving) {
         if (visible && !isSaving && autoFocusInput) {
@@ -91,23 +77,34 @@ fun RenameValueDialog(
         }
     }
 
+    if (fullScreen) {
+        WearFormDialog(
+            visible = visible,
+            title = title,
+            onDismiss = onDismiss,
+        ) { formTokens ->
+            RenameValueFormContent(
+                draftValue = draftValue,
+                onDraftValueChange = { draftValue = it },
+                isSaving = isSaving,
+                error = error,
+                focusRequester = focusRequester,
+                textFieldVerticalPadding = formTokens.textFieldVerticalPadding,
+                controlModifier = formTokens.controlModifier,
+                buttonMinHeight = formTokens.buttonMinHeight,
+                onDismiss = onDismiss,
+                onConfirm = onConfirm,
+            )
+        }
+        return
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        val dialogModifier =
-            if (fullScreen) {
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-                    .verticalScroll(scrollState)
-                    .padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                    ).padding(
-                        top = fullScreenTopPadding,
-                        bottom = fullScreenBottomPadding,
-                    )
-            } else {
+        Column(
+            modifier =
                 Modifier
                     .wearDialogWidth(
                         roundFraction = dialogWidthFraction,
@@ -119,18 +116,9 @@ fun RenameValueDialog(
                         horizontal = adaptive.dialogHorizontalPadding,
                         vertical = adaptive.dialogVerticalPadding,
                     ).heightIn(max = maxDialogHeight)
-                    .verticalScroll(scrollState)
-            }
-
-        Column(
-            modifier = dialogModifier,
+                    .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement =
-                if (fullScreen) {
-                    Arrangement.spacedBy(8.dp, Alignment.Top)
-                } else {
-                    Arrangement.spacedBy(6.dp)
-                },
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
                 text = title,
@@ -150,7 +138,7 @@ fun RenameValueDialog(
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 modifier =
                     Modifier
-                        .fillMaxWidth(fullScreenControlWidthFraction)
+                        .fillMaxWidth()
                         .focusRequester(focusRequester)
                         .background(
                             Color(0xFF1F1F1F),
@@ -183,8 +171,8 @@ fun RenameValueDialog(
                 onClick = { onConfirm(draftValue) },
                 modifier =
                     Modifier
-                        .fillMaxWidth(fullScreenControlWidthFraction)
-                        .heightIn(min = buttonMinHeight),
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
                 enabled = !isSaving,
             ) {
                 Text(if (isSaving) "Saving..." else "Save")
@@ -194,8 +182,8 @@ fun RenameValueDialog(
                 onClick = onDismiss,
                 modifier =
                     Modifier
-                        .fillMaxWidth(fullScreenControlWidthFraction)
-                        .heightIn(min = buttonMinHeight),
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
                 enabled = !isSaving,
                 colors =
                     ButtonDefaults.buttonColors(
@@ -206,5 +194,85 @@ fun RenameValueDialog(
                 Text("Cancel")
             }
         }
+    }
+}
+
+@Composable
+private fun RenameValueFormContent(
+    draftValue: String,
+    onDraftValueChange: (String) -> Unit,
+    isSaving: Boolean,
+    error: String?,
+    focusRequester: FocusRequester,
+    textFieldVerticalPadding: Dp,
+    controlModifier: Modifier,
+    buttonMinHeight: Dp,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    BasicTextField(
+        value = draftValue,
+        onValueChange = { onDraftValueChange(it.take(64)) },
+        singleLine = true,
+        textStyle =
+            TextStyle(
+                color = Color.White,
+                textAlign = TextAlign.Center,
+            ),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        modifier =
+            controlModifier
+                .focusRequester(focusRequester)
+                .background(
+                    Color(0xFF1F1F1F),
+                    RoundedCornerShape(12.dp),
+                ).padding(horizontal = 12.dp, vertical = textFieldVerticalPadding),
+        decorationBox = { innerTextField ->
+            if (draftValue.isBlank()) {
+                Text(
+                    text = "Enter name",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.45f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            innerTextField()
+        },
+    )
+
+    error?.takeIf { it.isNotBlank() }?.let { message ->
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    Button(
+        onClick = { onConfirm(draftValue) },
+        modifier =
+            controlModifier
+                .heightIn(min = buttonMinHeight),
+        enabled = !isSaving,
+    ) {
+        Text(if (isSaving) "Saving..." else "Save")
+    }
+
+    Button(
+        onClick = onDismiss,
+        modifier =
+            controlModifier
+                .heightIn(min = buttonMinHeight),
+        enabled = !isSaving,
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = Color.White.copy(alpha = 0.12f),
+                contentColor = Color.White,
+            ),
+    ) {
+        Text("Cancel")
     }
 }
