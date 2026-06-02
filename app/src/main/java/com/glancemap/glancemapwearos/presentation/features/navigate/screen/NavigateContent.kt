@@ -435,6 +435,18 @@ internal fun NavigateContent(
                 adaptive.fontScale >= 1.25f -> 28.dp
                 else -> 20.dp
             }
+    val permissionScrollTopPadding =
+        permissionContentPadding +
+            adaptive.headerTopSafeInset +
+            if (adaptive.isRound) {
+                when {
+                    adaptive.fontScale >= 1.45f -> 34.dp
+                    adaptive.fontScale >= 1.25f -> 26.dp
+                    else -> 18.dp
+                }
+            } else {
+                0.dp
+            }
     val latestNavMode = rememberUpdatedState(navMode)
     val latestOnUserPanStarted = rememberUpdatedState(onUserPanStarted)
     val latestOnInspectTrack = rememberUpdatedState(onInspectTrack)
@@ -1240,7 +1252,7 @@ internal fun NavigateContent(
                                 .verticalScroll(permissionScrollState)
                                 .padding(
                                     start = permissionContentPadding,
-                                    top = permissionContentPadding,
+                                    top = permissionScrollTopPadding,
                                     end = permissionContentPadding,
                                     bottom = permissionScrollBottomPadding,
                                 ),
