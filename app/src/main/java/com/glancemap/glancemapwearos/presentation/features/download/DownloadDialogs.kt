@@ -8,9 +8,9 @@ package com.glancemap.glancemapwearos.presentation.features.download
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,17 +33,14 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
-import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearFormDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 
 @Composable
 internal fun AreaSearchDialog(
@@ -54,7 +51,6 @@ internal fun AreaSearchDialog(
 ) {
     if (!visible) return
 
-    val adaptive = rememberWearAdaptiveSpec()
     var draftQuery by remember(visible, initialQuery) { mutableStateOf(initialQuery) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -64,80 +60,63 @@ internal fun AreaSearchDialog(
         keyboardController?.show()
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Column(
+    WearFormDialog(
+        visible = visible,
+        title = "Search area",
+        onDismiss = onDismiss,
+    ) { formTokens ->
+        BasicTextField(
+            value = draftQuery,
+            onValueChange = { draftQuery = it.take(32) },
+            singleLine = true,
+            textStyle =
+                TextStyle(
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier =
-                Modifier
-                    .wearDialogWidth(roundFraction = 0.86f, squareFraction = 0.86f)
+                formTokens.controlModifier
+                    .focusRequester(focusRequester)
                     .background(
-                        Color.Black,
-                        RoundedCornerShape(adaptive.dialogCornerRadius),
-                    ).padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding,
-                    ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = "Search area",
-                style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center,
-            )
-
-            BasicTextField(
-                value = draftQuery,
-                onValueChange = { draftQuery = it.take(32) },
-                singleLine = true,
-                textStyle =
-                    TextStyle(
-                        color = Color.White,
+                        Color(0xFF1F1F1F),
+                        RoundedCornerShape(12.dp),
+                    ).padding(horizontal = 12.dp, vertical = formTokens.textFieldVerticalPadding),
+            decorationBox = { innerTextField ->
+                if (draftQuery.isBlank()) {
+                    Text(
+                        text = "France, Alps...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.45f),
                         textAlign = TextAlign.Center,
-                    ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .background(
-                            Color(0xFF1F1F1F),
-                            RoundedCornerShape(12.dp),
-                        ).padding(horizontal = 12.dp, vertical = 10.dp),
-                decorationBox = { innerTextField ->
-                    if (draftQuery.isBlank()) {
-                        Text(
-                            text = "France, Alps...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.45f),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    innerTextField()
-                },
-            )
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                innerTextField()
+            },
+        )
 
-            Button(
-                onClick = { onApply(draftQuery) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Apply")
-            }
+        Button(
+            onClick = { onApply(draftQuery) },
+            modifier =
+                formTokens.controlModifier
+                    .heightIn(min = formTokens.buttonMinHeight),
+        ) {
+            Text("Apply")
+        }
 
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f),
-                        contentColor = Color.White,
-                    ),
-            ) {
-                Text("Cancel")
-            }
+        Button(
+            onClick = onDismiss,
+            modifier =
+                formTokens.controlModifier
+                    .heightIn(min = formTokens.buttonMinHeight),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = Color.White.copy(alpha = 0.12f),
+                    contentColor = Color.White,
+                ),
+        ) {
+            Text("Cancel")
         }
     }
 }
@@ -149,58 +128,54 @@ internal fun OamAttributionDialog(
 ) {
     if (!visible) return
 
-    AlertDialog(
+    WearInfoDialog(
         visible = visible,
-        onDismissRequest = onDismiss,
-        title = { Text("Download") },
-        content = {
-            item {
-                Text(
-                    text = "Connect the watch to Wi-Fi and keep it on the charger.",
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
+        title = "Download",
+        onDismiss = onDismiss,
+    ) {
+        item {
+            Text(
+                text = "Connect the watch to Wi-Fi and keep it on the charger.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            Text(
+                text = "Thank you to OpenAndroMaps for providing the offline maps and POIs.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            Text(
+                text = "Routing enables offline route calculation.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            Text(
+                text = "Elevation adds altitude, slope, and terrain shading.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Update,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
                 )
+                Text("Use update button to refresh bundles.")
             }
-            item {
-                Text(
-                    text = "Thank you to OpenAndroMaps for providing the offline maps and POIs.",
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                Text(
-                    text = "Routing enables offline route calculation.",
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                Text(
-                    text = "Elevation adds altitude, slope, and terrain shading.",
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Update,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Text("Use update button to refresh bundles.")
-                }
-            }
-            item {
-                WearDialogScrollBottomSpacer()
-            }
-        },
-    )
+        }
+    }
 }
 
 @Composable
@@ -211,33 +186,14 @@ internal fun DownloadNetworkWarningDialog(
 ) {
     if (message == null) return
 
-    AlertDialog(
+    WearActionDialog(
         visible = true,
+        title = "Wi-Fi recommended",
+        message = message,
+        confirmText = "Continue",
+        onConfirm = onContinue,
         onDismissRequest = onDismiss,
-        title = { Text("Wi-Fi recommended") },
-        text = {
-            Text(
-                text = message,
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = {
-            Button(onClick = onContinue) {
-                Text("Continue")
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = onDismiss,
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f),
-                        contentColor = Color.White,
-                    ),
-            ) {
-                Text("Cancel")
-            }
-        },
+        dismissText = "Cancel",
     )
 }
 
@@ -251,46 +207,20 @@ internal fun RefreshBundleDialog(
 
     val updateAvailable = check.status == OamBundleUpdateStatus.UPDATE_AVAILABLE
     val upToDate = check.status == OamBundleUpdateStatus.UP_TO_DATE
-    AlertDialog(
+    WearActionDialog(
         visible = true,
+        title =
+            when {
+                updateAvailable -> "Update available"
+                upToDate -> "Already up to date"
+                check.checkedFileCount == 0 -> "Update info missing"
+                else -> "Check incomplete"
+            },
+        message = refreshBundleDialogText(check),
+        confirmText = if (upToDate) "OK" else "Refresh",
+        onConfirm = if (upToDate) onDismiss else onConfirm,
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text =
-                    when {
-                        updateAvailable -> "Update available"
-                        upToDate -> "Already up to date"
-                        check.checkedFileCount == 0 -> "Update info missing"
-                        else -> "Check incomplete"
-                    },
-                textAlign = TextAlign.Center,
-            )
-        },
-        text = {
-            Text(
-                text = refreshBundleDialogText(check),
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = {
-            Button(onClick = if (upToDate) onDismiss else onConfirm) {
-                Text(if (upToDate) "OK" else "Refresh")
-            }
-        },
-        dismissButton = {
-            if (!upToDate) {
-                Button(
-                    onClick = onDismiss,
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = Color.White.copy(alpha = 0.12f),
-                            contentColor = Color.White,
-                        ),
-                ) {
-                    Text("Cancel")
-                }
-            }
-        },
+        dismissText = if (upToDate) null else "Cancel",
     )
 }
 
@@ -304,45 +234,19 @@ internal fun RefreshBundleSummaryDialog(
 
     val refreshCount = summary.bundlesToRefresh.size
     val hasUpdates = refreshCount > 0
-    AlertDialog(
+    WearActionDialog(
         visible = true,
+        title =
+            when {
+                hasUpdates -> "Refresh bundles?"
+                summary.unknownCount > 0 -> "Check incomplete"
+                else -> "All up to date"
+            },
+        message = refreshSummaryDialogText(summary),
+        confirmText = if (hasUpdates) "Refresh $refreshCount" else "OK",
+        onConfirm = if (hasUpdates) onConfirm else onDismiss,
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text =
-                    when {
-                        hasUpdates -> "Refresh bundles?"
-                        summary.unknownCount > 0 -> "Check incomplete"
-                        else -> "All up to date"
-                    },
-                textAlign = TextAlign.Center,
-            )
-        },
-        text = {
-            Text(
-                text = refreshSummaryDialogText(summary),
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = {
-            Button(onClick = if (hasUpdates) onConfirm else onDismiss) {
-                Text(if (hasUpdates) "Refresh $refreshCount" else "OK")
-            }
-        },
-        dismissButton = {
-            if (hasUpdates) {
-                Button(
-                    onClick = onDismiss,
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = Color.White.copy(alpha = 0.12f),
-                            contentColor = Color.White,
-                        ),
-                ) {
-                    Text("Cancel")
-                }
-            }
-        },
+        dismissText = if (hasUpdates) "Cancel" else null,
     )
 }
 

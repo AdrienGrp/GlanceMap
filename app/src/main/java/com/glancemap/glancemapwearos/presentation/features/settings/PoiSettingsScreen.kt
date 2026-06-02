@@ -2,8 +2,6 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -19,14 +17,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
@@ -67,74 +63,56 @@ fun PoiSettingsScreen(
             )
         }
 
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
-
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
-            }
-            item {
-                SettingsPickerChip(
-                    label = "POI icon size",
-                    secondaryLabel = poiIconSizeLabel(poiIconSizePx),
-                    iconImageVector = Icons.Filled.UnfoldMore,
-                    onClick = { showIconSizePicker = true },
-                )
-            }
-            item {
-                SettingsPickerChip(
-                    label = "POI marker style",
-                    secondaryLabel = poiMarkerStyleLabel(poiMarkerStyle),
-                    iconImageVector = Icons.Filled.UnfoldMore,
-                    onClick = { showMarkerStylePicker = true },
-                )
-            }
-            item {
-                SettingsPickerChip(
-                    label = "POI list tap action",
-                    secondaryLabel =
-                        if (poiTapToCenterEnabled) {
-                            "Open Navigate at POI"
-                        } else {
-                            "Disabled"
-                        },
-                    iconImageVector = Icons.Filled.UnfoldMore,
-                    onClick = { showTapActionPicker = true },
-                )
-            }
-            item {
-                PoiPopupTimeoutSettings(
-                    autoTimeoutEnabled = !poiPopupManualCloseOnly,
-                    poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
-                    onAutoTimeoutToggle = { enabled ->
-                        viewModel.setPoiPopupManualCloseOnly(!enabled)
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
+        item {
+            SettingsPickerChip(
+                label = "POI icon size",
+                secondaryLabel = poiIconSizeLabel(poiIconSizePx),
+                iconImageVector = Icons.Filled.UnfoldMore,
+                onClick = { showIconSizePicker = true },
+            )
+        }
+        item {
+            SettingsPickerChip(
+                label = "POI marker style",
+                secondaryLabel = poiMarkerStyleLabel(poiMarkerStyle),
+                iconImageVector = Icons.Filled.UnfoldMore,
+                onClick = { showMarkerStylePicker = true },
+            )
+        }
+        item {
+            SettingsPickerChip(
+                label = "POI list tap action",
+                secondaryLabel =
+                    if (poiTapToCenterEnabled) {
+                        "Open Navigate at POI"
+                    } else {
+                        "Disabled"
                     },
-                    onTimeoutChange = { target ->
-                        val clamped =
-                            target
-                                .coerceAtLeast(SettingsRepository.POI_POPUP_TIMEOUT_MIN_SECONDS)
-                                .coerceAtMost(SettingsRepository.POI_POPUP_TIMEOUT_MAX_SECONDS)
-                        if (clamped != poiPopupTimeoutSeconds) {
-                            viewModel.setPoiPopupTimeoutSeconds(clamped)
-                        }
-                    },
-                )
-            }
+                iconImageVector = Icons.Filled.UnfoldMore,
+                onClick = { showTapActionPicker = true },
+            )
+        }
+        item {
+            PoiPopupTimeoutSettings(
+                autoTimeoutEnabled = !poiPopupManualCloseOnly,
+                poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
+                onAutoTimeoutToggle = { enabled ->
+                    viewModel.setPoiPopupManualCloseOnly(!enabled)
+                },
+                onTimeoutChange = { target ->
+                    val clamped =
+                        target
+                            .coerceAtLeast(SettingsRepository.POI_POPUP_TIMEOUT_MIN_SECONDS)
+                            .coerceAtMost(SettingsRepository.POI_POPUP_TIMEOUT_MAX_SECONDS)
+                    if (clamped != poiPopupTimeoutSeconds) {
+                        viewModel.setPoiPopupTimeoutSeconds(clamped)
+                    }
+                },
+            )
         }
     }
 

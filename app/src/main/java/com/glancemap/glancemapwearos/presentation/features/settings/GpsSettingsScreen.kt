@@ -5,10 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,11 +16,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
 
@@ -75,110 +70,92 @@ fun GpsSettingsScreen(
             },
         )
 
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
 
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
-            }
-
-            item {
-                ToggleChip(
-                    checked = isWatchGpsOnly,
-                    onCheckedChanged = { viewModel.setWatchGpsOnly(it) },
-                    label = "GPS Source",
-                    secondaryLabel =
-                        when {
-                            isWatchGpsOnly && !hasFineLocationPermission ->
-                                "Watch Only (enable Precise)"
-                            isWatchGpsOnly -> "Watch Only (more ⚡)"
-                            else -> "Auto (Watch + Phone)"
-                        },
-                    toggleControl = ToggleChipToggleControl.Switch,
-                )
-            }
-
-            item {
-                GpsIntervalSummary(
-                    primaryText = "GPS interval is fixed to 3s while the screen is on.",
-                    secondaryText = "This keeps walking motion smooth without pushing battery too hard.",
-                )
-            }
-
-            if (gpsDebugTelemetry) {
-                item {
-                    ToggleChip(
-                        checked = gpsPassiveLocationExperiment,
-                        onCheckedChanged = { viewModel.setGpsPassiveLocationExperiment(it) },
-                        label = "Use GPS from other apps",
-                        secondaryLabel =
-                            if (gpsPassiveLocationExperiment) {
-                                "On during capture"
-                            } else {
-                                "Off during capture"
-                            },
-                        toggleControl = ToggleChipToggleControl.Switch,
-                    )
-                }
-            }
-
-            item {
-                ToggleChip(
-                    checked = gpsInAmbientMode,
-                    onCheckedChanged = { enable ->
-                        if (enable) {
-                            // No background permission. Just ensure foreground location permission exists.
-                            if (hasLocationPermission) {
-                                viewModel.setGpsInAmbientMode(true)
-                            } else {
-                                locationPermissionLauncher.launch(
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION,
-                                    ),
-                                )
-                            }
-                        } else {
-                            viewModel.setGpsInAmbientMode(false)
-                        }
+        item {
+            ToggleChip(
+                checked = isWatchGpsOnly,
+                onCheckedChanged = { viewModel.setWatchGpsOnly(it) },
+                label = "GPS Source",
+                secondaryLabel =
+                    when {
+                        isWatchGpsOnly && !hasFineLocationPermission ->
+                            "Watch Only (enable Precise)"
+                        isWatchGpsOnly -> "Watch Only (more ⚡)"
+                        else -> "Auto (Watch + Phone)"
                     },
-                    label = "GPS AOD/Screen Off",
+                toggleControl = ToggleChipToggleControl.Switch,
+            )
+        }
+
+        item {
+            GpsIntervalSummary(
+                primaryText = "GPS interval is fixed to 3s while the screen is on.",
+                secondaryText = "This keeps walking motion smooth without pushing battery too hard.",
+            )
+        }
+
+        if (gpsDebugTelemetry) {
+            item {
+                ToggleChip(
+                    checked = gpsPassiveLocationExperiment,
+                    onCheckedChanged = { viewModel.setGpsPassiveLocationExperiment(it) },
+                    label = "Use GPS from other apps",
                     secondaryLabel =
-                        when {
-                            gpsInAmbientMode && hasLocationPermission -> "On (more ⚡)"
-                            gpsInAmbientMode && !hasLocationPermission -> "Needs location permission"
-                            else -> "Off (saves battery)"
+                        if (gpsPassiveLocationExperiment) {
+                            "On during capture"
+                        } else {
+                            "Off during capture"
                         },
                     toggleControl = ToggleChipToggleControl.Switch,
                 )
             }
+        }
 
-            item {
-                GpsIntervalSummary(
-                    primaryText = "AOD/Screen Off uses a fixed 60s interval when enabled.",
-                    secondaryText =
-                        if (gpsInAmbientMode) {
-                            "Ambient updates stay available, but at a battery-friendly pace."
+        item {
+            ToggleChip(
+                checked = gpsInAmbientMode,
+                onCheckedChanged = { enable ->
+                    if (enable) {
+                        // No background permission. Just ensure foreground location permission exists.
+                        if (hasLocationPermission) {
+                            viewModel.setGpsInAmbientMode(true)
                         } else {
-                            "Turn on AOD/Screen Off above if you want background location updates."
-                        },
-                )
-            }
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                                ),
+                            )
+                        }
+                    } else {
+                        viewModel.setGpsInAmbientMode(false)
+                    }
+                },
+                label = "GPS AOD/Screen Off",
+                secondaryLabel =
+                    when {
+                        gpsInAmbientMode && hasLocationPermission -> "On (more ⚡)"
+                        gpsInAmbientMode && !hasLocationPermission -> "Needs location permission"
+                        else -> "Off (saves battery)"
+                    },
+                toggleControl = ToggleChipToggleControl.Switch,
+            )
+        }
+
+        item {
+            GpsIntervalSummary(
+                primaryText = "AOD/Screen Off uses a fixed 60s interval when enabled.",
+                secondaryText =
+                    if (gpsInAmbientMode) {
+                        "Ambient updates stay available, but at a battery-friendly pace."
+                    } else {
+                        "Turn on AOD/Screen Off above if you want background location updates."
+                    },
+            )
         }
     }
 }

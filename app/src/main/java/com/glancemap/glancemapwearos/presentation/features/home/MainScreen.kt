@@ -60,6 +60,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.SettingsView
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenEdgeScrollIndicator
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import kotlinx.coroutines.delay
@@ -338,15 +339,18 @@ private fun GpsStatusOverlay(
             modifier
                 .background(
                     color = Color.Black.copy(alpha = 0.88f),
-                    shape = RoundedCornerShape(14.dp),
-                ).padding(horizontal = 14.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ).padding(horizontal = 10.dp, vertical = 6.dp),
     ) {
-        Text(
-            text = message,
-            color = Color.White,
-            maxLines = 2,
-            textAlign = TextAlign.Center,
-        )
+        cappedFontScale(maxFontScale = 1.1f) {
+            Text(
+                text = message,
+                color = Color.White,
+                maxLines = 1,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleSmall,
+            )
+        }
     }
 }
 

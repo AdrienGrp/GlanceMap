@@ -1,8 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.Composable
@@ -16,22 +14,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material.Icon
-import androidx.wear.compose.material3.AlertDialog
-import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.sensors.CompassHeadingSourceMode
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
+import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.material.Chip
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -45,7 +44,6 @@ fun CompassSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val adaptive = rememberWearAdaptiveSpec()
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     var showCalibrationDialog by remember { mutableStateOf(false) }
     var showCompassModePicker by remember { mutableStateOf(false) }
     var showProviderPicker by remember { mutableStateOf(false) }
@@ -318,132 +316,117 @@ fun CompassSettingsScreen(
         }
     }
 
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-        ) {
-            item { GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings) }
+    WearSettingsListScreen(listTokens = listTokens) {
+        item { GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings) }
+        item {
+            SettingsPickerChip(
+                label = "Orientation provider",
+                secondaryLabel =
+                    compassProviderStatusLabel(
+                        requestedMode = compassProviderModeSetting,
+                        activeProviderType = activeProviderType,
+                    ),
+                onClick = { showProviderPicker = true },
+            )
+        }
+        item {
+            SettingsPickerChip(
+                label = "North mode",
+                secondaryLabel =
+                    northReferenceStatusSecondaryLabel(
+                        requestedMode = northReferenceMode,
+                        status = northReferenceStatus,
+                    ),
+                onClick = { showNorthModePicker = true },
+            )
+        }
+        if (showSensorControls) {
             item {
-                SettingsPickerChip(
-                    label = "Orientation provider",
-                    secondaryLabel =
-                        compassProviderStatusLabel(
-                            requestedMode = compassProviderModeSetting,
-                            activeProviderType = activeProviderType,
-                        ),
-                    onClick = { showProviderPicker = true },
+                Text(
+                    "Setup",
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
             item {
                 SettingsPickerChip(
-                    label = "North mode",
-                    secondaryLabel =
-                        northReferenceStatusSecondaryLabel(
-                            requestedMode = northReferenceMode,
-                            status = northReferenceStatus,
-                        ),
-                    onClick = { showNorthModePicker = true },
+                    label = "Compass mode",
+                    secondaryLabel = compassSettingsModeLabel(compassSettingsMode),
+                    onClick = { showCompassModePicker = true },
                 )
             }
-            if (showSensorControls) {
+            if (showCompassConeAccuracyColorsSetting) {
                 item {
-                    Text(
-                        "Setup",
-                        style = MaterialTheme.typography.titleMedium,
+                    SettingsToggleChip(
+                        checked = compassConeAccuracyColorsEnabled,
+                        onCheckedChanged = { viewModel.setCompassConeAccuracyColorsEnabled(it) },
+                        label = "▽ Accuracy colors",
+                        secondaryLabel = "If off, cone stays green",
+                    )
+                }
+            }
+            item {
+                Text("Custom compass", style = MaterialTheme.typography.titleMedium)
+            }
+            item {
+                Chip(
+                    label = "Recalibrate Compass",
+                    onClick = { showCalibrationDialog = true },
+                )
+            }
+            item {
+                SettingsToggleChip(
+                    checked = promptForCalibration,
+                    onCheckedChanged = { viewModel.setPromptForCalibration(it) },
+                    label = calibrationAlertsLabel,
+                    secondaryLabel = calibrationAlertsSecondary,
+                )
+            }
+            item {
+                Chip(
+                    label = "Run source test",
+                    secondaryLabel = "Checks still + turn response",
+                    onClick = {
+                        compatibilityState = CompatibilityTestUiState()
+                        compatibilityRunToken += 1
+                        showCompatibilityDialog = true
+                    },
+                )
+            }
+            item {
+                Text("Advanced", style = MaterialTheme.typography.titleMedium)
+            }
+            item {
+                SettingsSectionChip(
+                    label = "Advanced options",
+                    onClick = { showAdvancedSection = !showAdvancedSection },
+                )
+            }
+            if (showAdvancedSection) {
+                item {
+                    SensorStatusPanel(
+                        status = headingSourceStatus,
+                        northReferenceStatus = northReferenceStatus,
                     )
                 }
                 item {
                     SettingsPickerChip(
-                        label = "Compass mode",
-                        secondaryLabel = compassSettingsModeLabel(compassSettingsMode),
-                        onClick = { showCompassModePicker = true },
+                        label = "Heading source",
+                        secondaryLabel = headingSourceModeLabel(headingSourceModeSetting),
+                        onClick = { showHeadingSourcePicker = true },
                     )
-                }
-                if (showCompassConeAccuracyColorsSetting) {
-                    item {
-                        SettingsToggleChip(
-                            checked = compassConeAccuracyColorsEnabled,
-                            onCheckedChanged = { viewModel.setCompassConeAccuracyColorsEnabled(it) },
-                            label = "▽ Accuracy colors",
-                            secondaryLabel = "If off, cone stays green",
-                        )
-                    }
-                }
-                item {
-                    Text("Custom compass", style = MaterialTheme.typography.titleMedium)
-                }
-                item {
-                    Chip(
-                        label = "Recalibrate Compass",
-                        onClick = { showCalibrationDialog = true },
-                    )
-                }
-                item {
-                    SettingsToggleChip(
-                        checked = promptForCalibration,
-                        onCheckedChanged = { viewModel.setPromptForCalibration(it) },
-                        label = calibrationAlertsLabel,
-                        secondaryLabel = calibrationAlertsSecondary,
-                    )
-                }
-                item {
-                    Chip(
-                        label = "Run source test",
-                        secondaryLabel = "Checks still + turn response",
-                        onClick = {
-                            compatibilityState = CompatibilityTestUiState()
-                            compatibilityRunToken += 1
-                            showCompatibilityDialog = true
-                        },
-                    )
-                }
-                item {
-                    Text("Advanced", style = MaterialTheme.typography.titleMedium)
-                }
-                item {
-                    SettingsSectionChip(
-                        label = "Advanced options",
-                        onClick = { showAdvancedSection = !showAdvancedSection },
-                    )
-                }
-                if (showAdvancedSection) {
-                    item {
-                        SensorStatusPanel(
-                            status = headingSourceStatus,
-                            northReferenceStatus = northReferenceStatus,
-                        )
-                    }
-                    item {
-                        SettingsPickerChip(
-                            label = "Heading source",
-                            secondaryLabel = headingSourceModeLabel(headingSourceModeSetting),
-                            onClick = { showHeadingSourcePicker = true },
-                        )
-                    }
                 }
             }
-            item {
-                Text("Help", style = MaterialTheme.typography.titleMedium)
-            }
-            item {
-                Chip(
-                    label = "Compass help",
-                    secondaryLabel = "How to test compass",
-                    icon = { Icon(imageVector = Icons.Filled.Info, contentDescription = null) },
-                    onClick = { showInfoDialog = true },
-                )
-            }
+        }
+        item {
+            Text("Help", style = MaterialTheme.typography.titleMedium)
+        }
+        item {
+            Chip(
+                label = "Compass help",
+                secondaryLabel = "How to test compass",
+                icon = { Icon(imageVector = Icons.Filled.Info, contentDescription = null) },
+                onClick = { showInfoDialog = true },
+            )
         }
     }
 
@@ -490,94 +473,93 @@ fun CompassSettingsScreen(
         },
     )
 
-    AlertDialog(
-        visible = showCompatibilityDialog,
-        onDismissRequest = {
-            if (!isCompatibilityRunning) {
-                showCompatibilityDialog = false
-                compatibilityState = CompatibilityTestUiState()
-            }
-        },
-        title = { Text("Custom sensor test") },
-        text = {
-            val result = compatibilityState.result
-            val error = compatibilityState.errorMessage
+    if (showCompatibilityDialog) {
+        val result = compatibilityState.result
+        val error = compatibilityState.errorMessage
+        val compatibilityMessage =
             when {
-                isCompatibilityRunning -> {
-                    Text(
-                        "${compatibilityState.progressLabel}\n" +
-                            "Step ${compatibilityState.stepIndex}/${compatibilityState.totalSteps}\n" +
-                            "Follow the on-screen step for best result.",
-                    )
-                }
-                error != null -> {
-                    Text(error)
-                }
-                result != null -> {
-                    Text(
-                        "Recommended custom settings:\n" +
-                            "Compass mode: ${result.recommendedCompassModeLabel()}\n" +
-                            result.recommendedHeadingSourceLine() +
-                            "North mode: Keep True north for maps\n" +
-                            "Magnetic north only if you want to match a magnetic compass.\n\n" +
-                            "This test checks source availability, still-watch stability,\n" +
-                            "and slow turn response.\n" +
-                            "It does not detect true vs magnetic north.\n\n" +
-                            "Results:\n" +
-                            result.candidateSummaryLines(),
-                    )
-                }
-                else -> {
-                    Text("Preparing test...")
-                }
+                isCompatibilityRunning ->
+                    "${compatibilityState.progressLabel}\n" +
+                        "Step ${compatibilityState.stepIndex}/${compatibilityState.totalSteps}\n" +
+                        "Follow the on-screen step for best result."
+                error != null -> error
+                result != null ->
+                    "Recommended custom settings:\n" +
+                        "Compass mode: ${result.recommendedCompassModeLabel()}\n" +
+                        result.recommendedHeadingSourceLine() +
+                        "North mode: Keep True north for maps\n" +
+                        "Magnetic north only if you want to match a magnetic compass.\n\n" +
+                        "This test checks source availability, still-watch stability,\n" +
+                        "and slow turn response.\n" +
+                        "It does not detect true vs magnetic north.\n\n" +
+                        "Results:\n" +
+                        result.candidateSummaryLines()
+                else -> "Preparing test..."
             }
-        },
-        confirmButton = {
-            if (!isCompatibilityRunning && compatibilityState.result != null) {
-                Button(
-                    onClick = {
-                        val recommended =
-                            compatibilityState.result?.recommendedMode
-                                ?: return@Button
-                        when (recommended) {
-                            CompassHeadingSourceMode.AUTO -> {
-                                viewModel.setCompassSettingsMode(SettingsRepository.COMPASS_SETTINGS_MODE_AUTOMATIC)
-                                viewModel.setCompassHeadingSourceMode(
-                                    SettingsRepository.COMPASS_HEADING_SOURCE_AUTO,
-                                )
-                            }
-                            else -> {
-                                viewModel.setCompassSettingsMode(SettingsRepository.COMPASS_SETTINGS_MODE_ADVANCED)
-                                viewModel.setCompassHeadingSourceMode(
-                                    headingSourceSettingFromMode(recommended),
-                                )
-                            }
-                        }
-                        showCompatibilityDialog = false
-                        compatibilityState = CompatibilityTestUiState()
-                    },
-                ) {
-                    Text("Apply")
+        val closeCompatibilityDialog = {
+            showCompatibilityDialog = false
+            compatibilityState = CompatibilityTestUiState()
+        }
+        WearActionDialog(
+            visible = true,
+            title = "Custom sensor test",
+            onDismissRequest = {
+                if (!isCompatibilityRunning) {
+                    closeCompatibilityDialog()
                 }
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = {
-                    showCompatibilityDialog = false
-                    compatibilityState = CompatibilityTestUiState()
+            },
+            buttons =
+                buildList {
+                    if (!isCompatibilityRunning && result != null) {
+                        add(
+                            WearActionDialogButton(
+                                text = "Apply",
+                                onClick = {
+                                    when (result.recommendedMode) {
+                                        CompassHeadingSourceMode.AUTO -> {
+                                            viewModel.setCompassSettingsMode(
+                                                SettingsRepository.COMPASS_SETTINGS_MODE_AUTOMATIC,
+                                            )
+                                            viewModel.setCompassHeadingSourceMode(
+                                                SettingsRepository.COMPASS_HEADING_SOURCE_AUTO,
+                                            )
+                                        }
+                                        else -> {
+                                            viewModel.setCompassSettingsMode(
+                                                SettingsRepository.COMPASS_SETTINGS_MODE_ADVANCED,
+                                            )
+                                            viewModel.setCompassHeadingSourceMode(
+                                                headingSourceSettingFromMode(result.recommendedMode),
+                                            )
+                                        }
+                                    }
+                                    closeCompatibilityDialog()
+                                },
+                            ),
+                        )
+                    }
+                    add(
+                        WearActionDialogButton(
+                            text = if (isCompatibilityRunning) "Cancel" else "Close",
+                            onClick = closeCompatibilityDialog,
+                            role = WearActionButtonRole.Secondary,
+                        ),
+                    )
                 },
-            ) {
-                Text(if (isCompatibilityRunning) "Cancel" else "Close")
-            }
-        },
-    )
+        ) {
+            Text(
+                text = compatibilityMessage,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
 
-    AlertDialog(
+    WearInfoDialog(
         visible = showInfoDialog,
-        onDismissRequest = { showInfoDialog = false },
-        title = { Text("Compass help") },
-        text = {
+        title = "Compass help",
+        onDismiss = { showInfoDialog = false },
+    ) {
+        item {
             Text(
                 "Recommended setup: Google Fused + True north.\n\n" +
                     "Quick test: stand still, face a clear landmark, then switch North-up / Compass.\n" +
@@ -590,12 +572,9 @@ fun CompassSettingsScreen(
                     "Custom mode prefers Rotation vector when available,\n" +
                     "and gives you Recalibrate Compass, source test,\n" +
                     "heading source selection, and accuracy-color options.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
-        },
-        confirmButton = {
-            Button(onClick = { showInfoDialog = false }) {
-                Text("Close")
-            }
-        },
-    )
+        }
+    }
 }

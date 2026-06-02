@@ -1,4 +1,6 @@
-package com.glancemap.glancemapwearos.presentation.features.settings
+@file:Suppress("FunctionName", "LongMethod")
+
+package com.glancemap.glancemapwearos.presentation.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -12,7 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -31,43 +33,40 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import com.glancemap.glancemapwearos.presentation.ui.WearLazyListScreenEdgeScrollIndicator
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.material.ToggleChip
-import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import kotlin.math.abs
 
-private const val PICKER_DRAG_DISMISS_PX = 55f
+private const val INFO_DIALOG_DRAG_DISMISS_PX = 55f
 
-@OptIn(ExperimentalHorologistApi::class)
 @Composable
-internal fun <T> OptionPickerDialog(
+fun WearInfoDialog(
     visible: Boolean,
     title: String,
-    selectedValue: T,
-    options: List<Pair<T, String>>,
     onDismiss: () -> Unit,
-    onSelect: (T) -> Unit,
+    dismissible: Boolean = true,
+    content: LazyListScope.() -> Unit,
 ) {
     if (!visible) return
 
     val adaptive = rememberWearAdaptiveSpec()
     val listState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(visible, title) {
         focusRequester.requestFocus()
     }
 
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (dismissible) {
+                onDismiss()
+            }
+        },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.78f)),
+                    .background(Color.Black.copy(alpha = 0.82f)),
         ) {
             LazyColumn(
                 modifier =
@@ -82,76 +81,70 @@ internal fun <T> OptionPickerDialog(
                 contentPadding =
                     PaddingValues(
                         start = adaptive.dialogHorizontalPadding,
-                        top = adaptive.dialogVerticalPadding + 18.dp,
+                        top = adaptive.dialogVerticalPadding + adaptive.headerTopSafeInset + 18.dp,
                         end = adaptive.dialogHorizontalPadding + 10.dp,
-                        bottom = adaptive.dialogVerticalPadding + 42.dp,
+                        bottom = adaptive.dialogVerticalPadding + if (adaptive.isRound) 42.dp else 18.dp,
                     ),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 userScrollEnabled = true,
             ) {
                 item {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(12.dp)
-                                .pointerInput(Unit) {
-                                    var totalDrag = 0f
-                                    detectVerticalDragGestures(
-                                        onDragEnd = { totalDrag = 0f },
-                                        onDragCancel = { totalDrag = 0f },
-                                    ) { _, dragAmount ->
-                                        totalDrag += dragAmount
-                                        if (totalDrag > PICKER_DRAG_DISMISS_PX) {
-                                            onDismiss()
-                                            totalDrag = 0f
-                                        }
-                                    }
-                                },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .width(26.dp)
-                                    .height(3.dp)
-                                    .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
-                        )
-                    }
+                    InfoDialogDragHandle(
+                        dismissible = dismissible,
+                        onDismiss = onDismiss,
+                    )
                 }
-
                 item {
                     Text(
                         text = title,
-                        textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 6.dp),
                     )
                 }
-
-                items(options) { (value, label) ->
-                    ToggleChip(
-                        modifier = Modifier.fillMaxWidth(),
-                        checked = value == selectedValue,
-                        onCheckedChanged = { checked ->
-                            if (value == selectedValue) {
-                                onDismiss()
-                                return@ToggleChip
-                            }
-                            if (!checked) return@ToggleChip
-                            onSelect(value)
-                            onDismiss()
-                        },
-                        label = label,
-                        toggleControl = ToggleChipToggleControl.Radio,
-                    )
-                }
+                content()
             }
             WearLazyListScreenEdgeScrollIndicator(listState = listState)
         }
+    }
+}
+
+@Composable
+private fun InfoDialogDragHandle(
+    dismissible: Boolean,
+    onDismiss: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .pointerInput(dismissible) {
+                    if (!dismissible) return@pointerInput
+                    var totalDrag = 0f
+                    detectVerticalDragGestures(
+                        onDragEnd = { totalDrag = 0f },
+                        onDragCancel = { totalDrag = 0f },
+                    ) { _, dragAmount ->
+                        totalDrag += dragAmount
+                        if (totalDrag > INFO_DIALOG_DRAG_DISMISS_PX) {
+                            onDismiss()
+                            totalDrag = 0f
+                        }
+                    }
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(26.dp)
+                    .height(3.dp)
+                    .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
+        )
     }
 }

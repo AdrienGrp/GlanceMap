@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming")
+
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
 import androidx.compose.foundation.ScrollState
@@ -8,11 +10,10 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,8 +33,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
@@ -42,7 +41,10 @@ import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
-import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
+import com.glancemap.glancemapwearos.presentation.ui.WearFormDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import org.mapsforge.core.model.LatLong
 
@@ -98,17 +100,6 @@ internal fun RouteToolDraftSummaryDialog(
 ) {
     if (!visible || session == null) return
 
-    val adaptive = rememberWearAdaptiveSpec()
-    val bottomActionSafeInset =
-        if (!adaptive.isRound) {
-            3.dp
-        } else {
-            when (adaptive.screenSize) {
-                WearScreenSize.LARGE -> 11.dp
-                WearScreenSize.MEDIUM -> 13.dp
-                WearScreenSize.SMALL -> 15.dp
-            }
-        }
     val isCreate = session.options.toolKind == RouteToolKind.CREATE
     val isReplaceCurrent = session.options.saveBehavior == RouteSaveBehavior.REPLACE_CURRENT
     val title =
@@ -136,180 +127,90 @@ internal fun RouteToolDraftSummaryDialog(
             }
         }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Color.Black.copy(alpha = 0.86f),
-                        RoundedCornerShape(adaptive.dialogCornerRadius),
-                    ).padding(
-                        horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding,
-                    ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = supportingLine,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.84f),
-                textAlign = TextAlign.Center,
-            )
-
-            when {
-                executionMessage != null -> {
-                    Text(
-                        text = executionMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFFFFCC80),
+    val actionButtons =
+        when {
+            executionMessage != null &&
+                session.options.toolKind == RouteToolKind.CREATE &&
+                loopRetryOptions.isNotEmpty() &&
+                onSelectLoopRetryOption != null ->
+                loopRetryOptions.map { option ->
+                    WearActionDialogButton(
+                        text = option.label,
+                        onClick = { onSelectLoopRetryOption(option) },
+                        enabled = !isExecuting,
                     )
-                }
-
-                isCreate -> {
-                    Text(
-                        text = "Ready to generate the GPX.",
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFFFFCC80),
-                    )
-                }
-
-                else -> {
-                    Text(
-                        text =
-                            if (session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE) {
-                                "Preview the rerouted section, then save."
-                            } else if (isReplaceCurrent) {
-                                "This will replace the active GPX."
-                            } else {
-                                "Ready to save the GPX edit."
-                            },
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFFFFCC80),
-                    )
-                }
-            }
-            when {
-                executionMessage != null &&
-                    session.options.toolKind == RouteToolKind.CREATE &&
-                    loopRetryOptions.isNotEmpty() &&
-                    onSelectLoopRetryOption != null -> {
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = bottomActionSafeInset),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            loopRetryOptions.forEach { option ->
-                                Button(
-                                    onClick = { onSelectLoopRetryOption(option) },
-                                    enabled = !isExecuting,
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(option.label)
-                                }
-                            }
-                        }
-                        Button(
-                            onClick = onDismiss,
-                            modifier = Modifier.fillMaxWidth(0.46f),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                ),
-                        ) {
-                            Text("Back")
-                        }
-                    }
-                }
-
-                session.options.toolKind == RouteToolKind.CREATE && onConfirmCreate != null -> {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = bottomActionSafeInset),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Button(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                ),
-                        ) {
-                            Text("Back")
-                        }
-                        Button(
-                            onClick = onConfirmCreate,
-                            enabled = !isExecuting,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(actionLabel)
-                        }
-                    }
-                }
-
-                session.options.toolKind == RouteToolKind.MODIFY && onConfirmModify != null -> {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = bottomActionSafeInset),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Button(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                ),
-                        ) {
-                            Text("Back")
-                        }
-                        Button(
-                            onClick = onConfirmModify,
-                            enabled = !isExecuting,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(actionLabel)
-                        }
-                    }
-                }
-
-                else -> {
-                    Button(
+                } +
+                    WearActionDialogButton(
+                        text = "Back",
                         onClick = onDismiss,
-                        modifier = Modifier.padding(bottom = bottomActionSafeInset),
-                    ) {
-                        Text("Close")
-                    }
-                }
-            }
+                        role = WearActionButtonRole.Secondary,
+                    )
+
+            session.options.toolKind == RouteToolKind.CREATE && onConfirmCreate != null ->
+                listOf(
+                    WearActionDialogButton(
+                        text = actionLabel,
+                        onClick = onConfirmCreate,
+                        enabled = !isExecuting,
+                    ),
+                    WearActionDialogButton(
+                        text = "Back",
+                        onClick = onDismiss,
+                        role = WearActionButtonRole.Secondary,
+                    ),
+                )
+
+            session.options.toolKind == RouteToolKind.MODIFY && onConfirmModify != null ->
+                listOf(
+                    WearActionDialogButton(
+                        text = actionLabel,
+                        onClick = onConfirmModify,
+                        enabled = !isExecuting,
+                    ),
+                    WearActionDialogButton(
+                        text = "Back",
+                        onClick = onDismiss,
+                        role = WearActionButtonRole.Secondary,
+                    ),
+                )
+
+            else ->
+                listOf(
+                    WearActionDialogButton(
+                        text = "Close",
+                        onClick = onDismiss,
+                    ),
+                )
         }
+
+    WearActionDialog(
+        visible = true,
+        title = title,
+        onDismissRequest = onDismiss,
+        backgroundColor = Color.Black.copy(alpha = 0.92f),
+        buttons = actionButtons,
+    ) {
+        Text(
+            text = supportingLine,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.84f),
+            textAlign = TextAlign.Center,
+        )
+
+        Text(
+            text =
+                when {
+                    executionMessage != null -> executionMessage
+                    isCreate -> "Ready to generate the GPX."
+                    session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE ->
+                        "Preview the rerouted section, then save."
+                    isReplaceCurrent -> "This will replace the active GPX."
+                    else -> "Ready to save the GPX edit."
+                },
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFFFCC80),
+        )
     }
 }
 
@@ -318,6 +219,28 @@ internal fun RouteToolKindSelector(
     selected: RouteToolKind,
     onSelected: (RouteToolKind) -> Unit,
 ) {
+    val adaptive = rememberWearAdaptiveSpec()
+    if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RouteSegmentButton(
+                modifier = Modifier.fillMaxWidth(),
+                text = RouteToolKind.CREATE.title,
+                selected = selected == RouteToolKind.CREATE,
+                onClick = { onSelected(RouteToolKind.CREATE) },
+            )
+            RouteSegmentButton(
+                modifier = Modifier.fillMaxWidth(),
+                text = RouteToolKind.MODIFY.title,
+                selected = selected == RouteToolKind.MODIFY,
+                onClick = { onSelected(RouteToolKind.MODIFY) },
+            )
+        }
+        return
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -746,120 +669,88 @@ internal fun CoordinateEntryDialog(
 ) {
     if (!visible) return
 
-    val adaptive = rememberWearAdaptiveSpec()
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.62f))
-                    .padding(horizontal = 18.dp),
-            contentAlignment = Alignment.Center,
+    WearFormDialog(
+        visible = true,
+        title = "Coordinates",
+        onDismiss = onDismiss,
+        backgroundColor = Color.Black.copy(alpha = 0.92f),
+    ) { formTokens ->
+        CoordinateValueEditorRow(
+            label = "Lat",
+            value = latitude,
+            onDecrease = { onLatitudeChange(latitude - step.delta) },
+            onIncrease = { onLatitudeChange(latitude + step.delta) },
+            modifier = formTokens.controlModifier,
+        )
+        CoordinateValueEditorRow(
+            label = "Lon",
+            value = longitude,
+            onDecrease = { onLongitudeChange(longitude - step.delta) },
+            onIncrease = { onLongitudeChange(longitude + step.delta) },
+            modifier = formTokens.controlModifier,
+        )
+        Row(
+            modifier = formTokens.controlModifier,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Color(0xFF141414).copy(alpha = 0.98f),
-                            RoundedCornerShape(adaptive.dialogCornerRadius),
-                        ).padding(
-                            horizontal = adaptive.dialogHorizontalPadding,
-                            vertical = adaptive.dialogVerticalPadding,
-                        ),
+                modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(
-                    text = "Coordinates",
-                    style = MaterialTheme.typography.titleSmall,
-                    textAlign = TextAlign.Center,
-                )
-                CoordinateValueEditorRow(
-                    label = "Lat",
-                    value = latitude,
-                    onDecrease = { onLatitudeChange(latitude - step.delta) },
-                    onIncrease = { onLatitudeChange(latitude + step.delta) },
-                )
-                CoordinateValueEditorRow(
-                    label = "Lon",
-                    value = longitude,
-                    onDecrease = { onLongitudeChange(longitude - step.delta) },
-                    onIncrease = { onLongitudeChange(longitude + step.delta) },
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(
-                        onClick = { onStepChange(step.previous()) },
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.White.copy(alpha = 0.14f),
-                                contentColor = Color.White,
-                            ),
-                    ) {
-                        Icon(Icons.Default.Remove, contentDescription = "Decrease coordinate step")
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text("Step", style = MaterialTheme.typography.labelMedium)
-                        Text(step.label, style = MaterialTheme.typography.bodySmall)
-                    }
-                    IconButton(
-                        onClick = { onStepChange(step.next()) },
-                        colors =
-                            IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.White.copy(alpha = 0.14f),
-                                contentColor = Color.White,
-                            ),
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Increase coordinate step")
-                    }
-                }
-                if (hasSeed) {
-                    Button(
-                        onClick = onUseSeed,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = Color.White.copy(alpha = 0.10f),
-                                contentColor = Color.White,
-                            ),
-                    ) {
-                        Text("Use map center")
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            ),
-                    ) {
-                        Text("Cancel")
-                    }
-                    Button(
-                        onClick = onConfirm,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("Done")
-                    }
-                }
+                Text("Step", style = MaterialTheme.typography.labelMedium)
+                Text(step.label, style = MaterialTheme.typography.bodySmall)
             }
+            IconButton(
+                onClick = { onStepChange(step.previous()) },
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.14f),
+                        contentColor = Color.White,
+                    ),
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "Decrease coordinate step")
+            }
+            IconButton(
+                onClick = { onStepChange(step.next()) },
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.14f),
+                        contentColor = Color.White,
+                    ),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Increase coordinate step")
+            }
+        }
+        if (hasSeed) {
+            Button(
+                onClick = onUseSeed,
+                modifier = formTokens.controlModifier.heightIn(min = formTokens.buttonMinHeight),
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.10f),
+                        contentColor = Color.White,
+                    ),
+            ) {
+                Text("Use map center")
+            }
+        }
+        Button(
+            onClick = onConfirm,
+            modifier = formTokens.controlModifier.heightIn(min = formTokens.buttonMinHeight),
+        ) {
+            Text("Done")
+        }
+        Button(
+            onClick = onDismiss,
+            modifier = formTokens.controlModifier.heightIn(min = formTokens.buttonMinHeight),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+        ) {
+            Text("Cancel")
         }
     }
 }
@@ -870,9 +761,10 @@ internal fun CoordinateValueEditorRow(
     value: Double,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

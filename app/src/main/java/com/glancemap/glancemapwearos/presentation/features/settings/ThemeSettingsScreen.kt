@@ -3,10 +3,7 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
@@ -24,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
@@ -34,8 +30,6 @@ import com.glancemap.glancemapwearos.domain.model.maps.theme.ThemeListItem
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import java.util.Locale
 
 internal object ThemeOverlayGrouping {
@@ -140,7 +134,6 @@ private data class OsMapStyleUi(
     val variantOptions: List<Pair<String, String>>,
 )
 
-@OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun ThemeSettingsScreen(
     themeViewModel: ThemeViewModel,
@@ -151,7 +144,6 @@ fun ThemeSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val themeItems by themeViewModel.themeItems.collectAsState()
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
     var showThemePicker by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
@@ -222,167 +214,151 @@ fun ThemeSettingsScreen(
             buildOverlayRows(overlayGroups, expandedGroups)
         }
 
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
-            }
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
 
-            item {
-                Button(onClick = { themeViewModel.resetToDefaults() }) {
-                    Text(
-                        text = "Reset defaults",
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
-            }
-
-            item {
-                SettingsToggleChip(
-                    checked = nightModeToggle?.enabled == true,
-                    onCheckedChanged = { enabled ->
-                        themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_NIGHT_MODE_ID, enabled)
-                    },
-                    label = "Night mode",
-                    secondaryLabel = if (nightModeToggle?.enabled == true) "On" else "Off",
+        item {
+            Button(onClick = { themeViewModel.resetToDefaults() }) {
+                Text(
+                    text = "Reset defaults",
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
             }
+        }
 
-            if (nightModeToggle?.enabled == true) {
+        item {
+            SettingsToggleChip(
+                checked = nightModeToggle?.enabled == true,
+                onCheckedChanged = { enabled ->
+                    themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_NIGHT_MODE_ID, enabled)
+                },
+                label = "Night mode",
+                secondaryLabel = if (nightModeToggle?.enabled == true) "On" else "Off",
+            )
+        }
+
+        if (nightModeToggle?.enabled == true) {
+            item {
+                Text(
+                    text =
+                        "Night mode uses Mapsforge Dark. Your normal theme and overlay choices " +
+                            "are saved and return when it is off.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+            }
+        } else if (themeOptions.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Theme",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+            }
+            item {
+                SettingsPickerChip(
+                    label = "Map theme",
+                    secondaryLabel = selectedTheme?.name?.ifBlank { selectedTheme.id } ?: "-",
+                    iconImageVector = Icons.Filled.UnfoldMore,
+                    onClick = { showThemePicker = true },
+                )
+            }
+        }
+
+        if (nightModeToggle?.enabled != true && styleSelectionAvailable) {
+            if (osMapStyleUi != null) {
                 item {
-                    Text(
-                        text =
-                            "Night mode uses Mapsforge Dark. Your normal theme and overlay choices " +
-                                "are saved and return when it is off.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
+                    SettingsPickerChip(
+                        label = "Mode",
+                        secondaryLabel = osMapStyleUi.selectedModeLabel,
+                        iconImageVector = Icons.Filled.UnfoldMore,
+                        onClick = { showOsMapModePicker = true },
                     )
                 }
-            } else if (themeOptions.isNotEmpty()) {
                 item {
-                    Text(
-                        text = "Theme",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.22f)),
                     )
                 }
                 item {
                     SettingsPickerChip(
-                        label = "Map theme",
-                        secondaryLabel = selectedTheme?.name?.ifBlank { selectedTheme.id } ?: "-",
+                        label = "Map style",
+                        secondaryLabel = osMapStyleUi.selectedVariantLabel,
                         iconImageVector = Icons.Filled.UnfoldMore,
-                        onClick = { showThemePicker = true },
+                        onClick = { showOsMapVariantPicker = true },
                     )
                 }
-            }
-
-            if (nightModeToggle?.enabled != true && styleSelectionAvailable) {
-                if (osMapStyleUi != null) {
-                    item {
-                        SettingsPickerChip(
-                            label = "Mode",
-                            secondaryLabel = osMapStyleUi.selectedModeLabel,
-                            iconImageVector = Icons.Filled.UnfoldMore,
-                            onClick = { showOsMapModePicker = true },
-                        )
-                    }
-                    item {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.22f)),
-                        )
-                    }
-                    item {
-                        SettingsPickerChip(
-                            label = "Map style",
-                            secondaryLabel = osMapStyleUi.selectedVariantLabel,
-                            iconImageVector = Icons.Filled.UnfoldMore,
-                            onClick = { showOsMapVariantPicker = true },
-                        )
-                    }
-                } else {
-                    item {
-                        SettingsPickerChip(
-                            label = "Style",
-                            secondaryLabel = selectedStyle?.name?.ifBlank { selectedStyle.id } ?: "-",
-                            iconImageVector = Icons.Filled.UnfoldMore,
-                            onClick = { showStylePicker = true },
-                        )
-                    }
-                }
-            }
-
-            if (nightModeToggle?.enabled != true && themeOptions.isNotEmpty()) {
+            } else {
                 item {
-                    Text(
-                        text = "Themes can misread terrain or paths. Verify with local conditions and other sources.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
+                    SettingsPickerChip(
+                        label = "Style",
+                        secondaryLabel = selectedStyle?.name?.ifBlank { selectedStyle.id } ?: "-",
+                        iconImageVector = Icons.Filled.UnfoldMore,
+                        onClick = { showStylePicker = true },
                     )
                 }
             }
+        }
 
-            if (nightModeToggle?.enabled != true && bundledThemeSelected && overlayOptions.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Overlays (tap group to open)",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                    )
-                }
-                items(overlayRows) { row ->
-                    when (row) {
-                        is OverlayRow.Group -> {
-                            val enabledCount = row.group.overlays.count { it.enabled }
-                            val totalCount = row.group.overlays.size
-                            SettingsPickerChip(
-                                label = if (row.expanded) "▾ ${row.group.title}" else "▸ ${row.group.title}",
-                                secondaryLabel = "$enabledCount/$totalCount",
-                                iconImageVector = null,
-                                onClick = {
-                                    expandedGroups[row.group.id] = !row.expanded
-                                },
-                            )
-                        }
+        if (nightModeToggle?.enabled != true && themeOptions.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Themes can misread terrain or paths. Verify with local conditions and other sources.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
 
-                        is OverlayRow.Item -> {
-                            SettingsToggleChip(
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = canToggleOverlays,
-                                checked = row.overlay.enabled,
-                                onCheckedChanged = { _ ->
-                                    if (canToggleOverlays) {
-                                        themeViewModel.toggleOverlay(row.overlay.layerId)
-                                    }
-                                },
-                                label = row.overlay.name.ifBlank { row.overlay.layerId },
-                            )
-                        }
+        if (nightModeToggle?.enabled != true && bundledThemeSelected && overlayOptions.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Overlays (tap group to open)",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+            }
+            items(overlayRows) { row ->
+                when (row) {
+                    is OverlayRow.Group -> {
+                        val enabledCount = row.group.overlays.count { it.enabled }
+                        val totalCount = row.group.overlays.size
+                        SettingsPickerChip(
+                            label = if (row.expanded) "▾ ${row.group.title}" else "▸ ${row.group.title}",
+                            secondaryLabel = "$enabledCount/$totalCount",
+                            iconImageVector = null,
+                            onClick = {
+                                expandedGroups[row.group.id] = !row.expanded
+                            },
+                        )
+                    }
+
+                    is OverlayRow.Item -> {
+                        SettingsToggleChip(
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = canToggleOverlays,
+                            checked = row.overlay.enabled,
+                            onCheckedChanged = { _ ->
+                                if (canToggleOverlays) {
+                                    themeViewModel.toggleOverlay(row.overlay.layerId)
+                                }
+                            },
+                            label = row.overlay.name.ifBlank { row.overlay.layerId },
+                        )
                     }
                 }
             }

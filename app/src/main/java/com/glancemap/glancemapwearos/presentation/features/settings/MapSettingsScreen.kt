@@ -1,9 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -14,7 +11,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavHostController
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
@@ -27,7 +23,6 @@ import com.glancemap.glancemapwearos.presentation.features.maps.DemSetupReason
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalHorologistApi::class)
@@ -83,8 +78,6 @@ fun MapSettingsScreen(
         }
     val reliefOverlaySecondaryLabel = if (reliefOverlayEnabled) "On" else "Off"
 
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
-
     DemSetupBottomSheet(
         visible = showDemSetupDialog,
         reason = demSetupReason,
@@ -94,154 +87,138 @@ fun MapSettingsScreen(
         },
     )
 
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
-            }
-            item {
-                SettingsPickerChip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Position marker",
-                    iconImageVector = Icons.Filled.UnfoldMore,
-                    secondaryLabel =
-                        if (navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) {
-                            "Bottom"
-                        } else {
-                            "Middle"
-                        },
-                    onClick = { showMarkerPositionPicker = true },
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = autoRecenterEnabled,
-                    onCheckedChanged = {
-                        viewModel.setAutoRecenterEnabled(it)
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
+        item {
+            SettingsPickerChip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Position marker",
+                iconImageVector = Icons.Filled.UnfoldMore,
+                secondaryLabel =
+                    if (navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) {
+                        "Bottom"
+                    } else {
+                        "Middle"
                     },
-                    label = "Auto recenter",
-                )
-            }
-            if (autoRecenterEnabled) {
-                item {
-                    RecenterDelaySetting(autoRecenterDelay) { newDelay ->
-                        viewModel.setAutoRecenterDelay(newDelay)
-                    }
+                onClick = { showMarkerPositionPicker = true },
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = autoRecenterEnabled,
+                onCheckedChanged = {
+                    viewModel.setAutoRecenterEnabled(it)
+                },
+                label = "Auto recenter",
+            )
+        }
+        if (autoRecenterEnabled) {
+            item {
+                RecenterDelaySetting(autoRecenterDelay) { newDelay ->
+                    viewModel.setAutoRecenterDelay(newDelay)
                 }
             }
-            item {
-                SettingsToggleChip(
-                    checked = liveElevation,
-                    onCheckedChanged = { enabled ->
-                        if (!enabled) {
-                            viewModel.setLiveElevation(false)
-                        } else {
-                            scope.launch {
-                                val demReady = themeViewModel.isDemReadyForMap(selectedMapPath)
-                                if (demReady) {
-                                    viewModel.setLiveElevation(true)
-                                } else {
-                                    viewModel.setLiveElevation(false)
-                                    demSetupReason = DemSetupReason.LIVE_ELEVATION
-                                    showDemSetupDialog = true
-                                }
+        }
+        item {
+            SettingsToggleChip(
+                checked = liveElevation,
+                onCheckedChanged = { enabled ->
+                    if (!enabled) {
+                        viewModel.setLiveElevation(false)
+                    } else {
+                        scope.launch {
+                            val demReady = themeViewModel.isDemReadyForMap(selectedMapPath)
+                            if (demReady) {
+                                viewModel.setLiveElevation(true)
+                            } else {
+                                viewModel.setLiveElevation(false)
+                                demSetupReason = DemSetupReason.LIVE_ELEVATION
+                                showDemSetupDialog = true
                             }
                         }
-                    },
-                    label = "Live elevation",
-                    secondaryLabel = if (liveElevation) "On" else "Off",
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = liveDistance,
-                    onCheckedChanged = { viewModel.setLiveDistance(it) },
-                    label = "Live distance",
-                    secondaryLabel = if (liveDistance) "On" else "Off",
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = hillShadingChecked,
-                    enabled = hillShadingSupported,
-                    onCheckedChanged = { enabled ->
-                        if (!enabled) {
-                            themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, false)
-                        } else {
-                            scope.launch {
-                                val demReady = themeViewModel.isDemReadyForMap(selectedMapPath)
-                                if (demReady) {
-                                    themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, true)
-                                } else {
-                                    themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, false)
-                                    demSetupReason = DemSetupReason.HILL_SHADING
-                                    showDemSetupDialog = true
-                                }
+                    }
+                },
+                label = "Live elevation",
+                secondaryLabel = if (liveElevation) "On" else "Off",
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = liveDistance,
+                onCheckedChanged = { viewModel.setLiveDistance(it) },
+                label = "Live distance",
+                secondaryLabel = if (liveDistance) "On" else "Off",
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = hillShadingChecked,
+                enabled = hillShadingSupported,
+                onCheckedChanged = { enabled ->
+                    if (!enabled) {
+                        themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, false)
+                    } else {
+                        scope.launch {
+                            val demReady = themeViewModel.isDemReadyForMap(selectedMapPath)
+                            if (demReady) {
+                                themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, true)
+                            } else {
+                                themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_HILL_SHADING_ID, false)
+                                demSetupReason = DemSetupReason.HILL_SHADING
+                                showDemSetupDialog = true
                             }
                         }
-                    },
-                    label = "Hill shading",
-                    secondaryLabel = hillShadingSecondaryLabel,
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = reliefOverlayEnabled,
-                    onCheckedChanged = { enabled ->
-                        if (!enabled) {
-                            themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, false)
-                        } else {
-                            scope.launch {
-                                val demReady = themeViewModel.isDemReadyForMap(selectedMapPath)
-                                if (demReady) {
-                                    themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, true)
-                                } else {
-                                    themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, false)
-                                    demSetupReason = DemSetupReason.SLOPE_OVERLAY
-                                    showDemSetupDialog = true
-                                }
+                    }
+                },
+                label = "Hill shading",
+                secondaryLabel = hillShadingSecondaryLabel,
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = reliefOverlayEnabled,
+                onCheckedChanged = { enabled ->
+                    if (!enabled) {
+                        themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, false)
+                    } else {
+                        scope.launch {
+                            val demReady = themeViewModel.isDemReadyForMap(selectedMapPath)
+                            if (demReady) {
+                                themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, true)
+                            } else {
+                                themeViewModel.setGlobalToggle(ThemeRepositoryImpl.GLOBAL_RELIEF_OVERLAY_ID, false)
+                                demSetupReason = DemSetupReason.SLOPE_OVERLAY
+                                showDemSetupDialog = true
                             }
                         }
-                    },
-                    label = "Slope overlay",
-                    secondaryLabel = reliefOverlaySecondaryLabel,
-                )
-            }
-            item {
-                SettingsSectionChip(
-                    label = "Theme",
-                    secondaryLabel = "Open theme settings",
-                    onClick = { navController.navigate(WatchRoutes.THEME_SETTINGS) },
-                )
-            }
-            item {
-                SettingsSectionChip(
-                    label = "Display",
-                    secondaryLabel = "Open display settings",
-                    onClick = { navController.navigate(WatchRoutes.MAP_DISPLAY_SETTINGS) },
-                )
-            }
-            item {
-                SettingsSectionChip(
-                    label = "Zoom",
-                    secondaryLabel = "Open zoom settings",
-                    onClick = { navController.navigate(WatchRoutes.MAP_ZOOM_SETTINGS) },
-                )
-            }
+                    }
+                },
+                label = "Slope overlay",
+                secondaryLabel = reliefOverlaySecondaryLabel,
+            )
+        }
+        item {
+            SettingsSectionChip(
+                label = "Theme",
+                secondaryLabel = "Open theme settings",
+                onClick = { navController.navigate(WatchRoutes.THEME_SETTINGS) },
+            )
+        }
+        item {
+            SettingsSectionChip(
+                label = "Display",
+                secondaryLabel = "Open display settings",
+                onClick = { navController.navigate(WatchRoutes.MAP_DISPLAY_SETTINGS) },
+            )
+        }
+        item {
+            SettingsSectionChip(
+                label = "Zoom",
+                secondaryLabel = "Open zoom settings",
+                onClick = { navController.navigate(WatchRoutes.MAP_ZOOM_SETTINGS) },
+            )
         }
     }
 

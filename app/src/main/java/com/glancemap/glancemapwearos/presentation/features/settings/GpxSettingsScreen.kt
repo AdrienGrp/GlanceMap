@@ -6,9 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,7 +30,6 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
@@ -44,7 +41,6 @@ import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import kotlin.math.roundToInt
 
 private const val KMPH_TO_MPS = 1f / 3.6f
@@ -90,7 +86,6 @@ fun GpxSettingsScreen(
             Color.Red,
         )
 
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val groupSpacing =
         when (screenSize) {
             WearScreenSize.LARGE -> 8.dp
@@ -121,339 +116,323 @@ fun GpxSettingsScreen(
             WearScreenSize.MEDIUM -> 3.dp
             WearScreenSize.SMALL -> 2.dp
         }
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
-            }
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
 
-            item {
-                SettingsToggleChip(
-                    checked = isGpxInspectionEnabled,
-                    onCheckedChanged = { viewModel.setGpxInspectionEnabled(it) },
-                    label = "Route Analyzer",
-                    secondaryLabel = "Long press on track",
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                FlatSpeedSetting(
-                    speedMps = gpxFlatSpeedMps,
-                    isMetric = isMetric,
-                    onSpeedChange = viewModel::setGpxFlatSpeedMps,
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = gpxAdvancedEtaEnabled,
-                    onCheckedChanged = viewModel::setGpxAdvancedEtaEnabled,
-                    label = "Advanced ETA",
-                    secondaryLabel =
-                        if (gpxAdvancedEtaEnabled) {
-                            "Use uphill/downhill rates"
-                        } else {
-                            "Flat speed only"
-                        },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            if (gpxAdvancedEtaEnabled) {
-                item {
-                    AdjustableElevationFilterSetting(
-                        label = "Uphill Rate",
-                        valueText =
-                            formatVerticalRate(
-                                metersPerHour = gpxUphillVerticalMetersPerHour,
-                                isMetric = isMetric,
-                            ),
-                        canDecrease =
-                            gpxUphillVerticalMetersPerHour >
-                                SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
-                        canIncrease =
-                            gpxUphillVerticalMetersPerHour <
-                                SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR,
-                        onDecrease = {
-                            viewModel.setGpxUphillVerticalMetersPerHour(
-                                stepVerticalRateMetersPerHour(
-                                    currentMetersPerHour = gpxUphillVerticalMetersPerHour,
-                                    isMetric = isMetric,
-                                    increase = false,
-                                    minMetersPerHour = SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
-                                    maxMetersPerHour = SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR,
-                                ),
-                            )
-                        },
-                        onIncrease = {
-                            viewModel.setGpxUphillVerticalMetersPerHour(
-                                stepVerticalRateMetersPerHour(
-                                    currentMetersPerHour = gpxUphillVerticalMetersPerHour,
-                                    isMetric = isMetric,
-                                    increase = true,
-                                    minMetersPerHour = SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
-                                    maxMetersPerHour = SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR,
-                                ),
-                            )
-                        },
-                    )
-                }
-                item {
-                    AdjustableElevationFilterSetting(
-                        label = "Downhill Rate",
-                        valueText =
-                            formatVerticalRate(
-                                metersPerHour = gpxDownhillVerticalMetersPerHour,
-                                isMetric = isMetric,
-                            ),
-                        canDecrease =
-                            gpxDownhillVerticalMetersPerHour >
-                                SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
-                        canIncrease =
-                            gpxDownhillVerticalMetersPerHour <
-                                SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
-                        onDecrease = {
-                            viewModel.setGpxDownhillVerticalMetersPerHour(
-                                stepVerticalRateMetersPerHour(
-                                    currentMetersPerHour = gpxDownhillVerticalMetersPerHour,
-                                    isMetric = isMetric,
-                                    increase = false,
-                                    minMetersPerHour = SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
-                                    maxMetersPerHour = SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
-                                ),
-                            )
-                        },
-                        onIncrease = {
-                            viewModel.setGpxDownhillVerticalMetersPerHour(
-                                stepVerticalRateMetersPerHour(
-                                    currentMetersPerHour = gpxDownhillVerticalMetersPerHour,
-                                    isMetric = isMetric,
-                                    increase = true,
-                                    minMetersPerHour = SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
-                                    maxMetersPerHour = SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
-                                ),
-                            )
-                        },
-                    )
-                }
-                item {
-                    Text(
-                        text = "Flat speed still drives easy terrain. Uphill and downhill rates only limit steeper climbs and descents.",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp),
-                    )
-                }
-            }
-            item {
-                SettingsPickerChip(
-                    label = "Color Mode",
-                    secondaryLabel =
-                        when (trackColorMode) {
-                            SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION -> "Elevation"
-                            else -> "Solid color"
-                        },
-                    onClick = { showTrackColorModeDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            if (trackColorMode == SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID) {
-                item {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(groupSpacing),
-                    ) {
-                        Text(
-                            text = "Track Color",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-
-                        SimpleColorPicker(
-                            colors = colorPalette,
-                            selectedColor = Color(trackColor),
-                            itemSpacing = colorPickerSpacing,
-                            buttonSize = colorButtonSize,
-                            selectedIconSize = selectedIconSize,
-                            onColorSelected = { color ->
-                                viewModel.setGpxTrackColor(color.toArgb())
-                            },
-                        )
-                    }
-                }
-            }
-            item {
-                SettingsToggleChip(
-                    checked = trackDirectionArrowsEnabled,
-                    onCheckedChanged = viewModel::setGpxTrackDirectionArrowsEnabled,
-                    label = "Track direction",
-                    secondaryLabel = if (trackDirectionArrowsEnabled) "Hide arrows" else "Show arrows",
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                TrackWidthSetting(
-                    label = "Track Width",
-                    value = trackWidth,
-                    onValueChange = { newWidth ->
-                        viewModel.setGpxTrackWidth(newWidth)
+        item {
+            SettingsToggleChip(
+                checked = isGpxInspectionEnabled,
+                onCheckedChanged = { viewModel.setGpxInspectionEnabled(it) },
+                label = "Route Analyzer",
+                secondaryLabel = "Long press on track",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            FlatSpeedSetting(
+                speedMps = gpxFlatSpeedMps,
+                isMetric = isMetric,
+                onSpeedChange = viewModel::setGpxFlatSpeedMps,
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = gpxAdvancedEtaEnabled,
+                onCheckedChanged = viewModel::setGpxAdvancedEtaEnabled,
+                label = "Advanced ETA",
+                secondaryLabel =
+                    if (gpxAdvancedEtaEnabled) {
+                        "Use uphill/downhill rates"
+                    } else {
+                        "Flat speed only"
                     },
-                    spacing = trackWidthSpacing,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (gpxAdvancedEtaEnabled) {
+            item {
+                AdjustableElevationFilterSetting(
+                    label = "Uphill Rate",
+                    valueText =
+                        formatVerticalRate(
+                            metersPerHour = gpxUphillVerticalMetersPerHour,
+                            isMetric = isMetric,
+                        ),
+                    canDecrease =
+                        gpxUphillVerticalMetersPerHour >
+                            SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
+                    canIncrease =
+                        gpxUphillVerticalMetersPerHour <
+                            SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR,
+                    onDecrease = {
+                        viewModel.setGpxUphillVerticalMetersPerHour(
+                            stepVerticalRateMetersPerHour(
+                                currentMetersPerHour = gpxUphillVerticalMetersPerHour,
+                                isMetric = isMetric,
+                                increase = false,
+                                minMetersPerHour = SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
+                                maxMetersPerHour = SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR,
+                            ),
+                        )
+                    },
+                    onIncrease = {
+                        viewModel.setGpxUphillVerticalMetersPerHour(
+                            stepVerticalRateMetersPerHour(
+                                currentMetersPerHour = gpxUphillVerticalMetersPerHour,
+                                isMetric = isMetric,
+                                increase = true,
+                                minMetersPerHour = SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
+                                maxMetersPerHour = SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR,
+                            ),
+                        )
+                    },
                 )
             }
             item {
-                TrackOpacitySetting(
-                    label = "Track Opacity",
-                    valuePercent = trackOpacityPercent,
-                    onValueChange = viewModel::setGpxTrackOpacityPercent,
-                    spacing = trackWidthSpacing,
+                AdjustableElevationFilterSetting(
+                    label = "Downhill Rate",
+                    valueText =
+                        formatVerticalRate(
+                            metersPerHour = gpxDownhillVerticalMetersPerHour,
+                            isMetric = isMetric,
+                        ),
+                    canDecrease =
+                        gpxDownhillVerticalMetersPerHour >
+                            SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
+                    canIncrease =
+                        gpxDownhillVerticalMetersPerHour <
+                            SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
+                    onDecrease = {
+                        viewModel.setGpxDownhillVerticalMetersPerHour(
+                            stepVerticalRateMetersPerHour(
+                                currentMetersPerHour = gpxDownhillVerticalMetersPerHour,
+                                isMetric = isMetric,
+                                increase = false,
+                                minMetersPerHour = SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
+                                maxMetersPerHour = SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
+                            ),
+                        )
+                    },
+                    onIncrease = {
+                        viewModel.setGpxDownhillVerticalMetersPerHour(
+                            stepVerticalRateMetersPerHour(
+                                currentMetersPerHour = gpxDownhillVerticalMetersPerHour,
+                                isMetric = isMetric,
+                                increase = true,
+                                minMetersPerHour = SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
+                                maxMetersPerHour = SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
+                            ),
+                        )
+                    },
                 )
             }
             item {
                 Text(
-                    text = "Fine-tune how GPX ascent and descent are calculated. Most tracks can stay on the defaults.",
+                    text = "Flat speed still drives easy terrain. Uphill and downhill rates only limit steeper climbs and descents.",
                     style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
                 )
             }
+        }
+        item {
+            SettingsPickerChip(
+                label = "Color Mode",
+                secondaryLabel =
+                    when (trackColorMode) {
+                        SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION -> "Elevation"
+                        else -> "Solid color"
+                    },
+                onClick = { showTrackColorModeDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (trackColorMode == SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(groupSpacing),
+                ) {
+                    Text(
+                        text = "Track Color",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+
+                    SimpleColorPicker(
+                        colors = colorPalette,
+                        selectedColor = Color(trackColor),
+                        itemSpacing = colorPickerSpacing,
+                        buttonSize = colorButtonSize,
+                        selectedIconSize = selectedIconSize,
+                        onColorSelected = { color ->
+                            viewModel.setGpxTrackColor(color.toArgb())
+                        },
+                    )
+                }
+            }
+        }
+        item {
+            SettingsToggleChip(
+                checked = trackDirectionArrowsEnabled,
+                onCheckedChanged = viewModel::setGpxTrackDirectionArrowsEnabled,
+                label = "Track direction",
+                secondaryLabel = if (trackDirectionArrowsEnabled) "Hide arrows" else "Show arrows",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            TrackWidthSetting(
+                label = "Track Width",
+                value = trackWidth,
+                onValueChange = { newWidth ->
+                    viewModel.setGpxTrackWidth(newWidth)
+                },
+                spacing = trackWidthSpacing,
+            )
+        }
+        item {
+            TrackOpacitySetting(
+                label = "Track Opacity",
+                valuePercent = trackOpacityPercent,
+                onValueChange = viewModel::setGpxTrackOpacityPercent,
+                spacing = trackWidthSpacing,
+            )
+        }
+        item {
+            Text(
+                text = "Fine-tune how GPX ascent and descent are calculated. Most tracks can stay on the defaults.",
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = showAdvancedElevationFilter,
+                onCheckedChanged = { showAdvancedElevationFilter = it },
+                label = "Advanced Filter",
+                secondaryLabel = "Tune GPX elevation totals",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (showAdvancedElevationFilter) {
             item {
                 SettingsToggleChip(
-                    checked = showAdvancedElevationFilter,
-                    onCheckedChanged = { showAdvancedElevationFilter = it },
-                    label = "Advanced Filter",
-                    secondaryLabel = "Tune GPX elevation totals",
+                    checked = gpxElevationAutoAdjustPerGpx,
+                    onCheckedChanged = viewModel::setGpxElevationAutoAdjustPerGpx,
+                    label = "Auto-adjust per GPX",
+                    secondaryLabel =
+                        if (gpxElevationAutoAdjustPerGpx) {
+                            "Use sliders as baseline"
+                        } else {
+                            "Apply sliders exactly"
+                        },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            if (showAdvancedElevationFilter) {
-                item {
-                    SettingsToggleChip(
-                        checked = gpxElevationAutoAdjustPerGpx,
-                        onCheckedChanged = viewModel::setGpxElevationAutoAdjustPerGpx,
-                        label = "Auto-adjust per GPX",
-                        secondaryLabel =
-                            if (gpxElevationAutoAdjustPerGpx) {
-                                "Use sliders as baseline"
-                            } else {
-                                "Apply sliders exactly"
-                            },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                item {
-                    AdjustableElevationFilterSetting(
-                        label = GpxElevationFilterUi.SMOOTHING_LABEL,
-                        valueText =
-                            GpxElevationFilterUi.formatSmoothingDistance(
-                                gpxElevationSmoothingDistanceMeters,
-                            ),
-                        canDecrease =
-                            gpxElevationSmoothingDistanceMeters >
-                                GpxElevationFilterDefaults.MIN_SMOOTHING_DISTANCE_METERS,
-                        canIncrease =
-                            gpxElevationSmoothingDistanceMeters <
-                                GpxElevationFilterDefaults.MAX_SMOOTHING_DISTANCE_METERS,
-                        onDecrease = {
-                            viewModel.setGpxElevationSmoothingDistanceMeters(
-                                gpxElevationSmoothingDistanceMeters -
-                                    GpxElevationFilterDefaults.STEP_SMOOTHING_DISTANCE_METERS,
-                            )
+            item {
+                AdjustableElevationFilterSetting(
+                    label = GpxElevationFilterUi.SMOOTHING_LABEL,
+                    valueText =
+                        GpxElevationFilterUi.formatSmoothingDistance(
+                            gpxElevationSmoothingDistanceMeters,
+                        ),
+                    canDecrease =
+                        gpxElevationSmoothingDistanceMeters >
+                            GpxElevationFilterDefaults.MIN_SMOOTHING_DISTANCE_METERS,
+                    canIncrease =
+                        gpxElevationSmoothingDistanceMeters <
+                            GpxElevationFilterDefaults.MAX_SMOOTHING_DISTANCE_METERS,
+                    onDecrease = {
+                        viewModel.setGpxElevationSmoothingDistanceMeters(
+                            gpxElevationSmoothingDistanceMeters -
+                                GpxElevationFilterDefaults.STEP_SMOOTHING_DISTANCE_METERS,
+                        )
+                    },
+                    onIncrease = {
+                        viewModel.setGpxElevationSmoothingDistanceMeters(
+                            gpxElevationSmoothingDistanceMeters +
+                                GpxElevationFilterDefaults.STEP_SMOOTHING_DISTANCE_METERS,
+                        )
+                    },
+                )
+            }
+            item {
+                AdjustableElevationFilterSetting(
+                    label = GpxElevationFilterUi.NOISE_THRESHOLD_LABEL,
+                    valueText =
+                        GpxElevationFilterUi.formatThreshold(
+                            gpxElevationNeutralDiffThresholdMeters,
+                        ),
+                    canDecrease =
+                        gpxElevationNeutralDiffThresholdMeters >
+                            GpxElevationFilterDefaults.MIN_NEUTRAL_DIFF_THRESHOLD_METERS,
+                    canIncrease =
+                        gpxElevationNeutralDiffThresholdMeters <
+                            GpxElevationFilterDefaults.MAX_NEUTRAL_DIFF_THRESHOLD_METERS,
+                    onDecrease = {
+                        viewModel.setGpxElevationNeutralDiffThresholdMeters(
+                            gpxElevationNeutralDiffThresholdMeters -
+                                GpxElevationFilterDefaults.STEP_NEUTRAL_DIFF_THRESHOLD_METERS,
+                        )
+                    },
+                    onIncrease = {
+                        viewModel.setGpxElevationNeutralDiffThresholdMeters(
+                            gpxElevationNeutralDiffThresholdMeters +
+                                GpxElevationFilterDefaults.STEP_NEUTRAL_DIFF_THRESHOLD_METERS,
+                        )
+                    },
+                )
+            }
+            item {
+                AdjustableElevationFilterSetting(
+                    label = GpxElevationFilterUi.TREND_THRESHOLD_LABEL,
+                    valueText =
+                        GpxElevationFilterUi.formatThreshold(
+                            gpxElevationTrendActivationThresholdMeters,
+                        ),
+                    canDecrease =
+                        gpxElevationTrendActivationThresholdMeters >
+                            GpxElevationFilterDefaults.MIN_TREND_ACTIVATION_THRESHOLD_METERS,
+                    canIncrease =
+                        gpxElevationTrendActivationThresholdMeters <
+                            GpxElevationFilterDefaults.MAX_TREND_ACTIVATION_THRESHOLD_METERS,
+                    onDecrease = {
+                        viewModel.setGpxElevationTrendActivationThresholdMeters(
+                            gpxElevationTrendActivationThresholdMeters -
+                                GpxElevationFilterDefaults.STEP_TREND_ACTIVATION_THRESHOLD_METERS,
+                        )
+                    },
+                    onIncrease = {
+                        viewModel.setGpxElevationTrendActivationThresholdMeters(
+                            gpxElevationTrendActivationThresholdMeters +
+                                GpxElevationFilterDefaults.STEP_TREND_ACTIVATION_THRESHOLD_METERS,
+                        )
+                    },
+                )
+            }
+            item {
+                Text(
+                    text =
+                        if (gpxElevationAutoAdjustPerGpx) {
+                            "Auto-adjust can nudge these values depending on the GPX."
+                        } else {
+                            "These values are applied exactly to every GPX."
                         },
-                        onIncrease = {
-                            viewModel.setGpxElevationSmoothingDistanceMeters(
-                                gpxElevationSmoothingDistanceMeters +
-                                    GpxElevationFilterDefaults.STEP_SMOOTHING_DISTANCE_METERS,
-                            )
-                        },
-                    )
-                }
-                item {
-                    AdjustableElevationFilterSetting(
-                        label = GpxElevationFilterUi.NOISE_THRESHOLD_LABEL,
-                        valueText =
-                            GpxElevationFilterUi.formatThreshold(
-                                gpxElevationNeutralDiffThresholdMeters,
-                            ),
-                        canDecrease =
-                            gpxElevationNeutralDiffThresholdMeters >
-                                GpxElevationFilterDefaults.MIN_NEUTRAL_DIFF_THRESHOLD_METERS,
-                        canIncrease =
-                            gpxElevationNeutralDiffThresholdMeters <
-                                GpxElevationFilterDefaults.MAX_NEUTRAL_DIFF_THRESHOLD_METERS,
-                        onDecrease = {
-                            viewModel.setGpxElevationNeutralDiffThresholdMeters(
-                                gpxElevationNeutralDiffThresholdMeters -
-                                    GpxElevationFilterDefaults.STEP_NEUTRAL_DIFF_THRESHOLD_METERS,
-                            )
-                        },
-                        onIncrease = {
-                            viewModel.setGpxElevationNeutralDiffThresholdMeters(
-                                gpxElevationNeutralDiffThresholdMeters +
-                                    GpxElevationFilterDefaults.STEP_NEUTRAL_DIFF_THRESHOLD_METERS,
-                            )
-                        },
-                    )
-                }
-                item {
-                    AdjustableElevationFilterSetting(
-                        label = GpxElevationFilterUi.TREND_THRESHOLD_LABEL,
-                        valueText =
-                            GpxElevationFilterUi.formatThreshold(
-                                gpxElevationTrendActivationThresholdMeters,
-                            ),
-                        canDecrease =
-                            gpxElevationTrendActivationThresholdMeters >
-                                GpxElevationFilterDefaults.MIN_TREND_ACTIVATION_THRESHOLD_METERS,
-                        canIncrease =
-                            gpxElevationTrendActivationThresholdMeters <
-                                GpxElevationFilterDefaults.MAX_TREND_ACTIVATION_THRESHOLD_METERS,
-                        onDecrease = {
-                            viewModel.setGpxElevationTrendActivationThresholdMeters(
-                                gpxElevationTrendActivationThresholdMeters -
-                                    GpxElevationFilterDefaults.STEP_TREND_ACTIVATION_THRESHOLD_METERS,
-                            )
-                        },
-                        onIncrease = {
-                            viewModel.setGpxElevationTrendActivationThresholdMeters(
-                                gpxElevationTrendActivationThresholdMeters +
-                                    GpxElevationFilterDefaults.STEP_TREND_ACTIVATION_THRESHOLD_METERS,
-                            )
-                        },
-                    )
-                }
-                item {
-                    Text(
-                        text =
-                            if (gpxElevationAutoAdjustPerGpx) {
-                                "Auto-adjust can nudge these values depending on the GPX."
-                            } else {
-                                "These values are applied exactly to every GPX."
-                            },
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp),
-                    )
-                }
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                )
             }
         }
     }
