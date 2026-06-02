@@ -19,14 +19,15 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.wear.compose.material.Icon
-import androidx.wear.compose.material3.AlertDialog
-import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.sensors.CompassHeadingSourceMode
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
+import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -472,88 +473,86 @@ fun CompassSettingsScreen(
         },
     )
 
-    AlertDialog(
-        visible = showCompatibilityDialog,
-        onDismissRequest = {
-            if (!isCompatibilityRunning) {
-                showCompatibilityDialog = false
-                compatibilityState = CompatibilityTestUiState()
-            }
-        },
-        title = { Text("Custom sensor test") },
-        text = {
-            val result = compatibilityState.result
-            val error = compatibilityState.errorMessage
+    if (showCompatibilityDialog) {
+        val result = compatibilityState.result
+        val error = compatibilityState.errorMessage
+        val compatibilityMessage =
             when {
-                isCompatibilityRunning -> {
-                    Text(
-                        "${compatibilityState.progressLabel}\n" +
-                            "Step ${compatibilityState.stepIndex}/${compatibilityState.totalSteps}\n" +
-                            "Follow the on-screen step for best result.",
-                    )
-                }
-                error != null -> {
-                    Text(error)
-                }
-                result != null -> {
-                    Text(
-                        "Recommended custom settings:\n" +
-                            "Compass mode: ${result.recommendedCompassModeLabel()}\n" +
-                            result.recommendedHeadingSourceLine() +
-                            "North mode: Keep True north for maps\n" +
-                            "Magnetic north only if you want to match a magnetic compass.\n\n" +
-                            "This test checks source availability, still-watch stability,\n" +
-                            "and slow turn response.\n" +
-                            "It does not detect true vs magnetic north.\n\n" +
-                            "Results:\n" +
-                            result.candidateSummaryLines(),
-                    )
-                }
-                else -> {
-                    Text("Preparing test...")
-                }
+                isCompatibilityRunning ->
+                    "${compatibilityState.progressLabel}\n" +
+                        "Step ${compatibilityState.stepIndex}/${compatibilityState.totalSteps}\n" +
+                        "Follow the on-screen step for best result."
+                error != null -> error
+                result != null ->
+                    "Recommended custom settings:\n" +
+                        "Compass mode: ${result.recommendedCompassModeLabel()}\n" +
+                        result.recommendedHeadingSourceLine() +
+                        "North mode: Keep True north for maps\n" +
+                        "Magnetic north only if you want to match a magnetic compass.\n\n" +
+                        "This test checks source availability, still-watch stability,\n" +
+                        "and slow turn response.\n" +
+                        "It does not detect true vs magnetic north.\n\n" +
+                        "Results:\n" +
+                        result.candidateSummaryLines()
+                else -> "Preparing test..."
             }
-        },
-        confirmButton = {
-            if (!isCompatibilityRunning && compatibilityState.result != null) {
-                Button(
-                    onClick = {
-                        val recommended =
-                            compatibilityState.result?.recommendedMode
-                                ?: return@Button
-                        when (recommended) {
-                            CompassHeadingSourceMode.AUTO -> {
-                                viewModel.setCompassSettingsMode(SettingsRepository.COMPASS_SETTINGS_MODE_AUTOMATIC)
-                                viewModel.setCompassHeadingSourceMode(
-                                    SettingsRepository.COMPASS_HEADING_SOURCE_AUTO,
-                                )
-                            }
-                            else -> {
-                                viewModel.setCompassSettingsMode(SettingsRepository.COMPASS_SETTINGS_MODE_ADVANCED)
-                                viewModel.setCompassHeadingSourceMode(
-                                    headingSourceSettingFromMode(recommended),
-                                )
-                            }
-                        }
-                        showCompatibilityDialog = false
-                        compatibilityState = CompatibilityTestUiState()
-                    },
-                ) {
-                    Text("Apply")
+        val closeCompatibilityDialog = {
+            showCompatibilityDialog = false
+            compatibilityState = CompatibilityTestUiState()
+        }
+        WearActionDialog(
+            visible = true,
+            title = "Custom sensor test",
+            onDismissRequest = {
+                if (!isCompatibilityRunning) {
+                    closeCompatibilityDialog()
                 }
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = {
-                    showCompatibilityDialog = false
-                    compatibilityState = CompatibilityTestUiState()
+            },
+            buttons =
+                buildList {
+                    if (!isCompatibilityRunning && result != null) {
+                        add(
+                            WearActionDialogButton(
+                                text = "Apply",
+                                onClick = {
+                                    when (result.recommendedMode) {
+                                        CompassHeadingSourceMode.AUTO -> {
+                                            viewModel.setCompassSettingsMode(
+                                                SettingsRepository.COMPASS_SETTINGS_MODE_AUTOMATIC,
+                                            )
+                                            viewModel.setCompassHeadingSourceMode(
+                                                SettingsRepository.COMPASS_HEADING_SOURCE_AUTO,
+                                            )
+                                        }
+                                        else -> {
+                                            viewModel.setCompassSettingsMode(
+                                                SettingsRepository.COMPASS_SETTINGS_MODE_ADVANCED,
+                                            )
+                                            viewModel.setCompassHeadingSourceMode(
+                                                headingSourceSettingFromMode(result.recommendedMode),
+                                            )
+                                        }
+                                    }
+                                    closeCompatibilityDialog()
+                                },
+                            ),
+                        )
+                    }
+                    add(
+                        WearActionDialogButton(
+                            text = if (isCompatibilityRunning) "Cancel" else "Close",
+                            onClick = closeCompatibilityDialog,
+                            role = WearActionButtonRole.Secondary,
+                        ),
+                    )
                 },
-            ) {
-                Text(if (isCompatibilityRunning) "Cancel" else "Close")
-            }
-        },
-    )
+        ) {
+            Text(
+                text = compatibilityMessage,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
 
     WearInfoDialog(
         visible = showInfoDialog,
