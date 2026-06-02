@@ -42,10 +42,17 @@ fun WearFormDialog(
 
     val adaptive = rememberWearAdaptiveSpec()
     val scrollState = rememberScrollState()
+    val highFontTopInset =
+        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
+            8.dp
+        } else {
+            0.dp
+        }
     val topPadding =
         adaptive.dialogVerticalPadding +
             adaptive.headerTopSafeInset +
-            if (adaptive.isRound) 18.dp else 0.dp
+            (if (adaptive.isRound) 18.dp else 0.dp) +
+            highFontTopInset
     val bottomPadding =
         adaptive.dialogVerticalPadding +
             if (adaptive.isRound) 42.dp else 12.dp
@@ -77,12 +84,14 @@ fun WearFormDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top),
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    textAlign = TextAlign.Center,
-                )
-                content(tokens)
+                cappedFontScale(maxFontScale = 1.12f) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        textAlign = TextAlign.Center,
+                    )
+                    content(tokens)
+                }
             }
             WearScreenEdgeScrollIndicator(scrollState = scrollState)
         }

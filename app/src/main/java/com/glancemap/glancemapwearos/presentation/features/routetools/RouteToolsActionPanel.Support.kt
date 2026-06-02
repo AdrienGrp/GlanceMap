@@ -45,6 +45,7 @@ import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
 import com.glancemap.glancemapwearos.presentation.ui.WearFormDialog
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import org.mapsforge.core.model.LatLong
 
 @Composable
@@ -218,6 +219,28 @@ internal fun RouteToolKindSelector(
     selected: RouteToolKind,
     onSelected: (RouteToolKind) -> Unit,
 ) {
+    val adaptive = rememberWearAdaptiveSpec()
+    if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RouteSegmentButton(
+                modifier = Modifier.fillMaxWidth(),
+                text = RouteToolKind.CREATE.title,
+                selected = selected == RouteToolKind.CREATE,
+                onClick = { onSelected(RouteToolKind.CREATE) },
+            )
+            RouteSegmentButton(
+                modifier = Modifier.fillMaxWidth(),
+                text = RouteToolKind.MODIFY.title,
+                selected = selected == RouteToolKind.MODIFY,
+                onClick = { onSelected(RouteToolKind.MODIFY) },
+            )
+        }
+        return
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
