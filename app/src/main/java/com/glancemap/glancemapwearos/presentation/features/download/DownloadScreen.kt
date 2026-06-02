@@ -68,6 +68,7 @@ import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -338,6 +339,7 @@ fun DownloadScreen(
                 refreshMode = refreshMode,
                 deleteMode = deleteMode,
                 selectedRefreshBundleCount = uiState.selectedRefreshBundleIds.size,
+                useLargeFontHeader = adaptive.isRound && adaptive.fontScale >= 1.25f,
                 topPadding = headerTopSafePadding,
                 bottomPadding = headerBottomPadding,
                 actionButtonSize = headerActionButtonSize,
@@ -657,6 +659,7 @@ private fun DownloadHeader(
     refreshMode: Boolean,
     deleteMode: Boolean,
     selectedRefreshBundleCount: Int,
+    useLargeFontHeader: Boolean,
     topPadding: Dp,
     bottomPadding: Dp,
     actionButtonSize: Dp,
@@ -678,13 +681,25 @@ private fun DownloadHeader(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(verticalSpacing),
         ) {
-            Text(
-                text = "Download",
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (useLargeFontHeader) {
+                cappedFontScale(maxFontScale = 1.08f) {
+                    Text(
+                        text = "Download",
+                        style = MaterialTheme.typography.titleSmall,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            } else {
+                Text(
+                    text = "Download",
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(actionSpacing),
                 verticalAlignment = Alignment.CenterVertically,
@@ -709,17 +724,30 @@ private fun DownloadHeader(
                 )
             }
             if (refreshMode) {
-                Text(
-                    text =
-                        when {
-                            isCheckingUpdates -> "Checking selected"
-                            selectedRefreshBundleCount == 0 -> "Select bundles to update"
-                            else -> "$selectedRefreshBundleCount selected"
-                        },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center,
-                )
+                val refreshInstruction =
+                    when {
+                        isCheckingUpdates -> "Checking selected"
+                        selectedRefreshBundleCount == 0 && useLargeFontHeader -> "Select bundles"
+                        selectedRefreshBundleCount == 0 -> "Select bundles to update"
+                        else -> "$selectedRefreshBundleCount selected"
+                    }
+                if (useLargeFontHeader) {
+                    cappedFontScale(maxFontScale = 1.08f) {
+                        Text(
+                            text = refreshInstruction,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                } else {
+                    Text(
+                        text = refreshInstruction,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             } else if (deleteMode) {
                 Text(
                     text = "Delete mode",
