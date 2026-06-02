@@ -3,10 +3,14 @@ package com.glancemap.glancemapwearos.presentation.features.routetools
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,7 +38,6 @@ import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
 import com.glancemap.glancemapwearos.presentation.ui.WearCustomDialogScrollableColumn
 import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
-import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 
 @Composable
 internal fun RoutePoiSearchDialog(
@@ -50,6 +53,16 @@ internal fun RoutePoiSearchDialog(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     var draftQuery by remember(visible) { mutableStateOf(state.query) }
+    val scrollState = rememberScrollState()
+    val topPadding =
+        adaptive.dialogVerticalPadding +
+            adaptive.headerTopSafeInset +
+            if (adaptive.isRound) 18.dp else 0.dp
+    val bottomPadding =
+        adaptive.dialogVerticalPadding +
+            if (adaptive.isRound) 42.dp else 12.dp
+    val controlWidthFraction = if (adaptive.isRound) 0.86f else 1f
+    val buttonMinHeight = 44.dp
 
     LaunchedEffect(visible) {
         if (visible) {
@@ -71,16 +84,17 @@ internal fun RoutePoiSearchDialog(
         Column(
             modifier =
                 Modifier
-                    .wearDialogWidth()
-                    .background(
-                        Color.Black.copy(alpha = 0.92f),
-                        RoundedCornerShape(adaptive.dialogCornerRadius),
-                    ).padding(
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.92f))
+                    .verticalScroll(scrollState)
+                    .padding(
                         horizontal = adaptive.dialogHorizontalPadding,
-                        vertical = adaptive.dialogVerticalPadding,
+                    ).padding(
+                        top = topPadding,
+                        bottom = bottomPadding,
                     ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top),
         ) {
             Text(
                 text = "Search POI",
@@ -100,7 +114,7 @@ internal fun RoutePoiSearchDialog(
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(controlWidthFraction)
                         .focusRequester(focusRequester)
                         .background(
                             Color(0xFF1F1F1F),
@@ -122,7 +136,10 @@ internal fun RoutePoiSearchDialog(
 
             Button(
                 onClick = { onSearch(draftQuery) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth(controlWidthFraction)
+                        .heightIn(min = buttonMinHeight),
             ) {
                 Text(if (state.isLoading) "Searching..." else "Search")
             }
@@ -141,7 +158,7 @@ internal fun RoutePoiSearchDialog(
                     maxHeight = adaptive.helpDialogMaxHeight * 0.72f,
                     modifier =
                         Modifier
-                            .fillMaxWidth(),
+                            .fillMaxWidth(controlWidthFraction),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     state.results.forEach { result ->
@@ -185,7 +202,10 @@ internal fun RoutePoiSearchDialog(
 
             Button(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth(controlWidthFraction)
+                        .heightIn(min = buttonMinHeight),
                 colors =
                     ButtonDefaults.buttonColors(
                         containerColor = Color.White.copy(alpha = 0.12f),
