@@ -1,8 +1,5 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.Composable
@@ -15,11 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
@@ -31,7 +26,6 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.material.Chip
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -45,7 +39,6 @@ fun CompassSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val adaptive = rememberWearAdaptiveSpec()
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     var showCalibrationDialog by remember { mutableStateOf(false) }
     var showCompassModePicker by remember { mutableStateOf(false) }
     var showProviderPicker by remember { mutableStateOf(false) }
@@ -318,132 +311,117 @@ fun CompassSettingsScreen(
         }
     }
 
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-        ) {
-            item { GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings) }
+    WearSettingsListScreen(listTokens = listTokens) {
+        item { GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings) }
+        item {
+            SettingsPickerChip(
+                label = "Orientation provider",
+                secondaryLabel =
+                    compassProviderStatusLabel(
+                        requestedMode = compassProviderModeSetting,
+                        activeProviderType = activeProviderType,
+                    ),
+                onClick = { showProviderPicker = true },
+            )
+        }
+        item {
+            SettingsPickerChip(
+                label = "North mode",
+                secondaryLabel =
+                    northReferenceStatusSecondaryLabel(
+                        requestedMode = northReferenceMode,
+                        status = northReferenceStatus,
+                    ),
+                onClick = { showNorthModePicker = true },
+            )
+        }
+        if (showSensorControls) {
             item {
-                SettingsPickerChip(
-                    label = "Orientation provider",
-                    secondaryLabel =
-                        compassProviderStatusLabel(
-                            requestedMode = compassProviderModeSetting,
-                            activeProviderType = activeProviderType,
-                        ),
-                    onClick = { showProviderPicker = true },
+                Text(
+                    "Setup",
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
             item {
                 SettingsPickerChip(
-                    label = "North mode",
-                    secondaryLabel =
-                        northReferenceStatusSecondaryLabel(
-                            requestedMode = northReferenceMode,
-                            status = northReferenceStatus,
-                        ),
-                    onClick = { showNorthModePicker = true },
+                    label = "Compass mode",
+                    secondaryLabel = compassSettingsModeLabel(compassSettingsMode),
+                    onClick = { showCompassModePicker = true },
                 )
             }
-            if (showSensorControls) {
+            if (showCompassConeAccuracyColorsSetting) {
                 item {
-                    Text(
-                        "Setup",
-                        style = MaterialTheme.typography.titleMedium,
+                    SettingsToggleChip(
+                        checked = compassConeAccuracyColorsEnabled,
+                        onCheckedChanged = { viewModel.setCompassConeAccuracyColorsEnabled(it) },
+                        label = "▽ Accuracy colors",
+                        secondaryLabel = "If off, cone stays green",
+                    )
+                }
+            }
+            item {
+                Text("Custom compass", style = MaterialTheme.typography.titleMedium)
+            }
+            item {
+                Chip(
+                    label = "Recalibrate Compass",
+                    onClick = { showCalibrationDialog = true },
+                )
+            }
+            item {
+                SettingsToggleChip(
+                    checked = promptForCalibration,
+                    onCheckedChanged = { viewModel.setPromptForCalibration(it) },
+                    label = calibrationAlertsLabel,
+                    secondaryLabel = calibrationAlertsSecondary,
+                )
+            }
+            item {
+                Chip(
+                    label = "Run source test",
+                    secondaryLabel = "Checks still + turn response",
+                    onClick = {
+                        compatibilityState = CompatibilityTestUiState()
+                        compatibilityRunToken += 1
+                        showCompatibilityDialog = true
+                    },
+                )
+            }
+            item {
+                Text("Advanced", style = MaterialTheme.typography.titleMedium)
+            }
+            item {
+                SettingsSectionChip(
+                    label = "Advanced options",
+                    onClick = { showAdvancedSection = !showAdvancedSection },
+                )
+            }
+            if (showAdvancedSection) {
+                item {
+                    SensorStatusPanel(
+                        status = headingSourceStatus,
+                        northReferenceStatus = northReferenceStatus,
                     )
                 }
                 item {
                     SettingsPickerChip(
-                        label = "Compass mode",
-                        secondaryLabel = compassSettingsModeLabel(compassSettingsMode),
-                        onClick = { showCompassModePicker = true },
+                        label = "Heading source",
+                        secondaryLabel = headingSourceModeLabel(headingSourceModeSetting),
+                        onClick = { showHeadingSourcePicker = true },
                     )
-                }
-                if (showCompassConeAccuracyColorsSetting) {
-                    item {
-                        SettingsToggleChip(
-                            checked = compassConeAccuracyColorsEnabled,
-                            onCheckedChanged = { viewModel.setCompassConeAccuracyColorsEnabled(it) },
-                            label = "▽ Accuracy colors",
-                            secondaryLabel = "If off, cone stays green",
-                        )
-                    }
-                }
-                item {
-                    Text("Custom compass", style = MaterialTheme.typography.titleMedium)
-                }
-                item {
-                    Chip(
-                        label = "Recalibrate Compass",
-                        onClick = { showCalibrationDialog = true },
-                    )
-                }
-                item {
-                    SettingsToggleChip(
-                        checked = promptForCalibration,
-                        onCheckedChanged = { viewModel.setPromptForCalibration(it) },
-                        label = calibrationAlertsLabel,
-                        secondaryLabel = calibrationAlertsSecondary,
-                    )
-                }
-                item {
-                    Chip(
-                        label = "Run source test",
-                        secondaryLabel = "Checks still + turn response",
-                        onClick = {
-                            compatibilityState = CompatibilityTestUiState()
-                            compatibilityRunToken += 1
-                            showCompatibilityDialog = true
-                        },
-                    )
-                }
-                item {
-                    Text("Advanced", style = MaterialTheme.typography.titleMedium)
-                }
-                item {
-                    SettingsSectionChip(
-                        label = "Advanced options",
-                        onClick = { showAdvancedSection = !showAdvancedSection },
-                    )
-                }
-                if (showAdvancedSection) {
-                    item {
-                        SensorStatusPanel(
-                            status = headingSourceStatus,
-                            northReferenceStatus = northReferenceStatus,
-                        )
-                    }
-                    item {
-                        SettingsPickerChip(
-                            label = "Heading source",
-                            secondaryLabel = headingSourceModeLabel(headingSourceModeSetting),
-                            onClick = { showHeadingSourcePicker = true },
-                        )
-                    }
                 }
             }
-            item {
-                Text("Help", style = MaterialTheme.typography.titleMedium)
-            }
-            item {
-                Chip(
-                    label = "Compass help",
-                    secondaryLabel = "How to test compass",
-                    icon = { Icon(imageVector = Icons.Filled.Info, contentDescription = null) },
-                    onClick = { showInfoDialog = true },
-                )
-            }
+        }
+        item {
+            Text("Help", style = MaterialTheme.typography.titleMedium)
+        }
+        item {
+            Chip(
+                label = "Compass help",
+                secondaryLabel = "How to test compass",
+                icon = { Icon(imageVector = Icons.Filled.Info, contentDescription = null) },
+                onClick = { showInfoDialog = true },
+            )
         }
     }
 

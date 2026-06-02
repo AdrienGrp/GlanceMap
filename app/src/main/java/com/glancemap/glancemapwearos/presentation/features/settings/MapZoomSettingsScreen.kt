@@ -2,10 +2,7 @@
 
 package com.glancemap.glancemapwearos.presentation.features.settings
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -20,7 +17,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Slider
@@ -28,12 +24,9 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.maps.mapZoomScaleStepsMeters
 import com.glancemap.glancemapwearos.core.maps.nearestMetricScaleStepIndex
 import com.glancemap.glancemapwearos.core.maps.sanitizeMapZoomScaleMeters
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import java.util.Locale
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun MapZoomSettingsScreen(
     viewModel: SettingsViewModel,
@@ -48,70 +41,52 @@ fun MapZoomSettingsScreen(
     val isMetric by viewModel.isMetric.collectAsState()
     var showCrownDirectionPicker by remember { mutableStateOf(false) }
 
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
-
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
+        item {
+            SettingsToggleChip(
+                checked = crownZoomEnabled,
+                onCheckedChanged = { viewModel.setCrownZoomEnabled(it) },
+                label = "Crown zoom",
+                secondaryLabel = if (crownZoomEnabled) "Enabled" else "Disabled",
+            )
+        }
+        if (crownZoomEnabled) {
             item {
-                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
-            }
-            item {
-                SettingsToggleChip(
-                    checked = crownZoomEnabled,
-                    onCheckedChanged = { viewModel.setCrownZoomEnabled(it) },
-                    label = "Crown zoom",
-                    secondaryLabel = if (crownZoomEnabled) "Enabled" else "Disabled",
+                SettingsPickerChip(
+                    modifier = Modifier.fillMaxWidth(),
+                    label = "Crown direction",
+                    iconImageVector = Icons.Filled.UnfoldMore,
+                    secondaryLabel = if (crownZoomInverted) "Inverted" else "Normal",
+                    onClick = { showCrownDirectionPicker = true },
                 )
             }
-            if (crownZoomEnabled) {
-                item {
-                    SettingsPickerChip(
-                        modifier = Modifier.fillMaxWidth(),
-                        label = "Crown direction",
-                        iconImageVector = Icons.Filled.UnfoldMore,
-                        secondaryLabel = if (crownZoomInverted) "Inverted" else "Normal",
-                        onClick = { showCrownDirectionPicker = true },
-                    )
-                }
-            }
-            item {
-                ScaleDistanceSetting(
-                    label = "Default scale",
-                    value = zoomDefaultScaleMeters,
-                    isMetric = isMetric,
-                    onValueChange = viewModel::setMapZoomDefaultScaleMeters,
-                )
-            }
-            item {
-                ScaleDistanceSetting(
-                    label = "Farthest out",
-                    value = zoomMinScaleMeters,
-                    isMetric = isMetric,
-                    onValueChange = viewModel::setMapZoomMinScaleMeters,
-                )
-            }
-            item {
-                ScaleDistanceSetting(
-                    label = "Closest in",
-                    value = zoomMaxScaleMeters,
-                    isMetric = isMetric,
-                    onValueChange = viewModel::setMapZoomMaxScaleMeters,
-                )
-            }
+        }
+        item {
+            ScaleDistanceSetting(
+                label = "Default scale",
+                value = zoomDefaultScaleMeters,
+                isMetric = isMetric,
+                onValueChange = viewModel::setMapZoomDefaultScaleMeters,
+            )
+        }
+        item {
+            ScaleDistanceSetting(
+                label = "Farthest out",
+                value = zoomMinScaleMeters,
+                isMetric = isMetric,
+                onValueChange = viewModel::setMapZoomMinScaleMeters,
+            )
+        }
+        item {
+            ScaleDistanceSetting(
+                label = "Closest in",
+                value = zoomMaxScaleMeters,
+                isMetric = isMetric,
+                onValueChange = viewModel::setMapZoomMaxScaleMeters,
+            )
         }
     }
 

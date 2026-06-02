@@ -7,9 +7,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -34,7 +32,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.pm.PackageInfoCompat
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.WearCustomDialogScrollableColumn
@@ -42,7 +39,6 @@ import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpace
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.wearDialogWidth
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.material.Chip
 import kotlin.math.abs
 
@@ -60,247 +56,230 @@ fun LicensesScreen(onOpenGeneralSettings: () -> Unit) {
             expandedBottom = 68.dp,
         )
     var selectedDocument by remember { mutableStateOf<LicenseDocument?>(null) }
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
 
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
-            }
-            item {
-                Text(
-                    text = "Credits & Legal",
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            item {
-                Text(
-                    text = "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            item {
-                Text(
-                    text = appVersionLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Privacy Policy",
-                    secondaryLabel = "Data access, sharing and retention",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Privacy Policy",
-                                assetPath = "licenses/PRIVACY_POLICY.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Safety & Limits",
-                    secondaryLabel = "Map/theme errors and personal responsibility",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Safety & Limitations",
-                                assetPath = "licenses/SAFETY_AND_LIMITATIONS.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Credits & Thanks",
-                    secondaryLabel = "Main contributors and projects",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Credits & Thanks",
-                                assetPath = "licenses/CREDITS_AND_THANKS.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "AI Acknowledgment",
-                    secondaryLabel = "Human creators and transparency",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "AI & Creator Acknowledgment",
-                                assetPath = "licenses/AI_ACKNOWLEDGEMENT.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Companion Sources",
-                    secondaryLabel = "Map, GPX and refuge websites",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Companion External Sources",
-                                assetPath = "licenses/COMPANION_EXTERNAL_SOURCES.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Compliance Status",
-                    secondaryLabel = "Release checklist and pending items",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Compliance Status",
-                                assetPath = "licenses/COMPLIANCE_STATUS.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Open Source Notices",
-                    secondaryLabel = "Libraries and OSS licenses",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Open Source Notices",
-                                assetPath = "licenses/THIRD_PARTY_NOTICES.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "OpenHiking Theme",
-                    secondaryLabel = "Bundled hiking theme details",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "OpenHiking Theme",
-                                assetPath = "licenses/OPENHIKING_THEME.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "French Kiss Theme",
-                    secondaryLabel = "Bundled IGN-style theme details",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "French Kiss Theme",
-                                assetPath = "licenses/FRENCH_KISS_THEME.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Tiramisu Theme",
-                    secondaryLabel = "Bundled cycle/hike theme details",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Tiramisu Theme",
-                                assetPath = "licenses/TIRAMISU_THEME.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Hike, Ride & Sight",
-                    secondaryLabel = "Bundled overlay-rich theme details",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Hike, Ride & Sight Theme",
-                                assetPath = "licenses/HIKE_RIDE_SIGHT_THEME.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Voluntary Theme",
-                    secondaryLabel = "Bundled OS-inspired theme details",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Voluntary Theme",
-                                assetPath = "licenses/VOLUNTARY_THEME.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Data & Asset Attribution",
-                    secondaryLabel = "OSM, Elevate, bundled themes, DEM, icons",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Data & Asset Attribution",
-                                assetPath = "licenses/DATA_AND_ASSET_ATTRIBUTION.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Chip(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Service Terms & API Usage",
-                    secondaryLabel = "Provider terms and usage limits",
-                    onClick = {
-                        selectedDocument =
-                            LicenseDocument(
-                                title = "Service Terms & API Usage",
-                                assetPath = "licenses/SERVICE_TERMS_AND_API_USAGE.md",
-                            )
-                    },
-                )
-            }
-            item {
-                Spacer(modifier = Modifier.height(72.dp))
-            }
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
+        item {
+            Text(
+                text = "Credits & Legal",
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+            )
+        }
+        item {
+            Text(
+                text = "Thanks to OpenAndroMaps, Elevate, OpenHiking, Tiramisu, Hike, Ride & Sight, OpenStreetMap, Refuges.info, Overpass, Mapsforge and BRouter.",
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+            )
+        }
+        item {
+            Text(
+                text = appVersionLabel,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Privacy Policy",
+                secondaryLabel = "Data access, sharing and retention",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Privacy Policy",
+                            assetPath = "licenses/PRIVACY_POLICY.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Safety & Limits",
+                secondaryLabel = "Map/theme errors and personal responsibility",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Safety & Limitations",
+                            assetPath = "licenses/SAFETY_AND_LIMITATIONS.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Credits & Thanks",
+                secondaryLabel = "Main contributors and projects",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Credits & Thanks",
+                            assetPath = "licenses/CREDITS_AND_THANKS.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "AI Acknowledgment",
+                secondaryLabel = "Human creators and transparency",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "AI & Creator Acknowledgment",
+                            assetPath = "licenses/AI_ACKNOWLEDGEMENT.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Companion Sources",
+                secondaryLabel = "Map, GPX and refuge websites",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Companion External Sources",
+                            assetPath = "licenses/COMPANION_EXTERNAL_SOURCES.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Compliance Status",
+                secondaryLabel = "Release checklist and pending items",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Compliance Status",
+                            assetPath = "licenses/COMPLIANCE_STATUS.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Open Source Notices",
+                secondaryLabel = "Libraries and OSS licenses",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Open Source Notices",
+                            assetPath = "licenses/THIRD_PARTY_NOTICES.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "OpenHiking Theme",
+                secondaryLabel = "Bundled hiking theme details",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "OpenHiking Theme",
+                            assetPath = "licenses/OPENHIKING_THEME.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "French Kiss Theme",
+                secondaryLabel = "Bundled IGN-style theme details",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "French Kiss Theme",
+                            assetPath = "licenses/FRENCH_KISS_THEME.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Tiramisu Theme",
+                secondaryLabel = "Bundled cycle/hike theme details",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Tiramisu Theme",
+                            assetPath = "licenses/TIRAMISU_THEME.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Hike, Ride & Sight",
+                secondaryLabel = "Bundled overlay-rich theme details",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Hike, Ride & Sight Theme",
+                            assetPath = "licenses/HIKE_RIDE_SIGHT_THEME.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Voluntary Theme",
+                secondaryLabel = "Bundled OS-inspired theme details",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Voluntary Theme",
+                            assetPath = "licenses/VOLUNTARY_THEME.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Data & Asset Attribution",
+                secondaryLabel = "OSM, Elevate, bundled themes, DEM, icons",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Data & Asset Attribution",
+                            assetPath = "licenses/DATA_AND_ASSET_ATTRIBUTION.md",
+                        )
+                },
+            )
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = "Service Terms & API Usage",
+                secondaryLabel = "Provider terms and usage limits",
+                onClick = {
+                    selectedDocument =
+                        LicenseDocument(
+                            title = "Service Terms & API Usage",
+                            assetPath = "licenses/SERVICE_TERMS_AND_API_USAGE.md",
+                        )
+                },
+            )
+        }
+        item {
+            Spacer(modifier = Modifier.height(72.dp))
         }
     }
 

@@ -2,9 +2,6 @@
 
 package com.glancemap.glancemapwearos.presentation.features.settings
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
@@ -16,12 +13,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScreenScaffold
 
-@OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun MapDisplaySettingsScreen(
     viewModel: SettingsViewModel,
@@ -35,7 +28,6 @@ fun MapDisplaySettingsScreen(
     val mapZoomButtonsMode by viewModel.mapZoomButtonsMode.collectAsState()
     val gpsAccuracyCircleEnabled by viewModel.gpsAccuracyCircleEnabled.collectAsState()
 
-    val listState = rememberSettingsScalingLazyListState(topPadding = listTokens.topPadding)
     val northIndicatorModes = listOf("ALWAYS", "COMPASS_ONLY", "NORTH_UP_ONLY", "NEVER")
     val markerStyles =
         listOf(
@@ -74,75 +66,59 @@ fun MapDisplaySettingsScreen(
             zoomButtonModes.map { it to zoomButtonsModeLabel(it) }
         }
 
-    ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    start = listTokens.horizontalPadding,
-                    end = listTokens.horizontalPadding,
-                    top = listTokens.topPadding,
-                    bottom = listTokens.bottomPadding,
-                ),
-            verticalArrangement = Arrangement.spacedBy(listTokens.itemSpacing),
-            anchorType = SettingsListAnchorType,
-            autoCentering = SettingsListAutoCentering,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
-            }
-            item {
-                SettingsToggleChip(
-                    checked = showTimeInNavigate,
-                    onCheckedChanged = { viewModel.setShowTimeInNavigate(it) },
-                    label = "Show time on map",
-                    modifier = Modifier.testTag(TAG_MAP_DISPLAY_SHOW_TIME_CHIP),
-                )
-            }
-            if (showTimeInNavigate) {
-                item {
-                    SettingsPickerChip(
-                        label = "Time format",
-                        onClick = { showTimeFormatPicker = true },
-                        iconImageVector = Icons.Filled.UnfoldMore,
-                        secondaryLabel = timeFormatLabel(navigateTimeFormat),
-                    )
-                }
-            }
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
+        item {
+            SettingsToggleChip(
+                checked = showTimeInNavigate,
+                onCheckedChanged = { viewModel.setShowTimeInNavigate(it) },
+                label = "Show time on map",
+                modifier = Modifier.testTag(TAG_MAP_DISPLAY_SHOW_TIME_CHIP),
+            )
+        }
+        if (showTimeInNavigate) {
             item {
                 SettingsPickerChip(
-                    label = "North indicator",
-                    onClick = { showNorthIndicatorPicker = true },
+                    label = "Time format",
+                    onClick = { showTimeFormatPicker = true },
                     iconImageVector = Icons.Filled.UnfoldMore,
-                    secondaryLabel = northIndicatorModeLabel(northIndicatorMode),
+                    secondaryLabel = timeFormatLabel(navigateTimeFormat),
                 )
             }
-            item {
-                SettingsPickerChip(
-                    label = "Zoom buttons",
-                    onClick = { showZoomButtonsPicker = true },
-                    iconImageVector = Icons.Filled.UnfoldMore,
-                    secondaryLabel = zoomButtonsModeLabel(mapZoomButtonsMode),
-                )
-            }
-            item {
-                SettingsPickerChip(
-                    label = "Marker style",
-                    onClick = { showMarkerStylePicker = true },
-                    iconImageVector = Icons.Filled.UnfoldMore,
-                    secondaryLabel = markerStyleLabel(navigationMarkerStyle),
-                )
-            }
-            item {
-                SettingsToggleChip(
-                    checked = gpsAccuracyCircleEnabled,
-                    onCheckedChanged = { viewModel.setGpsAccuracyCircleEnabled(it) },
-                    label = "GPS accuracy circle",
-                    secondaryLabel = "Show uncertainty radius",
-                )
-            }
+        }
+        item {
+            SettingsPickerChip(
+                label = "North indicator",
+                onClick = { showNorthIndicatorPicker = true },
+                iconImageVector = Icons.Filled.UnfoldMore,
+                secondaryLabel = northIndicatorModeLabel(northIndicatorMode),
+            )
+        }
+        item {
+            SettingsPickerChip(
+                label = "Zoom buttons",
+                onClick = { showZoomButtonsPicker = true },
+                iconImageVector = Icons.Filled.UnfoldMore,
+                secondaryLabel = zoomButtonsModeLabel(mapZoomButtonsMode),
+            )
+        }
+        item {
+            SettingsPickerChip(
+                label = "Marker style",
+                onClick = { showMarkerStylePicker = true },
+                iconImageVector = Icons.Filled.UnfoldMore,
+                secondaryLabel = markerStyleLabel(navigationMarkerStyle),
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = gpsAccuracyCircleEnabled,
+                onCheckedChanged = { viewModel.setGpsAccuracyCircleEnabled(it) },
+                label = "GPS accuracy circle",
+                secondaryLabel = "Show uncertainty radius",
+            )
         }
     }
 
