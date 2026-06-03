@@ -265,6 +265,7 @@ fun GpxScreen(
             initialValue = fileToRename?.displayTitle.orEmpty(),
             isSaving = renameInProgress,
             error = renameError,
+            fullScreen = true,
             onDismiss = {
                 if (!renameInProgress) {
                     showRenameDialog = false
