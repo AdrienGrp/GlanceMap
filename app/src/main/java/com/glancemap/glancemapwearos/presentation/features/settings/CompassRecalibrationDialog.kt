@@ -407,7 +407,11 @@ fun CompassRecalibrationDialog(
                     text = "Recalibrate Compass",
                     fontSize = tokens.titleFontSize,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = tokens.titleTopPadding),
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = tokens.titleTopPadding),
                 )
 
                 Text(
