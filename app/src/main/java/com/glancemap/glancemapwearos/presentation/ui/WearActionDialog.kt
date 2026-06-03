@@ -154,6 +154,19 @@ private fun WearActionSurface(
         adaptive.dialogVerticalPadding +
             if (adaptive.isRound) 42.dp else 12.dp
     val controlWidthFraction = if (adaptive.isRound) 0.86f else 1f
+    val textWidthFraction =
+        when {
+            !adaptive.isRound -> 1f
+            adaptive.fontScale >= 1.45f -> 0.72f
+            adaptive.fontScale >= 1.25f -> 0.78f
+            else -> 0.86f
+        }
+    val actionFontScaleCap =
+        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
+            1.0f
+        } else {
+            1.12f
+        }
 
     Box(
         modifier =
@@ -171,13 +184,20 @@ private fun WearActionSurface(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top),
         ) {
-            cappedFontScale(maxFontScale = 1.12f) {
+            cappedFontScale(maxFontScale = actionFontScaleCap) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(textWidthFraction),
                 )
-                content()
+                Column(
+                    modifier = Modifier.fillMaxWidth(textWidthFraction),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    content()
+                }
                 buttons.forEach { button ->
                     Button(
                         onClick = button.onClick,
