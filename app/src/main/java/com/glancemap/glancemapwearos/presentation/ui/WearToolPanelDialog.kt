@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -108,9 +109,12 @@ private fun WearToolPanelSurface(
                 content()
             }
         }
-        WearVerticalScrollIndicator(
+        WearThinVerticalScrollIndicator(
             scrollState = scrollState,
-            modifier = Modifier.align(Alignment.CenterEnd),
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .offset(x = if (adaptive.isRound) (-12).dp else 0.dp),
         )
     }
 }
