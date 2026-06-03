@@ -314,6 +314,11 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 DownloadSettingsScreen(
                                     viewModel = appContainer.downloadViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                        }
+                                    },
                                 )
                             }
                         }
