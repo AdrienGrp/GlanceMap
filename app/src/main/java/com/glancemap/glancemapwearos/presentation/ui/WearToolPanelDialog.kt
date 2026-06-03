@@ -75,7 +75,11 @@ private fun WearToolPanelSurface(
             highFontTopInset
     val bottomPadding =
         adaptive.dialogVerticalPadding +
-            if (adaptive.isRound) 34.dp else 12.dp
+            when {
+                adaptive.isRound && adaptive.fontScale >= 1.25f -> 56.dp
+                adaptive.isRound -> 42.dp
+                else -> 12.dp
+            }
 
     Box(
         modifier =
