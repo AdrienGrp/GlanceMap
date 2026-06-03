@@ -10,12 +10,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
+import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 
 @Composable
 fun GpxHelpBottomSheet(
@@ -30,51 +32,56 @@ fun GpxHelpBottomSheet(
         onDismiss = onDismiss,
     ) {
         item {
-            Text(
-                "Toggle tracks to show or hide them on the map.",
-                modifier = Modifier.fillMaxWidth(),
-            )
+            GpxHelpText("Toggle tracks on the map.")
         }
         item {
-            Text(
-                "Long press a track to view elevation.",
-                modifier = Modifier.fillMaxWidth(),
-            )
+            GpxHelpText("Long press for elevation.")
         }
         item {
-            Text(
-                text =
-                    buildAnnotatedString {
-                        append("Use the ")
-                        appendInlineContent("sendToPhone", "[send]")
-                        append(" button to select one or more GPX, then send them to your phone.")
-                    },
-                modifier = Modifier.fillMaxWidth(),
-                inlineContent =
-                    mapOf(
-                        "sendToPhone" to
-                            InlineTextContent(
-                                placeholder =
-                                    Placeholder(
-                                        width = 16.sp,
-                                        height = 16.sp,
-                                        placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
-                                    ),
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_mobile_arrow_right),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            },
-                    ),
-            )
+            cappedFontScale(maxFontScale = 1.08f) {
+                Text(
+                    text =
+                        buildAnnotatedString {
+                            append("Use ")
+                            appendInlineContent("sendToPhone", "[send]")
+                            append(" to send GPX to phone.")
+                        },
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                    inlineContent =
+                        mapOf(
+                            "sendToPhone" to
+                                InlineTextContent(
+                                    placeholder =
+                                        Placeholder(
+                                            width = 16.sp,
+                                            height = 16.sp,
+                                            placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+                                        ),
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_mobile_arrow_right),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                },
+                        ),
+                )
+            }
         }
         item {
-            Text(
-                "Use edit or delete mode to rename or remove tracks.",
-                modifier = Modifier.fillMaxWidth(),
-            )
+            GpxHelpText("Edit or delete tracks with mode buttons.")
         }
+    }
+}
+
+@Composable
+private fun GpxHelpText(text: String) {
+    cappedFontScale(maxFontScale = 1.08f) {
+        Text(
+            text,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
