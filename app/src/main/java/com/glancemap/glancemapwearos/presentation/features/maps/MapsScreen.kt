@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.items as foundationItems
+import androidx.compose.foundation.lazy.itemsIndexed as foundationItemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.Check
@@ -516,11 +517,12 @@ fun MapsScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            foundationItems(DemSource.entries) { source ->
+            foundationItemsIndexed(DemSource.entries) { index, source ->
                 DemQualityChoiceRow(
                     source = source,
                     selected = selectedDemSource == source,
                     onSelect = { themeViewModel.setDemSource(source) },
+                    modifier = Modifier.padding(top = if (index == 0) 0.dp else 6.dp),
                 )
             }
             foundationItems(DemSource.entries) { source ->
@@ -1106,10 +1108,11 @@ private fun DemQualityChoiceRow(
     source: DemSource,
     selected: Boolean,
     onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Button(
         onClick = onSelect,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors =
             if (selected) {
                 ButtonDefaults.buttonColors(
