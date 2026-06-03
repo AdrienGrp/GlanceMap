@@ -97,7 +97,7 @@ internal fun rememberCompassRecalibrationDialogTokens(): CompassRecalibrationDia
             WearWindowClass.COMPACT ->
                 CompassRecalibrationDialogTokens(
                     viewportVerticalInset = if (adaptive.isRound) 10.dp else 0.dp,
-                    titleTopPadding = if (adaptive.isRound) 6.dp else 0.dp,
+                    titleTopPadding = if (adaptive.isRound) 12.dp else 0.dp,
                     dialogWidthFraction = if (adaptive.isRound) 0.88f else 0.94f,
                     dialogContentSpacing = 4.dp,
                     dialogHorizontalPadding = 8.dp,

@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -55,12 +54,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
@@ -73,8 +69,7 @@ import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollBottomSpacer
-import com.glancemap.glancemapwearos.presentation.ui.WearDialogScrollableColumn
+import com.glancemap.glancemapwearos.presentation.ui.WearDataDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -85,6 +80,8 @@ import com.google.android.horologist.compose.layout.ScreenScaffold
 import com.google.android.horologist.compose.layout.rememberResponsiveColumnState
 import kotlinx.coroutines.delay
 import java.util.Locale
+import androidx.compose.foundation.lazy.items as foundationItems
+import androidx.compose.foundation.lazy.itemsIndexed as foundationItemsIndexed
 
 private val MAP_DATA_BADGE_SIZE = 26.dp
 private val MAP_DATA_ICON_SIZE = 15.dp
@@ -326,6 +323,7 @@ fun MapsScreen(
             initialValue = mapToRename?.name?.substringBeforeLast(".map") ?: "",
             isSaving = renameInProgress,
             error = renameError,
+            fullScreen = true,
             onDismiss = {
                 if (!renameInProgress) {
                     showRenameDialog = false
@@ -415,152 +413,142 @@ fun MapsScreen(
             onDismiss = { showDeleteAllRoutingDialog = false },
         )
 
-        AlertDialog(
+        WearDataDialog(
             visible = showRoutingDataDialog,
-            onDismissRequest = { showRoutingDataDialog = false },
-            edgeButton = {
+            title = "Routing data",
+            onDismiss = { showRoutingDataDialog = false },
+            bottomAction =
                 if (routingPackFiles.isNotEmpty()) {
-                    CompactIconHitTargetButton(
-                        onClick = { showDeleteAllRoutingDialog = true },
-                        modifier = Modifier.offset(y = (-16).dp),
-                        visualSize = 32.dp,
-                        visualOffsetY = (-2).dp,
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete all routing packs",
-                            modifier = Modifier.size(15.dp),
-                        )
-                    }
-                }
-            },
-            title = { Text("Routing data") },
-            text = {
-                WearDialogScrollableColumn(
-                    maxHeight = adaptive.helpDialogMaxHeight,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth(),
-                    scrollable = false,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = routingPackSummary(routingPackFiles),
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                    )
-                    if (routingPackFiles.isEmpty()) {
-                        Text(
-                            text = "No routing packs installed on the watch.",
-                            style = MaterialTheme.typography.bodySmall,
-                            textAlign = TextAlign.Center,
-                        )
-                    } else {
-                        routingPackFiles.forEach { pack ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    horizontalAlignment = Alignment.Start,
-                                ) {
-                                    Text(
-                                        text = pack.name,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Text(
-                                        text = formatRoutingStorageSize(pack.sizeBytes),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.White.copy(alpha = 0.68f),
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { routingPackToDelete = pack },
-                                    modifier = Modifier.size(26.dp),
-                                    colors =
-                                        IconButtonDefaults.iconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                        ),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete routing pack",
-                                        modifier = Modifier.size(14.dp),
-                                    )
-                                }
-                            }
+                    {
+                        CompactIconHitTargetButton(
+                            onClick = { showDeleteAllRoutingDialog = true },
+                            visualSize = 32.dp,
+                            visualOffsetY = (-2).dp,
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete all routing packs",
+                                modifier = Modifier.size(15.dp),
+                            )
                         }
                     }
-                    WearDialogScrollBottomSpacer()
-                }
-            },
-        )
-
-        AlertDialog(
-            visible = showDemDataDialog,
-            onDismissRequest = { showDemDataDialog = false },
-            title = { Text("Elevation data") },
-            content = {
+                } else {
+                    null
+                },
+        ) {
+            item {
+                Text(
+                    text = routingPackSummary(routingPackFiles),
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (routingPackFiles.isEmpty()) {
                 item {
                     Text(
-                        text = "Used for hill shading, slope and altitude.",
+                        text = "No routing packs installed on the watch.",
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+            } else {
+                foundationItems(routingPackFiles) { pack ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.Start,
+                        ) {
+                            Text(
+                                text = pack.name,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = formatRoutingStorageSize(pack.sizeBytes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.68f),
+                            )
+                        }
+                        CompactIconHitTargetButton(
+                            onClick = { routingPackToDelete = pack },
+                            visualSize = 26.dp,
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete routing pack",
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        WearDataDialog(
+            visible = showDemDataDialog,
+            title = "Elevation data",
+            onDismiss = { showDemDataDialog = false },
+        ) {
+            item {
+                Text(
+                    text = "Used for hill shading, slope and altitude.",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Text(
+                    text = "Choose quality for new elevation downloads.",
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            foundationItemsIndexed(DemSource.entries) { index, source ->
+                DemQualityChoiceRow(
+                    source = source,
+                    selected = selectedDemSource == source,
+                    onSelect = { themeViewModel.setDemSource(source) },
+                    modifier = Modifier.padding(top = if (index == 0) 0.dp else 6.dp),
+                )
+            }
+            foundationItems(DemSource.entries) { source ->
+                val files = demTileFiles.filter { it.source == source }
+                DemStorageSummaryRow(
+                    source = source,
+                    files = files,
+                    onDeleteAll = { demSourceToDeleteAll = source },
+                )
+            }
+            if (mapFiles.isNotEmpty()) {
                 item {
                     Text(
-                        text = "Choose quality for new elevation downloads.",
+                        text = "Map coverage",
                         style = MaterialTheme.typography.labelMedium,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 2.dp),
                     )
                 }
-                items(DemSource.entries) { source ->
-                    DemQualityChoiceRow(
-                        source = source,
-                        selected = selectedDemSource == source,
-                        onSelect = { themeViewModel.setDemSource(source) },
-                    )
+                foundationItems(mapFiles) { mapFile ->
+                    DemMapCoverageRow(mapFile = mapFile)
                 }
-                items(DemSource.entries) { source ->
-                    val files = demTileFiles.filter { it.source == source }
-                    DemStorageSummaryRow(
-                        source = source,
-                        files = files,
-                        onDeleteAll = { demSourceToDeleteAll = source },
-                    )
-                }
-                if (mapFiles.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Map coverage",
-                            style = MaterialTheme.typography.labelMedium,
-                            textAlign = TextAlign.Center,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 2.dp),
-                        )
-                    }
-                    items(mapFiles) { mapFile ->
-                        DemMapCoverageRow(mapFile = mapFile)
-                    }
-                }
-                item {
-                    WearDialogScrollBottomSpacer()
-                }
-            },
-        )
+            }
+        }
 
         WearInfoDialog(
             visible = showHelpDialog,
@@ -1119,10 +1107,11 @@ private fun DemQualityChoiceRow(
     source: DemSource,
     selected: Boolean,
     onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Button(
         onClick = onSelect,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors =
             if (selected) {
                 ButtonDefaults.buttonColors(
@@ -1198,14 +1187,11 @@ private fun DemStorageSummaryRow(
             )
         }
         if (files.isNotEmpty()) {
-            IconButton(
+            CompactIconHitTargetButton(
                 onClick = onDeleteAll,
-                modifier = Modifier.size(24.dp),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    ),
+                visualSize = 24.dp,
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
