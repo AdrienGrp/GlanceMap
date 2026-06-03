@@ -137,36 +137,8 @@ private fun WearActionSurface(
     backgroundColor: Color,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val adaptive = rememberWearAdaptiveSpec()
     val scrollState = rememberScrollState()
-    val highFontTopInset =
-        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
-            8.dp
-        } else {
-            0.dp
-        }
-    val topPadding =
-        adaptive.dialogVerticalPadding +
-            adaptive.headerTopSafeInset +
-            (if (adaptive.isRound) 18.dp else 0.dp) +
-            highFontTopInset
-    val bottomPadding =
-        adaptive.dialogVerticalPadding +
-            if (adaptive.isRound) 42.dp else 12.dp
-    val controlWidthFraction = if (adaptive.isRound) 0.86f else 1f
-    val textWidthFraction =
-        when {
-            !adaptive.isRound -> 1f
-            adaptive.fontScale >= 1.45f -> 0.72f
-            adaptive.fontScale >= 1.25f -> 0.78f
-            else -> 0.86f
-        }
-    val actionFontScaleCap =
-        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
-            1.0f
-        } else {
-            1.12f
-        }
+    val metrics = rememberWearActionLayoutMetrics()
 
     Box(
         modifier =
@@ -179,41 +151,93 @@ private fun WearActionSurface(
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(horizontal = adaptive.dialogHorizontalPadding)
-                    .padding(top = topPadding, bottom = bottomPadding),
+                    .padding(horizontal = metrics.horizontalPadding)
+                    .padding(top = metrics.topPadding, bottom = metrics.bottomPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top),
         ) {
-            cappedFontScale(maxFontScale = actionFontScaleCap) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(textWidthFraction),
-                )
-                Column(
-                    modifier = Modifier.fillMaxWidth(textWidthFraction),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    content()
-                }
-                buttons.forEach { button ->
-                    Button(
-                        onClick = button.onClick,
-                        enabled = button.enabled,
-                        colors = actionButtonColors(button.role),
-                        modifier =
-                            Modifier
-                                .fillMaxWidth(controlWidthFraction)
-                                .heightIn(min = 44.dp),
-                    ) {
-                        Text(button.text)
-                    }
-                }
-            }
+            WearActionContent(title = title, buttons = buttons, metrics = metrics, content = content)
         }
         WearScreenEdgeScrollIndicator(scrollState = scrollState)
+    }
+}
+
+private data class WearActionLayoutMetrics(
+    val horizontalPadding: Dp,
+    val topPadding: Dp,
+    val bottomPadding: Dp,
+    val controlWidthFraction: Float,
+    val textWidthFraction: Float,
+    val actionFontScaleCap: Float,
+)
+
+@Composable
+private fun rememberWearActionLayoutMetrics(): WearActionLayoutMetrics {
+    val adaptive = rememberWearAdaptiveSpec()
+    val highFontTopInset = if (adaptive.isRound && adaptive.fontScale >= 1.25f) 8.dp else 0.dp
+    val textWidthFraction =
+        when {
+            !adaptive.isRound -> 1f
+            adaptive.fontScale >= 1.45f -> 0.72f
+            adaptive.fontScale >= 1.25f -> 0.78f
+            else -> 0.86f
+        }
+    return WearActionLayoutMetrics(
+        horizontalPadding = adaptive.dialogHorizontalPadding,
+        topPadding =
+            adaptive.dialogVerticalPadding +
+                adaptive.headerTopSafeInset +
+                (if (adaptive.isRound) 18.dp else 0.dp) +
+                highFontTopInset,
+        bottomPadding = adaptive.dialogVerticalPadding + if (adaptive.isRound) 42.dp else 12.dp,
+        controlWidthFraction = if (adaptive.isRound) 0.86f else 1f,
+        textWidthFraction = textWidthFraction,
+        actionFontScaleCap = if (adaptive.isRound && adaptive.fontScale >= 1.25f) 1.0f else 1.12f,
+    )
+}
+
+@Composable
+private fun ColumnScope.WearActionContent(
+    title: String,
+    buttons: List<WearActionDialogButton>,
+    metrics: WearActionLayoutMetrics,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    cappedFontScale(maxFontScale = metrics.actionFontScaleCap) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(metrics.textWidthFraction),
+        )
+        Column(
+            modifier = Modifier.fillMaxWidth(metrics.textWidthFraction),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            content()
+        }
+        buttons.forEach { button ->
+            WearActionButton(button = button, widthFraction = metrics.controlWidthFraction)
+        }
+    }
+}
+
+@Composable
+private fun WearActionButton(
+    button: WearActionDialogButton,
+    widthFraction: Float,
+) {
+    Button(
+        onClick = button.onClick,
+        enabled = button.enabled,
+        colors = actionButtonColors(button.role),
+        modifier =
+            Modifier
+                .fillMaxWidth(widthFraction)
+                .heightIn(min = 44.dp),
+    ) {
+        Text(button.text)
     }
 }
 
