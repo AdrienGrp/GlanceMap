@@ -130,6 +130,7 @@ private fun dataDialogPadding(
             adaptive.dialogVerticalPadding +
                 when {
                     hasBottomAction -> 76.dp
+                    adaptive.isRound && adaptive.fontScale >= 1.25f -> 72.dp
                     adaptive.isRound -> 42.dp
                     else -> 18.dp
                 },
