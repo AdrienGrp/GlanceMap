@@ -108,7 +108,10 @@ private fun WearToolPanelSurface(
                 content()
             }
         }
-        WearScreenEdgeScrollIndicator(scrollState = scrollState)
+        WearVerticalScrollIndicator(
+            scrollState = scrollState,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        )
     }
 }
 
