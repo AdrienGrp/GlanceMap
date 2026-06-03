@@ -51,6 +51,7 @@ internal fun BoxScope.RouteCrosshairOverlay(
     busyMessage: String? = null,
     titleOverride: String? = null,
     instructionOverride: String? = null,
+    popupTopOffset: Dp = 0.dp,
     showCapturedPoints: Boolean = true,
     onPickHere: () -> Unit,
     onCancel: () -> Unit,
@@ -120,7 +121,9 @@ internal fun BoxScope.RouteCrosshairOverlay(
             WearScreenSize.MEDIUM -> 34.dp
             WearScreenSize.SMALL -> 30.dp
         }
-    val popupTopPadding = if (multiPointMode) popupSpec.topPadding + 2.dp else popupSpec.topPadding
+    val popupTopPadding =
+        (if (multiPointMode) popupSpec.topPadding + 2.dp else popupSpec.topPadding) +
+            popupTopOffset
     val effectiveActionsBottomPadding = if (multiPointMode) actionsBottomPadding + 2.dp else actionsBottomPadding
     val actionVisualOffsetY = if (multiPointMode) (-2).dp else 0.dp
     if (session.usesCrosshair) {

@@ -1227,6 +1227,7 @@ internal fun NavigateContent(
                     busyMessage = crosshairSelectionBusyMessage,
                     titleOverride = crosshairSelectionTitle ?: "+ POI",
                     instructionOverride = crosshairSelectionInstruction ?: "Move map, then check.",
+                    popupTopOffset = 4.dp,
                     showCapturedPoints = false,
                     onPickHere = {
                         onCrosshairSelectionPickHere(
