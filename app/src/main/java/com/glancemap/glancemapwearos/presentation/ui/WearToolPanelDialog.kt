@@ -76,7 +76,7 @@ private fun WearToolPanelSurface(
     val bottomPadding =
         adaptive.dialogVerticalPadding +
             when {
-                adaptive.isRound && adaptive.fontScale >= 1.25f -> 56.dp
+                adaptive.isRound && adaptive.fontScale >= 1.25f -> 72.dp
                 adaptive.isRound -> 42.dp
                 else -> 12.dp
             }
