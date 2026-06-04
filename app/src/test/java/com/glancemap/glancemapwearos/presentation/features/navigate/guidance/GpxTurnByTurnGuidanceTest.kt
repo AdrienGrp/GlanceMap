@@ -1,6 +1,8 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate.guidance
 
 import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
+import com.glancemap.glancemapwearos.presentation.features.gpx.GpxGuidanceHint
+import com.glancemap.glancemapwearos.presentation.features.gpx.GpxGuidanceHintSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -24,6 +26,36 @@ class GpxTurnByTurnGuidanceTest {
             )
 
         assertEquals(RouteInstructionCommand.LEFT, session.instructions.first().command)
+        assertEquals(RouteInstructionCommand.FINISH, session.instructions.last().command)
+    }
+
+    @Test
+    fun hintedInstructionsArePreferredOverGpxGeometry() {
+        val session =
+            buildGpxGuidanceSession(
+                trackId = "hinted.gpx",
+                trackTitle = "Hinted route",
+                trackPoints =
+                    listOf(
+                        point(0.0, 0.0),
+                        point(
+                            lat = 0.0,
+                            lon = 0.001,
+                            guidanceHint =
+                                GpxGuidanceHint(
+                                    commandCode = "TR",
+                                    message = "right",
+                                    source = GpxGuidanceHintSource.BROUTER,
+                                ),
+                        ),
+                        point(0.001, 0.001),
+                    ),
+                startReached = true,
+            )
+
+        assertEquals(RouteInstructionSource.BROUTER_HINT, session.instructions.first().source)
+        assertEquals(RouteInstructionCommand.RIGHT, session.instructions.first().command)
+        assertEquals("Right", session.instructions.first().message)
         assertEquals(RouteInstructionCommand.FINISH, session.instructions.last().command)
     }
 
@@ -101,5 +133,11 @@ class GpxTurnByTurnGuidanceTest {
     private fun point(
         lat: Double,
         lon: Double,
-    ): TrackPoint = TrackPoint(latLong = LatLong(lat, lon), elevation = null)
+        guidanceHint: GpxGuidanceHint? = null,
+    ): TrackPoint =
+        TrackPoint(
+            latLong = LatLong(lat, lon),
+            elevation = null,
+            guidanceHint = guidanceHint,
+        )
 }
