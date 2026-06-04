@@ -399,9 +399,6 @@ class MainActivity : ComponentActivity() {
                                             restoreState = true
                                         }
                                     },
-                                    onOpenTurnByTurnSettings = {
-                                        navController.navigate(WatchRoutes.TURN_BY_TURN_SETTINGS)
-                                    },
                                 )
                             }
                         }
@@ -456,6 +453,9 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
+                                    },
+                                    onOpenTurnByTurnSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_SETTINGS)
                                     },
                                 )
                             }

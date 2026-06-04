@@ -57,6 +57,7 @@ private const val VERTICAL_RATE_STEP_FEET_PER_HOUR = 100f
 fun GpxSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenGeneralSettings: () -> Unit,
+    onOpenTurnByTurnSettings: () -> Unit,
 ) {
     val screenSize = rememberWearScreenSize()
     val listTokens = rememberSettingsListTokens()
@@ -119,6 +120,14 @@ fun GpxSettingsScreen(
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
+
+        item {
+            SettingsSectionChip(
+                label = "Turn-by-turn settings",
+                secondaryLabel = "GPX guidance and BRouter",
+                onClick = onOpenTurnByTurnSettings,
+            )
         }
 
         item {
