@@ -127,6 +127,24 @@ fun WearVerticalScrollIndicator(
 }
 
 @Composable
+fun WearThinVerticalScrollIndicator(
+    scrollState: ScrollState,
+    modifier: Modifier = Modifier,
+) {
+    if (scrollState.maxValue <= MIN_VISIBLE_SCROLL_RANGE_PX) return
+
+    WearScrollIndicatorTrack(
+        modifier = modifier,
+        progress = scrollState.value.toFloat() / scrollState.maxValue.toFloat(),
+        thumbFraction = 0.18f,
+        trackWidth = 1.dp,
+        thumbWidth = 4.dp,
+        minThumbHeight = 22.dp,
+        maxThumbHeight = 42.dp,
+    )
+}
+
+@Composable
 fun BoxScope.WearScreenEdgeScrollIndicator(
     scrollState: ScrollState,
     modifier: Modifier = Modifier,
@@ -278,6 +296,10 @@ private fun WearScrollIndicatorTrack(
     progress: Float,
     thumbFraction: Float,
     modifier: Modifier = Modifier,
+    trackWidth: Dp = 2.dp,
+    thumbWidth: Dp = 6.dp,
+    minThumbHeight: Dp = 24.dp,
+    maxThumbHeight: Dp = 46.dp,
 ) {
     val adaptive = rememberWearAdaptiveSpec()
     val topSafeInset =
@@ -306,9 +328,9 @@ private fun WearScrollIndicatorTrack(
             modifier
                 .fillMaxHeight()
                 .padding(top = topSafeInset, bottom = bottomSafeInset)
-                .width(6.dp),
+                .width(thumbWidth),
     ) {
-        val thumbHeight = (maxHeight * thumbFraction).coerceIn(24.dp, 46.dp)
+        val thumbHeight = (maxHeight * thumbFraction).coerceIn(minThumbHeight, maxThumbHeight)
         val travel = (maxHeight - thumbHeight).coerceAtLeast(0.dp)
         val thumbOffset = travel * progress.coerceIn(0f, 1f)
 
@@ -317,7 +339,7 @@ private fun WearScrollIndicatorTrack(
                 Modifier
                     .align(Alignment.Center)
                     .fillMaxHeight()
-                    .width(2.dp)
+                    .width(trackWidth)
                     .background(Color.White.copy(alpha = 0.16f), RoundedCornerShape(50)),
         )
         Box(
@@ -325,7 +347,7 @@ private fun WearScrollIndicatorTrack(
                 Modifier
                     .align(Alignment.TopCenter)
                     .offset(y = thumbOffset)
-                    .width(6.dp)
+                    .width(thumbWidth)
                     .height(thumbHeight)
                     .background(Color.White.copy(alpha = 0.72f), RoundedCornerShape(50)),
         )

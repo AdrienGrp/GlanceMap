@@ -1,4 +1,4 @@
-@file:Suppress("FunctionName", "MatchingDeclarationName")
+@file:Suppress("FunctionName", "LongMethod", "MatchingDeclarationName")
 
 package com.glancemap.glancemapwearos.presentation.ui
 
@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 
 data class WearFormDialogTokens(
@@ -93,7 +94,10 @@ fun WearFormDialog(
                     content(tokens)
                 }
             }
-            WearScreenEdgeScrollIndicator(scrollState = scrollState)
+            ScrollIndicator(
+                state = scrollState,
+                modifier = Modifier.align(Alignment.CenterEnd),
+            )
         }
     }
 }

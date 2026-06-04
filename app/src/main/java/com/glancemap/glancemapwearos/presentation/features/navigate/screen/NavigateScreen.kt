@@ -75,6 +75,7 @@ import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidBitmap
 import kotlin.math.abs
 
+@Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 @Composable
 fun NavigateScreen(
     mapViewModel: MapViewModel,
@@ -85,6 +86,7 @@ fun NavigateScreen(
     isAmbient: Boolean,
     isDeviceInteractive: Boolean,
     ambientTickMs: Long,
+    onNavigateTimeSuppressedChange: (Boolean) -> Unit = {},
     onMenuClick: () -> Unit,
     compassViewModel: CompassViewModel = viewModel(),
     navigateViewModel: NavigateViewModel =
@@ -1157,6 +1159,7 @@ fun NavigateScreen(
         mapHolder = mapHolder,
         onMapHolderChange = { /* no-op */ },
         onMapViewReadyForRendering = { mapViewModel.onMapViewReadyForRendering() },
+        onNavigateTimeSuppressedChange = onNavigateTimeSuppressedChange,
         mapAppearanceApplyInProgress = mapAppearanceApplyInProgress,
         slopeOverlayToggleEnabled = slopeOverlayToggleEnabled,
         slopeOverlayEnabled = slopeOverlayState.enabled,

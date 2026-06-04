@@ -66,7 +66,7 @@ internal fun RouteToolsActionPanel(
         visible = true,
         title = "GPX Tools",
         onDismiss = onDismiss,
-        backgroundColor = Color.Black.copy(alpha = 0.86f),
+        backgroundColor = Color.Black.copy(alpha = 0.90f),
     ) {
         if (!preflightMessage.isNullOrBlank() && !shouldUsePreflightPopup) {
             Box(

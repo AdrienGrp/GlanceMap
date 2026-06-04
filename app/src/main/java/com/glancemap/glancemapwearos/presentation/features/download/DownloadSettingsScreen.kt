@@ -22,6 +22,7 @@ import androidx.wear.compose.material3.SplitSwitchButton
 import androidx.wear.compose.material3.SwitchButtonDefaults
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.maps.DemSource
+import com.glancemap.glancemapwearos.presentation.features.settings.GeneralSettingsShortcutChip
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsToggleChip
 import com.glancemap.glancemapwearos.presentation.features.settings.WearSettingsListScreen
@@ -30,7 +31,10 @@ import com.google.android.horologist.annotations.ExperimentalHorologistApi
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
-fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
+fun DownloadSettingsScreen(
+    viewModel: DownloadViewModel,
+    onOpenGeneralSettings: () -> Unit,
+) {
     val uiState by viewModel.uiState.collectAsState()
     val listTokens =
         rememberSettingsListTokens(
@@ -50,6 +54,9 @@ fun DownloadSettingsScreen(viewModel: DownloadViewModel) {
     )
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
         item {
             SettingsToggleChip(
                 checked = uiState.selection.includeMap,

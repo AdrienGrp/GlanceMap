@@ -1,4 +1,4 @@
-@file:Suppress("FunctionName", "MatchingDeclarationName")
+@file:Suppress("FunctionName", "LongMethod", "MatchingDeclarationName")
 
 package com.glancemap.glancemapwearos.presentation.ui
 
@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 
 private const val TOOL_PANEL_DRAG_DISMISS_PX = 55f
@@ -35,7 +36,7 @@ fun WearToolPanelDialog(
     visible: Boolean,
     title: String,
     onDismiss: () -> Unit,
-    backgroundColor: Color = Color.Black.copy(alpha = 0.86f),
+    backgroundColor: Color = Color.Black.copy(alpha = 0.90f),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!visible) return
@@ -62,12 +63,20 @@ private fun WearToolPanelSurface(
 ) {
     val adaptive = rememberWearAdaptiveSpec()
     val scrollState = rememberScrollState()
+    val highFontRound = adaptive.isRound && adaptive.fontScale >= 1.25f
     val highFontTopInset =
-        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
+        if (highFontRound) {
             8.dp
         } else {
             0.dp
         }
+    val horizontalPadding =
+        adaptive.dialogHorizontalPadding +
+            when {
+                highFontRound -> 18.dp
+                adaptive.isRound -> 8.dp
+                else -> 4.dp
+            }
     val topPadding =
         adaptive.dialogVerticalPadding +
             adaptive.headerTopSafeInset +
@@ -75,7 +84,11 @@ private fun WearToolPanelSurface(
             highFontTopInset
     val bottomPadding =
         adaptive.dialogVerticalPadding +
-            if (adaptive.isRound) 34.dp else 12.dp
+            when {
+                highFontRound -> 120.dp
+                adaptive.isRound -> 42.dp
+                else -> 12.dp
+            }
 
     Box(
         modifier =
@@ -88,7 +101,7 @@ private fun WearToolPanelSurface(
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(horizontal = adaptive.dialogHorizontalPadding)
+                    .padding(horizontal = horizontalPadding)
                     .padding(top = topPadding, bottom = bottomPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top),
@@ -104,7 +117,12 @@ private fun WearToolPanelSurface(
                 content()
             }
         }
-        WearScreenEdgeScrollIndicator(scrollState = scrollState)
+        ScrollIndicator(
+            state = scrollState,
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd),
+        )
     }
 }
 

@@ -25,6 +25,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 
 enum class WearActionButtonRole {
@@ -158,7 +159,10 @@ private fun WearActionSurface(
         ) {
             WearActionContent(title = title, buttons = buttons, metrics = metrics, content = content)
         }
-        WearScreenEdgeScrollIndicator(scrollState = scrollState)
+        ScrollIndicator(
+            state = scrollState,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        )
     }
 }
 

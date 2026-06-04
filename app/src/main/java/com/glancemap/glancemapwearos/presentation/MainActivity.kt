@@ -133,11 +133,17 @@ class MainActivity : ComponentActivity() {
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val route = backStackEntry?.destination?.route
                 val routeLabel = route ?: WatchRoutes.NAVIGATE
+                var suppressNavigateTime by remember { mutableStateOf(false) }
                 LaunchedEffect(routeLabel) {
                     activeRoute = routeLabel
                     logNavigationTelemetry(event = "route_visible", route = routeLabel)
                 }
                 val isNavigateScreen = routeLabel == WatchRoutes.NAVIGATE
+                LaunchedEffect(isNavigateScreen) {
+                    if (!isNavigateScreen) {
+                        suppressNavigateTime = false
+                    }
+                }
                 val navigateViaSwipeLeft: () -> Unit = {
                     val popped = navController.popBackStack(WatchRoutes.NAVIGATE, inclusive = false)
                     if (!popped) {
@@ -154,7 +160,8 @@ class MainActivity : ComponentActivity() {
 
                 AppScaffold(
                     timeText = {
-                        if (showTimeInNavigate && isNavigateScreen && !isAmbient) {
+                        val canShowNavigateTime = showTimeInNavigate && isNavigateScreen && !isAmbient
+                        if (canShowNavigateTime && !suppressNavigateTime) {
                             cappedFontScale(maxFontScale = 1f) {
                                 val context = LocalContext.current
                                 TimeText(
@@ -205,6 +212,7 @@ class MainActivity : ComponentActivity() {
                                 isAmbient = isAmbient,
                                 isDeviceInteractive = isDeviceInteractive,
                                 ambientTickMs = ambientTickMs,
+                                onNavigateTimeSuppressedChange = { suppressNavigateTime = it },
                                 onMenuClick = {
                                     logNavigationTelemetry(
                                         event = "menu_click",
@@ -314,6 +322,11 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 DownloadSettingsScreen(
                                     viewModel = appContainer.downloadViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                        }
+                                    },
                                 )
                             }
                         }

@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -72,6 +74,7 @@ import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearDataDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -86,7 +89,7 @@ import androidx.compose.foundation.lazy.itemsIndexed as foundationItemsIndexed
 private val MAP_DATA_BADGE_SIZE = 26.dp
 private val MAP_DATA_ICON_SIZE = 15.dp
 private val MAP_ROUTING_BADGE_SLOT_WIDTH = 22.dp
-private val MAP_DEM_BADGE_SLOT_WIDTH = 18.dp
+private val MAP_DEM_BADGE_SLOT_WIDTH = 22.dp
 
 @Composable
 fun MapsScreen(
@@ -495,57 +498,99 @@ fun MapsScreen(
             }
         }
 
+        val demDataHighFont = adaptive.fontScale > 1f
         WearDataDialog(
             visible = showDemDataDialog,
             title = "Elevation data",
             onDismiss = { showDemDataDialog = false },
+            viewportPadding =
+                if (demDataHighFont) {
+                    PaddingValues(top = 24.dp, bottom = 72.dp)
+                } else {
+                    PaddingValues(0.dp)
+                },
         ) {
+            val demDialogHorizontalPadding = if (demDataHighFont) 22.dp else 0.dp
             item {
-                Text(
-                    text = "Used for hill shading, slope and altitude.",
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                Text(
-                    text = "Choose quality for new elevation downloads.",
-                    style = MaterialTheme.typography.labelMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            foundationItemsIndexed(DemSource.entries) { index, source ->
-                DemQualityChoiceRow(
-                    source = source,
-                    selected = selectedDemSource == source,
-                    onSelect = { themeViewModel.setDemSource(source) },
-                    modifier = Modifier.padding(top = if (index == 0) 0.dp else 6.dp),
-                )
-            }
-            foundationItems(DemSource.entries) { source ->
-                val files = demTileFiles.filter { it.source == source }
-                DemStorageSummaryRow(
-                    source = source,
-                    files = files,
-                    onDeleteAll = { demSourceToDeleteAll = source },
-                )
-            }
-            if (mapFiles.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Map coverage",
-                        style = MaterialTheme.typography.labelMedium,
-                        textAlign = TextAlign.Center,
+                cappedFontScale(maxFontScale = 1.08f) {
+                    Column(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = 2.dp),
+                                .padding(horizontal = demDialogHorizontalPadding),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Text(
+                            text = "For shading, slope and altitude.",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            text = "Quality for new downloads.",
+                            style = MaterialTheme.typography.labelMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+            foundationItemsIndexed(DemSource.entries) { index, source ->
+                DemDialogDenseContent(highFont = demDataHighFont) {
+                    val rowModifier =
+                        Modifier.padding(
+                            start = demDialogHorizontalPadding,
+                            top = if (index == 0) 0.dp else 6.dp,
+                            end = demDialogHorizontalPadding,
+                            bottom = 0.dp,
+                        )
+                    DemQualityChoiceRow(
+                        source = source,
+                        selected = selectedDemSource == source,
+                        onSelect = { themeViewModel.setDemSource(source) },
+                        modifier = rowModifier,
                     )
                 }
+            }
+            foundationItems(DemSource.entries) { source ->
+                val files = demTileFiles.filter { it.source == source }
+                DemDialogDenseContent(highFont = demDataHighFont) {
+                    DemStorageSummaryRow(
+                        source = source,
+                        files = files,
+                        onDeleteAll = { demSourceToDeleteAll = source },
+                        modifier = Modifier.padding(horizontal = demDialogHorizontalPadding),
+                    )
+                }
+            }
+            if (mapFiles.isNotEmpty()) {
+                item {
+                    DemDialogDenseContent(highFont = demDataHighFont) {
+                        Text(
+                            text = "Map coverage",
+                            style = MaterialTheme.typography.labelMedium,
+                            textAlign = TextAlign.Center,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = demDialogHorizontalPadding)
+                                    .padding(top = 2.dp),
+                        )
+                    }
+                }
                 foundationItems(mapFiles) { mapFile ->
-                    DemMapCoverageRow(mapFile = mapFile)
+                    DemDialogDenseContent(highFont = demDataHighFont) {
+                        DemMapCoverageRow(
+                            mapFile = mapFile,
+                            modifier = Modifier.padding(horizontal = demDialogHorizontalPadding),
+                        )
+                    }
+                }
+            }
+            if (demDataHighFont) {
+                item {
+                    Spacer(modifier = Modifier.height(48.dp))
                 }
             }
         }
@@ -773,6 +818,12 @@ fun MapsScreen(
                 demDownloadState.isDownloading || visibleDemStatusMessage.isNotBlank()
 
             if (showDemStatusBlock) {
+                val demStatusWidthFraction =
+                    when {
+                        !adaptive.isRound -> 1f
+                        adaptive.fontScale > 1f -> 0.76f
+                        else -> 0.86f
+                    }
                 Column(
                     modifier =
                         Modifier
@@ -798,8 +849,10 @@ fun MapsScreen(
                             text = visibleDemStatusMessage,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(demStatusWidthFraction),
                             textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -1165,9 +1218,10 @@ private fun DemStorageSummaryRow(
     source: DemSource,
     files: List<DemTileFileState>,
     onDeleteAll: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -1204,9 +1258,12 @@ private fun DemStorageSummaryRow(
 }
 
 @Composable
-private fun DemMapCoverageRow(mapFile: MapFileState) {
+private fun DemMapCoverageRow(
+    mapFile: MapFileState,
+    modifier: Modifier = Modifier,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -1224,6 +1281,18 @@ private fun DemMapCoverageRow(mapFile: MapFileState) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+@Composable
+private fun DemDialogDenseContent(
+    highFont: Boolean,
+    content: @Composable () -> Unit,
+) {
+    if (highFont) {
+        cappedFontScale(maxFontScale = 1.08f, content = content)
+    } else {
+        content()
     }
 }
 
