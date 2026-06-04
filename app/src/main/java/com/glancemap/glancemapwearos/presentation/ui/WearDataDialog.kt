@@ -121,20 +121,29 @@ private fun WearDataDialogSurface(
 private fun dataDialogPadding(
     adaptive: WearAdaptiveSpec,
     hasBottomAction: Boolean,
-): PaddingValues =
-    PaddingValues(
-        start = adaptive.dialogHorizontalPadding,
+): PaddingValues {
+    val highFontRound = adaptive.isRound && adaptive.fontScale >= 1.25f
+    val horizontalPadding =
+        if (highFontRound) {
+            adaptive.dialogHorizontalPadding + 14.dp
+        } else {
+            adaptive.dialogHorizontalPadding
+        }
+
+    return PaddingValues(
+        start = horizontalPadding,
         top = adaptive.dialogVerticalPadding + adaptive.headerTopSafeInset + 18.dp,
-        end = adaptive.dialogHorizontalPadding + 10.dp,
+        end = horizontalPadding + 10.dp,
         bottom =
             adaptive.dialogVerticalPadding +
                 when {
                     hasBottomAction -> 76.dp
-                    adaptive.isRound && adaptive.fontScale >= 1.25f -> 132.dp
+                    highFontRound -> 180.dp
                     adaptive.isRound -> 42.dp
                     else -> 18.dp
                 },
     )
+}
 
 @Composable
 private fun DataDialogList(
