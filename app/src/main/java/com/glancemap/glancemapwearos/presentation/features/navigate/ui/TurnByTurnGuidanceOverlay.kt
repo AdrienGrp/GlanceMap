@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.runtime.Composable
@@ -48,9 +46,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.wear.compose.foundation.AnchorType
+import androidx.wear.compose.foundation.CurvedLayout
+import androidx.wear.compose.foundation.CurvedModifier
+import androidx.wear.compose.foundation.CurvedTextStyle
+import androidx.wear.compose.foundation.basicCurvedText
+import androidx.wear.compose.foundation.padding
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
@@ -130,7 +132,6 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
             compassHeadingDeg = compassHeadingDeg,
             guideBackToRouteActive = guideBackToRouteActive,
             onCollapse = { expanded = false },
-            onStop = onStop,
         )
     }
 
@@ -224,25 +225,12 @@ private fun ExpandedGuidanceOverlay(
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     onCollapse: () -> Unit,
-    onStop: () -> Unit,
 ) {
-    val titleTopPadding =
+    val titleRadialPadding =
         when (screenSize) {
-            WearScreenSize.LARGE -> 42.dp
-            WearScreenSize.MEDIUM -> 38.dp
-            WearScreenSize.SMALL -> 34.dp
-        }
-    val controlsTopPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 66.dp
-            WearScreenSize.MEDIUM -> 62.dp
-            WearScreenSize.SMALL -> 58.dp
-        }
-    val controlButtonSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 26.dp
-            WearScreenSize.MEDIUM -> 25.dp
-            WearScreenSize.SMALL -> 24.dp
+            WearScreenSize.LARGE -> 16.dp
+            WearScreenSize.MEDIUM -> 15.dp
+            WearScreenSize.SMALL -> 14.dp
         }
     val contentWidthFraction =
         when (screenSize) {
@@ -289,51 +277,24 @@ private fun ExpandedGuidanceOverlay(
             modifier = Modifier.fillMaxSize(),
         )
 
-        Text(
-            text = state.trackTitle.orEmpty(),
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = titleTopPadding)
-                    .fillMaxWidth(0.62f),
-            color = Color.White.copy(alpha = 0.64f),
-            fontSize = 10.sp,
-            lineHeight = 10.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-        )
-
-        Row(
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = controlsTopPadding)
-                    .width(86.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(
-                onClick = onCollapse,
-                modifier = Modifier.size(controlButtonSize),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f),
-                        contentColor = Color.White,
-                    ),
+        if (!state.trackTitle.isNullOrBlank()) {
+            CurvedLayout(
+                modifier = Modifier.fillMaxSize(),
+                anchor = 270f,
+                anchorType = AnchorType.Center,
             ) {
-                Icon(Icons.Default.ExpandLess, contentDescription = "Collapse guidance")
-            }
-            IconButton(
-                onClick = onStop,
-                modifier = Modifier.size(controlButtonSize),
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.White.copy(alpha = 0.12f),
-                        contentColor = Color.White,
-                    ),
-            ) {
-                Icon(Icons.Default.Close, contentDescription = "Stop guidance")
+                basicCurvedText(
+                    text = state.trackTitle,
+                    modifier = CurvedModifier.padding(titleRadialPadding),
+                    overflow = TextOverflow.Ellipsis,
+                    style = {
+                        CurvedTextStyle(
+                            color = Color.White.copy(alpha = 0.64f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    },
+                )
             }
         }
 
