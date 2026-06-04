@@ -201,7 +201,7 @@ Start with a minimal Wear popup in `NavigateOverlaysLayer`:
 - short text such as "Left" or "Keep right",
 - progress/distance remaining,
 - stop action,
-- optional off-route warning.
+- optional off-route warning, haptic cue, and user-approved guide-back mode.
 
 Expanded state:
 
@@ -246,8 +246,9 @@ BRouter mode 9 remains attractive for routes created by route tools because it w
 4. Add the GPX screen play button.
 5. Add the compact navigate popup.
 6. Add swipe-up full-screen expansion.
-7. Add haptics and off-route warning.
-8. Later, parse BRouter/GPX extension hints when present and prefer them over geometry-derived turns.
+7. Add configurable haptics and off-route warning.
+8. Add an off-route decision popup. If the user accepts, guidance points to the nearest GPX point until they are back within the configured off-route threshold; the original GPX is not rewritten.
+9. Parse BRouter/GPX extension hints when present and prefer them over geometry-derived turns, with geometry as the fallback.
 
 ## Open Questions
 
