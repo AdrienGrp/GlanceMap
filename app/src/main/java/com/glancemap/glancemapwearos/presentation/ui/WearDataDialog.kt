@@ -47,6 +47,7 @@ fun WearDataDialog(
     visible: Boolean,
     title: String,
     onDismiss: () -> Unit,
+    viewportPadding: PaddingValues = PaddingValues(0.dp),
     bottomAction: (@Composable BoxScope.() -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
@@ -71,6 +72,7 @@ fun WearDataDialog(
                 DataDialogRuntime(
                     listState = listState,
                     focusRequester = focusRequester,
+                    viewportPadding = viewportPadding,
                     contentPadding = dataDialogPadding(adaptive, bottomAction != null),
                     bottomActionPadding = adaptive.dialogVerticalPadding + 14.dp,
                     onRotaryScroll = { delta ->
@@ -86,6 +88,7 @@ fun WearDataDialog(
 private data class DataDialogRuntime(
     val listState: LazyListState,
     val focusRequester: FocusRequester,
+    val viewportPadding: PaddingValues,
     val contentPadding: PaddingValues,
     val bottomActionPadding: Dp,
     val onRotaryScroll: (Float) -> Unit,
@@ -103,7 +106,7 @@ private fun WearDataDialogSurface(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.82f)),
+                .background(Color.Black.copy(alpha = 0.90f)),
     ) {
         DataDialogList(
             title = title,
@@ -124,11 +127,12 @@ private fun dataDialogPadding(
 ): PaddingValues {
     val highFontRound = adaptive.isRound && adaptive.fontScale >= 1.25f
     val horizontalPadding =
-        if (highFontRound) {
-            adaptive.dialogHorizontalPadding + 14.dp
-        } else {
-            adaptive.dialogHorizontalPadding
-        }
+        adaptive.dialogHorizontalPadding +
+            when {
+                highFontRound -> 18.dp
+                adaptive.isRound -> 8.dp
+                else -> 4.dp
+            }
 
     return PaddingValues(
         start = horizontalPadding,
@@ -138,7 +142,7 @@ private fun dataDialogPadding(
             adaptive.dialogVerticalPadding +
                 when {
                     hasBottomAction -> 76.dp
-                    highFontRound -> 180.dp
+                    highFontRound -> 260.dp
                     adaptive.isRound -> 42.dp
                     else -> 18.dp
                 },
@@ -156,6 +160,7 @@ private fun DataDialogList(
         modifier =
             Modifier
                 .fillMaxSize()
+                .padding(dialogState.viewportPadding)
                 .onPreRotaryScrollEvent { event ->
                     dialogState.onRotaryScroll(event.verticalScrollPixels)
                     abs(event.verticalScrollPixels) > 0.5f

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -27,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 
 private const val TOOL_PANEL_DRAG_DISMISS_PX = 55f
@@ -36,7 +36,7 @@ fun WearToolPanelDialog(
     visible: Boolean,
     title: String,
     onDismiss: () -> Unit,
-    backgroundColor: Color = Color.Black.copy(alpha = 0.86f),
+    backgroundColor: Color = Color.Black.copy(alpha = 0.90f),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!visible) return
@@ -63,21 +63,29 @@ private fun WearToolPanelSurface(
 ) {
     val adaptive = rememberWearAdaptiveSpec()
     val scrollState = rememberScrollState()
+    val highFontRound = adaptive.isRound && adaptive.fontScale >= 1.25f
     val highFontTopInset =
-        if (adaptive.isRound && adaptive.fontScale >= 1.25f) {
+        if (highFontRound) {
             8.dp
         } else {
             0.dp
         }
+    val horizontalPadding =
+        adaptive.dialogHorizontalPadding +
+            when {
+                highFontRound -> 18.dp
+                adaptive.isRound -> 8.dp
+                else -> 4.dp
+            }
     val topPadding =
         adaptive.dialogVerticalPadding +
             adaptive.headerTopSafeInset +
             (if (adaptive.isRound) 10.dp else 0.dp) +
             highFontTopInset
     val bottomPadding =
-        adaptive.dialogVerticalPadding +
+            adaptive.dialogVerticalPadding +
             when {
-                adaptive.isRound && adaptive.fontScale >= 1.25f -> 96.dp
+                highFontRound -> 120.dp
                 adaptive.isRound -> 42.dp
                 else -> 12.dp
             }
@@ -93,7 +101,7 @@ private fun WearToolPanelSurface(
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(horizontal = adaptive.dialogHorizontalPadding)
+                    .padding(horizontal = horizontalPadding)
                     .padding(top = topPadding, bottom = bottomPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top),
@@ -109,12 +117,11 @@ private fun WearToolPanelSurface(
                 content()
             }
         }
-        WearThinVerticalScrollIndicator(
-            scrollState = scrollState,
+        ScrollIndicator(
+            state = scrollState,
             modifier =
                 Modifier
                     .align(Alignment.CenterEnd)
-                    .offset(x = if (adaptive.isRound) (-12).dp else 0.dp),
         )
     }
 }

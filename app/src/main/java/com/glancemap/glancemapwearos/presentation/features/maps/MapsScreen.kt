@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -496,15 +498,26 @@ fun MapsScreen(
             }
         }
 
+        val demDataHighFont = adaptive.fontScale > 1f
         WearDataDialog(
             visible = showDemDataDialog,
             title = "Elevation data",
             onDismiss = { showDemDataDialog = false },
+            viewportPadding =
+                if (demDataHighFont) {
+                    PaddingValues(top = 24.dp, bottom = 72.dp)
+                } else {
+                    PaddingValues(0.dp)
+                },
         ) {
+            val demDialogHorizontalPadding = if (demDataHighFont) 22.dp else 0.dp
             item {
                 cappedFontScale(maxFontScale = 1.08f) {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = demDialogHorizontalPadding),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
@@ -524,35 +537,57 @@ fun MapsScreen(
                 }
             }
             foundationItemsIndexed(DemSource.entries) { index, source ->
-                DemQualityChoiceRow(
-                    source = source,
-                    selected = selectedDemSource == source,
-                    onSelect = { themeViewModel.setDemSource(source) },
-                    modifier = Modifier.padding(top = if (index == 0) 0.dp else 6.dp),
-                )
+                DemDialogDenseContent(highFont = demDataHighFont) {
+                    DemQualityChoiceRow(
+                        source = source,
+                        selected = selectedDemSource == source,
+                        onSelect = { themeViewModel.setDemSource(source) },
+                        modifier =
+                            Modifier.padding(
+                                horizontal = demDialogHorizontalPadding,
+                                vertical = 0.dp,
+                            ).padding(top = if (index == 0) 0.dp else 6.dp),
+                    )
+                }
             }
             foundationItems(DemSource.entries) { source ->
                 val files = demTileFiles.filter { it.source == source }
-                DemStorageSummaryRow(
-                    source = source,
-                    files = files,
-                    onDeleteAll = { demSourceToDeleteAll = source },
-                )
+                DemDialogDenseContent(highFont = demDataHighFont) {
+                    DemStorageSummaryRow(
+                        source = source,
+                        files = files,
+                        onDeleteAll = { demSourceToDeleteAll = source },
+                        modifier = Modifier.padding(horizontal = demDialogHorizontalPadding),
+                    )
+                }
             }
             if (mapFiles.isNotEmpty()) {
                 item {
-                    Text(
-                        text = "Map coverage",
-                        style = MaterialTheme.typography.labelMedium,
-                        textAlign = TextAlign.Center,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 2.dp),
-                    )
+                    DemDialogDenseContent(highFont = demDataHighFont) {
+                        Text(
+                            text = "Map coverage",
+                            style = MaterialTheme.typography.labelMedium,
+                            textAlign = TextAlign.Center,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = demDialogHorizontalPadding)
+                                    .padding(top = 2.dp),
+                        )
+                    }
                 }
                 foundationItems(mapFiles) { mapFile ->
-                    DemMapCoverageRow(mapFile = mapFile)
+                    DemDialogDenseContent(highFont = demDataHighFont) {
+                        DemMapCoverageRow(
+                            mapFile = mapFile,
+                            modifier = Modifier.padding(horizontal = demDialogHorizontalPadding),
+                        )
+                    }
+                }
+            }
+            if (demDataHighFont) {
+                item {
+                    Spacer(modifier = Modifier.height(48.dp))
                 }
             }
         }
@@ -1172,9 +1207,10 @@ private fun DemStorageSummaryRow(
     source: DemSource,
     files: List<DemTileFileState>,
     onDeleteAll: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -1211,9 +1247,12 @@ private fun DemStorageSummaryRow(
 }
 
 @Composable
-private fun DemMapCoverageRow(mapFile: MapFileState) {
+private fun DemMapCoverageRow(
+    mapFile: MapFileState,
+    modifier: Modifier = Modifier,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -1231,6 +1270,18 @@ private fun DemMapCoverageRow(mapFile: MapFileState) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+@Composable
+private fun DemDialogDenseContent(
+    highFont: Boolean,
+    content: @Composable () -> Unit,
+) {
+    if (highFont) {
+        cappedFontScale(maxFontScale = 1.08f, content = content)
+    } else {
+        content()
     }
 }
 

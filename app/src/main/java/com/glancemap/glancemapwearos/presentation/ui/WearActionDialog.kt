@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +25,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 
 enum class WearActionButtonRole {
@@ -140,7 +140,6 @@ private fun WearActionSurface(
 ) {
     val scrollState = rememberScrollState()
     val metrics = rememberWearActionLayoutMetrics()
-    val adaptive = rememberWearAdaptiveSpec()
 
     Box(
         modifier =
@@ -160,12 +159,9 @@ private fun WearActionSurface(
         ) {
             WearActionContent(title = title, buttons = buttons, metrics = metrics, content = content)
         }
-        WearThinVerticalScrollIndicator(
-            scrollState = scrollState,
-            modifier =
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .offset(x = if (adaptive.isRound) (-12).dp else 0.dp),
+        ScrollIndicator(
+            state = scrollState,
+            modifier = Modifier.align(Alignment.CenterEnd),
         )
     }
 }
