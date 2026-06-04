@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -139,6 +140,7 @@ private fun WearActionSurface(
 ) {
     val scrollState = rememberScrollState()
     val metrics = rememberWearActionLayoutMetrics()
+    val adaptive = rememberWearAdaptiveSpec()
 
     Box(
         modifier =
@@ -158,7 +160,13 @@ private fun WearActionSurface(
         ) {
             WearActionContent(title = title, buttons = buttons, metrics = metrics, content = content)
         }
-        WearScreenEdgeScrollIndicator(scrollState = scrollState)
+        WearThinVerticalScrollIndicator(
+            scrollState = scrollState,
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .offset(x = if (adaptive.isRound) (-12).dp else 0.dp),
+        )
     }
 }
 
