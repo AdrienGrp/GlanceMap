@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.presentation.features.navigate.guidance
 
 import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import org.mapsforge.core.model.LatLong
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.atan2
@@ -24,6 +25,7 @@ enum class RouteInstructionCommand {
 
 enum class RouteInstructionSource {
     GPX_GEOMETRY,
+    BROUTER_HINT,
 }
 
 data class RouteInstruction(
@@ -44,6 +46,7 @@ data class GpxGuidanceSession(
     val totalDistanceMeters: Double,
     val instructions: List<RouteInstruction>,
     val startReached: Boolean = false,
+    val reversed: Boolean = false,
 )
 
 enum class GuidanceMode {
@@ -61,6 +64,8 @@ data class TurnByTurnGuidanceState(
     val distanceToInstructionMeters: Double?,
     val distanceToStartMeters: Double?,
     val bearingToStartDegrees: Float?,
+    val distanceToRouteMeters: Double?,
+    val bearingToRouteDegrees: Float?,
     val distanceRemainingMeters: Double?,
     val routeProgressFraction: Float?,
     val offRoute: Boolean,
@@ -88,6 +93,7 @@ fun buildGpxGuidanceSession(
     trackTitle: String,
     trackPoints: List<TrackPoint>,
     startReached: Boolean = false,
+    reversed: Boolean = false,
     tuning: GpxGuidanceTuning = GpxGuidanceTuning(),
 ): GpxGuidanceSession {
     require(trackPoints.size >= 2) { "The GPX does not contain enough points for guidance." }
@@ -99,12 +105,19 @@ fun buildGpxGuidanceSession(
         cumulativeDistancesMeters = cumulative,
         totalDistanceMeters = cumulative.lastOrNull() ?: 0.0,
         instructions =
-            deriveGpxRouteInstructions(
+            deriveHintedRouteInstructions(
                 trackPoints = trackPoints,
                 cumulativeDistancesMeters = cumulative,
                 tuning = tuning,
-            ),
+            ).ifEmpty {
+                deriveGpxRouteInstructions(
+                    trackPoints = trackPoints,
+                    cumulativeDistancesMeters = cumulative,
+                    tuning = tuning,
+                )
+            },
         startReached = startReached,
+        reversed = reversed,
     )
 }
 
@@ -122,6 +135,8 @@ fun computeTurnByTurnGuidanceState(
             distanceToInstructionMeters = null,
             distanceToStartMeters = null,
             bearingToStartDegrees = null,
+            distanceToRouteMeters = null,
+            bearingToRouteDegrees = null,
             distanceRemainingMeters = null,
             routeProgressFraction = null,
             offRoute = false,
@@ -137,6 +152,8 @@ fun computeTurnByTurnGuidanceState(
             distanceToInstructionMeters = null,
             distanceToStartMeters = null,
             bearingToStartDegrees = null,
+            distanceToRouteMeters = null,
+            bearingToRouteDegrees = null,
             distanceRemainingMeters = session.totalDistanceMeters,
             routeProgressFraction = 0f,
             offRoute = false,
@@ -154,6 +171,8 @@ fun computeTurnByTurnGuidanceState(
             distanceToInstructionMeters = null,
             distanceToStartMeters = distanceToStart,
             bearingToStartDegrees = bearingDegrees(currentLocation, start).toFloat(),
+            distanceToRouteMeters = null,
+            bearingToRouteDegrees = null,
             distanceRemainingMeters = session.totalDistanceMeters,
             routeProgressFraction = 0f,
             offRoute = false,
@@ -167,6 +186,15 @@ fun computeTurnByTurnGuidanceState(
             cumulativeDistancesMeters = session.cumulativeDistancesMeters,
             location = currentLocation,
         )
+    val nearestRoutePoint =
+        projection?.let {
+            projectedRoutePoint(
+                points = points,
+                projection = it,
+            )
+        }
+    val distanceToRoute = projection?.distanceToRouteMeters
+    val bearingToRoute = nearestRoutePoint?.let { bearingDegrees(currentLocation, it).toFloat() }
     val distanceFromStart = projection?.distanceFromStartMeters ?: 0.0
     val remaining = (session.totalDistanceMeters - distanceFromStart).coerceAtLeast(0.0)
     if (remaining <= tuning.finishDistanceMeters) {
@@ -178,6 +206,8 @@ fun computeTurnByTurnGuidanceState(
             distanceToInstructionMeters = 0.0,
             distanceToStartMeters = 0.0,
             bearingToStartDegrees = null,
+            distanceToRouteMeters = distanceToRoute,
+            bearingToRouteDegrees = bearingToRoute,
             distanceRemainingMeters = 0.0,
             routeProgressFraction = 1f,
             offRoute = false,
@@ -200,9 +230,24 @@ fun computeTurnByTurnGuidanceState(
         distanceToInstructionMeters = distanceToInstruction,
         distanceToStartMeters = distanceToStart,
         bearingToStartDegrees = null,
+        distanceToRouteMeters = distanceToRoute,
+        bearingToRouteDegrees = bearingToRoute,
         distanceRemainingMeters = remaining,
         routeProgressFraction = routeProgressFraction(distanceFromStart, session.totalDistanceMeters),
-        offRoute = (projection?.distanceToRouteMeters ?: 0.0) > tuning.offRouteDistanceMeters,
+        offRoute = (distanceToRoute ?: 0.0) > tuning.offRouteDistanceMeters,
+    )
+}
+
+private fun projectedRoutePoint(
+    points: List<LatLong>,
+    projection: GuidanceProjection,
+): LatLong? {
+    val a = points.getOrNull(projection.segmentIndex) ?: return null
+    val b = points.getOrNull(projection.segmentIndex + 1) ?: return a
+    val t = projection.t.coerceIn(0.0, 1.0)
+    return LatLong(
+        a.latitude + (b.latitude - a.latitude) * t,
+        a.longitude + (b.longitude - a.longitude) * t,
     )
 }
 
@@ -283,6 +328,87 @@ fun deriveGpxRouteInstructions(
         )
     return instructions
 }
+
+fun deriveHintedRouteInstructions(
+    trackPoints: List<TrackPoint>,
+    cumulativeDistancesMeters: List<Double> = buildCumulativeDistances(trackPoints.map { it.latLong }),
+    tuning: GpxGuidanceTuning = GpxGuidanceTuning(),
+): List<RouteInstruction> {
+    if (trackPoints.size < 2) return emptyList()
+    val instructions = mutableListOf<RouteInstruction>()
+    var lastInstructionDistance = Double.NEGATIVE_INFINITY
+
+    trackPoints.forEachIndexed { index, point ->
+        val hint = point.guidanceHint ?: return@forEachIndexed
+        val command = routeInstructionCommandForHint(hint.commandCode) ?: return@forEachIndexed
+        val distanceAtPoint = cumulativeDistancesMeters.getOrNull(index) ?: return@forEachIndexed
+        if (command != RouteInstructionCommand.FINISH &&
+            distanceAtPoint - lastInstructionDistance < tuning.minInstructionSpacingMeters
+        ) {
+            return@forEachIndexed
+        }
+        val message = hint.message?.toGuidanceMessage() ?: command.message
+        instructions +=
+            RouteInstruction(
+                command = command,
+                message = message,
+                latLong = point.latLong,
+                trackPointIndex = index,
+                distanceFromStartMeters = distanceAtPoint,
+                turnAngleDegrees = null,
+                source = RouteInstructionSource.BROUTER_HINT,
+            )
+        lastInstructionDistance = distanceAtPoint
+    }
+
+    if (instructions.isEmpty()) return emptyList()
+
+    val hasFinish = instructions.any { it.command == RouteInstructionCommand.FINISH }
+    if (!hasFinish) {
+        val points = trackPoints.map { it.latLong }
+        instructions +=
+            RouteInstruction(
+                command = RouteInstructionCommand.FINISH,
+                message = RouteInstructionCommand.FINISH.message,
+                latLong = points.last(),
+                trackPointIndex = points.lastIndex,
+                distanceFromStartMeters = cumulativeDistancesMeters.lastOrNull() ?: 0.0,
+                turnAngleDegrees = null,
+                source = RouteInstructionSource.BROUTER_HINT,
+            )
+    }
+    return instructions
+}
+
+private fun routeInstructionCommandForHint(commandCode: String?): RouteInstructionCommand? {
+    val normalized =
+        commandCode
+            ?.trim()
+            ?.uppercase(Locale.ROOT)
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+    return when {
+        normalized == "TSHL" || normalized == "TLU" -> RouteInstructionCommand.SHARP_LEFT
+        normalized == "TL" || normalized == "KL" || normalized == "EL" -> RouteInstructionCommand.LEFT
+        normalized == "TSLL" -> RouteInstructionCommand.SLIGHT_LEFT
+        normalized == "TSLR" -> RouteInstructionCommand.SLIGHT_RIGHT
+        normalized == "TR" || normalized == "KR" || normalized == "ER" -> RouteInstructionCommand.RIGHT
+        normalized == "TSHR" || normalized == "TRU" -> RouteInstructionCommand.SHARP_RIGHT
+        normalized == "C" -> RouteInstructionCommand.CONTINUE
+        normalized == "END" -> RouteInstructionCommand.FINISH
+        normalized.startsWith("RNL") -> RouteInstructionCommand.LEFT
+        normalized.startsWith("RND") -> RouteInstructionCommand.RIGHT
+        normalized == "TU" -> RouteInstructionCommand.SHARP_LEFT
+        normalized == "BL" || normalized == "OFFR" -> null
+        else -> null
+    }
+}
+
+private fun String.toGuidanceMessage(): String =
+    trim()
+        .replace('_', ' ')
+        .lowercase(Locale.ROOT)
+        .replaceFirstChar { char -> char.titlecase(Locale.ROOT) }
 
 fun projectLocationToRoute(
     points: List<LatLong>,

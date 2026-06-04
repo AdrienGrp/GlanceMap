@@ -48,6 +48,21 @@ class SettingsRepositoryImpl private constructor(
         val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
         val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
         val TURN_BY_TURN_USE_BROUTER_TILES = booleanPreferencesKey("turn_by_turn_use_brouter_tiles")
+        val TURN_BY_TURN_HAPTICS_ENABLED = booleanPreferencesKey("turn_by_turn_haptics_enabled")
+        val TURN_BY_TURN_TURN_ALERTS_MODE = stringPreferencesKey("turn_by_turn_turn_alerts_mode")
+        val TURN_BY_TURN_OFF_ROUTE_ALERTS_ENABLED =
+            booleanPreferencesKey("turn_by_turn_off_route_alerts_enabled")
+        val TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS =
+            intPreferencesKey("turn_by_turn_off_route_alert_threshold_meters")
+        val TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS =
+            intPreferencesKey("turn_by_turn_off_route_repeat_seconds")
+        val TURN_BY_TURN_GPS_IN_AMBIENT_MODE =
+            booleanPreferencesKey("turn_by_turn_gps_in_ambient_mode")
+        val TURN_BY_TURN_ROUTE_START_BEHAVIOR = stringPreferencesKey("turn_by_turn_route_start_behavior")
+        val TURN_BY_TURN_REVERSE_SUGGESTION_MODE = stringPreferencesKey("turn_by_turn_reverse_suggestion_mode")
+        val TURN_BY_TURN_ACTIVE_TRACK_PATH = stringPreferencesKey("turn_by_turn_active_track_path")
+        val TURN_BY_TURN_ACTIVE_TRACK_REVERSED = booleanPreferencesKey("turn_by_turn_active_track_reversed")
+        val TURN_BY_TURN_START_REACHED = booleanPreferencesKey("turn_by_turn_start_reached")
         val PROMPT_FOR_CALIBRATION = booleanPreferencesKey("prompt_for_calibration")
         val SHOW_TIME_IN_NAVIGATE = booleanPreferencesKey("show_time_in_navigate")
         val NAVIGATE_TIME_FORMAT = stringPreferencesKey("navigate_time_format")
@@ -179,6 +194,156 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setTurnByTurnUseBrouterTiles(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_USE_BROUTER_TILES] = enabled }
+    }
+
+    override val turnByTurnHapticsEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_HAPTICS_ENABLED] ?: true }
+
+    override suspend fun setTurnByTurnHapticsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_HAPTICS_ENABLED] = enabled }
+    }
+
+    override val turnByTurnTurnAlertsMode: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_TURN_ALERTS_MODE]
+                .takeIf { mode -> mode in allowedTurnByTurnTurnAlertModes }
+                ?: SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT
+        }
+
+    override suspend fun setTurnByTurnTurnAlertsMode(mode: String) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_TURN_ALERTS_MODE] =
+                if (mode in allowedTurnByTurnTurnAlertModes) {
+                    mode
+                } else {
+                    SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT
+                }
+        }
+    }
+
+    override val turnByTurnOffRouteAlertsEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERTS_ENABLED] ?: true }
+
+    override suspend fun setTurnByTurnOffRouteAlertsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERTS_ENABLED] = enabled }
+    }
+
+    override val turnByTurnOffRouteAlertThresholdMeters: Flow<Int> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS]
+                .takeIf { threshold -> threshold in allowedTurnByTurnOffRouteThresholdMeters }
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS
+        }
+
+    override suspend fun setTurnByTurnOffRouteAlertThresholdMeters(thresholdMeters: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS] =
+                if (thresholdMeters in allowedTurnByTurnOffRouteThresholdMeters) {
+                    thresholdMeters
+                } else {
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS
+                }
+        }
+    }
+
+    override val turnByTurnOffRouteRepeatSeconds: Flow<Int> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS]
+                .takeIf { seconds -> seconds in allowedTurnByTurnOffRouteRepeatSeconds }
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS
+        }
+
+    override suspend fun setTurnByTurnOffRouteRepeatSeconds(seconds: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS] =
+                if (seconds in allowedTurnByTurnOffRouteRepeatSeconds) {
+                    seconds
+                } else {
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS
+                }
+        }
+    }
+
+    override val turnByTurnGpsInAmbientMode: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE] ?: false }
+
+    override suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE] = enabled }
+    }
+
+    override val turnByTurnRouteStartBehavior: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_ROUTE_START_BEHAVIOR]
+                .takeIf { behavior -> behavior in allowedTurnByTurnRouteStartBehaviors }
+                ?: SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START
+        }
+
+    override suspend fun setTurnByTurnRouteStartBehavior(behavior: String) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_ROUTE_START_BEHAVIOR] =
+                if (behavior in allowedTurnByTurnRouteStartBehaviors) {
+                    behavior
+                } else {
+                    SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START
+                }
+        }
+    }
+
+    override val turnByTurnReverseSuggestionMode: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_REVERSE_SUGGESTION_MODE]
+                .takeIf { mode -> mode in allowedTurnByTurnReverseSuggestionModes }
+                ?: SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK
+        }
+
+    override suspend fun setTurnByTurnReverseSuggestionMode(mode: String) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_REVERSE_SUGGESTION_MODE] =
+                if (mode in allowedTurnByTurnReverseSuggestionModes) {
+                    mode
+                } else {
+                    SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK
+                }
+        }
+    }
+
+    override val turnByTurnActiveTrackPath: Flow<String?> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_PATH] }
+
+    override suspend fun setTurnByTurnActiveTrackPath(path: String?) {
+        context.dataStore.edit {
+            if (path.isNullOrBlank()) {
+                it.remove(PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_PATH)
+            } else {
+                it[PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_PATH] = path
+            }
+        }
+    }
+
+    override val turnByTurnActiveTrackReversed: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_REVERSED] ?: false }
+
+    override suspend fun setTurnByTurnActiveTrackReversed(reversed: Boolean) {
+        context.dataStore.edit {
+            if (reversed) {
+                it[PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_REVERSED] = true
+            } else {
+                it.remove(PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_REVERSED)
+            }
+        }
+    }
+
+    override val turnByTurnStartReached: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_START_REACHED] ?: false }
+
+    override suspend fun setTurnByTurnStartReached(reached: Boolean) {
+        context.dataStore.edit {
+            if (reached) {
+                it[PrefKeys.TURN_BY_TURN_START_REACHED] = true
+            } else {
+                it.remove(PrefKeys.TURN_BY_TURN_START_REACHED)
+            }
+        }
     }
 
     override val promptForCalibration: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.PROMPT_FOR_CALIBRATION] ?: false }
@@ -856,6 +1021,27 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.TURN_BY_TURN_SOURCE_AUTO,
                 SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT,
                 SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED,
+            )
+        private val allowedTurnByTurnTurnAlertModes =
+            setOf(
+                SettingsRepository.TURN_BY_TURN_TURN_ALERTS_OFF,
+                SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT,
+                SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL,
+            )
+        private val allowedTurnByTurnOffRouteThresholdMeters =
+            setOf(40, 50, 60, 70, 80, 100, 120)
+        private val allowedTurnByTurnOffRouteRepeatSeconds =
+            setOf(30, 60, 120)
+        private val allowedTurnByTurnRouteStartBehaviors =
+            setOf(
+                SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START,
+                SettingsRepository.TURN_BY_TURN_ROUTE_START_NEAREST_POINT,
+                SettingsRepository.TURN_BY_TURN_ROUTE_START_ASK,
+            )
+        private val allowedTurnByTurnReverseSuggestionModes =
+            setOf(
+                SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK,
+                SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_NEVER,
             )
         private val allowedPoiIconSizesPx =
             setOf(

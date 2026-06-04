@@ -46,8 +46,11 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceTuning
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.computeTurnByTurnGuidanceState
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.isGuidanceStartReached
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.projectLocationToRoute
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.offline.OfflineStartCenteringEffect
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
@@ -215,6 +218,26 @@ fun NavigateScreen(
     val autoRecenterDelay by settingsViewModel.autoRecenterDelay.collectAsState(initial = 5)
     val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
     val keepGpsInAmbient by settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
+    val turnByTurnHapticsEnabled by settingsViewModel.turnByTurnHapticsEnabled.collectAsState(initial = true)
+    val turnByTurnTurnAlertsMode by settingsViewModel.turnByTurnTurnAlertsMode.collectAsState(
+        initial = SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT,
+    )
+    val turnByTurnOffRouteAlertsEnabled by settingsViewModel.turnByTurnOffRouteAlertsEnabled.collectAsState(
+        initial = true,
+    )
+    val turnByTurnOffRouteThresholdMeters by settingsViewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState(
+        initial = SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS,
+    )
+    val turnByTurnOffRouteRepeatSeconds by settingsViewModel.turnByTurnOffRouteRepeatSeconds.collectAsState(
+        initial = SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS,
+    )
+    val turnByTurnGpsInAmbient by settingsViewModel.turnByTurnGpsInAmbientMode.collectAsState(initial = false)
+    val turnByTurnRouteStartBehavior by settingsViewModel.turnByTurnRouteStartBehavior.collectAsState(
+        initial = SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START,
+    )
+    val turnByTurnReverseSuggestionMode by settingsViewModel.turnByTurnReverseSuggestionMode.collectAsState(
+        initial = SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK,
+    )
     val crownZoomEnabled by settingsViewModel.crownZoomEnabled.collectAsState(initial = true)
     val crownZoomInverted by settingsViewModel.crownZoomInverted.collectAsState(initial = true)
     val navigateTimeFormat by settingsViewModel.navigateTimeFormat.collectAsState()
@@ -335,7 +358,9 @@ fun NavigateScreen(
         }
 
     // ---- Should track location? ----
-    val backgroundGpsModeActive = keepGpsInAmbient && screenState.isNonInteractive
+    val backgroundGpsModeActive =
+        (keepGpsInAmbient || (turnByTurnGuidanceSession != null && turnByTurnGpsInAmbient)) &&
+            screenState.isNonInteractive
     val shouldTrackLocation =
         locationPermissionState.hasLocationPermission &&
             !offlineMode &&
@@ -934,17 +959,142 @@ fun NavigateScreen(
                 LatLong(location.latitude, location.longitude)
             } ?: recenterTarget
         }
+    val turnByTurnGuidanceTuning =
+        remember(turnByTurnOffRouteThresholdMeters) {
+            GpxGuidanceTuning(
+                offRouteDistanceMeters = turnByTurnOffRouteThresholdMeters.toDouble(),
+            )
+        }
     val turnByTurnGuidanceState =
         computeTurnByTurnGuidanceState(
             session = turnByTurnGuidanceSession,
             currentLocation = guidanceLocation,
+            tuning = turnByTurnGuidanceTuning,
         )
+    var guideBackToRouteActive by remember { mutableStateOf(false) }
+    var dismissedGuideBackPromptTrackId by remember { mutableStateOf<String?>(null) }
+    val guideBackTrackId = turnByTurnGuidanceSession?.trackId
+    LaunchedEffect(
+        turnByTurnGuidanceState.active,
+        turnByTurnGuidanceState.offRoute,
+        guideBackTrackId,
+    ) {
+        if (!turnByTurnGuidanceState.active || !turnByTurnGuidanceState.offRoute) {
+            guideBackToRouteActive = false
+            dismissedGuideBackPromptTrackId = null
+        }
+    }
+    val showGuideBackPrompt =
+        turnByTurnGuidanceState.active &&
+            turnByTurnGuidanceState.offRoute &&
+            !guideBackToRouteActive &&
+            dismissedGuideBackPromptTrackId != guideBackTrackId
+    var pendingStartDecision by remember { mutableStateOf<GuidanceStartDecision?>(null) }
+    var dismissedStartDecisionKey by remember { mutableStateOf<String?>(null) }
+    val startDecisionKey =
+        pendingStartDecision?.let { decision ->
+            "$guideBackTrackId:${turnByTurnGuidanceSession?.reversed}:$decision"
+        }
+    val startDecisionPrompt =
+        pendingStartDecision?.let { decision ->
+            when (decision) {
+                GuidanceStartDecision.REVERSE_ROUTE ->
+                    GuidanceDecisionPrompt(
+                        title = "Closer to end",
+                        detail = "Follow GPX in reverse?",
+                        acceptText = "Reverse",
+                        dismissText = "Start",
+                    )
+                GuidanceStartDecision.START_HERE ->
+                    GuidanceDecisionPrompt(
+                        title = "On route",
+                        detail = "Start from nearest point?",
+                        acceptText = "Start",
+                        dismissText = "GPX start",
+                    )
+            }
+        }
 
-    LaunchedEffect(turnByTurnGuidanceSession, guidanceLocation) {
-        if (isGuidanceStartReached(turnByTurnGuidanceSession, guidanceLocation)) {
+    LaunchedEffect(
+        turnByTurnGuidanceSession,
+        guidanceLocation,
+        turnByTurnRouteStartBehavior,
+        turnByTurnReverseSuggestionMode,
+        turnByTurnOffRouteThresholdMeters,
+    ) {
+        val session = turnByTurnGuidanceSession
+        val location = guidanceLocation
+        if (session == null || location == null || session.startReached) {
+            pendingStartDecision = null
+            dismissedStartDecisionKey = null
+            return@LaunchedEffect
+        }
+
+        val points = session.trackPoints.map { it.latLong }
+        val start = points.firstOrNull()
+        val end = points.lastOrNull()
+        val projection =
+            projectLocationToRoute(
+                points = points,
+                cumulativeDistancesMeters = session.cumulativeDistancesMeters,
+                location = location,
+            )
+        if (start == null || end == null || projection == null) {
+            pendingStartDecision = null
+            return@LaunchedEffect
+        }
+
+        val distanceToStart = haversineMeters(location, start)
+        val distanceToEnd = haversineMeters(location, end)
+        val closeToRoute = projection.distanceToRouteMeters <= turnByTurnOffRouteThresholdMeters.toDouble()
+        val midRouteCandidate =
+            closeToRoute &&
+                distanceToStart > turnByTurnGuidanceTuning.startReachedDistanceMeters &&
+                projection.distanceFromStartMeters > START_HERE_MIN_PROGRESS_METERS &&
+                session.totalDistanceMeters - projection.distanceFromStartMeters > START_HERE_MIN_REMAINING_METERS
+        val reverseCandidate =
+            !session.reversed &&
+                turnByTurnReverseSuggestionMode == SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK &&
+                distanceToEnd + REVERSE_SUGGESTION_DISTANCE_MARGIN_METERS < distanceToStart &&
+                distanceToEnd <= REVERSE_SUGGESTION_MAX_DISTANCE_METERS
+
+        val nextDecision =
+            when {
+                reverseCandidate -> GuidanceStartDecision.REVERSE_ROUTE
+                midRouteCandidate &&
+                    turnByTurnRouteStartBehavior == SettingsRepository.TURN_BY_TURN_ROUTE_START_NEAREST_POINT -> {
+                    gpxViewModel.markTurnByTurnStartReached()
+                    null
+                }
+                midRouteCandidate &&
+                    turnByTurnRouteStartBehavior == SettingsRepository.TURN_BY_TURN_ROUTE_START_ASK ->
+                    GuidanceStartDecision.START_HERE
+                else -> null
+            }
+
+        val nextKey = nextDecision?.let { "${session.trackId}:${session.reversed}:$it" }
+        pendingStartDecision =
+            if (nextKey != null && dismissedStartDecisionKey != nextKey) {
+                nextDecision
+            } else {
+                null
+            }
+    }
+
+    LaunchedEffect(turnByTurnGuidanceSession, guidanceLocation, turnByTurnGuidanceTuning) {
+        if (isGuidanceStartReached(turnByTurnGuidanceSession, guidanceLocation, turnByTurnGuidanceTuning)) {
             gpxViewModel.markTurnByTurnStartReached()
         }
     }
+
+    TurnByTurnGuidanceHapticEffect(
+        context = context,
+        state = turnByTurnGuidanceState,
+        hapticsEnabled = turnByTurnHapticsEnabled,
+        turnAlertsMode = turnByTurnTurnAlertsMode,
+        offRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
+        offRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
+    )
 
     LaunchedEffect(
         effectiveNavigationMarkerAnchorMode,
@@ -1271,7 +1421,30 @@ fun NavigateScreen(
         selectingGpxPointB = selectingGpxPointB,
         onCancelSelectingGpxPointB = { gpxViewModel.cancelSelectingB() },
         turnByTurnGuidanceState = turnByTurnGuidanceState,
+        guideBackToRouteActive = guideBackToRouteActive && turnByTurnGuidanceState.offRoute,
+        showGuideBackPrompt = showGuideBackPrompt,
+        startDecisionPrompt = startDecisionPrompt,
         onStopTurnByTurnGuidance = { gpxViewModel.stopTurnByTurnGuidance() },
+        onGuideBackToRoute = {
+            guideBackToRouteActive = true
+            dismissedGuideBackPromptTrackId = guideBackTrackId
+        },
+        onDismissGuideBackPrompt = {
+            dismissedGuideBackPromptTrackId = guideBackTrackId
+        },
+        onAcceptStartDecisionPrompt = {
+            when (pendingStartDecision) {
+                GuidanceStartDecision.REVERSE_ROUTE -> gpxViewModel.reverseTurnByTurnGuidance()
+                GuidanceStartDecision.START_HERE -> gpxViewModel.markTurnByTurnStartReached()
+                null -> Unit
+            }
+            dismissedStartDecisionKey = startDecisionKey
+            pendingStartDecision = null
+        },
+        onDismissStartDecisionPrompt = {
+            dismissedStartDecisionKey = startDecisionKey
+            pendingStartDecision = null
+        },
         activeGpxDetails = activeGpxDetails,
         gpxTrackColor = gpxTrackColor,
         routeToolSession = routeToolSession,
@@ -1353,6 +1526,15 @@ private fun shouldUpdateZoomReferenceLatitude(
     !currentLatitude.isFinite() ||
         abs(currentLatitude - nextLatitude) >= MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES
 
+private enum class GuidanceStartDecision {
+    START_HERE,
+    REVERSE_ROUTE,
+}
+
+private const val START_HERE_MIN_PROGRESS_METERS = 50.0
+private const val START_HERE_MIN_REMAINING_METERS = 50.0
+private const val REVERSE_SUGGESTION_DISTANCE_MARGIN_METERS = 50.0
+private const val REVERSE_SUGGESTION_MAX_DISTANCE_METERS = 300.0
 private const val MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES = 0.25
 private const val NORMAL_STARTUP_MAP_FALLBACK_GRACE_MS = 15_000L
 private const val NAVIGATE_MENU_CLICK_RESUME_GUARD_MS = 1_500L

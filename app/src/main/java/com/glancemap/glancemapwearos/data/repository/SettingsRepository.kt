@@ -37,6 +37,16 @@ interface SettingsRepository {
         const val TURN_BY_TURN_SOURCE_AUTO = "AUTO"
         const val TURN_BY_TURN_SOURCE_GPX_EXACT = "GPX_EXACT"
         const val TURN_BY_TURN_SOURCE_BROUTER_ENHANCED = "BROUTER_ENHANCED"
+        const val TURN_BY_TURN_TURN_ALERTS_OFF = "OFF"
+        const val TURN_BY_TURN_TURN_ALERTS_IMPORTANT = "IMPORTANT"
+        const val TURN_BY_TURN_TURN_ALERTS_ALL = "ALL"
+        const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS = 70
+        const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS = 60
+        const val TURN_BY_TURN_ROUTE_START_GO_TO_START = "GO_TO_START"
+        const val TURN_BY_TURN_ROUTE_START_NEAREST_POINT = "NEAREST_POINT"
+        const val TURN_BY_TURN_ROUTE_START_ASK = "ASK"
+        const val TURN_BY_TURN_REVERSE_SUGGESTION_ASK = "ASK"
+        const val TURN_BY_TURN_REVERSE_SUGGESTION_NEVER = "NEVER"
 
         const val DEFAULT_GPX_FLAT_SPEED_MPS = 3.5f / 3.6f
         const val MAX_GPX_FLAT_SPEED_MPS = 20f / 3.6f
@@ -114,6 +124,50 @@ interface SettingsRepository {
     val turnByTurnUseBrouterTiles: Flow<Boolean>
 
     suspend fun setTurnByTurnUseBrouterTiles(enabled: Boolean)
+
+    val turnByTurnHapticsEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnHapticsEnabled(enabled: Boolean)
+
+    val turnByTurnTurnAlertsMode: Flow<String>
+
+    suspend fun setTurnByTurnTurnAlertsMode(mode: String)
+
+    val turnByTurnOffRouteAlertsEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnOffRouteAlertsEnabled(enabled: Boolean)
+
+    val turnByTurnOffRouteAlertThresholdMeters: Flow<Int>
+
+    suspend fun setTurnByTurnOffRouteAlertThresholdMeters(thresholdMeters: Int)
+
+    val turnByTurnOffRouteRepeatSeconds: Flow<Int>
+
+    suspend fun setTurnByTurnOffRouteRepeatSeconds(seconds: Int)
+
+    val turnByTurnGpsInAmbientMode: Flow<Boolean>
+
+    suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean)
+
+    val turnByTurnRouteStartBehavior: Flow<String>
+
+    suspend fun setTurnByTurnRouteStartBehavior(behavior: String)
+
+    val turnByTurnReverseSuggestionMode: Flow<String>
+
+    suspend fun setTurnByTurnReverseSuggestionMode(mode: String)
+
+    val turnByTurnActiveTrackPath: Flow<String?>
+
+    suspend fun setTurnByTurnActiveTrackPath(path: String?)
+
+    val turnByTurnActiveTrackReversed: Flow<Boolean>
+
+    suspend fun setTurnByTurnActiveTrackReversed(reversed: Boolean)
+
+    val turnByTurnStartReached: Flow<Boolean>
+
+    suspend fun setTurnByTurnStartReached(reached: Boolean)
 
     val promptForCalibration: Flow<Boolean>
 

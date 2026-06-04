@@ -33,7 +33,19 @@ data class TrackPoint(
     val latLong: LatLong,
     val elevation: Double?,
     val hasTimestamp: Boolean = false,
+    val guidanceHint: GpxGuidanceHint? = null,
 )
+
+data class GpxGuidanceHint(
+    val commandCode: String?,
+    val message: String?,
+    val source: GpxGuidanceHintSource,
+)
+
+enum class GpxGuidanceHintSource {
+    BROUTER,
+    GPX_SYMBOL,
+}
 
 data class GpxTrackDetails(
     val id: String,

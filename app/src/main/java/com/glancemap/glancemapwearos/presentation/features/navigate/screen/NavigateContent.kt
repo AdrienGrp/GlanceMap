@@ -147,7 +147,14 @@ internal fun NavigateContent(
     selectingGpxPointB: Boolean,
     onCancelSelectingGpxPointB: () -> Unit,
     turnByTurnGuidanceState: TurnByTurnGuidanceState,
+    guideBackToRouteActive: Boolean,
+    showGuideBackPrompt: Boolean,
+    startDecisionPrompt: GuidanceDecisionPrompt?,
     onStopTurnByTurnGuidance: () -> Unit,
+    onGuideBackToRoute: () -> Unit,
+    onDismissGuideBackPrompt: () -> Unit,
+    onAcceptStartDecisionPrompt: () -> Unit,
+    onDismissStartDecisionPrompt: () -> Unit,
     activeGpxDetails: List<GpxTrackDetails>,
     gpxTrackColor: Int,
     routeToolSession: RouteToolSession?,
@@ -670,7 +677,8 @@ internal fun NavigateContent(
     var liveDistanceLabel by remember(isMetric) { mutableStateOf<String?>(null) }
     val routeToolModeActive = routeToolSession != null || crosshairSelectionActive || reshapePreviewInspectMode
     val shouldSuppressNavigateTime =
-        adaptive.fontScale > 1f && (showScaleBar || routeToolModeActive)
+        turnByTurnFullScreenExpanded ||
+            (adaptive.fontScale > 1f && (showScaleBar || routeToolModeActive))
 
     LaunchedEffect(shouldSuppressNavigateTime) {
         latestOnNavigateTimeSuppressedChange.value(shouldSuppressNavigateTime)
@@ -1180,10 +1188,17 @@ internal fun NavigateContent(
                 selectingGpxPointB = selectingGpxPointB,
                 onCancelSelectingGpxPointB = onCancelSelectingGpxPointB,
                 turnByTurnGuidanceState = turnByTurnGuidanceState,
+                guideBackToRouteActive = guideBackToRouteActive,
+                showGuideBackPrompt = showGuideBackPrompt,
+                startDecisionPrompt = startDecisionPrompt,
                 onStopTurnByTurnGuidance = onStopTurnByTurnGuidance,
                 onTurnByTurnExpandedChange = { expanded ->
                     turnByTurnFullScreenExpanded = expanded
                 },
+                onGuideBackToRoute = onGuideBackToRoute,
+                onDismissGuideBackPrompt = onDismissGuideBackPrompt,
+                onAcceptStartDecisionPrompt = onAcceptStartDecisionPrompt,
+                onDismissStartDecisionPrompt = onDismissStartDecisionPrompt,
             )
 
             MarkerMotionDebugOverlay(

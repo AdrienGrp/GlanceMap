@@ -125,8 +125,15 @@ internal fun BoxScope.NavigateOverlaysLayer(
     selectingGpxPointB: Boolean,
     onCancelSelectingGpxPointB: () -> Unit,
     turnByTurnGuidanceState: TurnByTurnGuidanceState,
+    guideBackToRouteActive: Boolean,
+    showGuideBackPrompt: Boolean,
+    startDecisionPrompt: GuidanceDecisionPrompt?,
     onStopTurnByTurnGuidance: () -> Unit,
     onTurnByTurnExpandedChange: (Boolean) -> Unit,
+    onGuideBackToRoute: () -> Unit,
+    onDismissGuideBackPrompt: () -> Unit,
+    onAcceptStartDecisionPrompt: () -> Unit,
+    onDismissStartDecisionPrompt: () -> Unit,
 ) {
     var liveDistanceLineStart by
         remember(mapView, locationMarker, lastKnownLocation) {
@@ -442,7 +449,14 @@ internal fun BoxScope.NavigateOverlaysLayer(
         screenSize = screenSize,
         isMetric = isMetric,
         compassHeadingDeg = compassHeadingDeg,
+        guideBackToRouteActive = guideBackToRouteActive,
+        showGuideBackPrompt = showGuideBackPrompt,
+        startDecisionPrompt = startDecisionPrompt,
         onStop = onStopTurnByTurnGuidance,
         onExpandedChange = onTurnByTurnExpandedChange,
+        onGuideBackToRoute = onGuideBackToRoute,
+        onDismissGuideBackPrompt = onDismissGuideBackPrompt,
+        onAcceptStartDecisionPrompt = onAcceptStartDecisionPrompt,
+        onDismissStartDecisionPrompt = onDismissStartDecisionPrompt,
     )
 }

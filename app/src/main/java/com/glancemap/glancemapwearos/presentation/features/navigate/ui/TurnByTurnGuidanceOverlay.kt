@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -67,8 +68,15 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     screenSize: WearScreenSize,
     isMetric: Boolean,
     compassHeadingDeg: Float,
+    guideBackToRouteActive: Boolean,
+    showGuideBackPrompt: Boolean,
+    startDecisionPrompt: GuidanceDecisionPrompt?,
     onStop: () -> Unit,
     onExpandedChange: (Boolean) -> Unit,
+    onGuideBackToRoute: () -> Unit,
+    onDismissGuideBackPrompt: () -> Unit,
+    onAcceptStartDecisionPrompt: () -> Unit,
+    onDismissStartDecisionPrompt: () -> Unit,
 ) {
     LaunchedEffect(state.active) {
         if (!state.active) {
@@ -120,6 +128,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
             screenSize = screenSize,
             isMetric = isMetric,
             compassHeadingDeg = compassHeadingDeg,
+            guideBackToRouteActive = guideBackToRouteActive,
             onCollapse = { expanded = false },
             onStop = onStop,
         )
@@ -144,10 +153,11 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     GuidanceArrowIcon(
                         state = state,
                         compassHeadingDeg = compassHeadingDeg,
+                        guideBackToRouteActive = guideBackToRouteActive,
                         modifier = Modifier.size(compactIconSize),
                     )
                     Text(
-                        text = guidanceCompactText(state, isMetric),
+                        text = guidanceCompactText(state, isMetric, guideBackToRouteActive),
                         modifier = Modifier.weight(1f),
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
@@ -166,7 +176,45 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
             }
         }
     }
+
+    if (startDecisionPrompt != null) {
+        GuidanceDecisionPromptCard(
+            title = startDecisionPrompt.title,
+            detail = startDecisionPrompt.detail,
+            acceptText = startDecisionPrompt.acceptText,
+            dismissText = startDecisionPrompt.dismissText,
+            onAccept = onAcceptStartDecisionPrompt,
+            onDismiss = onDismissStartDecisionPrompt,
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 36.dp),
+        )
+    } else if (showGuideBackPrompt) {
+        GuidanceDecisionPromptCard(
+            title = "Off route",
+            detail =
+                state.distanceToRouteMeters?.let {
+                    "${formatLiveDistanceLabel(it, isMetric)} from GPX"
+                } ?: "Guide back?",
+            acceptText = "Guide",
+            dismissText = "Ignore",
+            onAccept = onGuideBackToRoute,
+            onDismiss = onDismissGuideBackPrompt,
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 36.dp),
+        )
+    }
 }
+
+internal data class GuidanceDecisionPrompt(
+    val title: String,
+    val detail: String,
+    val acceptText: String,
+    val dismissText: String,
+)
 
 @Composable
 private fun ExpandedGuidanceOverlay(
@@ -174,19 +222,26 @@ private fun ExpandedGuidanceOverlay(
     screenSize: WearScreenSize,
     isMetric: Boolean,
     compassHeadingDeg: Float,
+    guideBackToRouteActive: Boolean,
     onCollapse: () -> Unit,
     onStop: () -> Unit,
 ) {
-    val controlsTopPadding =
+    val titleTopPadding =
         when (screenSize) {
             WearScreenSize.LARGE -> 42.dp
             WearScreenSize.MEDIUM -> 38.dp
             WearScreenSize.SMALL -> 34.dp
         }
+    val controlsTopPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 66.dp
+            WearScreenSize.MEDIUM -> 62.dp
+            WearScreenSize.SMALL -> 58.dp
+        }
     val controlButtonSize =
         when (screenSize) {
-            WearScreenSize.LARGE -> 28.dp
-            WearScreenSize.MEDIUM -> 26.dp
+            WearScreenSize.LARGE -> 26.dp
+            WearScreenSize.MEDIUM -> 25.dp
             WearScreenSize.SMALL -> 24.dp
         }
     val contentWidthFraction =
@@ -194,6 +249,18 @@ private fun ExpandedGuidanceOverlay(
             WearScreenSize.LARGE -> 0.70f
             WearScreenSize.MEDIUM -> 0.68f
             WearScreenSize.SMALL -> 0.66f
+        }
+    val arrowContainerSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 68.dp
+            WearScreenSize.MEDIUM -> 64.dp
+            WearScreenSize.SMALL -> 60.dp
+        }
+    val arrowIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 40.dp
+            WearScreenSize.MEDIUM -> 38.dp
+            WearScreenSize.SMALL -> 36.dp
         }
 
     Box(
@@ -222,12 +289,27 @@ private fun ExpandedGuidanceOverlay(
             modifier = Modifier.fillMaxSize(),
         )
 
+        Text(
+            text = state.trackTitle.orEmpty(),
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = titleTopPadding)
+                    .fillMaxWidth(0.62f),
+            color = Color.White.copy(alpha = 0.64f),
+            fontSize = 10.sp,
+            lineHeight = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+
         Row(
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = controlsTopPadding)
-                    .width(78.dp),
+                    .width(86.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -261,44 +343,34 @@ private fun ExpandedGuidanceOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(
-                    text = state.trackTitle.orEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color.White.copy(alpha = 0.72f),
-                    fontSize = 10.sp,
-                    lineHeight = 10.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(modifier = Modifier.size(10.dp))
                 Box(
                     modifier =
                         Modifier
-                            .size(72.dp)
+                            .size(arrowContainerSize)
                             .background(MaterialTheme.colorScheme.primary, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     GuidanceArrowIcon(
                         state = state,
                         compassHeadingDeg = compassHeadingDeg,
-                        modifier = Modifier.size(42.dp),
+                        guideBackToRouteActive = guideBackToRouteActive,
+                        modifier = Modifier.size(arrowIconSize),
                         tint = MaterialTheme.colorScheme.onPrimary,
                     )
                 }
-                Spacer(modifier = Modifier.size(12.dp))
+                Spacer(modifier = Modifier.size(10.dp))
                 Text(
-                    text = guidancePrimaryText(state),
+                    text = guidancePrimaryText(state, guideBackToRouteActive),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    lineHeight = 23.sp,
+                    fontSize = 21.sp,
+                    lineHeight = 22.sp,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = guidanceSecondaryText(state, isMetric),
+                    text = guidanceSecondaryText(state, isMetric, guideBackToRouteActive),
                     color = Color.White.copy(alpha = 0.82f),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp,
@@ -340,6 +412,84 @@ private fun ExpandedGuidanceOverlay(
             }
         }
     }
+}
+
+@Composable
+private fun GuidanceDecisionPromptCard(
+    title: String,
+    detail: String,
+    acceptText: String,
+    dismissText: String,
+    onAccept: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .widthIn(max = 150.dp)
+                .background(Color.Black.copy(alpha = 0.94f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        cappedFontScale(maxFontScale = 1f) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = title,
+                    color = Color(0xFFFFB74D),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    lineHeight = 14.sp,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = detail,
+                    color = Color.White.copy(alpha = 0.78f),
+                    fontSize = 10.sp,
+                    lineHeight = 11.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    GuideBackPromptButton(
+                        text = acceptText,
+                        selected = true,
+                        onClick = onAccept,
+                    )
+                    GuideBackPromptButton(
+                        text = dismissText,
+                        selected = false,
+                        onClick = onDismiss,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuideBackPromptButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = text,
+        modifier =
+            Modifier
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f),
+                    RoundedCornerShape(6.dp),
+                )
+                .clickable(onClick = onClick)
+                .padding(horizontal = 9.dp, vertical = 5.dp),
+        color = if (selected) MaterialTheme.colorScheme.onPrimary else Color.White,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 10.sp,
+        lineHeight = 10.sp,
+    )
 }
 
 @Composable
@@ -387,6 +537,7 @@ private fun RouteProgressRing(
 private fun GuidanceArrowIcon(
     state: TurnByTurnGuidanceState,
     compassHeadingDeg: Float,
+    guideBackToRouteActive: Boolean,
     modifier: Modifier,
     tint: Color = Color.White,
 ) {
@@ -396,31 +547,46 @@ private fun GuidanceArrowIcon(
         tint = tint,
         modifier =
             modifier.rotate(
-                when (state.mode) {
+                if (guideBackToRouteActive && state.bearingToRouteDegrees != null) {
+                    state.bearingToRouteDegrees - compassHeadingDeg
+                } else {
+                    when (state.mode) {
                     GuidanceMode.TO_START ->
                         (state.bearingToStartDegrees ?: 0f) - compassHeadingDeg
                     GuidanceMode.FOLLOW_ROUTE ->
                         rotationForCommand(state.nextInstruction?.command)
                     GuidanceMode.FINISHED -> 0f
                     GuidanceMode.WAITING_FOR_LOCATION -> 0f
+                    }
                 },
             ),
     )
 }
 
-private fun guidancePrimaryText(state: TurnByTurnGuidanceState): String =
-    when (state.mode) {
+private fun guidancePrimaryText(
+    state: TurnByTurnGuidanceState,
+    guideBackToRouteActive: Boolean = false,
+): String =
+    if (guideBackToRouteActive) {
+        "To route"
+    } else {
+        when (state.mode) {
         GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
         GuidanceMode.TO_START -> "To start"
         GuidanceMode.FOLLOW_ROUTE -> state.nextInstruction?.message ?: "Continue"
         GuidanceMode.FINISHED -> "Finished"
+        }
     }
 
 private fun guidanceSecondaryText(
     state: TurnByTurnGuidanceState,
     isMetric: Boolean,
+    guideBackToRouteActive: Boolean = false,
 ): String =
-    when (state.mode) {
+    if (guideBackToRouteActive) {
+        state.distanceToRouteMeters?.let { formatLiveDistanceLabel(it, isMetric) } ?: "Find route"
+    } else {
+        when (state.mode) {
         GuidanceMode.WAITING_FOR_LOCATION -> state.trackTitle ?: "GPX guidance"
         GuidanceMode.TO_START ->
             state.distanceToStartMeters?.let { formatLiveDistanceLabel(it, isMetric) }
@@ -429,13 +595,18 @@ private fun guidanceSecondaryText(
             state.distanceToInstructionMeters?.let { formatLiveDistanceLabel(it, isMetric) }
                 ?: "On route"
         GuidanceMode.FINISHED -> state.trackTitle ?: "Route complete"
+        }
     }
 
 private fun guidanceCompactText(
     state: TurnByTurnGuidanceState,
     isMetric: Boolean,
+    guideBackToRouteActive: Boolean = false,
 ): String =
-    when (state.mode) {
+    if (guideBackToRouteActive) {
+        state.distanceToRouteMeters?.let { "Route ${formatLiveDistanceLabel(it, isMetric)}" } ?: "To route"
+    } else {
+        when (state.mode) {
         GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
         GuidanceMode.TO_START ->
             state.distanceToStartMeters?.let { "Start ${formatLiveDistanceLabel(it, isMetric)}" }
@@ -445,6 +616,7 @@ private fun guidanceCompactText(
                 "${guidancePrimaryText(state)} ${formatLiveDistanceLabel(it, isMetric)}"
             } ?: guidancePrimaryText(state)
         GuidanceMode.FINISHED -> "Finished"
+        }
     }
 
 private fun rotationForCommand(command: RouteInstructionCommand?): Float =

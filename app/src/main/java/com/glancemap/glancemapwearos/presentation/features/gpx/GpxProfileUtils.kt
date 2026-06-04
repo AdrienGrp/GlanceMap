@@ -124,6 +124,9 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var currentLon: Double? = null
     var currentElevation: Double? = null
     var currentHasTimestamp = false
+    var currentDesc: String? = null
+    var currentSym: String? = null
+    var currentBrouterVoiceHint: String? = null
 
     return try {
         val parser = XmlPullParserFactory.newInstance().newPullParser()
@@ -134,7 +137,8 @@ internal fun parseGpxData(file: File): ParsedGpxData {
             while (event != XmlPullParser.END_DOCUMENT) {
                 when (event) {
                     XmlPullParser.START_TAG -> {
-                        when (parser.name) {
+                        val tagName = parser.name
+                        when (tagName.localXmlName()) {
                             "trk" -> {
                                 inTrk = true
                                 trkDepth = parser.depth
@@ -161,10 +165,33 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 currentLon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
                                 currentElevation = null
                                 currentHasTimestamp = false
+                                currentDesc = null
+                                currentSym = null
+                                currentBrouterVoiceHint = null
                             }
                             "ele" -> {
                                 if (inTrackPoint) {
                                     currentElevation = parser.nextText()?.trim()?.toDoubleOrNull()
+                                }
+                            }
+                            "desc" -> {
+                                if (inTrackPoint) {
+                                    currentDesc = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
+                                }
+                            }
+                            "sym" -> {
+                                if (inTrackPoint) {
+                                    currentSym = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
+                                }
+                            }
+                            "voicehint" -> {
+                                val isBrouterVoiceHint =
+                                    parser.namespace?.contains("brouter", ignoreCase = true) == true ||
+                                        parser.prefix?.equals("brouter", ignoreCase = true) == true ||
+                                        tagName?.startsWith("brouter:", ignoreCase = true) == true
+                                if (inTrackPoint && isBrouterVoiceHint) {
+                                    currentBrouterVoiceHint =
+                                        parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
                                 }
                             }
                             "time" -> {
@@ -176,7 +203,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                     }
 
                     XmlPullParser.END_TAG -> {
-                        when (parser.name) {
+                        when (parser.name.localXmlName()) {
                             "trk" -> inTrk = false
                             "metadata" -> inMetadata = false
                             "trkpt" -> {
@@ -190,6 +217,12 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                                 latLong = latLong,
                                                 elevation = currentElevation,
                                                 hasTimestamp = currentHasTimestamp,
+                                                guidanceHint =
+                                                    parseGpxGuidanceHint(
+                                                        desc = currentDesc,
+                                                        sym = currentSym,
+                                                        brouterVoiceHint = currentBrouterVoiceHint,
+                                                    ),
                                             )
 
                                         lastPoint?.let { previous ->
@@ -210,6 +243,9 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 currentLon = null
                                 currentElevation = null
                                 currentHasTimestamp = false
+                                currentDesc = null
+                                currentSym = null
+                                currentBrouterVoiceHint = null
                             }
                         }
                     }
@@ -231,6 +267,42 @@ internal fun parseGpxData(file: File): ParsedGpxData {
         )
     }
 }
+
+private fun String?.localXmlName(): String = this?.substringAfter(':').orEmpty()
+
+private fun parseGpxGuidanceHint(
+    desc: String?,
+    sym: String?,
+    brouterVoiceHint: String?,
+): GpxGuidanceHint? {
+    val brouterCommand = brouterVoiceHint?.substringBefore(';')?.trim()?.takeIf { it.isNotBlank() }
+    if (brouterCommand != null) {
+        return GpxGuidanceHint(
+            commandCode = brouterCommand,
+            message = desc?.guidanceHintMessage(),
+            source = GpxGuidanceHintSource.BROUTER,
+        )
+    }
+
+    val symbolCommand =
+        sym
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.takeUnless { it.equals("pass_place", ignoreCase = true) }
+    if (symbolCommand != null) {
+        return GpxGuidanceHint(
+            commandCode = symbolCommand,
+            message = desc?.guidanceHintMessage(),
+            source = GpxGuidanceHintSource.GPX_SYMBOL,
+        )
+    }
+    return null
+}
+
+private fun String.guidanceHintMessage(): String? =
+    trim()
+        .takeIf { it.isNotBlank() }
+        ?.takeUnless { it.equals("start", ignoreCase = true) || it.equals("end", ignoreCase = true) }
 
 internal val TrackProfile.totalDistance: Double
     get() = cumDist.lastOrNull() ?: 0.0

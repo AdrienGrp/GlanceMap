@@ -13,6 +13,7 @@ import com.glancemap.glancemapwearos.presentation.SyncManager
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceSession
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceTuning
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.buildGpxGuidanceSession
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
@@ -186,7 +187,10 @@ class GpxViewModel(
             refreshOpenEtaUi()
         }.launchIn(viewModelScope)
 
-        viewModelScope.launch { reloadFromDisk() }
+        viewModelScope.launch {
+            reloadFromDisk()
+            restoreTurnByTurnGuidanceSession()
+        }
 
         gpxRepository
             .getActiveGpxFiles()
@@ -307,6 +311,10 @@ class GpxViewModel(
         if (elevationTrack != null && elevationTrack !in existingPaths) {
             dismissElevationProfile()
         }
+        val guidanceTrack = _turnByTurnGuidanceSession.value?.trackId
+        if (guidanceTrack != null && guidanceTrack !in existingPaths) {
+            clearTurnByTurnGuidance()
+        }
     }
 
     fun toggleGpxFile(path: String) {
@@ -326,49 +334,10 @@ class GpxViewModel(
             val result =
                 withContext(Dispatchers.IO) {
                     runCatching {
-                        val file = File(path)
-                        require(file.exists()) { "The GPX could not be found on disk." }
-
-                        val absolutePath = file.absolutePath
-                        val profile = getOrBuildProfile(path = absolutePath, file = file, sig = sigOf(file))
-                        require(profile.points.size >= 2) {
-                            "The GPX does not contain enough points for guidance."
-                        }
-                        val displayTitle =
-                            _gpxFiles.value.firstOrNull { it.path == absolutePath }?.displayTitle
-                                ?: readBestGpxTitle(file)
-                                ?: file.nameWithoutExtension
-                        val guidanceSource = settingsRepository.turnByTurnGuidanceSource.first()
-                        val useBrouterTiles = settingsRepository.turnByTurnUseBrouterTiles.first()
-                        val brouterEnhanced =
-                            useBrouterTiles &&
-                                (
-                                    guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED ||
-                                        (
-                                            guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_AUTO &&
-                                                looksLikeBrouterRoute(displayTitle, file.name)
-                                        )
-                                )
-                        val guidancePoints =
-                            if (brouterEnhanced) {
-                                runCatching {
-                                    buildBrouterEnhancedGuidancePoints(profile.points)
-                                }.getOrNull() ?: profile.points
-                            } else {
-                                profile.points
-                            }
-                        val guidanceTuning =
-                            if (brouterEnhanced) {
-                                BROUTER_GUIDANCE_TUNING
-                            } else {
-                                GpxGuidanceTuning()
-                            }
-
-                        buildGpxGuidanceSession(
-                            trackId = absolutePath,
-                            trackTitle = displayTitle,
-                            trackPoints = guidancePoints,
-                            tuning = guidanceTuning,
+                        buildTurnByTurnGuidanceSession(
+                            path = path,
+                            startReached = false,
+                            reversed = false,
                         )
                     }
                 }
@@ -376,6 +345,11 @@ class GpxViewModel(
             result
                 .onSuccess { session ->
                     _turnByTurnGuidanceSession.value = session
+                    persistTurnByTurnGuidance(
+                        trackPath = session.trackId,
+                        startReached = session.startReached,
+                        reversed = session.reversed,
+                    )
                     val currentActive = gpxRepository.getActiveGpxFiles().first()
                     if (session.trackId !in currentActive) {
                         gpxRepository.setActiveGpxFiles(currentActive + session.trackId)
@@ -386,13 +360,146 @@ class GpxViewModel(
     }
 
     fun stopTurnByTurnGuidance() {
-        _turnByTurnGuidanceSession.value = null
+        viewModelScope.launch {
+            clearTurnByTurnGuidance()
+        }
     }
 
     fun markTurnByTurnStartReached() {
         val current = _turnByTurnGuidanceSession.value ?: return
         if (current.startReached) return
-        _turnByTurnGuidanceSession.value = current.copy(startReached = true)
+        val updated = current.copy(startReached = true)
+        _turnByTurnGuidanceSession.value = updated
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnStartReached(true)
+        }
+    }
+
+    fun reverseTurnByTurnGuidance() {
+        val current = _turnByTurnGuidanceSession.value ?: return
+        viewModelScope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        buildTurnByTurnGuidanceSession(
+                            path = current.trackId,
+                            startReached = false,
+                            reversed = !current.reversed,
+                        )
+                    }
+                }
+            result.onSuccess { session ->
+                _turnByTurnGuidanceSession.value = session
+                persistTurnByTurnGuidance(
+                    trackPath = session.trackId,
+                    startReached = session.startReached,
+                    reversed = session.reversed,
+                )
+            }
+        }
+    }
+
+    private suspend fun restoreTurnByTurnGuidanceSession() {
+        val persistedPath = settingsRepository.turnByTurnActiveTrackPath.first() ?: return
+        val startReached = settingsRepository.turnByTurnStartReached.first()
+        val reversed = settingsRepository.turnByTurnActiveTrackReversed.first()
+        val result =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    buildTurnByTurnGuidanceSession(
+                        path = persistedPath,
+                        startReached = startReached,
+                        reversed = reversed,
+                    )
+                }
+            }
+
+        result
+            .onSuccess { session ->
+                _turnByTurnGuidanceSession.value = session
+                val currentActive = gpxRepository.getActiveGpxFiles().first()
+                if (session.trackId !in currentActive) {
+                    gpxRepository.setActiveGpxFiles(currentActive + session.trackId)
+                }
+            }.onFailure {
+                clearTurnByTurnGuidance()
+            }
+    }
+
+    private suspend fun buildTurnByTurnGuidanceSession(
+        path: String,
+        startReached: Boolean,
+        reversed: Boolean,
+    ): GpxGuidanceSession {
+        val file = File(path)
+        require(file.exists()) { "The GPX could not be found on disk." }
+
+        val absolutePath = file.absolutePath
+        val profile = getOrBuildProfile(path = absolutePath, file = file, sig = sigOf(file))
+        require(profile.points.size >= 2) {
+            "The GPX does not contain enough points for guidance."
+        }
+        val displayTitle =
+            _gpxFiles.value.firstOrNull { it.path == absolutePath }?.displayTitle
+                ?: readBestGpxTitle(file)
+                ?: file.nameWithoutExtension
+        val guidanceSource = settingsRepository.turnByTurnGuidanceSource.first()
+        val useBrouterTiles = settingsRepository.turnByTurnUseBrouterTiles.first()
+        val basePoints =
+            if (reversed) {
+                profile.points.asReversed()
+            } else {
+                profile.points
+            }
+        val brouterEnhanced =
+            useBrouterTiles &&
+                (
+                    guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED ||
+                        (
+                            guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_AUTO &&
+                                looksLikeBrouterRoute(displayTitle, file.name)
+                    )
+                )
+        val guidancePoints =
+            if (brouterEnhanced) {
+                runCatching {
+                    buildBrouterEnhancedGuidancePoints(basePoints)
+                }.getOrNull() ?: basePoints
+            } else {
+                basePoints
+            }
+        val guidanceTuning =
+            if (brouterEnhanced) {
+                BROUTER_GUIDANCE_TUNING
+            } else {
+                GpxGuidanceTuning()
+            }
+
+        return buildGpxGuidanceSession(
+            trackId = absolutePath,
+            trackTitle = if (reversed) "$displayTitle reverse" else displayTitle,
+            trackPoints = guidancePoints,
+            startReached = startReached,
+            reversed = reversed,
+            tuning = guidanceTuning,
+        )
+    }
+
+    private suspend fun persistTurnByTurnGuidance(
+        trackPath: String,
+        startReached: Boolean,
+        reversed: Boolean,
+    ) {
+        settingsRepository.setTurnByTurnActiveTrackPath(trackPath)
+        settingsRepository.setTurnByTurnStartReached(startReached)
+        settingsRepository.setTurnByTurnActiveTrackReversed(reversed)
+    }
+
+    private suspend fun clearTurnByTurnGuidance() {
+        _turnByTurnGuidanceSession.value = null
+        settingsRepository.setTurnByTurnActiveTrackPath(null)
+        settingsRepository.setTurnByTurnStartReached(false)
+        settingsRepository.setTurnByTurnActiveTrackReversed(false)
     }
 
     fun deleteGpxFile(path: String) {
@@ -990,7 +1097,24 @@ class GpxViewModel(
                 )
             }
         require(routedPoints.size >= 2) { "BRouter did not return enough points for guidance." }
-        return routedPoints
+        return routedPoints.withProjectedGuidanceHints(trackPoints)
+    }
+
+    private fun List<TrackPoint>.withProjectedGuidanceHints(sourcePoints: List<TrackPoint>): List<TrackPoint> {
+        val hints = sourcePoints.filter { it.guidanceHint != null }
+        if (isEmpty() || hints.isEmpty()) return this
+
+        val projected = toMutableList()
+        var searchStart = 0
+        hints.forEach { sourcePoint ->
+            val nearestIndex =
+                (searchStart..projected.lastIndex).minByOrNull { index ->
+                    haversineMeters(projected[index].latLong, sourcePoint.latLong)
+                } ?: return@forEach
+            projected[nearestIndex] = projected[nearestIndex].copy(guidanceHint = sourcePoint.guidanceHint)
+            searchStart = (nearestIndex + 1).coerceAtMost(projected.lastIndex)
+        }
+        return projected
     }
 
     private fun sampledBrouterViaPoints(trackPoints: List<TrackPoint>): List<LatLong> {
