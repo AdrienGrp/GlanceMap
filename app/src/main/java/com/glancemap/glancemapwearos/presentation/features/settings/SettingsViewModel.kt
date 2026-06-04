@@ -82,6 +82,28 @@ class SettingsViewModel(
             settingsRepository.setGpsDebugTelemetryPopupEnabled(enabled)
         }
 
+    val turnByTurnGuidanceSource: StateFlow<String> =
+        settingsRepository.turnByTurnGuidanceSource
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.TURN_BY_TURN_SOURCE_AUTO,
+            )
+
+    fun setTurnByTurnGuidanceSource(source: String) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnGuidanceSource(source)
+        }
+
+    val turnByTurnUseBrouterTiles: StateFlow<Boolean> =
+        settingsRepository.turnByTurnUseBrouterTiles
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setTurnByTurnUseBrouterTiles(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnUseBrouterTiles(enabled)
+        }
+
     val promptForCalibration: StateFlow<Boolean> =
         settingsRepository.promptForCalibration
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)

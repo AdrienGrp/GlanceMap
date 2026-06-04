@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,6 +79,7 @@ fun GpxScreen(
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val gpxFiles by gpxViewModel.gpxFiles.collectAsState()
+    val turnByTurnGuidanceSession by gpxViewModel.turnByTurnGuidanceSession.collectAsState()
     val elevationProfileUiState by gpxViewModel.elevationProfileUiState.collectAsState()
     val exportUiState by gpxViewModel.exportUiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -464,6 +466,17 @@ fun GpxScreen(
                                 showRenameDialog = true
                                 renameError = null
                             },
+                            onStartGuidance = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                gpxViewModel.startTurnByTurnGuidance(gpxFile.path) { result ->
+                                    result.onSuccess {
+                                        navController.navigate(WatchRoutes.NAVIGATE) {
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                            },
                             onSend = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 selectedSendPaths =
@@ -481,6 +494,8 @@ fun GpxScreen(
                             isSendSelected = gpxFile.path in selectedSendPaths,
                             showDelete = isDeleteMode,
                             showRename = isRenameMode,
+                            showGuidance = !isSendMode && !isDeleteMode && !isRenameMode,
+                            isGuidanceActive = turnByTurnGuidanceSession?.trackId == gpxFile.path,
                             exportState = exportUiState.takeIf { it.filePath == gpxFile.path },
                             isMetric = isMetric,
                             rowSpacing = rowSpacing,
@@ -638,12 +653,15 @@ private fun GpxTrackItem(
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
     onRename: () -> Unit,
+    onStartGuidance: () -> Unit,
     onSend: () -> Unit,
     onLongPress: () -> Unit,
     showSend: Boolean,
     isSendSelected: Boolean,
     showDelete: Boolean,
     showRename: Boolean,
+    showGuidance: Boolean,
+    isGuidanceActive: Boolean,
     exportState: GpxExportUiState?,
     isMetric: Boolean,
     rowSpacing: Dp,
@@ -698,7 +716,7 @@ private fun GpxTrackItem(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement =
-            if (showSend || showDelete || showRename) {
+            if (showSend || showDelete || showRename || showGuidance) {
                 Arrangement.spacedBy(rowSpacing)
             } else {
                 Arrangement.Start
@@ -786,6 +804,25 @@ private fun GpxTrackItem(
                 contentColor = MaterialTheme.colorScheme.onError,
             ) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete")
+            }
+        } else if (showGuidance) {
+            CompactIconHitTargetButton(
+                onClick = onStartGuidance,
+                visualSize = deleteButtonSize,
+                containerColor =
+                    if (isGuidanceActive) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        Color.Black.copy(alpha = 0.72f)
+                    },
+                contentColor =
+                    if (isGuidanceActive) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        Color.White
+                    },
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Start GPX guidance")
             }
         }
     }

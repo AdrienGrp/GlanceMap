@@ -46,6 +46,8 @@ class SettingsRepositoryImpl private constructor(
         val GPS_DEBUG_TELEMETRY = booleanPreferencesKey("gps_debug_telemetry")
         val GPS_PASSIVE_LOCATION_EXPERIMENT = booleanPreferencesKey("gps_passive_location_experiment")
         val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
+        val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
+        val TURN_BY_TURN_USE_BROUTER_TILES = booleanPreferencesKey("turn_by_turn_use_brouter_tiles")
         val PROMPT_FOR_CALIBRATION = booleanPreferencesKey("prompt_for_calibration")
         val SHOW_TIME_IN_NAVIGATE = booleanPreferencesKey("show_time_in_navigate")
         val NAVIGATE_TIME_FORMAT = stringPreferencesKey("navigate_time_format")
@@ -152,6 +154,31 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] = enabled }
+    }
+
+    override val turnByTurnGuidanceSource: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_GUIDANCE_SOURCE]
+                .takeIf { source -> source in allowedTurnByTurnGuidanceSources }
+                ?: SettingsRepository.TURN_BY_TURN_SOURCE_AUTO
+        }
+
+    override suspend fun setTurnByTurnGuidanceSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_GUIDANCE_SOURCE] =
+                if (source in allowedTurnByTurnGuidanceSources) {
+                    source
+                } else {
+                    SettingsRepository.TURN_BY_TURN_SOURCE_AUTO
+                }
+        }
+    }
+
+    override val turnByTurnUseBrouterTiles: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_USE_BROUTER_TILES] ?: true }
+
+    override suspend fun setTurnByTurnUseBrouterTiles(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_USE_BROUTER_TILES] = enabled }
     }
 
     override val promptForCalibration: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.PROMPT_FOR_CALIBRATION] ?: false }
@@ -823,6 +850,12 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.COMPASS_HEADING_SOURCE_TYPE_HEADING,
                 SettingsRepository.COMPASS_HEADING_SOURCE_ROTATION_VECTOR,
                 SettingsRepository.COMPASS_HEADING_SOURCE_MAGNETOMETER,
+            )
+        private val allowedTurnByTurnGuidanceSources =
+            setOf(
+                SettingsRepository.TURN_BY_TURN_SOURCE_AUTO,
+                SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT,
+                SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED,
             )
         private val allowedPoiIconSizesPx =
             setOf(

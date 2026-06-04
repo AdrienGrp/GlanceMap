@@ -60,6 +60,7 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.MapLayerMutationCoordinator
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
@@ -145,6 +146,8 @@ internal fun NavigateContent(
     isGpxInspectionEnabled: Boolean,
     selectingGpxPointB: Boolean,
     onCancelSelectingGpxPointB: () -> Unit,
+    turnByTurnGuidanceState: TurnByTurnGuidanceState,
+    onStopTurnByTurnGuidance: () -> Unit,
     activeGpxDetails: List<GpxTrackDetails>,
     gpxTrackColor: Int,
     routeToolSession: RouteToolSession?,
@@ -188,6 +191,13 @@ internal fun NavigateContent(
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val latestOnNavigateTimeSuppressedChange = rememberUpdatedState(onNavigateTimeSuppressedChange)
+    var turnByTurnFullScreenExpanded by remember { mutableStateOf(false) }
+    val suppressMapRenderingForGuidance = turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded
+    LaunchedEffect(turnByTurnGuidanceState.active) {
+        if (!turnByTurnGuidanceState.active) {
+            turnByTurnFullScreenExpanded = false
+        }
+    }
 
     DisposableEffect(mapView, onMapViewReadyForRendering) {
         if (mapView == null) return@DisposableEffect onDispose {}
@@ -933,144 +943,158 @@ internal fun NavigateContent(
             var isMultiTouchGestureSuppressed by remember { mutableStateOf(false) }
             var lastMapSurfaceTelemetrySignature by remember { mutableStateOf<String?>(null) }
 
-            AndroidView(
-                factory = {
-                    FrameLayout(context).apply {
-                        clipChildren = true
-                        clipToPadding = true
-                        (mapView.parent as? ViewGroup)?.removeView(mapView)
-                        addView(
-                            mapView.apply {
-                                setOnTouchListener { v, event ->
-                                    if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-                                        isMultiTouchGestureSuppressed = false
-                                        MapLayerMutationCoordinator.setGestureActive(mapView, true)
-                                    }
-                                    if (
-                                        event.pointerCount > 1 ||
-                                        event.actionMasked == MotionEvent.ACTION_POINTER_DOWN ||
-                                        event.actionMasked == MotionEvent.ACTION_POINTER_UP
-                                    ) {
-                                        if (!isMultiTouchGestureSuppressed) {
-                                            isMultiTouchGestureSuppressed = true
-                                            MotionEvent.obtain(event).run {
-                                                action = MotionEvent.ACTION_CANCEL
-                                                v.onTouchEvent(this)
-                                                recycle()
-                                            }
-                                        }
-                                        isDragging = false
-                                        v.parent?.requestDisallowInterceptTouchEvent(true)
-                                        return@setOnTouchListener true
-                                    }
-                                    if (isMultiTouchGestureSuppressed) {
-                                        if (
-                                            event.actionMasked == MotionEvent.ACTION_UP ||
-                                            event.actionMasked == MotionEvent.ACTION_CANCEL
-                                        ) {
+            if (suppressMapRenderingForGuidance) {
+                DisposableEffect(mapView) {
+                    (mapView.parent as? ViewGroup)?.removeView(mapView)
+                    MapLayerMutationCoordinator.setGestureActive(mapView, false)
+                    onDispose { }
+                }
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color.Black),
+                )
+            } else {
+                AndroidView(
+                    factory = {
+                        FrameLayout(context).apply {
+                            clipChildren = true
+                            clipToPadding = true
+                            (mapView.parent as? ViewGroup)?.removeView(mapView)
+                            addView(
+                                mapView.apply {
+                                    setOnTouchListener { v, event ->
+                                        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                                             isMultiTouchGestureSuppressed = false
-                                            MapLayerMutationCoordinator.setGestureActive(mapView, false)
-                                            v.parent?.requestDisallowInterceptTouchEvent(false)
+                                            MapLayerMutationCoordinator.setGestureActive(mapView, true)
                                         }
-                                        return@setOnTouchListener true
-                                    }
-
-                                    doubleTapGestureDetector.onTouchEvent(event)
-                                    if (latestInspectionEnabled.value) {
-                                        gestureDetector.onTouchEvent(event)
-                                    }
-
-                                    // Reliable panning detection (MapView gets these events).
-                                    when (event.actionMasked) {
-                                        MotionEvent.ACTION_MOVE -> {
-                                            if (!isDragging) isDragging = true
-                                            if (latestNavMode.value != NavMode.PANNING) {
-                                                latestOnUserPanStarted.value.invoke()
+                                        if (
+                                            event.pointerCount > 1 ||
+                                            event.actionMasked == MotionEvent.ACTION_POINTER_DOWN ||
+                                            event.actionMasked == MotionEvent.ACTION_POINTER_UP
+                                        ) {
+                                            if (!isMultiTouchGestureSuppressed) {
+                                                isMultiTouchGestureSuppressed = true
+                                                MotionEvent.obtain(event).run {
+                                                    action = MotionEvent.ACTION_CANCEL
+                                                    v.onTouchEvent(this)
+                                                    recycle()
+                                                }
                                             }
-                                            v.parent?.requestDisallowInterceptTouchEvent(true)
-                                        }
-                                        MotionEvent.ACTION_UP,
-                                        MotionEvent.ACTION_CANCEL,
-                                        -> {
                                             isDragging = false
-                                            MapLayerMutationCoordinator.setGestureActive(mapView, false)
-                                            v.parent?.requestDisallowInterceptTouchEvent(false)
+                                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                                            return@setOnTouchListener true
                                         }
-                                        else -> Unit
-                                    }
+                                        if (isMultiTouchGestureSuppressed) {
+                                            if (
+                                                event.actionMasked == MotionEvent.ACTION_UP ||
+                                                event.actionMasked == MotionEvent.ACTION_CANCEL
+                                            ) {
+                                                isMultiTouchGestureSuppressed = false
+                                                MapLayerMutationCoordinator.setGestureActive(mapView, false)
+                                                v.parent?.requestDisallowInterceptTouchEvent(false)
+                                            }
+                                            return@setOnTouchListener true
+                                        }
 
-                                    false // let Mapsforge handle pan/zoom
-                                }
-                            },
+                                        doubleTapGestureDetector.onTouchEvent(event)
+                                        if (latestInspectionEnabled.value) {
+                                            gestureDetector.onTouchEvent(event)
+                                        }
+
+                                        // Reliable panning detection (MapView gets these events).
+                                        when (event.actionMasked) {
+                                            MotionEvent.ACTION_MOVE -> {
+                                                if (!isDragging) isDragging = true
+                                                if (latestNavMode.value != NavMode.PANNING) {
+                                                    latestOnUserPanStarted.value.invoke()
+                                                }
+                                                v.parent?.requestDisallowInterceptTouchEvent(true)
+                                            }
+                                            MotionEvent.ACTION_UP,
+                                            MotionEvent.ACTION_CANCEL,
+                                            -> {
+                                                isDragging = false
+                                                MapLayerMutationCoordinator.setGestureActive(mapView, false)
+                                                v.parent?.requestDisallowInterceptTouchEvent(false)
+                                            }
+                                            else -> Unit
+                                        }
+
+                                        false // let Mapsforge handle pan/zoom
+                                    }
+                                },
+                                navigationMapViewLayoutParams(
+                                    expandedMapSurfaceEnabled = expandedMapSurfaceEnabled,
+                                    expandedMapSurfaceHeightPx = expandedMapSurfaceHeightPx,
+                                ),
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { container ->
+                        if (mapView.parent !== container) {
+                            (mapView.parent as? ViewGroup)?.removeView(mapView)
+                            container.removeAllViews()
+                            container.addView(mapView)
+                        }
+                        val targetLayoutParams =
                             navigationMapViewLayoutParams(
                                 expandedMapSurfaceEnabled = expandedMapSurfaceEnabled,
                                 expandedMapSurfaceHeightPx = expandedMapSurfaceHeightPx,
-                            ),
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-                update = { container ->
-                    if (mapView.parent !== container) {
-                        (mapView.parent as? ViewGroup)?.removeView(mapView)
-                        container.removeAllViews()
-                        container.addView(mapView)
-                    }
-                    val targetLayoutParams =
-                        navigationMapViewLayoutParams(
-                            expandedMapSurfaceEnabled = expandedMapSurfaceEnabled,
-                            expandedMapSurfaceHeightPx = expandedMapSurfaceHeightPx,
-                        )
-                    val currentLayoutParams = mapView.layoutParams as? FrameLayout.LayoutParams
-                    val layoutParamsNeedUpdate =
-                        currentLayoutParams?.let {
-                            it.width != targetLayoutParams.width ||
-                                it.height != targetLayoutParams.height ||
-                                it.gravity != targetLayoutParams.gravity
-                        } ?: true
-                    if (layoutParamsNeedUpdate) {
-                        mapView.layoutParams = targetLayoutParams
-                        mapView.requestLayout()
-                    }
-                    val telemetryState =
-                        NavigationMapSurfaceTelemetryState(
-                            visibleMapSizePx = visibleMapSizePx,
-                            navigationMarkerAnchorMode = navigationMarkerAnchorMode,
-                            expandedMapSurfaceEnabled = expandedMapSurfaceEnabled,
-                            targetMapSurfaceHeightPx = targetLayoutParams.height,
-                        )
-                    logNavigationMapSurfaceTelemetryIfChanged(
-                        mapView = mapView,
-                        visibleContainer = container,
-                        state = telemetryState,
-                        lastSignature = lastMapSurfaceTelemetrySignature,
-                    ) { signature ->
-                        lastMapSurfaceTelemetrySignature = signature
-                    }
-                    if (layoutParamsNeedUpdate) {
-                        container.post {
-                            logNavigationMapSurfaceTelemetryIfChanged(
-                                mapView = mapView,
-                                visibleContainer = container,
-                                state = telemetryState,
-                                lastSignature = lastMapSurfaceTelemetrySignature,
-                            ) { signature ->
-                                lastMapSurfaceTelemetrySignature = signature
+                            )
+                        val currentLayoutParams = mapView.layoutParams as? FrameLayout.LayoutParams
+                        val layoutParamsNeedUpdate =
+                            currentLayoutParams?.let {
+                                it.width != targetLayoutParams.width ||
+                                    it.height != targetLayoutParams.height ||
+                                    it.gravity != targetLayoutParams.gravity
+                            } ?: true
+                        if (layoutParamsNeedUpdate) {
+                            mapView.layoutParams = targetLayoutParams
+                            mapView.requestLayout()
+                        }
+                        val telemetryState =
+                            NavigationMapSurfaceTelemetryState(
+                                visibleMapSizePx = visibleMapSizePx,
+                                navigationMarkerAnchorMode = navigationMarkerAnchorMode,
+                                expandedMapSurfaceEnabled = expandedMapSurfaceEnabled,
+                                targetMapSurfaceHeightPx = targetLayoutParams.height,
+                            )
+                        logNavigationMapSurfaceTelemetryIfChanged(
+                            mapView = mapView,
+                            visibleContainer = container,
+                            state = telemetryState,
+                            lastSignature = lastMapSurfaceTelemetrySignature,
+                        ) { signature ->
+                            lastMapSurfaceTelemetrySignature = signature
+                        }
+                        if (layoutParamsNeedUpdate) {
+                            container.post {
+                                logNavigationMapSurfaceTelemetryIfChanged(
+                                    mapView = mapView,
+                                    visibleContainer = container,
+                                    state = telemetryState,
+                                    lastSignature = lastMapSurfaceTelemetrySignature,
+                                ) { signature ->
+                                    lastMapSurfaceTelemetrySignature = signature
+                                }
                             }
                         }
-                    }
-                    val mapViewReady =
-                        mapView.isAttachedToWindow &&
-                            mapView.width > 0 &&
-                            mapView.height > 0 &&
-                            mapView.hasWindowFocus()
-                    if (mapViewReady) {
-                        onMapViewReadyForRendering()
-                    } else if (!mapView.isAttachedToWindow || mapView.width <= 0 || mapView.height <= 0) {
-                        mapView.post { onMapViewReadyForRendering() }
-                    }
-                },
-            )
+                        val mapViewReady =
+                            mapView.isAttachedToWindow &&
+                                mapView.width > 0 &&
+                                mapView.height > 0 &&
+                                mapView.hasWindowFocus()
+                        if (mapViewReady) {
+                            onMapViewReadyForRendering()
+                        } else if (!mapView.isAttachedToWindow || mapView.width <= 0 || mapView.height <= 0) {
+                            mapView.post { onMapViewReadyForRendering() }
+                        }
+                    },
+                )
+            }
 
             NavigateOverlaysLayer(
                 mapView = mapView,
@@ -1081,6 +1105,7 @@ internal fun NavigateContent(
                 slopeOverlayProgressPercent = slopeOverlayProgressPercent,
                 navMode = navMode,
                 screenSize = screenSize,
+                isMetric = isMetric,
                 liveElevationEnabled = liveElevationEnabled,
                 liveElevationLabel = liveElevationLabel,
                 liveDistanceEnabled = liveDistanceEnabled,
@@ -1154,6 +1179,11 @@ internal fun NavigateContent(
                 isOfflineMode = isOfflineMode,
                 selectingGpxPointB = selectingGpxPointB,
                 onCancelSelectingGpxPointB = onCancelSelectingGpxPointB,
+                turnByTurnGuidanceState = turnByTurnGuidanceState,
+                onStopTurnByTurnGuidance = onStopTurnByTurnGuidance,
+                onTurnByTurnExpandedChange = { expanded ->
+                    turnByTurnFullScreenExpanded = expanded
+                },
             )
 
             MarkerMotionDebugOverlay(

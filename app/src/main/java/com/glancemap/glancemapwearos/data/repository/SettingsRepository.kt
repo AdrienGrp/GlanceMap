@@ -34,6 +34,10 @@ interface SettingsRepository {
         const val NAVIGATION_MARKER_ANCHOR_CENTER = "CENTER"
         const val NAVIGATION_MARKER_ANCHOR_LOWER = "LOWER"
 
+        const val TURN_BY_TURN_SOURCE_AUTO = "AUTO"
+        const val TURN_BY_TURN_SOURCE_GPX_EXACT = "GPX_EXACT"
+        const val TURN_BY_TURN_SOURCE_BROUTER_ENHANCED = "BROUTER_ENHANCED"
+
         const val DEFAULT_GPX_FLAT_SPEED_MPS = 3.5f / 3.6f
         const val MAX_GPX_FLAT_SPEED_MPS = 20f / 3.6f
         const val DEFAULT_GPX_ADVANCED_ETA_ENABLED = false
@@ -102,6 +106,14 @@ interface SettingsRepository {
     val gpsDebugTelemetryPopupEnabled: Flow<Boolean>
 
     suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean)
+
+    val turnByTurnGuidanceSource: Flow<String>
+
+    suspend fun setTurnByTurnGuidanceSource(source: String)
+
+    val turnByTurnUseBrouterTiles: Flow<Boolean>
+
+    suspend fun setTurnByTurnUseBrouterTiles(enabled: Boolean)
 
     val promptForCalibration: Flow<Boolean>
 

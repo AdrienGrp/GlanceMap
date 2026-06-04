@@ -11,6 +11,7 @@ object WatchRoutes {
     const val SETTINGS = "settings_screen"
     const val COMPASS_SETTINGS = "compass_settings_screen"
     const val GPS_SETTINGS = "gps_settings_screen"
+    const val TURN_BY_TURN_SETTINGS = "turn_by_turn_settings_screen"
     const val DEBUG_SETTINGS = "debug_settings_screen"
     const val GPX_SETTINGS = "gpx_settings_screen"
     const val MAP_SETTINGS = "map_settings_screen"

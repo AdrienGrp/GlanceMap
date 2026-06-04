@@ -42,6 +42,7 @@ import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteShortcutTray
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolInlineProgressBanner
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -66,6 +67,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     slopeOverlayProgressPercent: Int?,
     navMode: NavMode,
     screenSize: WearScreenSize,
+    isMetric: Boolean,
     liveElevationEnabled: Boolean,
     liveElevationLabel: String?,
     liveDistanceEnabled: Boolean,
@@ -122,6 +124,9 @@ internal fun BoxScope.NavigateOverlaysLayer(
     isOfflineMode: Boolean,
     selectingGpxPointB: Boolean,
     onCancelSelectingGpxPointB: () -> Unit,
+    turnByTurnGuidanceState: TurnByTurnGuidanceState,
+    onStopTurnByTurnGuidance: () -> Unit,
+    onTurnByTurnExpandedChange: (Boolean) -> Unit,
 ) {
     var liveDistanceLineStart by
         remember(mapView, locationMarker, lastKnownLocation) {
@@ -147,6 +152,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
             0.dp
         }
     val suppressLiveMetricsForPoi = poiTapMessage != null
+    val turnByTurnModeActive = turnByTurnGuidanceState.active
 
     LaunchedEffect(shortcutTrayExpanded, routeToolModeActive) {
         if (!shortcutTrayExpanded || routeToolModeActive) return@LaunchedEffect
@@ -226,16 +232,18 @@ internal fun BoxScope.NavigateOverlaysLayer(
         navButtonSize = navButtonSize,
     )
 
-    NorthIndicatorOverlay(
-        northIndicatorMode = northIndicatorMode,
-        navMode = navMode,
-        mapRotationDeg = mapRotationDeg,
-        compassHeadingDeg = compassHeadingDeg,
-        indicatorButtonSize = northIndicatorButtonSize,
-        indicatorIconSize = northIndicatorIconSize,
-    )
+    if (!turnByTurnModeActive) {
+        NorthIndicatorOverlay(
+            northIndicatorMode = northIndicatorMode,
+            navMode = navMode,
+            mapRotationDeg = mapRotationDeg,
+            compassHeadingDeg = compassHeadingDeg,
+            indicatorButtonSize = northIndicatorButtonSize,
+            indicatorIconSize = northIndicatorIconSize,
+        )
+    }
 
-    if (showZoomPlusButton) {
+    if (!turnByTurnModeActive && showZoomPlusButton) {
         CurvedLayout(
             modifier = Modifier.fillMaxSize(),
             anchor = 320f,
@@ -278,7 +286,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         }
     }
 
-    if (showZoomMinusButton) {
+    if (!turnByTurnModeActive && showZoomMinusButton) {
         CurvedLayout(
             modifier = Modifier.fillMaxSize(),
             anchor = 338f,
@@ -321,7 +329,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         }
     }
 
-    scaleIndicator?.let { indicator ->
+    if (!turnByTurnModeActive) scaleIndicator?.let { indicator ->
         val scaleFontScale = LocalDensity.current.fontScale
         val scaleTopPadding = zoomLabelTopPadding + if (scaleFontScale > 1f) 4.dp else 0.dp
         AnimatedVisibility(
@@ -396,7 +404,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         Icon(Icons.Default.Menu, "Menu", Modifier.size(sideButtonIconSize))
     }
 
-    if (!routeToolModeActive) {
+    if (!turnByTurnModeActive && !routeToolModeActive) {
         RouteShortcutTray(
             expanded = shortcutTrayExpanded,
             keepAppOpen = keepAppOpen,
@@ -427,5 +435,14 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onRecenterRequested = onRecenterRequested,
         onToggleOrientation = onToggleOrientation,
         navigationMarkerAnchorMode = navigationMarkerAnchorMode,
+    )
+
+    TurnByTurnGuidanceOverlay(
+        state = turnByTurnGuidanceState,
+        screenSize = screenSize,
+        isMetric = isMetric,
+        compassHeadingDeg = compassHeadingDeg,
+        onStop = onStopTurnByTurnGuidance,
+        onExpandedChange = onTurnByTurnExpandedChange,
     )
 }

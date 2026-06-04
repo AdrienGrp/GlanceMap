@@ -5,10 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterConfig
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
 import com.glancemap.glancemapwearos.core.routing.RoutePlanner
+import com.glancemap.glancemapwearos.core.routing.RoutePlannerRequest
 import com.glancemap.glancemapwearos.data.repository.GpxExportRepository
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.SyncManager
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceSession
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceTuning
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.buildGpxGuidanceSession
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
@@ -60,6 +64,9 @@ class GpxViewModel(
 
     private val _exportUiState = MutableStateFlow(GpxExportUiState())
     val exportUiState: StateFlow<GpxExportUiState> = _exportUiState.asStateFlow()
+
+    private val _turnByTurnGuidanceSession = MutableStateFlow<GpxGuidanceSession?>(null)
+    val turnByTurnGuidanceSession: StateFlow<GpxGuidanceSession?> = _turnByTurnGuidanceSession.asStateFlow()
 
     // ----------------------------
     // Internal inspection session state
@@ -311,12 +318,90 @@ class GpxViewModel(
         }
     }
 
+    fun startTurnByTurnGuidance(
+        path: String,
+        onComplete: (Result<Unit>) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val file = File(path)
+                        require(file.exists()) { "The GPX could not be found on disk." }
+
+                        val absolutePath = file.absolutePath
+                        val profile = getOrBuildProfile(path = absolutePath, file = file, sig = sigOf(file))
+                        require(profile.points.size >= 2) {
+                            "The GPX does not contain enough points for guidance."
+                        }
+                        val displayTitle =
+                            _gpxFiles.value.firstOrNull { it.path == absolutePath }?.displayTitle
+                                ?: readBestGpxTitle(file)
+                                ?: file.nameWithoutExtension
+                        val guidanceSource = settingsRepository.turnByTurnGuidanceSource.first()
+                        val useBrouterTiles = settingsRepository.turnByTurnUseBrouterTiles.first()
+                        val brouterEnhanced =
+                            useBrouterTiles &&
+                                (
+                                    guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED ||
+                                        (
+                                            guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_AUTO &&
+                                                looksLikeBrouterRoute(displayTitle, file.name)
+                                        )
+                                )
+                        val guidancePoints =
+                            if (brouterEnhanced) {
+                                runCatching {
+                                    buildBrouterEnhancedGuidancePoints(profile.points)
+                                }.getOrNull() ?: profile.points
+                            } else {
+                                profile.points
+                            }
+                        val guidanceTuning =
+                            if (brouterEnhanced) {
+                                BROUTER_GUIDANCE_TUNING
+                            } else {
+                                GpxGuidanceTuning()
+                            }
+
+                        buildGpxGuidanceSession(
+                            trackId = absolutePath,
+                            trackTitle = displayTitle,
+                            trackPoints = guidancePoints,
+                            tuning = guidanceTuning,
+                        )
+                    }
+                }
+
+            result
+                .onSuccess { session ->
+                    _turnByTurnGuidanceSession.value = session
+                    val currentActive = gpxRepository.getActiveGpxFiles().first()
+                    if (session.trackId !in currentActive) {
+                        gpxRepository.setActiveGpxFiles(currentActive + session.trackId)
+                    }
+                }
+            onComplete(result.map { })
+        }
+    }
+
+    fun stopTurnByTurnGuidance() {
+        _turnByTurnGuidanceSession.value = null
+    }
+
+    fun markTurnByTurnStartReached() {
+        val current = _turnByTurnGuidanceSession.value ?: return
+        if (current.startReached) return
+        _turnByTurnGuidanceSession.value = current.copy(startReached = true)
+    }
+
     fun deleteGpxFile(path: String) {
         viewModelScope.launch {
             gpxRepository.deleteGpxFile(path)
             metaCache.remove(path)
             profileCache.remove(path)
             etaCache.remove(path)
+            if (_turnByTurnGuidanceSession.value?.trackId == path) stopTurnByTurnGuidance()
             if (aPos?.trackId == path) dismissInspection()
             if (_elevationProfileUiState.value?.trackPath == path) dismissElevationProfile()
             reloadFromDisk()
@@ -342,6 +427,7 @@ class GpxViewModel(
                 metaCache.clear()
                 profileCache.clear()
                 etaCache.clear()
+                if (_turnByTurnGuidanceSession.value?.trackId == filePath) stopTurnByTurnGuidance()
                 if (aPos?.trackId == filePath) dismissInspection()
                 if (_elevationProfileUiState.value?.trackPath == filePath) dismissElevationProfile()
                 reloadFromDisk()
@@ -885,6 +971,66 @@ class GpxViewModel(
                 etaProjection = etaProjection,
             )
     }
+
+    private suspend fun buildBrouterEnhancedGuidancePoints(trackPoints: List<TrackPoint>): List<TrackPoint> {
+        require(trackPoints.size >= 2) { "The GPX does not contain enough points for BRouter guidance." }
+        val routed =
+            routePlanner.createRoute(
+                RoutePlannerRequest(
+                    origin = trackPoints.first().latLong,
+                    destination = trackPoints.last().latLong,
+                    viaPoints = sampledBrouterViaPoints(trackPoints),
+                ),
+            )
+        val routedPoints =
+            routed.points.map { point ->
+                TrackPoint(
+                    latLong = point.latLong,
+                    elevation = point.elevation,
+                )
+            }
+        require(routedPoints.size >= 2) { "BRouter did not return enough points for guidance." }
+        return routedPoints
+    }
+
+    private fun sampledBrouterViaPoints(trackPoints: List<TrackPoint>): List<LatLong> {
+        if (trackPoints.size <= 2) return emptyList()
+        val maxViaPoints = BROUTER_GUIDANCE_MAX_VIA_POINTS.coerceAtMost(trackPoints.size - 2)
+        if (maxViaPoints <= 0) return emptyList()
+        val result = mutableListOf<LatLong>()
+        var last: LatLong? = null
+        for (step in 1..maxViaPoints) {
+            val index = ((trackPoints.lastIndex * step).toDouble() / (maxViaPoints + 1)).toInt()
+                .coerceIn(1, trackPoints.lastIndex - 1)
+            val point = trackPoints[index].latLong
+            if (last == null || last.latitude != point.latitude || last.longitude != point.longitude) {
+                result += point
+                last = point
+            }
+        }
+        return result
+    }
+}
+
+private val BROUTER_GUIDANCE_TUNING =
+    GpxGuidanceTuning(
+        offRouteDistanceMeters = 45.0,
+        instructionLookAheadMeters = 24.0,
+        instructionLookBehindMeters = 24.0,
+        minInstructionSpacingMeters = 55.0,
+        minInstructionAngleDegrees = 32.0,
+    )
+
+private const val BROUTER_GUIDANCE_MAX_VIA_POINTS = 8
+
+private fun looksLikeBrouterRoute(
+    title: String,
+    fileName: String,
+): Boolean {
+    val haystack = "$title $fileName"
+    return haystack.contains("brouter", ignoreCase = true) ||
+        haystack.contains("route-", ignoreCase = true) ||
+        haystack.contains("loop", ignoreCase = true)
 }
 
 private fun batchSendSummary(

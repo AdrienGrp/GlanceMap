@@ -46,6 +46,8 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.computeTurnByTurnGuidanceState
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.isGuidanceStartReached
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.offline.OfflineStartCenteringEffect
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
@@ -241,6 +243,13 @@ fun NavigateScreen(
     // ---- VMS ----
     val selectedMapPath by mapViewModel.selectedMapPath.collectAsState()
     val activeGpxDetails by gpxViewModel.activeGpxDetails.collectAsState()
+    val turnByTurnGuidanceSession by gpxViewModel.turnByTurnGuidanceSession.collectAsState()
+    val effectiveNavigationMarkerAnchorMode =
+        if (turnByTurnGuidanceSession != null) {
+            SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER
+        } else {
+            navigationMarkerAnchorMode
+        }
     val activePoiOverlaySources by poiViewModel.activeOverlaySources.collectAsState()
     val navigateTarget by poiViewModel.navigateTarget.collectAsState()
     val offlinePoiSearchUiState by poiViewModel.offlineSearchUiState.collectAsState()
@@ -701,7 +710,7 @@ fun NavigateScreen(
             expectedGpsIntervalMs = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
             navigationMarkerBitmap = navigationMarkerBitmap,
             suppressLocationMarker = offlineMode,
-            navigationMarkerAnchorMode = navigationMarkerAnchorMode,
+            navigationMarkerAnchorMode = effectiveNavigationMarkerAnchorMode,
         )
 
     val locationMarker = locationUiState.locationMarker
@@ -713,6 +722,7 @@ fun NavigateScreen(
             gpsIndicatorState
         }
     val gpsSignalSnapshot by locationViewModel.gpsSignalSnapshot.collectAsState()
+    val rawCurrentLocation by locationViewModel.currentLocation.collectAsState()
     val gpsFixFreshForAccuracyCircle =
         gpsSignalSnapshot.isLocationAvailable &&
             gpsSignalSnapshot.lastFixElapsedRealtimeMs > 0L &&
@@ -798,7 +808,7 @@ fun NavigateScreen(
         gpsFixBearingDeg = locationUiState.lastFixBearingDeg,
         renderedHeadingDeg = renderedCompassHeadingDeg,
         locationMarker = locationMarker,
-        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
+        navigationMarkerAnchorMode = effectiveNavigationMarkerAnchorMode,
         inspectionUiState = inspectionUiState,
         selectedPointA = selectedPointA,
         selectedPointB = selectedPointB,
@@ -894,9 +904,9 @@ fun NavigateScreen(
                 pendingPoiFocusTarget == null
         }
 
-    LaunchedEffect(gpsStartupLastKnownCenter, mapView, navigationMarkerAnchorMode) {
+    LaunchedEffect(gpsStartupLastKnownCenter, mapView, effectiveNavigationMarkerAnchorMode) {
         gpsStartupLastKnownCenter?.let {
-            mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode)
+            mapView.setCenterForNavigationMarker(it, effectiveNavigationMarkerAnchorMode)
         }
     }
 
@@ -916,15 +926,34 @@ fun NavigateScreen(
         } else {
             locationMarker?.latLong ?: uiState.lastKnownLocation
         }
+    val guidanceLocation: LatLong? =
+        if (offlineMode) {
+            null
+        } else {
+            rawCurrentLocation?.let { location ->
+                LatLong(location.latitude, location.longitude)
+            } ?: recenterTarget
+        }
+    val turnByTurnGuidanceState =
+        computeTurnByTurnGuidanceState(
+            session = turnByTurnGuidanceSession,
+            currentLocation = guidanceLocation,
+        )
+
+    LaunchedEffect(turnByTurnGuidanceSession, guidanceLocation) {
+        if (isGuidanceStartReached(turnByTurnGuidanceSession, guidanceLocation)) {
+            gpxViewModel.markTurnByTurnStartReached()
+        }
+    }
 
     LaunchedEffect(
-        navigationMarkerAnchorMode,
+        effectiveNavigationMarkerAnchorMode,
         effectiveNavMode,
         recenterTarget,
         mapView,
     ) {
         if (!offlineMode && effectiveNavMode != NavMode.PANNING) {
-            recenterTarget?.let { mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode) }
+            recenterTarget?.let { mapView.setCenterForNavigationMarker(it, effectiveNavigationMarkerAnchorMode) }
         }
     }
 
@@ -1223,7 +1252,7 @@ fun NavigateScreen(
         },
         onPermissionLaunch = { locationPermissionState.launchPermissions() },
         mapRotationDeg = renderedMapRotationDeg,
-        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
+        navigationMarkerAnchorMode = effectiveNavigationMarkerAnchorMode,
         compassHeadingDeg = renderedCompassHeadingDeg,
         liveElevationEnabled = liveElevationEnabled,
         liveDistanceEnabled = liveDistanceEnabled && !offlineMode,
@@ -1241,6 +1270,8 @@ fun NavigateScreen(
         isGpxInspectionEnabled = isGpxInspectionEnabled,
         selectingGpxPointB = selectingGpxPointB,
         onCancelSelectingGpxPointB = { gpxViewModel.cancelSelectingB() },
+        turnByTurnGuidanceState = turnByTurnGuidanceState,
+        onStopTurnByTurnGuidance = { gpxViewModel.stopTurnByTurnGuidance() },
         activeGpxDetails = activeGpxDetails,
         gpxTrackColor = gpxTrackColor,
         routeToolSession = routeToolSession,

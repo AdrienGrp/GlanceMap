@@ -27,6 +27,7 @@ import com.google.android.horologist.compose.material.ToggleChipToggleControl
 fun GpsSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenGeneralSettings: () -> Unit,
+    onOpenTurnByTurnSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
     val context = LocalContext.current
@@ -73,6 +74,14 @@ fun GpsSettingsScreen(
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+        }
+
+        item {
+            SettingsSectionChip(
+                label = "Turn-by-turn settings",
+                secondaryLabel = "GPX guidance and BRouter",
+                onClick = onOpenTurnByTurnSettings,
+            )
         }
 
         item {
