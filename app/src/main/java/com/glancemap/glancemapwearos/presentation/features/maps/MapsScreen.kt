@@ -89,7 +89,7 @@ import androidx.compose.foundation.lazy.itemsIndexed as foundationItemsIndexed
 private val MAP_DATA_BADGE_SIZE = 26.dp
 private val MAP_DATA_ICON_SIZE = 15.dp
 private val MAP_ROUTING_BADGE_SLOT_WIDTH = 22.dp
-private val MAP_DEM_BADGE_SLOT_WIDTH = 18.dp
+private val MAP_DEM_BADGE_SLOT_WIDTH = 22.dp
 
 @Composable
 fun MapsScreen(
@@ -815,6 +815,12 @@ fun MapsScreen(
                 demDownloadState.isDownloading || visibleDemStatusMessage.isNotBlank()
 
             if (showDemStatusBlock) {
+                val demStatusWidthFraction =
+                    when {
+                        !adaptive.isRound -> 1f
+                        adaptive.fontScale > 1f -> 0.76f
+                        else -> 0.86f
+                    }
                 Column(
                     modifier =
                         Modifier
@@ -840,8 +846,10 @@ fun MapsScreen(
                             text = visibleDemStatusMessage,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(demStatusWidthFraction),
                             textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
