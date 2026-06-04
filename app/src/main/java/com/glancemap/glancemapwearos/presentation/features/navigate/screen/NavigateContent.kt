@@ -99,6 +99,7 @@ internal fun NavigateContent(
     mapHolder: MapHolder?,
     onMapHolderChange: (MapHolder?) -> Unit,
     onMapViewReadyForRendering: () -> Unit,
+    onNavigateTimeSuppressedChange: (Boolean) -> Unit,
     mapAppearanceApplyInProgress: Boolean,
     slopeOverlayToggleEnabled: Boolean,
     slopeOverlayEnabled: Boolean,
@@ -186,6 +187,7 @@ internal fun NavigateContent(
     val context = LocalContext.current
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
+    val latestOnNavigateTimeSuppressedChange = rememberUpdatedState(onNavigateTimeSuppressedChange)
 
     DisposableEffect(mapView, onMapViewReadyForRendering) {
         if (mapView == null) return@DisposableEffect onDispose {}
@@ -656,6 +658,19 @@ internal fun NavigateContent(
     var showScaleBar by remember { mutableStateOf(false) }
     var liveElevationLabel by remember(mapHolder, isMetric) { mutableStateOf<String?>(null) }
     var liveDistanceLabel by remember(isMetric) { mutableStateOf<String?>(null) }
+    val routeToolModeActive = routeToolSession != null || crosshairSelectionActive || reshapePreviewInspectMode
+    val shouldSuppressNavigateTime =
+        adaptive.fontScale > 1f && (showScaleBar || routeToolModeActive)
+
+    LaunchedEffect(shouldSuppressNavigateTime) {
+        latestOnNavigateTimeSuppressedChange.value(shouldSuppressNavigateTime)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            latestOnNavigateTimeSuppressedChange.value(false)
+        }
+    }
 
     LaunchedEffect(mapView, isMetric) {
         scaleIndicator =
@@ -1119,7 +1134,7 @@ internal fun NavigateContent(
                 sideButtonSize = sideButtonSize,
                 sideButtonIconSize = sideButtonIconSize,
                 shortcutTrayExpanded = shortcutTrayExpanded,
-                routeToolModeActive = routeToolSession != null || crosshairSelectionActive || reshapePreviewInspectMode,
+                routeToolModeActive = routeToolModeActive,
                 onShortcutTrayToggle = onShortcutTrayToggle,
                 onShortcutTrayDismiss = onShortcutTrayDismiss,
                 onGpxToolsClick = onOpenGpxTools,

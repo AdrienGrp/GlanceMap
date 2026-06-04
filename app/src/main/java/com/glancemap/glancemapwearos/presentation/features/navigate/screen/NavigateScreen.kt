@@ -85,6 +85,7 @@ fun NavigateScreen(
     isAmbient: Boolean,
     isDeviceInteractive: Boolean,
     ambientTickMs: Long,
+    onNavigateTimeSuppressedChange: (Boolean) -> Unit = {},
     onMenuClick: () -> Unit,
     compassViewModel: CompassViewModel = viewModel(),
     navigateViewModel: NavigateViewModel =
@@ -1157,6 +1158,7 @@ fun NavigateScreen(
         mapHolder = mapHolder,
         onMapHolderChange = { /* no-op */ },
         onMapViewReadyForRendering = { mapViewModel.onMapViewReadyForRendering() },
+        onNavigateTimeSuppressedChange = onNavigateTimeSuppressedChange,
         mapAppearanceApplyInProgress = mapAppearanceApplyInProgress,
         slopeOverlayToggleEnabled = slopeOverlayToggleEnabled,
         slopeOverlayEnabled = slopeOverlayState.enabled,
