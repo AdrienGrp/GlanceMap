@@ -1,4 +1,4 @@
-@file:Suppress("FunctionName", "MatchingDeclarationName")
+@file:Suppress("FunctionName", "LongMethod", "MatchingDeclarationName")
 
 package com.glancemap.glancemapwearos.presentation.ui
 
@@ -83,7 +83,7 @@ private fun WearToolPanelSurface(
             (if (adaptive.isRound) 10.dp else 0.dp) +
             highFontTopInset
     val bottomPadding =
-            adaptive.dialogVerticalPadding +
+        adaptive.dialogVerticalPadding +
             when {
                 highFontRound -> 120.dp
                 adaptive.isRound -> 42.dp
@@ -121,7 +121,7 @@ private fun WearToolPanelSurface(
             state = scrollState,
             modifier =
                 Modifier
-                    .align(Alignment.CenterEnd)
+                    .align(Alignment.CenterEnd),
         )
     }
 }

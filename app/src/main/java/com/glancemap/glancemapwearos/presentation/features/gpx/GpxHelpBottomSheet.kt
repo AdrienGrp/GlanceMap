@@ -75,6 +75,7 @@ fun GpxHelpBottomSheet(
     }
 }
 
+@Suppress("FunctionNaming")
 @Composable
 private fun GpxHelpText(text: String) {
     cappedFontScale(maxFontScale = 1.08f) {

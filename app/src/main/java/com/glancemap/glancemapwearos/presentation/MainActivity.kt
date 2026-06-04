@@ -160,7 +160,8 @@ class MainActivity : ComponentActivity() {
 
                 AppScaffold(
                     timeText = {
-                        if (showTimeInNavigate && isNavigateScreen && !isAmbient && !suppressNavigateTime) {
+                        val canShowNavigateTime = showTimeInNavigate && isNavigateScreen && !isAmbient
+                        if (canShowNavigateTime && !suppressNavigateTime) {
                             cappedFontScale(maxFontScale = 1f) {
                                 val context = LocalContext.current
                                 TimeText(

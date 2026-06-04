@@ -1,4 +1,4 @@
-@file:Suppress("FunctionName")
+@file:Suppress("FunctionName", "LongParameterList")
 
 package com.glancemap.glancemapwearos.presentation.ui
 

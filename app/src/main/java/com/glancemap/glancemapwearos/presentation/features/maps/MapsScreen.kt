@@ -538,15 +538,18 @@ fun MapsScreen(
             }
             foundationItemsIndexed(DemSource.entries) { index, source ->
                 DemDialogDenseContent(highFont = demDataHighFont) {
+                    val rowModifier =
+                        Modifier.padding(
+                            start = demDialogHorizontalPadding,
+                            top = if (index == 0) 0.dp else 6.dp,
+                            end = demDialogHorizontalPadding,
+                            bottom = 0.dp,
+                        )
                     DemQualityChoiceRow(
                         source = source,
                         selected = selectedDemSource == source,
                         onSelect = { themeViewModel.setDemSource(source) },
-                        modifier =
-                            Modifier.padding(
-                                horizontal = demDialogHorizontalPadding,
-                                vertical = 0.dp,
-                            ).padding(top = if (index == 0) 0.dp else 6.dp),
+                        modifier = rowModifier,
                     )
                 }
             }

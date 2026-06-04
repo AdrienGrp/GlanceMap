@@ -1,4 +1,4 @@
-@file:Suppress("FunctionName", "MatchingDeclarationName")
+@file:Suppress("FunctionName", "LongMethod", "MatchingDeclarationName")
 
 package com.glancemap.glancemapwearos.presentation.ui
 
