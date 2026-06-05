@@ -60,6 +60,7 @@ import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -94,6 +95,9 @@ fun GpxScreen(
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameInProgress by remember { mutableStateOf(false) }
     var renameError by remember { mutableStateOf<String?>(null) }
+    var guidanceMessageTitle by remember { mutableStateOf<String?>(null) }
+    var guidanceMessageBody by remember { mutableStateOf<String?>(null) }
+    var navigateAfterGuidanceMessage by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val helpPrefs =
@@ -312,6 +316,31 @@ fun GpxScreen(
             onDismiss = { dismissHelpDialog() },
         )
 
+        WearInfoDialog(
+            visible = guidanceMessageBody != null,
+            title = guidanceMessageTitle ?: "GPX guidance",
+            onDismiss = {
+                guidanceMessageTitle = null
+                guidanceMessageBody = null
+                val shouldNavigate = navigateAfterGuidanceMessage
+                navigateAfterGuidanceMessage = false
+                if (shouldNavigate) {
+                    navController.navigate(WatchRoutes.NAVIGATE) {
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            },
+        ) {
+            item {
+                Text(
+                    text = guidanceMessageBody.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -470,12 +499,26 @@ fun GpxScreen(
                             onStartGuidance = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 gpxViewModel.startTurnByTurnGuidance(gpxFile.path) { result ->
-                                    result.onSuccess {
-                                        navController.navigate(WatchRoutes.NAVIGATE) {
-                                            launchSingleTop = true
-                                            restoreState = true
+                                    result
+                                        .onSuccess { startResult ->
+                                            val warning = startResult.warningMessage
+                                            if (warning != null) {
+                                                guidanceMessageTitle = "BRouter unavailable"
+                                                guidanceMessageBody = warning
+                                                navigateAfterGuidanceMessage = true
+                                            } else {
+                                                navController.navigate(WatchRoutes.NAVIGATE) {
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                }
+                                            }
+                                        }.onFailure { error ->
+                                            guidanceMessageTitle = "Guidance failed"
+                                            guidanceMessageBody =
+                                                error.localizedMessage?.takeIf { it.isNotBlank() }
+                                                    ?: "The GPX could not be started for guidance."
+                                            navigateAfterGuidanceMessage = false
                                         }
-                                    }
                                 }
                             },
                             onStopGuidance = {

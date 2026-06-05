@@ -16,7 +16,6 @@ fun TurnByTurnSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val guidanceSource by viewModel.turnByTurnGuidanceSource.collectAsState()
-    val useBrouterTiles by viewModel.turnByTurnUseBrouterTiles.collectAsState()
     val hapticsEnabled by viewModel.turnByTurnHapticsEnabled.collectAsState()
     val turnAlertsMode by viewModel.turnByTurnTurnAlertsMode.collectAsState()
     val offRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
@@ -41,19 +40,6 @@ fun TurnByTurnSettingsScreen(
                 label = "Guidance source",
                 secondaryLabel = guidanceSourceLabel(guidanceSource),
                 onClick = { showGuidanceSourcePicker = true },
-            )
-        }
-        item {
-            SettingsToggleChip(
-                checked = useBrouterTiles,
-                onCheckedChanged = viewModel::setTurnByTurnUseBrouterTiles,
-                label = "Use BRouter tiles",
-                secondaryLabel =
-                    if (useBrouterTiles) {
-                        "Improve turns when routing data is available"
-                    } else {
-                        "Use GPX geometry only"
-                    },
             )
         }
         item {
@@ -129,7 +115,7 @@ fun TurnByTurnSettingsScreen(
         options =
             listOf(
                 SettingsRepository.TURN_BY_TURN_SOURCE_AUTO to "Auto",
-                SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT to "GPX exact",
+                SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT to "GPX route",
                 SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED to "BRouter enhanced",
             ),
         onDismiss = { showGuidanceSourcePicker = false },
@@ -177,7 +163,7 @@ fun TurnByTurnSettingsScreen(
         visible = showOffRouteThresholdPicker,
         title = "Off-route distance",
         selectedValue = offRouteThresholdMeters,
-        options = listOf(40, 50, 60, 70, 80, 100, 120).map { it to "$it m" },
+        options = listOf(20, 40, 60, 80, 100).map { it to "$it m" },
         onDismiss = { showOffRouteThresholdPicker = false },
         onSelect = viewModel::setTurnByTurnOffRouteAlertThresholdMeters,
     )
@@ -193,7 +179,7 @@ fun TurnByTurnSettingsScreen(
 
 private fun guidanceSourceLabel(source: String): String =
     when (source) {
-        SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT -> "GPX exact"
+        SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT -> "GPX route"
         SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED -> "BRouter enhanced"
         else -> "Auto"
     }

@@ -34,6 +34,15 @@ import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import java.io.File
 
+data class GpxGuidanceStartResult(
+    val warningMessage: String? = null,
+)
+
+private data class GpxGuidanceBuildResult(
+    val session: GpxGuidanceSession,
+    val warningMessage: String? = null,
+)
+
 class GpxViewModel(
     private val gpxRepository: GpxRepository,
     private val gpxExportRepository: GpxExportRepository,
@@ -328,7 +337,7 @@ class GpxViewModel(
 
     fun startTurnByTurnGuidance(
         path: String,
-        onComplete: (Result<Unit>) -> Unit,
+        onComplete: (Result<GpxGuidanceStartResult>) -> Unit,
     ) {
         viewModelScope.launch {
             val result =
@@ -343,7 +352,8 @@ class GpxViewModel(
                 }
 
             result
-                .onSuccess { session ->
+                .onSuccess { buildResult ->
+                    val session = buildResult.session
                     _turnByTurnGuidanceSession.value = session
                     persistTurnByTurnGuidance(
                         trackPath = session.trackId,
@@ -355,7 +365,7 @@ class GpxViewModel(
                         gpxRepository.setActiveGpxFiles(currentActive + session.trackId)
                     }
                 }
-            onComplete(result.map { })
+            onComplete(result.map { GpxGuidanceStartResult(warningMessage = it.warningMessage) })
         }
     }
 
@@ -388,7 +398,8 @@ class GpxViewModel(
                         )
                     }
                 }
-            result.onSuccess { session ->
+            result.onSuccess { buildResult ->
+                val session = buildResult.session
                 _turnByTurnGuidanceSession.value = session
                 persistTurnByTurnGuidance(
                     trackPath = session.trackId,
@@ -415,7 +426,8 @@ class GpxViewModel(
             }
 
         result
-            .onSuccess { session ->
+            .onSuccess { buildResult ->
+                val session = buildResult.session
                 _turnByTurnGuidanceSession.value = session
                 val currentActive = gpxRepository.getActiveGpxFiles().first()
                 if (session.trackId !in currentActive) {
@@ -430,7 +442,7 @@ class GpxViewModel(
         path: String,
         startReached: Boolean,
         reversed: Boolean,
-    ): GpxGuidanceSession {
+    ): GpxGuidanceBuildResult {
         val file = File(path)
         require(file.exists()) { "The GPX could not be found on disk." }
 
@@ -444,7 +456,6 @@ class GpxViewModel(
                 ?: readBestGpxTitle(file)
                 ?: file.nameWithoutExtension
         val guidanceSource = settingsRepository.turnByTurnGuidanceSource.first()
-        val useBrouterTiles = settingsRepository.turnByTurnUseBrouterTiles.first()
         val basePoints =
             if (reversed) {
                 profile.points.asReversed()
@@ -452,36 +463,42 @@ class GpxViewModel(
                 profile.points
             }
         val brouterEnhanced =
-            useBrouterTiles &&
+            guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED ||
                 (
-                    guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED ||
-                        (
-                            guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_AUTO &&
-                                looksLikeBrouterRoute(displayTitle, file.name)
-                    )
+                    guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_AUTO &&
+                        looksLikeBrouterRoute(displayTitle, file.name)
                 )
+        var warningMessage: String? = null
         val guidancePoints =
             if (brouterEnhanced) {
                 runCatching {
                     buildBrouterEnhancedGuidancePoints(basePoints)
-                }.getOrNull() ?: basePoints
+                }.getOrElse {
+                    warningMessage = BROUTER_GUIDANCE_FALLBACK_MESSAGE
+                    basePoints
+                }
             } else {
                 basePoints
             }
+        val usedBrouterEnhanced = brouterEnhanced && warningMessage == null
         val guidanceTuning =
-            if (brouterEnhanced) {
+            if (usedBrouterEnhanced) {
                 BROUTER_GUIDANCE_TUNING
             } else {
                 GpxGuidanceTuning()
             }
 
-        return buildGpxGuidanceSession(
-            trackId = absolutePath,
-            trackTitle = if (reversed) "$displayTitle reverse" else displayTitle,
-            trackPoints = guidancePoints,
-            startReached = startReached,
-            reversed = reversed,
-            tuning = guidanceTuning,
+        return GpxGuidanceBuildResult(
+            session =
+                buildGpxGuidanceSession(
+                    trackId = absolutePath,
+                    trackTitle = if (reversed) "$displayTitle reverse" else displayTitle,
+                    trackPoints = guidancePoints,
+                    startReached = startReached,
+                    reversed = reversed,
+                    tuning = guidanceTuning,
+                ),
+            warningMessage = warningMessage,
         )
     }
 
@@ -1146,6 +1163,8 @@ private val BROUTER_GUIDANCE_TUNING =
     )
 
 private const val BROUTER_GUIDANCE_MAX_VIA_POINTS = 8
+private const val BROUTER_GUIDANCE_FALLBACK_MESSAGE =
+    "BRouter routing tiles are not available for this GPX. Guidance started on the GPX route instead."
 
 private fun looksLikeBrouterRoute(
     title: String,

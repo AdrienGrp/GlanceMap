@@ -1029,7 +1029,7 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL,
             )
         private val allowedTurnByTurnOffRouteThresholdMeters =
-            setOf(40, 50, 60, 70, 80, 100, 120)
+            setOf(20, 40, 60, 80, 100)
         private val allowedTurnByTurnOffRouteRepeatSeconds =
             setOf(30, 60, 120)
         private val allowedTurnByTurnRouteStartBehaviors =
