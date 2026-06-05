@@ -220,6 +220,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                 expanded = false
                 onStop()
             },
+            onCancel = { showActionPrompt = false },
             modifier =
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -452,17 +453,32 @@ private fun GuidanceActionPromptCard(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit,
+    onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    GuidanceDecisionPromptCard(
+    GuidancePromptCard(
         title = if (paused) "Guidance paused" else "Guidance",
         detail = trackTitle ?: "GPX guidance",
-        acceptText = if (paused) "Resume" else "Pause",
-        dismissText = "Stop",
-        onAccept = if (paused) onResume else onPause,
-        onDismiss = onStop,
         modifier = modifier,
-    )
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            GuideBackPromptButton(
+                text = if (paused) "Resume" else "Pause",
+                selected = true,
+                onClick = if (paused) onResume else onPause,
+            )
+            GuideBackPromptButton(
+                text = "Stop",
+                selected = false,
+                onClick = onStop,
+            )
+            GuideBackPromptButton(
+                text = "Cancel",
+                selected = false,
+                onClick = onCancel,
+            )
+        }
+    }
 }
 
 @Composable
@@ -475,10 +491,37 @@ private fun GuidanceDecisionPromptCard(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    GuidancePromptCard(
+        title = title,
+        detail = detail,
+        modifier = modifier,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            GuideBackPromptButton(
+                text = acceptText,
+                selected = true,
+                onClick = onAccept,
+            )
+            GuideBackPromptButton(
+                text = dismissText,
+                selected = false,
+                onClick = onDismiss,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GuidancePromptCard(
+    title: String,
+    detail: String,
+    modifier: Modifier = Modifier,
+    buttons: @Composable () -> Unit,
+) {
     Box(
         modifier =
             modifier
-                .widthIn(max = 150.dp)
+                .widthIn(max = 170.dp)
                 .background(Color.Black.copy(alpha = 0.94f), RoundedCornerShape(8.dp))
                 .padding(horizontal = 10.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
@@ -503,18 +546,7 @@ private fun GuidanceDecisionPromptCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    GuideBackPromptButton(
-                        text = acceptText,
-                        selected = true,
-                        onClick = onAccept,
-                    )
-                    GuideBackPromptButton(
-                        text = dismissText,
-                        selected = false,
-                        onClick = onDismiss,
-                    )
-                }
+                buttons()
             }
         }
     }

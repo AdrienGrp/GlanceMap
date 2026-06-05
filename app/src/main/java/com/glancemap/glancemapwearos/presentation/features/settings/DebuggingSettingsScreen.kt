@@ -100,6 +100,7 @@ fun DebuggingSettingsScreen(
     val turnByTurnOffRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
     val turnByTurnOffRouteRepeatSeconds by viewModel.turnByTurnOffRouteRepeatSeconds.collectAsState()
     val turnByTurnGpsInAmbientMode by viewModel.turnByTurnGpsInAmbientMode.collectAsState()
+    val turnByTurnBrouterGuideBackEnabled by viewModel.turnByTurnBrouterGuideBackEnabled.collectAsState()
     val turnByTurnRouteStartBehavior by viewModel.turnByTurnRouteStartBehavior.collectAsState()
     val turnByTurnReverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
     var diagnosticsExportStatus by remember {
@@ -370,6 +371,8 @@ fun DebuggingSettingsScreen(
                                                     turnByTurnOffRouteThresholdMeters,
                                                 turnByTurnOffRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
                                                 turnByTurnGpsInAmbientMode = turnByTurnGpsInAmbientMode,
+                                                turnByTurnBrouterGuideBackEnabled =
+                                                    turnByTurnBrouterGuideBackEnabled,
                                                 turnByTurnRouteStartBehavior = turnByTurnRouteStartBehavior,
                                                 turnByTurnReverseSuggestionMode = turnByTurnReverseSuggestionMode,
                                             ),

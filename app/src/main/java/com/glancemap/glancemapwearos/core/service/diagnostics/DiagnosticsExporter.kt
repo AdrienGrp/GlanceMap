@@ -46,6 +46,7 @@ data class DiagnosticsSettingsSnapshot(
     val turnByTurnOffRouteAlertThresholdMeters: Int = 0,
     val turnByTurnOffRouteRepeatSeconds: Int = 0,
     val turnByTurnGpsInAmbientMode: Boolean = false,
+    val turnByTurnBrouterGuideBackEnabled: Boolean = false,
     val turnByTurnRouteStartBehavior: String = "na",
     val turnByTurnReverseSuggestionMode: String = "na",
 )
@@ -448,6 +449,7 @@ object DiagnosticsExporter {
             )
             writer.appendLine("turnByTurnOffRouteRepeatSeconds=${settings.turnByTurnOffRouteRepeatSeconds}")
             writer.appendLine("turnByTurnGpsInAmbientMode=${settings.turnByTurnGpsInAmbientMode}")
+            writer.appendLine("turnByTurnBrouterGuideBackEnabled=${settings.turnByTurnBrouterGuideBackEnabled}")
             writer.appendLine("turnByTurnRouteStartBehavior=${settings.turnByTurnRouteStartBehavior}")
             writer.appendLine("turnByTurnReverseSuggestionMode=${settings.turnByTurnReverseSuggestionMode}")
             writer.appendLine("continuousLocationGranularity=permission_level")

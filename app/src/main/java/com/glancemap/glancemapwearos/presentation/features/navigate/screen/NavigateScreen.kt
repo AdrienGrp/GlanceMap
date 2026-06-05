@@ -1057,6 +1057,10 @@ fun NavigateScreen(
     ) {
         val session = activeTurnByTurnGuidanceSession
         val location = guidanceLocation
+        val rawGuidanceLocation =
+            rawCurrentLocation?.let { rawLocation ->
+                LatLong(rawLocation.latitude, rawLocation.longitude)
+            }
         if (session == null || location == null || session.startReached) {
             pendingStartDecision = null
             dismissedStartDecisionKey = null
@@ -1090,7 +1094,8 @@ fun NavigateScreen(
         val locationAccurateEnough =
             rawCurrentLocation?.accuracy?.let { accuracy ->
                 accuracy <= START_HERE_MAX_ACCURACY_METERS
-            } ?: true
+            } ?: false
+        val hasFreshGpsLocation = rawGuidanceLocation != null
         if (midRouteCandidate && locationAccurateEnough) {
             startHereStableSampleCount += 1
         } else {
@@ -1098,6 +1103,7 @@ fun NavigateScreen(
         }
         val stableMidRouteCandidate =
             midRouteCandidate &&
+                hasFreshGpsLocation &&
                 startHereStableSampleCount >= START_HERE_STABLE_SAMPLE_COUNT
         val reverseCandidate =
             !session.reversed &&
