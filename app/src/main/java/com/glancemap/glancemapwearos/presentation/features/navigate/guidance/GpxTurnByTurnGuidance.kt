@@ -109,6 +109,7 @@ fun buildGpxGuidanceSession(
                 trackPoints = trackPoints,
                 cumulativeDistancesMeters = cumulative,
                 tuning = tuning,
+                reverseDirection = reversed,
             ).ifEmpty {
                 deriveGpxRouteInstructions(
                     trackPoints = trackPoints,
@@ -333,6 +334,7 @@ fun deriveHintedRouteInstructions(
     trackPoints: List<TrackPoint>,
     cumulativeDistancesMeters: List<Double> = buildCumulativeDistances(trackPoints.map { it.latLong }),
     tuning: GpxGuidanceTuning = GpxGuidanceTuning(),
+    reverseDirection: Boolean = false,
 ): List<RouteInstruction> {
     if (trackPoints.size < 2) return emptyList()
     val instructions = mutableListOf<RouteInstruction>()
@@ -340,14 +342,25 @@ fun deriveHintedRouteInstructions(
 
     trackPoints.forEachIndexed { index, point ->
         val hint = point.guidanceHint ?: return@forEachIndexed
-        val command = routeInstructionCommandForHint(hint.commandCode) ?: return@forEachIndexed
+        val hintedCommand = routeInstructionCommandForHint(hint.commandCode) ?: return@forEachIndexed
+        val command =
+            if (reverseDirection) {
+                hintedCommand.invertedForReverseRoute()
+            } else {
+                hintedCommand
+            }
         val distanceAtPoint = cumulativeDistancesMeters.getOrNull(index) ?: return@forEachIndexed
         if (command != RouteInstructionCommand.FINISH &&
             distanceAtPoint - lastInstructionDistance < tuning.minInstructionSpacingMeters
         ) {
             return@forEachIndexed
         }
-        val message = hint.message?.toGuidanceMessage() ?: command.message
+        val message =
+            if (reverseDirection && command != hintedCommand) {
+                command.message
+            } else {
+                hint.message?.toGuidanceMessage() ?: command.message
+            }
         instructions +=
             RouteInstruction(
                 command = command,
@@ -403,6 +416,19 @@ private fun routeInstructionCommandForHint(commandCode: String?): RouteInstructi
         else -> null
     }
 }
+
+private fun RouteInstructionCommand.invertedForReverseRoute(): RouteInstructionCommand =
+    when (this) {
+        RouteInstructionCommand.SLIGHT_LEFT -> RouteInstructionCommand.SLIGHT_RIGHT
+        RouteInstructionCommand.LEFT -> RouteInstructionCommand.RIGHT
+        RouteInstructionCommand.SHARP_LEFT -> RouteInstructionCommand.SHARP_RIGHT
+        RouteInstructionCommand.SLIGHT_RIGHT -> RouteInstructionCommand.SLIGHT_LEFT
+        RouteInstructionCommand.RIGHT -> RouteInstructionCommand.LEFT
+        RouteInstructionCommand.SHARP_RIGHT -> RouteInstructionCommand.SHARP_LEFT
+        RouteInstructionCommand.CONTINUE,
+        RouteInstructionCommand.FINISH,
+        -> this
+    }
 
 private fun String.toGuidanceMessage(): String =
     trim()

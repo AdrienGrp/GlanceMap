@@ -60,6 +60,62 @@ class GpxTurnByTurnGuidanceTest {
     }
 
     @Test
+    fun reversedGuidanceInvertsDirectionSpecificHints() {
+        val session =
+            buildGpxGuidanceSession(
+                trackId = "hinted-reverse.gpx",
+                trackTitle = "Hinted reverse route",
+                trackPoints =
+                    listOf(
+                        point(0.001, 0.001),
+                        point(
+                            lat = 0.0,
+                            lon = 0.001,
+                            guidanceHint =
+                                GpxGuidanceHint(
+                                    commandCode = "TR",
+                                    message = "right",
+                                    source = GpxGuidanceHintSource.BROUTER,
+                                ),
+                        ),
+                        point(0.0, 0.0),
+                    ),
+                startReached = true,
+                reversed = true,
+            )
+
+        assertEquals(RouteInstructionSource.BROUTER_HINT, session.instructions.first().source)
+        assertEquals(RouteInstructionCommand.LEFT, session.instructions.first().command)
+        assertEquals("Left", session.instructions.first().message)
+    }
+
+    @Test
+    fun reversedHintDerivationKeepsNonDirectionalHints() {
+        val instructions =
+            deriveHintedRouteInstructions(
+                trackPoints =
+                    listOf(
+                        point(0.0, 0.0),
+                        point(
+                            lat = 0.0,
+                            lon = 0.001,
+                            guidanceHint =
+                                GpxGuidanceHint(
+                                    commandCode = "C",
+                                    message = "continue",
+                                    source = GpxGuidanceHintSource.BROUTER,
+                                ),
+                        ),
+                        point(0.0, 0.002),
+                    ),
+                reverseDirection = true,
+            )
+
+        assertEquals(RouteInstructionCommand.CONTINUE, instructions.first().command)
+        assertEquals("Continue", instructions.first().message)
+    }
+
+    @Test
     fun guidanceStartsByPointingToGpxStartWhenStartNotReached() {
         val session =
             buildGpxGuidanceSession(
