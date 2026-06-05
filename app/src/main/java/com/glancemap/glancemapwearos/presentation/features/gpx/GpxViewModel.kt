@@ -78,6 +78,9 @@ class GpxViewModel(
     private val _turnByTurnGuidanceSession = MutableStateFlow<GpxGuidanceSession?>(null)
     val turnByTurnGuidanceSession: StateFlow<GpxGuidanceSession?> = _turnByTurnGuidanceSession.asStateFlow()
 
+    private val _turnByTurnGuidancePaused = MutableStateFlow(false)
+    val turnByTurnGuidancePaused: StateFlow<Boolean> = _turnByTurnGuidancePaused.asStateFlow()
+
     // ----------------------------
     // Internal inspection session state
     // ----------------------------
@@ -355,6 +358,7 @@ class GpxViewModel(
                 .onSuccess { buildResult ->
                     val session = buildResult.session
                     _turnByTurnGuidanceSession.value = session
+                    _turnByTurnGuidancePaused.value = false
                     persistTurnByTurnGuidance(
                         trackPath = session.trackId,
                         startReached = session.startReached,
@@ -373,6 +377,16 @@ class GpxViewModel(
         viewModelScope.launch {
             clearTurnByTurnGuidance()
         }
+    }
+
+    fun pauseTurnByTurnGuidance() {
+        if (_turnByTurnGuidanceSession.value == null) return
+        _turnByTurnGuidancePaused.value = true
+    }
+
+    fun resumeTurnByTurnGuidance() {
+        if (_turnByTurnGuidanceSession.value == null) return
+        _turnByTurnGuidancePaused.value = false
     }
 
     fun markTurnByTurnStartReached() {
@@ -401,6 +415,7 @@ class GpxViewModel(
             result.onSuccess { buildResult ->
                 val session = buildResult.session
                 _turnByTurnGuidanceSession.value = session
+                _turnByTurnGuidancePaused.value = false
                 persistTurnByTurnGuidance(
                     trackPath = session.trackId,
                     startReached = session.startReached,
@@ -429,6 +444,7 @@ class GpxViewModel(
             .onSuccess { buildResult ->
                 val session = buildResult.session
                 _turnByTurnGuidanceSession.value = session
+                _turnByTurnGuidancePaused.value = false
                 val currentActive = gpxRepository.getActiveGpxFiles().first()
                 if (session.trackId !in currentActive) {
                     gpxRepository.setActiveGpxFiles(currentActive + session.trackId)
@@ -514,6 +530,7 @@ class GpxViewModel(
 
     private suspend fun clearTurnByTurnGuidance() {
         _turnByTurnGuidanceSession.value = null
+        _turnByTurnGuidancePaused.value = false
         settingsRepository.setTurnByTurnActiveTrackPath(null)
         settingsRepository.setTurnByTurnStartReached(false)
         settingsRepository.setTurnByTurnActiveTrackReversed(false)

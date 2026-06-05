@@ -5,6 +5,7 @@
 
 package com.glancemap.glancemapwearos.presentation.features.gpx
 
+import android.os.SystemClock
 import android.view.ViewConfiguration
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
@@ -60,6 +61,7 @@ import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -98,6 +100,7 @@ fun GpxScreen(
     var guidanceMessageTitle by remember { mutableStateOf<String?>(null) }
     var guidanceMessageBody by remember { mutableStateOf<String?>(null) }
     var navigateAfterGuidanceMessage by remember { mutableStateOf(false) }
+    var guidanceStartPromptFile by remember { mutableStateOf<GpxFileState?>(null) }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val helpPrefs =
@@ -233,6 +236,32 @@ fun GpxScreen(
         helpPrefs.edit().putBoolean(GPX_HELP_SHOWN_KEY, true).apply()
     }
 
+    fun startGuidance(gpxFile: GpxFileState) {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        gpxViewModel.startTurnByTurnGuidance(gpxFile.path) { result ->
+            result
+                .onSuccess { startResult ->
+                    val warning = startResult.warningMessage
+                    if (warning != null) {
+                        guidanceMessageTitle = "BRouter unavailable"
+                        guidanceMessageBody = warning
+                        navigateAfterGuidanceMessage = true
+                    } else {
+                        navController.navigate(WatchRoutes.NAVIGATE) {
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                }.onFailure { error ->
+                    guidanceMessageTitle = "Guidance failed"
+                    guidanceMessageBody =
+                        error.localizedMessage?.takeIf { it.isNotBlank() }
+                            ?: "The GPX could not be started for guidance."
+                    navigateAfterGuidanceMessage = false
+                }
+        }
+    }
+
     val columnState =
         rememberResponsiveColumnState(
             contentPadding = {
@@ -301,6 +330,19 @@ fun GpxScreen(
                         }
                 }
             },
+        )
+
+        WearActionDialog(
+            visible = guidanceStartPromptFile != null,
+            title = "Start guidance?",
+            message = guidanceStartPromptFile?.displayTitle ?: "Start turn-by-turn for this GPX?",
+            confirmText = "Start",
+            dismissText = "Cancel",
+            onConfirm = {
+                guidanceStartPromptFile?.let { startGuidance(it) }
+                guidanceStartPromptFile = null
+            },
+            onDismissRequest = { guidanceStartPromptFile = null },
         )
 
         elevationProfileUiState?.let { profile ->
@@ -497,33 +539,16 @@ fun GpxScreen(
                                 renameError = null
                             },
                             onStartGuidance = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                gpxViewModel.startTurnByTurnGuidance(gpxFile.path) { result ->
-                                    result
-                                        .onSuccess { startResult ->
-                                            val warning = startResult.warningMessage
-                                            if (warning != null) {
-                                                guidanceMessageTitle = "BRouter unavailable"
-                                                guidanceMessageBody = warning
-                                                navigateAfterGuidanceMessage = true
-                                            } else {
-                                                navController.navigate(WatchRoutes.NAVIGATE) {
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
-                                            }
-                                        }.onFailure { error ->
-                                            guidanceMessageTitle = "Guidance failed"
-                                            guidanceMessageBody =
-                                                error.localizedMessage?.takeIf { it.isNotBlank() }
-                                                    ?: "The GPX could not be started for guidance."
-                                            navigateAfterGuidanceMessage = false
-                                        }
-                                }
+                                startGuidance(gpxFile)
                             },
                             onStopGuidance = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 gpxViewModel.stopTurnByTurnGuidance()
+                            },
+                            onRequestGuidanceStart = {
+                                if (turnByTurnGuidanceSession?.trackId != gpxFile.path) {
+                                    guidanceStartPromptFile = gpxFile
+                                }
                             },
                             onSend = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -693,6 +718,7 @@ fun GpxScreen(
 
 private const val GPX_HELP_PREFS = "gpx_screen_help_prefs"
 private const val GPX_HELP_SHOWN_KEY = "gpx_help_shown"
+private const val GPX_ROW_DOUBLE_TAP_TIMEOUT_MS = 300L
 
 @Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 @Composable
@@ -703,6 +729,7 @@ private fun GpxTrackItem(
     onRename: () -> Unit,
     onStartGuidance: () -> Unit,
     onStopGuidance: () -> Unit,
+    onRequestGuidanceStart: () -> Unit,
     onSend: () -> Unit,
     onLongPress: () -> Unit,
     showSend: Boolean,
@@ -719,8 +746,10 @@ private fun GpxTrackItem(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val longPressHandler by rememberUpdatedState(onLongPress)
+    val doubleTapHandler by rememberUpdatedState(onRequestGuidanceStart)
     val longPressTimeoutMs = remember { ViewConfiguration.getLongPressTimeout().toLong() }
     var suppressNextToggle by remember(gpxFile.path) { mutableStateOf(false) }
+    var lastTapElapsedMs by remember(gpxFile.path) { mutableStateOf(0L) }
 
     LaunchedEffect(interactionSource, gpxFile.path, longPressTimeoutMs) {
         var trackedPress: PressInteraction.Press? = null
@@ -729,8 +758,16 @@ private fun GpxTrackItem(
         interactionSource.interactions.collect { interaction ->
             when (interaction) {
                 is PressInteraction.Press -> {
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - lastTapElapsedMs <= GPX_ROW_DOUBLE_TAP_TIMEOUT_MS) {
+                        suppressNextToggle = true
+                        lastTapElapsedMs = 0L
+                        doubleTapHandler()
+                    } else {
+                        suppressNextToggle = false
+                        lastTapElapsedMs = now
+                    }
                     trackedPress = interaction
-                    suppressNextToggle = false
                     longPressJob?.cancel()
                     longPressJob =
                         launch {

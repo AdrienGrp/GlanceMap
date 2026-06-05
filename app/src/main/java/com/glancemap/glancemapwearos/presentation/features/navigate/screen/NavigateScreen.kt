@@ -269,6 +269,13 @@ fun NavigateScreen(
     val selectedMapPath by mapViewModel.selectedMapPath.collectAsState()
     val activeGpxDetails by gpxViewModel.activeGpxDetails.collectAsState()
     val turnByTurnGuidanceSession by gpxViewModel.turnByTurnGuidanceSession.collectAsState()
+    val turnByTurnGuidancePaused by gpxViewModel.turnByTurnGuidancePaused.collectAsState()
+    val activeTurnByTurnGuidanceSession =
+        if (turnByTurnGuidancePaused) {
+            null
+        } else {
+            turnByTurnGuidanceSession
+        }
     val effectiveNavigationMarkerAnchorMode =
         if (turnByTurnGuidanceSession != null) {
             SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER
@@ -361,7 +368,7 @@ fun NavigateScreen(
 
     // ---- Should track location? ----
     val backgroundGpsModeActive =
-        (keepGpsInAmbient || (turnByTurnGuidanceSession != null && turnByTurnGpsInAmbient)) &&
+        (keepGpsInAmbient || (activeTurnByTurnGuidanceSession != null && turnByTurnGpsInAmbient)) &&
             screenState.isNonInteractive
     val shouldTrackLocation =
         locationPermissionState.hasLocationPermission &&
@@ -969,13 +976,13 @@ fun NavigateScreen(
         }
     val turnByTurnGuidanceState =
         computeTurnByTurnGuidanceState(
-            session = turnByTurnGuidanceSession,
+            session = activeTurnByTurnGuidanceSession,
             currentLocation = guidanceLocation,
             tuning = turnByTurnGuidanceTuning,
         )
     var guideBackToRouteActive by remember { mutableStateOf(false) }
     var dismissedGuideBackPromptTrackId by remember { mutableStateOf<String?>(null) }
-    val guideBackTrackId = turnByTurnGuidanceSession?.trackId
+    val guideBackTrackId = activeTurnByTurnGuidanceSession?.trackId
     LaunchedEffect(
         turnByTurnGuidanceState.active,
         turnByTurnGuidanceState.offRoute,
@@ -995,7 +1002,7 @@ fun NavigateScreen(
     var dismissedStartDecisionKey by remember { mutableStateOf<String?>(null) }
     val startDecisionKey =
         pendingStartDecision?.let { decision ->
-            "$guideBackTrackId:${turnByTurnGuidanceSession?.reversed}:$decision"
+            "$guideBackTrackId:${activeTurnByTurnGuidanceSession?.reversed}:$decision"
         }
     val startDecisionPrompt =
         pendingStartDecision?.let { decision ->
@@ -1018,13 +1025,13 @@ fun NavigateScreen(
         }
 
     LaunchedEffect(
-        turnByTurnGuidanceSession,
+        activeTurnByTurnGuidanceSession,
         guidanceLocation,
         turnByTurnRouteStartBehavior,
         turnByTurnReverseSuggestionMode,
         turnByTurnOffRouteThresholdMeters,
     ) {
-        val session = turnByTurnGuidanceSession
+        val session = activeTurnByTurnGuidanceSession
         val location = guidanceLocation
         if (session == null || location == null || session.startReached) {
             pendingStartDecision = null
@@ -1083,8 +1090,8 @@ fun NavigateScreen(
             }
     }
 
-    LaunchedEffect(turnByTurnGuidanceSession, guidanceLocation, turnByTurnGuidanceTuning) {
-        if (isGuidanceStartReached(turnByTurnGuidanceSession, guidanceLocation, turnByTurnGuidanceTuning)) {
+    LaunchedEffect(activeTurnByTurnGuidanceSession, guidanceLocation, turnByTurnGuidanceTuning) {
+        if (isGuidanceStartReached(activeTurnByTurnGuidanceSession, guidanceLocation, turnByTurnGuidanceTuning)) {
             gpxViewModel.markTurnByTurnStartReached()
         }
     }
@@ -1469,9 +1476,13 @@ fun NavigateScreen(
         selectingGpxPointB = selectingGpxPointB,
         onCancelSelectingGpxPointB = { gpxViewModel.cancelSelectingB() },
         turnByTurnGuidanceState = turnByTurnGuidanceState,
+        turnByTurnGuidancePaused = turnByTurnGuidancePaused,
+        turnByTurnPausedTrackTitle = turnByTurnGuidanceSession?.trackTitle,
         guideBackToRouteActive = guideBackToRouteActive && turnByTurnGuidanceState.offRoute,
         showGuideBackPrompt = showGuideBackPrompt,
         startDecisionPrompt = startDecisionPrompt,
+        onPauseTurnByTurnGuidance = { gpxViewModel.pauseTurnByTurnGuidance() },
+        onResumeTurnByTurnGuidance = { gpxViewModel.resumeTurnByTurnGuidance() },
         onStopTurnByTurnGuidance = { gpxViewModel.stopTurnByTurnGuidance() },
         onGuideBackToRoute = {
             guideBackToRouteActive = true

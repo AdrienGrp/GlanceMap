@@ -1,11 +1,15 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,12 +71,16 @@ import kotlin.math.roundToInt
 @Composable
 internal fun BoxScope.TurnByTurnGuidanceOverlay(
     state: TurnByTurnGuidanceState,
+    paused: Boolean,
+    pausedTrackTitle: String?,
     screenSize: WearScreenSize,
     isMetric: Boolean,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     showGuideBackPrompt: Boolean,
     startDecisionPrompt: GuidanceDecisionPrompt?,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onStop: () -> Unit,
     onExpandedChange: (Boolean) -> Unit,
     onGuideBackToRoute: () -> Unit,
@@ -85,9 +93,10 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
             onExpandedChange(false)
         }
     }
-    if (!state.active) return
+    if (!state.active && !paused) return
 
     var expanded by remember(state.trackTitle) { mutableStateOf(false) }
+    var showActionPrompt by remember(state.trackTitle, paused) { mutableStateOf(false) }
     LaunchedEffect(expanded) {
         onExpandedChange(expanded)
     }
@@ -131,6 +140,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
             isMetric = isMetric,
             compassHeadingDeg = compassHeadingDeg,
             guideBackToRouteActive = guideBackToRouteActive,
+            onLongPress = { showActionPrompt = true },
             onCollapse = { expanded = false },
         )
     }
@@ -143,7 +153,16 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     .padding(top = topPadding)
                     .widthIn(max = compactWidth)
                     .background(Color.Black.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
-                    .clickable { expanded = true }
+                    .combinedClickable(
+                        onClick = {
+                            if (paused) {
+                                onResume()
+                            } else {
+                                expanded = true
+                            }
+                        },
+                        onLongClick = { showActionPrompt = true },
+                    )
                     .padding(horizontal = 6.dp, vertical = 3.dp),
         ) {
             cappedFontScale(maxFontScale = 1f) {
@@ -158,7 +177,12 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                         modifier = Modifier.size(compactIconSize),
                     )
                     Text(
-                        text = guidanceCompactText(state, isMetric, guideBackToRouteActive),
+                        text =
+                            if (paused) {
+                                "Paused"
+                            } else {
+                                guidanceCompactText(state, isMetric, guideBackToRouteActive)
+                            },
                         modifier = Modifier.weight(1f),
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
@@ -169,7 +193,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     )
                     Icon(
                         imageVector = Icons.Default.ExpandMore,
-                        contentDescription = "Expand guidance",
+                        contentDescription = if (paused) "Resume guidance" else "Expand guidance",
                         tint = Color.White.copy(alpha = 0.78f),
                         modifier = Modifier.size(10.dp),
                     )
@@ -178,7 +202,30 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
         }
     }
 
-    if (startDecisionPrompt != null) {
+    if (showActionPrompt) {
+        GuidanceActionPromptCard(
+            paused = paused,
+            trackTitle = pausedTrackTitle ?: state.trackTitle,
+            onPause = {
+                showActionPrompt = false
+                expanded = false
+                onPause()
+            },
+            onResume = {
+                showActionPrompt = false
+                onResume()
+            },
+            onStop = {
+                showActionPrompt = false
+                expanded = false
+                onStop()
+            },
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 36.dp),
+        )
+    } else if (startDecisionPrompt != null) {
         GuidanceDecisionPromptCard(
             title = startDecisionPrompt.title,
             detail = startDecisionPrompt.detail,
@@ -224,6 +271,7 @@ private fun ExpandedGuidanceOverlay(
     isMetric: Boolean,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
+    onLongPress: () -> Unit,
     onCollapse: () -> Unit,
 ) {
     val titleRadialPadding =
@@ -256,6 +304,10 @@ private fun ExpandedGuidanceOverlay(
             Modifier
                 .fillMaxSize()
                 .background(Color.Black)
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = onLongPress,
+                )
                 .pointerInput(state.mode, state.nextInstruction) {
                     var totalDrag = 0f
                     detectVerticalDragGestures(
@@ -373,6 +425,26 @@ private fun ExpandedGuidanceOverlay(
             }
         }
     }
+}
+
+@Composable
+private fun GuidanceActionPromptCard(
+    paused: Boolean,
+    trackTitle: String?,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    GuidanceDecisionPromptCard(
+        title = if (paused) "Guidance paused" else "Guidance",
+        detail = trackTitle ?: "GPX guidance",
+        acceptText = if (paused) "Resume" else "Pause",
+        dismissText = "Stop",
+        onAccept = if (paused) onResume else onPause,
+        onDismiss = onStop,
+        modifier = modifier,
+    )
 }
 
 @Composable
