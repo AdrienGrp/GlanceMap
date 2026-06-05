@@ -1115,6 +1115,7 @@ fun NavigateScreen(
         turnByTurnGuidanceState.distanceRemainingMeters?.roundTelemetryMeters(),
         turnByTurnGuidanceState.routeProgressFraction?.roundTelemetryPercent(),
         turnByTurnGuidanceState.offRoute,
+        turnByTurnGuidancePaused,
         turnByTurnGuidanceSession?.trackId,
         turnByTurnGuidanceSession?.reversed,
         turnByTurnGuidanceSession?.startReached,
@@ -1134,6 +1135,7 @@ fun NavigateScreen(
             "TurnByTurn",
             buildTurnByTurnTelemetryMessage(
                 state = turnByTurnGuidanceState,
+                paused = turnByTurnGuidancePaused,
                 trackId = turnByTurnGuidanceSession?.trackId,
                 reversed = turnByTurnGuidanceSession?.reversed,
                 startReached = turnByTurnGuidanceSession?.startReached,
@@ -1593,6 +1595,7 @@ private fun buildTurnByTurnTelemetryMessage(
     guideBackToRouteActive: Boolean,
     showGuideBackPrompt: Boolean,
     pendingStartDecision: GuidanceStartDecision?,
+    paused: Boolean,
     routeStartBehavior: String,
     reverseSuggestionMode: String,
     offRouteThresholdMeters: Int,
@@ -1604,6 +1607,7 @@ private fun buildTurnByTurnTelemetryMessage(
     val instruction = state.nextInstruction
     return buildString {
         append("active=${state.active}")
+        append(" paused=$paused")
         append(" mode=${state.mode}")
         append(" track=${trackId.telemetryTrackName()}")
         append(" reversed=${reversed ?: "na"}")

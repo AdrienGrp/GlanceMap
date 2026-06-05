@@ -137,6 +137,19 @@ internal fun deriveTelemetryInsights(
     var screenOnFixGapSampleCount = 0
     var screenOnFixGapSumMs = 0L
     var screenOnFixGapMaxMs = 0L
+    var turnByTurnSampleCount = 0
+    var turnByTurnActiveSampleCount = 0
+    var turnByTurnPausedSampleCount = 0
+    var turnByTurnOffRouteSampleCount = 0
+    var turnByTurnGuideBackActiveSampleCount = 0
+    var turnByTurnGuideBackPromptSampleCount = 0
+    var turnByTurnStartHereDecisionCount = 0
+    var turnByTurnReverseDecisionCount = 0
+    var turnByTurnGeometryInstructionSampleCount = 0
+    var turnByTurnBrouterHintInstructionSampleCount = 0
+    var turnByTurnTurnHapticCount = 0
+    var turnByTurnOffRouteHapticCount = 0
+    var turnByTurnMaxDistanceToRouteMeters: Int? = null
     var screenActive = false
     var pendingScreenPauseTrackingDisable = false
     var lastScreenFixAtMs: Long? = null
@@ -270,6 +283,43 @@ internal fun deriveTelemetryInsights(
                     watchGpsDegradedLastObserved = true
                 }
                 "false" -> watchGpsDegradedLastObserved = false
+            }
+        }
+
+        if ("[TurnByTurn]" in line) {
+            when (extractTokenValue(line, "haptic=")) {
+                "turn" -> turnByTurnTurnHapticCount += 1
+                "off_route" -> turnByTurnOffRouteHapticCount += 1
+            }
+            if (" active=" in line || line.contains("[TurnByTurn] active=")) {
+                turnByTurnSampleCount += 1
+                if (parseBooleanToken(line, "active=") == true) {
+                    turnByTurnActiveSampleCount += 1
+                }
+                if (parseBooleanToken(line, "paused=") == true) {
+                    turnByTurnPausedSampleCount += 1
+                }
+                if (parseBooleanToken(line, "offRoute=") == true) {
+                    turnByTurnOffRouteSampleCount += 1
+                }
+                if (parseBooleanToken(line, "guideBackActive=") == true) {
+                    turnByTurnGuideBackActiveSampleCount += 1
+                }
+                if (parseBooleanToken(line, "guideBackPrompt=") == true) {
+                    turnByTurnGuideBackPromptSampleCount += 1
+                }
+                when (extractTokenValue(line, "startDecision=")) {
+                    "START_HERE" -> turnByTurnStartHereDecisionCount += 1
+                    "REVERSE_ROUTE" -> turnByTurnReverseDecisionCount += 1
+                }
+                when (extractTokenValue(line, "nextSource=")) {
+                    "GPX_GEOMETRY" -> turnByTurnGeometryInstructionSampleCount += 1
+                    "BROUTER_HINT" -> turnByTurnBrouterHintInstructionSampleCount += 1
+                }
+                parseIntToken(line, "distToRouteM=")?.let { distance ->
+                    turnByTurnMaxDistanceToRouteMeters =
+                        maxOf(turnByTurnMaxDistanceToRouteMeters ?: distance, distance)
+                }
             }
         }
 
@@ -436,6 +486,19 @@ internal fun deriveTelemetryInsights(
                 null
             },
         screenOnFixGapMaxMs = screenOnFixGapMaxMs,
+        turnByTurnSampleCount = turnByTurnSampleCount,
+        turnByTurnActiveSampleCount = turnByTurnActiveSampleCount,
+        turnByTurnPausedSampleCount = turnByTurnPausedSampleCount,
+        turnByTurnOffRouteSampleCount = turnByTurnOffRouteSampleCount,
+        turnByTurnGuideBackActiveSampleCount = turnByTurnGuideBackActiveSampleCount,
+        turnByTurnGuideBackPromptSampleCount = turnByTurnGuideBackPromptSampleCount,
+        turnByTurnStartHereDecisionCount = turnByTurnStartHereDecisionCount,
+        turnByTurnReverseDecisionCount = turnByTurnReverseDecisionCount,
+        turnByTurnGeometryInstructionSampleCount = turnByTurnGeometryInstructionSampleCount,
+        turnByTurnBrouterHintInstructionSampleCount = turnByTurnBrouterHintInstructionSampleCount,
+        turnByTurnTurnHapticCount = turnByTurnTurnHapticCount,
+        turnByTurnOffRouteHapticCount = turnByTurnOffRouteHapticCount,
+        turnByTurnMaxDistanceToRouteMeters = turnByTurnMaxDistanceToRouteMeters,
     )
 }
 

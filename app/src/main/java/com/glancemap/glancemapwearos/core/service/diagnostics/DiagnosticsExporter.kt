@@ -136,6 +136,19 @@ object DiagnosticsExporter {
         val screenOnFixGapSampleCount: Int = 0,
         val screenOnFixGapAvgMs: Long? = null,
         val screenOnFixGapMaxMs: Long = 0L,
+        val turnByTurnSampleCount: Int = 0,
+        val turnByTurnActiveSampleCount: Int = 0,
+        val turnByTurnPausedSampleCount: Int = 0,
+        val turnByTurnOffRouteSampleCount: Int = 0,
+        val turnByTurnGuideBackActiveSampleCount: Int = 0,
+        val turnByTurnGuideBackPromptSampleCount: Int = 0,
+        val turnByTurnStartHereDecisionCount: Int = 0,
+        val turnByTurnReverseDecisionCount: Int = 0,
+        val turnByTurnGeometryInstructionSampleCount: Int = 0,
+        val turnByTurnBrouterHintInstructionSampleCount: Int = 0,
+        val turnByTurnTurnHapticCount: Int = 0,
+        val turnByTurnOffRouteHapticCount: Int = 0,
+        val turnByTurnMaxDistanceToRouteMeters: Int? = null,
     )
 
     internal data class CompassTelemetryInsights(
@@ -743,6 +756,39 @@ object DiagnosticsExporter {
                     } else {
                         "na"
                     }
+                }",
+            )
+            writer.appendLine()
+            writer.appendLine("Turn-by-Turn Guidance")
+            writer.appendLine("turnByTurnSampleCount=${telemetryInsights.turnByTurnSampleCount}")
+            writer.appendLine("turnByTurnActiveSampleCount=${telemetryInsights.turnByTurnActiveSampleCount}")
+            writer.appendLine("turnByTurnPausedSampleCount=${telemetryInsights.turnByTurnPausedSampleCount}")
+            writer.appendLine("turnByTurnOffRouteSampleCount=${telemetryInsights.turnByTurnOffRouteSampleCount}")
+            writer.appendLine(
+                "turnByTurnGuideBackActiveSampleCount=${telemetryInsights.turnByTurnGuideBackActiveSampleCount}",
+            )
+            writer.appendLine(
+                "turnByTurnGuideBackPromptSampleCount=${telemetryInsights.turnByTurnGuideBackPromptSampleCount}",
+            )
+            writer.appendLine(
+                "turnByTurnStartHereDecisionCount=${telemetryInsights.turnByTurnStartHereDecisionCount}",
+            )
+            writer.appendLine("turnByTurnReverseDecisionCount=${telemetryInsights.turnByTurnReverseDecisionCount}")
+            writer.appendLine(
+                "turnByTurnGeometryInstructionSampleCount=${
+                    telemetryInsights.turnByTurnGeometryInstructionSampleCount
+                }",
+            )
+            writer.appendLine(
+                "turnByTurnBrouterHintInstructionSampleCount=${
+                    telemetryInsights.turnByTurnBrouterHintInstructionSampleCount
+                }",
+            )
+            writer.appendLine("turnByTurnTurnHapticCount=${telemetryInsights.turnByTurnTurnHapticCount}")
+            writer.appendLine("turnByTurnOffRouteHapticCount=${telemetryInsights.turnByTurnOffRouteHapticCount}")
+            writer.appendLine(
+                "turnByTurnMaxDistanceToRouteMeters=${
+                    telemetryInsights.turnByTurnMaxDistanceToRouteMeters?.toString() ?: "na"
                 }",
             )
             writer.appendLine(
