@@ -424,7 +424,25 @@ private fun ExpandedGuidanceOverlay(
                 }
             }
         }
+
+        SwipeMinimizeHandle(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 18.dp),
+        )
     }
+}
+
+@Composable
+private fun SwipeMinimizeHandle(modifier: Modifier = Modifier) {
+    Box(
+        modifier =
+            modifier
+                .width(28.dp)
+                .height(3.dp)
+                .background(Color.White.copy(alpha = 0.28f), RoundedCornerShape(2.dp)),
+    )
 }
 
 @Composable
