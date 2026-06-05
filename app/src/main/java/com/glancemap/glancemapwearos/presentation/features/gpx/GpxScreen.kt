@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -477,6 +478,10 @@ fun GpxScreen(
                                     }
                                 }
                             },
+                            onStopGuidance = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                gpxViewModel.stopTurnByTurnGuidance()
+                            },
                             onSend = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 selectedSendPaths =
@@ -654,6 +659,7 @@ private fun GpxTrackItem(
     onDelete: () -> Unit,
     onRename: () -> Unit,
     onStartGuidance: () -> Unit,
+    onStopGuidance: () -> Unit,
     onSend: () -> Unit,
     onLongPress: () -> Unit,
     showSend: Boolean,
@@ -807,22 +813,36 @@ private fun GpxTrackItem(
             }
         } else if (showGuidance) {
             CompactIconHitTargetButton(
-                onClick = onStartGuidance,
+                onClick = {
+                    if (isGuidanceActive) {
+                        onStopGuidance()
+                    } else {
+                        onStartGuidance()
+                    }
+                },
                 visualSize = deleteButtonSize,
                 containerColor =
                     if (isGuidanceActive) {
-                        MaterialTheme.colorScheme.primaryContainer
+                        MaterialTheme.colorScheme.errorContainer
                     } else {
                         Color.Black.copy(alpha = 0.72f)
                     },
                 contentColor =
                     if (isGuidanceActive) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                        MaterialTheme.colorScheme.onErrorContainer
                     } else {
                         Color.White
                     },
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Start GPX guidance")
+                Icon(
+                    imageVector = if (isGuidanceActive) Icons.Default.Stop else Icons.Default.PlayArrow,
+                    contentDescription =
+                        if (isGuidanceActive) {
+                            "Stop GPX guidance"
+                        } else {
+                            "Start GPX guidance"
+                        },
+                )
             }
         }
     }
