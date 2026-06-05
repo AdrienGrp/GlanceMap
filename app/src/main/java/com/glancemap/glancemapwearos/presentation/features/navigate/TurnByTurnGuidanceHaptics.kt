@@ -20,6 +20,7 @@ import kotlinx.coroutines.isActive
 internal fun TurnByTurnGuidanceHapticEffect(
     context: Context,
     state: TurnByTurnGuidanceState,
+    currentSpeedMps: Float?,
     hapticsEnabled: Boolean,
     turnAlertsMode: String,
     offRouteAlertsEnabled: Boolean,
@@ -39,6 +40,7 @@ internal fun TurnByTurnGuidanceHapticEffect(
         state.mode,
         state.nextInstruction?.trackPointIndex,
         state.distanceToInstructionMeters,
+        currentSpeedMps,
         hapticsEnabled,
         turnAlertsMode,
     ) {
@@ -46,14 +48,18 @@ internal fun TurnByTurnGuidanceHapticEffect(
         if (!hapticsEnabled || !shouldAlertForTurn(turnAlertsMode, instruction.command)) return@LaunchedEffect
         if (state.mode != GuidanceMode.FOLLOW_ROUTE) return@LaunchedEffect
         val distanceMeters = state.distanceToInstructionMeters ?: return@LaunchedEffect
-        if (distanceMeters > TURN_ALERT_DISTANCE_METERS) return@LaunchedEffect
+        val alertDistanceMeters = turnAlertDistanceMeters(currentSpeedMps)
+        if (distanceMeters > alertDistanceMeters) return@LaunchedEffect
 
         val instructionKey = "${state.trackTitle}:${instruction.trackPointIndex}:${instruction.command}"
         if (alertedInstructionKey == instructionKey) return@LaunchedEffect
         alertedInstructionKey = instructionKey
         DebugTelemetry.log(
             "TurnByTurn",
-            "haptic=turn command=${instruction.command} index=${instruction.trackPointIndex} distanceM=${distanceMeters.toInt()} mode=$turnAlertsMode",
+            "haptic=turn command=${instruction.command} index=${instruction.trackPointIndex} " +
+                "distanceM=${distanceMeters.toInt()} alertDistanceM=${alertDistanceMeters.toInt()} " +
+                "speedMps=${currentSpeedMps?.takeIf { it.isFinite() }?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "na"} " +
+                "mode=$turnAlertsMode",
         )
         vibrator?.vibrate(turnAlertEffect(instruction.command))
     }
@@ -102,7 +108,16 @@ private fun turnAlertEffect(command: RouteInstructionCommand): VibrationEffect =
         else -> VibrationEffect.createOneShot(65L, VibrationEffect.DEFAULT_AMPLITUDE)
     }
 
-private const val TURN_ALERT_DISTANCE_METERS = 35.0
+private fun turnAlertDistanceMeters(speedMps: Float?): Double {
+    val speed = speedMps?.takeIf { it.isFinite() && it > 0f }?.toDouble() ?: return TURN_ALERT_DEFAULT_DISTANCE_METERS
+    return (speed * TURN_ALERT_LOOKAHEAD_SECONDS)
+        .coerceIn(TURN_ALERT_MIN_DISTANCE_METERS, TURN_ALERT_MAX_DISTANCE_METERS)
+}
+
+private const val TURN_ALERT_DEFAULT_DISTANCE_METERS = 35.0
+private const val TURN_ALERT_MIN_DISTANCE_METERS = 25.0
+private const val TURN_ALERT_MAX_DISTANCE_METERS = 90.0
+private const val TURN_ALERT_LOOKAHEAD_SECONDS = 8.0
 private const val OFF_ROUTE_MIN_REPEAT_SECONDS = 15
 
 private val OFF_ROUTE_ALERT_EFFECT: VibrationEffect =

@@ -1137,6 +1137,7 @@ fun NavigateScreen(
     TurnByTurnGuidanceHapticEffect(
         context = context,
         state = turnByTurnGuidanceState,
+        currentSpeedMps = rawCurrentLocation?.speed,
         hapticsEnabled = turnByTurnHapticsEnabled,
         turnAlertsMode = turnByTurnTurnAlertsMode,
         offRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
