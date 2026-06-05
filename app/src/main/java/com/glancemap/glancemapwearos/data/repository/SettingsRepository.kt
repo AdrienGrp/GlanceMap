@@ -149,6 +149,10 @@ interface SettingsRepository {
 
     suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean)
 
+    val turnByTurnBrouterGuideBackEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnBrouterGuideBackEnabled(enabled: Boolean)
+
     val turnByTurnRouteStartBehavior: Flow<String>
 
     suspend fun setTurnByTurnRouteStartBehavior(behavior: String)

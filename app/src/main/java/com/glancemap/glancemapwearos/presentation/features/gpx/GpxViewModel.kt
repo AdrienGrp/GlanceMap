@@ -389,6 +389,32 @@ class GpxViewModel(
         _turnByTurnGuidancePaused.value = false
     }
 
+    fun buildTurnByTurnGuideBackRoute(
+        origin: LatLong,
+        destination: LatLong,
+        onComplete: (Result<List<LatLong>>) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        routePlanner
+                            .createRoute(
+                                RoutePlannerRequest(
+                                    origin = origin,
+                                    destination = destination,
+                                ),
+                            ).points
+                            .map { it.latLong }
+                            .also { points ->
+                                require(points.size >= 2) { "BRouter did not return a guide-back route." }
+                            }
+                    }
+                }
+            onComplete(result)
+        }
+    }
+
     fun markTurnByTurnStartReached() {
         val current = _turnByTurnGuidanceSession.value ?: return
         if (current.startReached) return

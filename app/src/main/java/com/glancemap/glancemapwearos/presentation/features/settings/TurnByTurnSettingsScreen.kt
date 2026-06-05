@@ -22,6 +22,7 @@ fun TurnByTurnSettingsScreen(
     val offRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
     val offRouteRepeatSeconds by viewModel.turnByTurnOffRouteRepeatSeconds.collectAsState()
     val guidanceGpsInAmbient by viewModel.turnByTurnGpsInAmbientMode.collectAsState()
+    val brouterGuideBackEnabled by viewModel.turnByTurnBrouterGuideBackEnabled.collectAsState()
     val routeStartBehavior by viewModel.turnByTurnRouteStartBehavior.collectAsState()
     val reverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
     var showGuidanceSourcePicker by remember { mutableStateOf(false) }
@@ -91,6 +92,19 @@ fun TurnByTurnSettingsScreen(
                 label = "Repeat off-route",
                 secondaryLabel = "${offRouteRepeatSeconds}s",
                 onClick = { showOffRouteRepeatPicker = true },
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = brouterGuideBackEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnBrouterGuideBackEnabled,
+                label = "BRouter guide back",
+                secondaryLabel =
+                    if (brouterGuideBackEnabled) {
+                        "Route back when tiles are available"
+                    } else {
+                        "Use direct arrow back to GPX"
+                    },
             )
         }
         item {

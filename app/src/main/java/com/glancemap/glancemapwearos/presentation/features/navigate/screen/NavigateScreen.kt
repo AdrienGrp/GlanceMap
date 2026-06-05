@@ -47,7 +47,10 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.effects.Navi
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceTuning
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceSession
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.bearingDegrees
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.buildCumulativeDistances
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.computeTurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.isGuidanceStartReached
@@ -234,6 +237,9 @@ fun NavigateScreen(
         initial = SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS,
     )
     val turnByTurnGpsInAmbient by settingsViewModel.turnByTurnGpsInAmbientMode.collectAsState(initial = false)
+    val turnByTurnBrouterGuideBackEnabled by settingsViewModel.turnByTurnBrouterGuideBackEnabled.collectAsState(
+        initial = false,
+    )
     val turnByTurnRouteStartBehavior by settingsViewModel.turnByTurnRouteStartBehavior.collectAsState(
         initial = SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START,
     )
@@ -981,8 +987,14 @@ fun NavigateScreen(
             tuning = turnByTurnGuidanceTuning,
         )
     var guideBackToRouteActive by remember { mutableStateOf(false) }
+    var brouterGuideBackRoute by remember { mutableStateOf<List<LatLong>>(emptyList()) }
     var dismissedGuideBackPromptTrackId by remember { mutableStateOf<String?>(null) }
     val guideBackTrackId = activeTurnByTurnGuidanceSession?.trackId
+    val guideBackTargetPoint =
+        nearestGuidanceRoutePoint(
+            session = activeTurnByTurnGuidanceSession,
+            currentLocation = guidanceLocation,
+        )
     LaunchedEffect(
         turnByTurnGuidanceState.active,
         turnByTurnGuidanceState.offRoute,
@@ -990,9 +1002,19 @@ fun NavigateScreen(
     ) {
         if (!turnByTurnGuidanceState.active || !turnByTurnGuidanceState.offRoute) {
             guideBackToRouteActive = false
+            brouterGuideBackRoute = emptyList()
             dismissedGuideBackPromptTrackId = null
         }
     }
+    val brouterGuideBackState =
+        remember(guideBackToRouteActive, brouterGuideBackRoute, guidanceLocation, turnByTurnGuidanceState) {
+            buildBrouterGuideBackState(
+                baseState = turnByTurnGuidanceState,
+                active = guideBackToRouteActive,
+                route = brouterGuideBackRoute,
+                currentLocation = guidanceLocation,
+            )
+        }
     val showGuideBackPrompt =
         turnByTurnGuidanceState.active &&
             turnByTurnGuidanceState.offRoute &&
@@ -1477,7 +1499,7 @@ fun NavigateScreen(
         isGpxInspectionEnabled = isGpxInspectionEnabled,
         selectingGpxPointB = selectingGpxPointB,
         onCancelSelectingGpxPointB = { gpxViewModel.cancelSelectingB() },
-        turnByTurnGuidanceState = turnByTurnGuidanceState,
+        turnByTurnGuidanceState = brouterGuideBackState,
         turnByTurnGuidancePaused = turnByTurnGuidancePaused,
         turnByTurnPausedTrackTitle = turnByTurnGuidanceSession?.trackTitle,
         guideBackToRouteActive = guideBackToRouteActive && turnByTurnGuidanceState.offRoute,
@@ -1489,6 +1511,21 @@ fun NavigateScreen(
         onGuideBackToRoute = {
             guideBackToRouteActive = true
             dismissedGuideBackPromptTrackId = guideBackTrackId
+            brouterGuideBackRoute = emptyList()
+            val origin = guidanceLocation
+            val destination = guideBackTargetPoint
+            if (turnByTurnBrouterGuideBackEnabled && origin != null && destination != null) {
+                gpxViewModel.buildTurnByTurnGuideBackRoute(
+                    origin = origin,
+                    destination = destination,
+                ) { result ->
+                    result.onSuccess { route ->
+                        if (guideBackToRouteActive) {
+                            brouterGuideBackRoute = route
+                        }
+                    }
+                }
+            }
         },
         onDismissGuideBackPrompt = {
             dismissedGuideBackPromptTrackId = guideBackTrackId
@@ -1634,6 +1671,64 @@ private fun buildTurnByTurnTelemetryMessage(
     }
 }
 
+private fun nearestGuidanceRoutePoint(
+    session: GpxGuidanceSession?,
+    currentLocation: LatLong?,
+): LatLong? {
+    if (session == null || currentLocation == null) return null
+    val points = session.trackPoints.map { it.latLong }
+    val projection =
+        projectLocationToRoute(
+            points = points,
+            cumulativeDistancesMeters = session.cumulativeDistancesMeters,
+            location = currentLocation,
+        ) ?: return null
+    return projectedLatLongOnRoute(points = points, projectionSegmentIndex = projection.segmentIndex, t = projection.t)
+}
+
+private fun buildBrouterGuideBackState(
+    baseState: TurnByTurnGuidanceState,
+    active: Boolean,
+    route: List<LatLong>,
+    currentLocation: LatLong?,
+): TurnByTurnGuidanceState {
+    if (!active || currentLocation == null || route.size < 2) return baseState
+    val cumulative = buildCumulativeDistances(route)
+    val projection =
+        projectLocationToRoute(
+            points = route,
+            cumulativeDistancesMeters = cumulative,
+            location = currentLocation,
+        ) ?: return baseState
+    val targetDistance =
+        (projection.distanceFromStartMeters + GUIDE_BACK_ROUTE_BEARING_LOOKAHEAD_METERS)
+            .coerceAtMost(cumulative.lastOrNull() ?: projection.distanceFromStartMeters)
+    val targetIndex = cumulative.indexOfFirst { it >= targetDistance }.takeIf { it >= 0 } ?: route.lastIndex
+    val target =
+        route.getOrNull(targetIndex)
+            ?: projectedLatLongOnRoute(route, projection.segmentIndex, projection.t)
+            ?: return baseState
+    val remaining = ((cumulative.lastOrNull() ?: 0.0) - projection.distanceFromStartMeters).coerceAtLeast(0.0)
+    return baseState.copy(
+        distanceToRouteMeters = remaining,
+        bearingToRouteDegrees = bearingDegrees(currentLocation, target).toFloat(),
+    )
+}
+
+private fun projectedLatLongOnRoute(
+    points: List<LatLong>,
+    projectionSegmentIndex: Int,
+    t: Double,
+): LatLong? {
+    val a = points.getOrNull(projectionSegmentIndex) ?: return null
+    val b = points.getOrNull(projectionSegmentIndex + 1) ?: return a
+    val clampedT = t.coerceIn(0.0, 1.0)
+    return LatLong(
+        a.latitude + (b.latitude - a.latitude) * clampedT,
+        a.longitude + (b.longitude - a.longitude) * clampedT,
+    )
+}
+
 private fun String?.telemetryTrackName(): String =
     this
         ?.substringAfterLast('/')
@@ -1660,6 +1755,7 @@ private const val START_HERE_MIN_PROGRESS_METERS = 50.0
 private const val START_HERE_MIN_REMAINING_METERS = 50.0
 private const val REVERSE_SUGGESTION_DISTANCE_MARGIN_METERS = 50.0
 private const val REVERSE_SUGGESTION_MAX_DISTANCE_METERS = 300.0
+private const val GUIDE_BACK_ROUTE_BEARING_LOOKAHEAD_METERS = 20.0
 private const val MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES = 0.25
 private const val NORMAL_STARTUP_MAP_FALLBACK_GRACE_MS = 15_000L
 private const val NAVIGATE_MENU_CLICK_RESUME_GUARD_MS = 1_500L
