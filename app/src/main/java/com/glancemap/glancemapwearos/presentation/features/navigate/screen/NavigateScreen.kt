@@ -1022,6 +1022,7 @@ fun NavigateScreen(
             dismissedGuideBackPromptTrackId != guideBackTrackId
     var pendingStartDecision by remember { mutableStateOf<GuidanceStartDecision?>(null) }
     var dismissedStartDecisionKey by remember { mutableStateOf<String?>(null) }
+    var startHereStableSampleCount by remember { mutableStateOf(0) }
     val startDecisionKey =
         pendingStartDecision?.let { decision ->
             "$guideBackTrackId:${activeTurnByTurnGuidanceSession?.reversed}:$decision"
@@ -1049,6 +1050,7 @@ fun NavigateScreen(
     LaunchedEffect(
         activeTurnByTurnGuidanceSession,
         guidanceLocation,
+        rawCurrentLocation?.accuracy,
         turnByTurnRouteStartBehavior,
         turnByTurnReverseSuggestionMode,
         turnByTurnOffRouteThresholdMeters,
@@ -1058,6 +1060,7 @@ fun NavigateScreen(
         if (session == null || location == null || session.startReached) {
             pendingStartDecision = null
             dismissedStartDecisionKey = null
+            startHereStableSampleCount = 0
             return@LaunchedEffect
         }
 
@@ -1072,6 +1075,7 @@ fun NavigateScreen(
             )
         if (start == null || end == null || projection == null) {
             pendingStartDecision = null
+            startHereStableSampleCount = 0
             return@LaunchedEffect
         }
 
@@ -1083,6 +1087,18 @@ fun NavigateScreen(
                 distanceToStart > turnByTurnGuidanceTuning.startReachedDistanceMeters &&
                 projection.distanceFromStartMeters > START_HERE_MIN_PROGRESS_METERS &&
                 session.totalDistanceMeters - projection.distanceFromStartMeters > START_HERE_MIN_REMAINING_METERS
+        val locationAccurateEnough =
+            rawCurrentLocation?.accuracy?.let { accuracy ->
+                accuracy <= START_HERE_MAX_ACCURACY_METERS
+            } ?: true
+        if (midRouteCandidate && locationAccurateEnough) {
+            startHereStableSampleCount += 1
+        } else {
+            startHereStableSampleCount = 0
+        }
+        val stableMidRouteCandidate =
+            midRouteCandidate &&
+                startHereStableSampleCount >= START_HERE_STABLE_SAMPLE_COUNT
         val reverseCandidate =
             !session.reversed &&
                 turnByTurnReverseSuggestionMode == SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK &&
@@ -1092,12 +1108,12 @@ fun NavigateScreen(
         val nextDecision =
             when {
                 reverseCandidate -> GuidanceStartDecision.REVERSE_ROUTE
-                midRouteCandidate &&
+                stableMidRouteCandidate &&
                     turnByTurnRouteStartBehavior == SettingsRepository.TURN_BY_TURN_ROUTE_START_NEAREST_POINT -> {
                     gpxViewModel.markTurnByTurnStartReached()
                     null
                 }
-                midRouteCandidate &&
+                stableMidRouteCandidate &&
                     turnByTurnRouteStartBehavior == SettingsRepository.TURN_BY_TURN_ROUTE_START_ASK ->
                     GuidanceStartDecision.START_HERE
                 else -> null
@@ -1753,6 +1769,8 @@ private enum class GuidanceStartDecision {
 private const val MAX_TELEMETRY_TRACK_NAME_CHARS = 48
 private const val START_HERE_MIN_PROGRESS_METERS = 50.0
 private const val START_HERE_MIN_REMAINING_METERS = 50.0
+private const val START_HERE_STABLE_SAMPLE_COUNT = 2
+private const val START_HERE_MAX_ACCURACY_METERS = 60f
 private const val REVERSE_SUGGESTION_DISTANCE_MARGIN_METERS = 50.0
 private const val REVERSE_SUGGESTION_MAX_DISTANCE_METERS = 300.0
 private const val GUIDE_BACK_ROUTE_BEARING_LOOKAHEAD_METERS = 20.0
