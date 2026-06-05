@@ -47,6 +47,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.effects.Navi
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceTuning
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.computeTurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.isGuidanceStartReached
@@ -77,6 +78,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
+import java.util.Locale
 import org.mapsforge.map.android.graphics.AndroidBitmap
 import kotlin.math.abs
 
@@ -1097,6 +1099,52 @@ fun NavigateScreen(
     )
 
     LaunchedEffect(
+        turnByTurnGuidanceState.active,
+        turnByTurnGuidanceState.mode,
+        turnByTurnGuidanceState.nextInstruction?.trackPointIndex,
+        turnByTurnGuidanceState.distanceToInstructionMeters?.roundTelemetryMeters(),
+        turnByTurnGuidanceState.distanceToStartMeters?.roundTelemetryMeters(),
+        turnByTurnGuidanceState.distanceToRouteMeters?.roundTelemetryMeters(),
+        turnByTurnGuidanceState.distanceRemainingMeters?.roundTelemetryMeters(),
+        turnByTurnGuidanceState.routeProgressFraction?.roundTelemetryPercent(),
+        turnByTurnGuidanceState.offRoute,
+        turnByTurnGuidanceSession?.trackId,
+        turnByTurnGuidanceSession?.reversed,
+        turnByTurnGuidanceSession?.startReached,
+        guideBackToRouteActive,
+        showGuideBackPrompt,
+        pendingStartDecision,
+        turnByTurnRouteStartBehavior,
+        turnByTurnReverseSuggestionMode,
+        turnByTurnOffRouteThresholdMeters,
+        turnByTurnHapticsEnabled,
+        turnByTurnTurnAlertsMode,
+        turnByTurnOffRouteAlertsEnabled,
+        turnByTurnGpsInAmbient,
+    ) {
+        if (!turnByTurnGuidanceState.active && turnByTurnGuidanceSession == null) return@LaunchedEffect
+        DebugTelemetry.log(
+            "TurnByTurn",
+            buildTurnByTurnTelemetryMessage(
+                state = turnByTurnGuidanceState,
+                trackId = turnByTurnGuidanceSession?.trackId,
+                reversed = turnByTurnGuidanceSession?.reversed,
+                startReached = turnByTurnGuidanceSession?.startReached,
+                guideBackToRouteActive = guideBackToRouteActive,
+                showGuideBackPrompt = showGuideBackPrompt,
+                pendingStartDecision = pendingStartDecision,
+                routeStartBehavior = turnByTurnRouteStartBehavior,
+                reverseSuggestionMode = turnByTurnReverseSuggestionMode,
+                offRouteThresholdMeters = turnByTurnOffRouteThresholdMeters,
+                hapticsEnabled = turnByTurnHapticsEnabled,
+                turnAlertsMode = turnByTurnTurnAlertsMode,
+                offRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
+                guidanceGpsInAmbient = turnByTurnGpsInAmbient,
+            ),
+        )
+    }
+
+    LaunchedEffect(
         effectiveNavigationMarkerAnchorMode,
         effectiveNavMode,
         recenterTarget,
@@ -1526,11 +1574,73 @@ private fun shouldUpdateZoomReferenceLatitude(
     !currentLatitude.isFinite() ||
         abs(currentLatitude - nextLatitude) >= MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES
 
+private fun buildTurnByTurnTelemetryMessage(
+    state: TurnByTurnGuidanceState,
+    trackId: String?,
+    reversed: Boolean?,
+    startReached: Boolean?,
+    guideBackToRouteActive: Boolean,
+    showGuideBackPrompt: Boolean,
+    pendingStartDecision: GuidanceStartDecision?,
+    routeStartBehavior: String,
+    reverseSuggestionMode: String,
+    offRouteThresholdMeters: Int,
+    hapticsEnabled: Boolean,
+    turnAlertsMode: String,
+    offRouteAlertsEnabled: Boolean,
+    guidanceGpsInAmbient: Boolean,
+): String {
+    val instruction = state.nextInstruction
+    return buildString {
+        append("active=${state.active}")
+        append(" mode=${state.mode}")
+        append(" track=${trackId.telemetryTrackName()}")
+        append(" reversed=${reversed ?: "na"}")
+        append(" startReached=${startReached ?: "na"}")
+        append(" next=${instruction?.command ?: "na"}")
+        append(" nextSource=${instruction?.source ?: "na"}")
+        append(" nextIndex=${instruction?.trackPointIndex ?: "na"}")
+        append(" distToInstructionM=${state.distanceToInstructionMeters.telemetryDistance()}")
+        append(" distToStartM=${state.distanceToStartMeters.telemetryDistance()}")
+        append(" distToRouteM=${state.distanceToRouteMeters.telemetryDistance()}")
+        append(" remainingM=${state.distanceRemainingMeters.telemetryDistance()}")
+        append(" progressPct=${state.routeProgressFraction.telemetryPercent()}")
+        append(" offRoute=${state.offRoute}")
+        append(" guideBackActive=$guideBackToRouteActive")
+        append(" guideBackPrompt=$showGuideBackPrompt")
+        append(" startDecision=${pendingStartDecision ?: "none"}")
+        append(" routeStartBehavior=$routeStartBehavior")
+        append(" reverseSuggestion=$reverseSuggestionMode")
+        append(" offRouteThresholdM=$offRouteThresholdMeters")
+        append(" haptics=$hapticsEnabled")
+        append(" turnAlerts=$turnAlertsMode")
+        append(" offRouteAlerts=$offRouteAlertsEnabled")
+        append(" guidanceGpsAmbient=$guidanceGpsInAmbient")
+    }
+}
+
+private fun String?.telemetryTrackName(): String =
+    this
+        ?.substringAfterLast('/')
+        ?.take(MAX_TELEMETRY_TRACK_NAME_CHARS)
+        ?: "none"
+
+private fun Double?.telemetryDistance(): String =
+    this?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
+
+private fun Float?.telemetryPercent(): String =
+    this?.let { String.format(Locale.US, "%.1f", it.coerceIn(0f, 1f) * 100f) } ?: "na"
+
+private fun Double.roundTelemetryMeters(): Int? = if (isFinite()) toInt() else null
+
+private fun Float.roundTelemetryPercent(): Int? = if (isFinite()) (coerceIn(0f, 1f) * 100f).toInt() else null
+
 private enum class GuidanceStartDecision {
     START_HERE,
     REVERSE_ROUTE,
 }
 
+private const val MAX_TELEMETRY_TRACK_NAME_CHARS = 48
 private const val START_HERE_MIN_PROGRESS_METERS = 50.0
 private const val START_HERE_MIN_REMAINING_METERS = 50.0
 private const val REVERSE_SUGGESTION_DISTANCE_MARGIN_METERS = 50.0

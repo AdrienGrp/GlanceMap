@@ -38,6 +38,16 @@ data class DiagnosticsSettingsSnapshot(
     val gpsDebugTelemetry: Boolean,
     val gpsPassiveLocationExperiment: Boolean,
     val backButtonExitsNavigation: Boolean,
+    val turnByTurnGuidanceSource: String = "na",
+    val turnByTurnUseBrouterTiles: Boolean = false,
+    val turnByTurnHapticsEnabled: Boolean = true,
+    val turnByTurnTurnAlertsMode: String = "na",
+    val turnByTurnOffRouteAlertsEnabled: Boolean = true,
+    val turnByTurnOffRouteAlertThresholdMeters: Int = 0,
+    val turnByTurnOffRouteRepeatSeconds: Int = 0,
+    val turnByTurnGpsInAmbientMode: Boolean = false,
+    val turnByTurnRouteStartBehavior: String = "na",
+    val turnByTurnReverseSuggestionMode: String = "na",
 )
 
 @Suppress("TooManyFunctions")
@@ -415,6 +425,18 @@ object DiagnosticsExporter {
             writer.appendLine("gpsDebugTelemetry=${settings.gpsDebugTelemetry}")
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
+            writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
+            writer.appendLine("turnByTurnUseBrouterTiles=${settings.turnByTurnUseBrouterTiles}")
+            writer.appendLine("turnByTurnHapticsEnabled=${settings.turnByTurnHapticsEnabled}")
+            writer.appendLine("turnByTurnTurnAlertsMode=${settings.turnByTurnTurnAlertsMode}")
+            writer.appendLine("turnByTurnOffRouteAlertsEnabled=${settings.turnByTurnOffRouteAlertsEnabled}")
+            writer.appendLine(
+                "turnByTurnOffRouteAlertThresholdMeters=${settings.turnByTurnOffRouteAlertThresholdMeters}",
+            )
+            writer.appendLine("turnByTurnOffRouteRepeatSeconds=${settings.turnByTurnOffRouteRepeatSeconds}")
+            writer.appendLine("turnByTurnGpsInAmbientMode=${settings.turnByTurnGpsInAmbientMode}")
+            writer.appendLine("turnByTurnRouteStartBehavior=${settings.turnByTurnRouteStartBehavior}")
+            writer.appendLine("turnByTurnReverseSuggestionMode=${settings.turnByTurnReverseSuggestionMode}")
             writer.appendLine("continuousLocationGranularity=permission_level")
             writer.appendLine("currentLocationGranularity=permission_level")
             writer.appendLine("locationFinePermissionGranted=${locationPermission.hasFinePermission}")

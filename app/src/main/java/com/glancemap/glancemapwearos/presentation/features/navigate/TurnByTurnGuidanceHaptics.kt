@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstructionCommand
@@ -50,6 +51,10 @@ internal fun TurnByTurnGuidanceHapticEffect(
         val instructionKey = "${state.trackTitle}:${instruction.trackPointIndex}:${instruction.command}"
         if (alertedInstructionKey == instructionKey) return@LaunchedEffect
         alertedInstructionKey = instructionKey
+        DebugTelemetry.log(
+            "TurnByTurn",
+            "haptic=turn command=${instruction.command} index=${instruction.trackPointIndex} distanceM=${distanceMeters.toInt()} mode=$turnAlertsMode",
+        )
         vibrator?.vibrate(turnAlertEffect(instruction.command))
     }
 
@@ -65,6 +70,10 @@ internal fun TurnByTurnGuidanceHapticEffect(
         if (!state.active || state.mode != GuidanceMode.FOLLOW_ROUTE || !state.offRoute) return@LaunchedEffect
 
         while (isActive) {
+            DebugTelemetry.log(
+                "TurnByTurn",
+                "haptic=off_route distanceToRouteM=${state.distanceToRouteMeters?.toInt() ?: "na"} repeatSeconds=$offRouteRepeatSeconds",
+            )
             vibrator?.vibrate(OFF_ROUTE_ALERT_EFFECT)
             delay(offRouteRepeatSeconds.coerceAtLeast(OFF_ROUTE_MIN_REPEAT_SECONDS) * 1_000L)
         }
