@@ -10,6 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,8 +28,12 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -64,7 +69,6 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Rou
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
-import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -79,6 +83,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     guideBackToRouteActive: Boolean,
     showGuideBackPrompt: Boolean,
     startDecisionPrompt: GuidanceDecisionPrompt?,
+    suppressed: Boolean = false,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit,
@@ -97,12 +102,21 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
 
     var expanded by remember(state.trackTitle) { mutableStateOf(false) }
     var showActionPrompt by remember(state.trackTitle, paused) { mutableStateOf(false) }
+    LaunchedEffect(suppressed) {
+        if (suppressed) {
+            expanded = false
+            showActionPrompt = false
+            onExpandedChange(false)
+        }
+    }
     LaunchedEffect(expanded) {
         onExpandedChange(expanded)
     }
     DisposableEffect(Unit) {
         onDispose { onExpandedChange(false) }
     }
+    if (suppressed) return
+
     val topPadding =
         when (screenSize) {
             WearScreenSize.LARGE -> 54.dp
@@ -155,14 +169,26 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     .background(Color.Black.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
                     .combinedClickable(
                         onClick = {
-                            if (paused) {
-                                onResume()
-                            } else {
-                                expanded = true
-                            }
+                            showActionPrompt = false
+                            expanded = true
                         },
                         onLongClick = { showActionPrompt = true },
                     )
+                    .pointerInput(state.mode, state.nextInstruction, paused) {
+                        var totalDrag = 0f
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                if (totalDrag < -POPUP_EXPAND_DRAG_THRESHOLD_PX) {
+                                    showActionPrompt = false
+                                    expanded = true
+                                }
+                                totalDrag = 0f
+                            },
+                            onDragCancel = { totalDrag = 0f },
+                        ) { _, dragAmount ->
+                            totalDrag += dragAmount
+                        }
+                    }
                     .padding(horizontal = 6.dp, vertical = 3.dp),
         ) {
             cappedFontScale(maxFontScale = 1f) {
@@ -191,12 +217,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Icon(
-                        imageVector = Icons.Default.ExpandMore,
-                        contentDescription = if (paused) "Resume guidance" else "Expand guidance",
-                        tint = Color.White.copy(alpha = 0.78f),
-                        modifier = Modifier.size(10.dp),
-                    )
+                    SwipeExpandCue()
                 }
             }
         }
@@ -205,7 +226,6 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     if (showActionPrompt) {
         GuidanceActionPromptCard(
             paused = paused,
-            trackTitle = pausedTrackTitle ?: state.trackTitle,
             onPause = {
                 showActionPrompt = false
                 expanded = false
@@ -222,9 +242,15 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
             },
             onCancel = { showActionPrompt = false },
             modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 36.dp),
+                if (expanded) {
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 36.dp)
+                } else {
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = topPadding + 36.dp)
+                },
         )
     } else if (startDecisionPrompt != null) {
         GuidanceDecisionPromptCard(
@@ -311,9 +337,9 @@ private fun ExpandedGuidanceOverlay(
                 )
                 .pointerInput(state.mode, state.nextInstruction) {
                     var totalDrag = 0f
-                    detectVerticalDragGestures(
+                    detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (abs(totalDrag) > POPUP_MINIMIZE_DRAG_THRESHOLD_PX) {
+                            if (totalDrag > POPUP_MINIMIZE_DRAG_THRESHOLD_PX) {
                                 onCollapse()
                             }
                             totalDrag = 0f
@@ -447,35 +473,132 @@ private fun SwipeMinimizeHandle(modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun SwipeExpandCue(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.width(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.ExpandLess,
+            contentDescription = "Swipe up to expand guidance",
+            tint = Color.White.copy(alpha = 0.86f),
+            modifier = Modifier.size(11.dp),
+        )
+        Icon(
+            imageVector = Icons.Default.ExpandLess,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.58f),
+            modifier =
+                Modifier
+                    .size(9.dp)
+                    .padding(top = 0.dp),
+        )
+        Box(
+            modifier =
+                Modifier
+                    .padding(top = 1.dp)
+                    .width(12.dp)
+                    .height(2.dp)
+                    .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(1.dp)),
+        )
+    }
+}
+
+@Composable
 private fun GuidanceActionPromptCard(
     paused: Boolean,
-    trackTitle: String?,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    GuidancePromptCard(
-        title = if (paused) "Guidance paused" else "Guidance",
-        detail = trackTitle ?: "GPX guidance",
-        modifier = modifier,
+    Box(
+        modifier =
+            modifier
+                .background(Color.Black.copy(alpha = 0.92f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 2.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            GuideBackPromptButton(
-                text = if (paused) "Resume" else "Pause",
-                selected = true,
-                onClick = if (paused) onResume else onPause,
+        cappedFontScale(maxFontScale = 1f) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                GuidanceMiniIconButton(
+                    icon = Icons.Default.Close,
+                    contentDescription = "Dismiss guidance controls",
+                    onClick = onCancel,
+                    containerColor = Color.White.copy(alpha = 0.14f),
+                    contentColor = Color.White,
+                )
+                GuidanceMiniIconButton(
+                    icon = if (paused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    contentDescription = if (paused) "Resume guidance" else "Pause guidance",
+                    onClick = if (paused) onResume else onPause,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                )
+                GuidanceMiniStopButton(onClick = onStop)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuidanceMiniIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    containerColor: Color,
+    contentColor: Color,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(48.dp)
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(30.dp)
+                    .background(containerColor, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = contentColor,
+                modifier = Modifier.size(17.dp),
             )
-            GuideBackPromptButton(
-                text = "Stop",
-                selected = false,
-                onClick = onStop,
-            )
-            GuideBackPromptButton(
-                text = "Cancel",
-                selected = false,
-                onClick = onCancel,
+        }
+    }
+}
+
+@Composable
+private fun GuidanceMiniStopButton(onClick: () -> Unit) {
+    Box(
+        modifier =
+            Modifier
+                .size(48.dp)
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(30.dp)
+                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.94f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Stop,
+                contentDescription = "Stop guidance",
+                tint = MaterialTheme.colorScheme.onError,
+                modifier = Modifier.size(17.dp),
             )
         }
     }
@@ -715,3 +838,4 @@ private fun rotationForCommand(command: RouteInstructionCommand?): Float =
     }
 
 private const val POPUP_MINIMIZE_DRAG_THRESHOLD_PX = 24f
+private const val POPUP_EXPAND_DRAG_THRESHOLD_PX = 24f

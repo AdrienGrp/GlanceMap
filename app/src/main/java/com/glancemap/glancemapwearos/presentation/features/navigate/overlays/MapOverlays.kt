@@ -21,6 +21,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.maps.mutateLayers
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlaySource
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
+import com.glancemap.glancemapwearos.presentation.features.recording.RecordingTraceOverlayEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
@@ -53,6 +54,7 @@ internal fun MapOverlays(
     mapHolder: MapHolder,
     activeGpxDetails: List<GpxTrackDetails>,
     routeToolPreviewPoints: List<LatLong>,
+    recordingTracePoints: List<LatLong>,
     routeToolCreatePreviewActive: Boolean,
     routeToolDraftPoints: List<LatLong>,
     poiViewModel: PoiViewModel,
@@ -236,6 +238,11 @@ internal fun MapOverlays(
         markerBHolder = markerBHolder,
         topOverlayCoordinator = topOverlayCoordinator,
         requestMapRedraw = requestMapRedraw,
+    )
+
+    RecordingTraceOverlayEffect(
+        mapView = mapView,
+        points = recordingTracePoints,
     )
 
     inspectionUiState?.let { ui ->

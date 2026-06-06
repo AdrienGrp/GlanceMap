@@ -150,6 +150,32 @@ internal fun deriveTelemetryInsights(
     var turnByTurnTurnHapticCount = 0
     var turnByTurnOffRouteHapticCount = 0
     var turnByTurnMaxDistanceToRouteMeters: Int? = null
+    var recordingStartCount = 0
+    var recordingPauseCount = 0
+    var recordingResumeCount = 0
+    var recordingPointSampleCount = 0
+    var recordingSaveStartCount = 0
+    var recordingSaveSuccessCount = 0
+    var recordingSaveFailureCount = 0
+    var recordingDiscardCount = 0
+    var recordingLastPointCount: Int? = null
+    var recordingMaxPointCount: Int? = null
+    var recordingLastDistanceMeters: Int? = null
+    var recordingMaxDistanceMeters: Int? = null
+    var recordingLastDurationMs: Long? = null
+    var recordingMaxDurationMs: Long? = null
+    var recordingLastPausedMs: Long? = null
+    var recordingMaxPausedMs: Long? = null
+    var recordingSkippedIntervalCount: Int? = null
+    var recordingSkippedPausedCount: Int? = null
+    var recordingSkippedUnusableCount: Int? = null
+    var recordingAccuracySampleCount: Int? = null
+    var recordingAccuracyAvgMeters: Int? = null
+    var recordingAccuracyMinMeters: Int? = null
+    var recordingAccuracyMaxMeters: Int? = null
+    var recordingElevationGainMeters: Int? = null
+    var recordingElevationLossMeters: Int? = null
+    var recordingLastSavedByteSize: Int? = null
     var screenActive = false
     var pendingScreenPauseTrackingDisable = false
     var lastScreenFixAtMs: Long? = null
@@ -320,6 +346,59 @@ internal fun deriveTelemetryInsights(
                     turnByTurnMaxDistanceToRouteMeters =
                         maxOf(turnByTurnMaxDistanceToRouteMeters ?: distance, distance)
                 }
+            }
+        }
+
+        if ("[TraceRecording]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "start" -> recordingStartCount += 1
+                "pause" -> recordingPauseCount += 1
+                "resume" -> recordingResumeCount += 1
+                "point" -> recordingPointSampleCount += 1
+                "save_start" -> recordingSaveStartCount += 1
+                "save_success" -> recordingSaveSuccessCount += 1
+                "save_failure" -> recordingSaveFailureCount += 1
+                "discard" -> recordingDiscardCount += 1
+            }
+            parseIntToken(line, "points=")?.let { points ->
+                recordingLastPointCount = points
+                recordingMaxPointCount = maxOf(recordingMaxPointCount ?: points, points)
+            }
+            parseIntToken(line, "distanceMeters=")?.let { distance ->
+                recordingLastDistanceMeters = distance
+                recordingMaxDistanceMeters = maxOf(recordingMaxDistanceMeters ?: distance, distance)
+            }
+            parseLongToken(line, "durationMs=")?.let { duration ->
+                recordingLastDurationMs = duration
+                recordingMaxDurationMs = maxOf(recordingMaxDurationMs ?: duration, duration)
+            }
+            parseLongToken(line, "pausedMs=")?.let { paused ->
+                recordingLastPausedMs = paused
+                recordingMaxPausedMs = maxOf(recordingMaxPausedMs ?: paused, paused)
+            }
+            parseIntToken(line, "skippedInterval=")?.let { skipped ->
+                recordingSkippedIntervalCount = maxOf(recordingSkippedIntervalCount ?: skipped, skipped)
+            }
+            parseIntToken(line, "skippedPaused=")?.let { skipped ->
+                recordingSkippedPausedCount = maxOf(recordingSkippedPausedCount ?: skipped, skipped)
+            }
+            parseIntToken(line, "skippedUnusable=")?.let { skipped ->
+                recordingSkippedUnusableCount = maxOf(recordingSkippedUnusableCount ?: skipped, skipped)
+            }
+            parseIntToken(line, "accuracySamples=")?.let { recordingAccuracySampleCount = it }
+            parseIntToken(line, "accuracyAvgMeters=")?.takeIf { it >= 0 }?.let {
+                recordingAccuracyAvgMeters = it
+            }
+            parseIntToken(line, "accuracyMinMeters=")?.takeIf { it >= 0 }?.let {
+                recordingAccuracyMinMeters = it
+            }
+            parseIntToken(line, "accuracyMaxMeters=")?.takeIf { it >= 0 }?.let {
+                recordingAccuracyMaxMeters = it
+            }
+            parseIntToken(line, "elevationGainMeters=")?.let { recordingElevationGainMeters = it }
+            parseIntToken(line, "elevationLossMeters=")?.let { recordingElevationLossMeters = it }
+            parseIntToken(line, "byteSize=")?.takeIf { it >= 0 }?.let {
+                recordingLastSavedByteSize = it
             }
         }
 
@@ -499,6 +578,32 @@ internal fun deriveTelemetryInsights(
         turnByTurnTurnHapticCount = turnByTurnTurnHapticCount,
         turnByTurnOffRouteHapticCount = turnByTurnOffRouteHapticCount,
         turnByTurnMaxDistanceToRouteMeters = turnByTurnMaxDistanceToRouteMeters,
+        recordingStartCount = recordingStartCount,
+        recordingPauseCount = recordingPauseCount,
+        recordingResumeCount = recordingResumeCount,
+        recordingPointSampleCount = recordingPointSampleCount,
+        recordingSaveStartCount = recordingSaveStartCount,
+        recordingSaveSuccessCount = recordingSaveSuccessCount,
+        recordingSaveFailureCount = recordingSaveFailureCount,
+        recordingDiscardCount = recordingDiscardCount,
+        recordingLastPointCount = recordingLastPointCount,
+        recordingMaxPointCount = recordingMaxPointCount,
+        recordingLastDistanceMeters = recordingLastDistanceMeters,
+        recordingMaxDistanceMeters = recordingMaxDistanceMeters,
+        recordingLastDurationMs = recordingLastDurationMs,
+        recordingMaxDurationMs = recordingMaxDurationMs,
+        recordingLastPausedMs = recordingLastPausedMs,
+        recordingMaxPausedMs = recordingMaxPausedMs,
+        recordingSkippedIntervalCount = recordingSkippedIntervalCount,
+        recordingSkippedPausedCount = recordingSkippedPausedCount,
+        recordingSkippedUnusableCount = recordingSkippedUnusableCount,
+        recordingAccuracySampleCount = recordingAccuracySampleCount,
+        recordingAccuracyAvgMeters = recordingAccuracyAvgMeters,
+        recordingAccuracyMinMeters = recordingAccuracyMinMeters,
+        recordingAccuracyMaxMeters = recordingAccuracyMaxMeters,
+        recordingElevationGainMeters = recordingElevationGainMeters,
+        recordingElevationLossMeters = recordingElevationLossMeters,
+        recordingLastSavedByteSize = recordingLastSavedByteSize,
     )
 }
 

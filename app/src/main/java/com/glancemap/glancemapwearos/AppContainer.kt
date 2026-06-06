@@ -18,6 +18,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.LocationViewModel
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
+import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingViewModel
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineScope
 
@@ -41,6 +42,7 @@ interface AppContainer {
     val themeViewModel: ThemeViewModel
     val settingsViewModel: SettingsViewModel
     val locationViewModel: LocationViewModel
+    val traceRecordingViewModel: TraceRecordingViewModel
 }
 
 class DefaultAppContainer(
@@ -137,5 +139,13 @@ class DefaultAppContainer(
 
     override val locationViewModel: LocationViewModel by lazy {
         LocationViewModel(applicationContext as Application)
+    }
+
+    override val traceRecordingViewModel: TraceRecordingViewModel by lazy {
+        TraceRecordingViewModel(
+            gpxRepository = gpxRepository,
+            settingsRepository = settingsRepository,
+            syncManager = syncManager,
+        )
     }
 }

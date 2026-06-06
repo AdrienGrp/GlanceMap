@@ -93,6 +93,12 @@ fun SettingsScreen(
         }
         item {
             SettingsSectionChip(
+                label = "Recording settings",
+                onClick = { navController.navigate(WatchRoutes.RECORDING_SETTINGS) },
+            )
+        }
+        item {
+            SettingsSectionChip(
                 label = "GPS settings",
                 onClick = { navController.navigate(WatchRoutes.GPS_SETTINGS) },
             )

@@ -82,6 +82,34 @@ class SettingsViewModel(
             settingsRepository.setGpsDebugTelemetryPopupEnabled(enabled)
         }
 
+    val recordingSampleIntervalSeconds: StateFlow<Int> =
+        settingsRepository.recordingSampleIntervalSeconds
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS,
+            )
+
+    fun setRecordingSampleIntervalSeconds(seconds: Int) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingSampleIntervalSeconds(seconds)
+        }
+
+    val recordingDashboardMetricSlots: StateFlow<List<String>> =
+        settingsRepository.recordingDashboardMetricSlots
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_DASHBOARD_METRICS,
+            )
+
+    fun setRecordingDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    ) = viewModelScope.launch {
+        settingsRepository.setRecordingDashboardMetricSlot(slotIndex, metricId)
+    }
+
     val turnByTurnGuidanceSource: StateFlow<String> =
         settingsRepository.turnByTurnGuidanceSource
             .stateIn(

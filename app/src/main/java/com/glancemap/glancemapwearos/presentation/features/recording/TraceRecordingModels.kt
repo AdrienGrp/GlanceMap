@@ -1,0 +1,25 @@
+package com.glancemap.glancemapwearos.presentation.features.recording
+
+import org.mapsforge.core.model.LatLong
+
+data class RecordedTracePoint(
+    val latLong: LatLong,
+    val elevationMeters: Double?,
+    val timeMillis: Long,
+    val accuracyMeters: Float?,
+    val speedMps: Float?,
+)
+
+data class TraceRecordingUiState(
+    val active: Boolean = false,
+    val paused: Boolean = false,
+    val saving: Boolean = false,
+    val points: List<RecordedTracePoint> = emptyList(),
+    val distanceMeters: Double = 0.0,
+    val startedAtMillis: Long? = null,
+    val pausedAtMillis: Long? = null,
+    val accumulatedPausedMillis: Long = 0L,
+    val message: String? = null,
+) {
+    val pointCount: Int get() = points.size
+}

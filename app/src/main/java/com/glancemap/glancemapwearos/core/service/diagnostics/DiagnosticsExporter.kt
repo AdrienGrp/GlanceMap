@@ -38,6 +38,7 @@ data class DiagnosticsSettingsSnapshot(
     val gpsDebugTelemetry: Boolean,
     val gpsPassiveLocationExperiment: Boolean,
     val backButtonExitsNavigation: Boolean,
+    val recordingSampleIntervalSeconds: Int = 0,
     val turnByTurnGuidanceSource: String = "na",
     val turnByTurnUseBrouterTiles: Boolean = false,
     val turnByTurnHapticsEnabled: Boolean = true,
@@ -150,6 +151,32 @@ object DiagnosticsExporter {
         val turnByTurnTurnHapticCount: Int = 0,
         val turnByTurnOffRouteHapticCount: Int = 0,
         val turnByTurnMaxDistanceToRouteMeters: Int? = null,
+        val recordingStartCount: Int = 0,
+        val recordingPauseCount: Int = 0,
+        val recordingResumeCount: Int = 0,
+        val recordingPointSampleCount: Int = 0,
+        val recordingSaveStartCount: Int = 0,
+        val recordingSaveSuccessCount: Int = 0,
+        val recordingSaveFailureCount: Int = 0,
+        val recordingDiscardCount: Int = 0,
+        val recordingLastPointCount: Int? = null,
+        val recordingMaxPointCount: Int? = null,
+        val recordingLastDistanceMeters: Int? = null,
+        val recordingMaxDistanceMeters: Int? = null,
+        val recordingLastDurationMs: Long? = null,
+        val recordingMaxDurationMs: Long? = null,
+        val recordingLastPausedMs: Long? = null,
+        val recordingMaxPausedMs: Long? = null,
+        val recordingSkippedIntervalCount: Int? = null,
+        val recordingSkippedPausedCount: Int? = null,
+        val recordingSkippedUnusableCount: Int? = null,
+        val recordingAccuracySampleCount: Int? = null,
+        val recordingAccuracyAvgMeters: Int? = null,
+        val recordingAccuracyMinMeters: Int? = null,
+        val recordingAccuracyMaxMeters: Int? = null,
+        val recordingElevationGainMeters: Int? = null,
+        val recordingElevationLossMeters: Int? = null,
+        val recordingLastSavedByteSize: Int? = null,
     )
 
     internal data class CompassTelemetryInsights(
@@ -439,6 +466,7 @@ object DiagnosticsExporter {
             writer.appendLine("gpsDebugTelemetry=${settings.gpsDebugTelemetry}")
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
+            writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
             writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
             writer.appendLine("turnByTurnUseBrouterTiles=${settings.turnByTurnUseBrouterTiles}")
             writer.appendLine("turnByTurnHapticsEnabled=${settings.turnByTurnHapticsEnabled}")
@@ -792,6 +820,68 @@ object DiagnosticsExporter {
                 "turnByTurnMaxDistanceToRouteMeters=${
                     telemetryInsights.turnByTurnMaxDistanceToRouteMeters?.toString() ?: "na"
                 }",
+            )
+            writer.appendLine()
+            writer.appendLine("Trace Recording")
+            writer.appendLine("recordingStartCount=${telemetryInsights.recordingStartCount}")
+            writer.appendLine("recordingPauseCount=${telemetryInsights.recordingPauseCount}")
+            writer.appendLine("recordingResumeCount=${telemetryInsights.recordingResumeCount}")
+            writer.appendLine("recordingPointSampleCount=${telemetryInsights.recordingPointSampleCount}")
+            writer.appendLine("recordingSaveStartCount=${telemetryInsights.recordingSaveStartCount}")
+            writer.appendLine("recordingSaveSuccessCount=${telemetryInsights.recordingSaveSuccessCount}")
+            writer.appendLine("recordingSaveFailureCount=${telemetryInsights.recordingSaveFailureCount}")
+            writer.appendLine("recordingDiscardCount=${telemetryInsights.recordingDiscardCount}")
+            writer.appendLine(
+                "recordingLastPointCount=${telemetryInsights.recordingLastPointCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingMaxPointCount=${telemetryInsights.recordingMaxPointCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLastDistanceMeters=${telemetryInsights.recordingLastDistanceMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingMaxDistanceMeters=${telemetryInsights.recordingMaxDistanceMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLastDurationMs=${telemetryInsights.recordingLastDurationMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingMaxDurationMs=${telemetryInsights.recordingMaxDurationMs?.toString() ?: "na"}",
+            )
+            writer.appendLine("recordingLastPausedMs=${telemetryInsights.recordingLastPausedMs?.toString() ?: "na"}")
+            writer.appendLine("recordingMaxPausedMs=${telemetryInsights.recordingMaxPausedMs?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingSkippedIntervalCount=${
+                    telemetryInsights.recordingSkippedIntervalCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSkippedPausedCount=${telemetryInsights.recordingSkippedPausedCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingSkippedUnusableCount=${telemetryInsights.recordingSkippedUnusableCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingAccuracySampleCount=${telemetryInsights.recordingAccuracySampleCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingAccuracyAvgMeters=${telemetryInsights.recordingAccuracyAvgMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingAccuracyMinMeters=${telemetryInsights.recordingAccuracyMinMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingAccuracyMaxMeters=${telemetryInsights.recordingAccuracyMaxMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingElevationGainMeters=${telemetryInsights.recordingElevationGainMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingElevationLossMeters=${telemetryInsights.recordingElevationLossMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLastSavedByteSize=${telemetryInsights.recordingLastSavedByteSize?.toString() ?: "na"}",
             )
             writer.appendLine(
                 "batchAvgRawCandidates=${

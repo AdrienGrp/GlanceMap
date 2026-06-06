@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private const val RECORDING_DASHBOARD_SLOT_SEPARATOR = ","
+private const val RECORDING_DASHBOARD_SLOT_COUNT = 4
 
 class SettingsRepositoryImpl private constructor(
     private val context: Context,
@@ -46,6 +48,8 @@ class SettingsRepositoryImpl private constructor(
         val GPS_DEBUG_TELEMETRY = booleanPreferencesKey("gps_debug_telemetry")
         val GPS_PASSIVE_LOCATION_EXPERIMENT = booleanPreferencesKey("gps_passive_location_experiment")
         val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
+        val RECORDING_SAMPLE_INTERVAL_SECONDS = intPreferencesKey("recording_sample_interval_seconds")
+        val RECORDING_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("recording_dashboard_metric_slots")
         val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
         val TURN_BY_TURN_USE_BROUTER_TILES = booleanPreferencesKey("turn_by_turn_use_brouter_tiles")
         val TURN_BY_TURN_HAPTICS_ENABLED = booleanPreferencesKey("turn_by_turn_haptics_enabled")
@@ -171,6 +175,50 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] = enabled }
+    }
+
+    override val recordingSampleIntervalSeconds: Flow<Int> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_SAMPLE_INTERVAL_SECONDS]
+                .takeIf { seconds -> seconds in allowedRecordingSampleIntervalsSeconds }
+                ?: SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
+        }
+
+    override suspend fun setRecordingSampleIntervalSeconds(seconds: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_SAMPLE_INTERVAL_SECONDS] =
+                if (seconds in allowedRecordingSampleIntervalsSeconds) {
+                    seconds
+                } else {
+                    SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
+                }
+        }
+    }
+
+    override val recordingDashboardMetricSlots: Flow<List<String>> =
+        context.dataStore.data.map {
+            sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+        }
+
+    override suspend fun setRecordingDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    ) {
+        context.dataStore.edit {
+            val current = sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+            val sanitizedMetric =
+                metricId.takeIf { candidate -> candidate in allowedRecordingDashboardMetricIds }
+                    ?: SettingsRepository.RECORDING_METRIC_DISTANCE
+            val next =
+                current
+                    .toMutableList()
+                    .also { slots ->
+                        if (slotIndex in slots.indices) {
+                            slots[slotIndex] = sanitizedMetric
+                        }
+                    }
+            it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] = next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
     }
 
     override val turnByTurnGuidanceSource: Flow<String> =
@@ -1052,6 +1100,18 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK,
                 SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_NEVER,
             )
+        private val allowedRecordingDashboardMetricIds =
+            setOf(
+                SettingsRepository.RECORDING_METRIC_DISTANCE,
+                SettingsRepository.RECORDING_METRIC_DURATION,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
+                SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
+                SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
+                SettingsRepository.RECORDING_METRIC_GPS_ACCURACY,
+                SettingsRepository.RECORDING_METRIC_POINTS,
+            )
         private val allowedPoiIconSizesPx =
             setOf(
                 SettingsRepository.POI_ICON_SIZE_SMALL_PX,
@@ -1069,6 +1129,7 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID,
                 SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION,
             )
+        private val allowedRecordingSampleIntervalsSeconds = setOf(1, 2, 5, 10, 15, 30, 60)
         private const val LEGACY_ZOOM_BUTTONS_HIDE_MINUS = "HIDE_MINUS"
         private const val CACHE_PREFS_NAME = "settings_runtime_cache"
         private const val CACHE_KEY_NAVIGATION_MARKER_STYLE = "navigation_marker_style"
@@ -1122,6 +1183,17 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
                 SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
             )
+
+        private fun sanitizeRecordingDashboardMetricSlots(raw: String?): List<String> {
+            val parsed =
+                raw
+                    ?.split(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+                    ?.mapNotNull { value ->
+                        value.trim().takeIf { it in allowedRecordingDashboardMetricIds }
+                    }.orEmpty()
+            return (parsed + SettingsRepository.DEFAULT_RECORDING_DASHBOARD_METRICS)
+                .take(RECORDING_DASHBOARD_SLOT_COUNT)
+        }
 
         private fun legacyZoomScaleMeters(zoom: Int): Int =
             scaleMetersForZoomLevel(

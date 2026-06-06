@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import android.hardware.SensorManager
 import android.os.SystemClock
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -60,6 +61,7 @@ import com.glancemap.glancemapwearos.presentation.features.offline.OfflineStartC
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
+import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingViewModel
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
@@ -93,6 +95,7 @@ fun NavigateScreen(
     poiViewModel: PoiViewModel,
     settingsViewModel: SettingsViewModel,
     locationViewModel: LocationViewModel,
+    traceRecordingViewModel: TraceRecordingViewModel,
     isAmbient: Boolean,
     isDeviceInteractive: Boolean,
     ambientTickMs: Long,
@@ -267,6 +270,7 @@ fun NavigateScreen(
         initial = SettingsRepository.POI_POPUP_TIMEOUT_DEFAULT_SECONDS,
     )
     val poiPopupManualCloseOnly by settingsViewModel.poiPopupManualCloseOnly.collectAsState(initial = false)
+    val recordingDashboardMetricSlots by settingsViewModel.recordingDashboardMetricSlots.collectAsState()
     val compassConeAccuracyColorsEnabled by settingsViewModel.compassConeAccuracyColorsEnabled.collectAsState(
         initial = true,
     )
@@ -291,6 +295,16 @@ fun NavigateScreen(
     val activePoiOverlaySources by poiViewModel.activeOverlaySources.collectAsState()
     val navigateTarget by poiViewModel.navigateTarget.collectAsState()
     val offlinePoiSearchUiState by poiViewModel.offlineSearchUiState.collectAsState()
+    val traceRecordingState by traceRecordingViewModel.uiState.collectAsState()
+    val recordingTracePoints =
+        remember(traceRecordingState.points) {
+            traceRecordingState.points.map { it.latLong }
+        }
+    LaunchedEffect(traceRecordingState.message) {
+        traceRecordingState.message
+            ?.takeIf { it.isNotBlank() }
+            ?.let { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
+    }
 
     val fallbackMapViewportWidthPx =
         remember(configuration.screenWidthDp, density.density) {
@@ -379,7 +393,7 @@ fun NavigateScreen(
     val shouldTrackLocation =
         locationPermissionState.hasLocationPermission &&
             !offlineMode &&
-            (isScreenResumed || backgroundGpsModeActive)
+            (isScreenResumed || backgroundGpsModeActive || traceRecordingState.active)
     val effectiveNavMode = if (offlineMode) NavMode.PANNING else navMode
     val effectiveCompassProviderMode = compassProviderMode
     val selectedCompassProviderType =
@@ -763,6 +777,11 @@ fun NavigateScreen(
         }
     val gpsSignalSnapshot by locationViewModel.gpsSignalSnapshot.collectAsState()
     val rawCurrentLocation by locationViewModel.currentLocation.collectAsState()
+    LaunchedEffect(rawCurrentLocation, traceRecordingState.active) {
+        if (traceRecordingState.active) {
+            traceRecordingViewModel.onLocation(rawCurrentLocation)
+        }
+    }
     val gpsFixFreshForAccuracyCircle =
         gpsSignalSnapshot.isLocationAvailable &&
             gpsSignalSnapshot.lastFixElapsedRealtimeMs > 0L &&
@@ -822,6 +841,7 @@ fun NavigateScreen(
             routeToolPreview?.previewPoints
                 ?: displayedRouteToolCreatePreview?.previewPoints
                 ?: emptyList(),
+        recordingTracePoints = recordingTracePoints,
         routeToolCreatePreviewActive = displayedRouteToolCreatePreview != null,
         routeToolDraftPoints = routeToolDraftConnectorPoints,
         poiViewModel = poiViewModel,
@@ -1432,6 +1452,22 @@ fun NavigateScreen(
                     }
             }
         },
+        onStartRouteToolGuidance = {
+            val currentResult = routeToolResult ?: return@NavigateRouteToolDialogs
+            if (routeToolRenameInProgress) return@NavigateRouteToolDialogs
+            routeToolRenameError = null
+            gpxViewModel.startTurnByTurnGuidance(currentResult.filePath) { result ->
+                result
+                    .onSuccess {
+                        routeToolResult = null
+                        routeToolRenameError = null
+                    }.onFailure { error ->
+                        routeToolRenameError =
+                            error.localizedMessage?.takeIf { it.isNotBlank() }
+                                ?: "Failed to start guidance."
+                    }
+            }
+        },
     )
 
     NavigateContent(
@@ -1510,6 +1546,18 @@ fun NavigateScreen(
         liveDistanceEnabled = liveDistanceEnabled && !offlineMode,
         keepAppOpen = keepAppOpen,
         onKeepAppOpenToggle = screenActions.toggleKeepAppOpen,
+        backButtonExitsNavigation = backButtonExitsNavigation,
+        traceRecordingState = traceRecordingState,
+        recordingDashboardMetricSlots = recordingDashboardMetricSlots,
+        onStartRecording = {
+            shortcutTrayExpanded = false
+            traceRecordingViewModel.startRecording()
+        },
+        onPauseRecording = traceRecordingViewModel::pauseRecording,
+        onResumeRecording = traceRecordingViewModel::resumeRecording,
+        onFinishRecording = traceRecordingViewModel::finishAndSaveRecording,
+        onDiscardRecording = traceRecordingViewModel::discardRecording,
+        onRecordingMetricSelected = settingsViewModel::setRecordingDashboardMetricSlot,
         shortcutTrayExpanded = shortcutTrayExpanded,
         onShortcutTrayToggle = screenActions.toggleShortcutTray,
         onShortcutTrayDismiss = { shortcutTrayExpanded = false },

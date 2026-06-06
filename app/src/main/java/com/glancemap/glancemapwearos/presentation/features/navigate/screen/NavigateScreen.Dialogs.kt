@@ -180,6 +180,7 @@ internal fun NavigateRouteToolDialogs(
     onDeleteRouteToolResult: () -> Unit,
     onOpenRouteToolRename: () -> Unit,
     onConfirmRouteToolRename: (String) -> Unit,
+    onStartRouteToolGuidance: () -> Unit,
 ) {
     RouteToolsActionPanel(
         visible = showRouteToolsPanel,
@@ -222,5 +223,6 @@ internal fun NavigateRouteToolDialogs(
         onDelete = onDeleteRouteToolResult,
         onRenameOpen = onOpenRouteToolRename,
         onRenameConfirm = onConfirmRouteToolRename,
+        onStartGuidance = onStartRouteToolGuidance,
     )
 }

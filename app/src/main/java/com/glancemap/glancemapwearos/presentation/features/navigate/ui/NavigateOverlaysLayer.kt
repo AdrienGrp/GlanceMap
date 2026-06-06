@@ -43,6 +43,8 @@ import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
+import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardOverlay
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteShortcutTray
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolInlineProgressBanner
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -111,6 +113,15 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onCreatePoiClick: () -> Unit,
     keepAppOpen: Boolean,
     onKeepAppOpenToggle: () -> Unit,
+    traceRecordingState: TraceRecordingUiState,
+    recordingDashboardMetricSlots: List<String>,
+    recordingActionPromptRequestToken: Long,
+    onRecordingClick: () -> Unit,
+    onPauseRecording: () -> Unit,
+    onResumeRecording: () -> Unit,
+    onFinishRecording: () -> Unit,
+    onDiscardRecording: () -> Unit,
+    onRecordingMetricSelected: (Int, String) -> Unit,
     gpsIndicatorState: GpsFixIndicatorState,
     watchGpsDegradedWarning: Boolean,
     navButtonBottomPadding: Dp,
@@ -127,6 +138,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
     turnByTurnGuidanceState: TurnByTurnGuidanceState,
     turnByTurnGuidancePaused: Boolean,
     turnByTurnPausedTrackTitle: String?,
+    turnByTurnFullScreenExpanded: Boolean,
+    recordingDashboardFullScreenExpanded: Boolean,
     guideBackToRouteActive: Boolean,
     showGuideBackPrompt: Boolean,
     startDecisionPrompt: GuidanceDecisionPrompt?,
@@ -134,6 +147,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onResumeTurnByTurnGuidance: () -> Unit,
     onStopTurnByTurnGuidance: () -> Unit,
     onTurnByTurnExpandedChange: (Boolean) -> Unit,
+    onRecordingExpandedChange: (Boolean) -> Unit,
     onGuideBackToRoute: () -> Unit,
     onDismissGuideBackPrompt: () -> Unit,
     onAcceptStartDecisionPrompt: () -> Unit,
@@ -163,7 +177,9 @@ internal fun BoxScope.NavigateOverlaysLayer(
             0.dp
         }
     val suppressLiveMetricsForPoi = poiTapMessage != null
-    val turnByTurnModeActive = turnByTurnGuidanceState.active
+    val suppressMapControlsForGuidance =
+        (turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded) ||
+            (traceRecordingState.active && recordingDashboardFullScreenExpanded)
 
     LaunchedEffect(shortcutTrayExpanded, routeToolModeActive) {
         if (!shortcutTrayExpanded || routeToolModeActive) return@LaunchedEffect
@@ -243,7 +259,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         navButtonSize = navButtonSize,
     )
 
-    if (!turnByTurnModeActive) {
+    if (!suppressMapControlsForGuidance) {
         NorthIndicatorOverlay(
             northIndicatorMode = northIndicatorMode,
             navMode = navMode,
@@ -254,7 +270,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         )
     }
 
-    if (!turnByTurnModeActive && showZoomPlusButton) {
+    if (!suppressMapControlsForGuidance && showZoomPlusButton) {
         CurvedLayout(
             modifier = Modifier.fillMaxSize(),
             anchor = 320f,
@@ -297,7 +313,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         }
     }
 
-    if (!turnByTurnModeActive && showZoomMinusButton) {
+    if (!suppressMapControlsForGuidance && showZoomMinusButton) {
         CurvedLayout(
             modifier = Modifier.fillMaxSize(),
             anchor = 338f,
@@ -340,7 +356,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         }
     }
 
-    if (!turnByTurnModeActive) scaleIndicator?.let { indicator ->
+    if (!suppressMapControlsForGuidance) scaleIndicator?.let { indicator ->
         val scaleFontScale = LocalDensity.current.fontScale
         val scaleTopPadding = zoomLabelTopPadding + if (scaleFontScale > 1f) 4.dp else 0.dp
         AnimatedVisibility(
@@ -415,7 +431,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         Icon(Icons.Default.Menu, "Menu", Modifier.size(sideButtonIconSize))
     }
 
-    if (!turnByTurnModeActive && !routeToolModeActive) {
+    if (!suppressMapControlsForGuidance && !routeToolModeActive) {
         RouteShortcutTray(
             expanded = shortcutTrayExpanded,
             keepAppOpen = keepAppOpen,
@@ -428,6 +444,10 @@ internal fun BoxScope.NavigateOverlaysLayer(
             onKeepAppOpenClick = onKeepAppOpenToggle,
             onGpxToolsClick = onGpxToolsClick,
             onCreatePoiClick = onCreatePoiClick,
+            recordingActive = traceRecordingState.active,
+            recordingPaused = traceRecordingState.paused,
+            recordingSaving = traceRecordingState.saving,
+            onRecordingClick = onRecordingClick,
         )
     }
 
@@ -458,6 +478,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         guideBackToRouteActive = guideBackToRouteActive,
         showGuideBackPrompt = showGuideBackPrompt,
         startDecisionPrompt = startDecisionPrompt,
+        suppressed = poiTapMessage != null || recordingDashboardFullScreenExpanded,
         onPause = onPauseTurnByTurnGuidance,
         onResume = onResumeTurnByTurnGuidance,
         onStop = onStopTurnByTurnGuidance,
@@ -466,5 +487,22 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onDismissGuideBackPrompt = onDismissGuideBackPrompt,
         onAcceptStartDecisionPrompt = onAcceptStartDecisionPrompt,
         onDismissStartDecisionPrompt = onDismissStartDecisionPrompt,
+    )
+
+    RecordingDashboardOverlay(
+        state = traceRecordingState,
+        metricSlots = recordingDashboardMetricSlots,
+        screenSize = screenSize,
+        isMetric = isMetric,
+        suppressed = poiTapMessage != null || turnByTurnFullScreenExpanded,
+        toolButtonEdgePadding = sideButtonEdgePadding,
+        toolButtonSize = sideButtonSize,
+        onPause = onPauseRecording,
+        onResume = onResumeRecording,
+        onStopConfirmed = onFinishRecording,
+        onDiscard = onDiscardRecording,
+        onMetricSelected = onRecordingMetricSelected,
+        actionPromptRequestToken = recordingActionPromptRequestToken,
+        onExpandedChange = onRecordingExpandedChange,
     )
 }

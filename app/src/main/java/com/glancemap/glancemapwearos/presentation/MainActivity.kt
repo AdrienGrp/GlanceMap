@@ -48,6 +48,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.MapDisplaySe
 import com.glancemap.glancemapwearos.presentation.features.settings.MapSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapZoomSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.PoiSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefaultsConfirmScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
@@ -210,6 +211,7 @@ class MainActivity : ComponentActivity() {
                                 compassViewModel = appContainer.compassViewModel,
                                 settingsViewModel = appContainer.settingsViewModel,
                                 locationViewModel = appContainer.locationViewModel,
+                                traceRecordingViewModel = appContainer.traceRecordingViewModel,
                                 isAmbient = isAmbient,
                                 isDeviceInteractive = isDeviceInteractive,
                                 ambientTickMs = ambientTickMs,
@@ -391,6 +393,24 @@ class MainActivity : ComponentActivity() {
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 GpsSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
                                     onOpenGeneralSettings = {
                                         navController.navigate(WatchRoutes.SETTINGS) {

@@ -13,6 +13,23 @@ interface SettingsRepository {
         const val DEFAULT_AMBIENT_GPS_INTERVAL_MS = 60_000L
         const val MIN_AMBIENT_GPS_INTERVAL_MS = 1_000L
         const val MAX_AMBIENT_GPS_INTERVAL_MS = 120_000L
+        const val DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS = 5
+        const val RECORDING_METRIC_DISTANCE = "distance"
+        const val RECORDING_METRIC_DURATION = "duration"
+        const val RECORDING_METRIC_ELEVATION_GAIN = "elevation_gain"
+        const val RECORDING_METRIC_ELEVATION_LOSS = "elevation_loss"
+        const val RECORDING_METRIC_CURRENT_ELEVATION = "current_elevation"
+        const val RECORDING_METRIC_CURRENT_SPEED = "current_speed"
+        const val RECORDING_METRIC_AVERAGE_SPEED = "average_speed"
+        const val RECORDING_METRIC_GPS_ACCURACY = "gps_accuracy"
+        const val RECORDING_METRIC_POINTS = "points"
+        val DEFAULT_RECORDING_DASHBOARD_METRICS =
+            listOf(
+                RECORDING_METRIC_DISTANCE,
+                RECORDING_METRIC_DURATION,
+                RECORDING_METRIC_ELEVATION_GAIN,
+                RECORDING_METRIC_ELEVATION_LOSS,
+            )
 
         const val ZOOM_BUTTONS_BOTH = "BOTH"
         const val ZOOM_BUTTONS_HIDE_BOTH = "HIDE_BOTH"
@@ -116,6 +133,17 @@ interface SettingsRepository {
     val gpsDebugTelemetryPopupEnabled: Flow<Boolean>
 
     suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean)
+
+    val recordingSampleIntervalSeconds: Flow<Int>
+
+    suspend fun setRecordingSampleIntervalSeconds(seconds: Int)
+
+    val recordingDashboardMetricSlots: Flow<List<String>>
+
+    suspend fun setRecordingDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    )
 
     val turnByTurnGuidanceSource: Flow<String>
 

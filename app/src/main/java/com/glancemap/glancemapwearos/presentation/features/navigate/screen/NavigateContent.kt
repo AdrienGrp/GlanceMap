@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -63,6 +65,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
+import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCrosshairOverlay
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteMultiPointMapProjection
@@ -134,6 +137,15 @@ internal fun NavigateContent(
     liveDistanceEnabled: Boolean,
     keepAppOpen: Boolean,
     onKeepAppOpenToggle: () -> Unit,
+    backButtonExitsNavigation: Boolean,
+    traceRecordingState: TraceRecordingUiState,
+    recordingDashboardMetricSlots: List<String>,
+    onStartRecording: () -> Unit,
+    onPauseRecording: () -> Unit,
+    onResumeRecording: () -> Unit,
+    onFinishRecording: () -> Unit,
+    onDiscardRecording: () -> Unit,
+    onRecordingMetricSelected: (Int, String) -> Unit,
     shortcutTrayExpanded: Boolean,
     onShortcutTrayToggle: () -> Unit,
     onShortcutTrayDismiss: () -> Unit,
@@ -203,11 +215,27 @@ internal fun NavigateContent(
     val adaptive = rememberWearAdaptiveSpec()
     val latestOnNavigateTimeSuppressedChange = rememberUpdatedState(onNavigateTimeSuppressedChange)
     var turnByTurnFullScreenExpanded by remember { mutableStateOf(false) }
-    val suppressMapRenderingForGuidance = turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded
+    var recordingDashboardFullScreenExpanded by remember { mutableStateOf(false) }
+    var recordingActionPromptRequestToken by remember { mutableLongStateOf(0L) }
+    val suppressMapRenderingForGuidance =
+        (turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded) ||
+            (traceRecordingState.active && recordingDashboardFullScreenExpanded)
     LaunchedEffect(turnByTurnGuidanceState.active) {
         if (!turnByTurnGuidanceState.active) {
             turnByTurnFullScreenExpanded = false
         }
+    }
+    LaunchedEffect(traceRecordingState.active) {
+        if (!traceRecordingState.active) {
+            recordingDashboardFullScreenExpanded = false
+            recordingActionPromptRequestToken = 0L
+        }
+    }
+    BackHandler(
+        enabled = backButtonExitsNavigation && (turnByTurnFullScreenExpanded || recordingDashboardFullScreenExpanded),
+    ) {
+        turnByTurnFullScreenExpanded = false
+        recordingDashboardFullScreenExpanded = false
     }
 
     DisposableEffect(mapView, onMapViewReadyForRendering) {
@@ -682,6 +710,7 @@ internal fun NavigateContent(
     val routeToolModeActive = routeToolSession != null || crosshairSelectionActive || reshapePreviewInspectMode
     val shouldSuppressNavigateTime =
         turnByTurnFullScreenExpanded ||
+            recordingDashboardFullScreenExpanded ||
             (adaptive.fontScale > 1f && (showScaleBar || routeToolModeActive))
 
     LaunchedEffect(shouldSuppressNavigateTime) {
@@ -1178,6 +1207,22 @@ internal fun NavigateContent(
                 onCreatePoiClick = onStartPoiCreation,
                 keepAppOpen = keepAppOpen,
                 onKeepAppOpenToggle = onKeepAppOpenToggle,
+                traceRecordingState = traceRecordingState,
+                recordingDashboardMetricSlots = recordingDashboardMetricSlots,
+                recordingActionPromptRequestToken = recordingActionPromptRequestToken,
+                onRecordingClick = {
+                    onShortcutTrayDismiss()
+                    if (traceRecordingState.active || traceRecordingState.saving) {
+                        recordingActionPromptRequestToken = System.currentTimeMillis()
+                    } else {
+                        onStartRecording()
+                    }
+                },
+                onPauseRecording = onPauseRecording,
+                onResumeRecording = onResumeRecording,
+                onFinishRecording = onFinishRecording,
+                onDiscardRecording = onDiscardRecording,
+                onRecordingMetricSelected = onRecordingMetricSelected,
                 gpsIndicatorState = gpsIndicatorState,
                 watchGpsDegradedWarning = watchGpsDegradedWarning,
                 navButtonBottomPadding = navButtonBottomPadding,
@@ -1194,6 +1239,8 @@ internal fun NavigateContent(
                 turnByTurnGuidanceState = turnByTurnGuidanceState,
                 turnByTurnGuidancePaused = turnByTurnGuidancePaused,
                 turnByTurnPausedTrackTitle = turnByTurnPausedTrackTitle,
+                turnByTurnFullScreenExpanded = turnByTurnFullScreenExpanded,
+                recordingDashboardFullScreenExpanded = recordingDashboardFullScreenExpanded,
                 guideBackToRouteActive = guideBackToRouteActive,
                 showGuideBackPrompt = showGuideBackPrompt,
                 startDecisionPrompt = startDecisionPrompt,
@@ -1202,6 +1249,9 @@ internal fun NavigateContent(
                 onStopTurnByTurnGuidance = onStopTurnByTurnGuidance,
                 onTurnByTurnExpandedChange = { expanded ->
                     turnByTurnFullScreenExpanded = expanded
+                },
+                onRecordingExpandedChange = { expanded ->
+                    recordingDashboardFullScreenExpanded = expanded
                 },
                 onGuideBackToRoute = onGuideBackToRoute,
                 onDismissGuideBackPrompt = onDismissGuideBackPrompt,

@@ -45,6 +45,7 @@ internal fun RouteToolResultDialog(
     onDelete: () -> Unit,
     onRenameOpen: () -> Unit,
     onRenameConfirm: (String) -> Unit,
+    onStartGuidance: (() -> Unit)? = null,
 ) {
     if (!visible || result == null) return
 
@@ -78,12 +79,22 @@ internal fun RouteToolResultDialog(
         onDismissRequest = onDismiss,
         backgroundColor = Color.Black.copy(alpha = 0.92f),
         buttons =
-            listOf(
-                WearActionDialogButton(
-                    text = "Done",
-                    onClick = onDismiss,
-                ),
-            ),
+            buildList {
+                if (onStartGuidance != null) {
+                    add(
+                        WearActionDialogButton(
+                            text = "Start",
+                            onClick = onStartGuidance,
+                        ),
+                    )
+                }
+                add(
+                    WearActionDialogButton(
+                        text = "Done",
+                        onClick = onDismiss,
+                    ),
+                )
+            },
     ) {
         Text(
             text = result.displayTitle,
@@ -125,6 +136,15 @@ internal fun RouteToolResultDialog(
                     contentDescription = "Rename GPX",
                 )
             }
+        }
+        if (renameError != null && !showRenameDialog) {
+            Text(
+                text = renameError,
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+            )
         }
 
         Row(
