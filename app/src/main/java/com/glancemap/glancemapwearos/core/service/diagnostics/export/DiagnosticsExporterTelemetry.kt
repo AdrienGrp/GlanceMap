@@ -169,6 +169,10 @@ internal fun deriveTelemetryInsights(
     var recordingSkippedIntervalCount: Int? = null
     var recordingSkippedPausedCount: Int? = null
     var recordingSkippedUnusableCount: Int? = null
+    var recordingElevationSource: String? = null
+    var recordingDemHitCount: Int? = null
+    var recordingDemMissCount: Int? = null
+    var recordingGpsElevationUsedCount: Int? = null
     var recordingAccuracySampleCount: Int? = null
     var recordingAccuracyAvgMeters: Int? = null
     var recordingAccuracyMinMeters: Int? = null
@@ -385,6 +389,18 @@ internal fun deriveTelemetryInsights(
             parseIntToken(line, "skippedUnusable=")?.let { skipped ->
                 recordingSkippedUnusableCount = maxOf(recordingSkippedUnusableCount ?: skipped, skipped)
             }
+            extractTokenValue(line, "elevationSource=")?.takeIf { it.isNotBlank() }?.let {
+                recordingElevationSource = it
+            }
+            parseIntToken(line, "demHits=")?.let { hits ->
+                recordingDemHitCount = maxOf(recordingDemHitCount ?: hits, hits)
+            }
+            parseIntToken(line, "demMisses=")?.let { misses ->
+                recordingDemMissCount = maxOf(recordingDemMissCount ?: misses, misses)
+            }
+            parseIntToken(line, "gpsElevationUsed=")?.let { count ->
+                recordingGpsElevationUsedCount = maxOf(recordingGpsElevationUsedCount ?: count, count)
+            }
             parseIntToken(line, "accuracySamples=")?.let { recordingAccuracySampleCount = it }
             parseIntToken(line, "accuracyAvgMeters=")?.takeIf { it >= 0 }?.let {
                 recordingAccuracyAvgMeters = it
@@ -597,6 +613,10 @@ internal fun deriveTelemetryInsights(
         recordingSkippedIntervalCount = recordingSkippedIntervalCount,
         recordingSkippedPausedCount = recordingSkippedPausedCount,
         recordingSkippedUnusableCount = recordingSkippedUnusableCount,
+        recordingElevationSource = recordingElevationSource,
+        recordingDemHitCount = recordingDemHitCount,
+        recordingDemMissCount = recordingDemMissCount,
+        recordingGpsElevationUsedCount = recordingGpsElevationUsedCount,
         recordingAccuracySampleCount = recordingAccuracySampleCount,
         recordingAccuracyAvgMeters = recordingAccuracyAvgMeters,
         recordingAccuracyMinMeters = recordingAccuracyMinMeters,

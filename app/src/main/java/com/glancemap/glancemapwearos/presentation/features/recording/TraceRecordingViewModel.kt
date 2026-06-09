@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import java.io.ByteArrayInputStream
@@ -27,15 +29,21 @@ class TraceRecordingViewModel(
     private val gpxRepository: GpxRepository,
     private val settingsRepository: SettingsRepository,
     private val syncManager: SyncManager,
+    private val elevationProvider: RecordingElevationProvider,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TraceRecordingUiState())
     val uiState: StateFlow<TraceRecordingUiState> = _uiState.asStateFlow()
 
     private var sampleIntervalSeconds = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
+    private var recordingElevationSource = SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
     private var lastAcceptedElapsedMs: Long = Long.MIN_VALUE
+    private val locationPointMutex = Mutex()
     private var skippedIntervalCount = 0
     private var skippedPausedCount = 0
     private var skippedUnusableLocationCount = 0
+    private var demElevationHitCount = 0
+    private var demElevationMissCount = 0
+    private var gpsElevationUsedCount = 0
     private var acceptedAccuracySumMeters = 0.0
     private var acceptedAccuracyCount = 0
     private var acceptedAccuracyMinMeters: Float? = null
@@ -44,6 +52,9 @@ class TraceRecordingViewModel(
     init {
         settingsRepository.recordingSampleIntervalSeconds
             .onEach { sampleIntervalSeconds = it }
+            .launchIn(viewModelScope)
+        settingsRepository.recordingElevationSource
+            .onEach { recordingElevationSource = it }
             .launchIn(viewModelScope)
     }
 
@@ -70,7 +81,7 @@ class TraceRecordingViewModel(
             )
         DebugTelemetry.log(
             "TraceRecording",
-            "event=start sampleIntervalSeconds=$sampleIntervalSeconds",
+            "event=start sampleIntervalSeconds=$sampleIntervalSeconds elevationSource=$recordingElevationSource",
         )
     }
 
@@ -96,33 +107,69 @@ class TraceRecordingViewModel(
             }
         }
 
-        val point =
-            RecordedTracePoint(
-                latLong = LatLong(location.latitude, location.longitude),
-                elevationMeters = location.altitude.takeIf { location.hasAltitude() },
-                timeMillis = location.time.takeIf { it > 0L } ?: System.currentTimeMillis(),
-                accuracyMeters = location.accuracy.takeIf { location.hasAccuracy() },
-                speedMps = location.speed.takeIf { location.hasSpeed() },
-            )
-        val previous = state.points.lastOrNull()
-        val addedDistance = previous?.let { haversineMeters(it.latLong, point.latLong) } ?: 0.0
         lastAcceptedElapsedMs = nowElapsedMs
-        updateAccuracyTelemetry(point.accuracyMeters)
-        _uiState.value =
-            state.copy(
-                points = state.points + point,
-                distanceMeters = state.distanceMeters + addedDistance,
-                message = null,
-            )
-        val pointCount = state.points.size + 1
-        if (pointCount == 1 || pointCount % RECORDING_TELEMETRY_POINT_INTERVAL == 0) {
-            DebugTelemetry.log(
-                "TraceRecording",
-                "event=point points=$pointCount distanceMeters=${(state.distanceMeters + addedDistance).toInt()} " +
-                    "accuracyMeters=${point.accuracyMeters?.toInt() ?: -1} " +
-                    "skippedInterval=$skippedIntervalCount skippedPaused=$skippedPausedCount " +
-                    "skippedUnusable=$skippedUnusableLocationCount",
-            )
+        val latitude = location.latitude
+        val longitude = location.longitude
+        val gpsAltitudeMeters = location.altitude.takeIf { location.hasAltitude() && it.isFinite() }
+        val timeMillis = location.time.takeIf { it > 0L } ?: System.currentTimeMillis()
+        val accuracyMeters = location.accuracy.takeIf { location.hasAccuracy() }
+        val speedMps = location.speed.takeIf { location.hasSpeed() }
+        val selectedElevationSource = recordingElevationSource
+        viewModelScope.launch {
+            locationPointMutex.withLock {
+                val elevation =
+                    elevationProvider.resolveElevation(
+                        latitude = latitude,
+                        longitude = longitude,
+                        gpsAltitudeMeters = gpsAltitudeMeters,
+                        source = selectedElevationSource,
+                    )
+                if (elevation.demAttempted) {
+                    if (elevation.demHit) {
+                        demElevationHitCount += 1
+                    } else {
+                        demElevationMissCount += 1
+                    }
+                }
+                if (elevation.gpsUsed) {
+                    gpsElevationUsedCount += 1
+                }
+                val point =
+                    RecordedTracePoint(
+                        latLong = LatLong(latitude, longitude),
+                        elevationMeters = elevation.elevationMeters,
+                        timeMillis = timeMillis,
+                        accuracyMeters = accuracyMeters,
+                        speedMps = speedMps,
+                        elevationSource = elevation.resolvedSource,
+                    )
+                val currentState = _uiState.value
+                if (!currentState.active || currentState.saving) return@withLock
+                val previous = currentState.points.lastOrNull()
+                val addedDistance = previous?.let { haversineMeters(it.latLong, point.latLong) } ?: 0.0
+                updateAccuracyTelemetry(point.accuracyMeters)
+                _uiState.value =
+                    currentState.copy(
+                        points = currentState.points + point,
+                        distanceMeters = currentState.distanceMeters + addedDistance,
+                        message = null,
+                    )
+                val pointCount = currentState.points.size + 1
+                if (pointCount == 1 || pointCount % RECORDING_TELEMETRY_POINT_INTERVAL == 0) {
+                    DebugTelemetry.log(
+                        "TraceRecording",
+                        "event=point points=$pointCount " +
+                            "distanceMeters=${(currentState.distanceMeters + addedDistance).toInt()} " +
+                            "accuracyMeters=${point.accuracyMeters?.toInt() ?: -1} " +
+                            "elevationMeters=${point.elevationMeters?.toInt() ?: -1} " +
+                            "elevationSource=${point.elevationSource ?: "na"} " +
+                            "demHits=$demElevationHitCount demMisses=$demElevationMissCount " +
+                            "gpsElevationUsed=$gpsElevationUsedCount " +
+                            "skippedInterval=$skippedIntervalCount skippedPaused=$skippedPausedCount " +
+                            "skippedUnusable=$skippedUnusableLocationCount",
+                    )
+                }
+            }
         }
     }
 
@@ -261,6 +308,9 @@ class TraceRecordingViewModel(
         skippedIntervalCount = 0
         skippedPausedCount = 0
         skippedUnusableLocationCount = 0
+        demElevationHitCount = 0
+        demElevationMissCount = 0
+        gpsElevationUsedCount = 0
         acceptedAccuracySumMeters = 0.0
         acceptedAccuracyCount = 0
         acceptedAccuracyMinMeters = null
@@ -305,6 +355,8 @@ class TraceRecordingViewModel(
         return "points=${state.points.size} distanceMeters=${state.distanceMeters.toInt()} " +
             "durationMs=$durationMillis pausedMs=$pausedMillis " +
             "elevationGainMeters=${elevation.first.toInt()} elevationLossMeters=${elevation.second.toInt()} " +
+            "elevationSource=$recordingElevationSource demHits=$demElevationHitCount " +
+            "demMisses=$demElevationMissCount gpsElevationUsed=$gpsElevationUsedCount " +
             "accuracySamples=$acceptedAccuracyCount " +
             "accuracyAvgMeters=${avgAccuracy?.toInt() ?: -1} " +
             "accuracyMinMeters=${acceptedAccuracyMinMeters?.toInt() ?: -1} " +

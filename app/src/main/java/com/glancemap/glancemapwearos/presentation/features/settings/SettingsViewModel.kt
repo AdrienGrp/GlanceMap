@@ -95,6 +95,19 @@ class SettingsViewModel(
             settingsRepository.setRecordingSampleIntervalSeconds(seconds)
         }
 
+    val recordingElevationSource: StateFlow<String> =
+        settingsRepository.recordingElevationSource
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE,
+            )
+
+    fun setRecordingElevationSource(source: String) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingElevationSource(source)
+        }
+
     val recordingDashboardMetricSlots: StateFlow<List<String>> =
         settingsRepository.recordingDashboardMetricSlots
             .stateIn(

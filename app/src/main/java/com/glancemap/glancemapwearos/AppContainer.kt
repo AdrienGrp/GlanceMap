@@ -18,6 +18,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.LocationViewModel
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
+import com.glancemap.glancemapwearos.presentation.features.recording.RecordingElevationProvider
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingViewModel
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -146,6 +147,7 @@ class DefaultAppContainer(
             gpxRepository = gpxRepository,
             settingsRepository = settingsRepository,
             syncManager = syncManager,
+            elevationProvider = RecordingElevationProvider(applicationContext),
         )
     }
 }

@@ -39,6 +39,7 @@ data class DiagnosticsSettingsSnapshot(
     val gpsPassiveLocationExperiment: Boolean,
     val backButtonExitsNavigation: Boolean,
     val recordingSampleIntervalSeconds: Int = 0,
+    val recordingElevationSource: String = "na",
     val turnByTurnGuidanceSource: String = "na",
     val turnByTurnUseBrouterTiles: Boolean = false,
     val turnByTurnHapticsEnabled: Boolean = true,
@@ -170,6 +171,10 @@ object DiagnosticsExporter {
         val recordingSkippedIntervalCount: Int? = null,
         val recordingSkippedPausedCount: Int? = null,
         val recordingSkippedUnusableCount: Int? = null,
+        val recordingElevationSource: String? = null,
+        val recordingDemHitCount: Int? = null,
+        val recordingDemMissCount: Int? = null,
+        val recordingGpsElevationUsedCount: Int? = null,
         val recordingAccuracySampleCount: Int? = null,
         val recordingAccuracyAvgMeters: Int? = null,
         val recordingAccuracyMinMeters: Int? = null,
@@ -467,6 +472,7 @@ object DiagnosticsExporter {
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
             writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
+            writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
             writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
             writer.appendLine("turnByTurnUseBrouterTiles=${settings.turnByTurnUseBrouterTiles}")
             writer.appendLine("turnByTurnHapticsEnabled=${settings.turnByTurnHapticsEnabled}")
@@ -861,6 +867,14 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "recordingSkippedUnusableCount=${telemetryInsights.recordingSkippedUnusableCount?.toString() ?: "na"}",
+            )
+            writer.appendLine("recordingElevationSource=${telemetryInsights.recordingElevationSource ?: "na"}")
+            writer.appendLine("recordingDemHitCount=${telemetryInsights.recordingDemHitCount?.toString() ?: "na"}")
+            writer.appendLine("recordingDemMissCount=${telemetryInsights.recordingDemMissCount?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingGpsElevationUsedCount=${
+                    telemetryInsights.recordingGpsElevationUsedCount?.toString() ?: "na"
+                }",
             )
             writer.appendLine(
                 "recordingAccuracySampleCount=${telemetryInsights.recordingAccuracySampleCount?.toString() ?: "na"}",

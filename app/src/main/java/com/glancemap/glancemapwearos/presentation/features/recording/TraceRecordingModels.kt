@@ -8,6 +8,7 @@ data class RecordedTracePoint(
     val timeMillis: Long,
     val accuracyMeters: Float?,
     val speedMps: Float?,
+    val elevationSource: String? = null,
 )
 
 data class TraceRecordingUiState(

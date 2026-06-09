@@ -23,6 +23,10 @@ interface SettingsRepository {
         const val RECORDING_METRIC_AVERAGE_SPEED = "average_speed"
         const val RECORDING_METRIC_GPS_ACCURACY = "gps_accuracy"
         const val RECORDING_METRIC_POINTS = "points"
+        const val RECORDING_ELEVATION_SOURCE_GPS = "GPS"
+        const val RECORDING_ELEVATION_SOURCE_DEM = "DEM"
+        const val RECORDING_ELEVATION_SOURCE_AUTO = "AUTO"
+        const val DEFAULT_RECORDING_ELEVATION_SOURCE = RECORDING_ELEVATION_SOURCE_GPS
         val DEFAULT_RECORDING_DASHBOARD_METRICS =
             listOf(
                 RECORDING_METRIC_DISTANCE,
@@ -137,6 +141,10 @@ interface SettingsRepository {
     val recordingSampleIntervalSeconds: Flow<Int>
 
     suspend fun setRecordingSampleIntervalSeconds(seconds: Int)
+
+    val recordingElevationSource: Flow<String>
+
+    suspend fun setRecordingElevationSource(source: String)
 
     val recordingDashboardMetricSlots: Flow<List<String>>
 

@@ -49,6 +49,7 @@ class SettingsRepositoryImpl private constructor(
         val GPS_PASSIVE_LOCATION_EXPERIMENT = booleanPreferencesKey("gps_passive_location_experiment")
         val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
         val RECORDING_SAMPLE_INTERVAL_SECONDS = intPreferencesKey("recording_sample_interval_seconds")
+        val RECORDING_ELEVATION_SOURCE = stringPreferencesKey("recording_elevation_source")
         val RECORDING_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("recording_dashboard_metric_slots")
         val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
         val TURN_BY_TURN_USE_BROUTER_TILES = booleanPreferencesKey("turn_by_turn_use_brouter_tiles")
@@ -192,6 +193,21 @@ class SettingsRepositoryImpl private constructor(
                 } else {
                     SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
                 }
+        }
+    }
+
+    override val recordingElevationSource: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_ELEVATION_SOURCE]
+                .takeIf { source -> source in allowedRecordingElevationSources }
+                ?: SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
+        }
+
+    override suspend fun setRecordingElevationSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_ELEVATION_SOURCE] =
+                source.takeIf { candidate -> candidate in allowedRecordingElevationSources }
+                    ?: SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
         }
     }
 
@@ -1111,6 +1127,12 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
                 SettingsRepository.RECORDING_METRIC_GPS_ACCURACY,
                 SettingsRepository.RECORDING_METRIC_POINTS,
+            )
+        private val allowedRecordingElevationSources =
+            setOf(
+                SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
+                SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
+                SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO,
             )
         private val allowedPoiIconSizesPx =
             setOf(
