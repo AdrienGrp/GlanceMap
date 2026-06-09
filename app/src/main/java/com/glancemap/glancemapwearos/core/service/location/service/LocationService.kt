@@ -129,6 +129,8 @@ class LocationService : Service() {
 
     @Volatile private var latestAmbientGps: Boolean = false
 
+    @Volatile private var latestRuntimeBackgroundGps: Boolean = false
+
     @Volatile private var latestScreenState: LocationScreenState = LocationScreenState.INTERACTIVE
 
     @Volatile private var latestGpsDebugTelemetry: Boolean = false
@@ -302,7 +304,7 @@ class LocationService : Service() {
                             latestWatchGpsOnly ||
                                 selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps(),
                         screenState = latestScreenState,
-                        backgroundGps = latestAmbientGps,
+                        backgroundGps = effectiveBackgroundGpsEnabled(),
                         passiveLocationExperiment = latestGpsDebugTelemetry && latestPassiveLocationExperiment,
                         userIntervalMs = latestUserIntervalMs,
                         ambientIntervalMs = latestAmbientIntervalMs,
@@ -394,7 +396,8 @@ class LocationService : Service() {
     ): Int {
         val hasScreenState = intent?.hasExtra(EXTRA_SCREEN_STATE) == true
         val hasTrackingEnabled = intent?.hasExtra(EXTRA_TRACKING_ENABLED) == true
-        if (hasScreenState || hasTrackingEnabled) {
+        val hasBackgroundGpsEnabled = intent?.hasExtra(EXTRA_BACKGROUND_GPS_ENABLED) == true
+        if (hasScreenState || hasTrackingEnabled || hasBackgroundGpsEnabled) {
             val screenStateName = intent.getStringExtra(EXTRA_SCREEN_STATE)
             val screenState =
                 runCatching {
@@ -407,6 +410,12 @@ class LocationService : Service() {
                         intent.getBooleanExtra(EXTRA_TRACKING_ENABLED, false)
                     } else {
                         latestTrackingEnabled
+                    },
+                backgroundGpsEnabled =
+                    if (hasBackgroundGpsEnabled) {
+                        intent.getBooleanExtra(EXTRA_BACKGROUND_GPS_ENABLED, false)
+                    } else {
+                        latestRuntimeBackgroundGps
                     },
             )
         }
@@ -483,23 +492,27 @@ class LocationService : Service() {
     fun setRuntimeState(
         screenState: LocationScreenState,
         trackingEnabled: Boolean,
+        backgroundGpsEnabled: Boolean = latestRuntimeBackgroundGps,
     ) {
         val screenStateChanged = latestScreenState != screenState
         val trackingChanged = latestTrackingEnabled != trackingEnabled
-        if (!screenStateChanged && !trackingChanged) return
+        val backgroundGpsChanged = latestRuntimeBackgroundGps != backgroundGpsEnabled
+        if (!screenStateChanged && !trackingChanged && !backgroundGpsChanged) return
 
         latestScreenState = screenState
         latestTrackingEnabled = trackingEnabled
+        latestRuntimeBackgroundGps = backgroundGpsEnabled
         lastRuntimeStateChangedAtElapsedMs = SystemClock.elapsedRealtime()
         pendingDebouncedImmediateLocationJob?.cancel()
         pendingDebouncedImmediateLocationJob = null
+        val effectiveBackgroundGpsEnabled = effectiveBackgroundGpsEnabled()
 
         telemetry.logRuntimeStateApplied(
             screenState = screenState.name,
             trackingEnabled = trackingEnabled,
             screenStateChanged = screenStateChanged,
             trackingChanged = trackingChanged,
-            backgroundGpsEnabled = latestAmbientGps,
+            backgroundGpsEnabled = effectiveBackgroundGpsEnabled,
         )
         if (screenStateChanged) {
             telemetry.logScreenState(screenState.name)
@@ -511,7 +524,7 @@ class LocationService : Service() {
             !trackingEnabled -> {
                 immediateLocationCoordinator.cancelImmediateLocationWork(reason = "tracking_disabled")
             }
-            screenState.isNonInteractive && !latestAmbientGps -> {
+            screenState.isNonInteractive && !effectiveBackgroundGpsEnabled -> {
                 immediateLocationCoordinator.cancelImmediateLocationWork(
                     reason = "non_interactive_without_gps",
                 )
@@ -673,7 +686,7 @@ class LocationService : Service() {
     private fun immediateBurstGuardReason(): String? =
         when {
             !latestTrackingEnabled -> "tracking_disabled"
-            latestScreenState.isNonInteractive && !latestAmbientGps -> "non_interactive_without_gps"
+            latestScreenState.isNonInteractive && !effectiveBackgroundGpsEnabled() -> "non_interactive_without_gps"
             else -> null
         }
 
@@ -1091,16 +1104,19 @@ class LocationService : Service() {
     private fun shouldUseLocationForegroundMode(): Boolean {
         val locationAllowedByUiState =
             latestTrackingEnabled &&
-                (latestScreenState.isInteractive || latestAmbientGps)
+                (latestScreenState.isInteractive || effectiveBackgroundGpsEnabled())
         return locationAllowedByUiState
     }
 
     private fun isNonInteractiveScreenState(): Boolean = latestScreenState.isNonInteractive
 
+    private fun effectiveBackgroundGpsEnabled(): Boolean = latestAmbientGps || latestRuntimeBackgroundGps
+
     companion object {
         const val EXTRA_KEEP_APP_OPEN = "extra_keep_app_open"
         const val EXTRA_TRACKING_ENABLED = "extra_tracking_enabled"
         const val EXTRA_SCREEN_STATE = "extra_screen_state"
+        const val EXTRA_BACKGROUND_GPS_ENABLED = "extra_background_gps_enabled"
         private const val IMMEDIATE_GET_CURRENT_TIMEOUT_MS = 12_000L
         private const val HARD_STALE_FIX_MAX_AGE_INTERACTIVE_MS = 20_000L
         private const val HARD_STALE_FIX_MAX_AGE_PASSIVE_MS = 60_000L

@@ -20,6 +20,9 @@ data class TraceRecordingUiState(
     val startedAtMillis: Long? = null,
     val pausedAtMillis: Long? = null,
     val accumulatedPausedMillis: Long = 0L,
+    val gpsActiveDurationMillis: Long = 0L,
+    val recordingGapCount: Int = 0,
+    val recordingMaxGapMillis: Long = 0L,
     val message: String? = null,
 ) {
     val pointCount: Int get() = points.size

@@ -39,6 +39,7 @@ data class DiagnosticsSettingsSnapshot(
     val gpsPassiveLocationExperiment: Boolean,
     val backButtonExitsNavigation: Boolean,
     val recordingSampleIntervalSeconds: Int = 0,
+    val recordingBackgroundMode: String = "na",
     val recordingElevationSource: String = "na",
     val turnByTurnGuidanceSource: String = "na",
     val turnByTurnUseBrouterTiles: Boolean = false,
@@ -168,6 +169,10 @@ object DiagnosticsExporter {
         val recordingMaxDurationMs: Long? = null,
         val recordingLastPausedMs: Long? = null,
         val recordingMaxPausedMs: Long? = null,
+        val recordingGpsActiveDurationMs: Long? = null,
+        val recordingGapCount: Int? = null,
+        val recordingMaxGapMs: Long? = null,
+        val recordingLastPointAgeMs: Long? = null,
         val recordingSkippedIntervalCount: Int? = null,
         val recordingSkippedPausedCount: Int? = null,
         val recordingSkippedUnusableCount: Int? = null,
@@ -472,6 +477,7 @@ object DiagnosticsExporter {
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
             writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
+            writer.appendLine("recordingBackgroundMode=${settings.recordingBackgroundMode}")
             writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
             writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
             writer.appendLine("turnByTurnUseBrouterTiles=${settings.turnByTurnUseBrouterTiles}")
@@ -857,6 +863,16 @@ object DiagnosticsExporter {
             )
             writer.appendLine("recordingLastPausedMs=${telemetryInsights.recordingLastPausedMs?.toString() ?: "na"}")
             writer.appendLine("recordingMaxPausedMs=${telemetryInsights.recordingMaxPausedMs?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingGpsActiveDurationMs=${
+                    telemetryInsights.recordingGpsActiveDurationMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine("recordingGapCount=${telemetryInsights.recordingGapCount?.toString() ?: "na"}")
+            writer.appendLine("recordingMaxGapMs=${telemetryInsights.recordingMaxGapMs?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingLastPointAgeMs=${telemetryInsights.recordingLastPointAgeMs?.toString() ?: "na"}",
+            )
             writer.appendLine(
                 "recordingSkippedIntervalCount=${
                     telemetryInsights.recordingSkippedIntervalCount?.toString() ?: "na"

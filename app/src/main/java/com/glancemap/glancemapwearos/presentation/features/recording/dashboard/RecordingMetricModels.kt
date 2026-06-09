@@ -34,6 +34,9 @@ internal data class RecordingDashboardSnapshot(
     val averageSpeedMps: Double?,
     val gpsAccuracyMeters: Float?,
     val pointCount: Int,
+    val gpsActiveDurationSeconds: Double,
+    val recordingGapCount: Int,
+    val recordingMaxGapSeconds: Double,
 )
 
 internal val recordingMetricDefinitions =
@@ -47,6 +50,9 @@ internal val recordingMetricDefinitions =
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED, "Avg speed"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_GPS_ACCURACY, "GPS acc."),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_POINTS, "Points"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_GPS_ACTIVE_TIME, "GPS time"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_GAPS, "Gaps"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_MAX_GAP, "Max gap"),
     )
 
 internal fun metricDefinitionFor(id: String): RecordingMetricDefinition =
@@ -83,6 +89,9 @@ internal fun buildRecordingDashboardSnapshot(
             },
         gpsAccuracyMeters = state.points.lastOrNull()?.accuracyMeters,
         pointCount = state.points.size,
+        gpsActiveDurationSeconds = state.gpsActiveDurationMillis / 1000.0,
+        recordingGapCount = state.recordingGapCount,
+        recordingMaxGapSeconds = state.recordingMaxGapMillis / 1000.0,
     )
 }
 
@@ -131,6 +140,12 @@ internal fun formattedRecordingMetric(
         }
         SettingsRepository.RECORDING_METRIC_POINTS ->
             RecordingMetricValue(definition.label, snapshot.pointCount.toString())
+        SettingsRepository.RECORDING_METRIC_GPS_ACTIVE_TIME ->
+            RecordingMetricValue(definition.label, DurationFormatter.formatDurationShort(snapshot.gpsActiveDurationSeconds))
+        SettingsRepository.RECORDING_METRIC_GAPS ->
+            RecordingMetricValue(definition.label, snapshot.recordingGapCount.toString())
+        SettingsRepository.RECORDING_METRIC_MAX_GAP ->
+            RecordingMetricValue(definition.label, DurationFormatter.formatDurationShort(snapshot.recordingMaxGapSeconds))
         else -> RecordingMetricValue(definition.label, "--")
     }
 }

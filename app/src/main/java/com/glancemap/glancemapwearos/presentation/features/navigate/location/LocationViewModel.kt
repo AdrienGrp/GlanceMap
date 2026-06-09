@@ -45,6 +45,7 @@ class LocationViewModel(
     private var intervalJob: Job? = null
     private var desiredKeepAppOpen: Boolean = false
     private var desiredScreenState: LocationScreenState = LocationScreenState.INTERACTIVE
+    private var desiredBackgroundGpsEnabled: Boolean = false
     private var pendingImmediateLocationRequestSource: String? = null
     private var lastImmediateRequestAtMs: Long = Long.MIN_VALUE
     private var lastStartupImmediateRequestAtMs: Long = Long.MIN_VALUE
@@ -95,6 +96,7 @@ class LocationViewModel(
                 locationService?.setRuntimeState(
                     screenState = desiredScreenState,
                     trackingEnabled = isTrackingEnabled,
+                    backgroundGpsEnabled = desiredBackgroundGpsEnabled,
                 )
                 pendingImmediateLocationRequestSource?.let { pendingSource ->
                     if (isTrackingEnabled) {
@@ -131,10 +133,12 @@ class LocationViewModel(
     fun syncRuntimeState(
         screenState: LocationScreenState,
         trackingEnabled: Boolean,
+        backgroundGpsEnabled: Boolean = desiredBackgroundGpsEnabled,
     ) {
         val screenStateChanged = desiredScreenState != screenState
         val trackingChanged = isTrackingEnabled != trackingEnabled
-        if (!screenStateChanged && !trackingChanged) return
+        val backgroundGpsChanged = desiredBackgroundGpsEnabled != backgroundGpsEnabled
+        if (!screenStateChanged && !trackingChanged && !backgroundGpsChanged) return
 
         if (screenStateChanged) {
             updateScreenOffTelemetryState(
@@ -145,11 +149,13 @@ class LocationViewModel(
         }
 
         desiredScreenState = screenState
+        desiredBackgroundGpsEnabled = backgroundGpsEnabled
 
         if (!trackingChanged) {
             locationService?.setRuntimeState(
                 screenState = screenState,
                 trackingEnabled = trackingEnabled,
+                backgroundGpsEnabled = backgroundGpsEnabled,
             )
             return
         }
@@ -162,6 +168,7 @@ class LocationViewModel(
             locationService?.setRuntimeState(
                 screenState = screenState,
                 trackingEnabled = true,
+                backgroundGpsEnabled = backgroundGpsEnabled,
             )
             dispatchPendingImmediateLocationRequestIfTrackingEnabled(suffix = "after_tracking_enable")
             ensureConnectionWatchdog()
@@ -169,6 +176,7 @@ class LocationViewModel(
             locationService?.setRuntimeState(
                 screenState = screenState,
                 trackingEnabled = false,
+                backgroundGpsEnabled = backgroundGpsEnabled,
             )
             pendingImmediateLocationRequestSource = null
             if (desiredKeepAppOpen && locationService == null) {
@@ -387,7 +395,8 @@ class LocationViewModel(
             intent.putExtra(LocationService.EXTRA_KEEP_APP_OPEN, keepAppOpen)
             intent.putExtra(LocationService.EXTRA_TRACKING_ENABLED, trackingEnabled)
             intent.putExtra(LocationService.EXTRA_SCREEN_STATE, desiredScreenState.name)
-            val shouldUseForegroundStart = keepAppOpen && trackingEnabled
+            intent.putExtra(LocationService.EXTRA_BACKGROUND_GPS_ENABLED, desiredBackgroundGpsEnabled)
+            val shouldUseForegroundStart = trackingEnabled && (keepAppOpen || desiredBackgroundGpsEnabled)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldUseForegroundStart) {
                 ContextCompat.startForegroundService(app, intent)
             } else {

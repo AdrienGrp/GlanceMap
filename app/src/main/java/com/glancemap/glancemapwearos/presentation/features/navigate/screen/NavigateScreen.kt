@@ -226,6 +226,9 @@ fun NavigateScreen(
     val autoRecenterDelay by settingsViewModel.autoRecenterDelay.collectAsState(initial = 5)
     val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
     val keepGpsInAmbient by settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
+    val recordingBackgroundMode by settingsViewModel.recordingBackgroundMode.collectAsState(
+        initial = SettingsRepository.DEFAULT_RECORDING_BACKGROUND_MODE,
+    )
     val turnByTurnHapticsEnabled by settingsViewModel.turnByTurnHapticsEnabled.collectAsState(initial = true)
     val turnByTurnTurnAlertsMode by settingsViewModel.turnByTurnTurnAlertsMode.collectAsState(
         initial = SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT,
@@ -387,9 +390,14 @@ fun NavigateScreen(
         }
 
     // ---- Should track location? ----
-    val backgroundGpsModeActive =
-        (keepGpsInAmbient || (activeTurnByTurnGuidanceSession != null && turnByTurnGpsInAmbient)) &&
-            screenState.isNonInteractive
+    val effectiveBackgroundGpsEnabled =
+        keepGpsInAmbient ||
+            (activeTurnByTurnGuidanceSession != null && turnByTurnGpsInAmbient) ||
+            (
+                traceRecordingState.active &&
+                    recordingBackgroundMode == SettingsRepository.RECORDING_BACKGROUND_MODE_SCREEN_OFF
+            )
+    val backgroundGpsModeActive = effectiveBackgroundGpsEnabled && screenState.isNonInteractive
     val shouldTrackLocation =
         locationPermissionState.hasLocationPermission &&
             !offlineMode &&
@@ -641,10 +649,11 @@ fun NavigateScreen(
 
     // Keep service runtime state in sync with one combined update so
     // screen-state transitions do not trigger back-to-back request recomputes.
-    LaunchedEffect(screenState, shouldTrackLocation) {
+    LaunchedEffect(screenState, shouldTrackLocation, effectiveBackgroundGpsEnabled) {
         locationViewModel.syncRuntimeState(
             screenState = screenState,
             trackingEnabled = shouldTrackLocation,
+            backgroundGpsEnabled = effectiveBackgroundGpsEnabled,
         )
     }
     // isScreenResumed already reflects lifecycle resume, so one state-driven wake reacquire
@@ -667,6 +676,7 @@ fun NavigateScreen(
             locationViewModel.syncRuntimeState(
                 screenState = LocationScreenState.INTERACTIVE,
                 trackingEnabled = false,
+                backgroundGpsEnabled = false,
             )
         }
     }

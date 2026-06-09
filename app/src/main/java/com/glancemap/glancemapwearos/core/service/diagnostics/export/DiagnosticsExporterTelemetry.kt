@@ -166,6 +166,10 @@ internal fun deriveTelemetryInsights(
     var recordingMaxDurationMs: Long? = null
     var recordingLastPausedMs: Long? = null
     var recordingMaxPausedMs: Long? = null
+    var recordingGpsActiveDurationMs: Long? = null
+    var recordingGapCount: Int? = null
+    var recordingMaxGapMs: Long? = null
+    var recordingLastPointAgeMs: Long? = null
     var recordingSkippedIntervalCount: Int? = null
     var recordingSkippedPausedCount: Int? = null
     var recordingSkippedUnusableCount: Int? = null
@@ -379,6 +383,18 @@ internal fun deriveTelemetryInsights(
             parseLongToken(line, "pausedMs=")?.let { paused ->
                 recordingLastPausedMs = paused
                 recordingMaxPausedMs = maxOf(recordingMaxPausedMs ?: paused, paused)
+            }
+            parseLongToken(line, "gpsActiveDurationMs=")?.let { duration ->
+                recordingGpsActiveDurationMs = maxOf(recordingGpsActiveDurationMs ?: duration, duration)
+            }
+            parseIntToken(line, "recordingGapCount=")?.let { count ->
+                recordingGapCount = maxOf(recordingGapCount ?: count, count)
+            }
+            parseLongToken(line, "recordingMaxGapMs=")?.let { gap ->
+                recordingMaxGapMs = maxOf(recordingMaxGapMs ?: gap, gap)
+            }
+            parseLongToken(line, "lastPointAgeMs=")?.takeIf { it >= 0L }?.let { age ->
+                recordingLastPointAgeMs = age
             }
             parseIntToken(line, "skippedInterval=")?.let { skipped ->
                 recordingSkippedIntervalCount = maxOf(recordingSkippedIntervalCount ?: skipped, skipped)
@@ -610,6 +626,10 @@ internal fun deriveTelemetryInsights(
         recordingMaxDurationMs = recordingMaxDurationMs,
         recordingLastPausedMs = recordingLastPausedMs,
         recordingMaxPausedMs = recordingMaxPausedMs,
+        recordingGpsActiveDurationMs = recordingGpsActiveDurationMs,
+        recordingGapCount = recordingGapCount,
+        recordingMaxGapMs = recordingMaxGapMs,
+        recordingLastPointAgeMs = recordingLastPointAgeMs,
         recordingSkippedIntervalCount = recordingSkippedIntervalCount,
         recordingSkippedPausedCount = recordingSkippedPausedCount,
         recordingSkippedUnusableCount = recordingSkippedUnusableCount,

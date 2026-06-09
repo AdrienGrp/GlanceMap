@@ -48,6 +48,10 @@ class TraceRecordingViewModel(
     private var acceptedAccuracyCount = 0
     private var acceptedAccuracyMinMeters: Float? = null
     private var acceptedAccuracyMaxMeters: Float? = null
+    private var lastAcceptedPointTimeMillis: Long? = null
+    private var gpsActiveDurationMillis: Long = 0L
+    private var recordingGapCount: Int = 0
+    private var recordingMaxGapMillis: Long = 0L
 
     init {
         settingsRepository.recordingSampleIntervalSeconds
@@ -147,11 +151,15 @@ class TraceRecordingViewModel(
                 if (!currentState.active || currentState.saving) return@withLock
                 val previous = currentState.points.lastOrNull()
                 val addedDistance = previous?.let { haversineMeters(it.latLong, point.latLong) } ?: 0.0
+                updateGapTelemetry(point.timeMillis)
                 updateAccuracyTelemetry(point.accuracyMeters)
                 _uiState.value =
                     currentState.copy(
                         points = currentState.points + point,
                         distanceMeters = currentState.distanceMeters + addedDistance,
+                        gpsActiveDurationMillis = gpsActiveDurationMillis,
+                        recordingGapCount = recordingGapCount,
+                        recordingMaxGapMillis = recordingMaxGapMillis,
                         message = null,
                     )
                 val pointCount = currentState.points.size + 1
@@ -165,6 +173,8 @@ class TraceRecordingViewModel(
                             "elevationSource=${point.elevationSource ?: "na"} " +
                             "demHits=$demElevationHitCount demMisses=$demElevationMissCount " +
                             "gpsElevationUsed=$gpsElevationUsedCount " +
+                            "gpsActiveDurationMs=$gpsActiveDurationMillis " +
+                            "recordingGapCount=$recordingGapCount recordingMaxGapMs=$recordingMaxGapMillis " +
                             "skippedInterval=$skippedIntervalCount skippedPaused=$skippedPausedCount " +
                             "skippedUnusable=$skippedUnusableLocationCount",
                     )
@@ -315,7 +325,33 @@ class TraceRecordingViewModel(
         acceptedAccuracyCount = 0
         acceptedAccuracyMinMeters = null
         acceptedAccuracyMaxMeters = null
+        lastAcceptedPointTimeMillis = null
+        gpsActiveDurationMillis = 0L
+        recordingGapCount = 0
+        recordingMaxGapMillis = 0L
     }
+
+    private fun updateGapTelemetry(pointTimeMillis: Long) {
+        val previousPointTimeMillis = lastAcceptedPointTimeMillis
+        if (previousPointTimeMillis != null) {
+            val gapMillis = (pointTimeMillis - previousPointTimeMillis).coerceAtLeast(0L)
+            val expectedActiveGapMillis = expectedActivePointGapMillis()
+            gpsActiveDurationMillis += minOf(gapMillis, expectedActiveGapMillis)
+            if (gapMillis > recordingGapThresholdMillis()) {
+                recordingGapCount += 1
+                recordingMaxGapMillis = maxOf(recordingMaxGapMillis, gapMillis)
+            }
+        }
+        lastAcceptedPointTimeMillis = pointTimeMillis
+    }
+
+    private fun expectedActivePointGapMillis(): Long =
+        (sampleIntervalSeconds * 1_000L)
+            .coerceAtLeast(RECORDING_GPS_ACTIVE_GAP_FLOOR_MS)
+            .coerceAtMost(RECORDING_GPS_ACTIVE_GAP_CAP_MS)
+
+    private fun recordingGapThresholdMillis(): Long =
+        maxOf(sampleIntervalSeconds * 2_000L, RECORDING_GAP_MIN_THRESHOLD_MS)
 
     private fun updateAccuracyTelemetry(accuracyMeters: Float?) {
         val accuracy = accuracyMeters ?: return
@@ -354,6 +390,9 @@ class TraceRecordingViewModel(
             }
         return "points=${state.points.size} distanceMeters=${state.distanceMeters.toInt()} " +
             "durationMs=$durationMillis pausedMs=$pausedMillis " +
+            "gpsActiveDurationMs=${state.gpsActiveDurationMillis} " +
+            "recordingGapCount=${state.recordingGapCount} recordingMaxGapMs=${state.recordingMaxGapMillis} " +
+            "lastPointAgeMs=${state.points.lastOrNull()?.timeMillis?.let { nowMillis - it }?.coerceAtLeast(0L) ?: -1} " +
             "elevationGainMeters=${elevation.first.toInt()} elevationLossMeters=${elevation.second.toInt()} " +
             "elevationSource=$recordingElevationSource demHits=$demElevationHitCount " +
             "demMisses=$demElevationMissCount gpsElevationUsed=$gpsElevationUsedCount " +
@@ -365,6 +404,10 @@ class TraceRecordingViewModel(
             "skippedUnusable=$skippedUnusableLocationCount"
     }
 }
+
+private const val RECORDING_GAP_MIN_THRESHOLD_MS = 15_000L
+private const val RECORDING_GPS_ACTIVE_GAP_FLOOR_MS = 1_000L
+private const val RECORDING_GPS_ACTIVE_GAP_CAP_MS = 15_000L
 
 private data class RecordingSaveInfo(
     val fileName: String,
