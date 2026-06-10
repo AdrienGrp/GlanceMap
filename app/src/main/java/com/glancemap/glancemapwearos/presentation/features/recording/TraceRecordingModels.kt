@@ -9,6 +9,10 @@ data class RecordedTracePoint(
     val accuracyMeters: Float?,
     val speedMps: Float?,
     val elevationSource: String? = null,
+    val heartRateBpm: Int? = null,
+    val stepCount: Int? = null,
+    val cadenceSpm: Int? = null,
+    val barometricPressureHpa: Double? = null,
 )
 
 data class TraceRecordingUiState(
@@ -23,6 +27,10 @@ data class TraceRecordingUiState(
     val gpsActiveDurationMillis: Long = 0L,
     val recordingGapCount: Int = 0,
     val recordingMaxGapMillis: Long = 0L,
+    val heartRateBpm: Int? = null,
+    val stepCount: Int? = null,
+    val cadenceSpm: Int? = null,
+    val barometricPressureHpa: Double? = null,
     val message: String? = null,
 ) {
     val pointCount: Int get() = points.size

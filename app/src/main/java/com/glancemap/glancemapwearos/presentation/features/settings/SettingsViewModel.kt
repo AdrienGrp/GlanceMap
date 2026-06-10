@@ -113,7 +113,7 @@ class SettingsViewModel(
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5000),
-                SettingsRepository.DEFAULT_RECORDING_DASHBOARD_METRICS,
+                SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS,
             )
 
     fun setRecordingDashboardMetricSlot(

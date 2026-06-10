@@ -25,7 +25,8 @@ import kotlin.math.roundToInt
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 private const val RECORDING_DASHBOARD_SLOT_SEPARATOR = ","
-private const val RECORDING_DASHBOARD_SLOT_COUNT = 4
+private const val RECORDING_DASHBOARD_PAGE_SLOT_COUNT = 4
+private const val RECORDING_DASHBOARD_SLOT_COUNT = 8
 
 class SettingsRepositoryImpl private constructor(
     private val context: Context,
@@ -1125,17 +1126,25 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
                 SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
                 SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
-                SettingsRepository.RECORDING_METRIC_GPS_ACCURACY,
-                SettingsRepository.RECORDING_METRIC_POINTS,
-                SettingsRepository.RECORDING_METRIC_GPS_ACTIVE_TIME,
-                SettingsRepository.RECORDING_METRIC_GAPS,
-                SettingsRepository.RECORDING_METRIC_MAX_GAP,
+                SettingsRepository.RECORDING_METRIC_CURRENT_PACE,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_PACE,
+                SettingsRepository.RECORDING_METRIC_HEART_RATE,
+                SettingsRepository.RECORDING_METRIC_STEPS,
+                SettingsRepository.RECORDING_METRIC_CADENCE,
+                SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
             )
         private val allowedRecordingElevationSources =
             setOf(
                 SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
                 SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
                 SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO,
+            )
+        private val LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS =
+            listOf(
+                SettingsRepository.RECORDING_METRIC_DISTANCE,
+                SettingsRepository.RECORDING_METRIC_DURATION,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
             )
         private val allowedPoiIconSizesPx =
             setOf(
@@ -1216,7 +1225,17 @@ class SettingsRepositoryImpl private constructor(
                     ?.mapNotNull { value ->
                         value.trim().takeIf { it in allowedRecordingDashboardMetricIds }
                     }.orEmpty()
-            return (parsed + SettingsRepository.DEFAULT_RECORDING_DASHBOARD_METRICS)
+            val migratedParsed =
+                if (parsed.take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT) == LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS) {
+                    SettingsRepository.DEFAULT_RECORDING_DASHBOARD_METRICS +
+                        parsed.drop(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
+                } else {
+                    parsed
+                }
+            return (
+                migratedParsed.take(RECORDING_DASHBOARD_SLOT_COUNT) +
+                    SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS.drop(migratedParsed.size)
+            )
                 .take(RECORDING_DASHBOARD_SLOT_COUNT)
         }
 

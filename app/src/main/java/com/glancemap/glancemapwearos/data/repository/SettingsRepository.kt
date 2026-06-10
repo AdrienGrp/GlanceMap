@@ -21,11 +21,12 @@ interface SettingsRepository {
         const val RECORDING_METRIC_CURRENT_ELEVATION = "current_elevation"
         const val RECORDING_METRIC_CURRENT_SPEED = "current_speed"
         const val RECORDING_METRIC_AVERAGE_SPEED = "average_speed"
-        const val RECORDING_METRIC_GPS_ACCURACY = "gps_accuracy"
-        const val RECORDING_METRIC_POINTS = "points"
-        const val RECORDING_METRIC_GPS_ACTIVE_TIME = "gps_active_time"
-        const val RECORDING_METRIC_GAPS = "gaps"
-        const val RECORDING_METRIC_MAX_GAP = "max_gap"
+        const val RECORDING_METRIC_CURRENT_PACE = "current_pace"
+        const val RECORDING_METRIC_AVERAGE_PACE = "average_pace"
+        const val RECORDING_METRIC_HEART_RATE = "heart_rate"
+        const val RECORDING_METRIC_STEPS = "steps"
+        const val RECORDING_METRIC_CADENCE = "cadence"
+        const val RECORDING_METRIC_BAROMETRIC_PRESSURE = "barometric_pressure"
         const val RECORDING_ELEVATION_SOURCE_GPS = "GPS"
         const val RECORDING_ELEVATION_SOURCE_DEM = "DEM"
         const val RECORDING_ELEVATION_SOURCE_AUTO = "AUTO"
@@ -33,10 +34,19 @@ interface SettingsRepository {
         val DEFAULT_RECORDING_DASHBOARD_METRICS =
             listOf(
                 RECORDING_METRIC_DISTANCE,
-                RECORDING_METRIC_DURATION,
                 RECORDING_METRIC_ELEVATION_GAIN,
                 RECORDING_METRIC_ELEVATION_LOSS,
+                RECORDING_METRIC_DURATION,
             )
+        val DEFAULT_RECORDING_DASHBOARD_PAGE_TWO_METRICS =
+            listOf(
+                RECORDING_METRIC_CURRENT_ELEVATION,
+                RECORDING_METRIC_CURRENT_SPEED,
+                RECORDING_METRIC_AVERAGE_SPEED,
+                RECORDING_METRIC_CURRENT_PACE,
+            )
+        val DEFAULT_RECORDING_DASHBOARD_ALL_METRICS =
+            DEFAULT_RECORDING_DASHBOARD_METRICS + DEFAULT_RECORDING_DASHBOARD_PAGE_TWO_METRICS
 
         const val ZOOM_BUTTONS_BOTH = "BOTH"
         const val ZOOM_BUTTONS_HIDE_BOTH = "HIDE_BOTH"

@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -30,7 +31,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -38,6 +38,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.wear.compose.foundation.CurvedTextStyle
+import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TimeText
 import androidx.wear.compose.material3.TimeTextDefaults
@@ -56,6 +57,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.formatNaviga
 import com.glancemap.glancemapwearos.presentation.features.navigate.navigateTimePattern
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiScreen
+import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorBridge
 import com.glancemap.glancemapwearos.presentation.features.settings.CompassSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.DebuggingSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpsSettingsScreen
@@ -65,6 +67,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.MapDisplaySe
 import com.glancemap.glancemapwearos.presentation.features.settings.MapSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapZoomSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.PoiSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingExternalSensorsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.RecordingSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefaultsConfirmScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
@@ -146,6 +149,7 @@ class MainActivity : ComponentActivity() {
             val navigateTimeFormat by appContainer.settingsViewModel.navigateTimeFormat.collectAsState()
             val isMetric by appContainer.settingsViewModel.isMetric.collectAsState()
             val traceRecordingState by appContainer.traceRecordingViewModel.uiState.collectAsState()
+            val recordingDashboardMetricSlots by appContainer.settingsViewModel.recordingDashboardMetricSlots.collectAsState()
 
             val isAmbient = _isAmbient
             val ambientTickMs = _ambientTickMs
@@ -164,6 +168,12 @@ class MainActivity : ComponentActivity() {
                 val route = backStackEntry?.destination?.route
                 val routeLabel = route ?: WatchRoutes.NAVIGATE
                 val compositionContext = LocalContext.current
+                RecordingSensorBridge(
+                    active = traceRecordingState.active,
+                    paused = traceRecordingState.paused,
+                    selectedMetricIds = recordingDashboardMetricSlots,
+                    onMetrics = appContainer.traceRecordingViewModel::onSensorMetrics,
+                )
                 val locationPermissionGranted =
                     ContextCompat.checkSelfPermission(
                         compositionContext,
@@ -521,6 +531,26 @@ class MainActivity : ComponentActivity() {
                                             restoreState = true
                                         }
                                     },
+                                    onOpenExternalSensors = {
+                                        navController.navigate(WatchRoutes.RECORDING_EXTERNAL_SENSORS)
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_EXTERNAL_SENSORS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingExternalSensorsScreen(
+                                    onOpenRecordingSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_SETTINGS) {
+                                            popUpTo(WatchRoutes.RECORDING_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -823,31 +853,35 @@ private fun RecordingTimeChip(
             "REC"
         }
     Box(
-        modifier =
-            modifier
-                .height(28.dp)
-                .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
-                .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
-                .padding(horizontal = 9.dp),
-        contentAlignment = Alignment.Center,
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.TopCenter,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        Box(
+            modifier =
+                modifier
+                    .height(28.dp)
+                    .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
+                    .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
+                    .padding(horizontal = 9.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(5.dp)
-                        .background(accentColor, CircleShape),
-            )
-            Text(
-                text = label,
-                modifier = Modifier.padding(start = 5.dp),
-                color = Color.White,
-                fontSize = 17.sp,
-                lineHeight = 17.sp,
-                maxLines = 1,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(5.dp)
+                            .background(accentColor, CircleShape),
+                )
+                Text(
+                    text = label,
+                    modifier = Modifier.padding(start = 5.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

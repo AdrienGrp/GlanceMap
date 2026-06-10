@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -70,18 +69,17 @@ internal fun BoxScope.RouteShortcutTray(
             modifier =
                 Modifier
                     .align(Alignment.CenterEnd)
-                    .offset(y = (-6).dp)
                     .padding(end = anchorSize + adjacentAccessoryWidth + 20.dp),
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ShortcutActionChip(
                         text = "POI",
@@ -95,23 +93,6 @@ internal fun BoxScope.RouteShortcutTray(
                             tint = Color(0xFFFFD54F),
                         )
                     }
-                    ShortcutActionChip(
-                        text = "GPX",
-                        height = actionHeight,
-                        onClick = onGpxToolsClick,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null,
-                            modifier = Modifier.size(iconSize),
-                            tint = Color.White,
-                        )
-                    }
-                }
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
                     ShortcutActionChip(
                         text = "Stay",
                         height = actionHeight,
@@ -134,6 +115,23 @@ internal fun BoxScope.RouteShortcutTray(
                                 },
                         )
                     }
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ShortcutActionChip(
+                        text = "GPX",
+                        height = actionHeight,
+                        onClick = onGpxToolsClick,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(iconSize),
+                            tint = Color.White,
+                        )
+                    }
                     ShortcutActionChip(
                         text =
                             when {
@@ -143,32 +141,12 @@ internal fun BoxScope.RouteShortcutTray(
                         height = actionHeight,
                         onClick = onRecordingClick,
                     ) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size((iconSize * 0.82f).coerceAtLeast(13.dp))
-                                    .background(
-                                        color = Color.White.copy(alpha = 0.18f),
-                                        shape = CircleShape,
-                                    ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .size((iconSize * 0.54f).coerceAtLeast(8.dp))
-                                        .background(
-                                            color =
-                                                when {
-                                                    recordingSaving -> Color(0xFFFFD54F)
-                                                    recordingPaused -> Color(0xFFFFB74D)
-                                                    recordingActive -> Color(0xFFFF1744)
-                                                    else -> Color(0xFFFF5252)
-                                                },
-                                            shape = CircleShape,
-                                        ),
-                            )
-                        }
+                        RecordingShortcutIcon(
+                            iconSize = iconSize,
+                            recordingSaving = recordingSaving,
+                            recordingPaused = recordingPaused,
+                            recordingActive = recordingActive,
+                        )
                     }
                 }
             }
@@ -251,5 +229,40 @@ private fun ShortcutActionChip(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RecordingShortcutIcon(
+    iconSize: Dp,
+    recordingSaving: Boolean,
+    recordingPaused: Boolean,
+    recordingActive: Boolean,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size((iconSize * 0.82f).coerceAtLeast(13.dp))
+                .background(
+                    color = Color.White.copy(alpha = 0.18f),
+                    shape = CircleShape,
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size((iconSize * 0.54f).coerceAtLeast(8.dp))
+                    .background(
+                        color =
+                            when {
+                                recordingSaving -> Color(0xFFFFD54F)
+                                recordingPaused -> Color(0xFFFFB74D)
+                                recordingActive -> Color(0xFFFF1744)
+                                else -> Color(0xFFFF5252)
+                            },
+                        shape = CircleShape,
+                    ),
+        )
     }
 }

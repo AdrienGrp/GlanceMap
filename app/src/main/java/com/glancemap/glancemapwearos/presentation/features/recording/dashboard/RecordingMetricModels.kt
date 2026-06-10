@@ -3,12 +3,13 @@ package com.glancemap.glancemapwearos.presentation.features.recording.dashboard
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.RecordedTracePoint
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
-import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
+import java.text.DecimalFormat
 import kotlin.math.roundToInt
 
 internal enum class RecordingMetricSource {
     INTERNAL_GPS,
+    INTERNAL_SENSOR,
     EXTERNAL,
 }
 
@@ -37,6 +38,10 @@ internal data class RecordingDashboardSnapshot(
     val gpsActiveDurationSeconds: Double,
     val recordingGapCount: Int,
     val recordingMaxGapSeconds: Double,
+    val heartRateBpm: Int? = null,
+    val stepCount: Int? = null,
+    val cadenceSpm: Int? = null,
+    val barometricPressureHpa: Double? = null,
 )
 
 internal val recordingMetricDefinitions =
@@ -48,11 +53,28 @@ internal val recordingMetricDefinitions =
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION, "Altitude"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_SPEED, "Speed"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED, "Avg speed"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_GPS_ACCURACY, "GPS acc."),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_POINTS, "Points"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_GPS_ACTIVE_TIME, "GPS time"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_GAPS, "Gaps"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_MAX_GAP, "Max gap"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_PACE, "Pace"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_AVERAGE_PACE, "Avg pace"),
+        RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_HEART_RATE,
+            "Heart rate",
+            RecordingMetricSource.INTERNAL_SENSOR,
+        ),
+        RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_STEPS,
+            "Steps",
+            RecordingMetricSource.INTERNAL_SENSOR,
+        ),
+        RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_CADENCE,
+            "Cadence",
+            RecordingMetricSource.INTERNAL_SENSOR,
+        ),
+        RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
+            "Pressure",
+            RecordingMetricSource.INTERNAL_SENSOR,
+        ),
     )
 
 internal fun metricDefinitionFor(id: String): RecordingMetricDefinition =
@@ -92,6 +114,10 @@ internal fun buildRecordingDashboardSnapshot(
         gpsActiveDurationSeconds = state.gpsActiveDurationMillis / 1000.0,
         recordingGapCount = state.recordingGapCount,
         recordingMaxGapSeconds = state.recordingMaxGapMillis / 1000.0,
+        heartRateBpm = state.heartRateBpm,
+        stepCount = state.stepCount,
+        cadenceSpm = state.cadenceSpm,
+        barometricPressureHpa = state.barometricPressureHpa,
     )
 }
 
@@ -103,11 +129,11 @@ internal fun formattedRecordingMetric(
     val definition = metricDefinitionFor(metricId)
     return when (definition.id) {
         SettingsRepository.RECORDING_METRIC_DISTANCE -> {
-            val (value, unit) = UnitFormatter.formatDistance(snapshot.distanceMeters, isMetric)
+            val (value, unit) = formatRecordingDistance(snapshot.distanceMeters, isMetric)
             RecordingMetricValue(definition.label, value, unit)
         }
         SettingsRepository.RECORDING_METRIC_DURATION ->
-            RecordingMetricValue(definition.label, DurationFormatter.formatDurationShort(snapshot.durationSeconds))
+            RecordingMetricValue(definition.label, formatRecordingDurationClock(snapshot.durationSeconds))
         SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN -> {
             val (value, unit) = UnitFormatter.formatElevation(snapshot.elevationGainMeters, isMetric)
             RecordingMetricValue(definition.label, value, unit)
@@ -129,26 +155,42 @@ internal fun formattedRecordingMetric(
             speedMetricValue(definition.label, snapshot.currentSpeedMps?.toDouble(), isMetric)
         SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED ->
             speedMetricValue(definition.label, snapshot.averageSpeedMps, isMetric)
-        SettingsRepository.RECORDING_METRIC_GPS_ACCURACY -> {
-            val accuracy = snapshot.gpsAccuracyMeters
-            if (accuracy == null) {
-                RecordingMetricValue(definition.label, "--")
-            } else {
-                val (value, unit) = UnitFormatter.formatElevation(accuracy.toDouble(), isMetric)
-                RecordingMetricValue(definition.label, value, unit)
-            }
-        }
-        SettingsRepository.RECORDING_METRIC_POINTS ->
-            RecordingMetricValue(definition.label, snapshot.pointCount.toString())
-        SettingsRepository.RECORDING_METRIC_GPS_ACTIVE_TIME ->
-            RecordingMetricValue(definition.label, DurationFormatter.formatDurationShort(snapshot.gpsActiveDurationSeconds))
-        SettingsRepository.RECORDING_METRIC_GAPS ->
-            RecordingMetricValue(definition.label, snapshot.recordingGapCount.toString())
-        SettingsRepository.RECORDING_METRIC_MAX_GAP ->
-            RecordingMetricValue(definition.label, DurationFormatter.formatDurationShort(snapshot.recordingMaxGapSeconds))
+        SettingsRepository.RECORDING_METRIC_CURRENT_PACE ->
+            paceMetricValue(definition.label, snapshot.currentSpeedMps?.toDouble(), isMetric)
+        SettingsRepository.RECORDING_METRIC_AVERAGE_PACE ->
+            paceMetricValue(definition.label, snapshot.averageSpeedMps, isMetric)
+        SettingsRepository.RECORDING_METRIC_HEART_RATE ->
+            sensorIntegerMetricValue(definition.label, snapshot.heartRateBpm, "bpm")
+        SettingsRepository.RECORDING_METRIC_STEPS ->
+            sensorIntegerMetricValue(definition.label, snapshot.stepCount, null)
+        SettingsRepository.RECORDING_METRIC_CADENCE ->
+            sensorIntegerMetricValue(definition.label, snapshot.cadenceSpm, "spm")
+        SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE ->
+            pressureMetricValue(definition.label, snapshot.barometricPressureHpa)
         else -> RecordingMetricValue(definition.label, "--")
     }
 }
+
+private fun formatRecordingDistance(
+    meters: Double,
+    isMetric: Boolean,
+): Pair<String, String> =
+    if (isMetric) {
+        RECORDING_DISTANCE_FORMAT.format(meters / 1000.0) to "km"
+    } else {
+        RECORDING_DISTANCE_FORMAT.format(meters * METERS_TO_MILES) to "mi"
+    }
+
+private fun formatRecordingDurationClock(seconds: Double?): String {
+    if (seconds == null || !seconds.isFinite() || seconds <= 0.0) return "00:00:00"
+    val totalSeconds = seconds.roundToInt().coerceAtLeast(0)
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val secs = totalSeconds % 60
+    return "${hours.twoDigits()}:${minutes.twoDigits()}:${secs.twoDigits()}"
+}
+
+private fun Int.twoDigits(): String = toString().padStart(2, '0')
 
 private fun speedMetricValue(
     label: String,
@@ -171,6 +213,55 @@ private fun speedMetricValue(
     )
 }
 
+private fun sensorIntegerMetricValue(
+    label: String,
+    value: Int?,
+    unit: String?,
+): RecordingMetricValue =
+    if (value == null || value < 0) {
+        RecordingMetricValue(label, "--", unit)
+    } else {
+        RecordingMetricValue(label, value.toString(), unit)
+    }
+
+private fun pressureMetricValue(
+    label: String,
+    pressureHpa: Double?,
+): RecordingMetricValue =
+    if (pressureHpa == null || !pressureHpa.isFinite() || pressureHpa <= 0.0) {
+        RecordingMetricValue(label, "--", "hPa")
+    } else {
+        RecordingMetricValue(
+            label = label,
+            value = (pressureHpa * 10.0).roundToInt().let { (it / 10.0).toString() },
+            unit = "hPa",
+        )
+}
+
+private fun paceMetricValue(
+    label: String,
+    speedMps: Double?,
+    isMetric: Boolean,
+): RecordingMetricValue {
+    if (speedMps == null || !speedMps.isFinite() || speedMps <= 0.0) {
+        return RecordingMetricValue(label, "--", if (isMetric) "min/km" else "min/mi")
+    }
+    val secondsPerUnit =
+        if (isMetric) {
+            1_000.0 / speedMps
+        } else {
+            METERS_PER_MILE / speedMps
+        }
+    val totalSeconds = secondsPerUnit.roundToInt().coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return RecordingMetricValue(
+        label = label,
+        value = "$minutes:${seconds.twoDigits()}",
+        unit = if (isMetric) "min/km" else "min/mi",
+    )
+}
+
 private fun elevationGainLossMeters(points: List<RecordedTracePoint>): Pair<Double, Double> {
     var gain = 0.0
     var loss = 0.0
@@ -187,3 +278,7 @@ private fun elevationGainLossMeters(points: List<RecordedTracePoint>): Pair<Doub
     }
     return gain to loss
 }
+
+private const val METERS_TO_MILES = 0.000621371
+private const val METERS_PER_MILE = 1_609.344
+private val RECORDING_DISTANCE_FORMAT = DecimalFormat("0.00")

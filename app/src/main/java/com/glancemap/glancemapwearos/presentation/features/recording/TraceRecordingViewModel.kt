@@ -8,6 +8,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.SyncManager
+import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorMetrics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +55,7 @@ class TraceRecordingViewModel(
     private var recordingGapCount: Int = 0
     private var recordingMaxGapMillis: Long = 0L
     private var lastUiAction: String? = null
+    private var latestSensorMetrics = RecordingSensorMetrics()
 
     init {
         settingsRepository.recordingSampleIntervalSeconds
@@ -144,6 +146,7 @@ class TraceRecordingViewModel(
                 if (elevation.gpsUsed) {
                     gpsElevationUsedCount += 1
                 }
+                val sensorMetrics = latestFreshSensorMetrics(nowMillis = System.currentTimeMillis())
                 val point =
                     RecordedTracePoint(
                         latLong = LatLong(latitude, longitude),
@@ -152,6 +155,10 @@ class TraceRecordingViewModel(
                         accuracyMeters = accuracyMeters,
                         speedMps = speedMps,
                         elevationSource = elevation.resolvedSource,
+                        heartRateBpm = sensorMetrics?.heartRateBpm,
+                        stepCount = sensorMetrics?.stepCount,
+                        cadenceSpm = sensorMetrics?.cadenceSpm,
+                        barometricPressureHpa = sensorMetrics?.barometricPressureHpa,
                     )
                 val currentState = _uiState.value
                 if (!currentState.active || currentState.saving) return@withLock
@@ -183,6 +190,9 @@ class TraceRecordingViewModel(
                             "gpsElevationUsed=$gpsElevationUsedCount " +
                             "gpsActiveDurationMs=$gpsActiveDurationMillis " +
                             "recordingGapCount=$recordingGapCount recordingMaxGapMs=$recordingMaxGapMillis " +
+                            "heartRateBpm=${point.heartRateBpm ?: -1} stepCount=${point.stepCount ?: -1} " +
+                            "cadenceSpm=${point.cadenceSpm ?: -1} " +
+                            "pressureHpa=${point.barometricPressureHpa?.toInt() ?: -1} " +
                             "skippedInterval=$skippedIntervalCount skippedPaused=$skippedPausedCount " +
                             "skippedUnusable=$skippedUnusableLocationCount",
                     )
@@ -190,6 +200,19 @@ class TraceRecordingViewModel(
                 persistDraft(state = updatedState, reason = "point")
             }
         }
+    }
+
+    fun onSensorMetrics(metrics: RecordingSensorMetrics) {
+        val state = _uiState.value
+        if (!state.active || state.saving) return
+        latestSensorMetrics = metrics
+        _uiState.value =
+            state.copy(
+                heartRateBpm = metrics.heartRateBpm,
+                stepCount = metrics.stepCount,
+                cadenceSpm = metrics.cadenceSpm,
+                barometricPressureHpa = metrics.barometricPressureHpa,
+            )
     }
 
     fun pauseRecording() {
@@ -433,6 +456,31 @@ class TraceRecordingViewModel(
         gpsActiveDurationMillis = 0L
         recordingGapCount = 0
         recordingMaxGapMillis = 0L
+        latestSensorMetrics = RecordingSensorMetrics()
+    }
+
+    private fun latestFreshSensorMetrics(nowMillis: Long): RecordingSensorMetrics? {
+        val heartRateBpm =
+            latestSensorMetrics.heartRateBpm
+                ?.takeIf { latestSensorMetrics.heartRateUpdatedAtMillis.isFreshSensorTime(nowMillis) }
+        val stepCount =
+            latestSensorMetrics.stepCount
+                ?.takeIf { latestSensorMetrics.stepCountUpdatedAtMillis.isFreshSensorTime(nowMillis) }
+        val cadenceSpm =
+            latestSensorMetrics.cadenceSpm
+                ?.takeIf { latestSensorMetrics.cadenceUpdatedAtMillis.isFreshSensorTime(nowMillis) }
+        val pressureHpa =
+            latestSensorMetrics.barometricPressureHpa
+                ?.takeIf { latestSensorMetrics.barometricPressureUpdatedAtMillis.isFreshSensorTime(nowMillis) }
+        if (heartRateBpm == null && stepCount == null && cadenceSpm == null && pressureHpa == null) {
+            return null
+        }
+        return RecordingSensorMetrics(
+            heartRateBpm = heartRateBpm,
+            stepCount = stepCount,
+            cadenceSpm = cadenceSpm,
+            barometricPressureHpa = pressureHpa,
+        )
     }
 
     private fun rebuildTelemetryFromPoints(points: List<RecordedTracePoint>) {
@@ -493,6 +541,7 @@ class TraceRecordingViewModel(
                 ?.coerceAtLeast(0L)
                 ?: 0L
         val elevation = elevationGainLossMeters(state.points)
+        val lastPoint = state.points.lastOrNull()
         val avgAccuracy =
             if (acceptedAccuracyCount > 0) {
                 acceptedAccuracySumMeters / acceptedAccuracyCount.toDouble()
@@ -504,9 +553,12 @@ class TraceRecordingViewModel(
             "durationMs=$durationMillis pausedMs=$pausedMillis " +
             "gpsActiveDurationMs=${state.gpsActiveDurationMillis} " +
             "recordingGapCount=${state.recordingGapCount} recordingMaxGapMs=${state.recordingMaxGapMillis} " +
-            "lastPointAgeMs=${state.points.lastOrNull()?.timeMillis?.let { nowMillis - it }?.coerceAtLeast(0L) ?: -1} " +
+            "lastPointAgeMs=${lastPoint?.timeMillis?.let { nowMillis - it }?.coerceAtLeast(0L) ?: -1} " +
             "elevationGainMeters=${elevation.first.toInt()} elevationLossMeters=${elevation.second.toInt()} " +
             "elevationSource=$recordingElevationSource demHits=$demElevationHitCount " +
+            "lastHeartRateBpm=${lastPoint?.heartRateBpm ?: -1} lastStepCount=${lastPoint?.stepCount ?: -1} " +
+            "lastCadenceSpm=${lastPoint?.cadenceSpm ?: -1} " +
+            "lastPressureHpa=${lastPoint?.barometricPressureHpa?.toInt() ?: -1} " +
             "demMisses=$demElevationMissCount gpsElevationUsed=$gpsElevationUsedCount " +
             "accuracySamples=$acceptedAccuracyCount " +
             "accuracyAvgMeters=${avgAccuracy?.toInt() ?: -1} " +
@@ -520,6 +572,7 @@ class TraceRecordingViewModel(
 private const val RECORDING_GAP_MIN_THRESHOLD_MS = 15_000L
 private const val RECORDING_GPS_ACTIVE_GAP_FLOOR_MS = 1_000L
 private const val RECORDING_GPS_ACTIVE_GAP_CAP_MS = 15_000L
+private const val SENSOR_SNAPSHOT_MAX_AGE_MS = 15_000L
 private const val MAX_RECORDING_TITLE_LENGTH = 64
 
 private data class RecordingSaveInfo(
@@ -532,6 +585,9 @@ private fun isUsableLocation(location: Location): Boolean =
         location.longitude.isFinite() &&
         location.latitude in -90.0..90.0 &&
         location.longitude in -180.0..180.0
+
+private fun Long.isFreshSensorTime(nowMillis: Long): Boolean =
+    this > 0L && (nowMillis - this).coerceAtLeast(0L) <= SENSOR_SNAPSHOT_MAX_AGE_MS
 
 private fun haversineMeters(
     a: LatLong,
