@@ -52,6 +52,8 @@ class SettingsRepositoryImpl private constructor(
         val RECORDING_SAMPLE_INTERVAL_SECONDS = intPreferencesKey("recording_sample_interval_seconds")
         val RECORDING_ELEVATION_SOURCE = stringPreferencesKey("recording_elevation_source")
         val RECORDING_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("recording_dashboard_metric_slots")
+        val USER_WEIGHT_KG = floatPreferencesKey("user_weight_kg")
+        val BACKPACK_WEIGHT_KG = floatPreferencesKey("backpack_weight_kg")
         val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
         val TURN_BY_TURN_USE_BROUTER_TILES = booleanPreferencesKey("turn_by_turn_use_brouter_tiles")
         val TURN_BY_TURN_HAPTICS_ENABLED = booleanPreferencesKey("turn_by_turn_haptics_enabled")
@@ -235,6 +237,28 @@ class SettingsRepositoryImpl private constructor(
                         }
                     }
             it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] = next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override val userWeightKg: Flow<Float> =
+        context.dataStore.data.map {
+            sanitizeUserWeightKg(it[PrefKeys.USER_WEIGHT_KG])
+        }
+
+    override suspend fun setUserWeightKg(weightKg: Float) {
+        context.dataStore.edit {
+            it[PrefKeys.USER_WEIGHT_KG] = sanitizeUserWeightKg(weightKg)
+        }
+    }
+
+    override val backpackWeightKg: Flow<Float> =
+        context.dataStore.data.map {
+            sanitizeBackpackWeightKg(it[PrefKeys.BACKPACK_WEIGHT_KG])
+        }
+
+    override suspend fun setBackpackWeightKg(weightKg: Float) {
+        context.dataStore.edit {
+            it[PrefKeys.BACKPACK_WEIGHT_KG] = sanitizeBackpackWeightKg(weightKg)
         }
     }
 
@@ -1132,6 +1156,9 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_METRIC_STEPS,
                 SettingsRepository.RECORDING_METRIC_CADENCE,
                 SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
+                SettingsRepository.RECORDING_METRIC_CALORIES,
+                SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,
+                SettingsRepository.RECORDING_METRIC_RESTING_CALORIES,
             )
         private val allowedRecordingElevationSources =
             setOf(
@@ -1238,6 +1265,18 @@ class SettingsRepositoryImpl private constructor(
             )
                 .take(RECORDING_DASHBOARD_SLOT_COUNT)
         }
+
+        private fun sanitizeUserWeightKg(weightKg: Float?): Float =
+            weightKg
+                ?.takeIf { it.isFinite() }
+                ?.coerceIn(SettingsRepository.MIN_USER_WEIGHT_KG, SettingsRepository.MAX_USER_WEIGHT_KG)
+                ?: SettingsRepository.DEFAULT_USER_WEIGHT_KG
+
+        private fun sanitizeBackpackWeightKg(weightKg: Float?): Float =
+            weightKg
+                ?.takeIf { it.isFinite() }
+                ?.coerceIn(SettingsRepository.MIN_BACKPACK_WEIGHT_KG, SettingsRepository.MAX_BACKPACK_WEIGHT_KG)
+                ?: SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
 
         private fun legacyZoomScaleMeters(zoom: Int): Int =
             scaleMetersForZoomLevel(

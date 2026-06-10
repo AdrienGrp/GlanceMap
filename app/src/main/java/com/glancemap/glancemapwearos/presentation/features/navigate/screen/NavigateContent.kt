@@ -140,6 +140,8 @@ internal fun NavigateContent(
     backButtonExitsNavigation: Boolean,
     traceRecordingState: TraceRecordingUiState,
     recordingDashboardMetricSlots: List<String>,
+    userWeightKg: Float,
+    backpackWeightKg: Float,
     recordingDashboardExpandRequestToken: Long,
     recordingActionPromptRequestToken: Long,
     onStartRecording: () -> Unit,
@@ -1213,6 +1215,8 @@ internal fun NavigateContent(
                 onKeepAppOpenToggle = onKeepAppOpenToggle,
                 traceRecordingState = traceRecordingState,
                 recordingDashboardMetricSlots = recordingDashboardMetricSlots,
+                userWeightKg = userWeightKg,
+                backpackWeightKg = backpackWeightKg,
                 recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
                 recordingActionPromptRequestToken = effectiveRecordingActionPromptRequestToken,
                 onRecordingClick = {

@@ -27,10 +27,19 @@ interface SettingsRepository {
         const val RECORDING_METRIC_STEPS = "steps"
         const val RECORDING_METRIC_CADENCE = "cadence"
         const val RECORDING_METRIC_BAROMETRIC_PRESSURE = "barometric_pressure"
+        const val RECORDING_METRIC_CALORIES = "calories"
+        const val RECORDING_METRIC_ACTIVE_CALORIES = "active_calories"
+        const val RECORDING_METRIC_RESTING_CALORIES = "resting_calories"
         const val RECORDING_ELEVATION_SOURCE_GPS = "GPS"
         const val RECORDING_ELEVATION_SOURCE_DEM = "DEM"
         const val RECORDING_ELEVATION_SOURCE_AUTO = "AUTO"
         const val DEFAULT_RECORDING_ELEVATION_SOURCE = RECORDING_ELEVATION_SOURCE_GPS
+        const val DEFAULT_USER_WEIGHT_KG = 75f
+        const val MIN_USER_WEIGHT_KG = 35f
+        const val MAX_USER_WEIGHT_KG = 160f
+        const val DEFAULT_BACKPACK_WEIGHT_KG = 0f
+        const val MIN_BACKPACK_WEIGHT_KG = 0f
+        const val MAX_BACKPACK_WEIGHT_KG = 40f
         val DEFAULT_RECORDING_DASHBOARD_METRICS =
             listOf(
                 RECORDING_METRIC_DISTANCE,
@@ -165,6 +174,14 @@ interface SettingsRepository {
         slotIndex: Int,
         metricId: String,
     )
+
+    val userWeightKg: Flow<Float>
+
+    suspend fun setUserWeightKg(weightKg: Float)
+
+    val backpackWeightKg: Flow<Float>
+
+    suspend fun setBackpackWeightKg(weightKg: Float)
 
     val turnByTurnGuidanceSource: Flow<String>
 

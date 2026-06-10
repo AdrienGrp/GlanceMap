@@ -298,6 +298,8 @@ fun NavigateScreen(
     val navigateTarget by poiViewModel.navigateTarget.collectAsState()
     val offlinePoiSearchUiState by poiViewModel.offlineSearchUiState.collectAsState()
     val traceRecordingState by traceRecordingViewModel.uiState.collectAsState()
+    val userWeightKg by settingsViewModel.userWeightKg.collectAsState()
+    val backpackWeightKg by settingsViewModel.backpackWeightKg.collectAsState()
     val recordingTracePoints =
         remember(traceRecordingState.points) {
             traceRecordingState.points.map { it.latLong }
@@ -1550,6 +1552,8 @@ fun NavigateScreen(
         backButtonExitsNavigation = backButtonExitsNavigation,
         traceRecordingState = traceRecordingState,
         recordingDashboardMetricSlots = recordingDashboardMetricSlots,
+        userWeightKg = userWeightKg,
+        backpackWeightKg = backpackWeightKg,
         recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
         recordingActionPromptRequestToken = recordingActionPromptRequestToken,
         onStartRecording = {

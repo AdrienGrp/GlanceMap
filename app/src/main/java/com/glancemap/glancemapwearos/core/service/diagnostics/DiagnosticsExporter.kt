@@ -40,6 +40,8 @@ data class DiagnosticsSettingsSnapshot(
     val backButtonExitsNavigation: Boolean,
     val recordingSampleIntervalSeconds: Int = 0,
     val recordingElevationSource: String = "na",
+    val userWeightKg: Float = 0f,
+    val backpackWeightKg: Float = 0f,
     val turnByTurnGuidanceSource: String = "na",
     val turnByTurnUseBrouterTiles: Boolean = false,
     val turnByTurnHapticsEnabled: Boolean = true,
@@ -190,6 +192,17 @@ object DiagnosticsExporter {
         val recordingAccuracyMaxMeters: Int? = null,
         val recordingElevationGainMeters: Int? = null,
         val recordingElevationLossMeters: Int? = null,
+        val recordingCalorieModel: String? = null,
+        val recordingCaloriesGrossKcal: Int? = null,
+        val recordingCaloriesActiveKcal: Int? = null,
+        val recordingCaloriesRestingKcal: Int? = null,
+        val recordingPandolfBaseGrossKcal: Int? = null,
+        val recordingPandolfBaseActiveKcal: Int? = null,
+        val recordingPandolfBaseRestingKcal: Int? = null,
+        val recordingCalorieCompareModel: String? = null,
+        val recordingLcdaGrossKcal: Int? = null,
+        val recordingLcdaActiveKcal: Int? = null,
+        val recordingLcdaRestingKcal: Int? = null,
         val recordingLastSavedByteSize: Int? = null,
         val locationServiceStartFailureCount: Int = 0,
         val locationServiceStartFallbackFailureCount: Int = 0,
@@ -489,6 +502,8 @@ object DiagnosticsExporter {
             writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
             writer.appendLine("recordingBackgroundGps=always_on_when_recording")
             writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
+            writer.appendLine("userWeightKg=${settings.userWeightKg}")
+            writer.appendLine("backpackWeightKg=${settings.backpackWeightKg}")
             writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
             writer.appendLine("turnByTurnUseBrouterTiles=${settings.turnByTurnUseBrouterTiles}")
             writer.appendLine("turnByTurnHapticsEnabled=${settings.turnByTurnHapticsEnabled}")
@@ -924,6 +939,31 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "recordingElevationLossMeters=${telemetryInsights.recordingElevationLossMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine("recordingCalorieModel=${telemetryInsights.recordingCalorieModel ?: "na"}")
+            writer.appendLine(
+                "recordingCaloriesGrossKcal=${telemetryInsights.recordingCaloriesGrossKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingCaloriesActiveKcal=${telemetryInsights.recordingCaloriesActiveKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingCaloriesRestingKcal=${telemetryInsights.recordingCaloriesRestingKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingPandolfBaseGrossKcal=${telemetryInsights.recordingPandolfBaseGrossKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingPandolfBaseActiveKcal=${telemetryInsights.recordingPandolfBaseActiveKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingPandolfBaseRestingKcal=${telemetryInsights.recordingPandolfBaseRestingKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine("recordingCalorieCompareModel=${telemetryInsights.recordingCalorieCompareModel ?: "na"}")
+            writer.appendLine("recordingLcdaGrossKcal=${telemetryInsights.recordingLcdaGrossKcal?.toString() ?: "na"}")
+            writer.appendLine("recordingLcdaActiveKcal=${telemetryInsights.recordingLcdaActiveKcal?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingLcdaRestingKcal=${telemetryInsights.recordingLcdaRestingKcal?.toString() ?: "na"}",
             )
             writer.appendLine(
                 "recordingLastSavedByteSize=${telemetryInsights.recordingLastSavedByteSize?.toString() ?: "na"}",

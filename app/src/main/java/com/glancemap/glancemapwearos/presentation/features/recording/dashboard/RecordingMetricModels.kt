@@ -3,8 +3,11 @@ package com.glancemap.glancemapwearos.presentation.features.recording.dashboard
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.RecordedTracePoint
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import java.text.DecimalFormat
+import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 internal enum class RecordingMetricSource {
@@ -25,6 +28,18 @@ internal data class RecordingMetricValue(
     val unit: String? = null,
 )
 
+internal data class RecordingCalorieEstimate(
+    val grossKcal: Double = 0.0,
+    val activeKcal: Double = 0.0,
+    val restingKcal: Double = 0.0,
+    val pandolfBaseGrossKcal: Double = 0.0,
+    val pandolfBaseActiveKcal: Double = 0.0,
+    val pandolfBaseRestingKcal: Double = 0.0,
+    val lcdaGrossKcal: Double = 0.0,
+    val lcdaActiveKcal: Double = 0.0,
+    val lcdaRestingKcal: Double = 0.0,
+)
+
 internal data class RecordingDashboardSnapshot(
     val durationSeconds: Double,
     val distanceMeters: Double,
@@ -38,6 +53,9 @@ internal data class RecordingDashboardSnapshot(
     val gpsActiveDurationSeconds: Double,
     val recordingGapCount: Int,
     val recordingMaxGapSeconds: Double,
+    val userWeightKg: Float = SettingsRepository.DEFAULT_USER_WEIGHT_KG,
+    val backpackWeightKg: Float = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG,
+    val calorieEstimate: RecordingCalorieEstimate = RecordingCalorieEstimate(),
     val heartRateBpm: Int? = null,
     val stepCount: Int? = null,
     val cadenceSpm: Int? = null,
@@ -75,6 +93,7 @@ internal val recordingMetricDefinitions =
             "Pressure",
             RecordingMetricSource.INTERNAL_SENSOR,
         ),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CALORIES, "Calories"),
     )
 
 internal fun metricDefinitionFor(id: String): RecordingMetricDefinition =
@@ -84,6 +103,8 @@ internal fun metricDefinitionFor(id: String): RecordingMetricDefinition =
 internal fun buildRecordingDashboardSnapshot(
     state: TraceRecordingUiState,
     nowMillis: Long,
+    userWeightKg: Float = SettingsRepository.DEFAULT_USER_WEIGHT_KG,
+    backpackWeightKg: Float = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG,
 ): RecordingDashboardSnapshot {
     val startedAt = state.startedAtMillis ?: nowMillis
     val currentPausedMillis =
@@ -96,6 +117,12 @@ internal fun buildRecordingDashboardSnapshot(
         (nowMillis - startedAt - state.accumulatedPausedMillis - currentPausedMillis).coerceAtLeast(0L)
     val activeDurationSeconds = activeDurationMillis / 1000.0
     val elevationTotals = elevationGainLossMeters(state.points)
+    val calorieEstimate =
+        estimateRecordingCalories(
+            points = state.points,
+            userWeightKg = userWeightKg,
+            backpackWeightKg = backpackWeightKg,
+        )
     return RecordingDashboardSnapshot(
         durationSeconds = activeDurationSeconds,
         distanceMeters = state.distanceMeters,
@@ -114,6 +141,9 @@ internal fun buildRecordingDashboardSnapshot(
         gpsActiveDurationSeconds = state.gpsActiveDurationMillis / 1000.0,
         recordingGapCount = state.recordingGapCount,
         recordingMaxGapSeconds = state.recordingMaxGapMillis / 1000.0,
+        userWeightKg = userWeightKg,
+        backpackWeightKg = backpackWeightKg,
+        calorieEstimate = calorieEstimate,
         heartRateBpm = state.heartRateBpm,
         stepCount = state.stepCount,
         cadenceSpm = state.cadenceSpm,
@@ -167,6 +197,12 @@ internal fun formattedRecordingMetric(
             sensorIntegerMetricValue(definition.label, snapshot.cadenceSpm, "spm")
         SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE ->
             pressureMetricValue(definition.label, snapshot.barometricPressureHpa)
+        SettingsRepository.RECORDING_METRIC_CALORIES ->
+            caloriesMetricValue(definition.label, snapshot.calorieEstimate.grossKcal)
+        SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES ->
+            caloriesMetricValue(definition.label, snapshot.calorieEstimate.activeKcal)
+        SettingsRepository.RECORDING_METRIC_RESTING_CALORIES ->
+            caloriesMetricValue(definition.label, snapshot.calorieEstimate.restingKcal)
         else -> RecordingMetricValue(definition.label, "--")
     }
 }
@@ -238,6 +274,215 @@ private fun pressureMetricValue(
         )
 }
 
+private fun caloriesMetricValue(
+    label: String,
+    calories: Double,
+): RecordingMetricValue =
+    RecordingMetricValue(
+        label = label,
+        value =
+            if (!calories.isFinite() || calories <= 0.0) {
+                "0"
+            } else {
+                calories.roundToInt().toString()
+            },
+        unit = "kcal",
+    )
+
+internal fun estimateRecordingCalories(
+    points: List<RecordedTracePoint>,
+    userWeightKg: Float,
+    backpackWeightKg: Float,
+    terrainFactor: Double = DEFAULT_TERRAIN_FACTOR,
+): RecordingCalorieEstimate {
+    if (points.size < 2) return RecordingCalorieEstimate()
+    val bodyWeightKg =
+        userWeightKg
+            .takeIf { it.isFinite() }
+            ?.coerceIn(SettingsRepository.MIN_USER_WEIGHT_KG, SettingsRepository.MAX_USER_WEIGHT_KG)
+            ?: SettingsRepository.DEFAULT_USER_WEIGHT_KG
+    val loadWeightKg =
+        backpackWeightKg
+            .takeIf { it.isFinite() }
+            ?.coerceIn(SettingsRepository.MIN_BACKPACK_WEIGHT_KG, SettingsRepository.MAX_BACKPACK_WEIGHT_KG)
+            ?: SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
+
+    var grossKcal = 0.0
+    var pandolfBaseGrossKcal = 0.0
+    var lcdaGrossKcal = 0.0
+    var modeledDurationSeconds = 0.0
+    points.zipWithNext().forEach { (start, end) ->
+        val segmentDurationSeconds =
+            ((end.timeMillis - start.timeMillis) / 1000.0)
+                .takeIf { it.isFinite() && it > 0.0 }
+                ?.coerceAtMost(MAX_CALORIE_SEGMENT_DURATION_SECONDS)
+                ?: return@forEach
+        val distanceMeters = haversineMeters(start.latLong, end.latLong).coerceAtLeast(0.0)
+        val speedMetersPerSecond =
+            (distanceMeters / segmentDurationSeconds)
+                .takeIf { it.isFinite() }
+                ?.coerceIn(0.0, MAX_PANDOLF_SPEED_MPS)
+                ?: 0.0
+        val elevationDeltaMeters =
+            if (start.elevationMeters != null && end.elevationMeters != null) {
+                end.elevationMeters - start.elevationMeters
+            } else {
+                0.0
+            }
+        val gradePercent =
+            if (distanceMeters >= MIN_DISTANCE_METERS_FOR_GRADE) {
+                ((elevationDeltaMeters / distanceMeters) * 100.0)
+                    .coerceIn(-MAX_PANDOLF_GRADE_PERCENT, MAX_PANDOLF_GRADE_PERCENT)
+            } else {
+                0.0
+            }
+        val watts =
+            pandolfSanteeWatts(
+                bodyWeightKg = bodyWeightKg.toDouble(),
+                loadWeightKg = loadWeightKg.toDouble(),
+                speedMetersPerSecond = speedMetersPerSecond,
+                gradePercent = gradePercent,
+                terrainFactor = terrainFactor,
+            )
+        grossKcal += watts * segmentDurationSeconds / JOULES_PER_KILOCALORIE
+        pandolfBaseGrossKcal +=
+            pandolfWatts(
+                bodyWeightKg = bodyWeightKg.toDouble(),
+                loadWeightKg = loadWeightKg.toDouble(),
+                speedMetersPerSecond = speedMetersPerSecond,
+                gradePercent = gradePercent,
+                terrainFactor = terrainFactor,
+            ).coerceAtLeast(0.0) * segmentDurationSeconds / JOULES_PER_KILOCALORIE
+        lcdaGrossKcal +=
+            lcda2024WeightedLoadWatts(
+                bodyWeightKg = bodyWeightKg.toDouble(),
+                loadWeightKg = loadWeightKg.toDouble(),
+                speedMetersPerSecond = speedMetersPerSecond,
+                gradePercent = gradePercent,
+                terrainFactor = terrainFactor,
+            ) * segmentDurationSeconds / JOULES_PER_KILOCALORIE
+        modeledDurationSeconds += segmentDurationSeconds
+    }
+
+    val restingKcal = bodyWeightKg * (modeledDurationSeconds / SECONDS_PER_HOUR) * RESTING_MET
+    val activeKcal = (grossKcal - restingKcal).coerceAtLeast(0.0)
+    val pandolfBaseRestingKcal = restingKcal
+    val pandolfBaseActiveKcal = (pandolfBaseGrossKcal - pandolfBaseRestingKcal).coerceAtLeast(0.0)
+    val lcdaRestingKcal = restingKcal
+    val lcdaActiveKcal = (lcdaGrossKcal - lcdaRestingKcal).coerceAtLeast(0.0)
+    return RecordingCalorieEstimate(
+        grossKcal = grossKcal,
+        activeKcal = activeKcal,
+        restingKcal = restingKcal,
+        pandolfBaseGrossKcal = pandolfBaseGrossKcal,
+        pandolfBaseActiveKcal = pandolfBaseActiveKcal,
+        pandolfBaseRestingKcal = pandolfBaseRestingKcal,
+        lcdaGrossKcal = lcdaGrossKcal,
+        lcdaActiveKcal = lcdaActiveKcal,
+        lcdaRestingKcal = lcdaRestingKcal,
+    )
+}
+
+private fun pandolfSanteeWatts(
+    bodyWeightKg: Double,
+    loadWeightKg: Double,
+    speedMetersPerSecond: Double,
+    gradePercent: Double,
+    terrainFactor: Double,
+): Double {
+    val rawWatts =
+        pandolfWatts(
+            bodyWeightKg = bodyWeightKg,
+            loadWeightKg = loadWeightKg,
+            speedMetersPerSecond = speedMetersPerSecond,
+            gradePercent = gradePercent,
+            terrainFactor = terrainFactor,
+        )
+    if (gradePercent >= 0.0) return rawWatts
+
+    val correctionWatts =
+        santeeDownhillCorrectionWatts(
+            bodyWeightKg = bodyWeightKg,
+            loadWeightKg = loadWeightKg,
+            speedMetersPerSecond = speedMetersPerSecond,
+            gradePercent = gradePercent,
+            terrainFactor = terrainFactor,
+        )
+    return max(rawWatts + correctionWatts, 0.0)
+}
+
+private fun pandolfWatts(
+    bodyWeightKg: Double,
+    loadWeightKg: Double,
+    speedMetersPerSecond: Double,
+    gradePercent: Double,
+    terrainFactor: Double,
+): Double =
+    1.5 * bodyWeightKg +
+        2.0 * (bodyWeightKg + loadWeightKg) * (loadWeightKg / bodyWeightKg) * (loadWeightKg / bodyWeightKg) +
+        terrainFactor * (bodyWeightKg + loadWeightKg) *
+        (
+            1.5 * speedMetersPerSecond * speedMetersPerSecond +
+                0.35 * speedMetersPerSecond * gradePercent
+        )
+
+private fun santeeDownhillCorrectionWatts(
+    bodyWeightKg: Double,
+    loadWeightKg: Double,
+    speedMetersPerSecond: Double,
+    gradePercent: Double,
+    terrainFactor: Double,
+): Double {
+    val carriedWeightKg = bodyWeightKg + loadWeightKg
+    val bracket =
+        (gradePercent * carriedWeightKg * speedMetersPerSecond / SANTEE_SPEED_NORMALIZER) -
+            (carriedWeightKg * (gradePercent + SANTEE_GRADE_OFFSET).pow(2.0) / bodyWeightKg) +
+            (SANTEE_SPEED_SQUARED_COEFFICIENT * speedMetersPerSecond.pow(2.0))
+    return -terrainFactor * bracket
+}
+
+private fun lcda2024WeightedLoadWatts(
+    bodyWeightKg: Double,
+    loadWeightKg: Double,
+    speedMetersPerSecond: Double,
+    gradePercent: Double,
+    terrainFactor: Double,
+): Double {
+    val gradeFraction =
+        (gradePercent / 100.0)
+            .coerceIn(-MAX_PANDOLF_GRADE_PERCENT / 100.0, MAX_PANDOLF_GRADE_PERCENT / 100.0)
+    val gradeShape =
+        1.0 -
+            LCDA_GRADE_OUTER_BASE.pow(
+                1.0 -
+                    LCDA_GRADE_INNER_BASE.pow(
+                        LCDA_GRADE_SCALE * gradeFraction + LCDA_GRADE_OFFSET,
+                    ),
+            )
+    val walkWattsPerKg =
+        terrainFactor *
+            (
+                LCDA_SPEED_LINEAR_COEFFICIENT * speedMetersPerSecond.pow(LCDA_SPEED_LINEAR_EXPONENT) +
+                    LCDA_SPEED_FAST_COEFFICIENT * speedMetersPerSecond.pow(LCDA_SPEED_FAST_EXPONENT) +
+                    LCDA_GRADE_COEFFICIENT * speedMetersPerSecond * gradeFraction * gradeShape
+            )
+    val backpackLoadRatio =
+        (loadWeightKg / bodyWeightKg)
+            .takeIf { it.isFinite() }
+            ?.coerceAtLeast(0.0)
+            ?: 0.0
+    val vestLoadRatio = 0.0
+    val loadMultiplier =
+        1.0 +
+            LCDA_BACKPACK_LOAD_COEFFICIENT * backpackLoadRatio.pow(LCDA_BACKPACK_LOAD_EXPONENT) +
+            LCDA_VEST_LOAD_COEFFICIENT * vestLoadRatio.pow(LCDA_VEST_LOAD_EXPONENT)
+    val wattsPerKg =
+        LCDA_RESTING_WATTS_PER_KG +
+            (LCDA_STANDING_WATTS_PER_KG + walkWattsPerKg.coerceAtLeast(0.0)) *
+            loadMultiplier
+    return (wattsPerKg * bodyWeightKg).coerceAtLeast(0.0)
+}
+
 private fun paceMetricValue(
     label: String,
     speedMps: Double?,
@@ -281,4 +526,30 @@ private fun elevationGainLossMeters(points: List<RecordedTracePoint>): Pair<Doub
 
 private const val METERS_TO_MILES = 0.000621371
 private const val METERS_PER_MILE = 1_609.344
+private const val JOULES_PER_KILOCALORIE = 4_184.0
+private const val SECONDS_PER_HOUR = 3_600.0
+private const val RESTING_MET = 1.0
+private const val DEFAULT_TERRAIN_FACTOR = 1.0
+private const val MAX_PANDOLF_SPEED_MPS = 3.0
+private const val MAX_PANDOLF_GRADE_PERCENT = 35.0
+private const val SANTEE_SPEED_NORMALIZER = 3.5
+private const val SANTEE_GRADE_OFFSET = 6.0
+private const val SANTEE_SPEED_SQUARED_COEFFICIENT = 25.0
+private const val LCDA_RESTING_WATTS_PER_KG = RESTING_MET * JOULES_PER_KILOCALORIE / SECONDS_PER_HOUR
+private const val LCDA_STANDING_WATTS_PER_KG = 0.21
+private const val LCDA_SPEED_LINEAR_COEFFICIENT = 1.78
+private const val LCDA_SPEED_LINEAR_EXPONENT = 0.58
+private const val LCDA_SPEED_FAST_COEFFICIENT = 0.27
+private const val LCDA_SPEED_FAST_EXPONENT = 4.0
+private const val LCDA_GRADE_COEFFICIENT = 34.0
+private const val LCDA_GRADE_OUTER_BASE = 1.05
+private const val LCDA_GRADE_INNER_BASE = 1.1
+private const val LCDA_GRADE_SCALE = 100.0
+private const val LCDA_GRADE_OFFSET = 32.0
+private const val LCDA_BACKPACK_LOAD_COEFFICIENT = 1.96
+private const val LCDA_BACKPACK_LOAD_EXPONENT = 1.36
+private const val LCDA_VEST_LOAD_COEFFICIENT = 1.38
+private const val LCDA_VEST_LOAD_EXPONENT = 1.21
+private const val MIN_DISTANCE_METERS_FOR_GRADE = 1.0
+private const val MAX_CALORIE_SEGMENT_DURATION_SECONDS = 600.0
 private val RECORDING_DISTANCE_FORMAT = DecimalFormat("0.00")

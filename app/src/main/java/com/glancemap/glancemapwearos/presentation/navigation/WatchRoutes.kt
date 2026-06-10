@@ -9,6 +9,7 @@ object WatchRoutes {
     const val DOWNLOAD = "download_screen"
     const val DOWNLOAD_SETTINGS = "download_settings_screen"
     const val SETTINGS = "settings_screen"
+    const val USER_PROFILE_SETTINGS = "user_profile_settings_screen"
     const val COMPASS_SETTINGS = "compass_settings_screen"
     const val GPS_SETTINGS = "gps_settings_screen"
     const val RECORDING_SETTINGS = "recording_settings_screen"

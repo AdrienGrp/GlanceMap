@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +29,8 @@ import kotlinx.coroutines.isActive
 internal fun BoxScope.RecordingDashboardOverlay(
     state: TraceRecordingUiState,
     metricSlots: List<String>,
+    userWeightKg: Float,
+    backpackWeightKg: Float,
     screenSize: WearScreenSize,
     isMetric: Boolean,
     suppressed: Boolean,
@@ -93,13 +96,22 @@ internal fun BoxScope.RecordingDashboardOverlay(
             dashboardPageIndex = pageCount - 1
         }
     }
-    val snapshot = buildRecordingDashboardSnapshot(state, nowMillis)
+    val snapshot =
+        buildRecordingDashboardSnapshot(
+            state = state,
+            nowMillis = nowMillis,
+            userWeightKg = userWeightKg,
+            backpackWeightKg = backpackWeightKg,
+        )
 
     AnimatedVisibility(
         visible = expanded,
         enter = fadeIn(),
         exit = fadeOut(),
-        modifier = Modifier.align(Alignment.Center),
+        modifier =
+            Modifier
+                .align(Alignment.Center)
+                .fillMaxSize(),
     ) {
         ExpandedRecordingDashboard(
             state = state,
@@ -126,7 +138,10 @@ internal fun BoxScope.RecordingDashboardOverlay(
                 dashboardPageIndex = nextPageIndex
                 logRecordingDashboardPageChange(nextPageIndex, pageCount, "swipe_up")
             },
-            onShowActions = { showCompactControls = true },
+            onShowActions = {
+                expanded = false
+                showCompactControls = true
+            },
         )
     }
 

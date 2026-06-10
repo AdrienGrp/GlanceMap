@@ -3,7 +3,6 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Gavel
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -20,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
@@ -32,7 +32,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listTokens = rememberSettingsListTokens()
-    var showUnitsPicker by remember { mutableStateOf(false) }
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showClearPartialTransfersDialog by remember { mutableStateOf(false) }
     var isClearingCache by remember { mutableStateOf(false) }
@@ -42,14 +41,9 @@ fun SettingsScreen(
         mutableStateOf(StalePartialTransferCleaner.PartialFilesSummary(count = 0, totalBytes = 0L))
     }
     val isMetric by viewModel.isMetric.collectAsState()
+    val userWeightKg by viewModel.userWeightKg.collectAsState()
+    val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
     val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
-    val unitOptions =
-        remember {
-            listOf(
-                true to "Metric",
-                false to "Imperial",
-            )
-        }
 
     fun refreshPartialSummary() {
         scope.launch {
@@ -76,19 +70,18 @@ fun SettingsScreen(
 
     WearSettingsListScreen(listTokens = listTokens) {
         item {
+            SettingsSectionChip(
+                label = "User profile",
+                secondaryLabel = formatUserProfileSummary(isMetric, userWeightKg, backpackWeightKg),
+                onClick = { navController.navigate(WatchRoutes.USER_PROFILE_SETTINGS) },
+            )
+        }
+        item {
             Text(
                 "General",
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-            )
-        }
-        item {
-            SettingsPickerChip(
-                label = "Units",
-                secondaryLabel = if (isMetric) "Metric" else "Imperial",
-                iconImageVector = Icons.Filled.UnfoldMore,
-                onClick = { showUnitsPicker = true },
             )
         }
         item {
@@ -201,15 +194,6 @@ fun SettingsScreen(
             )
         }
     }
-
-    OptionPickerDialog(
-        visible = showUnitsPicker,
-        title = "Units",
-        selectedValue = isMetric,
-        options = unitOptions,
-        onDismiss = { showUnitsPicker = false },
-        onSelect = { selectedMetric -> viewModel.setMetric(selectedMetric) },
-    )
 
     WearActionDialog(
         visible = showClearCacheDialog,
@@ -327,3 +311,31 @@ private fun formatStorageSize(bytes: Long): String {
         else -> "${bytes.coerceAtLeast(0L)} B"
     }
 }
+
+private fun formatSettingsUserWeight(
+    weightKg: Float,
+    isMetric: Boolean,
+): String =
+    if (isMetric) {
+        "${weightKg.roundToInt()} kg"
+    } else {
+        "${(weightKg * SETTINGS_KG_TO_LB).roundToInt()} lb"
+    }
+
+private fun formatUserProfileSummary(
+    isMetric: Boolean,
+    userWeightKg: Float,
+    backpackWeightKg: Float,
+): String {
+    val parts =
+        mutableListOf(
+            if (isMetric) "Metric" else "Imperial",
+            formatSettingsUserWeight(userWeightKg, isMetric),
+        )
+    if (backpackWeightKg.roundToInt() > 0) {
+        parts += "pack ${formatSettingsUserWeight(backpackWeightKg, isMetric)}"
+    }
+    return parts.joinToString(" · ")
+}
+
+private const val SETTINGS_KG_TO_LB = 2.2046226218f

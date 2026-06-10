@@ -8,6 +8,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.SyncManager
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.estimateRecordingCalories
 import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorMetrics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ import org.mapsforge.core.model.LatLong
 import java.io.ByteArrayInputStream
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -38,6 +40,8 @@ class TraceRecordingViewModel(
 
     private var sampleIntervalSeconds = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
     private var recordingElevationSource = SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
+    private var userWeightKg = SettingsRepository.DEFAULT_USER_WEIGHT_KG
+    private var backpackWeightKg = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
     private var lastAcceptedElapsedMs: Long = Long.MIN_VALUE
     private val locationPointMutex = Mutex()
     private var skippedIntervalCount = 0
@@ -63,6 +67,12 @@ class TraceRecordingViewModel(
             .launchIn(viewModelScope)
         settingsRepository.recordingElevationSource
             .onEach { recordingElevationSource = it }
+            .launchIn(viewModelScope)
+        settingsRepository.userWeightKg
+            .onEach { userWeightKg = it }
+            .launchIn(viewModelScope)
+        settingsRepository.backpackWeightKg
+            .onEach { backpackWeightKg = it }
             .launchIn(viewModelScope)
         restoreDraftIfPresent()
     }
@@ -548,6 +558,12 @@ class TraceRecordingViewModel(
             } else {
                 null
             }
+        val calories =
+            estimateRecordingCalories(
+                points = state.points,
+                userWeightKg = userWeightKg,
+                backpackWeightKg = backpackWeightKg,
+            )
         return "points=${state.points.size} distanceMeters=${state.distanceMeters.toInt()} " +
             "active=${state.active} paused=${state.paused} lastUiAction=${lastUiAction ?: "na"} " +
             "durationMs=$durationMillis pausedMs=$pausedMillis " +
@@ -560,6 +576,17 @@ class TraceRecordingViewModel(
             "lastCadenceSpm=${lastPoint?.cadenceSpm ?: -1} " +
             "lastPressureHpa=${lastPoint?.barometricPressureHpa?.toInt() ?: -1} " +
             "demMisses=$demElevationMissCount gpsElevationUsed=$gpsElevationUsedCount " +
+            "calorieModel=pandolf_santee_segment_v2 " +
+            "caloriesGrossKcal=${calories.grossKcal.roundToInt()} " +
+            "caloriesActiveKcal=${calories.activeKcal.roundToInt()} " +
+            "caloriesRestingKcal=${calories.restingKcal.roundToInt()} " +
+            "pandolfBaseGrossKcal=${calories.pandolfBaseGrossKcal.roundToInt()} " +
+            "pandolfBaseActiveKcal=${calories.pandolfBaseActiveKcal.roundToInt()} " +
+            "pandolfBaseRestingKcal=${calories.pandolfBaseRestingKcal.roundToInt()} " +
+            "calorieCompareModel=lcda_2024_weighted_load_backpack_v1 " +
+            "lcdaGrossKcal=${calories.lcdaGrossKcal.roundToInt()} " +
+            "lcdaActiveKcal=${calories.lcdaActiveKcal.roundToInt()} " +
+            "lcdaRestingKcal=${calories.lcdaRestingKcal.roundToInt()} " +
             "accuracySamples=$acceptedAccuracyCount " +
             "accuracyAvgMeters=${avgAccuracy?.toInt() ?: -1} " +
             "accuracyMinMeters=${acceptedAccuracyMinMeters?.toInt() ?: -1} " +

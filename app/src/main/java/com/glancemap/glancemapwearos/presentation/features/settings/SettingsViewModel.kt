@@ -742,6 +742,32 @@ class SettingsViewModel(
             settingsRepository.setMetric(isMetric)
         }
 
+    val userWeightKg: StateFlow<Float> =
+        settingsRepository.userWeightKg
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_USER_WEIGHT_KG,
+            )
+
+    fun setUserWeightKg(weightKg: Float) =
+        viewModelScope.launch {
+            settingsRepository.setUserWeightKg(weightKg)
+        }
+
+    val backpackWeightKg: StateFlow<Float> =
+        settingsRepository.backpackWeightKg
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG,
+            )
+
+    fun setBackpackWeightKg(weightKg: Float) =
+        viewModelScope.launch {
+            settingsRepository.setBackpackWeightKg(weightKg)
+        }
+
     val backButtonExitsNavigation: StateFlow<Boolean> =
         settingsRepository.backButtonExitsNavigation
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)

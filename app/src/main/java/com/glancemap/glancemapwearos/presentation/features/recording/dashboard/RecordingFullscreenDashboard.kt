@@ -62,6 +62,12 @@ internal fun ExpandedRecordingDashboard(
             WearScreenSize.MEDIUM -> 42.dp
             WearScreenSize.SMALL -> 38.dp
         }
+    val recordingDotTopPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 18.dp
+            WearScreenSize.MEDIUM -> 16.dp
+            WearScreenSize.SMALL -> 14.dp
+        }
 
     Box(
         modifier =
@@ -104,7 +110,6 @@ internal fun ExpandedRecordingDashboard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
             ) {
-                RecordingDot(paused = state.paused, saving = state.saving, size = 26.dp)
                 RecordingMetricTile(
                     metric = formattedRecordingMetric(slots[0], snapshot, isMetric),
                     height = tileHeight,
@@ -137,6 +142,15 @@ internal fun ExpandedRecordingDashboard(
             }
         }
 
+        RecordingDot(
+            paused = state.paused,
+            saving = state.saving,
+            onClick = onShowActions,
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = recordingDotTopPadding),
+        )
         SwipeMinimizeHandle(
             modifier =
                 Modifier
@@ -214,28 +228,42 @@ private fun RecordingMetricTile(
 private fun RecordingDot(
     paused: Boolean,
     saving: Boolean,
-    size: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val touchSize = 48.dp
+    val visualSize = 20.dp
     Box(
         modifier =
-            Modifier
-                .size(size)
-                .background(Color.White.copy(alpha = 0.18f), CircleShape),
+            modifier
+                .size(touchSize)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onClick,
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier =
                 Modifier
-                    .size(size * 0.55f)
-                    .background(
-                        when {
-                            saving -> Color(0xFFFFD54F)
-                            paused -> Color(0xFFFFB74D)
-                            else -> Color(0xFFFF1744)
-                        },
-                        CircleShape,
-                    ),
-        )
+                    .size(visualSize)
+                    .background(Color.White.copy(alpha = 0.16f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(visualSize * 0.58f)
+                        .background(
+                            when {
+                                saving -> Color(0xFFFFD54F)
+                                paused -> Color(0xFFFFB74D)
+                                else -> Color(0xFFFF1744)
+                            },
+                            CircleShape,
+                        ),
+            )
+        }
     }
 }
 

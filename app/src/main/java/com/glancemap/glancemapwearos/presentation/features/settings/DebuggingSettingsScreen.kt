@@ -105,6 +105,8 @@ fun DebuggingSettingsScreen(
     val turnByTurnReverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
     val recordingSampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
     val recordingElevationSource by viewModel.recordingElevationSource.collectAsState()
+    val userWeightKg by viewModel.userWeightKg.collectAsState()
+    val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
     var diagnosticsExportStatus by remember {
         mutableStateOf(DIAGNOSTICS_DEFAULT_STATUS)
     }
@@ -366,6 +368,8 @@ fun DebuggingSettingsScreen(
                                                 backButtonExitsNavigation = backButtonExitsNavigation,
                                                 recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
                                                 recordingElevationSource = recordingElevationSource,
+                                                userWeightKg = userWeightKg,
+                                                backpackWeightKg = backpackWeightKg,
                                                 turnByTurnGuidanceSource = turnByTurnGuidanceSource,
                                                 turnByTurnUseBrouterTiles = turnByTurnUseBrouterTiles,
                                                 turnByTurnHapticsEnabled = turnByTurnHapticsEnabled,

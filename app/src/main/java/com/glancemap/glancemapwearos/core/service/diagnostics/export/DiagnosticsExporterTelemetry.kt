@@ -188,6 +188,17 @@ internal fun deriveTelemetryInsights(
     var recordingAccuracyMaxMeters: Int? = null
     var recordingElevationGainMeters: Int? = null
     var recordingElevationLossMeters: Int? = null
+    var recordingCalorieModel: String? = null
+    var recordingCaloriesGrossKcal: Int? = null
+    var recordingCaloriesActiveKcal: Int? = null
+    var recordingCaloriesRestingKcal: Int? = null
+    var recordingPandolfBaseGrossKcal: Int? = null
+    var recordingPandolfBaseActiveKcal: Int? = null
+    var recordingPandolfBaseRestingKcal: Int? = null
+    var recordingCalorieCompareModel: String? = null
+    var recordingLcdaGrossKcal: Int? = null
+    var recordingLcdaActiveKcal: Int? = null
+    var recordingLcdaRestingKcal: Int? = null
     var recordingLastSavedByteSize: Int? = null
     var locationServiceStartFailureCount = 0
     var locationServiceStartFallbackFailureCount = 0
@@ -449,6 +460,21 @@ internal fun deriveTelemetryInsights(
             }
             parseIntToken(line, "elevationGainMeters=")?.let { recordingElevationGainMeters = it }
             parseIntToken(line, "elevationLossMeters=")?.let { recordingElevationLossMeters = it }
+            extractTokenValue(line, "calorieModel=")?.takeIf { it.isNotBlank() }?.let {
+                recordingCalorieModel = it
+            }
+            parseIntToken(line, "caloriesGrossKcal=")?.let { recordingCaloriesGrossKcal = it }
+            parseIntToken(line, "caloriesActiveKcal=")?.let { recordingCaloriesActiveKcal = it }
+            parseIntToken(line, "caloriesRestingKcal=")?.let { recordingCaloriesRestingKcal = it }
+            parseIntToken(line, "pandolfBaseGrossKcal=")?.let { recordingPandolfBaseGrossKcal = it }
+            parseIntToken(line, "pandolfBaseActiveKcal=")?.let { recordingPandolfBaseActiveKcal = it }
+            parseIntToken(line, "pandolfBaseRestingKcal=")?.let { recordingPandolfBaseRestingKcal = it }
+            extractTokenValue(line, "calorieCompareModel=")?.takeIf { it.isNotBlank() }?.let {
+                recordingCalorieCompareModel = it
+            }
+            parseIntToken(line, "lcdaGrossKcal=")?.let { recordingLcdaGrossKcal = it }
+            parseIntToken(line, "lcdaActiveKcal=")?.let { recordingLcdaActiveKcal = it }
+            parseIntToken(line, "lcdaRestingKcal=")?.let { recordingLcdaRestingKcal = it }
             parseIntToken(line, "byteSize=")?.takeIf { it >= 0 }?.let {
                 recordingLastSavedByteSize = it
             }
@@ -687,6 +713,17 @@ internal fun deriveTelemetryInsights(
         recordingAccuracyMaxMeters = recordingAccuracyMaxMeters,
         recordingElevationGainMeters = recordingElevationGainMeters,
         recordingElevationLossMeters = recordingElevationLossMeters,
+        recordingCalorieModel = recordingCalorieModel,
+        recordingCaloriesGrossKcal = recordingCaloriesGrossKcal,
+        recordingCaloriesActiveKcal = recordingCaloriesActiveKcal,
+        recordingCaloriesRestingKcal = recordingCaloriesRestingKcal,
+        recordingPandolfBaseGrossKcal = recordingPandolfBaseGrossKcal,
+        recordingPandolfBaseActiveKcal = recordingPandolfBaseActiveKcal,
+        recordingPandolfBaseRestingKcal = recordingPandolfBaseRestingKcal,
+        recordingCalorieCompareModel = recordingCalorieCompareModel,
+        recordingLcdaGrossKcal = recordingLcdaGrossKcal,
+        recordingLcdaActiveKcal = recordingLcdaActiveKcal,
+        recordingLcdaRestingKcal = recordingLcdaRestingKcal,
         recordingLastSavedByteSize = recordingLastSavedByteSize,
         locationServiceStartFailureCount = locationServiceStartFailureCount,
         locationServiceStartFallbackFailureCount = locationServiceStartFallbackFailureCount,

@@ -73,6 +73,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefault
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.UserProfileSettingsScreen
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.google.android.horologist.compose.layout.AppScaffold
@@ -505,6 +506,24 @@ class MainActivity : ComponentActivity() {
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 GpsSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.USER_PROFILE_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                UserProfileSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
                                     onOpenGeneralSettings = {
                                         navController.navigate(WatchRoutes.SETTINGS) {

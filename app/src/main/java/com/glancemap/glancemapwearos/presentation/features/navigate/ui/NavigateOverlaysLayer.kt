@@ -115,6 +115,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onKeepAppOpenToggle: () -> Unit,
     traceRecordingState: TraceRecordingUiState,
     recordingDashboardMetricSlots: List<String>,
+    userWeightKg: Float,
+    backpackWeightKg: Float,
     recordingDashboardExpandRequestToken: Long,
     recordingActionPromptRequestToken: Long,
     onRecordingClick: () -> Unit,
@@ -493,6 +495,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
     RecordingDashboardOverlay(
         state = traceRecordingState,
         metricSlots = recordingDashboardMetricSlots,
+        userWeightKg = userWeightKg,
+        backpackWeightKg = backpackWeightKg,
         screenSize = screenSize,
         isMetric = isMetric,
         suppressed = poiTapMessage != null || turnByTurnFullScreenExpanded,

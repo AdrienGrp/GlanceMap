@@ -49,6 +49,7 @@ internal fun RecordingStopPromptCard(
     val duration = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DURATION, snapshot, isMetric)
     val elevationGain = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN, snapshot, isMetric)
     val elevationLoss = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS, snapshot, isMetric)
+    val calories = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_CALORIES, snapshot, isMetric)
     val defaultTitle =
         remember(state.startedAtMillis) {
             buildRecordingTitle(state.startedAtMillis ?: System.currentTimeMillis())
@@ -130,6 +131,16 @@ internal fun RecordingStopPromptCard(
                 modifier = Modifier.weight(1f),
                 labelIcon = Icons.Default.ArrowDownward,
                 value = "${elevationLoss.value} ${elevationLoss.unit.orEmpty()}".trim(),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RecordingDialogStatTile(
+                modifier = Modifier.weight(1f),
+                label = "Calories",
+                value = "${calories.value} ${calories.unit.orEmpty()}".trim(),
             )
         }
     }
