@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import com.glancemap.glancemapwearos.GlanceMapWearApp
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.adapters.FusedLocationGateway
 import com.glancemap.glancemapwearos.core.service.location.adapters.LocationGateway
@@ -1029,7 +1030,21 @@ class LocationService : Service() {
                         isForegroundPinned = true,
                         notificationId = NOTIFICATION_ID,
                     )
-                startForeground(NOTIFICATION_ID, notification)
+                val foregroundStarted =
+                    runCatching { startForeground(NOTIFICATION_ID, notification) }
+                        .onFailure { error ->
+                            DebugTelemetry.log(
+                                TELEMETRY_TAG,
+                                "startForegroundFailed mode=location_foreground " +
+                                    "error=${error.javaClass.simpleName} " +
+                                    "message=${error.localizedMessage?.sanitizeTelemetryValue() ?: "na"}",
+                            )
+                        }.isSuccess
+                if (!foregroundStarted) {
+                    notificationFactory.show(NOTIFICATION_ID, notification)
+                    keepAliveNotificationMode = KeepAliveNotificationMode.PINNED_NOTIFICATION
+                    return
+                }
             }
         }
 
@@ -1123,3 +1138,7 @@ class LocationService : Service() {
         private const val SOURCE_MODE_WARMUP_MS = 1_500L
     }
 }
+
+private fun String.sanitizeTelemetryValue(): String =
+    replace(Regex("\\s+"), "_")
+        .take(80)

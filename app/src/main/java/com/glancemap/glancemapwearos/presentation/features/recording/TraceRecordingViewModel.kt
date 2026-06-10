@@ -30,6 +30,7 @@ class TraceRecordingViewModel(
     private val settingsRepository: SettingsRepository,
     private val syncManager: SyncManager,
     private val elevationProvider: RecordingElevationProvider,
+    private val draftStore: TraceRecordingDraftStore,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TraceRecordingUiState())
     val uiState: StateFlow<TraceRecordingUiState> = _uiState.asStateFlow()
@@ -52,6 +53,7 @@ class TraceRecordingViewModel(
     private var gpsActiveDurationMillis: Long = 0L
     private var recordingGapCount: Int = 0
     private var recordingMaxGapMillis: Long = 0L
+    private var lastUiAction: String? = null
 
     init {
         settingsRepository.recordingSampleIntervalSeconds
@@ -60,6 +62,7 @@ class TraceRecordingViewModel(
         settingsRepository.recordingElevationSource
             .onEach { recordingElevationSource = it }
             .launchIn(viewModelScope)
+        restoreDraftIfPresent()
     }
 
     fun toggleRecording() {
@@ -76,6 +79,7 @@ class TraceRecordingViewModel(
         val now = System.currentTimeMillis()
         lastAcceptedElapsedMs = Long.MIN_VALUE
         resetSessionTelemetry()
+        lastUiAction = "start"
         _uiState.value =
             TraceRecordingUiState(
                 active = true,
@@ -85,8 +89,10 @@ class TraceRecordingViewModel(
             )
         DebugTelemetry.log(
             "TraceRecording",
-            "event=start sampleIntervalSeconds=$sampleIntervalSeconds elevationSource=$recordingElevationSource",
+            "event=start sampleIntervalSeconds=$sampleIntervalSeconds elevationSource=$recordingElevationSource " +
+                "draftPath=${sanitizeTelemetryValue(draftStore.draftPath())} lastUiAction=$lastUiAction",
         )
+        persistDraftAsync(reason = "start")
     }
 
     fun onLocation(location: Location?) {
@@ -153,7 +159,7 @@ class TraceRecordingViewModel(
                 val addedDistance = previous?.let { haversineMeters(it.latLong, point.latLong) } ?: 0.0
                 updateGapTelemetry(point.timeMillis)
                 updateAccuracyTelemetry(point.accuracyMeters)
-                _uiState.value =
+                val updatedState =
                     currentState.copy(
                         points = currentState.points + point,
                         distanceMeters = currentState.distanceMeters + addedDistance,
@@ -162,6 +168,8 @@ class TraceRecordingViewModel(
                         recordingMaxGapMillis = recordingMaxGapMillis,
                         message = null,
                     )
+                _uiState.value =
+                    updatedState
                 val pointCount = currentState.points.size + 1
                 if (pointCount == 1 || pointCount % RECORDING_TELEMETRY_POINT_INTERVAL == 0) {
                     DebugTelemetry.log(
@@ -179,6 +187,7 @@ class TraceRecordingViewModel(
                             "skippedUnusable=$skippedUnusableLocationCount",
                     )
                 }
+                persistDraft(state = updatedState, reason = "point")
             }
         }
     }
@@ -186,6 +195,7 @@ class TraceRecordingViewModel(
     fun pauseRecording() {
         val state = _uiState.value
         if (!state.active || state.paused || state.saving) return
+        lastUiAction = "pause"
         _uiState.value =
             state.copy(
                 paused = true,
@@ -196,6 +206,7 @@ class TraceRecordingViewModel(
             "TraceRecording",
             "event=pause ${recordingSummaryTokens(state, System.currentTimeMillis())}",
         )
+        persistDraftAsync(reason = "pause")
     }
 
     fun resumeRecording() {
@@ -204,6 +215,7 @@ class TraceRecordingViewModel(
         val now = System.currentTimeMillis()
         val addedPausedMillis = state.pausedAtMillis?.let { now - it }?.coerceAtLeast(0L) ?: 0L
         lastAcceptedElapsedMs = Long.MIN_VALUE
+        lastUiAction = "resume"
         _uiState.value =
             state.copy(
                 paused = false,
@@ -215,17 +227,20 @@ class TraceRecordingViewModel(
             "TraceRecording",
             "event=resume ${recordingSummaryTokens(_uiState.value, now)}",
         )
+        persistDraftAsync(reason = "resume")
     }
 
     fun finishAndSaveRecording(titleOverride: String? = null) {
         val state = _uiState.value
         if (!state.active || state.saving) return
+        lastUiAction = "save"
         if (state.points.size < 2) {
             _uiState.value = TraceRecordingUiState(message = "Not enough points")
             DebugTelemetry.log(
                 "TraceRecording",
                 "event=discard reason=not_enough_points ${recordingSummaryTokens(state, System.currentTimeMillis())}",
             )
+            clearDraftAsync(reason = "not_enough_points")
             return
         }
 
@@ -273,10 +288,12 @@ class TraceRecordingViewModel(
                 val saveInfo = saveResult.getOrNull()
                 syncManager.requestGpxSync()
                 _uiState.value = TraceRecordingUiState(message = "REC saved")
+                draftStore.clear()
                 DebugTelemetry.log(
                     "TraceRecording",
                     "event=save_success ${recordingSummaryTokens(state, now, finalPausedMillis)} " +
-                        "fileName=${saveInfo?.fileName ?: "na"} byteSize=${saveInfo?.byteSize ?: -1}",
+                        "fileName=${saveInfo?.fileName ?: "na"} byteSize=${saveInfo?.byteSize ?: -1} " +
+                        "endReason=user_save",
                 )
             } else {
                 val errorMessage =
@@ -301,11 +318,87 @@ class TraceRecordingViewModel(
     fun discardRecording() {
         val state = _uiState.value
         if (!state.active && !state.saving) return
+        lastUiAction = "discard"
         _uiState.value = TraceRecordingUiState(message = "REC discarded")
+        clearDraftAsync(reason = "user_discard")
         DebugTelemetry.log(
             "TraceRecording",
             "event=discard reason=user ${recordingSummaryTokens(state, System.currentTimeMillis())}",
         )
+    }
+
+    private fun restoreDraftIfPresent() {
+        viewModelScope.launch {
+            val draft = draftStore.load() ?: return@launch
+            if (!draft.active || draft.points.isEmpty()) {
+                draftStore.clear()
+                return@launch
+            }
+            resetSessionTelemetry()
+            lastAcceptedElapsedMs = Long.MIN_VALUE
+            lastUiAction = draft.lastUiAction ?: "restore"
+            gpsActiveDurationMillis = draft.gpsActiveDurationMillis
+            recordingGapCount = draft.recordingGapCount
+            recordingMaxGapMillis = draft.recordingMaxGapMillis
+            rebuildTelemetryFromPoints(draft.points)
+            _uiState.value =
+                TraceRecordingUiState(
+                    active = true,
+                    paused = draft.paused,
+                    saving = false,
+                    points = draft.points,
+                    distanceMeters = draft.distanceMeters,
+                    startedAtMillis = draft.startedAtMillis,
+                    pausedAtMillis = draft.pausedAtMillis,
+                    accumulatedPausedMillis = draft.accumulatedPausedMillis,
+                    gpsActiveDurationMillis = draft.gpsActiveDurationMillis,
+                    recordingGapCount = draft.recordingGapCount,
+                    recordingMaxGapMillis = draft.recordingMaxGapMillis,
+                    message = "REC recovered",
+                )
+            DebugTelemetry.log(
+                "TraceRecording",
+                "event=recovered ${recordingSummaryTokens(_uiState.value, System.currentTimeMillis())} " +
+                    "draftPath=${sanitizeTelemetryValue(draftStore.draftPath())}",
+            )
+        }
+    }
+
+    private fun persistDraftAsync(reason: String) {
+        val state = _uiState.value
+        viewModelScope.launch {
+            persistDraft(state = state, reason = reason)
+        }
+    }
+
+    private suspend fun persistDraft(
+        state: TraceRecordingUiState,
+        reason: String,
+    ) {
+        if (!state.active || state.saving) return
+        runCatching {
+            draftStore.save(
+                state = state,
+                lastUiAction = lastUiAction,
+            )
+        }.onFailure { error ->
+            DebugTelemetry.log(
+                "TraceRecording",
+                "event=draft_failure reason=$reason error=${sanitizeTelemetryValue(error.javaClass.simpleName)}",
+            )
+        }
+    }
+
+    private fun clearDraftAsync(reason: String) {
+        viewModelScope.launch {
+            runCatching { draftStore.clear() }
+                .onFailure { error ->
+                    DebugTelemetry.log(
+                        "TraceRecording",
+                        "event=draft_clear_failure reason=$reason error=${sanitizeTelemetryValue(error.javaClass.simpleName)}",
+                    )
+                }
+        }
     }
 
     private suspend fun uniqueRecordingFileName(
@@ -340,6 +433,13 @@ class TraceRecordingViewModel(
         gpsActiveDurationMillis = 0L
         recordingGapCount = 0
         recordingMaxGapMillis = 0L
+    }
+
+    private fun rebuildTelemetryFromPoints(points: List<RecordedTracePoint>) {
+        points.forEach { point ->
+            updateAccuracyTelemetry(point.accuracyMeters)
+        }
+        lastAcceptedPointTimeMillis = points.lastOrNull()?.timeMillis
     }
 
     private fun updateGapTelemetry(pointTimeMillis: Long) {
@@ -400,6 +500,7 @@ class TraceRecordingViewModel(
                 null
             }
         return "points=${state.points.size} distanceMeters=${state.distanceMeters.toInt()} " +
+            "active=${state.active} paused=${state.paused} lastUiAction=${lastUiAction ?: "na"} " +
             "durationMs=$durationMillis pausedMs=$pausedMillis " +
             "gpsActiveDurationMs=${state.gpsActiveDurationMillis} " +
             "recordingGapCount=${state.recordingGapCount} recordingMaxGapMs=${state.recordingMaxGapMillis} " +

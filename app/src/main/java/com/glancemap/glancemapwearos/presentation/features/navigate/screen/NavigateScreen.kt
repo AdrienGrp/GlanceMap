@@ -783,11 +783,6 @@ fun NavigateScreen(
         }
     val gpsSignalSnapshot by locationViewModel.gpsSignalSnapshot.collectAsState()
     val rawCurrentLocation by locationViewModel.currentLocation.collectAsState()
-    LaunchedEffect(rawCurrentLocation, traceRecordingState.active) {
-        if (traceRecordingState.active) {
-            traceRecordingViewModel.onLocation(rawCurrentLocation)
-        }
-    }
     val gpsFixFreshForAccuracyCircle =
         gpsSignalSnapshot.isLocationAvailable &&
             gpsSignalSnapshot.lastFixElapsedRealtimeMs > 0L &&

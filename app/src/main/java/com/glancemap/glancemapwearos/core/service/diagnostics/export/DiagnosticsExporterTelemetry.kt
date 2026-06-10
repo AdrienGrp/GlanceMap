@@ -151,6 +151,7 @@ internal fun deriveTelemetryInsights(
     var turnByTurnOffRouteHapticCount = 0
     var turnByTurnMaxDistanceToRouteMeters: Int? = null
     var recordingStartCount = 0
+    var recordingRecoveredCount = 0
     var recordingPauseCount = 0
     var recordingResumeCount = 0
     var recordingPointSampleCount = 0
@@ -158,6 +159,10 @@ internal fun deriveTelemetryInsights(
     var recordingSaveSuccessCount = 0
     var recordingSaveFailureCount = 0
     var recordingDiscardCount = 0
+    var recordingDraftFailureCount = 0
+    var recordingDraftClearFailureCount = 0
+    var recordingLastUiAction: String? = null
+    var recordingLastEndReason: String? = null
     var recordingLastPointCount: Int? = null
     var recordingMaxPointCount: Int? = null
     var recordingLastDistanceMeters: Int? = null
@@ -184,6 +189,12 @@ internal fun deriveTelemetryInsights(
     var recordingElevationGainMeters: Int? = null
     var recordingElevationLossMeters: Int? = null
     var recordingLastSavedByteSize: Int? = null
+    var locationServiceStartFailureCount = 0
+    var locationServiceStartFallbackFailureCount = 0
+    var locationStartForegroundFailureCount = 0
+    var thermalStatusEventCount = 0
+    var thermalMaxStatus: Int? = null
+    var thermalLastStatusLabel: String? = null
     var screenActive = false
     var pendingScreenPauseTrackingDisable = false
     var lastScreenFixAtMs: Long? = null
@@ -360,6 +371,7 @@ internal fun deriveTelemetryInsights(
         if ("[TraceRecording]" in line) {
             when (extractTokenValue(line, "event=")) {
                 "start" -> recordingStartCount += 1
+                "recovered" -> recordingRecoveredCount += 1
                 "pause" -> recordingPauseCount += 1
                 "resume" -> recordingResumeCount += 1
                 "point" -> recordingPointSampleCount += 1
@@ -367,6 +379,14 @@ internal fun deriveTelemetryInsights(
                 "save_success" -> recordingSaveSuccessCount += 1
                 "save_failure" -> recordingSaveFailureCount += 1
                 "discard" -> recordingDiscardCount += 1
+                "draft_failure" -> recordingDraftFailureCount += 1
+                "draft_clear_failure" -> recordingDraftClearFailureCount += 1
+            }
+            extractTokenValue(line, "lastUiAction=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                recordingLastUiAction = it
+            }
+            extractTokenValue(line, "endReason=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                recordingLastEndReason = it
             }
             parseIntToken(line, "points=")?.let { points ->
                 recordingLastPointCount = points
@@ -431,6 +451,25 @@ internal fun deriveTelemetryInsights(
             parseIntToken(line, "elevationLossMeters=")?.let { recordingElevationLossMeters = it }
             parseIntToken(line, "byteSize=")?.takeIf { it >= 0 }?.let {
                 recordingLastSavedByteSize = it
+            }
+        }
+
+        if ("serviceStartFailed" in line) {
+            locationServiceStartFailureCount += 1
+        }
+        if ("serviceStartFallbackFailed" in line) {
+            locationServiceStartFallbackFailureCount += 1
+        }
+        if ("startForegroundFailed" in line) {
+            locationStartForegroundFailureCount += 1
+        }
+        if ("[ThermalTelemetry]" in line) {
+            thermalStatusEventCount += 1
+            parseIntToken(line, "status=")?.let { status ->
+                thermalMaxStatus = maxOf(thermalMaxStatus ?: status, status)
+            }
+            extractTokenValue(line, "label=")?.takeIf { it.isNotBlank() }?.let { label ->
+                thermalLastStatusLabel = label
             }
         }
 
@@ -611,6 +650,7 @@ internal fun deriveTelemetryInsights(
         turnByTurnOffRouteHapticCount = turnByTurnOffRouteHapticCount,
         turnByTurnMaxDistanceToRouteMeters = turnByTurnMaxDistanceToRouteMeters,
         recordingStartCount = recordingStartCount,
+        recordingRecoveredCount = recordingRecoveredCount,
         recordingPauseCount = recordingPauseCount,
         recordingResumeCount = recordingResumeCount,
         recordingPointSampleCount = recordingPointSampleCount,
@@ -618,6 +658,10 @@ internal fun deriveTelemetryInsights(
         recordingSaveSuccessCount = recordingSaveSuccessCount,
         recordingSaveFailureCount = recordingSaveFailureCount,
         recordingDiscardCount = recordingDiscardCount,
+        recordingDraftFailureCount = recordingDraftFailureCount,
+        recordingDraftClearFailureCount = recordingDraftClearFailureCount,
+        recordingLastUiAction = recordingLastUiAction,
+        recordingLastEndReason = recordingLastEndReason,
         recordingLastPointCount = recordingLastPointCount,
         recordingMaxPointCount = recordingMaxPointCount,
         recordingLastDistanceMeters = recordingLastDistanceMeters,
@@ -644,6 +688,12 @@ internal fun deriveTelemetryInsights(
         recordingElevationGainMeters = recordingElevationGainMeters,
         recordingElevationLossMeters = recordingElevationLossMeters,
         recordingLastSavedByteSize = recordingLastSavedByteSize,
+        locationServiceStartFailureCount = locationServiceStartFailureCount,
+        locationServiceStartFallbackFailureCount = locationServiceStartFallbackFailureCount,
+        locationStartForegroundFailureCount = locationStartForegroundFailureCount,
+        thermalStatusEventCount = thermalStatusEventCount,
+        thermalMaxStatus = thermalMaxStatus,
+        thermalLastStatusLabel = thermalLastStatusLabel,
     )
 }
 

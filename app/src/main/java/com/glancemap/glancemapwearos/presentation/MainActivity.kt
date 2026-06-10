@@ -1,9 +1,11 @@
 package com.glancemap.glancemapwearos.presentation
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -11,22 +13,32 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.wear.compose.foundation.CurvedTextStyle
+import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TimeText
 import androidx.wear.compose.material3.TimeTextDefaults
 import androidx.wear.compose.material3.timeTextCurvedText
@@ -40,7 +52,9 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxScreen
 import com.glancemap.glancemapwearos.presentation.features.home.MainScreen
 import com.glancemap.glancemapwearos.presentation.features.maps.MapsScreen
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateScreen
+import com.glancemap.glancemapwearos.presentation.features.navigate.formatNavigateClockTime
 import com.glancemap.glancemapwearos.presentation.features.navigate.navigateTimePattern
+import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.CompassSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.DebuggingSettingsScreen
@@ -59,6 +73,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnSe
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.google.android.horologist.compose.layout.AppScaffold
+import kotlinx.coroutines.delay
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
 class MainActivity : ComponentActivity() {
@@ -68,6 +83,7 @@ class MainActivity : ComponentActivity() {
 
     @Volatile
     private var activeRoute: String? = null
+    private var thermalStatusListener: PowerManager.OnThermalStatusChangedListener? = null
 
     private val screenStateReceiver =
         object : BroadcastReceiver() {
@@ -96,6 +112,7 @@ class MainActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             registerReceiver(screenStateReceiver, screenStateFilter)
         }
+        registerThermalTelemetry()
 
         val ambientObserver =
             AmbientLifecycleObserver(
@@ -133,12 +150,29 @@ class MainActivity : ComponentActivity() {
             val isAmbient = _isAmbient
             val ambientTickMs = _ambientTickMs
             val isDeviceInteractive = _isDeviceInteractive
+            val activityLocationScreenState =
+                remember(isAmbient, isDeviceInteractive) {
+                    resolveLocationScreenState(
+                        isAmbient = isAmbient,
+                        isDeviceInteractive = isDeviceInteractive,
+                    )
+                }
 
             GlanceMapTheme {
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val route = backStackEntry?.destination?.route
                 val routeLabel = route ?: WatchRoutes.NAVIGATE
+                val compositionContext = LocalContext.current
+                val locationPermissionGranted =
+                    ContextCompat.checkSelfPermission(
+                        compositionContext,
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                    ) == PackageManager.PERMISSION_GRANTED ||
+                        ContextCompat.checkSelfPermission(
+                            compositionContext,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ) == PackageManager.PERMISSION_GRANTED
                 var suppressNavigateTime by remember { mutableStateOf(false) }
                 var recordingDashboardExpandRequestToken by remember { mutableLongStateOf(0L) }
                 var recordingActionPromptRequestToken by remember { mutableLongStateOf(0L) }
@@ -151,6 +185,25 @@ class MainActivity : ComponentActivity() {
                     if (!isNavigateScreen) {
                         suppressNavigateTime = false
                     }
+                }
+                LaunchedEffect(
+                    isNavigateScreen,
+                    traceRecordingState.active,
+                    activityLocationScreenState,
+                    locationPermissionGranted,
+                ) {
+                    if (isNavigateScreen) return@LaunchedEffect
+                    val recordingTrackingActive = traceRecordingState.active && locationPermissionGranted
+                    appContainer.locationViewModel.syncRuntimeState(
+                        screenState = activityLocationScreenState,
+                        trackingEnabled = recordingTrackingActive,
+                        backgroundGpsEnabled = recordingTrackingActive,
+                    )
+                    DebugTelemetry.log(
+                        "TraceRecording",
+                        "event=activity_runtime_sync active=${traceRecordingState.active} " +
+                            "tracking=$recordingTrackingActive route=$routeLabel",
+                    )
                 }
                 val navigateViaSwipeLeft: () -> Unit = {
                     val popped = navController.popBackStack(WatchRoutes.NAVIGATE, inclusive = false)
@@ -176,12 +229,12 @@ class MainActivity : ComponentActivity() {
                         if (shouldShowStatusChip) {
                             cappedFontScale(maxFontScale = 1f) {
                                 val context = LocalContext.current
-                                val recordingChipColor =
+                                val recordingStatusColor =
                                     when {
-                                        traceRecordingState.saving -> Color(0xFF5C3B00)
-                                        traceRecordingState.paused -> Color(0xFF6A3C00)
-                                        recordingChipActive -> Color(0xFF6A1010)
-                                        else -> Color.Black.copy(alpha = 0.72f)
+                                        traceRecordingState.saving -> Color(0xFFFFB74D)
+                                        traceRecordingState.paused -> Color(0xFFFFB74D)
+                                        recordingChipActive -> Color(0xFFFF1744)
+                                        else -> Color.White
                                     }
                                 val statusChipModifier =
                                     Modifier
@@ -203,29 +256,30 @@ class MainActivity : ComponentActivity() {
                                             } else {
                                                 Modifier
                                             },
-                                        ).then(
-                                            if (recordingChipActive) {
-                                                Modifier
-                                                    .background(recordingChipColor, RoundedCornerShape(percent = 50))
-                                                    .padding(horizontal = 8.dp, vertical = 1.dp)
-                                            } else {
-                                                Modifier
-                                            },
                                         )
-                                TimeText(
-                                    modifier = statusChipModifier,
-                                    timeSource =
-                                        TimeTextDefaults.rememberTimeSource(
-                                            navigateTimePattern(context, navigateTimeFormat),
-                                        ),
-                                ) { time ->
-                                    timeTextCurvedText(
-                                        time = if (canShowNavigateTime) time else "REC",
-                                        style =
-                                            CurvedTextStyle(
-                                                color = Color.White,
-                                            ),
+                                if (recordingChipActive) {
+                                    RecordingTimeChip(
+                                        showTime = canShowNavigateTime,
+                                        timeFormat = navigateTimeFormat,
+                                        accentColor = recordingStatusColor,
+                                        modifier = statusChipModifier,
                                     )
+                                } else {
+                                    TimeText(
+                                        modifier = statusChipModifier,
+                                        timeSource =
+                                            TimeTextDefaults.rememberTimeSource(
+                                                navigateTimePattern(context, navigateTimeFormat),
+                                            ),
+                                    ) { time ->
+                                        timeTextCurvedText(
+                                            time = time,
+                                            style =
+                                                CurvedTextStyle(
+                                                    color = Color.White,
+                                                ),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -664,11 +718,58 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(screenStateReceiver) }
+        unregisterThermalTelemetry()
         val appContainer = (application as GlanceMapWearApp).container
         appContainer.mapViewModel.destroyMapHolder()
-        appContainer.locationViewModel.setTrackingEnabled(false)
+        if (appContainer.traceRecordingViewModel.uiState.value.active) {
+            DebugTelemetry.log("TraceRecording", "event=activity_destroy_retaining_gps active=true")
+        } else {
+            appContainer.locationViewModel.setTrackingEnabled(false)
+        }
         super.onDestroy()
     }
+
+    private fun registerThermalTelemetry() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val powerManager = getSystemService(PowerManager::class.java) ?: return
+        val listener =
+            PowerManager.OnThermalStatusChangedListener { status ->
+                logThermalTelemetry(event = "status", status = status)
+            }
+        thermalStatusListener = listener
+        powerManager.addThermalStatusListener(mainExecutor, listener)
+        logThermalTelemetry(event = "initial", status = powerManager.currentThermalStatus)
+    }
+
+    private fun unregisterThermalTelemetry() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val listener = thermalStatusListener ?: return
+        getSystemService(PowerManager::class.java)?.removeThermalStatusListener(listener)
+        thermalStatusListener = null
+    }
+
+    private fun logThermalTelemetry(
+        event: String,
+        status: Int,
+    ) {
+        DebugTelemetry.log(
+            "ThermalTelemetry",
+            "event=$event status=$status label=${thermalStatusLabel(status)} " +
+                "route=${activeRoute ?: "unknown"} ambient=$_isAmbient interactive=$_isDeviceInteractive",
+        )
+    }
+
+    private fun thermalStatusLabel(status: Int): String =
+        when (status) {
+            PowerManager.THERMAL_STATUS_NONE -> "none"
+            PowerManager.THERMAL_STATUS_LIGHT -> "light"
+            PowerManager.THERMAL_STATUS_MODERATE -> "moderate"
+            PowerManager.THERMAL_STATUS_SEVERE -> "severe"
+            PowerManager.THERMAL_STATUS_CRITICAL -> "critical"
+            PowerManager.THERMAL_STATUS_EMERGENCY -> "emergency"
+            PowerManager.THERMAL_STATUS_SHUTDOWN -> "shutdown"
+            else -> "unknown"
+        }
 
     private fun logScreenTelemetry(event: String) {
         val interactive = getSystemService(PowerManager::class.java)?.isInteractive
@@ -697,5 +798,56 @@ class MainActivity : ComponentActivity() {
             }
         DebugTelemetry.log("NavigationTelemetry", message)
         FieldMarkerDiagnostics.recordMarker(type = event, note = route ?: "unknown")
+    }
+}
+
+@Composable
+private fun RecordingTimeChip(
+    showTime: Boolean,
+    timeFormat: String,
+    accentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            nowMillis = System.currentTimeMillis()
+            delay(1_000L)
+        }
+    }
+    val label =
+        if (showTime) {
+            formatNavigateClockTime(context, nowMillis, timeFormat)
+        } else {
+            "REC"
+        }
+    Box(
+        modifier =
+            modifier
+                .height(28.dp)
+                .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
+                .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
+                .padding(horizontal = 9.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(5.dp)
+                        .background(accentColor, CircleShape),
+            )
+            Text(
+                text = label,
+                modifier = Modifier.padding(start = 5.dp),
+                color = Color.White,
+                fontSize = 17.sp,
+                lineHeight = 17.sp,
+                maxLines = 1,
+            )
+        }
     }
 }

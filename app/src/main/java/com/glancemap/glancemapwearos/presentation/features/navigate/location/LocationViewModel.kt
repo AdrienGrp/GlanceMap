@@ -397,10 +397,34 @@ class LocationViewModel(
             intent.putExtra(LocationService.EXTRA_SCREEN_STATE, desiredScreenState.name)
             intent.putExtra(LocationService.EXTRA_BACKGROUND_GPS_ENABLED, desiredBackgroundGpsEnabled)
             val shouldUseForegroundStart = trackingEnabled && (keepAppOpen || desiredBackgroundGpsEnabled)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldUseForegroundStart) {
-                ContextCompat.startForegroundService(app, intent)
-            } else {
-                app.startService(intent)
+            val startResult =
+                runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldUseForegroundStart) {
+                        ContextCompat.startForegroundService(app, intent)
+                    } else {
+                        app.startService(intent)
+                    }
+                }
+            if (startResult.isFailure) {
+                val error = startResult.exceptionOrNull()
+                DebugTelemetry.log(
+                    CONNECTION_TELEMETRY_TAG,
+                    "serviceStartFailed foreground=$shouldUseForegroundStart tracking=$trackingEnabled " +
+                        "keepOpen=$keepAppOpen backgroundGps=$desiredBackgroundGpsEnabled " +
+                        "error=${error?.javaClass?.simpleName ?: "unknown"} " +
+                        "message=${error?.localizedMessage?.sanitizeTelemetryValue() ?: "na"}",
+                )
+                if (shouldUseForegroundStart) {
+                    runCatching { app.startService(intent) }
+                        .onFailure { fallbackError ->
+                            DebugTelemetry.log(
+                                CONNECTION_TELEMETRY_TAG,
+                                "serviceStartFallbackFailed tracking=$trackingEnabled " +
+                                    "error=${fallbackError.javaClass.simpleName} " +
+                                    "message=${fallbackError.localizedMessage?.sanitizeTelemetryValue() ?: "na"}",
+                            )
+                        }
+                }
             }
         }
     }
@@ -559,6 +583,10 @@ private fun Long.telemetryValue(): String =
 private fun Long?.telemetryValue(): String = this?.telemetryValue() ?: "na"
 
 private fun Float?.telemetryValue(): String = this?.let { "%.1f".format(it) } ?: "na"
+
+private fun String.sanitizeTelemetryValue(): String =
+    replace(Regex("\\s+"), "_")
+        .take(80)
 
 private const val UI_IMMEDIATE_REQUEST_DEBOUNCE_MS = 1_500L
 

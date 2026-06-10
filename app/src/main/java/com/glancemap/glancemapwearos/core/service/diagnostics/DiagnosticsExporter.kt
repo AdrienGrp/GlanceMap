@@ -153,6 +153,7 @@ object DiagnosticsExporter {
         val turnByTurnOffRouteHapticCount: Int = 0,
         val turnByTurnMaxDistanceToRouteMeters: Int? = null,
         val recordingStartCount: Int = 0,
+        val recordingRecoveredCount: Int = 0,
         val recordingPauseCount: Int = 0,
         val recordingResumeCount: Int = 0,
         val recordingPointSampleCount: Int = 0,
@@ -160,6 +161,10 @@ object DiagnosticsExporter {
         val recordingSaveSuccessCount: Int = 0,
         val recordingSaveFailureCount: Int = 0,
         val recordingDiscardCount: Int = 0,
+        val recordingDraftFailureCount: Int = 0,
+        val recordingDraftClearFailureCount: Int = 0,
+        val recordingLastUiAction: String? = null,
+        val recordingLastEndReason: String? = null,
         val recordingLastPointCount: Int? = null,
         val recordingMaxPointCount: Int? = null,
         val recordingLastDistanceMeters: Int? = null,
@@ -186,6 +191,12 @@ object DiagnosticsExporter {
         val recordingElevationGainMeters: Int? = null,
         val recordingElevationLossMeters: Int? = null,
         val recordingLastSavedByteSize: Int? = null,
+        val locationServiceStartFailureCount: Int = 0,
+        val locationServiceStartFallbackFailureCount: Int = 0,
+        val locationStartForegroundFailureCount: Int = 0,
+        val thermalStatusEventCount: Int = 0,
+        val thermalMaxStatus: Int? = null,
+        val thermalLastStatusLabel: String? = null,
     )
 
     internal data class CompassTelemetryInsights(
@@ -835,6 +846,7 @@ object DiagnosticsExporter {
             writer.appendLine()
             writer.appendLine("Trace Recording")
             writer.appendLine("recordingStartCount=${telemetryInsights.recordingStartCount}")
+            writer.appendLine("recordingRecoveredCount=${telemetryInsights.recordingRecoveredCount}")
             writer.appendLine("recordingPauseCount=${telemetryInsights.recordingPauseCount}")
             writer.appendLine("recordingResumeCount=${telemetryInsights.recordingResumeCount}")
             writer.appendLine("recordingPointSampleCount=${telemetryInsights.recordingPointSampleCount}")
@@ -842,6 +854,10 @@ object DiagnosticsExporter {
             writer.appendLine("recordingSaveSuccessCount=${telemetryInsights.recordingSaveSuccessCount}")
             writer.appendLine("recordingSaveFailureCount=${telemetryInsights.recordingSaveFailureCount}")
             writer.appendLine("recordingDiscardCount=${telemetryInsights.recordingDiscardCount}")
+            writer.appendLine("recordingDraftFailureCount=${telemetryInsights.recordingDraftFailureCount}")
+            writer.appendLine("recordingDraftClearFailureCount=${telemetryInsights.recordingDraftClearFailureCount}")
+            writer.appendLine("recordingLastUiAction=${telemetryInsights.recordingLastUiAction ?: "na"}")
+            writer.appendLine("recordingLastEndReason=${telemetryInsights.recordingLastEndReason ?: "na"}")
             writer.appendLine(
                 "recordingLastPointCount=${telemetryInsights.recordingLastPointCount?.toString() ?: "na"}",
             )
@@ -912,6 +928,20 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "recordingLastSavedByteSize=${telemetryInsights.recordingLastSavedByteSize?.toString() ?: "na"}",
             )
+            writer.appendLine()
+            writer.appendLine("Runtime Reliability")
+            writer.appendLine("locationServiceStartFailureCount=${telemetryInsights.locationServiceStartFailureCount}")
+            writer.appendLine(
+                "locationServiceStartFallbackFailureCount=${
+                    telemetryInsights.locationServiceStartFallbackFailureCount
+                }",
+            )
+            writer.appendLine(
+                "locationStartForegroundFailureCount=${telemetryInsights.locationStartForegroundFailureCount}",
+            )
+            writer.appendLine("thermalStatusEventCount=${telemetryInsights.thermalStatusEventCount}")
+            writer.appendLine("thermalMaxStatus=${telemetryInsights.thermalMaxStatus?.toString() ?: "na"}")
+            writer.appendLine("thermalLastStatusLabel=${telemetryInsights.thermalLastStatusLabel ?: "na"}")
             writer.appendLine(
                 "batchAvgRawCandidates=${
                     formatAverage(
