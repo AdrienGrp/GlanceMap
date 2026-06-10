@@ -169,6 +169,56 @@ class GpxTurnByTurnGuidanceTest {
     }
 
     @Test
+    fun guidanceFinishesWhenNearRouteEnd() {
+        val session =
+            buildGpxGuidanceSession(
+                trackId = "route.gpx",
+                trackTitle = "Route",
+                trackPoints =
+                    listOf(
+                        point(45.0, 6.0),
+                        point(45.0, 6.001),
+                    ),
+                startReached = true,
+            )
+
+        val state =
+            computeTurnByTurnGuidanceState(
+                session = session,
+                currentLocation = LatLong(45.0, 6.001),
+            )
+
+        assertEquals(GuidanceMode.FINISHED, state.mode)
+        assertEquals(RouteInstructionCommand.FINISH, state.nextInstruction?.command)
+    }
+
+    @Test
+    fun guidanceDoesNotFinishWhenProjectedPastEndButFarFromRoute() {
+        val session =
+            buildGpxGuidanceSession(
+                trackId = "route.gpx",
+                trackTitle = "Route",
+                trackPoints =
+                    listOf(
+                        point(45.0, 6.0),
+                        point(45.0, 6.001),
+                    ),
+                startReached = true,
+            )
+
+        val state =
+            computeTurnByTurnGuidanceState(
+                session = session,
+                currentLocation = LatLong(45.002, 6.0012),
+            )
+
+        assertEquals(GuidanceMode.FOLLOW_ROUTE, state.mode)
+        assertEquals(RouteInstructionCommand.FINISH, state.nextInstruction?.command)
+        assertTrue(state.offRoute)
+        assertTrue((state.distanceToRouteMeters ?: 0.0) > 100.0)
+    }
+
+    @Test
     fun projectionTracksDistanceAlongRoute() {
         val points =
             listOf(
