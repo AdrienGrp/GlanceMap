@@ -289,30 +289,15 @@ private fun CompactRecordingControls(
 
 @Composable
 private fun SwipeExpandCue(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.width(14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+    Box(
+        modifier = modifier.width(12.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = Icons.Default.ExpandLess,
             contentDescription = "Swipe up to expand recording",
-            tint = Color.White.copy(alpha = 0.86f),
-            modifier = Modifier.size(11.dp),
-        )
-        Icon(
-            imageVector = Icons.Default.ExpandLess,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.58f),
-            modifier = Modifier.size(9.dp),
-        )
-        Box(
-            modifier =
-                Modifier
-                    .padding(top = 1.dp)
-                    .width(12.dp)
-                    .height(2.dp)
-                    .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(1.dp)),
+            tint = Color.White.copy(alpha = 0.62f),
+            modifier = Modifier.size(12.dp),
         )
     }
 }
