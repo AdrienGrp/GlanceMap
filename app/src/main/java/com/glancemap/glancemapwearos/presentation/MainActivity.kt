@@ -11,11 +11,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
@@ -125,6 +128,7 @@ class MainActivity : ComponentActivity() {
                 .collectAsState(initial = true)
             val navigateTimeFormat by appContainer.settingsViewModel.navigateTimeFormat.collectAsState()
             val isMetric by appContainer.settingsViewModel.isMetric.collectAsState()
+            val traceRecordingState by appContainer.traceRecordingViewModel.uiState.collectAsState()
 
             val isAmbient = _isAmbient
             val ambientTickMs = _ambientTickMs
@@ -136,6 +140,8 @@ class MainActivity : ComponentActivity() {
                 val route = backStackEntry?.destination?.route
                 val routeLabel = route ?: WatchRoutes.NAVIGATE
                 var suppressNavigateTime by remember { mutableStateOf(false) }
+                var recordingDashboardExpandRequestToken by remember { mutableLongStateOf(0L) }
+                var recordingActionPromptRequestToken by remember { mutableLongStateOf(0L) }
                 LaunchedEffect(routeLabel) {
                     activeRoute = routeLabel
                     logNavigationTelemetry(event = "route_visible", route = routeLabel)
@@ -162,19 +168,59 @@ class MainActivity : ComponentActivity() {
 
                 AppScaffold(
                     timeText = {
+                        val recordingChipActive = traceRecordingState.active || traceRecordingState.saving
                         val canShowNavigateTime = showTimeInNavigate && isNavigateScreen && !isAmbient
-                        if (canShowNavigateTime && !suppressNavigateTime) {
+                        val canShowRecordingChip = recordingChipActive && isNavigateScreen && !isAmbient
+                        val shouldShowStatusChip =
+                            (canShowNavigateTime || canShowRecordingChip) && !suppressNavigateTime
+                        if (shouldShowStatusChip) {
                             cappedFontScale(maxFontScale = 1f) {
                                 val context = LocalContext.current
+                                val recordingChipColor =
+                                    when {
+                                        traceRecordingState.saving -> Color(0xFF5C3B00)
+                                        traceRecordingState.paused -> Color(0xFF6A3C00)
+                                        recordingChipActive -> Color(0xFF6A1010)
+                                        else -> Color.Black.copy(alpha = 0.72f)
+                                    }
+                                val statusChipModifier =
+                                    Modifier
+                                        .padding(top = 2.dp)
+                                        .then(
+                                            if (recordingChipActive) {
+                                                Modifier.pointerInput(traceRecordingState.active, traceRecordingState.saving) {
+                                                    detectTapGestures(
+                                                        onTap = {
+                                                            recordingDashboardExpandRequestToken =
+                                                                System.currentTimeMillis()
+                                                        },
+                                                        onLongPress = {
+                                                            recordingActionPromptRequestToken =
+                                                                System.currentTimeMillis()
+                                                        },
+                                                    )
+                                                }
+                                            } else {
+                                                Modifier
+                                            },
+                                        ).then(
+                                            if (recordingChipActive) {
+                                                Modifier
+                                                    .background(recordingChipColor, RoundedCornerShape(percent = 50))
+                                                    .padding(horizontal = 8.dp, vertical = 1.dp)
+                                            } else {
+                                                Modifier
+                                            },
+                                        )
                                 TimeText(
-                                    modifier = Modifier.padding(top = 2.dp),
+                                    modifier = statusChipModifier,
                                     timeSource =
                                         TimeTextDefaults.rememberTimeSource(
                                             navigateTimePattern(context, navigateTimeFormat),
                                         ),
                                 ) { time ->
                                     timeTextCurvedText(
-                                        time = time,
+                                        time = if (canShowNavigateTime) time else "REC",
                                         style =
                                             CurvedTextStyle(
                                                 color = Color.White,
@@ -216,6 +262,8 @@ class MainActivity : ComponentActivity() {
                                 isDeviceInteractive = isDeviceInteractive,
                                 ambientTickMs = ambientTickMs,
                                 onNavigateTimeSuppressedChange = { suppressNavigateTime = it },
+                                recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
+                                recordingActionPromptRequestToken = recordingActionPromptRequestToken,
                                 onMenuClick = {
                                     logNavigationTelemetry(
                                         event = "menu_click",

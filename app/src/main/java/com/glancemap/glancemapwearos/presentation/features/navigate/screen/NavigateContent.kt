@@ -140,6 +140,8 @@ internal fun NavigateContent(
     backButtonExitsNavigation: Boolean,
     traceRecordingState: TraceRecordingUiState,
     recordingDashboardMetricSlots: List<String>,
+    recordingDashboardExpandRequestToken: Long,
+    recordingActionPromptRequestToken: Long,
     onStartRecording: () -> Unit,
     onPauseRecording: () -> Unit,
     onResumeRecording: () -> Unit,
@@ -216,7 +218,9 @@ internal fun NavigateContent(
     val latestOnNavigateTimeSuppressedChange = rememberUpdatedState(onNavigateTimeSuppressedChange)
     var turnByTurnFullScreenExpanded by remember { mutableStateOf(false) }
     var recordingDashboardFullScreenExpanded by remember { mutableStateOf(false) }
-    var recordingActionPromptRequestToken by remember { mutableLongStateOf(0L) }
+    var localRecordingActionPromptRequestToken by remember { mutableLongStateOf(0L) }
+    val effectiveRecordingActionPromptRequestToken =
+        maxOf(recordingActionPromptRequestToken, localRecordingActionPromptRequestToken)
     val suppressMapRenderingForGuidance =
         (turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded) ||
             (traceRecordingState.active && recordingDashboardFullScreenExpanded)
@@ -228,7 +232,7 @@ internal fun NavigateContent(
     LaunchedEffect(traceRecordingState.active) {
         if (!traceRecordingState.active) {
             recordingDashboardFullScreenExpanded = false
-            recordingActionPromptRequestToken = 0L
+            localRecordingActionPromptRequestToken = 0L
         }
     }
     BackHandler(
@@ -1209,11 +1213,12 @@ internal fun NavigateContent(
                 onKeepAppOpenToggle = onKeepAppOpenToggle,
                 traceRecordingState = traceRecordingState,
                 recordingDashboardMetricSlots = recordingDashboardMetricSlots,
-                recordingActionPromptRequestToken = recordingActionPromptRequestToken,
+                recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
+                recordingActionPromptRequestToken = effectiveRecordingActionPromptRequestToken,
                 onRecordingClick = {
                     onShortcutTrayDismiss()
                     if (traceRecordingState.active || traceRecordingState.saving) {
-                        recordingActionPromptRequestToken = System.currentTimeMillis()
+                        localRecordingActionPromptRequestToken = System.currentTimeMillis()
                     } else {
                         onStartRecording()
                     }

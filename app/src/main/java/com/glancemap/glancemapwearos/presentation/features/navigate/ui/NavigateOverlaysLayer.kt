@@ -115,6 +115,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onKeepAppOpenToggle: () -> Unit,
     traceRecordingState: TraceRecordingUiState,
     recordingDashboardMetricSlots: List<String>,
+    recordingDashboardExpandRequestToken: Long,
     recordingActionPromptRequestToken: Long,
     onRecordingClick: () -> Unit,
     onPauseRecording: () -> Unit,
@@ -502,6 +503,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onStopConfirmed = onFinishRecording,
         onDiscard = onDiscardRecording,
         onMetricSelected = onRecordingMetricSelected,
+        expandRequestToken = recordingDashboardExpandRequestToken,
         actionPromptRequestToken = recordingActionPromptRequestToken,
         onExpandedChange = onRecordingExpandedChange,
     )

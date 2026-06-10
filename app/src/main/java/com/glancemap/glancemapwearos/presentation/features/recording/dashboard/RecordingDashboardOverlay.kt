@@ -84,6 +84,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
     onStopConfirmed: (String?) -> Unit,
     onDiscard: () -> Unit,
     onMetricSelected: (slotIndex: Int, metricId: String) -> Unit,
+    expandRequestToken: Long,
     actionPromptRequestToken: Long,
     onExpandedChange: (Boolean) -> Unit,
 ) {
@@ -116,6 +117,13 @@ internal fun BoxScope.RecordingDashboardOverlay(
     LaunchedEffect(actionPromptRequestToken) {
         if (actionPromptRequestToken != 0L && state.active && !state.saving) {
             showCompactControls = true
+        }
+    }
+    LaunchedEffect(expandRequestToken) {
+        if (expandRequestToken != 0L && state.active && !state.saving) {
+            showCompactControls = false
+            showStopPrompt = false
+            expanded = true
         }
     }
     DisposableEffect(Unit) {
@@ -169,18 +177,6 @@ internal fun BoxScope.RecordingDashboardOverlay(
                     expanded = true
                 },
             )
-        } else {
-            RecordingStatusDot(
-                state = state,
-                toolButtonEdgePadding = toolButtonEdgePadding,
-                toolButtonSize = toolButtonSize,
-                modifier = Modifier.align(Alignment.CenterEnd),
-                onClick = {
-                    showCompactControls = false
-                    expanded = true
-                },
-                onLongClick = { showCompactControls = true },
-            )
         }
     }
 
@@ -221,38 +217,6 @@ internal fun BoxScope.RecordingDashboardOverlay(
                 metricPickerSlot = NO_SELECTED_SLOT
             },
         )
-    }
-}
-
-@Composable
-private fun RecordingStatusDot(
-    state: TraceRecordingUiState,
-    toolButtonEdgePadding: Dp,
-    toolButtonSize: Dp,
-    modifier: Modifier,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-) {
-    Box(
-            modifier =
-            modifier
-                .padding(end = toolButtonEdgePadding + toolButtonSize + 1.dp)
-                .size(48.dp)
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLongClick,
-                ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(26.dp)
-                    .background(Color.Black.copy(alpha = 0.58f), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            RecordingDot(paused = state.paused, saving = state.saving, size = 18.dp)
-        }
     }
 }
 

@@ -100,6 +100,8 @@ fun NavigateScreen(
     isDeviceInteractive: Boolean,
     ambientTickMs: Long,
     onNavigateTimeSuppressedChange: (Boolean) -> Unit = {},
+    recordingDashboardExpandRequestToken: Long = 0L,
+    recordingActionPromptRequestToken: Long = 0L,
     onMenuClick: () -> Unit,
     compassViewModel: CompassViewModel = viewModel(),
     navigateViewModel: NavigateViewModel =
@@ -1559,6 +1561,8 @@ fun NavigateScreen(
         backButtonExitsNavigation = backButtonExitsNavigation,
         traceRecordingState = traceRecordingState,
         recordingDashboardMetricSlots = recordingDashboardMetricSlots,
+        recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
+        recordingActionPromptRequestToken = recordingActionPromptRequestToken,
         onStartRecording = {
             shortcutTrayExpanded = false
             traceRecordingViewModel.startRecording()
