@@ -81,7 +81,7 @@ class TraceRecordingViewModel(
                 active = true,
                 paused = false,
                 startedAtMillis = now,
-                message = "Recording started",
+                message = "REC on",
             )
         DebugTelemetry.log(
             "TraceRecording",
@@ -190,7 +190,7 @@ class TraceRecordingViewModel(
             state.copy(
                 paused = true,
                 pausedAtMillis = System.currentTimeMillis(),
-                message = "Recording paused",
+                message = "REC paused",
             )
         DebugTelemetry.log(
             "TraceRecording",
@@ -209,7 +209,7 @@ class TraceRecordingViewModel(
                 paused = false,
                 pausedAtMillis = null,
                 accumulatedPausedMillis = state.accumulatedPausedMillis + addedPausedMillis,
-                message = "Recording resumed",
+                message = "REC on",
             )
         DebugTelemetry.log(
             "TraceRecording",
@@ -242,7 +242,7 @@ class TraceRecordingViewModel(
                 paused = false,
                 saving = true,
                 accumulatedPausedMillis = state.accumulatedPausedMillis + finalPausedMillis,
-                message = "Saving recording",
+                message = "Saving REC",
             )
         DebugTelemetry.log(
             "TraceRecording",
@@ -272,7 +272,7 @@ class TraceRecordingViewModel(
             if (saveResult.isSuccess) {
                 val saveInfo = saveResult.getOrNull()
                 syncManager.requestGpxSync()
-                _uiState.value = TraceRecordingUiState(message = "Recording saved")
+                _uiState.value = TraceRecordingUiState(message = "REC saved")
                 DebugTelemetry.log(
                     "TraceRecording",
                     "event=save_success ${recordingSummaryTokens(state, now, finalPausedMillis)} " +
@@ -301,7 +301,7 @@ class TraceRecordingViewModel(
     fun discardRecording() {
         val state = _uiState.value
         if (!state.active && !state.saving) return
-        _uiState.value = TraceRecordingUiState(message = "Recording discarded")
+        _uiState.value = TraceRecordingUiState(message = "REC discarded")
         DebugTelemetry.log(
             "TraceRecording",
             "event=discard reason=user ${recordingSummaryTokens(state, System.currentTimeMillis())}",
