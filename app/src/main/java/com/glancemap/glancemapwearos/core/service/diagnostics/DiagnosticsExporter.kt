@@ -39,7 +39,6 @@ data class DiagnosticsSettingsSnapshot(
     val gpsPassiveLocationExperiment: Boolean,
     val backButtonExitsNavigation: Boolean,
     val recordingSampleIntervalSeconds: Int = 0,
-    val recordingBackgroundMode: String = "na",
     val recordingElevationSource: String = "na",
     val turnByTurnGuidanceSource: String = "na",
     val turnByTurnUseBrouterTiles: Boolean = false,
@@ -477,7 +476,7 @@ object DiagnosticsExporter {
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
             writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
-            writer.appendLine("recordingBackgroundMode=${settings.recordingBackgroundMode}")
+            writer.appendLine("recordingBackgroundGps=always_on_when_recording")
             writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
             writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
             writer.appendLine("turnByTurnUseBrouterTiles=${settings.turnByTurnUseBrouterTiles}")

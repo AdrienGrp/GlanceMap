@@ -104,7 +104,6 @@ fun DebuggingSettingsScreen(
     val turnByTurnRouteStartBehavior by viewModel.turnByTurnRouteStartBehavior.collectAsState()
     val turnByTurnReverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
     val recordingSampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
-    val recordingBackgroundMode by viewModel.recordingBackgroundMode.collectAsState()
     val recordingElevationSource by viewModel.recordingElevationSource.collectAsState()
     var diagnosticsExportStatus by remember {
         mutableStateOf(DIAGNOSTICS_DEFAULT_STATUS)
@@ -366,7 +365,6 @@ fun DebuggingSettingsScreen(
                                                 gpsPassiveLocationExperiment = gpsPassiveLocationExperiment,
                                                 backButtonExitsNavigation = backButtonExitsNavigation,
                                                 recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
-                                                recordingBackgroundMode = recordingBackgroundMode,
                                                 recordingElevationSource = recordingElevationSource,
                                                 turnByTurnGuidanceSource = turnByTurnGuidanceSource,
                                                 turnByTurnUseBrouterTiles = turnByTurnUseBrouterTiles,

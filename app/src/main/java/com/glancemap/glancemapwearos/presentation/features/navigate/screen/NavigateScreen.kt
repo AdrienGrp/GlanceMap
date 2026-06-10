@@ -228,9 +228,6 @@ fun NavigateScreen(
     val autoRecenterDelay by settingsViewModel.autoRecenterDelay.collectAsState(initial = 5)
     val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
     val keepGpsInAmbient by settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
-    val recordingBackgroundMode by settingsViewModel.recordingBackgroundMode.collectAsState(
-        initial = SettingsRepository.DEFAULT_RECORDING_BACKGROUND_MODE,
-    )
     val turnByTurnHapticsEnabled by settingsViewModel.turnByTurnHapticsEnabled.collectAsState(initial = true)
     val turnByTurnTurnAlertsMode by settingsViewModel.turnByTurnTurnAlertsMode.collectAsState(
         initial = SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT,
@@ -395,10 +392,7 @@ fun NavigateScreen(
     val effectiveBackgroundGpsEnabled =
         keepGpsInAmbient ||
             (activeTurnByTurnGuidanceSession != null && turnByTurnGpsInAmbient) ||
-            (
-                traceRecordingState.active &&
-                    recordingBackgroundMode == SettingsRepository.RECORDING_BACKGROUND_MODE_SCREEN_OFF
-            )
+            traceRecordingState.active
     val backgroundGpsModeActive = effectiveBackgroundGpsEnabled && screenState.isNonInteractive
     val shouldTrackLocation =
         locationPermissionState.hasLocationPermission &&

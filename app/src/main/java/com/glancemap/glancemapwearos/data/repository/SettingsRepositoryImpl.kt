@@ -49,7 +49,6 @@ class SettingsRepositoryImpl private constructor(
         val GPS_PASSIVE_LOCATION_EXPERIMENT = booleanPreferencesKey("gps_passive_location_experiment")
         val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
         val RECORDING_SAMPLE_INTERVAL_SECONDS = intPreferencesKey("recording_sample_interval_seconds")
-        val RECORDING_BACKGROUND_MODE = stringPreferencesKey("recording_background_mode")
         val RECORDING_ELEVATION_SOURCE = stringPreferencesKey("recording_elevation_source")
         val RECORDING_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("recording_dashboard_metric_slots")
         val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
@@ -194,21 +193,6 @@ class SettingsRepositoryImpl private constructor(
                 } else {
                     SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
                 }
-        }
-    }
-
-    override val recordingBackgroundMode: Flow<String> =
-        context.dataStore.data.map {
-            it[PrefKeys.RECORDING_BACKGROUND_MODE]
-                .takeIf { mode -> mode in allowedRecordingBackgroundModes }
-                ?: SettingsRepository.DEFAULT_RECORDING_BACKGROUND_MODE
-        }
-
-    override suspend fun setRecordingBackgroundMode(mode: String) {
-        context.dataStore.edit {
-            it[PrefKeys.RECORDING_BACKGROUND_MODE] =
-                mode.takeIf { candidate -> candidate in allowedRecordingBackgroundModes }
-                    ?: SettingsRepository.DEFAULT_RECORDING_BACKGROUND_MODE
         }
     }
 
@@ -1146,11 +1130,6 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_METRIC_GPS_ACTIVE_TIME,
                 SettingsRepository.RECORDING_METRIC_GAPS,
                 SettingsRepository.RECORDING_METRIC_MAX_GAP,
-            )
-        private val allowedRecordingBackgroundModes =
-            setOf(
-                SettingsRepository.RECORDING_BACKGROUND_MODE_SCREEN_ON,
-                SettingsRepository.RECORDING_BACKGROUND_MODE_SCREEN_OFF,
             )
         private val allowedRecordingElevationSources =
             setOf(

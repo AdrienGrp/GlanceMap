@@ -14,9 +14,6 @@ interface SettingsRepository {
         const val MIN_AMBIENT_GPS_INTERVAL_MS = 1_000L
         const val MAX_AMBIENT_GPS_INTERVAL_MS = 120_000L
         const val DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS = 5
-        const val RECORDING_BACKGROUND_MODE_SCREEN_ON = "SCREEN_ON"
-        const val RECORDING_BACKGROUND_MODE_SCREEN_OFF = "SCREEN_OFF"
-        const val DEFAULT_RECORDING_BACKGROUND_MODE = RECORDING_BACKGROUND_MODE_SCREEN_ON
         const val RECORDING_METRIC_DISTANCE = "distance"
         const val RECORDING_METRIC_DURATION = "duration"
         const val RECORDING_METRIC_ELEVATION_GAIN = "elevation_gain"
@@ -147,10 +144,6 @@ interface SettingsRepository {
     val recordingSampleIntervalSeconds: Flow<Int>
 
     suspend fun setRecordingSampleIntervalSeconds(seconds: Int)
-
-    val recordingBackgroundMode: Flow<String>
-
-    suspend fun setRecordingBackgroundMode(mode: String)
 
     val recordingElevationSource: Flow<String>
 

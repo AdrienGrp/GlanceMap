@@ -16,10 +16,8 @@ fun RecordingSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val sampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
-    val backgroundMode by viewModel.recordingBackgroundMode.collectAsState()
     val elevationSource by viewModel.recordingElevationSource.collectAsState()
     var showIntervalPicker by remember { mutableStateOf(false) }
-    var showBackgroundModePicker by remember { mutableStateOf(false) }
     var showElevationSourcePicker by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -31,13 +29,6 @@ fun RecordingSettingsScreen(
                 label = "Record GPS every",
                 secondaryLabel = recordingIntervalLabel(sampleIntervalSeconds),
                 onClick = { showIntervalPicker = true },
-            )
-        }
-        item {
-            SettingsPickerChip(
-                label = "Screen off recording",
-                secondaryLabel = recordingBackgroundModeLabel(backgroundMode),
-                onClick = { showBackgroundModePicker = true },
             )
         }
         item {
@@ -58,14 +49,6 @@ fun RecordingSettingsScreen(
         onSelect = viewModel::setRecordingSampleIntervalSeconds,
     )
     OptionPickerDialog(
-        visible = showBackgroundModePicker,
-        title = "Screen off recording",
-        selectedValue = backgroundMode,
-        options = RECORDING_BACKGROUND_MODE_OPTIONS.map { it to recordingBackgroundModeLabel(it) },
-        onDismiss = { showBackgroundModePicker = false },
-        onSelect = viewModel::setRecordingBackgroundMode,
-    )
-    OptionPickerDialog(
         visible = showElevationSourcePicker,
         title = "Elevation source",
         selectedValue = elevationSource,
@@ -76,11 +59,6 @@ fun RecordingSettingsScreen(
 }
 
 private val RECORDING_INTERVAL_OPTIONS_SECONDS = listOf(1, 2, 5, 10, 15, 30, 60)
-private val RECORDING_BACKGROUND_MODE_OPTIONS =
-    listOf(
-        SettingsRepository.RECORDING_BACKGROUND_MODE_SCREEN_ON,
-        SettingsRepository.RECORDING_BACKGROUND_MODE_SCREEN_OFF,
-    )
 private val RECORDING_ELEVATION_SOURCE_OPTIONS =
     listOf(
         SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
@@ -93,12 +71,6 @@ private fun recordingIntervalLabel(seconds: Int): String =
         "1 second"
     } else {
         "$seconds seconds"
-    }
-
-private fun recordingBackgroundModeLabel(mode: String): String =
-    when (mode) {
-        SettingsRepository.RECORDING_BACKGROUND_MODE_SCREEN_OFF -> "Keep GPS on"
-        else -> "Screen on only"
     }
 
 private fun recordingElevationSourceLabel(source: String): String =

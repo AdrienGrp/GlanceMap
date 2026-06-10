@@ -95,19 +95,6 @@ class SettingsViewModel(
             settingsRepository.setRecordingSampleIntervalSeconds(seconds)
         }
 
-    val recordingBackgroundMode: StateFlow<String> =
-        settingsRepository.recordingBackgroundMode
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                SettingsRepository.DEFAULT_RECORDING_BACKGROUND_MODE,
-            )
-
-    fun setRecordingBackgroundMode(mode: String) =
-        viewModelScope.launch {
-            settingsRepository.setRecordingBackgroundMode(mode)
-        }
-
     val recordingElevationSource: StateFlow<String> =
         settingsRepository.recordingElevationSource
             .stateIn(
