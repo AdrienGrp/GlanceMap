@@ -40,6 +40,10 @@ class TraceRecordingDraftStore(
                                     accuracyMeters = pointJson.optionalFloat("accuracyMeters"),
                                     speedMps = pointJson.optionalFloat("speedMps"),
                                     elevationSource = pointJson.optionalString("elevationSource"),
+                                    heartRateBpm = pointJson.optionalInt("heartRateBpm"),
+                                    stepCount = pointJson.optionalInt("stepCount"),
+                                    cadenceSpm = pointJson.optionalInt("cadenceSpm"),
+                                    barometricPressureHpa = pointJson.optionalDouble("barometricPressureHpa"),
                                 ),
                             )
                         }
@@ -129,6 +133,10 @@ private fun RecordedTracePoint.toJson(): JSONObject =
         .put("accuracyMeters", accuracyMeters ?: JSONObject.NULL)
         .put("speedMps", speedMps ?: JSONObject.NULL)
         .put("elevationSource", elevationSource ?: JSONObject.NULL)
+        .put("heartRateBpm", heartRateBpm ?: JSONObject.NULL)
+        .put("stepCount", stepCount ?: JSONObject.NULL)
+        .put("cadenceSpm", cadenceSpm ?: JSONObject.NULL)
+        .put("barometricPressureHpa", barometricPressureHpa ?: JSONObject.NULL)
 
 private fun JSONObject.optionalDouble(key: String): Double? =
     if (isNull(key)) {
@@ -139,6 +147,13 @@ private fun JSONObject.optionalDouble(key: String): Double? =
 
 private fun JSONObject.optionalFloat(key: String): Float? =
     optionalDouble(key)?.toFloat()
+
+private fun JSONObject.optionalInt(key: String): Int? =
+    if (isNull(key)) {
+        null
+    } else {
+        optInt(key).takeIf { it >= 0 }
+    }
 
 private fun JSONObject.optionalString(key: String): String? =
     if (isNull(key)) {
