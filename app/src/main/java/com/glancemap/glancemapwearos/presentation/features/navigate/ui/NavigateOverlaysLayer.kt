@@ -160,6 +160,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         remember(mapView, locationMarker, lastKnownLocation) {
             mutableStateOf<Offset?>(null)
         }
+    var combinedGuidanceRecordingFullScreenExpanded by remember { mutableStateOf(false) }
     val slopeIndicatorButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 28.dp
@@ -180,9 +181,15 @@ internal fun BoxScope.NavigateOverlaysLayer(
             0.dp
         }
     val suppressLiveMetricsForPoi = poiTapMessage != null
+    val hasTurnByTurnDecisionPrompt = startDecisionPrompt != null || showGuideBackPrompt
+    val combinedGuidanceRecordingActive =
+        traceRecordingState.active &&
+            (turnByTurnGuidanceState.active || turnByTurnGuidancePaused) &&
+            !hasTurnByTurnDecisionPrompt
     val suppressMapControlsForGuidance =
         (turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded) ||
-            (traceRecordingState.active && recordingDashboardFullScreenExpanded)
+            (traceRecordingState.active && recordingDashboardFullScreenExpanded) ||
+            combinedGuidanceRecordingFullScreenExpanded
 
     LaunchedEffect(shortcutTrayExpanded, routeToolModeActive) {
         if (!shortcutTrayExpanded || routeToolModeActive) return@LaunchedEffect
@@ -481,7 +488,10 @@ internal fun BoxScope.NavigateOverlaysLayer(
         guideBackToRouteActive = guideBackToRouteActive,
         showGuideBackPrompt = showGuideBackPrompt,
         startDecisionPrompt = startDecisionPrompt,
-        suppressed = poiTapMessage != null || recordingDashboardFullScreenExpanded,
+        suppressed =
+            poiTapMessage != null ||
+                recordingDashboardFullScreenExpanded ||
+                combinedGuidanceRecordingActive,
         onPause = onPauseTurnByTurnGuidance,
         onResume = onResumeTurnByTurnGuidance,
         onStop = onStopTurnByTurnGuidance,
@@ -499,7 +509,10 @@ internal fun BoxScope.NavigateOverlaysLayer(
         backpackWeightKg = backpackWeightKg,
         screenSize = screenSize,
         isMetric = isMetric,
-        suppressed = poiTapMessage != null || turnByTurnFullScreenExpanded,
+        suppressed =
+            poiTapMessage != null ||
+                turnByTurnFullScreenExpanded ||
+                combinedGuidanceRecordingActive,
         toolButtonEdgePadding = sideButtonEdgePadding,
         toolButtonSize = sideButtonSize,
         onPause = onPauseRecording,
@@ -510,5 +523,34 @@ internal fun BoxScope.NavigateOverlaysLayer(
         expandRequestToken = recordingDashboardExpandRequestToken,
         actionPromptRequestToken = recordingActionPromptRequestToken,
         onExpandedChange = onRecordingExpandedChange,
+    )
+
+    CombinedGuidanceRecordingOverlay(
+        guidanceState = turnByTurnGuidanceState,
+        guidancePaused = turnByTurnGuidancePaused,
+        recordingState = traceRecordingState,
+        metricSlots = recordingDashboardMetricSlots,
+        userWeightKg = userWeightKg,
+        backpackWeightKg = backpackWeightKg,
+        screenSize = screenSize,
+        isMetric = isMetric,
+        compassHeadingDeg = compassHeadingDeg,
+        guideBackToRouteActive = guideBackToRouteActive,
+        expandRequestToken = recordingDashboardExpandRequestToken,
+        actionPromptRequestToken = recordingActionPromptRequestToken,
+        suppressed = poiTapMessage != null || !combinedGuidanceRecordingActive,
+        onPauseGuidance = onPauseTurnByTurnGuidance,
+        onResumeGuidance = onResumeTurnByTurnGuidance,
+        onStopGuidance = onStopTurnByTurnGuidance,
+        onPauseRecording = onPauseRecording,
+        onResumeRecording = onResumeRecording,
+        onFinishRecording = onFinishRecording,
+        onDiscardRecording = onDiscardRecording,
+        onMetricSelected = onRecordingMetricSelected,
+        onExpandedChange = { expanded ->
+            combinedGuidanceRecordingFullScreenExpanded = expanded
+            onTurnByTurnExpandedChange(expanded)
+            onRecordingExpandedChange(expanded)
+        },
     )
 }
