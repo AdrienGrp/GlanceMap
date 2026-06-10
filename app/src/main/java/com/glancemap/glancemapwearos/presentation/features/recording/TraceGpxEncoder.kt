@@ -58,12 +58,22 @@ internal fun encodeRecordedTraceAsGpx(
 internal fun buildRecordingFileName(nowMillis: Long): String =
     "Recording-${RECORDING_FILE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}.gpx"
 
+internal fun buildRecordingFileNameFromTitle(title: String): String =
+    "${sanitizeRecordingFileStem(title)}.gpx"
+
 internal fun buildRecordingTitle(nowMillis: Long): String =
     "Recording ${RECORDING_TITLE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}"
 
 private fun formatCoordinate(value: Double): String = String.format(Locale.US, "%.8f", value)
 
 private fun formatElevation(value: Double): String = String.format(Locale.US, "%.1f", value)
+
+private fun sanitizeRecordingFileStem(input: String): String =
+    input
+        .replace(Regex("\\.gpx$", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("[^A-Za-z0-9._-]+"), "-")
+        .trim('-')
+        .ifBlank { "Recording" }
 
 private val RECORDING_FILE_TIME_FORMAT: DateTimeFormatter =
     DateTimeFormatter

@@ -143,7 +143,7 @@ internal fun NavigateContent(
     onStartRecording: () -> Unit,
     onPauseRecording: () -> Unit,
     onResumeRecording: () -> Unit,
-    onFinishRecording: () -> Unit,
+    onFinishRecording: (String?) -> Unit,
     onDiscardRecording: () -> Unit,
     onRecordingMetricSelected: (Int, String) -> Unit,
     shortcutTrayExpanded: Boolean,

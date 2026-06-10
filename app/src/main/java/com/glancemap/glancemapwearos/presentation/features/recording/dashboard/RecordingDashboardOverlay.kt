@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.Pause
@@ -46,7 +47,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +60,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.presentation.features.recording.buildRecordingTitle
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -77,7 +81,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
     toolButtonSize: Dp,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onStopConfirmed: () -> Unit,
+    onStopConfirmed: (String?) -> Unit,
     onDiscard: () -> Unit,
     onMetricSelected: (slotIndex: Int, metricId: String) -> Unit,
     actionPromptRequestToken: Long,
@@ -87,7 +91,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
 
     var expanded by remember { mutableStateOf(false) }
     var showCompactControls by remember { mutableStateOf(false) }
-    var showShortRecordingPrompt by remember { mutableStateOf(false) }
+    var showStopPrompt by remember { mutableStateOf(false) }
     var metricPickerSlot by remember { mutableIntStateOf(NO_SELECTED_SLOT) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
@@ -101,7 +105,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
         if (suppressed) {
             expanded = false
             showCompactControls = false
-            showShortRecordingPrompt = false
+            showStopPrompt = false
             metricPickerSlot = NO_SELECTED_SLOT
             onExpandedChange(false)
         }
@@ -158,12 +162,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
                     }
                 },
                 onStop = {
-                    if (isShortRecording(snapshot, state)) {
-                        showShortRecordingPrompt = true
-                    } else {
-                        showCompactControls = false
-                        onStopConfirmed()
-                    }
+                    showStopPrompt = true
                 },
                 onExpand = {
                     showCompactControls = false
@@ -185,24 +184,24 @@ internal fun BoxScope.RecordingDashboardOverlay(
         }
     }
 
-    if (showShortRecordingPrompt) {
-        ShortRecordingPromptCard(
+    if (showStopPrompt) {
+        RecordingStopPromptCard(
             state = state,
             snapshot = snapshot,
             isMetric = isMetric,
             onDiscard = {
-                showShortRecordingPrompt = false
+                showStopPrompt = false
                 showCompactControls = false
                 expanded = false
                 onDiscard()
             },
-            onSave = {
-                showShortRecordingPrompt = false
+            onSave = { title ->
+                showStopPrompt = false
                 showCompactControls = false
                 expanded = false
-                onStopConfirmed()
+                onStopConfirmed(title)
             },
-            onCancel = { showShortRecordingPrompt = false },
+            onCancel = { showStopPrompt = false },
             modifier =
                 Modifier
                     .align(Alignment.Center),
@@ -383,23 +382,31 @@ private fun CompactControlButton(
 }
 
 @Composable
-private fun ShortRecordingPromptCard(
+private fun RecordingStopPromptCard(
     state: TraceRecordingUiState,
     snapshot: RecordingDashboardSnapshot,
     isMetric: Boolean,
     onDiscard: () -> Unit,
-    onSave: () -> Unit,
+    onSave: (String) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val distance = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DISTANCE, snapshot, isMetric)
     val duration = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DURATION, snapshot, isMetric)
+    val elevationGain = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN, snapshot, isMetric)
+    val elevationLoss = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS, snapshot, isMetric)
+    val defaultTitle =
+        remember(state.startedAtMillis) {
+            buildRecordingTitle(state.startedAtMillis ?: System.currentTimeMillis())
+        }
+    var draftTitle by remember(defaultTitle) { mutableStateOf(defaultTitle) }
+    val shortRecording = isShortRecording(snapshot, state)
     Box(
         modifier =
             modifier
-                .widthIn(max = 166.dp)
+                .widthIn(max = 184.dp)
                 .background(Color.Black.copy(alpha = 0.96f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 7.dp),
+                .padding(horizontal = 9.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center,
     ) {
         cappedFontScale(maxFontScale = 1f) {
@@ -408,20 +415,56 @@ private fun ShortRecordingPromptCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = "Short recording",
+                    text = if (shortRecording) "Short recording" else "Save recording",
                     color = Color(0xFFFFB74D),
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     lineHeight = 13.sp,
                     textAlign = TextAlign.Center,
                 )
+                BasicTextField(
+                    value = draftTitle,
+                    onValueChange = { draftTitle = it.take(MAX_RECORDING_TITLE_LENGTH) },
+                    singleLine = true,
+                    textStyle =
+                        TextStyle(
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            lineHeight = 11.sp,
+                            textAlign = TextAlign.Center,
+                        ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(30.dp)
+                            .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    decorationBox = { innerTextField ->
+                        if (draftTitle.isBlank()) {
+                            Text(
+                                text = "Name",
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontSize = 11.sp,
+                                lineHeight = 11.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        innerTextField()
+                    },
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     RecordingMiniStat("${distance.value} ${distance.unit.orEmpty()}".trim(), "Dist")
                     RecordingMiniStat(duration.value, "Time")
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    RecordingMiniStat("${elevationGain.value} ${elevationGain.unit.orEmpty()}".trim(), "Up")
+                    RecordingMiniStat("${elevationLoss.value} ${elevationLoss.unit.orEmpty()}".trim(), "Down")
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     ShortPromptButton(text = "Discard", selected = false, onClick = onDiscard, width = 56.dp)
-                    ShortPromptButton(text = "Save", selected = true, onClick = onSave, width = 48.dp)
+                    ShortPromptButton(text = "Save", selected = true, onClick = { onSave(draftTitle) }, width = 48.dp)
                     ShortPromptButton(text = "Cancel", selected = false, onClick = onCancel, width = 54.dp)
                 }
             }
@@ -626,7 +669,7 @@ private fun RecordingActionPromptCard(
     isMetric: Boolean,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onStopConfirmed: () -> Unit,
+    onStopConfirmed: (String?) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -670,7 +713,7 @@ private fun RecordingActionPromptCard(
                         onClick = if (state.paused) onResume else onPause,
                         icon = if (state.paused) Icons.Default.PlayArrow else Icons.Default.Pause,
                     )
-                    HoldStopButton(onConfirmed = onStopConfirmed)
+                    HoldStopButton(onConfirmed = { onStopConfirmed(null) })
                     PromptButton(text = "Cancel", selected = false, onClick = onCancel)
                 }
             }
@@ -839,3 +882,4 @@ private const val STOP_CONFIRM_HOLD_MS = 3_000L
 private const val MIN_SAVE_POINT_COUNT = 2
 private const val SHORT_RECORDING_DISTANCE_METERS = 20.0
 private const val SHORT_RECORDING_DURATION_SECONDS = 10.0
+private const val MAX_RECORDING_TITLE_LENGTH = 64

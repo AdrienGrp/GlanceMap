@@ -217,7 +217,7 @@ class TraceRecordingViewModel(
         )
     }
 
-    fun finishAndSaveRecording() {
+    fun finishAndSaveRecording(titleOverride: String? = null) {
         val state = _uiState.value
         if (!state.active || state.saving) return
         if (state.points.size < 2) {
@@ -252,8 +252,13 @@ class TraceRecordingViewModel(
             val saveResult =
                 withContext(Dispatchers.IO) {
                     runCatching {
-                        val title = buildRecordingTitle(state.startedAtMillis ?: now)
-                        val fileName = uniqueRecordingFileName(now)
+                        val customTitle = titleOverride?.trim()?.takeIf { it.isNotBlank() }?.take(MAX_RECORDING_TITLE_LENGTH)
+                        val title = customTitle ?: buildRecordingTitle(state.startedAtMillis ?: now)
+                        val fileName =
+                            uniqueRecordingFileName(
+                                nowMillis = now,
+                                titleOverride = customTitle,
+                            )
                         val bytes = encodeRecordedTraceAsGpx(title = title, points = state.points)
                         gpxRepository.saveGpxFileAtomic(
                             fileName = fileName,
@@ -303,8 +308,14 @@ class TraceRecordingViewModel(
         )
     }
 
-    private suspend fun uniqueRecordingFileName(nowMillis: Long): String {
-        val base = buildRecordingFileName(nowMillis).removeSuffix(".gpx")
+    private suspend fun uniqueRecordingFileName(
+        nowMillis: Long,
+        titleOverride: String?,
+    ): String {
+        val base =
+            titleOverride
+                ?.let { buildRecordingFileNameFromTitle(it).removeSuffix(".gpx") }
+                ?: buildRecordingFileName(nowMillis).removeSuffix(".gpx")
         var candidate = "$base.gpx"
         var index = 2
         while (gpxRepository.fileExists(candidate)) {
@@ -408,6 +419,7 @@ class TraceRecordingViewModel(
 private const val RECORDING_GAP_MIN_THRESHOLD_MS = 15_000L
 private const val RECORDING_GPS_ACTIVE_GAP_FLOOR_MS = 1_000L
 private const val RECORDING_GPS_ACTIVE_GAP_CAP_MS = 15_000L
+private const val MAX_RECORDING_TITLE_LENGTH = 64
 
 private data class RecordingSaveInfo(
     val fileName: String,
