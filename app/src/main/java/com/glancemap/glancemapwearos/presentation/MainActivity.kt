@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -56,6 +57,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateScre
 import com.glancemap.glancemapwearos.presentation.features.navigate.formatNavigateClockTime
 import com.glancemap.glancemapwearos.presentation.features.navigate.navigateTimePattern
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.policy.navigationRuntimeDemand
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiScreen
 import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorBridge
 import com.glancemap.glancemapwearos.presentation.features.settings.CompassSettingsScreen
@@ -150,6 +152,13 @@ class MainActivity : ComponentActivity() {
             val navigateTimeFormat by appContainer.settingsViewModel.navigateTimeFormat.collectAsState()
             val isMetric by appContainer.settingsViewModel.isMetric.collectAsState()
             val traceRecordingState by appContainer.traceRecordingViewModel.uiState.collectAsState()
+            val turnByTurnGuidanceSession by appContainer.gpxViewModel.turnByTurnGuidanceSession.collectAsState()
+            val turnByTurnGuidancePaused by appContainer.gpxViewModel.turnByTurnGuidancePaused.collectAsState()
+            val gpsInAmbientMode by appContainer.settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
+            val turnByTurnGpsInAmbientMode by appContainer.settingsViewModel.turnByTurnGpsInAmbientMode.collectAsState(
+                initial = false,
+            )
+            val offlineMode by appContainer.settingsViewModel.offlineMode.collectAsState(initial = false)
             val recordingDashboardMetricSlots by appContainer.settingsViewModel.recordingDashboardMetricSlots.collectAsState()
 
             val isAmbient = _isAmbient
@@ -200,20 +209,42 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(
                     isNavigateScreen,
                     traceRecordingState.active,
+                    traceRecordingState.paused,
+                    turnByTurnGuidanceSession,
+                    turnByTurnGuidancePaused,
+                    gpsInAmbientMode,
+                    turnByTurnGpsInAmbientMode,
+                    offlineMode,
                     activityLocationScreenState,
                     locationPermissionGranted,
                 ) {
                     if (isNavigateScreen) return@LaunchedEffect
-                    val recordingTrackingActive = traceRecordingState.active && locationPermissionGranted
+                    val runtimeDemand =
+                        navigationRuntimeDemand(
+                            isNavigateScreen = false,
+                            screenState = activityLocationScreenState,
+                            isScreenResumed = true,
+                            hasLocationPermission = locationPermissionGranted,
+                            offlineMode = offlineMode,
+                            generalGpsInAmbient = gpsInAmbientMode,
+                            recordingActive = traceRecordingState.active,
+                            recordingPaused = traceRecordingState.paused,
+                            turnByTurnActive = turnByTurnGuidanceSession != null,
+                            turnByTurnPaused = turnByTurnGuidancePaused,
+                            turnByTurnGpsInAmbient = turnByTurnGpsInAmbientMode,
+                        )
                     appContainer.locationViewModel.syncRuntimeState(
                         screenState = activityLocationScreenState,
-                        trackingEnabled = recordingTrackingActive,
-                        backgroundGpsEnabled = recordingTrackingActive,
+                        trackingEnabled = runtimeDemand.trackingEnabled,
+                        backgroundGpsEnabled = runtimeDemand.backgroundGpsEnabled,
                     )
                     DebugTelemetry.log(
-                        "TraceRecording",
+                        "NavigationRuntime",
                         "event=activity_runtime_sync active=${traceRecordingState.active} " +
-                            "tracking=$recordingTrackingActive route=$routeLabel",
+                            "paused=${traceRecordingState.paused} guidance=${turnByTurnGuidanceSession != null} " +
+                            "guidancePaused=$turnByTurnGuidancePaused tracking=${runtimeDemand.trackingEnabled} " +
+                            "backgroundGps=${runtimeDemand.backgroundGpsEnabled} reason=${runtimeDemand.reason} " +
+                            "route=$routeLabel",
                     )
                 }
                 val navigateViaSwipeLeft: () -> Unit = {
@@ -249,7 +280,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 val statusChipModifier =
                                     Modifier
-                                        .padding(top = 2.dp)
+                                        .padding(top = if (recordingChipActive) 4.dp else 2.dp)
                                         .then(
                                             if (recordingChipActive) {
                                                 Modifier.pointerInput(traceRecordingState.active, traceRecordingState.saving) {
@@ -770,8 +801,40 @@ class MainActivity : ComponentActivity() {
         unregisterThermalTelemetry()
         val appContainer = (application as GlanceMapWearApp).container
         appContainer.mapViewModel.destroyMapHolder()
-        if (appContainer.traceRecordingViewModel.uiState.value.active) {
-            DebugTelemetry.log("TraceRecording", "event=activity_destroy_retaining_gps active=true")
+        val locationPermissionGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ) == PackageManager.PERMISSION_GRANTED
+        val traceRecordingState = appContainer.traceRecordingViewModel.uiState.value
+        val runtimeDemand =
+            navigationRuntimeDemand(
+                isNavigateScreen = false,
+                screenState =
+                    resolveLocationScreenState(
+                        isAmbient = _isAmbient,
+                        isDeviceInteractive = _isDeviceInteractive,
+                    ),
+                isScreenResumed = false,
+                hasLocationPermission = locationPermissionGranted,
+                offlineMode = appContainer.settingsViewModel.offlineMode.value,
+                generalGpsInAmbient = appContainer.settingsViewModel.gpsInAmbientMode.value,
+                recordingActive = traceRecordingState.active,
+                recordingPaused = traceRecordingState.paused,
+                turnByTurnActive = appContainer.gpxViewModel.turnByTurnGuidanceSession.value != null,
+                turnByTurnPaused = appContainer.gpxViewModel.turnByTurnGuidancePaused.value,
+                turnByTurnGpsInAmbient = appContainer.settingsViewModel.turnByTurnGpsInAmbientMode.value,
+            )
+        if (runtimeDemand.trackingEnabled) {
+            DebugTelemetry.log(
+                "NavigationRuntime",
+                "event=activity_destroy_retaining_gps tracking=true backgroundGps=${runtimeDemand.backgroundGpsEnabled} " +
+                    "reason=${runtimeDemand.reason}",
+            )
         } else {
             appContainer.locationViewModel.setTrackingEnabled(false)
         }
@@ -862,45 +925,69 @@ private fun RecordingTimeChip(
     LaunchedEffect(Unit) {
         while (true) {
             nowMillis = System.currentTimeMillis()
-            delay(1_000L)
+            kotlinx.coroutines.delay(1_000L)
         }
     }
     val label =
         if (showTime) {
             formatNavigateClockTime(context, nowMillis, timeFormat)
         } else {
-            "REC"
+            ""
         }
     Box(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(modifier),
         contentAlignment = Alignment.TopCenter,
     ) {
-        Box(
-            modifier =
-                modifier
-                    .height(28.dp)
-                    .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
-                    .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
-                    .padding(horizontal = 9.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+        if (label.isBlank()) {
+            RecordingStatusDot(
+                color = accentColor,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 12.dp),
+            )
+        } else {
+            Box(
+                modifier =
+                    Modifier
+                        .height(20.dp)
+                        .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
+                        .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
+                        .padding(start = 7.dp, end = 8.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(5.dp)
-                            .background(accentColor, CircleShape),
-                )
-                Text(
-                    text = label,
-                    modifier = Modifier.padding(start = 5.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    maxLines = 1,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RecordingStatusDot(accentColor)
+                    Text(
+                        text = label,
+                        modifier = Modifier.padding(start = 5.dp),
+                        style =
+                            MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 15.sp,
+                            ),
+                        color = Color.White,
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun RecordingStatusDot(
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .size(4.dp)
+                .background(color, CircleShape),
+    )
 }

@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
@@ -34,6 +35,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenS
 import com.glancemap.glancemapwearos.core.service.location.model.isInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.policy.navigationRuntimeDemand
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
 import com.glancemap.glancemapwearos.domain.sensors.CompassHeadingSourceMode
@@ -307,7 +309,10 @@ fun NavigateScreen(
     LaunchedEffect(traceRecordingState.message) {
         traceRecordingState.message
             ?.takeIf { it.isNotBlank() }
-            ?.let { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
+            ?.let { message ->
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                traceRecordingViewModel.consumeMessage(message)
+            }
     }
 
     val fallbackMapViewportWidthPx =
@@ -391,15 +396,22 @@ fun NavigateScreen(
         }
 
     // ---- Should track location? ----
-    val effectiveBackgroundGpsEnabled =
-        keepGpsInAmbient ||
-            (activeTurnByTurnGuidanceSession != null && turnByTurnGpsInAmbient) ||
-            traceRecordingState.active
-    val backgroundGpsModeActive = effectiveBackgroundGpsEnabled && screenState.isNonInteractive
-    val shouldTrackLocation =
-        locationPermissionState.hasLocationPermission &&
-            !offlineMode &&
-            (isScreenResumed || backgroundGpsModeActive || traceRecordingState.active)
+    val runtimeDemand =
+        navigationRuntimeDemand(
+            isNavigateScreen = true,
+            screenState = screenState,
+            isScreenResumed = isScreenResumed,
+            hasLocationPermission = locationPermissionState.hasLocationPermission,
+            offlineMode = offlineMode,
+            generalGpsInAmbient = keepGpsInAmbient,
+            recordingActive = traceRecordingState.active,
+            recordingPaused = traceRecordingState.paused,
+            turnByTurnActive = turnByTurnGuidanceSession != null,
+            turnByTurnPaused = turnByTurnGuidancePaused,
+            turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
+        )
+    val effectiveBackgroundGpsEnabled = runtimeDemand.backgroundGpsEnabled
+    val shouldTrackLocation = runtimeDemand.trackingEnabled
     val effectiveNavMode = if (offlineMode) NavMode.PANNING else navMode
     val effectiveCompassProviderMode = compassProviderMode
     val selectedCompassProviderType =
@@ -654,6 +666,21 @@ fun NavigateScreen(
             backgroundGpsEnabled = effectiveBackgroundGpsEnabled,
         )
     }
+    val disposeRuntimeDemand by rememberUpdatedState(
+        navigationRuntimeDemand(
+            isNavigateScreen = false,
+            screenState = LocationScreenState.INTERACTIVE,
+            isScreenResumed = true,
+            hasLocationPermission = locationPermissionState.hasLocationPermission,
+            offlineMode = offlineMode,
+            generalGpsInAmbient = keepGpsInAmbient,
+            recordingActive = traceRecordingState.active,
+            recordingPaused = traceRecordingState.paused,
+            turnByTurnActive = turnByTurnGuidanceSession != null,
+            turnByTurnPaused = turnByTurnGuidancePaused,
+            turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
+        ),
+    )
     // isScreenResumed already reflects lifecycle resume, so one state-driven wake reacquire
     // effect is enough for both plain resume and ambient exit.
     LaunchedEffect(screenState, isScreenResumed, offlineMode, locationPermissionState.hasLocationPermission) {
@@ -670,11 +697,11 @@ fun NavigateScreen(
     }
     DisposableEffect(locationViewModel) {
         onDispose {
-            // Leaving Navigate resets runtime state to the safe baseline in one pass.
+            // Leaving Navigate drops the visible-map demand but keeps explicit REC/guidance demand.
             locationViewModel.syncRuntimeState(
                 screenState = LocationScreenState.INTERACTIVE,
-                trackingEnabled = false,
-                backgroundGpsEnabled = false,
+                trackingEnabled = disposeRuntimeDemand.trackingEnabled,
+                backgroundGpsEnabled = disposeRuntimeDemand.backgroundGpsEnabled,
             )
         }
     }
