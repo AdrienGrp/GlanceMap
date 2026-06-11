@@ -66,22 +66,22 @@ fun SettingsScreen(
             partialSummary.count <= 0 -> "No partial files"
             partialSummary.count == 1 -> "1 file · ${formatStorageSize(partialSummary.totalBytes)}"
             else -> "${partialSummary.count} files · ${formatStorageSize(partialSummary.totalBytes)}"
-        }
+    }
 
     WearSettingsListScreen(listTokens = listTokens) {
-        item {
-            SettingsSectionChip(
-                label = "User profile",
-                secondaryLabel = formatUserProfileSummary(isMetric, userWeightKg, backpackWeightKg),
-                onClick = { navController.navigate(WatchRoutes.USER_PROFILE_SETTINGS) },
-            )
-        }
         item {
             Text(
                 "General",
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+        item {
+            SettingsSectionChip(
+                label = "User profile",
+                secondaryLabel = formatUserProfileSummary(isMetric, userWeightKg, backpackWeightKg),
+                onClick = { navController.navigate(WatchRoutes.USER_PROFILE_SETTINGS) },
             )
         }
         item {
