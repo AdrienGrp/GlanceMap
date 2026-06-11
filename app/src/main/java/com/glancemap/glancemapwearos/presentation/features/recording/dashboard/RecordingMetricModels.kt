@@ -28,7 +28,7 @@ internal data class RecordingMetricValue(
     val unit: String? = null,
 )
 
-internal data class RecordingCalorieEstimate(
+data class RecordingCalorieEstimate(
     val grossKcal: Double = 0.0,
     val activeKcal: Double = 0.0,
     val restingKcal: Double = 0.0,
@@ -40,7 +40,7 @@ internal data class RecordingCalorieEstimate(
     val lcdaRestingKcal: Double = 0.0,
 )
 
-internal data class RecordingDashboardSnapshot(
+data class RecordingDashboardSnapshot(
     val durationSeconds: Double,
     val distanceMeters: Double,
     val elevationGainMeters: Double,

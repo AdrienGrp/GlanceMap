@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -42,6 +43,7 @@ class TraceRecordingViewModel(
     private var recordingElevationSource = SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
     private var userWeightKg = SettingsRepository.DEFAULT_USER_WEIGHT_KG
     private var backpackWeightKg = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
+    private var showSavedGpxOnMap = SettingsRepository.DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP
     private var lastAcceptedElapsedMs: Long = Long.MIN_VALUE
     private val locationPointMutex = Mutex()
     private var skippedIntervalCount = 0
@@ -73,6 +75,9 @@ class TraceRecordingViewModel(
             .launchIn(viewModelScope)
         settingsRepository.backpackWeightKg
             .onEach { backpackWeightKg = it }
+            .launchIn(viewModelScope)
+        settingsRepository.recordingShowSavedGpxOnMap
+            .onEach { showSavedGpxOnMap = it }
             .launchIn(viewModelScope)
         restoreDraftIfPresent()
     }
@@ -275,7 +280,7 @@ class TraceRecordingViewModel(
         if (!state.active || state.saving) return
         lastUiAction = "save"
         if (state.points.size < 2) {
-            _uiState.value = TraceRecordingUiState(message = "Not enough points")
+            _uiState.value = TraceRecordingUiState(message = "Too few points")
             DebugTelemetry.log(
                 "TraceRecording",
                 "event=discard reason=not_enough_points ${recordingSummaryTokens(state, System.currentTimeMillis())}",
@@ -321,6 +326,11 @@ class TraceRecordingViewModel(
                             onProgress = {},
                             expectedSize = bytes.size.toLong(),
                         )
+                        val savedPath = gpxRepository.absolutePathForFileName(fileName)
+                        if (showSavedGpxOnMap) {
+                            val activePaths = gpxRepository.getActiveGpxFiles().first()
+                            gpxRepository.setActiveGpxFiles(activePaths + savedPath)
+                        }
                         RecordingSaveInfo(fileName = fileName, byteSize = bytes.size)
                     }
                 }

@@ -123,6 +123,32 @@ class SettingsViewModel(
         settingsRepository.setRecordingDashboardMetricSlot(slotIndex, metricId)
     }
 
+    val recordingShowSavedGpxOnMap: StateFlow<Boolean> =
+        settingsRepository.recordingShowSavedGpxOnMap
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP,
+            )
+
+    fun setRecordingShowSavedGpxOnMap(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingShowSavedGpxOnMap(enabled)
+        }
+
+    val recordingStartWithTurnByTurn: StateFlow<Boolean> =
+        settingsRepository.recordingStartWithTurnByTurn
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_START_WITH_TURN_BY_TURN,
+            )
+
+    fun setRecordingStartWithTurnByTurn(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingStartWithTurnByTurn(enabled)
+        }
+
     val turnByTurnGuidanceSource: StateFlow<String> =
         settingsRepository.turnByTurnGuidanceSource
             .stateIn(

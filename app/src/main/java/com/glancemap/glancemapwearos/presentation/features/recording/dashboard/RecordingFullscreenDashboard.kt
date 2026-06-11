@@ -75,9 +75,9 @@ internal fun ExpandedRecordingDashboard(
         }
     val statusRowHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 32.dp
-            WearScreenSize.MEDIUM -> 30.dp
-            WearScreenSize.SMALL -> 28.dp
+            WearScreenSize.LARGE -> 28.dp
+            WearScreenSize.MEDIUM -> 26.dp
+            WearScreenSize.SMALL -> 24.dp
         }
 
     LaunchedEffect(pageCount) {
@@ -137,13 +137,13 @@ internal fun ExpandedRecordingDashboard(
             Column(
                 modifier = Modifier.fillMaxWidth(contentWidthFraction),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
             ) {
                 RecordingStatusRow(
                     paused = state.paused,
                     saving = state.saving,
-                    height = statusRowHeight,
                     onClick = onShowActions,
+                    modifier = Modifier.height(statusRowHeight),
                 )
                 RecordingMetricTile(
                     metric = formattedRecordingMetric(slots[0], snapshot, isMetric),
@@ -197,15 +197,12 @@ internal fun ExpandedRecordingDashboard(
 private fun RecordingStatusRow(
     paused: Boolean,
     saving: Boolean,
-    height: Dp,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(height),
-        contentAlignment = Alignment.TopCenter,
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
     ) {
         RecordingDot(
             paused = paused,
@@ -278,7 +275,7 @@ private fun RecordingDot(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val touchSize = 32.dp
+    val touchSize = 48.dp
     val visualSize = 18.dp
     Box(
         modifier =

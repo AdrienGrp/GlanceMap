@@ -139,6 +139,7 @@ internal fun NavigateContent(
     onKeepAppOpenToggle: () -> Unit,
     backButtonExitsNavigation: Boolean,
     traceRecordingState: TraceRecordingUiState,
+    recordingStatusMessage: String?,
     recordingDashboardMetricSlots: List<String>,
     userWeightKg: Float,
     backpackWeightKg: Float,
@@ -1278,6 +1279,11 @@ internal fun NavigateContent(
                 visible = hasLocationPermission && !isOfflineMode,
             )
 
+            RecordingStatusMessageChip(
+                message = recordingStatusMessage,
+                modifier = Modifier.align(Alignment.Center),
+            )
+
             if (routeToolSession != null) {
                 val session = routeToolSession
                 val activeRouteToolTrack = activeGpxDetails.singleOrNull()
@@ -1416,6 +1422,28 @@ internal fun NavigateContent(
             }
         }
     }
+}
+
+@Composable
+private fun RecordingStatusMessageChip(
+    message: String?,
+    modifier: Modifier = Modifier,
+) {
+    if (message.isNullOrBlank()) return
+
+    Text(
+        text = message,
+        modifier =
+            modifier
+                .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(18.dp))
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+        color = Color.White,
+        fontSize = 14.sp,
+        lineHeight = 15.sp,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+    )
 }
 
 @Suppress("FunctionName")

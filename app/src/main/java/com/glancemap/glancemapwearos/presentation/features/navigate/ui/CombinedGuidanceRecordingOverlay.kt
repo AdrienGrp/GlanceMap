@@ -248,8 +248,8 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             recordingPaused = recordingState.paused,
             modifier =
                 Modifier
-                    .align(if (expanded) Alignment.BottomCenter else Alignment.TopCenter)
-                    .padding(top = if (expanded) 0.dp else 104.dp, bottom = if (expanded) 28.dp else 0.dp),
+                    .align(Alignment.Center)
+                    .padding(top = if (expanded) 0.dp else 28.dp),
             onPauseResumeGuidance = {
                 showActions = false
                 if (guidancePaused) onResumeGuidance() else onPauseGuidance()
@@ -680,16 +680,16 @@ private fun CombinedRecordingPage(
         }
     val statusRowHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 48.dp
-            WearScreenSize.MEDIUM -> 44.dp
-            WearScreenSize.SMALL -> 40.dp
+            WearScreenSize.LARGE -> 28.dp
+            WearScreenSize.MEDIUM -> 26.dp
+            WearScreenSize.SMALL -> 24.dp
         }
 
     cappedFontScale(maxFontScale = 1f) {
         Column(
             modifier = Modifier.fillMaxWidth(contentWidthFraction),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
         ) {
             Box(
                 modifier =
@@ -846,39 +846,58 @@ private fun CombinedActionPrompt(
         contentAlignment = Alignment.Center,
     ) {
         cappedFontScale(maxFontScale = 1f) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy((-4).dp),
             ) {
-                CompactActionLabel("Guide")
-                CompactActionButton(
-                    icon = if (guidancePaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                    contentDescription = if (guidancePaused) "Resume guidance" else "Pause guidance",
-                    onClick = onPauseResumeGuidance,
-                    selected = true,
+                CompactActionRow(
+                    label = "Guide",
+                    pauseIcon = if (guidancePaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    pauseContentDescription = if (guidancePaused) "Resume guidance" else "Pause guidance",
+                    onPauseResume = onPauseResumeGuidance,
+                    stopContentDescription = "Stop guidance",
+                    onStop = onStopGuidance,
                 )
-                CompactActionButton(
-                    icon = Icons.Default.Stop,
-                    contentDescription = "Stop guidance",
-                    onClick = onStopGuidance,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-                CompactActionLabel("REC")
-                CompactActionButton(
-                    icon = if (recordingPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                    contentDescription = if (recordingPaused) "Resume recording" else "Pause recording",
-                    onClick = onPauseResumeRecording,
-                    selected = true,
-                )
-                CompactActionButton(
-                    icon = Icons.Default.Stop,
-                    contentDescription = "Stop recording",
-                    onClick = onStopRecording,
-                    tint = MaterialTheme.colorScheme.error,
+                CompactActionRow(
+                    label = "REC",
+                    pauseIcon = if (recordingPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    pauseContentDescription = if (recordingPaused) "Resume recording" else "Pause recording",
+                    onPauseResume = onPauseResumeRecording,
+                    stopContentDescription = "Stop recording",
+                    onStop = onStopRecording,
                 )
                 CompactCancelButton(onClick = onCancel)
             }
         }
+    }
+}
+
+@Composable
+private fun CompactActionRow(
+    label: String,
+    pauseIcon: ImageVector,
+    pauseContentDescription: String,
+    onPauseResume: () -> Unit,
+    stopContentDescription: String,
+    onStop: () -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CompactActionLabel(label)
+        CompactActionButton(
+            icon = pauseIcon,
+            contentDescription = pauseContentDescription,
+            onClick = onPauseResume,
+            selected = true,
+        )
+        CompactActionButton(
+            icon = Icons.Default.Stop,
+            contentDescription = stopContentDescription,
+            onClick = onStop,
+            tint = MaterialTheme.colorScheme.error,
+        )
     }
 }
 
@@ -891,7 +910,7 @@ private fun CompactActionLabel(text: String) {
         lineHeight = 8.sp,
         maxLines = 1,
         textAlign = TextAlign.Center,
-        modifier = Modifier.width(28.dp),
+        modifier = Modifier.width(30.dp),
     )
 }
 
@@ -924,7 +943,7 @@ private fun CompactActionButton(
                 imageVector = icon,
                 contentDescription = contentDescription,
                 tint = if (selected) MaterialTheme.colorScheme.onPrimary else tint,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(15.dp),
             )
         }
     }
@@ -935,7 +954,7 @@ private fun CompactCancelButton(onClick: () -> Unit) {
     Box(
         modifier =
             Modifier
-                .width(56.dp)
+                .width(122.dp)
                 .height(48.dp)
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -943,9 +962,9 @@ private fun CompactCancelButton(onClick: () -> Unit) {
         Box(
             modifier =
                 Modifier
-                    .height(28.dp)
-                    .width(50.dp)
-                    .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp)),
+                    .height(24.dp)
+                    .width(68.dp)
+                    .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Text(

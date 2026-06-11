@@ -21,6 +21,8 @@ fun RecordingSettingsScreen(
     val sampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
     val elevationSource by viewModel.recordingElevationSource.collectAsState()
     val dashboardMetricSlots by viewModel.recordingDashboardMetricSlots.collectAsState()
+    val showSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
+    val startWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
     val dashboardSlots = normalizedDashboardSlots(dashboardMetricSlots)
     var showIntervalPicker by remember { mutableStateOf(false) }
     var showElevationSourcePicker by remember { mutableStateOf(false) }
@@ -42,6 +44,22 @@ fun RecordingSettingsScreen(
             RecordingElevationSourceSetting(
                 elevationSource = elevationSource,
                 onClick = { showElevationSourcePicker = true },
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = showSavedGpxOnMap,
+                onCheckedChanged = viewModel::setRecordingShowSavedGpxOnMap,
+                label = "Show saved activity",
+                secondaryLabel = if (showSavedGpxOnMap) "On map after save" else "Saved but hidden",
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = startWithTurnByTurn,
+                onCheckedChanged = viewModel::setRecordingStartWithTurnByTurn,
+                label = "REC with guidance",
+                secondaryLabel = if (startWithTurnByTurn) "Starts with turn-by-turn" else "Manual start",
             )
         }
         item {

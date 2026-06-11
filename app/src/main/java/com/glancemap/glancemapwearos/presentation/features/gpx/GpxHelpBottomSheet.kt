@@ -35,6 +35,12 @@ fun GpxHelpBottomSheet(
             GpxHelpText("Toggle tracks on the map.")
         }
         item {
+            GpxHelpText("Switch GPX and activities with the route/activity icon.")
+        }
+        item {
+            GpxHelpText("Use the guidance icon to start turn-by-turn.")
+        }
+        item {
             GpxHelpText("Long press for elevation.")
         }
         item {

@@ -2,7 +2,6 @@ package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import android.hardware.SensorManager
 import android.os.SystemClock
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -306,13 +305,25 @@ fun NavigateScreen(
         remember(traceRecordingState.points) {
             traceRecordingState.points.map { it.latLong }
         }
+    var recordingStatusMessage by remember { mutableStateOf<String?>(null) }
+    var recordingStatusMessageToken by remember { mutableLongStateOf(0L) }
     LaunchedEffect(traceRecordingState.message) {
         traceRecordingState.message
             ?.takeIf { it.isNotBlank() }
             ?.let { message ->
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                recordingStatusMessage = message
+                recordingStatusMessageToken = SystemClock.elapsedRealtime()
                 traceRecordingViewModel.consumeMessage(message)
             }
+    }
+    LaunchedEffect(recordingStatusMessageToken) {
+        if (recordingStatusMessageToken != 0L && recordingStatusMessage != null) {
+            val token = recordingStatusMessageToken
+            delay(RECORDING_STATUS_MESSAGE_DURATION_MS)
+            if (recordingStatusMessageToken == token) {
+                recordingStatusMessage = null
+            }
+        }
     }
 
     val fallbackMapViewportWidthPx =
@@ -1578,6 +1589,7 @@ fun NavigateScreen(
         onKeepAppOpenToggle = screenActions.toggleKeepAppOpen,
         backButtonExitsNavigation = backButtonExitsNavigation,
         traceRecordingState = traceRecordingState,
+        recordingStatusMessage = recordingStatusMessage,
         recordingDashboardMetricSlots = recordingDashboardMetricSlots,
         userWeightKg = userWeightKg,
         backpackWeightKg = backpackWeightKg,
@@ -1866,3 +1878,4 @@ private const val GUIDE_BACK_ROUTE_BEARING_LOOKAHEAD_METERS = 20.0
 private const val MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES = 0.25
 private const val NORMAL_STARTUP_MAP_FALLBACK_GRACE_MS = 15_000L
 private const val NAVIGATE_MENU_CLICK_RESUME_GUARD_MS = 1_500L
+private const val RECORDING_STATUS_MESSAGE_DURATION_MS = 1_200L

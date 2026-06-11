@@ -17,6 +17,9 @@ internal fun encodeRecordedTraceAsGpx(
     )
     writer.textTag("metadata") {
         textTag("name", title)
+        textTag("extensions") {
+            textTag("gmap:activityType", "recording")
+        }
     }
     writer.textTag("trk") {
         textTag("name", title)

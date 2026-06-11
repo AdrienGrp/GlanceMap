@@ -160,6 +160,7 @@ class MainActivity : ComponentActivity() {
             )
             val offlineMode by appContainer.settingsViewModel.offlineMode.collectAsState(initial = false)
             val recordingDashboardMetricSlots by appContainer.settingsViewModel.recordingDashboardMetricSlots.collectAsState()
+            val recordingStartWithTurnByTurn by appContainer.settingsViewModel.recordingStartWithTurnByTurn.collectAsState()
 
             val isAmbient = _isAmbient
             val ambientTickMs = _ambientTickMs
@@ -394,7 +395,14 @@ class MainActivity : ComponentActivity() {
                                 onDismiss = { navController.popBackStack() },
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
-                                GpxScreen(navController, appContainer.gpxViewModel, isMetric)
+                                GpxScreen(
+                                    navController = navController,
+                                    gpxViewModel = appContainer.gpxViewModel,
+                                    isMetric = isMetric,
+                                    autoStartRecordingWithGuidance = recordingStartWithTurnByTurn,
+                                    recordingActiveOrSaving = traceRecordingState.active || traceRecordingState.saving,
+                                    onStartRecording = appContainer.traceRecordingViewModel::startRecording,
+                                )
                             }
                         }
 

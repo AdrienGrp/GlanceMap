@@ -34,6 +34,8 @@ interface SettingsRepository {
         const val RECORDING_ELEVATION_SOURCE_DEM = "DEM"
         const val RECORDING_ELEVATION_SOURCE_AUTO = "AUTO"
         const val DEFAULT_RECORDING_ELEVATION_SOURCE = RECORDING_ELEVATION_SOURCE_GPS
+        const val DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP = true
+        const val DEFAULT_RECORDING_START_WITH_TURN_BY_TURN = false
         const val DEFAULT_USER_WEIGHT_KG = 75f
         const val MIN_USER_WEIGHT_KG = 35f
         const val MAX_USER_WEIGHT_KG = 160f
@@ -174,6 +176,14 @@ interface SettingsRepository {
         slotIndex: Int,
         metricId: String,
     )
+
+    val recordingShowSavedGpxOnMap: Flow<Boolean>
+
+    suspend fun setRecordingShowSavedGpxOnMap(enabled: Boolean)
+
+    val recordingStartWithTurnByTurn: Flow<Boolean>
+
+    suspend fun setRecordingStartWithTurnByTurn(enabled: Boolean)
 
     val userWeightKg: Flow<Float>
 

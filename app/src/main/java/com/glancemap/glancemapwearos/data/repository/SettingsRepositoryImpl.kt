@@ -52,6 +52,8 @@ class SettingsRepositoryImpl private constructor(
         val RECORDING_SAMPLE_INTERVAL_SECONDS = intPreferencesKey("recording_sample_interval_seconds")
         val RECORDING_ELEVATION_SOURCE = stringPreferencesKey("recording_elevation_source")
         val RECORDING_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("recording_dashboard_metric_slots")
+        val RECORDING_SHOW_SAVED_GPX_ON_MAP = booleanPreferencesKey("recording_show_saved_gpx_on_map")
+        val RECORDING_START_WITH_TURN_BY_TURN = booleanPreferencesKey("recording_start_with_turn_by_turn")
         val USER_WEIGHT_KG = floatPreferencesKey("user_weight_kg")
         val BACKPACK_WEIGHT_KG = floatPreferencesKey("backpack_weight_kg")
         val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
@@ -237,6 +239,30 @@ class SettingsRepositoryImpl private constructor(
                         }
                     }
             it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] = next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override val recordingShowSavedGpxOnMap: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_SHOW_SAVED_GPX_ON_MAP]
+                ?: SettingsRepository.DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP
+        }
+
+    override suspend fun setRecordingShowSavedGpxOnMap(enabled: Boolean) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_SHOW_SAVED_GPX_ON_MAP] = enabled
+        }
+    }
+
+    override val recordingStartWithTurnByTurn: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_START_WITH_TURN_BY_TURN]
+                ?: SettingsRepository.DEFAULT_RECORDING_START_WITH_TURN_BY_TURN
+        }
+
+    override suspend fun setRecordingStartWithTurnByTurn(enabled: Boolean) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_START_WITH_TURN_BY_TURN] = enabled
         }
     }
 

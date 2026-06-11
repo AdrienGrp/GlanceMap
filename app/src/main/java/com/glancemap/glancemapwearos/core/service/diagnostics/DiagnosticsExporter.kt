@@ -40,6 +40,8 @@ data class DiagnosticsSettingsSnapshot(
     val backButtonExitsNavigation: Boolean,
     val recordingSampleIntervalSeconds: Int = 0,
     val recordingElevationSource: String = "na",
+    val recordingShowSavedGpxOnMap: Boolean = true,
+    val recordingStartWithTurnByTurn: Boolean = false,
     val userWeightKg: Float = 0f,
     val backpackWeightKg: Float = 0f,
     val turnByTurnGuidanceSource: String = "na",
@@ -502,6 +504,8 @@ object DiagnosticsExporter {
             writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
             writer.appendLine("recordingBackgroundGps=always_on_when_recording")
             writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
+            writer.appendLine("recordingShowSavedGpxOnMap=${settings.recordingShowSavedGpxOnMap}")
+            writer.appendLine("recordingStartWithTurnByTurn=${settings.recordingStartWithTurnByTurn}")
             writer.appendLine("userWeightKg=${settings.userWeightKg}")
             writer.appendLine("backpackWeightKg=${settings.backpackWeightKg}")
             writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")

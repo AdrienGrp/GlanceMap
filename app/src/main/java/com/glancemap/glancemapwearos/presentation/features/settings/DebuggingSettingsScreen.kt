@@ -105,6 +105,8 @@ fun DebuggingSettingsScreen(
     val turnByTurnReverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
     val recordingSampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
     val recordingElevationSource by viewModel.recordingElevationSource.collectAsState()
+    val recordingShowSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
+    val recordingStartWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
     val userWeightKg by viewModel.userWeightKg.collectAsState()
     val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
     var diagnosticsExportStatus by remember {
@@ -368,6 +370,8 @@ fun DebuggingSettingsScreen(
                                                 backButtonExitsNavigation = backButtonExitsNavigation,
                                                 recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
                                                 recordingElevationSource = recordingElevationSource,
+                                                recordingShowSavedGpxOnMap = recordingShowSavedGpxOnMap,
+                                                recordingStartWithTurnByTurn = recordingStartWithTurnByTurn,
                                                 userWeightKg = userWeightKg,
                                                 backpackWeightKg = backpackWeightKg,
                                                 turnByTurnGuidanceSource = turnByTurnGuidanceSource,

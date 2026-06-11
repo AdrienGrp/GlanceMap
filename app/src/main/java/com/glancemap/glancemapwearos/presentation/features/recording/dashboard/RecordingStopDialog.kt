@@ -43,9 +43,7 @@ internal fun RecordingStopPromptCard(
 ) {
     val metrics =
         remember(snapshot, isMetric) {
-            RECORDING_RECAP_METRIC_IDS.map { metricId ->
-                formattedRecordingMetric(metricId, snapshot, isMetric)
-            }
+            recordingRecapMetricsForSnapshot(snapshot, isMetric)
         }
     val defaultTitle =
         remember(state.startedAtMillis) {
@@ -104,6 +102,11 @@ internal fun RecordingStopPromptCard(
     }
 }
 
+internal data class RecordingRecapMetric(
+    val label: String,
+    val valueText: String,
+)
+
 @Composable
 private fun RecordingDialogTitleRow(
     title: String,
@@ -137,7 +140,7 @@ private fun RecordingDialogTitleRow(
 }
 
 @Composable
-private fun RecordingRecapMetricsGrid(metrics: List<RecordingMetricValue>) {
+internal fun RecordingRecapMetricsGrid(metrics: List<RecordingRecapMetric>) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -164,7 +167,7 @@ private fun RecordingRecapMetricsGrid(metrics: List<RecordingMetricValue>) {
 @Composable
 private fun RecordingDialogStatTile(
     modifier: Modifier,
-    metric: RecordingMetricValue,
+    metric: RecordingRecapMetric,
 ) {
     Column(
         modifier =
@@ -184,7 +187,7 @@ private fun RecordingDialogStatTile(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = metric.recapValueText(),
+            text = metric.valueText,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -193,8 +196,26 @@ private fun RecordingDialogStatTile(
     }
 }
 
-private fun RecordingMetricValue.recapValueText(): String =
-    "${value}${unit?.let { " $it" }.orEmpty()}".trim()
+internal fun recordingRecapMetric(
+    label: String,
+    value: String,
+    unit: String? = null,
+): RecordingRecapMetric =
+    RecordingRecapMetric(
+        label = label,
+        valueText = "$value${unit?.let { " $it" }.orEmpty()}".trim(),
+    )
+
+private fun RecordingMetricValue.toRecordingRecapMetric(): RecordingRecapMetric =
+    recordingRecapMetric(label = label, value = value, unit = unit)
+
+internal fun recordingRecapMetricsForSnapshot(
+    snapshot: RecordingDashboardSnapshot,
+    isMetric: Boolean,
+): List<RecordingRecapMetric> =
+    RECORDING_RECAP_METRIC_IDS.map { metricId ->
+        formattedRecordingMetric(metricId, snapshot, isMetric).toRecordingRecapMetric()
+    }
 
 private fun isShortRecording(
     snapshot: RecordingDashboardSnapshot,
