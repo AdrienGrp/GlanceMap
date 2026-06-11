@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
@@ -34,8 +36,6 @@ internal fun BoxScope.RecordingDashboardOverlay(
     screenSize: WearScreenSize,
     isMetric: Boolean,
     suppressed: Boolean,
-    toolButtonEdgePadding: Dp,
-    toolButtonSize: Dp,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onStopConfirmed: (String?) -> Unit,
@@ -149,11 +149,10 @@ internal fun BoxScope.RecordingDashboardOverlay(
         if (showCompactControls) {
             CompactRecordingControls(
                 state = state,
-                snapshot = snapshot,
-                isMetric = isMetric,
-                toolButtonEdgePadding = toolButtonEdgePadding,
-                toolButtonSize = toolButtonSize,
-                modifier = Modifier.align(Alignment.CenterEnd),
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = recordingActionPromptTopPadding(screenSize)),
                 onPauseResume = {
                     showCompactControls = false
                     if (state.paused) {
@@ -165,9 +164,8 @@ internal fun BoxScope.RecordingDashboardOverlay(
                 onStop = {
                     showStopPrompt = true
                 },
-                onExpand = {
+                onDismiss = {
                     showCompactControls = false
-                    expanded = true
                 },
             )
         }
@@ -213,6 +211,13 @@ internal fun BoxScope.RecordingDashboardOverlay(
         )
     }
 }
+
+private fun recordingActionPromptTopPadding(screenSize: WearScreenSize): Dp =
+    when (screenSize) {
+        WearScreenSize.LARGE -> 90.dp
+        WearScreenSize.MEDIUM -> 86.dp
+        WearScreenSize.SMALL -> 82.dp
+    }
 
 internal fun normalizedRecordingDashboardSlots(metricSlots: List<String>): List<String> =
     normalizeRecordingDashboardSlotList(metricSlots)

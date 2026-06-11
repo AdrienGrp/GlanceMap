@@ -482,7 +482,10 @@ private fun SwipeExpandCue(modifier: Modifier = Modifier) {
             imageVector = Icons.Default.ExpandLess,
             contentDescription = "Swipe up to expand guidance",
             tint = Color.White.copy(alpha = 0.62f),
-            modifier = Modifier.size(12.dp),
+            modifier =
+                Modifier
+                    .size(12.dp)
+                    .rotate(180f),
         )
     }
 }

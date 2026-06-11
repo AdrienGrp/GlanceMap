@@ -513,8 +513,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
             poiTapMessage != null ||
                 turnByTurnFullScreenExpanded ||
                 combinedGuidanceRecordingActive,
-        toolButtonEdgePadding = sideButtonEdgePadding,
-        toolButtonSize = sideButtonSize,
         onPause = onPauseRecording,
         onResume = onResumeRecording,
         onStopConfirmed = onFinishRecording,

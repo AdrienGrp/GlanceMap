@@ -87,6 +87,13 @@ class TraceRecordingViewModel(
         }
     }
 
+    fun consumeMessage(message: String) {
+        val state = _uiState.value
+        if (state.message == message) {
+            _uiState.value = state.copy(message = null)
+        }
+    }
+
     fun startRecording() {
         val now = System.currentTimeMillis()
         lastAcceptedElapsedMs = Long.MIN_VALUE
@@ -352,7 +359,7 @@ class TraceRecordingViewModel(
         val state = _uiState.value
         if (!state.active && !state.saving) return
         lastUiAction = "discard"
-        _uiState.value = TraceRecordingUiState(message = "REC discarded")
+        _uiState.value = TraceRecordingUiState(message = "Discarded")
         clearDraftAsync(reason = "user_discard")
         DebugTelemetry.log(
             "TraceRecording",

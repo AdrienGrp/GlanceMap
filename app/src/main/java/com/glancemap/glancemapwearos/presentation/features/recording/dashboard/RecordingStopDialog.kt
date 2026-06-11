@@ -6,11 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,7 +17,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,11 +41,12 @@ internal fun RecordingStopPromptCard(
     onSave: (String) -> Unit,
     onCancel: () -> Unit,
 ) {
-    val distance = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DISTANCE, snapshot, isMetric)
-    val duration = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DURATION, snapshot, isMetric)
-    val elevationGain = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN, snapshot, isMetric)
-    val elevationLoss = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS, snapshot, isMetric)
-    val calories = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_CALORIES, snapshot, isMetric)
+    val metrics =
+        remember(snapshot, isMetric) {
+            RECORDING_RECAP_METRIC_IDS.map { metricId ->
+                formattedRecordingMetric(metricId, snapshot, isMetric)
+            }
+        }
     val defaultTitle =
         remember(state.startedAtMillis) {
             buildRecordingTitle(state.startedAtMillis ?: System.currentTimeMillis())
@@ -103,46 +100,7 @@ internal fun RecordingStopPromptCard(
             onRename = { showRenameDialog = true },
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            RecordingDialogStatTile(
-                modifier = Modifier.weight(1f),
-                label = "Dist",
-                value = "${distance.value} ${distance.unit.orEmpty()}".trim(),
-            )
-            RecordingDialogStatTile(
-                modifier = Modifier.weight(1f),
-                label = "Time",
-                value = duration.value,
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            RecordingDialogStatTile(
-                modifier = Modifier.weight(1f),
-                labelIcon = Icons.Default.ArrowUpward,
-                value = "${elevationGain.value} ${elevationGain.unit.orEmpty()}".trim(),
-            )
-            RecordingDialogStatTile(
-                modifier = Modifier.weight(1f),
-                labelIcon = Icons.Default.ArrowDownward,
-                value = "${elevationLoss.value} ${elevationLoss.unit.orEmpty()}".trim(),
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            RecordingDialogStatTile(
-                modifier = Modifier.weight(1f),
-                label = "Calories",
-                value = "${calories.value} ${calories.unit.orEmpty()}".trim(),
-            )
-        }
+        RecordingRecapMetricsGrid(metrics = metrics)
     }
 }
 
@@ -179,11 +137,34 @@ private fun RecordingDialogTitleRow(
 }
 
 @Composable
+private fun RecordingRecapMetricsGrid(metrics: List<RecordingMetricValue>) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        metrics.chunked(RECORDING_RECAP_COLUMNS).forEach { rowMetrics ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                rowMetrics.forEach { metric ->
+                    RecordingDialogStatTile(
+                        modifier = Modifier.weight(1f),
+                        metric = metric,
+                    )
+                }
+                repeat(RECORDING_RECAP_COLUMNS - rowMetrics.size) {
+                    Column(modifier = Modifier.weight(1f)) {}
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun RecordingDialogStatTile(
     modifier: Modifier,
-    label: String? = null,
-    labelIcon: ImageVector? = null,
-    value: String,
+    metric: RecordingMetricValue,
 ) {
     Column(
         modifier =
@@ -195,22 +176,15 @@ private fun RecordingDialogStatTile(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
-        if (labelIcon != null) {
-            Icon(
-                imageVector = labelIcon,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = Color.White.copy(alpha = 0.72f),
-            )
-        } else if (label != null) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.72f),
-            )
-        }
         Text(
-            text = value,
+            text = metric.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.72f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = metric.recapValueText(),
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -218,6 +192,9 @@ private fun RecordingDialogStatTile(
         )
     }
 }
+
+private fun RecordingMetricValue.recapValueText(): String =
+    "${value}${unit?.let { " $it" }.orEmpty()}".trim()
 
 private fun isShortRecording(
     snapshot: RecordingDashboardSnapshot,
@@ -231,3 +208,23 @@ private const val MIN_SAVE_POINT_COUNT = 2
 private const val SHORT_RECORDING_DISTANCE_METERS = 20.0
 private const val SHORT_RECORDING_DURATION_SECONDS = 10.0
 private const val MAX_RECORDING_TITLE_LENGTH = 64
+private const val RECORDING_RECAP_COLUMNS = 2
+private val RECORDING_RECAP_METRIC_IDS =
+    listOf(
+        SettingsRepository.RECORDING_METRIC_DISTANCE,
+        SettingsRepository.RECORDING_METRIC_DURATION,
+        SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
+        SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
+        SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
+        SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
+        SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
+        SettingsRepository.RECORDING_METRIC_CURRENT_PACE,
+        SettingsRepository.RECORDING_METRIC_AVERAGE_PACE,
+        SettingsRepository.RECORDING_METRIC_HEART_RATE,
+        SettingsRepository.RECORDING_METRIC_STEPS,
+        SettingsRepository.RECORDING_METRIC_CADENCE,
+        SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
+        SettingsRepository.RECORDING_METRIC_CALORIES,
+        SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,
+        SettingsRepository.RECORDING_METRIC_RESTING_CALORIES,
+    )

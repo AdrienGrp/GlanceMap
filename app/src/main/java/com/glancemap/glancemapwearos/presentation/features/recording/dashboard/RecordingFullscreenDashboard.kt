@@ -5,6 +5,7 @@ package com.glancemap.glancemapwearos.presentation.features.recording.dashboard
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,10 +19,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -50,6 +59,8 @@ internal fun ExpandedRecordingDashboard(
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
 ) {
+    val focusRequester = remember { FocusRequester() }
+    var rotaryAccumulator by remember(pageCount) { mutableFloatStateOf(0f) }
     val contentWidthFraction =
         when (screenSize) {
             WearScreenSize.LARGE -> 0.72f
@@ -58,16 +69,22 @@ internal fun ExpandedRecordingDashboard(
         }
     val tileHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 46.dp
-            WearScreenSize.MEDIUM -> 42.dp
-            WearScreenSize.SMALL -> 38.dp
+            WearScreenSize.LARGE -> 44.dp
+            WearScreenSize.MEDIUM -> 40.dp
+            WearScreenSize.SMALL -> 36.dp
         }
-    val recordingDotTopPadding =
+    val statusRowHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 18.dp
-            WearScreenSize.MEDIUM -> 16.dp
-            WearScreenSize.SMALL -> 14.dp
+            WearScreenSize.LARGE -> 32.dp
+            WearScreenSize.MEDIUM -> 30.dp
+            WearScreenSize.SMALL -> 28.dp
         }
+
+    LaunchedEffect(pageCount) {
+        if (pageCount > 1) {
+            focusRequester.requestFocus()
+        }
+    }
 
     Box(
         modifier =
@@ -101,15 +118,33 @@ internal fun ExpandedRecordingDashboard(
                         totalDragX += dragAmount.x
                         totalDragY += dragAmount.y
                     }
-                },
+                }
+                .onPreRotaryScrollEvent { event ->
+                    handleDashboardRotaryPageEvent(
+                        delta = event.verticalScrollPixels,
+                        pageCount = pageCount,
+                        accumulator = rotaryAccumulator,
+                        onAccumulatorChange = { rotaryAccumulator = it },
+                        onPreviousPage = onPreviousPage,
+                        onNextPage = onNextPage,
+                    )
+                }
+                .focusRequester(focusRequester)
+                .focusable(),
         contentAlignment = Alignment.Center,
     ) {
         cappedFontScale(maxFontScale = 1f) {
             Column(
                 modifier = Modifier.fillMaxWidth(contentWidthFraction),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically),
             ) {
+                RecordingStatusRow(
+                    paused = state.paused,
+                    saving = state.saving,
+                    height = statusRowHeight,
+                    onClick = onShowActions,
+                )
                 RecordingMetricTile(
                     metric = formattedRecordingMetric(slots[0], snapshot, isMetric),
                     height = tileHeight,
@@ -141,16 +176,6 @@ internal fun ExpandedRecordingDashboard(
                 )
             }
         }
-
-        RecordingDot(
-            paused = state.paused,
-            saving = state.saving,
-            onClick = onShowActions,
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = recordingDotTopPadding),
-        )
         SwipeMinimizeHandle(
             modifier =
                 Modifier
@@ -164,6 +189,28 @@ internal fun ExpandedRecordingDashboard(
                 Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = 14.dp),
+        )
+    }
+}
+
+@Composable
+private fun RecordingStatusRow(
+    paused: Boolean,
+    saving: Boolean,
+    height: Dp,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(height),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        RecordingDot(
+            paused = paused,
+            saving = saving,
+            onClick = onClick,
         )
     }
 }
@@ -231,8 +278,8 @@ private fun RecordingDot(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val touchSize = 48.dp
-    val visualSize = 20.dp
+    val touchSize = 32.dp
+    val visualSize = 18.dp
     Box(
         modifier =
             modifier
@@ -304,3 +351,36 @@ private fun RecordingPageIndicator(
         }
     }
 }
+
+private fun handleDashboardRotaryPageEvent(
+    delta: Float,
+    pageCount: Int,
+    accumulator: Float,
+    onAccumulatorChange: (Float) -> Unit,
+    onPreviousPage: () -> Unit,
+    onNextPage: () -> Unit,
+): Boolean {
+    if (pageCount <= 1 || !delta.isFinite() || delta == 0f) return false
+    var nextAccumulator =
+        if (accumulator != 0f && (accumulator > 0f) != (delta > 0f)) {
+            0f
+        } else {
+            accumulator
+        }
+    nextAccumulator += delta
+    var consumed = false
+    while (nextAccumulator >= POPUP_ROTARY_PAGE_THRESHOLD_PX) {
+        onNextPage()
+        nextAccumulator -= POPUP_ROTARY_PAGE_THRESHOLD_PX
+        consumed = true
+    }
+    while (nextAccumulator <= -POPUP_ROTARY_PAGE_THRESHOLD_PX) {
+        onPreviousPage()
+        nextAccumulator += POPUP_ROTARY_PAGE_THRESHOLD_PX
+        consumed = true
+    }
+    onAccumulatorChange(nextAccumulator)
+    return consumed || nextAccumulator != 0f
+}
+
+private const val POPUP_ROTARY_PAGE_THRESHOLD_PX = 24f

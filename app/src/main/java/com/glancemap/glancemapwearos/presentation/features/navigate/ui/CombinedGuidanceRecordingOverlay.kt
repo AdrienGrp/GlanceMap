@@ -6,9 +6,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,14 +47,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.wear.compose.foundation.AnchorType
+import androidx.wear.compose.foundation.CurvedLayout
+import androidx.wear.compose.foundation.CurvedModifier
+import androidx.wear.compose.foundation.CurvedTextStyle
+import androidx.wear.compose.foundation.basicCurvedText
+import androidx.wear.compose.foundation.padding
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
@@ -76,6 +92,7 @@ import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 @Composable
@@ -148,10 +165,16 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     if (suppressed) return
 
     val slots = normalizedRecordingDashboardSlots(metricSlots)
-    val pageCount = (slots.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT).coerceAtLeast(1)
+    val recordingPageCount = (slots.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT).coerceAtLeast(1)
+    val pageCount = recordingPageCount + 1
     LaunchedEffect(pageCount) {
         if (pageIndex >= pageCount) pageIndex = pageCount - 1
     }
+    val recordingPageIndex = (pageIndex - 1).coerceIn(0, recordingPageCount - 1)
+    val visibleSlots =
+        slots
+            .drop(recordingPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
+            .take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
     val snapshot =
         buildRecordingDashboardSnapshot(
             state = recordingState,
@@ -173,19 +196,19 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             guidanceState = guidanceState,
             guidancePaused = guidancePaused,
             recordingState = recordingState,
-            slots =
-                slots
-                    .drop(pageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
-                    .take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT),
+            slots = visibleSlots,
             pageIndex = pageIndex,
             pageCount = pageCount,
+            recordingPageIndex = recordingPageIndex,
             snapshot = snapshot,
             screenSize = screenSize,
             isMetric = isMetric,
             compassHeadingDeg = compassHeadingDeg,
             guideBackToRouteActive = guideBackToRouteActive,
             onSlotLongPress = { slotIndex ->
-                metricPickerSlot = pageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
+                if (pageIndex > 0) {
+                    metricPickerSlot = recordingPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
+                }
             },
             onCollapse = { expanded = false },
             onPreviousPage = {
@@ -206,8 +229,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
         CombinedCompactPopup(
             guidanceState = guidanceState,
             guidancePaused = guidancePaused,
-            recordingState = recordingState,
-            snapshot = snapshot,
             isMetric = isMetric,
             compassHeadingDeg = compassHeadingDeg,
             guideBackToRouteActive = guideBackToRouteActive,
@@ -291,8 +312,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
 private fun CombinedCompactPopup(
     guidanceState: TurnByTurnGuidanceState,
     guidancePaused: Boolean,
-    recordingState: TraceRecordingUiState,
-    snapshot: RecordingDashboardSnapshot,
     isMetric: Boolean,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
@@ -307,25 +326,35 @@ private fun CombinedCompactPopup(
             WearScreenSize.MEDIUM -> 50.dp
             WearScreenSize.SMALL -> 46.dp
         }
-    val width =
+    val compactWidth =
         when (screenSize) {
-            WearScreenSize.LARGE -> 184.dp
-            WearScreenSize.MEDIUM -> 172.dp
-            WearScreenSize.SMALL -> 158.dp
+            WearScreenSize.LARGE -> 112.dp
+            WearScreenSize.MEDIUM -> 104.dp
+            WearScreenSize.SMALL -> 96.dp
         }
-    val distance = formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DISTANCE, snapshot, isMetric)
+    val compactIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 17.dp
+            WearScreenSize.MEDIUM -> 16.dp
+            WearScreenSize.SMALL -> 15.dp
+        }
+    val titleFont =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 11.sp
+            WearScreenSize.MEDIUM -> 10.sp
+            WearScreenSize.SMALL -> 10.sp
+        }
     Box(
         modifier =
             modifier
                 .padding(top = topPadding)
-                .widthIn(max = width)
-                .height(44.dp)
-                .background(Color.Black.copy(alpha = 0.9f), RoundedCornerShape(10.dp))
+                .widthIn(max = compactWidth)
+                .background(Color.Black.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
                 .combinedClickable(
                     onClick = onExpand,
                     onLongClick = onShowActions,
                 )
-                .pointerInput(guidanceState.mode, guidanceState.nextInstruction, recordingState.paused) {
+                .pointerInput(guidanceState.mode, guidanceState.nextInstruction, guidancePaused) {
                     var totalDrag = 0f
                     detectVerticalDragGestures(
                         onDragEnd = {
@@ -337,49 +366,34 @@ private fun CombinedCompactPopup(
                         totalDrag += dragAmount
                     }
                 }
-                .padding(horizontal = 7.dp),
-        contentAlignment = Alignment.Center,
+                .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
         cappedFontScale(maxFontScale = 1f) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 CombinedGuidanceIcon(
                     state = guidanceState,
                     compassHeadingDeg = compassHeadingDeg,
                     guideBackToRouteActive = guideBackToRouteActive,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(compactIconSize),
                 )
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                    Text(
-                        text =
-                            if (guidancePaused) {
-                                "Paused"
-                            } else {
-                                combinedGuidanceCompactText(guidanceState, isMetric, guideBackToRouteActive)
-                            },
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 10.sp,
-                        lineHeight = 10.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = "REC ${distance.value}${distance.unit?.let { " $it" }.orEmpty()}",
-                        color =
-                            if (recordingState.paused) {
-                                Color(0xFFFFB74D)
-                            } else {
-                                Color(0xFFFF5252)
-                            },
-                        fontSize = 8.sp,
-                        lineHeight = 8.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                    )
-                }
+                Text(
+                    text =
+                        if (guidancePaused) {
+                            "Paused"
+                        } else {
+                            combinedGuidanceCompactText(guidanceState, isMetric, guideBackToRouteActive)
+                        },
+                    modifier = Modifier.weight(1f),
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = titleFont,
+                    lineHeight = titleFont,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 SwipeExpandCue()
             }
         }
@@ -394,6 +408,7 @@ private fun CombinedFullscreenDashboard(
     slots: List<String>,
     pageIndex: Int,
     pageCount: Int,
+    recordingPageIndex: Int,
     snapshot: RecordingDashboardSnapshot,
     screenSize: WearScreenSize,
     isMetric: Boolean,
@@ -405,18 +420,15 @@ private fun CombinedFullscreenDashboard(
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
 ) {
-    val contentWidthFraction =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 0.74f
-            WearScreenSize.MEDIUM -> 0.70f
-            WearScreenSize.SMALL -> 0.66f
+    val focusRequester = remember { FocusRequester() }
+    var rotaryAccumulator by remember(pageCount) { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(pageCount) {
+        if (pageCount > 1) {
+            focusRequester.requestFocus()
         }
-    val tileHeight =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 36.dp
-            WearScreenSize.MEDIUM -> 34.dp
-            WearScreenSize.SMALL -> 31.dp
-        }
+    }
+
     Box(
         modifier =
             Modifier
@@ -449,99 +461,41 @@ private fun CombinedFullscreenDashboard(
                         totalDragX += dragAmount.x
                         totalDragY += dragAmount.y
                     }
-                },
+                }
+                .onPreRotaryScrollEvent { event ->
+                    handleCombinedRotaryPageEvent(
+                        delta = event.verticalScrollPixels,
+                        pageCount = pageCount,
+                        accumulator = rotaryAccumulator,
+                        onAccumulatorChange = { rotaryAccumulator = it },
+                        onPreviousPage = onPreviousPage,
+                        onNextPage = onNextPage,
+                    )
+                }
+                .focusRequester(focusRequester)
+                .focusable(),
         contentAlignment = Alignment.Center,
     ) {
-        cappedFontScale(maxFontScale = 1f) {
-            Column(
-                modifier = Modifier.fillMaxWidth(contentWidthFraction),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(42.dp)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CombinedGuidanceIcon(
-                            state = guidanceState,
-                            compassHeadingDeg = compassHeadingDeg,
-                            guideBackToRouteActive = guideBackToRouteActive,
-                            modifier = Modifier.size(26.dp),
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text =
-                                if (guidancePaused) {
-                                    "Paused"
-                                } else {
-                                    combinedGuidancePrimaryText(guidanceState, guideBackToRouteActive)
-                                },
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            lineHeight = 17.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = combinedGuidanceSecondaryText(guidanceState, isMetric, guideBackToRouteActive),
-                            color = Color.White.copy(alpha = 0.72f),
-                            fontSize = 10.sp,
-                            lineHeight = 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                RecordingMiniTile(
-                    metric = formattedRecordingMetric(slots[0], snapshot, isMetric),
-                    height = tileHeight,
-                    onLongPress = { onSlotLongPress(0) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    RecordingMiniTile(
-                        metric = formattedRecordingMetric(slots[1], snapshot, isMetric),
-                        height = tileHeight,
-                        onLongPress = { onSlotLongPress(1) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    RecordingMiniTile(
-                        metric = formattedRecordingMetric(slots[2], snapshot, isMetric),
-                        height = tileHeight,
-                        onLongPress = { onSlotLongPress(2) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                RecordingMiniTile(
-                    metric = formattedRecordingMetric(slots[3], snapshot, isMetric),
-                    height = tileHeight,
-                    onLongPress = { onSlotLongPress(3) },
-                    modifier = Modifier.fillMaxWidth(0.86f),
-                )
-            }
+        if (pageIndex == 0) {
+            CombinedGuidancePage(
+                state = guidanceState,
+                paused = guidancePaused,
+                screenSize = screenSize,
+                isMetric = isMetric,
+                compassHeadingDeg = compassHeadingDeg,
+                guideBackToRouteActive = guideBackToRouteActive,
+            )
+        } else {
+            CombinedRecordingPage(
+                recordingState = recordingState,
+                slots = slots,
+                snapshot = snapshot,
+                screenSize = screenSize,
+                isMetric = isMetric,
+                onSlotLongPress = onSlotLongPress,
+                onShowActions = onShowActions,
+            )
         }
-        RecordingStatusDot(
-            paused = recordingState.paused,
-            saving = recordingState.saving,
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 15.dp),
-            onClick = onShowActions,
-        )
         CombinedPageIndicator(
             pageIndex = pageIndex,
             pageCount = pageCount,
@@ -556,6 +510,272 @@ private fun CombinedFullscreenDashboard(
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 18.dp),
         )
+    }
+}
+
+@Composable
+private fun CombinedGuidancePage(
+    state: TurnByTurnGuidanceState,
+    paused: Boolean,
+    screenSize: WearScreenSize,
+    isMetric: Boolean,
+    compassHeadingDeg: Float,
+    guideBackToRouteActive: Boolean,
+) {
+    val titleRadialPadding =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 16.dp
+            WearScreenSize.MEDIUM -> 15.dp
+            WearScreenSize.SMALL -> 14.dp
+        }
+    val contentWidthFraction =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 0.70f
+            WearScreenSize.MEDIUM -> 0.68f
+            WearScreenSize.SMALL -> 0.66f
+        }
+    val arrowContainerSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 68.dp
+            WearScreenSize.MEDIUM -> 64.dp
+            WearScreenSize.SMALL -> 60.dp
+        }
+    val arrowIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 40.dp
+            WearScreenSize.MEDIUM -> 38.dp
+            WearScreenSize.SMALL -> 36.dp
+        }
+
+    CombinedRouteProgressRing(
+        progress = state.routeProgressFraction,
+        modifier = Modifier.fillMaxSize(),
+    )
+    if (!state.trackTitle.isNullOrBlank()) {
+        CurvedLayout(
+            modifier = Modifier.fillMaxSize(),
+            anchor = 270f,
+            anchorType = AnchorType.Center,
+        ) {
+            basicCurvedText(
+                text = state.trackTitle,
+                modifier = CurvedModifier.padding(titleRadialPadding),
+                overflow = TextOverflow.Ellipsis,
+                style = {
+                    CurvedTextStyle(
+                        color = Color.White.copy(alpha = 0.64f),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+            )
+        }
+    }
+    cappedFontScale(maxFontScale = 1f) {
+        Column(
+            modifier = Modifier.fillMaxWidth(contentWidthFraction),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(arrowContainerSize)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                CombinedGuidanceIcon(
+                    state = state,
+                    compassHeadingDeg = compassHeadingDeg,
+                    guideBackToRouteActive = guideBackToRouteActive,
+                    modifier = Modifier.size(arrowIconSize),
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
+            Spacer(modifier = Modifier.size(10.dp))
+            Text(
+                text =
+                    if (paused) {
+                        "Paused"
+                    } else {
+                        combinedGuidancePrimaryText(state, guideBackToRouteActive)
+                    },
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 21.sp,
+                lineHeight = 22.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = combinedGuidanceSecondaryText(state, isMetric, guideBackToRouteActive),
+                color = Color.White.copy(alpha = 0.82f),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                lineHeight = 15.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            state.distanceRemainingMeters?.let { remaining ->
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = "${formatLiveDistanceLabel(remaining, isMetric)} remaining",
+                    color = Color.White.copy(alpha = 0.64f),
+                    fontSize = 11.sp,
+                    lineHeight = 12.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            state.routeProgressFraction?.let { progress ->
+                Spacer(modifier = Modifier.size(3.dp))
+                Text(
+                    text = "${(progress * 100f).roundToInt()}% complete",
+                    color = Color.White.copy(alpha = 0.46f),
+                    fontSize = 9.sp,
+                    lineHeight = 10.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            if (state.offRoute) {
+                Spacer(modifier = Modifier.size(6.dp))
+                Text(
+                    text = "Off route",
+                    color = Color(0xFFFFB74D),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    lineHeight = 12.sp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CombinedRecordingPage(
+    recordingState: TraceRecordingUiState,
+    slots: List<String>,
+    snapshot: RecordingDashboardSnapshot,
+    screenSize: WearScreenSize,
+    isMetric: Boolean,
+    onSlotLongPress: (Int) -> Unit,
+    onShowActions: () -> Unit,
+) {
+    val tileSlots =
+        List(RECORDING_DASHBOARD_PAGE_SLOT_COUNT) { index ->
+            slots.getOrElse(index) { SettingsRepository.RECORDING_METRIC_DISTANCE }
+        }
+    val contentWidthFraction =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 0.72f
+            WearScreenSize.MEDIUM -> 0.68f
+            WearScreenSize.SMALL -> 0.64f
+        }
+    val tileHeight =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 46.dp
+            WearScreenSize.MEDIUM -> 42.dp
+            WearScreenSize.SMALL -> 38.dp
+        }
+    val statusRowHeight =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 48.dp
+            WearScreenSize.MEDIUM -> 44.dp
+            WearScreenSize.SMALL -> 40.dp
+        }
+
+    cappedFontScale(maxFontScale = 1f) {
+        Column(
+            modifier = Modifier.fillMaxWidth(contentWidthFraction),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(statusRowHeight),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                RecordingStatusDot(
+                    paused = recordingState.paused,
+                    saving = recordingState.saving,
+                    modifier = Modifier,
+                    onClick = onShowActions,
+                )
+            }
+            RecordingMiniTile(
+                metric = formattedRecordingMetric(tileSlots[0], snapshot, isMetric),
+                height = tileHeight,
+                onLongPress = { onSlotLongPress(0) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                RecordingMiniTile(
+                    metric = formattedRecordingMetric(tileSlots[1], snapshot, isMetric),
+                    height = tileHeight,
+                    onLongPress = { onSlotLongPress(1) },
+                    modifier = Modifier.weight(1f),
+                )
+                RecordingMiniTile(
+                    metric = formattedRecordingMetric(tileSlots[2], snapshot, isMetric),
+                    height = tileHeight,
+                    onLongPress = { onSlotLongPress(2) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            RecordingMiniTile(
+                metric = formattedRecordingMetric(tileSlots[3], snapshot, isMetric),
+                height = tileHeight,
+                onLongPress = { onSlotLongPress(3) },
+                modifier = Modifier.fillMaxWidth(0.86f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CombinedRouteProgressRing(
+    progress: Float?,
+    modifier: Modifier = Modifier,
+) {
+    val clampedProgress = progress?.coerceIn(0f, 1f) ?: return
+    val progressColor = MaterialTheme.colorScheme.primary
+    Canvas(modifier = modifier) {
+        val strokeWidth = 5.dp.toPx()
+        val inset = strokeWidth / 2f + 5.dp.toPx()
+        val side = min(size.width, size.height) - inset * 2f
+        if (side <= 0f) return@Canvas
+        val topLeft =
+            Offset(
+                x = (size.width - side) / 2f,
+                y = (size.height - side) / 2f,
+            )
+        val arcSize = Size(side, side)
+        drawArc(
+            color = Color.White.copy(alpha = 0.12f),
+            startAngle = -90f,
+            sweepAngle = 360f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = Stroke(width = strokeWidth),
+        )
+        if (clampedProgress > 0f) {
+            drawArc(
+                color = progressColor,
+                startAngle = -90f,
+                sweepAngle = 360f * clampedProgress,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+            )
+        }
     }
 }
 
@@ -621,11 +841,16 @@ private fun CombinedActionPrompt(
     Box(
         modifier =
             modifier
-                .background(Color.Black.copy(alpha = 0.92f), RoundedCornerShape(14.dp))
-                .padding(8.dp),
+                .background(Color.Black.copy(alpha = 0.92f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 2.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        cappedFontScale(maxFontScale = 1f) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CompactActionLabel("Guide")
                 CompactActionButton(
                     icon = if (guidancePaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                     contentDescription = if (guidancePaused) "Resume guidance" else "Pause guidance",
@@ -638,15 +863,7 @@ private fun CombinedActionPrompt(
                     onClick = onStopGuidance,
                     tint = MaterialTheme.colorScheme.error,
                 )
-                Text(
-                    text = "Guide",
-                    color = Color.White.copy(alpha = 0.70f),
-                    fontSize = 10.sp,
-                    lineHeight = 10.sp,
-                    modifier = Modifier.width(38.dp),
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                CompactActionLabel("REC")
                 CompactActionButton(
                     icon = if (recordingPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                     contentDescription = if (recordingPaused) "Resume recording" else "Pause recording",
@@ -659,27 +876,23 @@ private fun CombinedActionPrompt(
                     onClick = onStopRecording,
                     tint = MaterialTheme.colorScheme.error,
                 )
-                Text(
-                    text = "REC",
-                    color = Color.White.copy(alpha = 0.70f),
-                    fontSize = 10.sp,
-                    lineHeight = 10.sp,
-                    modifier = Modifier.width(38.dp),
-                )
+                CompactCancelButton(onClick = onCancel)
             }
-            Text(
-                text = "Cancel",
-                color = Color.White.copy(alpha = 0.68f),
-                fontSize = 10.sp,
-                lineHeight = 10.sp,
-                modifier =
-                    Modifier
-                        .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
-                        .clickable(onClick = onCancel)
-                        .padding(horizontal = 14.dp, vertical = 5.dp),
-            )
         }
     }
+}
+
+@Composable
+private fun CompactActionLabel(text: String) {
+    Text(
+        text = text,
+        color = Color.White.copy(alpha = 0.66f),
+        fontSize = 8.sp,
+        lineHeight = 8.sp,
+        maxLines = 1,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.width(28.dp),
+    )
 }
 
 @Composable
@@ -693,20 +906,56 @@ private fun CompactActionButton(
     Box(
         modifier =
             Modifier
-                .size(34.dp)
-                .background(
-                    if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f),
-                    CircleShape,
-                )
+                .size(48.dp)
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = if (selected) MaterialTheme.colorScheme.onPrimary else tint,
-            modifier = Modifier.size(20.dp),
-        )
+        Box(
+            modifier =
+                Modifier
+                    .size(28.dp)
+                    .background(
+                        if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f),
+                        CircleShape,
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (selected) MaterialTheme.colorScheme.onPrimary else tint,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactCancelButton(onClick: () -> Unit) {
+    Box(
+        modifier =
+            Modifier
+                .width(56.dp)
+                .height(48.dp)
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .height(28.dp)
+                    .width(50.dp)
+                    .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Cancel",
+                color = Color.White.copy(alpha = 0.72f),
+                fontSize = 9.sp,
+                lineHeight = 9.sp,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -783,7 +1032,10 @@ private fun SwipeExpandCue(modifier: Modifier = Modifier) {
         imageVector = Icons.Default.ExpandLess,
         contentDescription = "Swipe up to expand",
         tint = Color.White.copy(alpha = 0.62f),
-        modifier = modifier.size(12.dp),
+        modifier =
+            modifier
+                .size(12.dp)
+                .rotate(180f),
     )
 }
 
@@ -888,5 +1140,37 @@ private fun rotationForCommand(command: RouteInstructionCommand?): Float =
         -> 0f
     }
 
+private fun handleCombinedRotaryPageEvent(
+    delta: Float,
+    pageCount: Int,
+    accumulator: Float,
+    onAccumulatorChange: (Float) -> Unit,
+    onPreviousPage: () -> Unit,
+    onNextPage: () -> Unit,
+): Boolean {
+    if (pageCount <= 1 || !delta.isFinite() || delta == 0f) return false
+    var nextAccumulator =
+        if (accumulator != 0f && (accumulator > 0f) != (delta > 0f)) {
+            0f
+        } else {
+            accumulator
+        }
+    nextAccumulator += delta
+    var consumed = false
+    while (nextAccumulator >= COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX) {
+        onNextPage()
+        nextAccumulator -= COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX
+        consumed = true
+    }
+    while (nextAccumulator <= -COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX) {
+        onPreviousPage()
+        nextAccumulator += COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX
+        consumed = true
+    }
+    onAccumulatorChange(nextAccumulator)
+    return consumed || nextAccumulator != 0f
+}
+
 private const val NO_SELECTED_SLOT = -1
 private const val COMBINED_POPUP_DRAG_THRESHOLD_PX = 24f
+private const val COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX = 24f

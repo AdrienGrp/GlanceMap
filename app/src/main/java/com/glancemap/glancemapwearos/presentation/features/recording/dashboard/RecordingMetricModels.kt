@@ -94,6 +94,8 @@ internal val recordingMetricDefinitions =
             RecordingMetricSource.INTERNAL_SENSOR,
         ),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CALORIES, "Calories"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES, "Active cal"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_RESTING_CALORIES, "Rest cal"),
     )
 
 internal fun metricDefinitionFor(id: String): RecordingMetricDefinition =
