@@ -1,27 +1,57 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.IconButton
+import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
-import kotlin.math.roundToInt
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
+import java.text.DecimalFormat
+import kotlin.math.round
 
 @Composable
 fun UserProfileSettingsScreen(
@@ -29,14 +59,35 @@ fun UserProfileSettingsScreen(
     onOpenGeneralSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
+    val screenSize = rememberWearScreenSize()
     val isMetric by viewModel.isMetric.collectAsState()
     val userWeightKg by viewModel.userWeightKg.collectAsState()
     val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
     var showUnitsPicker by remember { mutableStateOf(false) }
     var showWeightPicker by remember { mutableStateOf(false) }
     var showBackpackPicker by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
+    val infoButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 24.dp
+            WearScreenSize.MEDIUM -> 22.dp
+            WearScreenSize.SMALL -> 20.dp
+        }
+    val infoIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 14.dp
+            WearScreenSize.MEDIUM -> 13.dp
+            WearScreenSize.SMALL -> 12.dp
+        }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            UserProfileInfoButton(
+                buttonSize = infoButtonSize,
+                iconSize = infoIconSize,
+                onClick = { showInfoDialog = true },
+            )
+        }
         item {
             GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
         }
@@ -61,9 +112,6 @@ fun UserProfileSettingsScreen(
                 onClick = { showBackpackPicker = true },
             )
         }
-        item {
-            PandolfInfoRow()
-        }
     }
 
     OptionPickerDialog(
@@ -78,58 +126,86 @@ fun UserProfileSettingsScreen(
         onDismiss = { showUnitsPicker = false },
         onSelect = viewModel::setMetric,
     )
-    OptionPickerDialog(
+    RotaryWeightPickerDialog(
         visible = showWeightPicker,
         title = "Body weight",
-        selectedValue = userWeightKg.roundToInt().toFloat(),
-        options = USER_WEIGHT_OPTIONS_KG.map { weightKg -> weightKg to formatUserWeight(weightKg, isMetric) },
+        valueKg = userWeightKg,
+        minKg = SettingsRepository.MIN_USER_WEIGHT_KG,
+        maxKg = SettingsRepository.MAX_USER_WEIGHT_KG,
+        isMetric = isMetric,
         onDismiss = { showWeightPicker = false },
-        onSelect = viewModel::setUserWeightKg,
+        onValueChange = viewModel::setUserWeightKg,
     )
-    OptionPickerDialog(
+    RotaryWeightPickerDialog(
         visible = showBackpackPicker,
         title = "Backpack",
-        selectedValue = backpackWeightKg.roundToInt().toFloat(),
-        options = BACKPACK_WEIGHT_OPTIONS_KG.map { weightKg -> weightKg to formatUserWeight(weightKg, isMetric) },
+        valueKg = backpackWeightKg,
+        minKg = SettingsRepository.MIN_BACKPACK_WEIGHT_KG,
+        maxKg = SettingsRepository.MAX_BACKPACK_WEIGHT_KG,
+        isMetric = isMetric,
         onDismiss = { showBackpackPicker = false },
-        onSelect = viewModel::setBackpackWeightKg,
+        onValueChange = viewModel::setBackpackWeightKg,
+    )
+    UserProfileInfoDialog(
+        visible = showInfoDialog,
+        onDismiss = { showInfoDialog = false },
     )
 }
 
-private val USER_WEIGHT_OPTIONS_KG =
-    (
-        SettingsRepository.MIN_USER_WEIGHT_KG.roundToInt()..SettingsRepository.MAX_USER_WEIGHT_KG.roundToInt()
-    ).map { it.toFloat() }
-
-private val BACKPACK_WEIGHT_OPTIONS_KG =
-    (
-        SettingsRepository.MIN_BACKPACK_WEIGHT_KG.roundToInt()..
-            SettingsRepository.MAX_BACKPACK_WEIGHT_KG.roundToInt()
-    ).map { it.toFloat() }
-
 @Composable
-private fun PandolfInfoRow() {
-    Row(
+private fun UserProfileInfoButton(
+    buttonSize: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+) {
+    Box(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+                .padding(top = 2.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = Icons.Filled.Info,
-            contentDescription = null,
-            modifier = Modifier.size(15.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = "Calories use segment Pandolf/Santee from weight, pack, speed and slope.",
-            modifier = Modifier.padding(start = 4.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
-            textAlign = TextAlign.Start,
-        )
+        IconButton(
+            onClick = onClick,
+            modifier =
+                Modifier
+                    .size(buttonSize)
+                    .wrapContentSize(align = Alignment.Center),
+            colors =
+                IconButtonDefaults.iconButtonColors(
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                ),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = "User profile info",
+                modifier = Modifier.size(iconSize),
+            )
+        }
+    }
+}
+
+@Composable
+private fun UserProfileInfoDialog(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+) {
+    WearInfoDialog(
+        visible = visible,
+        title = "User profile",
+        onDismiss = onDismiss,
+    ) {
+        item {
+            Text(
+                text =
+                    "Weight and backpack improve hiking calories.\n" +
+                        "Calories use Pandolf/Santee and LCDA with speed and slope.\n" +
+                        "DEM elevation is used when available.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
@@ -138,9 +214,164 @@ private fun formatUserWeight(
     isMetric: Boolean,
 ): String =
     if (isMetric) {
-        "${weightKg.roundToInt()} kg"
+        "${ONE_DECIMAL_FORMAT.format(weightKg)} kg"
     } else {
-        "${(weightKg * KG_TO_LB).roundToInt()} lb"
+        "${ONE_DECIMAL_FORMAT.format(weightKg * KG_TO_LB)} lb"
     }
 
+@Composable
+private fun RotaryWeightPickerDialog(
+    visible: Boolean,
+    title: String,
+    valueKg: Float,
+    minKg: Float,
+    maxKg: Float,
+    isMetric: Boolean,
+    onDismiss: () -> Unit,
+    onValueChange: (Float) -> Unit,
+) {
+    if (!visible) return
+
+    val adaptive = rememberWearAdaptiveSpec()
+    val focusRequester = remember { FocusRequester() }
+    var localValueKg by remember(valueKg) {
+        mutableFloatStateOf(valueKg.roundToTenth().coerceIn(minKg, maxKg))
+    }
+    var rotaryAccumulator by remember { mutableFloatStateOf(0f) }
+
+    fun applyDelta(deltaSteps: Int) {
+        if (deltaSteps == 0) return
+        val nextValue =
+            (localValueKg + deltaSteps * WEIGHT_PICKER_STEP_KG)
+                .roundToTenth()
+                .coerceIn(minKg, maxKg)
+        if (nextValue == localValueKg) return
+        localValueKg = nextValue
+        onValueChange(nextValue)
+    }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.86f))
+                    .onPreRotaryScrollEvent { event ->
+                        val delta = event.verticalScrollPixels
+                        if (!delta.isFinite() || delta == 0f) return@onPreRotaryScrollEvent false
+                        rotaryAccumulator += delta
+                        when {
+                            rotaryAccumulator >= WEIGHT_PICKER_ROTARY_THRESHOLD_PX -> {
+                                applyDelta(1)
+                                rotaryAccumulator = 0f
+                                true
+                            }
+                            rotaryAccumulator <= -WEIGHT_PICKER_ROTARY_THRESHOLD_PX -> {
+                                applyDelta(-1)
+                                rotaryAccumulator = 0f
+                                true
+                            }
+                            else -> true
+                        }
+                    }.focusRequester(focusRequester)
+                    .focusable(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = adaptive.dialogHorizontalPadding + 6.dp,
+                            vertical = adaptive.dialogVerticalPadding + 10.dp,
+                        ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f),
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = formatUserWeight(localValueKg, isMetric),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    WeightPickerButton(
+                        text = "-",
+                        onClick = { applyDelta(-1) },
+                        onLongClick = { applyDelta(-WEIGHT_PICKER_LONG_PRESS_STEP_COUNT) },
+                    )
+                    Button(
+                        onClick = onDismiss,
+                        modifier =
+                            Modifier
+                                .height(48.dp)
+                                .width(92.dp),
+                        colors = ButtonDefaults.buttonColors(),
+                    ) {
+                        Text("Done")
+                    }
+                    WeightPickerButton(
+                        text = "+",
+                        onClick = { applyDelta(1) },
+                        onLongClick = { applyDelta(WEIGHT_PICKER_LONG_PRESS_STEP_COUNT) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeightPickerButton(
+    text: String,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(WEIGHT_PICKER_ACTION_BUTTON_SIZE)
+                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                .pointerInput(onClick, onLongClick) {
+                    detectTapGestures(
+                        onTap = { onClick() },
+                        onLongPress = { onLongClick() },
+                    )
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+private fun Float.roundToTenth(): Float = (round(this * 10f) / 10f)
+
 private const val KG_TO_LB = 2.2046226218f
+private const val WEIGHT_PICKER_STEP_KG = 0.1f
+private const val WEIGHT_PICKER_LONG_PRESS_STEP_COUNT = 50
+private const val WEIGHT_PICKER_ROTARY_THRESHOLD_PX = 32f
+private val WEIGHT_PICKER_ACTION_BUTTON_SIZE = 56.dp
+private val ONE_DECIMAL_FORMAT = DecimalFormat("0.0")
