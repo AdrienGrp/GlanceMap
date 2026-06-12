@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -69,6 +68,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Rou
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
+import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -174,21 +174,6 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                         },
                         onLongClick = { showActionPrompt = true },
                     )
-                    .pointerInput(state.mode, state.nextInstruction, paused) {
-                        var totalDrag = 0f
-                        detectVerticalDragGestures(
-                            onDragEnd = {
-                                if (totalDrag < -POPUP_EXPAND_DRAG_THRESHOLD_PX) {
-                                    showActionPrompt = false
-                                    expanded = true
-                                }
-                                totalDrag = 0f
-                            },
-                            onDragCancel = { totalDrag = 0f },
-                        ) { _, dragAmount ->
-                            totalDrag += dragAmount
-                        }
-                    }
                     .padding(horizontal = 6.dp, vertical = 3.dp),
         ) {
             cappedFontScale(maxFontScale = 1f) {
@@ -339,7 +324,7 @@ private fun ExpandedGuidanceOverlay(
                     var totalDrag = 0f
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (totalDrag > POPUP_MINIMIZE_DRAG_THRESHOLD_PX) {
+                            if (abs(totalDrag) > POPUP_MINIMIZE_DRAG_THRESHOLD_PX) {
                                 onCollapse()
                             }
                             totalDrag = 0f
@@ -480,7 +465,7 @@ private fun SwipeExpandCue(modifier: Modifier = Modifier) {
     ) {
         Icon(
             imageVector = Icons.Default.ExpandLess,
-            contentDescription = "Swipe up to expand guidance",
+            contentDescription = "Tap to expand guidance",
             tint = Color.White.copy(alpha = 0.62f),
             modifier =
                 Modifier
@@ -823,4 +808,3 @@ private fun rotationForCommand(command: RouteInstructionCommand?): Float =
     }
 
 private const val POPUP_MINIMIZE_DRAG_THRESHOLD_PX = 24f
-private const val POPUP_EXPAND_DRAG_THRESHOLD_PX = 24f

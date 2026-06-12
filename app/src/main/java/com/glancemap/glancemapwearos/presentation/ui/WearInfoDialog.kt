@@ -43,6 +43,7 @@ fun WearInfoDialog(
     title: String,
     onDismiss: () -> Unit,
     dismissible: Boolean = true,
+    backgroundColor: Color = Color.Black.copy(alpha = 0.82f),
     content: LazyListScope.() -> Unit,
 ) {
     if (!visible) return
@@ -66,7 +67,7 @@ fun WearInfoDialog(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.82f)),
+                    .background(backgroundColor),
         ) {
             LazyColumn(
                 modifier =

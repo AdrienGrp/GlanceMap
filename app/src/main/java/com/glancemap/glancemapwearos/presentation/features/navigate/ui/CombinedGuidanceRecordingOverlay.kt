@@ -446,7 +446,7 @@ private fun CombinedFullscreenDashboard(
                             val horizontalDominates = abs(totalDragX) > abs(totalDragY)
                             val verticalDominates = abs(totalDragY) > abs(totalDragX)
                             when {
-                                horizontalDominates && totalDragX > COMBINED_POPUP_DRAG_THRESHOLD_PX -> onCollapse()
+                                horizontalDominates && abs(totalDragX) > COMBINED_POPUP_DRAG_THRESHOLD_PX -> onCollapse()
                                 verticalDominates && totalDragY < -COMBINED_POPUP_DRAG_THRESHOLD_PX -> onNextPage()
                                 verticalDominates && totalDragY > COMBINED_POPUP_DRAG_THRESHOLD_PX -> onPreviousPage()
                             }
@@ -1176,14 +1176,14 @@ private fun handleCombinedRotaryPageEvent(
         }
     nextAccumulator += delta
     var consumed = false
-    while (nextAccumulator >= COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX) {
+    if (nextAccumulator >= COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX) {
         onNextPage()
-        nextAccumulator -= COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX
+        nextAccumulator = 0f
         consumed = true
     }
-    while (nextAccumulator <= -COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX) {
+    if (nextAccumulator <= -COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX) {
         onPreviousPage()
-        nextAccumulator += COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX
+        nextAccumulator = 0f
         consumed = true
     }
     onAccumulatorChange(nextAccumulator)
@@ -1192,4 +1192,4 @@ private fun handleCombinedRotaryPageEvent(
 
 private const val NO_SELECTED_SLOT = -1
 private const val COMBINED_POPUP_DRAG_THRESHOLD_PX = 24f
-private const val COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX = 24f
+private const val COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX = 56f

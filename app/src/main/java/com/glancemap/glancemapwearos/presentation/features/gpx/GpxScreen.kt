@@ -120,10 +120,18 @@ fun GpxScreen(
             context.getSharedPreferences(GPX_HELP_PREFS, android.content.Context.MODE_PRIVATE)
         }
     val listHorizontalPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 16.dp
-            WearScreenSize.MEDIUM -> 14.dp
-            WearScreenSize.SMALL -> 12.dp
+        if (showActivities) {
+            when (screenSize) {
+                WearScreenSize.LARGE -> 8.dp
+                WearScreenSize.MEDIUM -> 6.dp
+                WearScreenSize.SMALL -> 4.dp
+            }
+        } else {
+            when (screenSize) {
+                WearScreenSize.LARGE -> 16.dp
+                WearScreenSize.MEDIUM -> 14.dp
+                WearScreenSize.SMALL -> 12.dp
+            }
         }
     val listTopPadding =
         when (screenSize) {
@@ -834,6 +842,7 @@ private fun ActivityDetailsDialog(
         visible = true,
         title = "Activity details",
         onDismiss = onDismiss,
+        backgroundColor = Color.Black,
     ) {
         item {
             Text(
@@ -1033,67 +1042,87 @@ private fun GpxTrackItem(
             }
         } else if (showGuidance) {
             if (gpxFile.isActivity) {
-                CompactIconHitTargetButton(
-                    onClick = onShowActivityDetails,
-                    visualSize = activityActionButtonSize,
-                    containerColor = Color.Black.copy(alpha = 0.72f),
-                    contentColor = Color.White,
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Analytics,
-                        contentDescription = "Activity details",
-                        modifier = Modifier.size(15.dp),
+                    CompactIconHitTargetButton(
+                        onClick = onShowActivityDetails,
+                        visualSize = activityActionButtonSize,
+                        containerColor = Color.Black.copy(alpha = 0.72f),
+                        contentColor = Color.White,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Analytics,
+                            contentDescription = "Activity details",
+                            modifier = Modifier.size(15.dp),
+                        )
+                    }
+                    GuidanceActionButton(
+                        isGuidanceActive = isGuidanceActive,
+                        visualSize = activityActionButtonSize,
+                        iconSize = 15.dp,
+                        onStartGuidance = onStartGuidance,
+                        onStopGuidance = onStopGuidance,
                     )
                 }
-            }
-            CompactIconHitTargetButton(
-                onClick = {
-                    if (isGuidanceActive) {
-                        onStopGuidance()
-                    } else {
-                        onStartGuidance()
-                    }
-                },
-                visualSize =
-                    when {
-                        gpxFile.isActivity -> activityActionButtonSize
-                        showGuidance -> singleGuidanceButtonSize
-                        else -> deleteButtonSize
-                    },
-                containerColor =
-                    if (isGuidanceActive) {
-                        MaterialTheme.colorScheme.errorContainer
-                    } else {
-                        Color.Black.copy(alpha = 0.72f)
-                    },
-                contentColor =
-                    if (isGuidanceActive) {
-                        MaterialTheme.colorScheme.onErrorContainer
-                    } else {
-                        Color.White
-                    },
-            ) {
-                Icon(
-                    imageVector =
-                        if (isGuidanceActive) {
-                            Icons.Default.Stop
-                        } else {
-                            Icons.AutoMirrored.Filled.AssistantDirection
-                        },
-                    contentDescription =
-                        if (isGuidanceActive) {
-                            "Stop GPX guidance"
-                        } else {
-                            "Start GPX guidance"
-                        },
-                    modifier =
-                        if (gpxFile.isActivity) {
-                            Modifier.size(15.dp)
-                        } else {
-                            Modifier
-                        },
+            } else {
+                GuidanceActionButton(
+                    isGuidanceActive = isGuidanceActive,
+                    visualSize = singleGuidanceButtonSize,
+                    iconSize = null,
+                    onStartGuidance = onStartGuidance,
+                    onStopGuidance = onStopGuidance,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun GuidanceActionButton(
+    isGuidanceActive: Boolean,
+    visualSize: Dp,
+    iconSize: Dp?,
+    onStartGuidance: () -> Unit,
+    onStopGuidance: () -> Unit,
+) {
+    CompactIconHitTargetButton(
+        onClick = {
+            if (isGuidanceActive) {
+                onStopGuidance()
+            } else {
+                onStartGuidance()
+            }
+        },
+        visualSize = visualSize,
+        containerColor =
+            if (isGuidanceActive) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                Color.Black.copy(alpha = 0.72f)
+            },
+        contentColor =
+            if (isGuidanceActive) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                Color.White
+            },
+    ) {
+        Icon(
+            imageVector =
+                if (isGuidanceActive) {
+                    Icons.Default.Stop
+                } else {
+                    Icons.AutoMirrored.Filled.AssistantDirection
+                },
+            contentDescription =
+                if (isGuidanceActive) {
+                    "Stop GPX guidance"
+                } else {
+                    "Start GPX guidance"
+                },
+            modifier = iconSize?.let { Modifier.size(it) } ?: Modifier,
+        )
     }
 }

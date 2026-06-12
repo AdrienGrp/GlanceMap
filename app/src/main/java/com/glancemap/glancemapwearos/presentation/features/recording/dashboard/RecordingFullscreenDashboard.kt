@@ -103,7 +103,7 @@ internal fun ExpandedRecordingDashboard(
                             val horizontalDominates = abs(totalDragX) > abs(totalDragY)
                             val verticalDominates = abs(totalDragY) > abs(totalDragX)
                             when {
-                                horizontalDominates && totalDragX > POPUP_MINIMIZE_DRAG_THRESHOLD_PX -> onCollapse()
+                                horizontalDominates && abs(totalDragX) > POPUP_MINIMIZE_DRAG_THRESHOLD_PX -> onCollapse()
                                 verticalDominates && totalDragY < -POPUP_PAGE_DRAG_THRESHOLD_PX -> onNextPage()
                                 verticalDominates && totalDragY > POPUP_PAGE_DRAG_THRESHOLD_PX -> onPreviousPage()
                             }
@@ -366,18 +366,18 @@ private fun handleDashboardRotaryPageEvent(
         }
     nextAccumulator += delta
     var consumed = false
-    while (nextAccumulator >= POPUP_ROTARY_PAGE_THRESHOLD_PX) {
+    if (nextAccumulator >= POPUP_ROTARY_PAGE_THRESHOLD_PX) {
         onNextPage()
-        nextAccumulator -= POPUP_ROTARY_PAGE_THRESHOLD_PX
+        nextAccumulator = 0f
         consumed = true
     }
-    while (nextAccumulator <= -POPUP_ROTARY_PAGE_THRESHOLD_PX) {
+    if (nextAccumulator <= -POPUP_ROTARY_PAGE_THRESHOLD_PX) {
         onPreviousPage()
-        nextAccumulator += POPUP_ROTARY_PAGE_THRESHOLD_PX
+        nextAccumulator = 0f
         consumed = true
     }
     onAccumulatorChange(nextAccumulator)
     return consumed || nextAccumulator != 0f
 }
 
-private const val POPUP_ROTARY_PAGE_THRESHOLD_PX = 24f
+private const val POPUP_ROTARY_PAGE_THRESHOLD_PX = 56f
