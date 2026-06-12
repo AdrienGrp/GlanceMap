@@ -137,6 +137,93 @@ internal fun deriveTelemetryInsights(
     var screenOnFixGapSampleCount = 0
     var screenOnFixGapSumMs = 0L
     var screenOnFixGapMaxMs = 0L
+    var turnByTurnSampleCount = 0
+    var turnByTurnActiveSampleCount = 0
+    var turnByTurnPausedSampleCount = 0
+    var turnByTurnOffRouteSampleCount = 0
+    var turnByTurnGuideBackActiveSampleCount = 0
+    var turnByTurnGuideBackPromptSampleCount = 0
+    var turnByTurnStartHereDecisionCount = 0
+    var turnByTurnReverseDecisionCount = 0
+    var turnByTurnGeometryInstructionSampleCount = 0
+    var turnByTurnBrouterHintInstructionSampleCount = 0
+    var turnByTurnTurnHapticCount = 0
+    var turnByTurnOffRouteHapticCount = 0
+    var turnByTurnMaxDistanceToRouteMeters: Int? = null
+    var recordingStartCount = 0
+    var recordingRecoveredCount = 0
+    var recordingPauseCount = 0
+    var recordingResumeCount = 0
+    var recordingPointSampleCount = 0
+    var recordingSaveStartCount = 0
+    var recordingSaveSuccessCount = 0
+    var recordingSaveFailureCount = 0
+    var recordingDiscardCount = 0
+    var recordingDraftFailureCount = 0
+    var recordingDraftClearFailureCount = 0
+    var recordingLastUiAction: String? = null
+    var recordingLastEndReason: String? = null
+    var recordingLastPointCount: Int? = null
+    var recordingMaxPointCount: Int? = null
+    var recordingLastDistanceMeters: Int? = null
+    var recordingMaxDistanceMeters: Int? = null
+    var recordingLastDurationMs: Long? = null
+    var recordingMaxDurationMs: Long? = null
+    var recordingLastPausedMs: Long? = null
+    var recordingMaxPausedMs: Long? = null
+    var recordingGpsActiveDurationMs: Long? = null
+    var recordingGapCount: Int? = null
+    var recordingGapEventCount = 0
+    var recordingMaxGapMs: Long? = null
+    var recordingLastPointAgeMs: Long? = null
+    var recordingSkippedIntervalCount: Int? = null
+    var recordingSkippedPausedCount: Int? = null
+    var recordingSkippedUnusableCount: Int? = null
+    var recordingElevationSource: String? = null
+    var recordingDemHitCount: Int? = null
+    var recordingDemMissCount: Int? = null
+    var recordingGpsElevationUsedCount: Int? = null
+    var recordingAccuracySampleCount: Int? = null
+    var recordingAccuracyAvgMeters: Int? = null
+    var recordingAccuracyMinMeters: Int? = null
+    var recordingAccuracyMaxMeters: Int? = null
+    var recordingElevationGainMeters: Int? = null
+    var recordingElevationLossMeters: Int? = null
+    var recordingLiveHeartRateBpm: Int? = null
+    var recordingLiveStepCount: Int? = null
+    var recordingLiveCadenceSpm: Int? = null
+    var recordingLivePressureHpa: Int? = null
+    var recordingHeartRateAgeMs: Long? = null
+    var recordingStepCountAgeMs: Long? = null
+    var recordingCadenceAgeMs: Long? = null
+    var recordingPressureAgeMs: Long? = null
+    var recordingHeartRateSensorEventCount: Int? = null
+    var recordingStepSensorEventCount: Int? = null
+    var recordingCadenceSensorEventCount: Int? = null
+    var recordingPressureSensorEventCount: Int? = null
+    var recordingSensorRegisterCount = 0
+    var recordingSensorRegistered: String? = null
+    var recordingSensorAvailable: String? = null
+    var recordingBodySensorsGranted: Boolean? = null
+    var recordingActivityRecognitionGranted: Boolean? = null
+    var recordingCalorieModel: String? = null
+    var recordingCaloriesGrossKcal: Int? = null
+    var recordingCaloriesActiveKcal: Int? = null
+    var recordingCaloriesRestingKcal: Int? = null
+    var recordingPandolfBaseGrossKcal: Int? = null
+    var recordingPandolfBaseActiveKcal: Int? = null
+    var recordingPandolfBaseRestingKcal: Int? = null
+    var recordingCalorieCompareModel: String? = null
+    var recordingLcdaGrossKcal: Int? = null
+    var recordingLcdaActiveKcal: Int? = null
+    var recordingLcdaRestingKcal: Int? = null
+    var recordingLastSavedByteSize: Int? = null
+    var locationServiceStartFailureCount = 0
+    var locationServiceStartFallbackFailureCount = 0
+    var locationStartForegroundFailureCount = 0
+    var thermalStatusEventCount = 0
+    var thermalMaxStatus: Int? = null
+    var thermalLastStatusLabel: String? = null
     var screenActive = false
     var pendingScreenPauseTrackingDisable = false
     var lastScreenFixAtMs: Long? = null
@@ -270,6 +357,218 @@ internal fun deriveTelemetryInsights(
                     watchGpsDegradedLastObserved = true
                 }
                 "false" -> watchGpsDegradedLastObserved = false
+            }
+        }
+
+        if ("[TurnByTurn]" in line) {
+            when (extractTokenValue(line, "haptic=")) {
+                "turn" -> turnByTurnTurnHapticCount += 1
+                "off_route" -> turnByTurnOffRouteHapticCount += 1
+            }
+            if (" active=" in line || line.contains("[TurnByTurn] active=")) {
+                turnByTurnSampleCount += 1
+                if (parseBooleanToken(line, "active=") == true) {
+                    turnByTurnActiveSampleCount += 1
+                }
+                if (parseBooleanToken(line, "paused=") == true) {
+                    turnByTurnPausedSampleCount += 1
+                }
+                if (parseBooleanToken(line, "offRoute=") == true) {
+                    turnByTurnOffRouteSampleCount += 1
+                }
+                if (parseBooleanToken(line, "guideBackActive=") == true) {
+                    turnByTurnGuideBackActiveSampleCount += 1
+                }
+                if (parseBooleanToken(line, "guideBackPrompt=") == true) {
+                    turnByTurnGuideBackPromptSampleCount += 1
+                }
+                when (extractTokenValue(line, "startDecision=")) {
+                    "START_HERE" -> turnByTurnStartHereDecisionCount += 1
+                    "REVERSE_ROUTE" -> turnByTurnReverseDecisionCount += 1
+                }
+                when (extractTokenValue(line, "nextSource=")) {
+                    "GPX_GEOMETRY" -> turnByTurnGeometryInstructionSampleCount += 1
+                    "BROUTER_HINT" -> turnByTurnBrouterHintInstructionSampleCount += 1
+                }
+                parseIntToken(line, "distToRouteM=")?.let { distance ->
+                    turnByTurnMaxDistanceToRouteMeters =
+                        maxOf(turnByTurnMaxDistanceToRouteMeters ?: distance, distance)
+                }
+            }
+        }
+
+        if ("[TraceRecording]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "start" -> recordingStartCount += 1
+                "recovered" -> recordingRecoveredCount += 1
+                "pause" -> recordingPauseCount += 1
+                "resume" -> recordingResumeCount += 1
+                "point" -> recordingPointSampleCount += 1
+                "gap" -> recordingGapEventCount += 1
+                "save_start" -> recordingSaveStartCount += 1
+                "save_success" -> recordingSaveSuccessCount += 1
+                "save_failure" -> recordingSaveFailureCount += 1
+                "discard" -> recordingDiscardCount += 1
+                "draft_failure" -> recordingDraftFailureCount += 1
+                "draft_clear_failure" -> recordingDraftClearFailureCount += 1
+            }
+            extractTokenValue(line, "lastUiAction=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                recordingLastUiAction = it
+            }
+            extractTokenValue(line, "endReason=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                recordingLastEndReason = it
+            }
+            parseIntToken(line, "points=")?.let { points ->
+                recordingLastPointCount = points
+                recordingMaxPointCount = maxOf(recordingMaxPointCount ?: points, points)
+            }
+            parseIntToken(line, "distanceMeters=")?.let { distance ->
+                recordingLastDistanceMeters = distance
+                recordingMaxDistanceMeters = maxOf(recordingMaxDistanceMeters ?: distance, distance)
+            }
+            parseLongToken(line, "durationMs=")?.let { duration ->
+                recordingLastDurationMs = duration
+                recordingMaxDurationMs = maxOf(recordingMaxDurationMs ?: duration, duration)
+            }
+            parseLongToken(line, "pausedMs=")?.let { paused ->
+                recordingLastPausedMs = paused
+                recordingMaxPausedMs = maxOf(recordingMaxPausedMs ?: paused, paused)
+            }
+            parseLongToken(line, "gpsActiveDurationMs=")?.let { duration ->
+                recordingGpsActiveDurationMs = maxOf(recordingGpsActiveDurationMs ?: duration, duration)
+            }
+            parseIntToken(line, "recordingGapCount=")?.let { count ->
+                recordingGapCount = maxOf(recordingGapCount ?: count, count)
+            }
+            parseLongToken(line, "recordingMaxGapMs=")?.let { gap ->
+                recordingMaxGapMs = maxOf(recordingMaxGapMs ?: gap, gap)
+            }
+            parseLongToken(line, "lastPointAgeMs=")?.takeIf { it >= 0L }?.let { age ->
+                recordingLastPointAgeMs = age
+            }
+            parseIntToken(line, "skippedInterval=")?.let { skipped ->
+                recordingSkippedIntervalCount = maxOf(recordingSkippedIntervalCount ?: skipped, skipped)
+            }
+            parseIntToken(line, "skippedPaused=")?.let { skipped ->
+                recordingSkippedPausedCount = maxOf(recordingSkippedPausedCount ?: skipped, skipped)
+            }
+            parseIntToken(line, "skippedUnusable=")?.let { skipped ->
+                recordingSkippedUnusableCount = maxOf(recordingSkippedUnusableCount ?: skipped, skipped)
+            }
+            extractTokenValue(line, "elevationSource=")?.takeIf { it.isNotBlank() }?.let {
+                recordingElevationSource = it
+            }
+            parseIntToken(line, "demHits=")?.let { hits ->
+                recordingDemHitCount = maxOf(recordingDemHitCount ?: hits, hits)
+            }
+            parseIntToken(line, "demMisses=")?.let { misses ->
+                recordingDemMissCount = maxOf(recordingDemMissCount ?: misses, misses)
+            }
+            parseIntToken(line, "gpsElevationUsed=")?.let { count ->
+                recordingGpsElevationUsedCount = maxOf(recordingGpsElevationUsedCount ?: count, count)
+            }
+            parseIntToken(line, "accuracySamples=")?.let { recordingAccuracySampleCount = it }
+            parseIntToken(line, "accuracyAvgMeters=")?.takeIf { it >= 0 }?.let {
+                recordingAccuracyAvgMeters = it
+            }
+            parseIntToken(line, "accuracyMinMeters=")?.takeIf { it >= 0 }?.let {
+                recordingAccuracyMinMeters = it
+            }
+            parseIntToken(line, "accuracyMaxMeters=")?.takeIf { it >= 0 }?.let {
+                recordingAccuracyMaxMeters = it
+            }
+            parseIntToken(line, "elevationGainMeters=")?.let { recordingElevationGainMeters = it }
+            parseIntToken(line, "elevationLossMeters=")?.let { recordingElevationLossMeters = it }
+            parseIntToken(line, "liveHeartRateBpm=")?.takeIf { it >= 0 }?.let {
+                recordingLiveHeartRateBpm = it
+            }
+            parseIntToken(line, "liveStepCount=")?.takeIf { it >= 0 }?.let {
+                recordingLiveStepCount = it
+            }
+            parseIntToken(line, "liveCadenceSpm=")?.takeIf { it >= 0 }?.let {
+                recordingLiveCadenceSpm = it
+            }
+            parseIntToken(line, "livePressureHpa=")?.takeIf { it >= 0 }?.let {
+                recordingLivePressureHpa = it
+            }
+            parseLongToken(line, "heartRateAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingHeartRateAgeMs = it
+            }
+            parseLongToken(line, "stepCountAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingStepCountAgeMs = it
+            }
+            parseLongToken(line, "cadenceAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingCadenceAgeMs = it
+            }
+            parseLongToken(line, "pressureAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingPressureAgeMs = it
+            }
+            parseIntToken(line, "heartRateSensorEvents=")?.let {
+                recordingHeartRateSensorEventCount = maxOf(recordingHeartRateSensorEventCount ?: it, it)
+            }
+            parseIntToken(line, "stepSensorEvents=")?.let {
+                recordingStepSensorEventCount = maxOf(recordingStepSensorEventCount ?: it, it)
+            }
+            parseIntToken(line, "cadenceSensorEvents=")?.let {
+                recordingCadenceSensorEventCount = maxOf(recordingCadenceSensorEventCount ?: it, it)
+            }
+            parseIntToken(line, "pressureSensorEvents=")?.let {
+                recordingPressureSensorEventCount = maxOf(recordingPressureSensorEventCount ?: it, it)
+            }
+            extractTokenValue(line, "calorieModel=")?.takeIf { it.isNotBlank() }?.let {
+                recordingCalorieModel = it
+            }
+            parseIntToken(line, "caloriesGrossKcal=")?.let { recordingCaloriesGrossKcal = it }
+            parseIntToken(line, "caloriesActiveKcal=")?.let { recordingCaloriesActiveKcal = it }
+            parseIntToken(line, "caloriesRestingKcal=")?.let { recordingCaloriesRestingKcal = it }
+            parseIntToken(line, "pandolfBaseGrossKcal=")?.let { recordingPandolfBaseGrossKcal = it }
+            parseIntToken(line, "pandolfBaseActiveKcal=")?.let { recordingPandolfBaseActiveKcal = it }
+            parseIntToken(line, "pandolfBaseRestingKcal=")?.let { recordingPandolfBaseRestingKcal = it }
+            extractTokenValue(line, "calorieCompareModel=")?.takeIf { it.isNotBlank() }?.let {
+                recordingCalorieCompareModel = it
+            }
+            parseIntToken(line, "lcdaGrossKcal=")?.let { recordingLcdaGrossKcal = it }
+            parseIntToken(line, "lcdaActiveKcal=")?.let { recordingLcdaActiveKcal = it }
+            parseIntToken(line, "lcdaRestingKcal=")?.let { recordingLcdaRestingKcal = it }
+            parseIntToken(line, "byteSize=")?.takeIf { it >= 0 }?.let {
+                recordingLastSavedByteSize = it
+            }
+        }
+
+        if ("[TraceRecordingSensors]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "register" -> recordingSensorRegisterCount += 1
+            }
+            extractTokenValue(line, "registered=")?.takeIf { it.isNotBlank() }?.let {
+                recordingSensorRegistered = it
+            }
+            extractTokenValue(line, "available=")?.takeIf { it.isNotBlank() }?.let {
+                recordingSensorAvailable = it
+            }
+            parseBooleanToken(line, "bodySensorsGranted=")?.let {
+                recordingBodySensorsGranted = it
+            }
+            parseBooleanToken(line, "activityRecognitionGranted=")?.let {
+                recordingActivityRecognitionGranted = it
+            }
+        }
+
+        if ("serviceStartFailed" in line) {
+            locationServiceStartFailureCount += 1
+        }
+        if ("serviceStartFallbackFailed" in line) {
+            locationServiceStartFallbackFailureCount += 1
+        }
+        if ("startForegroundFailed" in line) {
+            locationStartForegroundFailureCount += 1
+        }
+        if ("[ThermalTelemetry]" in line) {
+            thermalStatusEventCount += 1
+            parseIntToken(line, "status=")?.let { status ->
+                thermalMaxStatus = maxOf(thermalMaxStatus ?: status, status)
+            }
+            extractTokenValue(line, "label=")?.takeIf { it.isNotBlank() }?.let { label ->
+                thermalLastStatusLabel = label
             }
         }
 
@@ -436,6 +735,93 @@ internal fun deriveTelemetryInsights(
                 null
             },
         screenOnFixGapMaxMs = screenOnFixGapMaxMs,
+        turnByTurnSampleCount = turnByTurnSampleCount,
+        turnByTurnActiveSampleCount = turnByTurnActiveSampleCount,
+        turnByTurnPausedSampleCount = turnByTurnPausedSampleCount,
+        turnByTurnOffRouteSampleCount = turnByTurnOffRouteSampleCount,
+        turnByTurnGuideBackActiveSampleCount = turnByTurnGuideBackActiveSampleCount,
+        turnByTurnGuideBackPromptSampleCount = turnByTurnGuideBackPromptSampleCount,
+        turnByTurnStartHereDecisionCount = turnByTurnStartHereDecisionCount,
+        turnByTurnReverseDecisionCount = turnByTurnReverseDecisionCount,
+        turnByTurnGeometryInstructionSampleCount = turnByTurnGeometryInstructionSampleCount,
+        turnByTurnBrouterHintInstructionSampleCount = turnByTurnBrouterHintInstructionSampleCount,
+        turnByTurnTurnHapticCount = turnByTurnTurnHapticCount,
+        turnByTurnOffRouteHapticCount = turnByTurnOffRouteHapticCount,
+        turnByTurnMaxDistanceToRouteMeters = turnByTurnMaxDistanceToRouteMeters,
+        recordingStartCount = recordingStartCount,
+        recordingRecoveredCount = recordingRecoveredCount,
+        recordingPauseCount = recordingPauseCount,
+        recordingResumeCount = recordingResumeCount,
+        recordingPointSampleCount = recordingPointSampleCount,
+        recordingSaveStartCount = recordingSaveStartCount,
+        recordingSaveSuccessCount = recordingSaveSuccessCount,
+        recordingSaveFailureCount = recordingSaveFailureCount,
+        recordingDiscardCount = recordingDiscardCount,
+        recordingDraftFailureCount = recordingDraftFailureCount,
+        recordingDraftClearFailureCount = recordingDraftClearFailureCount,
+        recordingLastUiAction = recordingLastUiAction,
+        recordingLastEndReason = recordingLastEndReason,
+        recordingLastPointCount = recordingLastPointCount,
+        recordingMaxPointCount = recordingMaxPointCount,
+        recordingLastDistanceMeters = recordingLastDistanceMeters,
+        recordingMaxDistanceMeters = recordingMaxDistanceMeters,
+        recordingLastDurationMs = recordingLastDurationMs,
+        recordingMaxDurationMs = recordingMaxDurationMs,
+        recordingLastPausedMs = recordingLastPausedMs,
+        recordingMaxPausedMs = recordingMaxPausedMs,
+        recordingGpsActiveDurationMs = recordingGpsActiveDurationMs,
+        recordingGapCount = recordingGapCount,
+        recordingGapEventCount = recordingGapEventCount,
+        recordingMaxGapMs = recordingMaxGapMs,
+        recordingLastPointAgeMs = recordingLastPointAgeMs,
+        recordingSkippedIntervalCount = recordingSkippedIntervalCount,
+        recordingSkippedPausedCount = recordingSkippedPausedCount,
+        recordingSkippedUnusableCount = recordingSkippedUnusableCount,
+        recordingElevationSource = recordingElevationSource,
+        recordingDemHitCount = recordingDemHitCount,
+        recordingDemMissCount = recordingDemMissCount,
+        recordingGpsElevationUsedCount = recordingGpsElevationUsedCount,
+        recordingAccuracySampleCount = recordingAccuracySampleCount,
+        recordingAccuracyAvgMeters = recordingAccuracyAvgMeters,
+        recordingAccuracyMinMeters = recordingAccuracyMinMeters,
+        recordingAccuracyMaxMeters = recordingAccuracyMaxMeters,
+        recordingElevationGainMeters = recordingElevationGainMeters,
+        recordingElevationLossMeters = recordingElevationLossMeters,
+        recordingLiveHeartRateBpm = recordingLiveHeartRateBpm,
+        recordingLiveStepCount = recordingLiveStepCount,
+        recordingLiveCadenceSpm = recordingLiveCadenceSpm,
+        recordingLivePressureHpa = recordingLivePressureHpa,
+        recordingHeartRateAgeMs = recordingHeartRateAgeMs,
+        recordingStepCountAgeMs = recordingStepCountAgeMs,
+        recordingCadenceAgeMs = recordingCadenceAgeMs,
+        recordingPressureAgeMs = recordingPressureAgeMs,
+        recordingHeartRateSensorEventCount = recordingHeartRateSensorEventCount,
+        recordingStepSensorEventCount = recordingStepSensorEventCount,
+        recordingCadenceSensorEventCount = recordingCadenceSensorEventCount,
+        recordingPressureSensorEventCount = recordingPressureSensorEventCount,
+        recordingSensorRegisterCount = recordingSensorRegisterCount,
+        recordingSensorRegistered = recordingSensorRegistered,
+        recordingSensorAvailable = recordingSensorAvailable,
+        recordingBodySensorsGranted = recordingBodySensorsGranted,
+        recordingActivityRecognitionGranted = recordingActivityRecognitionGranted,
+        recordingCalorieModel = recordingCalorieModel,
+        recordingCaloriesGrossKcal = recordingCaloriesGrossKcal,
+        recordingCaloriesActiveKcal = recordingCaloriesActiveKcal,
+        recordingCaloriesRestingKcal = recordingCaloriesRestingKcal,
+        recordingPandolfBaseGrossKcal = recordingPandolfBaseGrossKcal,
+        recordingPandolfBaseActiveKcal = recordingPandolfBaseActiveKcal,
+        recordingPandolfBaseRestingKcal = recordingPandolfBaseRestingKcal,
+        recordingCalorieCompareModel = recordingCalorieCompareModel,
+        recordingLcdaGrossKcal = recordingLcdaGrossKcal,
+        recordingLcdaActiveKcal = recordingLcdaActiveKcal,
+        recordingLcdaRestingKcal = recordingLcdaRestingKcal,
+        recordingLastSavedByteSize = recordingLastSavedByteSize,
+        locationServiceStartFailureCount = locationServiceStartFailureCount,
+        locationServiceStartFallbackFailureCount = locationServiceStartFallbackFailureCount,
+        locationStartForegroundFailureCount = locationStartForegroundFailureCount,
+        thermalStatusEventCount = thermalStatusEventCount,
+        thermalMaxStatus = thermalMaxStatus,
+        thermalLastStatusLabel = thermalLastStatusLabel,
     )
 }
 

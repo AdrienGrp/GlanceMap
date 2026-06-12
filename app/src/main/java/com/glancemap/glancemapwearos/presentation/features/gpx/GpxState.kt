@@ -1,8 +1,10 @@
 package com.glancemap.glancemapwearos.presentation.features.gpx
 
 import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import org.mapsforge.core.model.LatLong
+import kotlin.math.roundToInt
 
 data class GpxFileState(
     val name: String,
@@ -10,8 +12,12 @@ data class GpxFileState(
     val title: String?,
     val distance: Double,
     val elevationGain: Double,
+    val elevationLoss: Double = 0.0,
     val estimatedDurationSec: Double?,
     val isActive: Boolean = false,
+    val isActivity: Boolean = false,
+    val activityDurationSec: Double? = null,
+    val activitySummary: RecordingDashboardSnapshot? = null,
 ) {
     val displayTitle: String
         get() = title?.takeIf { it.isNotBlank() } ?: name
@@ -20,8 +26,24 @@ data class GpxFileState(
 
     fun formattedElevation(isMetric: Boolean): Pair<String, String> = UnitFormatter.formatElevation(elevationGain, isMetric)
 
+    fun formattedElevationLoss(isMetric: Boolean): Pair<String, String> = UnitFormatter.formatElevation(elevationLoss, isMetric)
+
     fun formattedEtaShort(): String = DurationFormatter.formatDurationShort(estimatedDurationSec)
+
+    fun formattedActivityDurationShort(): String = DurationFormatter.formatDurationShort(activityDurationSec)
+
+    fun formattedActivityDurationClock(): String {
+        val seconds = activityDurationSec
+        if (seconds == null || !seconds.isFinite() || seconds <= 0.0) return "00:00:00"
+        val totalSeconds = seconds.roundToInt().coerceAtLeast(0)
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val secs = totalSeconds % 60
+        return "${hours.twoDigits()}:${minutes.twoDigits()}:${secs.twoDigits()}"
+    }
 }
+
+private fun Int.twoDigits(): String = toString().padStart(2, '0')
 
 data class GpxExportUiState(
     val filePath: String? = null,
@@ -33,7 +55,26 @@ data class TrackPoint(
     val latLong: LatLong,
     val elevation: Double?,
     val hasTimestamp: Boolean = false,
+    val timeMillis: Long? = null,
+    val accuracyMeters: Float? = null,
+    val speedMps: Float? = null,
+    val heartRateBpm: Int? = null,
+    val stepCount: Int? = null,
+    val cadenceSpm: Int? = null,
+    val barometricPressureHpa: Double? = null,
+    val guidanceHint: GpxGuidanceHint? = null,
 )
+
+data class GpxGuidanceHint(
+    val commandCode: String?,
+    val message: String?,
+    val source: GpxGuidanceHintSource,
+)
+
+enum class GpxGuidanceHintSource {
+    BROUTER,
+    GPX_SYMBOL,
+}
 
 data class GpxTrackDetails(
     val id: String,

@@ -18,8 +18,13 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.LocationViewModel
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
+import com.glancemap.glancemapwearos.presentation.features.recording.RecordingElevationProvider
+import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingDraftStore
+import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingViewModel
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 /**
  * A simple container for dependencies so they can be easily replaced in tests.
@@ -41,6 +46,7 @@ interface AppContainer {
     val themeViewModel: ThemeViewModel
     val settingsViewModel: SettingsViewModel
     val locationViewModel: LocationViewModel
+    val traceRecordingViewModel: TraceRecordingViewModel
 }
 
 class DefaultAppContainer(
@@ -137,5 +143,28 @@ class DefaultAppContainer(
 
     override val locationViewModel: LocationViewModel by lazy {
         LocationViewModel(applicationContext as Application)
+    }
+
+    override val traceRecordingViewModel: TraceRecordingViewModel by lazy {
+        val viewModel =
+            TraceRecordingViewModel(
+                gpxRepository = gpxRepository,
+                settingsRepository = settingsRepository,
+                syncManager = syncManager,
+                elevationProvider = RecordingElevationProvider(applicationContext),
+                draftStore = TraceRecordingDraftStore(applicationContext),
+            )
+        startRecordingLocationBridge(viewModel)
+        viewModel
+    }
+
+    private fun startRecordingLocationBridge(traceRecordingViewModel: TraceRecordingViewModel) {
+        coroutineScope.launch {
+            locationViewModel.currentLocation.collectLatest { location ->
+                if (traceRecordingViewModel.uiState.value.active) {
+                    traceRecordingViewModel.onLocation(location)
+                }
+            }
+        }
     }
 }

@@ -92,6 +92,23 @@ fun DebuggingSettingsScreen(
     val gpsPassiveLocationExperiment by viewModel.gpsPassiveLocationExperiment.collectAsState()
     val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
     val gpsDebugTelemetryPopupEnabled by viewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
+    val turnByTurnGuidanceSource by viewModel.turnByTurnGuidanceSource.collectAsState()
+    val turnByTurnUseBrouterTiles by viewModel.turnByTurnUseBrouterTiles.collectAsState()
+    val turnByTurnHapticsEnabled by viewModel.turnByTurnHapticsEnabled.collectAsState()
+    val turnByTurnTurnAlertsMode by viewModel.turnByTurnTurnAlertsMode.collectAsState()
+    val turnByTurnOffRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
+    val turnByTurnOffRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
+    val turnByTurnOffRouteRepeatSeconds by viewModel.turnByTurnOffRouteRepeatSeconds.collectAsState()
+    val turnByTurnGpsInAmbientMode by viewModel.turnByTurnGpsInAmbientMode.collectAsState()
+    val turnByTurnBrouterGuideBackEnabled by viewModel.turnByTurnBrouterGuideBackEnabled.collectAsState()
+    val turnByTurnRouteStartBehavior by viewModel.turnByTurnRouteStartBehavior.collectAsState()
+    val turnByTurnReverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
+    val recordingSampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
+    val recordingElevationSource by viewModel.recordingElevationSource.collectAsState()
+    val recordingShowSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
+    val recordingStartWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
+    val userWeightKg by viewModel.userWeightKg.collectAsState()
+    val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
     var diagnosticsExportStatus by remember {
         mutableStateOf(DIAGNOSTICS_DEFAULT_STATUS)
     }
@@ -351,6 +368,25 @@ fun DebuggingSettingsScreen(
                                                 gpsDebugTelemetry = captureWasEnabled,
                                                 gpsPassiveLocationExperiment = gpsPassiveLocationExperiment,
                                                 backButtonExitsNavigation = backButtonExitsNavigation,
+                                                recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
+                                                recordingElevationSource = recordingElevationSource,
+                                                recordingShowSavedGpxOnMap = recordingShowSavedGpxOnMap,
+                                                recordingStartWithTurnByTurn = recordingStartWithTurnByTurn,
+                                                userWeightKg = userWeightKg,
+                                                backpackWeightKg = backpackWeightKg,
+                                                turnByTurnGuidanceSource = turnByTurnGuidanceSource,
+                                                turnByTurnUseBrouterTiles = turnByTurnUseBrouterTiles,
+                                                turnByTurnHapticsEnabled = turnByTurnHapticsEnabled,
+                                                turnByTurnTurnAlertsMode = turnByTurnTurnAlertsMode,
+                                                turnByTurnOffRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
+                                                turnByTurnOffRouteAlertThresholdMeters =
+                                                    turnByTurnOffRouteThresholdMeters,
+                                                turnByTurnOffRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
+                                                turnByTurnGpsInAmbientMode = turnByTurnGpsInAmbientMode,
+                                                turnByTurnBrouterGuideBackEnabled =
+                                                    turnByTurnBrouterGuideBackEnabled,
+                                                turnByTurnRouteStartBehavior = turnByTurnRouteStartBehavior,
+                                                turnByTurnReverseSuggestionMode = turnByTurnReverseSuggestionMode,
                                             ),
                                         reuseLatestIfAvailable = !captureWasEnabled,
                                     )

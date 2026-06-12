@@ -13,6 +13,51 @@ interface SettingsRepository {
         const val DEFAULT_AMBIENT_GPS_INTERVAL_MS = 60_000L
         const val MIN_AMBIENT_GPS_INTERVAL_MS = 1_000L
         const val MAX_AMBIENT_GPS_INTERVAL_MS = 120_000L
+        const val DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS = 5
+        const val RECORDING_METRIC_DISTANCE = "distance"
+        const val RECORDING_METRIC_DURATION = "duration"
+        const val RECORDING_METRIC_ELEVATION_GAIN = "elevation_gain"
+        const val RECORDING_METRIC_ELEVATION_LOSS = "elevation_loss"
+        const val RECORDING_METRIC_CURRENT_ELEVATION = "current_elevation"
+        const val RECORDING_METRIC_CURRENT_SPEED = "current_speed"
+        const val RECORDING_METRIC_AVERAGE_SPEED = "average_speed"
+        const val RECORDING_METRIC_CURRENT_PACE = "current_pace"
+        const val RECORDING_METRIC_AVERAGE_PACE = "average_pace"
+        const val RECORDING_METRIC_HEART_RATE = "heart_rate"
+        const val RECORDING_METRIC_STEPS = "steps"
+        const val RECORDING_METRIC_CADENCE = "cadence"
+        const val RECORDING_METRIC_BAROMETRIC_PRESSURE = "barometric_pressure"
+        const val RECORDING_METRIC_CALORIES = "calories"
+        const val RECORDING_METRIC_ACTIVE_CALORIES = "active_calories"
+        const val RECORDING_METRIC_RESTING_CALORIES = "resting_calories"
+        const val RECORDING_ELEVATION_SOURCE_GPS = "GPS"
+        const val RECORDING_ELEVATION_SOURCE_DEM = "DEM"
+        const val RECORDING_ELEVATION_SOURCE_AUTO = "AUTO"
+        const val DEFAULT_RECORDING_ELEVATION_SOURCE = RECORDING_ELEVATION_SOURCE_GPS
+        const val DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP = true
+        const val DEFAULT_RECORDING_START_WITH_TURN_BY_TURN = false
+        const val DEFAULT_USER_WEIGHT_KG = 75f
+        const val MIN_USER_WEIGHT_KG = 35f
+        const val MAX_USER_WEIGHT_KG = 160f
+        const val DEFAULT_BACKPACK_WEIGHT_KG = 0f
+        const val MIN_BACKPACK_WEIGHT_KG = 0f
+        const val MAX_BACKPACK_WEIGHT_KG = 40f
+        val DEFAULT_RECORDING_DASHBOARD_METRICS =
+            listOf(
+                RECORDING_METRIC_DISTANCE,
+                RECORDING_METRIC_ELEVATION_GAIN,
+                RECORDING_METRIC_ELEVATION_LOSS,
+                RECORDING_METRIC_DURATION,
+            )
+        val DEFAULT_RECORDING_DASHBOARD_PAGE_TWO_METRICS =
+            listOf(
+                RECORDING_METRIC_CURRENT_ELEVATION,
+                RECORDING_METRIC_CURRENT_SPEED,
+                RECORDING_METRIC_AVERAGE_SPEED,
+                RECORDING_METRIC_CURRENT_PACE,
+            )
+        val DEFAULT_RECORDING_DASHBOARD_ALL_METRICS =
+            DEFAULT_RECORDING_DASHBOARD_METRICS + DEFAULT_RECORDING_DASHBOARD_PAGE_TWO_METRICS
 
         const val ZOOM_BUTTONS_BOTH = "BOTH"
         const val ZOOM_BUTTONS_HIDE_BOTH = "HIDE_BOTH"
@@ -33,6 +78,20 @@ interface SettingsRepository {
         const val MARKER_STYLE_TRIANGLE = "TRIANGLE"
         const val NAVIGATION_MARKER_ANCHOR_CENTER = "CENTER"
         const val NAVIGATION_MARKER_ANCHOR_LOWER = "LOWER"
+
+        const val TURN_BY_TURN_SOURCE_AUTO = "AUTO"
+        const val TURN_BY_TURN_SOURCE_GPX_EXACT = "GPX_EXACT"
+        const val TURN_BY_TURN_SOURCE_BROUTER_ENHANCED = "BROUTER_ENHANCED"
+        const val TURN_BY_TURN_TURN_ALERTS_OFF = "OFF"
+        const val TURN_BY_TURN_TURN_ALERTS_IMPORTANT = "IMPORTANT"
+        const val TURN_BY_TURN_TURN_ALERTS_ALL = "ALL"
+        const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS = 60
+        const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS = 60
+        const val TURN_BY_TURN_ROUTE_START_GO_TO_START = "GO_TO_START"
+        const val TURN_BY_TURN_ROUTE_START_NEAREST_POINT = "NEAREST_POINT"
+        const val TURN_BY_TURN_ROUTE_START_ASK = "ASK"
+        const val TURN_BY_TURN_REVERSE_SUGGESTION_ASK = "ASK"
+        const val TURN_BY_TURN_REVERSE_SUGGESTION_NEVER = "NEVER"
 
         const val DEFAULT_GPX_FLAT_SPEED_MPS = 3.5f / 3.6f
         const val MAX_GPX_FLAT_SPEED_MPS = 20f / 3.6f
@@ -102,6 +161,93 @@ interface SettingsRepository {
     val gpsDebugTelemetryPopupEnabled: Flow<Boolean>
 
     suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean)
+
+    val recordingSampleIntervalSeconds: Flow<Int>
+
+    suspend fun setRecordingSampleIntervalSeconds(seconds: Int)
+
+    val recordingElevationSource: Flow<String>
+
+    suspend fun setRecordingElevationSource(source: String)
+
+    val recordingDashboardMetricSlots: Flow<List<String>>
+
+    suspend fun setRecordingDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    )
+
+    val recordingShowSavedGpxOnMap: Flow<Boolean>
+
+    suspend fun setRecordingShowSavedGpxOnMap(enabled: Boolean)
+
+    val recordingStartWithTurnByTurn: Flow<Boolean>
+
+    suspend fun setRecordingStartWithTurnByTurn(enabled: Boolean)
+
+    val userWeightKg: Flow<Float>
+
+    suspend fun setUserWeightKg(weightKg: Float)
+
+    val backpackWeightKg: Flow<Float>
+
+    suspend fun setBackpackWeightKg(weightKg: Float)
+
+    val turnByTurnGuidanceSource: Flow<String>
+
+    suspend fun setTurnByTurnGuidanceSource(source: String)
+
+    val turnByTurnUseBrouterTiles: Flow<Boolean>
+
+    suspend fun setTurnByTurnUseBrouterTiles(enabled: Boolean)
+
+    val turnByTurnHapticsEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnHapticsEnabled(enabled: Boolean)
+
+    val turnByTurnTurnAlertsMode: Flow<String>
+
+    suspend fun setTurnByTurnTurnAlertsMode(mode: String)
+
+    val turnByTurnOffRouteAlertsEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnOffRouteAlertsEnabled(enabled: Boolean)
+
+    val turnByTurnOffRouteAlertThresholdMeters: Flow<Int>
+
+    suspend fun setTurnByTurnOffRouteAlertThresholdMeters(thresholdMeters: Int)
+
+    val turnByTurnOffRouteRepeatSeconds: Flow<Int>
+
+    suspend fun setTurnByTurnOffRouteRepeatSeconds(seconds: Int)
+
+    val turnByTurnGpsInAmbientMode: Flow<Boolean>
+
+    suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean)
+
+    val turnByTurnBrouterGuideBackEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnBrouterGuideBackEnabled(enabled: Boolean)
+
+    val turnByTurnRouteStartBehavior: Flow<String>
+
+    suspend fun setTurnByTurnRouteStartBehavior(behavior: String)
+
+    val turnByTurnReverseSuggestionMode: Flow<String>
+
+    suspend fun setTurnByTurnReverseSuggestionMode(mode: String)
+
+    val turnByTurnActiveTrackPath: Flow<String?>
+
+    suspend fun setTurnByTurnActiveTrackPath(path: String?)
+
+    val turnByTurnActiveTrackReversed: Flow<Boolean>
+
+    suspend fun setTurnByTurnActiveTrackReversed(reversed: Boolean)
+
+    val turnByTurnStartReached: Flow<Boolean>
+
+    suspend fun setTurnByTurnStartReached(reached: Boolean)
 
     val promptForCalibration: Flow<Boolean>
 

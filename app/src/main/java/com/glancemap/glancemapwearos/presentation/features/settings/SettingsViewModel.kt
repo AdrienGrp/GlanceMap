@@ -82,6 +82,196 @@ class SettingsViewModel(
             settingsRepository.setGpsDebugTelemetryPopupEnabled(enabled)
         }
 
+    val recordingSampleIntervalSeconds: StateFlow<Int> =
+        settingsRepository.recordingSampleIntervalSeconds
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS,
+            )
+
+    fun setRecordingSampleIntervalSeconds(seconds: Int) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingSampleIntervalSeconds(seconds)
+        }
+
+    val recordingElevationSource: StateFlow<String> =
+        settingsRepository.recordingElevationSource
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE,
+            )
+
+    fun setRecordingElevationSource(source: String) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingElevationSource(source)
+        }
+
+    val recordingDashboardMetricSlots: StateFlow<List<String>> =
+        settingsRepository.recordingDashboardMetricSlots
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS,
+            )
+
+    fun setRecordingDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    ) = viewModelScope.launch {
+        settingsRepository.setRecordingDashboardMetricSlot(slotIndex, metricId)
+    }
+
+    val recordingShowSavedGpxOnMap: StateFlow<Boolean> =
+        settingsRepository.recordingShowSavedGpxOnMap
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP,
+            )
+
+    fun setRecordingShowSavedGpxOnMap(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingShowSavedGpxOnMap(enabled)
+        }
+
+    val recordingStartWithTurnByTurn: StateFlow<Boolean> =
+        settingsRepository.recordingStartWithTurnByTurn
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_START_WITH_TURN_BY_TURN,
+            )
+
+    fun setRecordingStartWithTurnByTurn(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingStartWithTurnByTurn(enabled)
+        }
+
+    val turnByTurnGuidanceSource: StateFlow<String> =
+        settingsRepository.turnByTurnGuidanceSource
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.TURN_BY_TURN_SOURCE_AUTO,
+            )
+
+    fun setTurnByTurnGuidanceSource(source: String) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnGuidanceSource(source)
+        }
+
+    val turnByTurnUseBrouterTiles: StateFlow<Boolean> =
+        settingsRepository.turnByTurnUseBrouterTiles
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setTurnByTurnUseBrouterTiles(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnUseBrouterTiles(enabled)
+        }
+
+    val turnByTurnHapticsEnabled: StateFlow<Boolean> =
+        settingsRepository.turnByTurnHapticsEnabled
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setTurnByTurnHapticsEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnHapticsEnabled(enabled)
+        }
+
+    val turnByTurnTurnAlertsMode: StateFlow<String> =
+        settingsRepository.turnByTurnTurnAlertsMode
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT,
+            )
+
+    fun setTurnByTurnTurnAlertsMode(mode: String) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnTurnAlertsMode(mode)
+        }
+
+    val turnByTurnOffRouteAlertsEnabled: StateFlow<Boolean> =
+        settingsRepository.turnByTurnOffRouteAlertsEnabled
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setTurnByTurnOffRouteAlertsEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnOffRouteAlertsEnabled(enabled)
+        }
+
+    val turnByTurnOffRouteAlertThresholdMeters: StateFlow<Int> =
+        settingsRepository.turnByTurnOffRouteAlertThresholdMeters
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS,
+            )
+
+    fun setTurnByTurnOffRouteAlertThresholdMeters(thresholdMeters: Int) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnOffRouteAlertThresholdMeters(thresholdMeters)
+        }
+
+    val turnByTurnOffRouteRepeatSeconds: StateFlow<Int> =
+        settingsRepository.turnByTurnOffRouteRepeatSeconds
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS,
+            )
+
+    fun setTurnByTurnOffRouteRepeatSeconds(seconds: Int) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnOffRouteRepeatSeconds(seconds)
+        }
+
+    val turnByTurnGpsInAmbientMode: StateFlow<Boolean> =
+        settingsRepository.turnByTurnGpsInAmbientMode
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setTurnByTurnGpsInAmbientMode(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnGpsInAmbientMode(enabled)
+        }
+
+    val turnByTurnBrouterGuideBackEnabled: StateFlow<Boolean> =
+        settingsRepository.turnByTurnBrouterGuideBackEnabled
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun setTurnByTurnBrouterGuideBackEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnBrouterGuideBackEnabled(enabled)
+        }
+
+    val turnByTurnRouteStartBehavior: StateFlow<String> =
+        settingsRepository.turnByTurnRouteStartBehavior
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START,
+            )
+
+    fun setTurnByTurnRouteStartBehavior(behavior: String) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnRouteStartBehavior(behavior)
+        }
+
+    val turnByTurnReverseSuggestionMode: StateFlow<String> =
+        settingsRepository.turnByTurnReverseSuggestionMode
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK,
+            )
+
+    fun setTurnByTurnReverseSuggestionMode(mode: String) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnReverseSuggestionMode(mode)
+        }
+
     val promptForCalibration: StateFlow<Boolean> =
         settingsRepository.promptForCalibration
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -576,6 +766,32 @@ class SettingsViewModel(
     fun setMetric(isMetric: Boolean) =
         viewModelScope.launch {
             settingsRepository.setMetric(isMetric)
+        }
+
+    val userWeightKg: StateFlow<Float> =
+        settingsRepository.userWeightKg
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_USER_WEIGHT_KG,
+            )
+
+    fun setUserWeightKg(weightKg: Float) =
+        viewModelScope.launch {
+            settingsRepository.setUserWeightKg(weightKg)
+        }
+
+    val backpackWeightKg: StateFlow<Float> =
+        settingsRepository.backpackWeightKg
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG,
+            )
+
+    fun setBackpackWeightKg(weightKg: Float) =
+        viewModelScope.launch {
+            settingsRepository.setBackpackWeightKg(weightKg)
         }
 
     val backButtonExitsNavigation: StateFlow<Boolean> =

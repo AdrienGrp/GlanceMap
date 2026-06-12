@@ -1,9 +1,11 @@
 package com.glancemap.glancemapwearos.presentation
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -11,19 +13,34 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.wear.compose.foundation.CurvedTextStyle
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TimeText
 import androidx.wear.compose.material3.TimeTextDefaults
 import androidx.wear.compose.material3.timeTextCurvedText
@@ -37,8 +54,12 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxScreen
 import com.glancemap.glancemapwearos.presentation.features.home.MainScreen
 import com.glancemap.glancemapwearos.presentation.features.maps.MapsScreen
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateScreen
+import com.glancemap.glancemapwearos.presentation.features.navigate.formatNavigateClockTime
 import com.glancemap.glancemapwearos.presentation.features.navigate.navigateTimePattern
+import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.policy.navigationRuntimeDemand
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiScreen
+import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorBridge
 import com.glancemap.glancemapwearos.presentation.features.settings.CompassSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.DebuggingSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpsSettingsScreen
@@ -48,12 +69,18 @@ import com.glancemap.glancemapwearos.presentation.features.settings.MapDisplaySe
 import com.glancemap.glancemapwearos.presentation.features.settings.MapSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapZoomSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.PoiSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingDashboardSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingExternalSensorsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefaultsConfirmScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.UserProfileSettingsScreen
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.google.android.horologist.compose.layout.AppScaffold
+import kotlinx.coroutines.delay
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
 class MainActivity : ComponentActivity() {
@@ -63,6 +90,7 @@ class MainActivity : ComponentActivity() {
 
     @Volatile
     private var activeRoute: String? = null
+    private var thermalStatusListener: PowerManager.OnThermalStatusChangedListener? = null
 
     private val screenStateReceiver =
         object : BroadcastReceiver() {
@@ -91,6 +119,7 @@ class MainActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             registerReceiver(screenStateReceiver, screenStateFilter)
         }
+        registerThermalTelemetry()
 
         val ambientObserver =
             AmbientLifecycleObserver(
@@ -123,17 +152,52 @@ class MainActivity : ComponentActivity() {
                 .collectAsState(initial = true)
             val navigateTimeFormat by appContainer.settingsViewModel.navigateTimeFormat.collectAsState()
             val isMetric by appContainer.settingsViewModel.isMetric.collectAsState()
+            val traceRecordingState by appContainer.traceRecordingViewModel.uiState.collectAsState()
+            val turnByTurnGuidanceSession by appContainer.gpxViewModel.turnByTurnGuidanceSession.collectAsState()
+            val turnByTurnGuidancePaused by appContainer.gpxViewModel.turnByTurnGuidancePaused.collectAsState()
+            val gpsInAmbientMode by appContainer.settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
+            val turnByTurnGpsInAmbientMode by appContainer.settingsViewModel.turnByTurnGpsInAmbientMode.collectAsState(
+                initial = false,
+            )
+            val offlineMode by appContainer.settingsViewModel.offlineMode.collectAsState(initial = false)
+            val recordingDashboardMetricSlots by appContainer.settingsViewModel.recordingDashboardMetricSlots.collectAsState()
+            val recordingStartWithTurnByTurn by appContainer.settingsViewModel.recordingStartWithTurnByTurn.collectAsState()
 
             val isAmbient = _isAmbient
             val ambientTickMs = _ambientTickMs
             val isDeviceInteractive = _isDeviceInteractive
+            val activityLocationScreenState =
+                remember(isAmbient, isDeviceInteractive) {
+                    resolveLocationScreenState(
+                        isAmbient = isAmbient,
+                        isDeviceInteractive = isDeviceInteractive,
+                    )
+                }
 
             GlanceMapTheme {
                 val navController = rememberNavController()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val route = backStackEntry?.destination?.route
                 val routeLabel = route ?: WatchRoutes.NAVIGATE
+                val compositionContext = LocalContext.current
+                RecordingSensorBridge(
+                    active = traceRecordingState.active,
+                    paused = traceRecordingState.paused,
+                    selectedMetricIds = recordingDashboardMetricSlots,
+                    onMetrics = appContainer.traceRecordingViewModel::onSensorMetrics,
+                )
+                val locationPermissionGranted =
+                    ContextCompat.checkSelfPermission(
+                        compositionContext,
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                    ) == PackageManager.PERMISSION_GRANTED ||
+                        ContextCompat.checkSelfPermission(
+                            compositionContext,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ) == PackageManager.PERMISSION_GRANTED
                 var suppressNavigateTime by remember { mutableStateOf(false) }
+                var recordingDashboardExpandRequestToken by remember { mutableLongStateOf(0L) }
+                var recordingActionPromptRequestToken by remember { mutableLongStateOf(0L) }
                 LaunchedEffect(routeLabel) {
                     activeRoute = routeLabel
                     logNavigationTelemetry(event = "route_visible", route = routeLabel)
@@ -143,6 +207,47 @@ class MainActivity : ComponentActivity() {
                     if (!isNavigateScreen) {
                         suppressNavigateTime = false
                     }
+                }
+                LaunchedEffect(
+                    isNavigateScreen,
+                    traceRecordingState.active,
+                    traceRecordingState.paused,
+                    turnByTurnGuidanceSession,
+                    turnByTurnGuidancePaused,
+                    gpsInAmbientMode,
+                    turnByTurnGpsInAmbientMode,
+                    offlineMode,
+                    activityLocationScreenState,
+                    locationPermissionGranted,
+                ) {
+                    if (isNavigateScreen) return@LaunchedEffect
+                    val runtimeDemand =
+                        navigationRuntimeDemand(
+                            isNavigateScreen = false,
+                            screenState = activityLocationScreenState,
+                            isScreenResumed = true,
+                            hasLocationPermission = locationPermissionGranted,
+                            offlineMode = offlineMode,
+                            generalGpsInAmbient = gpsInAmbientMode,
+                            recordingActive = traceRecordingState.active,
+                            recordingPaused = traceRecordingState.paused,
+                            turnByTurnActive = turnByTurnGuidanceSession != null,
+                            turnByTurnPaused = turnByTurnGuidancePaused,
+                            turnByTurnGpsInAmbient = turnByTurnGpsInAmbientMode,
+                        )
+                    appContainer.locationViewModel.syncRuntimeState(
+                        screenState = activityLocationScreenState,
+                        trackingEnabled = runtimeDemand.trackingEnabled,
+                        backgroundGpsEnabled = runtimeDemand.backgroundGpsEnabled,
+                    )
+                    DebugTelemetry.log(
+                        "NavigationRuntime",
+                        "event=activity_runtime_sync active=${traceRecordingState.active} " +
+                            "paused=${traceRecordingState.paused} guidance=${turnByTurnGuidanceSession != null} " +
+                            "guidancePaused=$turnByTurnGuidancePaused tracking=${runtimeDemand.trackingEnabled} " +
+                            "backgroundGps=${runtimeDemand.backgroundGpsEnabled} reason=${runtimeDemand.reason} " +
+                            "route=$routeLabel",
+                    )
                 }
                 val navigateViaSwipeLeft: () -> Unit = {
                     val popped = navController.popBackStack(WatchRoutes.NAVIGATE, inclusive = false)
@@ -160,24 +265,65 @@ class MainActivity : ComponentActivity() {
 
                 AppScaffold(
                     timeText = {
+                        val recordingChipActive = traceRecordingState.active || traceRecordingState.saving
                         val canShowNavigateTime = showTimeInNavigate && isNavigateScreen && !isAmbient
-                        if (canShowNavigateTime && !suppressNavigateTime) {
+                        val canShowRecordingChip = recordingChipActive && isNavigateScreen && !isAmbient
+                        val shouldShowStatusChip =
+                            (canShowNavigateTime || canShowRecordingChip) && !suppressNavigateTime
+                        if (shouldShowStatusChip) {
                             cappedFontScale(maxFontScale = 1f) {
                                 val context = LocalContext.current
-                                TimeText(
-                                    modifier = Modifier.padding(top = 2.dp),
-                                    timeSource =
-                                        TimeTextDefaults.rememberTimeSource(
-                                            navigateTimePattern(context, navigateTimeFormat),
-                                        ),
-                                ) { time ->
-                                    timeTextCurvedText(
-                                        time = time,
-                                        style =
-                                            CurvedTextStyle(
-                                                color = Color.White,
-                                            ),
+                                val recordingStatusColor =
+                                    when {
+                                        traceRecordingState.saving -> Color(0xFFFFB74D)
+                                        traceRecordingState.paused -> Color(0xFFFFB74D)
+                                        recordingChipActive -> Color(0xFFFF1744)
+                                        else -> Color.White
+                                    }
+                                val statusChipModifier =
+                                    Modifier
+                                        .padding(top = if (recordingChipActive) 4.dp else 2.dp)
+                                        .then(
+                                            if (recordingChipActive) {
+                                                Modifier.pointerInput(traceRecordingState.active, traceRecordingState.saving) {
+                                                    detectTapGestures(
+                                                        onTap = {
+                                                            recordingDashboardExpandRequestToken =
+                                                                System.currentTimeMillis()
+                                                        },
+                                                        onLongPress = {
+                                                            recordingActionPromptRequestToken =
+                                                                System.currentTimeMillis()
+                                                        },
+                                                    )
+                                                }
+                                            } else {
+                                                Modifier
+                                            },
+                                        )
+                                if (recordingChipActive) {
+                                    RecordingTimeChip(
+                                        showTime = canShowNavigateTime,
+                                        timeFormat = navigateTimeFormat,
+                                        accentColor = recordingStatusColor,
+                                        modifier = statusChipModifier,
                                     )
+                                } else {
+                                    TimeText(
+                                        modifier = statusChipModifier,
+                                        timeSource =
+                                            TimeTextDefaults.rememberTimeSource(
+                                                navigateTimePattern(context, navigateTimeFormat),
+                                            ),
+                                    ) { time ->
+                                        timeTextCurvedText(
+                                            time = time,
+                                            style =
+                                                CurvedTextStyle(
+                                                    color = Color.White,
+                                                ),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -209,10 +355,13 @@ class MainActivity : ComponentActivity() {
                                 compassViewModel = appContainer.compassViewModel,
                                 settingsViewModel = appContainer.settingsViewModel,
                                 locationViewModel = appContainer.locationViewModel,
+                                traceRecordingViewModel = appContainer.traceRecordingViewModel,
                                 isAmbient = isAmbient,
                                 isDeviceInteractive = isDeviceInteractive,
                                 ambientTickMs = ambientTickMs,
                                 onNavigateTimeSuppressedChange = { suppressNavigateTime = it },
+                                recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
+                                recordingActionPromptRequestToken = recordingActionPromptRequestToken,
                                 onMenuClick = {
                                     logNavigationTelemetry(
                                         event = "menu_click",
@@ -247,7 +396,14 @@ class MainActivity : ComponentActivity() {
                                 onDismiss = { navController.popBackStack() },
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
-                                GpxScreen(navController, appContainer.gpxViewModel, isMetric)
+                                GpxScreen(
+                                    navController = navController,
+                                    gpxViewModel = appContainer.gpxViewModel,
+                                    isMetric = isMetric,
+                                    autoStartRecordingWithGuidance = recordingStartWithTurnByTurn,
+                                    recordingActiveOrSaving = traceRecordingState.active || traceRecordingState.saving,
+                                    onStartRecording = appContainer.traceRecordingViewModel::startRecording,
+                                )
                             }
                         }
 
@@ -402,6 +558,101 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        composable(WatchRoutes.USER_PROFILE_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                UserProfileSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    onOpenExternalSensors = {
+                                        navController.navigate(WatchRoutes.RECORDING_EXTERNAL_SENSORS)
+                                    },
+                                    onOpenDashboardSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_DASHBOARD_SETTINGS)
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_DASHBOARD_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingDashboardSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenRecordingSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_SETTINGS) {
+                                            popUpTo(WatchRoutes.RECORDING_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_EXTERNAL_SENSORS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingExternalSensorsScreen(
+                                    onOpenRecordingSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_SETTINGS) {
+                                            popUpTo(WatchRoutes.RECORDING_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.TURN_BY_TURN_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                TurnByTurnSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
                         composable(WatchRoutes.DEBUG_SETTINGS) {
                             DismissableScreen(
                                 onDismiss = { navController.popBackStack() },
@@ -434,6 +685,9 @@ class MainActivity : ComponentActivity() {
                                             launchSingleTop = true
                                             restoreState = true
                                         }
+                                    },
+                                    onOpenTurnByTurnSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_SETTINGS)
                                     },
                                 )
                             }
@@ -574,11 +828,90 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(screenStateReceiver) }
+        unregisterThermalTelemetry()
         val appContainer = (application as GlanceMapWearApp).container
         appContainer.mapViewModel.destroyMapHolder()
-        appContainer.locationViewModel.setTrackingEnabled(false)
+        val locationPermissionGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ) == PackageManager.PERMISSION_GRANTED
+        val traceRecordingState = appContainer.traceRecordingViewModel.uiState.value
+        val runtimeDemand =
+            navigationRuntimeDemand(
+                isNavigateScreen = false,
+                screenState =
+                    resolveLocationScreenState(
+                        isAmbient = _isAmbient,
+                        isDeviceInteractive = _isDeviceInteractive,
+                    ),
+                isScreenResumed = false,
+                hasLocationPermission = locationPermissionGranted,
+                offlineMode = appContainer.settingsViewModel.offlineMode.value,
+                generalGpsInAmbient = appContainer.settingsViewModel.gpsInAmbientMode.value,
+                recordingActive = traceRecordingState.active,
+                recordingPaused = traceRecordingState.paused,
+                turnByTurnActive = appContainer.gpxViewModel.turnByTurnGuidanceSession.value != null,
+                turnByTurnPaused = appContainer.gpxViewModel.turnByTurnGuidancePaused.value,
+                turnByTurnGpsInAmbient = appContainer.settingsViewModel.turnByTurnGpsInAmbientMode.value,
+            )
+        if (runtimeDemand.trackingEnabled) {
+            DebugTelemetry.log(
+                "NavigationRuntime",
+                "event=activity_destroy_retaining_gps tracking=true backgroundGps=${runtimeDemand.backgroundGpsEnabled} " +
+                    "reason=${runtimeDemand.reason}",
+            )
+        } else {
+            appContainer.locationViewModel.setTrackingEnabled(false)
+        }
         super.onDestroy()
     }
+
+    private fun registerThermalTelemetry() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val powerManager = getSystemService(PowerManager::class.java) ?: return
+        val listener =
+            PowerManager.OnThermalStatusChangedListener { status ->
+                logThermalTelemetry(event = "status", status = status)
+            }
+        thermalStatusListener = listener
+        powerManager.addThermalStatusListener(mainExecutor, listener)
+        logThermalTelemetry(event = "initial", status = powerManager.currentThermalStatus)
+    }
+
+    private fun unregisterThermalTelemetry() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val listener = thermalStatusListener ?: return
+        getSystemService(PowerManager::class.java)?.removeThermalStatusListener(listener)
+        thermalStatusListener = null
+    }
+
+    private fun logThermalTelemetry(
+        event: String,
+        status: Int,
+    ) {
+        DebugTelemetry.log(
+            "ThermalTelemetry",
+            "event=$event status=$status label=${thermalStatusLabel(status)} " +
+                "route=${activeRoute ?: "unknown"} ambient=$_isAmbient interactive=$_isDeviceInteractive",
+        )
+    }
+
+    private fun thermalStatusLabel(status: Int): String =
+        when (status) {
+            PowerManager.THERMAL_STATUS_NONE -> "none"
+            PowerManager.THERMAL_STATUS_LIGHT -> "light"
+            PowerManager.THERMAL_STATUS_MODERATE -> "moderate"
+            PowerManager.THERMAL_STATUS_SEVERE -> "severe"
+            PowerManager.THERMAL_STATUS_CRITICAL -> "critical"
+            PowerManager.THERMAL_STATUS_EMERGENCY -> "emergency"
+            PowerManager.THERMAL_STATUS_SHUTDOWN -> "shutdown"
+            else -> "unknown"
+        }
 
     private fun logScreenTelemetry(event: String) {
         val interactive = getSystemService(PowerManager::class.java)?.isInteractive
@@ -608,4 +941,83 @@ class MainActivity : ComponentActivity() {
         DebugTelemetry.log("NavigationTelemetry", message)
         FieldMarkerDiagnostics.recordMarker(type = event, note = route ?: "unknown")
     }
+}
+
+@Composable
+private fun RecordingTimeChip(
+    showTime: Boolean,
+    timeFormat: String,
+    accentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            nowMillis = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1_000L)
+        }
+    }
+    val label =
+        if (showTime) {
+            formatNavigateClockTime(context, nowMillis, timeFormat)
+        } else {
+            ""
+        }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(modifier),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        if (label.isBlank()) {
+            RecordingStatusDot(
+                color = accentColor,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 12.dp),
+            )
+        } else {
+            Box(
+                modifier =
+                    Modifier
+                        .height(20.dp)
+                        .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
+                        .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
+                        .padding(start = 7.dp, end = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RecordingStatusDot(accentColor)
+                    Text(
+                        text = label,
+                        modifier = Modifier.padding(start = 5.dp),
+                        style =
+                            MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 15.sp,
+                            ),
+                        color = Color.White,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordingStatusDot(
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .size(4.dp)
+                .background(color, CircleShape),
+    )
 }

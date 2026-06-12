@@ -5,10 +5,19 @@ import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterConfig
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
 import com.glancemap.glancemapwearos.core.routing.RoutePlanner
+import com.glancemap.glancemapwearos.core.routing.RoutePlannerRequest
 import com.glancemap.glancemapwearos.data.repository.GpxExportRepository
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.SyncManager
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceSession
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceTuning
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.buildGpxGuidanceSession
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
+import com.glancemap.glancemapwearos.presentation.features.recording.RecordedTracePoint
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingCalorieEstimate
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.estimateRecordingCalories
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
@@ -28,6 +37,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import java.io.File
+
+data class GpxGuidanceStartResult(
+    val warningMessage: String? = null,
+)
+
+private data class GpxGuidanceBuildResult(
+    val session: GpxGuidanceSession,
+    val warningMessage: String? = null,
+)
 
 class GpxViewModel(
     private val gpxRepository: GpxRepository,
@@ -61,6 +79,12 @@ class GpxViewModel(
     private val _exportUiState = MutableStateFlow(GpxExportUiState())
     val exportUiState: StateFlow<GpxExportUiState> = _exportUiState.asStateFlow()
 
+    private val _turnByTurnGuidanceSession = MutableStateFlow<GpxGuidanceSession?>(null)
+    val turnByTurnGuidanceSession: StateFlow<GpxGuidanceSession?> = _turnByTurnGuidanceSession.asStateFlow()
+
+    private val _turnByTurnGuidancePaused = MutableStateFlow(false)
+    val turnByTurnGuidancePaused: StateFlow<Boolean> = _turnByTurnGuidancePaused.asStateFlow()
+
     // ----------------------------
     // Internal inspection session state
     // ----------------------------
@@ -82,6 +106,9 @@ class GpxViewModel(
         val distance: Double,
         val elevationGain: Double,
         val elevationLoss: Double,
+        val isActivity: Boolean,
+        val activityDurationSec: Double?,
+        val activitySummary: RecordingDashboardSnapshot?,
     )
 
     private data class CachedEta(
@@ -104,6 +131,8 @@ class GpxViewModel(
             downhillVerticalMetersPerHour = SettingsRepository.DEFAULT_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
         )
     private var elevationFilterConfig = GpxElevationFilterDefaults.defaultConfig()
+    private var userWeightKg = SettingsRepository.DEFAULT_USER_WEIGHT_KG
+    private var backpackWeightKg = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
     private val routeToolOperations =
         GpxRouteToolOperations(
             gpxRepository = gpxRepository,
@@ -179,7 +208,27 @@ class GpxViewModel(
             refreshOpenEtaUi()
         }.launchIn(viewModelScope)
 
-        viewModelScope.launch { reloadFromDisk() }
+        combine(
+            settingsRepository.userWeightKg,
+            settingsRepository.backpackWeightKg,
+        ) { userWeightKg, backpackWeightKg ->
+            userWeightKg to backpackWeightKg
+        }.onEach { (newUserWeightKg, newBackpackWeightKg) ->
+            if (newUserWeightKg == userWeightKg && newBackpackWeightKg == backpackWeightKg) {
+                return@onEach
+            }
+
+            userWeightKg = newUserWeightKg
+            backpackWeightKg = newBackpackWeightKg
+            metaCache.clear()
+
+            reloadFromDisk()
+        }.launchIn(viewModelScope)
+
+        viewModelScope.launch {
+            reloadFromDisk()
+            restoreTurnByTurnGuidanceSession()
+        }
 
         gpxRepository
             .getActiveGpxFiles()
@@ -257,6 +306,19 @@ class GpxViewModel(
                                     ?: 0.0,
                             elevationGain = profile.totalAscent,
                             elevationLoss = profile.totalDescent,
+                            isActivity =
+                                cachedMeta?.isActivity
+                                    ?: parsed?.isActivity
+                                    ?: file.name.startsWith("Recording-", ignoreCase = true),
+                            activityDurationSec = cachedMeta?.activityDurationSec ?: parsed?.activityDurationSec,
+                            activitySummary =
+                                cachedMeta?.activitySummary
+                                    ?: parsed?.let {
+                                        buildSavedActivitySummary(
+                                            profile = profile,
+                                            parsed = it,
+                                        )
+                                    },
                         )
                     val meta =
                         if (cachedMeta == canonicalMeta) {
@@ -283,8 +345,12 @@ class GpxViewModel(
                         title = meta.title,
                         distance = meta.distance,
                         elevationGain = meta.elevationGain,
+                        elevationLoss = meta.elevationLoss,
                         estimatedDurationSec = etaSeconds,
                         isActive = path in activePaths,
+                        isActivity = meta.isActivity,
+                        activityDurationSec = meta.activityDurationSec,
+                        activitySummary = meta.activitySummary,
                     )
                 }
             }
@@ -300,6 +366,60 @@ class GpxViewModel(
         if (elevationTrack != null && elevationTrack !in existingPaths) {
             dismissElevationProfile()
         }
+        val guidanceTrack = _turnByTurnGuidanceSession.value?.trackId
+        if (guidanceTrack != null && guidanceTrack !in existingPaths) {
+            clearTurnByTurnGuidance()
+        }
+    }
+
+    private fun buildSavedActivitySummary(
+        profile: TrackProfile,
+        parsed: ParsedGpxData,
+    ): RecordingDashboardSnapshot? {
+        if (!parsed.isActivity) return null
+
+        val points = profile.points
+        if (points.isEmpty()) return null
+
+        val durationSeconds = parsed.activityDurationSec ?: points.durationFromTimestampsSeconds()
+        val recordedPoints = points.toRecordedTracePoints()
+        val lastPoint = points.lastOrNull()
+        val averageSpeedMps =
+            durationSeconds
+                ?.takeIf { it > 0.0 }
+                ?.let { profile.totalDistance / it }
+        val calorieEstimate =
+            if (recordedPoints.size >= 2) {
+                estimateRecordingCalories(
+                    points = recordedPoints,
+                    userWeightKg = userWeightKg,
+                    backpackWeightKg = backpackWeightKg,
+                )
+            } else {
+                RecordingCalorieEstimate()
+            }
+
+        return RecordingDashboardSnapshot(
+            durationSeconds = durationSeconds ?: 0.0,
+            distanceMeters = profile.totalDistance,
+            elevationGainMeters = profile.totalAscent,
+            elevationLossMeters = profile.totalDescent,
+            currentElevationMeters = lastPoint?.elevation,
+            currentSpeedMps = lastPoint?.speedMps ?: points.lastSegmentSpeedMps(),
+            averageSpeedMps = averageSpeedMps,
+            gpsAccuracyMeters = points.lastMappedNotNull { it.accuracyMeters },
+            pointCount = points.size,
+            gpsActiveDurationSeconds = durationSeconds ?: 0.0,
+            recordingGapCount = 0,
+            recordingMaxGapSeconds = 0.0,
+            userWeightKg = userWeightKg,
+            backpackWeightKg = backpackWeightKg,
+            calorieEstimate = calorieEstimate,
+            heartRateBpm = points.lastMappedNotNull { it.heartRateBpm },
+            stepCount = points.lastMappedNotNull { it.stepCount },
+            cadenceSpm = points.lastMappedNotNull { it.cadenceSpm },
+            barometricPressureHpa = points.lastMappedNotNull { it.barometricPressureHpa },
+        )
     }
 
     fun toggleGpxFile(path: String) {
@@ -311,12 +431,237 @@ class GpxViewModel(
         }
     }
 
+    fun startTurnByTurnGuidance(
+        path: String,
+        onComplete: (Result<GpxGuidanceStartResult>) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        buildTurnByTurnGuidanceSession(
+                            path = path,
+                            startReached = false,
+                            reversed = false,
+                        )
+                    }
+                }
+
+            result
+                .onSuccess { buildResult ->
+                    val session = buildResult.session
+                    _turnByTurnGuidanceSession.value = session
+                    _turnByTurnGuidancePaused.value = false
+                    persistTurnByTurnGuidance(
+                        trackPath = session.trackId,
+                        startReached = session.startReached,
+                        reversed = session.reversed,
+                    )
+                    val currentActive = gpxRepository.getActiveGpxFiles().first()
+                    if (session.trackId !in currentActive) {
+                        gpxRepository.setActiveGpxFiles(currentActive + session.trackId)
+                    }
+                }
+            onComplete(result.map { GpxGuidanceStartResult(warningMessage = it.warningMessage) })
+        }
+    }
+
+    fun stopTurnByTurnGuidance() {
+        viewModelScope.launch {
+            clearTurnByTurnGuidance()
+        }
+    }
+
+    fun pauseTurnByTurnGuidance() {
+        if (_turnByTurnGuidanceSession.value == null) return
+        _turnByTurnGuidancePaused.value = true
+    }
+
+    fun resumeTurnByTurnGuidance() {
+        if (_turnByTurnGuidanceSession.value == null) return
+        _turnByTurnGuidancePaused.value = false
+    }
+
+    fun buildTurnByTurnGuideBackRoute(
+        origin: LatLong,
+        destination: LatLong,
+        onComplete: (Result<List<LatLong>>) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        routePlanner
+                            .createRoute(
+                                RoutePlannerRequest(
+                                    origin = origin,
+                                    destination = destination,
+                                ),
+                            ).points
+                            .map { it.latLong }
+                            .also { points ->
+                                require(points.size >= 2) { "BRouter did not return a guide-back route." }
+                            }
+                    }
+                }
+            onComplete(result)
+        }
+    }
+
+    fun markTurnByTurnStartReached() {
+        val current = _turnByTurnGuidanceSession.value ?: return
+        if (current.startReached) return
+        val updated = current.copy(startReached = true)
+        _turnByTurnGuidanceSession.value = updated
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnStartReached(true)
+        }
+    }
+
+    fun reverseTurnByTurnGuidance() {
+        val current = _turnByTurnGuidanceSession.value ?: return
+        viewModelScope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        buildTurnByTurnGuidanceSession(
+                            path = current.trackId,
+                            startReached = false,
+                            reversed = !current.reversed,
+                        )
+                    }
+                }
+            result.onSuccess { buildResult ->
+                val session = buildResult.session
+                _turnByTurnGuidanceSession.value = session
+                _turnByTurnGuidancePaused.value = false
+                persistTurnByTurnGuidance(
+                    trackPath = session.trackId,
+                    startReached = session.startReached,
+                    reversed = session.reversed,
+                )
+            }
+        }
+    }
+
+    private suspend fun restoreTurnByTurnGuidanceSession() {
+        val persistedPath = settingsRepository.turnByTurnActiveTrackPath.first() ?: return
+        val startReached = settingsRepository.turnByTurnStartReached.first()
+        val reversed = settingsRepository.turnByTurnActiveTrackReversed.first()
+        val result =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    buildTurnByTurnGuidanceSession(
+                        path = persistedPath,
+                        startReached = startReached,
+                        reversed = reversed,
+                    )
+                }
+            }
+
+        result
+            .onSuccess { buildResult ->
+                val session = buildResult.session
+                _turnByTurnGuidanceSession.value = session
+                _turnByTurnGuidancePaused.value = false
+                val currentActive = gpxRepository.getActiveGpxFiles().first()
+                if (session.trackId !in currentActive) {
+                    gpxRepository.setActiveGpxFiles(currentActive + session.trackId)
+                }
+            }.onFailure {
+                clearTurnByTurnGuidance()
+            }
+    }
+
+    private suspend fun buildTurnByTurnGuidanceSession(
+        path: String,
+        startReached: Boolean,
+        reversed: Boolean,
+    ): GpxGuidanceBuildResult {
+        val file = File(path)
+        require(file.exists()) { "The GPX could not be found on disk." }
+
+        val absolutePath = file.absolutePath
+        val profile = getOrBuildProfile(path = absolutePath, file = file, sig = sigOf(file))
+        require(profile.points.size >= 2) {
+            "The GPX does not contain enough points for guidance."
+        }
+        val displayTitle =
+            _gpxFiles.value.firstOrNull { it.path == absolutePath }?.displayTitle
+                ?: readBestGpxTitle(file)
+                ?: file.nameWithoutExtension
+        val guidanceSource = settingsRepository.turnByTurnGuidanceSource.first()
+        val basePoints =
+            if (reversed) {
+                profile.points.asReversed()
+            } else {
+                profile.points
+            }
+        val brouterEnhanced =
+            guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED ||
+                (
+                    guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_AUTO &&
+                        looksLikeBrouterRoute(displayTitle, file.name)
+                )
+        var warningMessage: String? = null
+        val guidancePoints =
+            if (brouterEnhanced) {
+                runCatching {
+                    buildBrouterEnhancedGuidancePoints(basePoints)
+                }.getOrElse {
+                    warningMessage = BROUTER_GUIDANCE_FALLBACK_MESSAGE
+                    basePoints
+                }
+            } else {
+                basePoints
+            }
+        val usedBrouterEnhanced = brouterEnhanced && warningMessage == null
+        val guidanceTuning =
+            if (usedBrouterEnhanced) {
+                BROUTER_GUIDANCE_TUNING
+            } else {
+                GpxGuidanceTuning()
+            }
+
+        return GpxGuidanceBuildResult(
+            session =
+                buildGpxGuidanceSession(
+                    trackId = absolutePath,
+                    trackTitle = if (reversed) "$displayTitle reverse" else displayTitle,
+                    trackPoints = guidancePoints,
+                    startReached = startReached,
+                    reversed = reversed,
+                    tuning = guidanceTuning,
+                ),
+            warningMessage = warningMessage,
+        )
+    }
+
+    private suspend fun persistTurnByTurnGuidance(
+        trackPath: String,
+        startReached: Boolean,
+        reversed: Boolean,
+    ) {
+        settingsRepository.setTurnByTurnActiveTrackPath(trackPath)
+        settingsRepository.setTurnByTurnStartReached(startReached)
+        settingsRepository.setTurnByTurnActiveTrackReversed(reversed)
+    }
+
+    private suspend fun clearTurnByTurnGuidance() {
+        _turnByTurnGuidanceSession.value = null
+        _turnByTurnGuidancePaused.value = false
+        settingsRepository.setTurnByTurnActiveTrackPath(null)
+        settingsRepository.setTurnByTurnStartReached(false)
+        settingsRepository.setTurnByTurnActiveTrackReversed(false)
+    }
+
     fun deleteGpxFile(path: String) {
         viewModelScope.launch {
             gpxRepository.deleteGpxFile(path)
             metaCache.remove(path)
             profileCache.remove(path)
             etaCache.remove(path)
+            if (_turnByTurnGuidanceSession.value?.trackId == path) stopTurnByTurnGuidance()
             if (aPos?.trackId == path) dismissInspection()
             if (_elevationProfileUiState.value?.trackPath == path) dismissElevationProfile()
             reloadFromDisk()
@@ -342,6 +687,7 @@ class GpxViewModel(
                 metaCache.clear()
                 profileCache.clear()
                 etaCache.clear()
+                if (_turnByTurnGuidanceSession.value?.trackId == filePath) stopTurnByTurnGuidance()
                 if (aPos?.trackId == filePath) dismissInspection()
                 if (_elevationProfileUiState.value?.trackPath == filePath) dismissElevationProfile()
                 reloadFromDisk()
@@ -885,6 +1231,124 @@ class GpxViewModel(
                 etaProjection = etaProjection,
             )
     }
+
+    private suspend fun buildBrouterEnhancedGuidancePoints(trackPoints: List<TrackPoint>): List<TrackPoint> {
+        require(trackPoints.size >= 2) { "The GPX does not contain enough points for BRouter guidance." }
+        val routed =
+            routePlanner.createRoute(
+                RoutePlannerRequest(
+                    origin = trackPoints.first().latLong,
+                    destination = trackPoints.last().latLong,
+                    viaPoints = sampledBrouterViaPoints(trackPoints),
+                ),
+            )
+        val routedPoints =
+            routed.points.map { point ->
+                TrackPoint(
+                    latLong = point.latLong,
+                    elevation = point.elevation,
+                )
+            }
+        require(routedPoints.size >= 2) { "BRouter did not return enough points for guidance." }
+        return routedPoints.withProjectedGuidanceHints(trackPoints)
+    }
+
+    private fun List<TrackPoint>.withProjectedGuidanceHints(sourcePoints: List<TrackPoint>): List<TrackPoint> {
+        val hints = sourcePoints.filter { it.guidanceHint != null }
+        if (isEmpty() || hints.isEmpty()) return this
+
+        val projected = toMutableList()
+        var searchStart = 0
+        hints.forEach { sourcePoint ->
+            val nearestIndex =
+                (searchStart..projected.lastIndex).minByOrNull { index ->
+                    haversineMeters(projected[index].latLong, sourcePoint.latLong)
+                } ?: return@forEach
+            projected[nearestIndex] = projected[nearestIndex].copy(guidanceHint = sourcePoint.guidanceHint)
+            searchStart = (nearestIndex + 1).coerceAtMost(projected.lastIndex)
+        }
+        return projected
+    }
+
+    private fun sampledBrouterViaPoints(trackPoints: List<TrackPoint>): List<LatLong> {
+        if (trackPoints.size <= 2) return emptyList()
+        val maxViaPoints = BROUTER_GUIDANCE_MAX_VIA_POINTS.coerceAtMost(trackPoints.size - 2)
+        if (maxViaPoints <= 0) return emptyList()
+        val result = mutableListOf<LatLong>()
+        var last: LatLong? = null
+        for (step in 1..maxViaPoints) {
+            val index = ((trackPoints.lastIndex * step).toDouble() / (maxViaPoints + 1)).toInt()
+                .coerceIn(1, trackPoints.lastIndex - 1)
+            val point = trackPoints[index].latLong
+            if (last == null || last.latitude != point.latitude || last.longitude != point.longitude) {
+                result += point
+                last = point
+            }
+        }
+        return result
+    }
+}
+
+private fun List<TrackPoint>.durationFromTimestampsSeconds(): Double? {
+    val first = firstNotNullOfOrNull { it.timeMillis } ?: return null
+    val last = lastMappedNotNull { it.timeMillis } ?: return null
+    return ((last - first).coerceAtLeast(0L) / 1000.0).takeIf { it > 0.0 }
+}
+
+private inline fun <T, R : Any> List<T>.lastMappedNotNull(transform: (T) -> R?): R? {
+    for (index in lastIndex downTo 0) {
+        transform(this[index])?.let { return it }
+    }
+    return null
+}
+
+private fun List<TrackPoint>.lastSegmentSpeedMps(): Float? {
+    val last = lastOrNull() ?: return null
+    val previous = dropLast(1).lastOrNull() ?: return null
+    val lastTime = last.timeMillis ?: return null
+    val previousTime = previous.timeMillis ?: return null
+    val elapsedSeconds = ((lastTime - previousTime).coerceAtLeast(0L) / 1000.0).takeIf { it > 0.0 } ?: return null
+    val distanceMeters = haversineMeters(previous.latLong, last.latLong)
+    return (distanceMeters / elapsedSeconds).toFloat().takeIf { it.isFinite() && it >= 0f }
+}
+
+private fun List<TrackPoint>.toRecordedTracePoints(): List<RecordedTracePoint> =
+    mapNotNull { point ->
+        val timeMillis = point.timeMillis ?: return@mapNotNull null
+        RecordedTracePoint(
+            latLong = point.latLong,
+            elevationMeters = point.elevation,
+            timeMillis = timeMillis,
+            accuracyMeters = point.accuracyMeters,
+            speedMps = point.speedMps,
+            heartRateBpm = point.heartRateBpm,
+            stepCount = point.stepCount,
+            cadenceSpm = point.cadenceSpm,
+            barometricPressureHpa = point.barometricPressureHpa,
+        )
+    }
+
+private val BROUTER_GUIDANCE_TUNING =
+    GpxGuidanceTuning(
+        offRouteDistanceMeters = 45.0,
+        instructionLookAheadMeters = 24.0,
+        instructionLookBehindMeters = 24.0,
+        minInstructionSpacingMeters = 55.0,
+        minInstructionAngleDegrees = 32.0,
+    )
+
+private const val BROUTER_GUIDANCE_MAX_VIA_POINTS = 8
+private const val BROUTER_GUIDANCE_FALLBACK_MESSAGE =
+    "BRouter routing tiles are not available for this GPX. Guidance started on the GPX route instead."
+
+private fun looksLikeBrouterRoute(
+    title: String,
+    fileName: String,
+): Boolean {
+    val haystack = "$title $fileName"
+    return haystack.contains("brouter", ignoreCase = true) ||
+        haystack.contains("route-", ignoreCase = true) ||
+        haystack.contains("loop", ignoreCase = true)
 }
 
 private fun batchSendSummary(

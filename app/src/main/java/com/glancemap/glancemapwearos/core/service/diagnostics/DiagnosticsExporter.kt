@@ -38,6 +38,23 @@ data class DiagnosticsSettingsSnapshot(
     val gpsDebugTelemetry: Boolean,
     val gpsPassiveLocationExperiment: Boolean,
     val backButtonExitsNavigation: Boolean,
+    val recordingSampleIntervalSeconds: Int = 0,
+    val recordingElevationSource: String = "na",
+    val recordingShowSavedGpxOnMap: Boolean = true,
+    val recordingStartWithTurnByTurn: Boolean = false,
+    val userWeightKg: Float = 0f,
+    val backpackWeightKg: Float = 0f,
+    val turnByTurnGuidanceSource: String = "na",
+    val turnByTurnUseBrouterTiles: Boolean = false,
+    val turnByTurnHapticsEnabled: Boolean = true,
+    val turnByTurnTurnAlertsMode: String = "na",
+    val turnByTurnOffRouteAlertsEnabled: Boolean = true,
+    val turnByTurnOffRouteAlertThresholdMeters: Int = 0,
+    val turnByTurnOffRouteRepeatSeconds: Int = 0,
+    val turnByTurnGpsInAmbientMode: Boolean = false,
+    val turnByTurnBrouterGuideBackEnabled: Boolean = false,
+    val turnByTurnRouteStartBehavior: String = "na",
+    val turnByTurnReverseSuggestionMode: String = "na",
 )
 
 @Suppress("TooManyFunctions")
@@ -126,6 +143,93 @@ object DiagnosticsExporter {
         val screenOnFixGapSampleCount: Int = 0,
         val screenOnFixGapAvgMs: Long? = null,
         val screenOnFixGapMaxMs: Long = 0L,
+        val turnByTurnSampleCount: Int = 0,
+        val turnByTurnActiveSampleCount: Int = 0,
+        val turnByTurnPausedSampleCount: Int = 0,
+        val turnByTurnOffRouteSampleCount: Int = 0,
+        val turnByTurnGuideBackActiveSampleCount: Int = 0,
+        val turnByTurnGuideBackPromptSampleCount: Int = 0,
+        val turnByTurnStartHereDecisionCount: Int = 0,
+        val turnByTurnReverseDecisionCount: Int = 0,
+        val turnByTurnGeometryInstructionSampleCount: Int = 0,
+        val turnByTurnBrouterHintInstructionSampleCount: Int = 0,
+        val turnByTurnTurnHapticCount: Int = 0,
+        val turnByTurnOffRouteHapticCount: Int = 0,
+        val turnByTurnMaxDistanceToRouteMeters: Int? = null,
+        val recordingStartCount: Int = 0,
+        val recordingRecoveredCount: Int = 0,
+        val recordingPauseCount: Int = 0,
+        val recordingResumeCount: Int = 0,
+        val recordingPointSampleCount: Int = 0,
+        val recordingSaveStartCount: Int = 0,
+        val recordingSaveSuccessCount: Int = 0,
+        val recordingSaveFailureCount: Int = 0,
+        val recordingDiscardCount: Int = 0,
+        val recordingDraftFailureCount: Int = 0,
+        val recordingDraftClearFailureCount: Int = 0,
+        val recordingLastUiAction: String? = null,
+        val recordingLastEndReason: String? = null,
+        val recordingLastPointCount: Int? = null,
+        val recordingMaxPointCount: Int? = null,
+        val recordingLastDistanceMeters: Int? = null,
+        val recordingMaxDistanceMeters: Int? = null,
+        val recordingLastDurationMs: Long? = null,
+        val recordingMaxDurationMs: Long? = null,
+        val recordingLastPausedMs: Long? = null,
+        val recordingMaxPausedMs: Long? = null,
+        val recordingGpsActiveDurationMs: Long? = null,
+        val recordingGapCount: Int? = null,
+        val recordingGapEventCount: Int = 0,
+        val recordingMaxGapMs: Long? = null,
+        val recordingLastPointAgeMs: Long? = null,
+        val recordingSkippedIntervalCount: Int? = null,
+        val recordingSkippedPausedCount: Int? = null,
+        val recordingSkippedUnusableCount: Int? = null,
+        val recordingElevationSource: String? = null,
+        val recordingDemHitCount: Int? = null,
+        val recordingDemMissCount: Int? = null,
+        val recordingGpsElevationUsedCount: Int? = null,
+        val recordingAccuracySampleCount: Int? = null,
+        val recordingAccuracyAvgMeters: Int? = null,
+        val recordingAccuracyMinMeters: Int? = null,
+        val recordingAccuracyMaxMeters: Int? = null,
+        val recordingElevationGainMeters: Int? = null,
+        val recordingElevationLossMeters: Int? = null,
+        val recordingLiveHeartRateBpm: Int? = null,
+        val recordingLiveStepCount: Int? = null,
+        val recordingLiveCadenceSpm: Int? = null,
+        val recordingLivePressureHpa: Int? = null,
+        val recordingHeartRateAgeMs: Long? = null,
+        val recordingStepCountAgeMs: Long? = null,
+        val recordingCadenceAgeMs: Long? = null,
+        val recordingPressureAgeMs: Long? = null,
+        val recordingHeartRateSensorEventCount: Int? = null,
+        val recordingStepSensorEventCount: Int? = null,
+        val recordingCadenceSensorEventCount: Int? = null,
+        val recordingPressureSensorEventCount: Int? = null,
+        val recordingSensorRegisterCount: Int = 0,
+        val recordingSensorRegistered: String? = null,
+        val recordingSensorAvailable: String? = null,
+        val recordingBodySensorsGranted: Boolean? = null,
+        val recordingActivityRecognitionGranted: Boolean? = null,
+        val recordingCalorieModel: String? = null,
+        val recordingCaloriesGrossKcal: Int? = null,
+        val recordingCaloriesActiveKcal: Int? = null,
+        val recordingCaloriesRestingKcal: Int? = null,
+        val recordingPandolfBaseGrossKcal: Int? = null,
+        val recordingPandolfBaseActiveKcal: Int? = null,
+        val recordingPandolfBaseRestingKcal: Int? = null,
+        val recordingCalorieCompareModel: String? = null,
+        val recordingLcdaGrossKcal: Int? = null,
+        val recordingLcdaActiveKcal: Int? = null,
+        val recordingLcdaRestingKcal: Int? = null,
+        val recordingLastSavedByteSize: Int? = null,
+        val locationServiceStartFailureCount: Int = 0,
+        val locationServiceStartFallbackFailureCount: Int = 0,
+        val locationStartForegroundFailureCount: Int = 0,
+        val thermalStatusEventCount: Int = 0,
+        val thermalMaxStatus: Int? = null,
+        val thermalLastStatusLabel: String? = null,
     )
 
     internal data class CompassTelemetryInsights(
@@ -415,6 +519,26 @@ object DiagnosticsExporter {
             writer.appendLine("gpsDebugTelemetry=${settings.gpsDebugTelemetry}")
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
+            writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
+            writer.appendLine("recordingBackgroundGps=always_on_when_recording")
+            writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
+            writer.appendLine("recordingShowSavedGpxOnMap=${settings.recordingShowSavedGpxOnMap}")
+            writer.appendLine("recordingStartWithTurnByTurn=${settings.recordingStartWithTurnByTurn}")
+            writer.appendLine("userWeightKg=${settings.userWeightKg}")
+            writer.appendLine("backpackWeightKg=${settings.backpackWeightKg}")
+            writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
+            writer.appendLine("turnByTurnUseBrouterTiles=${settings.turnByTurnUseBrouterTiles}")
+            writer.appendLine("turnByTurnHapticsEnabled=${settings.turnByTurnHapticsEnabled}")
+            writer.appendLine("turnByTurnTurnAlertsMode=${settings.turnByTurnTurnAlertsMode}")
+            writer.appendLine("turnByTurnOffRouteAlertsEnabled=${settings.turnByTurnOffRouteAlertsEnabled}")
+            writer.appendLine(
+                "turnByTurnOffRouteAlertThresholdMeters=${settings.turnByTurnOffRouteAlertThresholdMeters}",
+            )
+            writer.appendLine("turnByTurnOffRouteRepeatSeconds=${settings.turnByTurnOffRouteRepeatSeconds}")
+            writer.appendLine("turnByTurnGpsInAmbientMode=${settings.turnByTurnGpsInAmbientMode}")
+            writer.appendLine("turnByTurnBrouterGuideBackEnabled=${settings.turnByTurnBrouterGuideBackEnabled}")
+            writer.appendLine("turnByTurnRouteStartBehavior=${settings.turnByTurnRouteStartBehavior}")
+            writer.appendLine("turnByTurnReverseSuggestionMode=${settings.turnByTurnReverseSuggestionMode}")
             writer.appendLine("continuousLocationGranularity=permission_level")
             writer.appendLine("currentLocationGranularity=permission_level")
             writer.appendLine("locationFinePermissionGranted=${locationPermission.hasFinePermission}")
@@ -723,6 +847,216 @@ object DiagnosticsExporter {
                     }
                 }",
             )
+            writer.appendLine()
+            writer.appendLine("Turn-by-Turn Guidance")
+            writer.appendLine("turnByTurnSampleCount=${telemetryInsights.turnByTurnSampleCount}")
+            writer.appendLine("turnByTurnActiveSampleCount=${telemetryInsights.turnByTurnActiveSampleCount}")
+            writer.appendLine("turnByTurnPausedSampleCount=${telemetryInsights.turnByTurnPausedSampleCount}")
+            writer.appendLine("turnByTurnOffRouteSampleCount=${telemetryInsights.turnByTurnOffRouteSampleCount}")
+            writer.appendLine(
+                "turnByTurnGuideBackActiveSampleCount=${telemetryInsights.turnByTurnGuideBackActiveSampleCount}",
+            )
+            writer.appendLine(
+                "turnByTurnGuideBackPromptSampleCount=${telemetryInsights.turnByTurnGuideBackPromptSampleCount}",
+            )
+            writer.appendLine(
+                "turnByTurnStartHereDecisionCount=${telemetryInsights.turnByTurnStartHereDecisionCount}",
+            )
+            writer.appendLine("turnByTurnReverseDecisionCount=${telemetryInsights.turnByTurnReverseDecisionCount}")
+            writer.appendLine(
+                "turnByTurnGeometryInstructionSampleCount=${
+                    telemetryInsights.turnByTurnGeometryInstructionSampleCount
+                }",
+            )
+            writer.appendLine(
+                "turnByTurnBrouterHintInstructionSampleCount=${
+                    telemetryInsights.turnByTurnBrouterHintInstructionSampleCount
+                }",
+            )
+            writer.appendLine("turnByTurnTurnHapticCount=${telemetryInsights.turnByTurnTurnHapticCount}")
+            writer.appendLine("turnByTurnOffRouteHapticCount=${telemetryInsights.turnByTurnOffRouteHapticCount}")
+            writer.appendLine(
+                "turnByTurnMaxDistanceToRouteMeters=${
+                    telemetryInsights.turnByTurnMaxDistanceToRouteMeters?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine()
+            writer.appendLine("Trace Recording")
+            writer.appendLine("navigationSessionMode=${recordingGuidanceSessionMode(telemetryInsights)}")
+            writer.appendLine("recordingStartCount=${telemetryInsights.recordingStartCount}")
+            writer.appendLine("recordingRecoveredCount=${telemetryInsights.recordingRecoveredCount}")
+            writer.appendLine("recordingPauseCount=${telemetryInsights.recordingPauseCount}")
+            writer.appendLine("recordingResumeCount=${telemetryInsights.recordingResumeCount}")
+            writer.appendLine("recordingPointSampleCount=${telemetryInsights.recordingPointSampleCount}")
+            writer.appendLine("recordingSaveStartCount=${telemetryInsights.recordingSaveStartCount}")
+            writer.appendLine("recordingSaveSuccessCount=${telemetryInsights.recordingSaveSuccessCount}")
+            writer.appendLine("recordingSaveFailureCount=${telemetryInsights.recordingSaveFailureCount}")
+            writer.appendLine("recordingDiscardCount=${telemetryInsights.recordingDiscardCount}")
+            writer.appendLine("recordingDraftFailureCount=${telemetryInsights.recordingDraftFailureCount}")
+            writer.appendLine("recordingDraftClearFailureCount=${telemetryInsights.recordingDraftClearFailureCount}")
+            writer.appendLine("recordingLastUiAction=${telemetryInsights.recordingLastUiAction ?: "na"}")
+            writer.appendLine("recordingLastEndReason=${telemetryInsights.recordingLastEndReason ?: "na"}")
+            writer.appendLine(
+                "recordingLastPointCount=${telemetryInsights.recordingLastPointCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingMaxPointCount=${telemetryInsights.recordingMaxPointCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLastDistanceMeters=${telemetryInsights.recordingLastDistanceMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingMaxDistanceMeters=${telemetryInsights.recordingMaxDistanceMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLastDurationMs=${telemetryInsights.recordingLastDurationMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingMaxDurationMs=${telemetryInsights.recordingMaxDurationMs?.toString() ?: "na"}",
+            )
+            writer.appendLine("recordingLastPausedMs=${telemetryInsights.recordingLastPausedMs?.toString() ?: "na"}")
+            writer.appendLine("recordingMaxPausedMs=${telemetryInsights.recordingMaxPausedMs?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingGpsActiveDurationMs=${
+                    telemetryInsights.recordingGpsActiveDurationMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine("recordingGapCount=${telemetryInsights.recordingGapCount?.toString() ?: "na"}")
+            writer.appendLine("recordingGapEventCount=${telemetryInsights.recordingGapEventCount}")
+            writer.appendLine("recordingMaxGapMs=${telemetryInsights.recordingMaxGapMs?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingLastPointAgeMs=${telemetryInsights.recordingLastPointAgeMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingSkippedIntervalCount=${
+                    telemetryInsights.recordingSkippedIntervalCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSkippedPausedCount=${telemetryInsights.recordingSkippedPausedCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingSkippedUnusableCount=${telemetryInsights.recordingSkippedUnusableCount?.toString() ?: "na"}",
+            )
+            writer.appendLine("recordingElevationSource=${telemetryInsights.recordingElevationSource ?: "na"}")
+            writer.appendLine("recordingDemHitCount=${telemetryInsights.recordingDemHitCount?.toString() ?: "na"}")
+            writer.appendLine("recordingDemMissCount=${telemetryInsights.recordingDemMissCount?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingGpsElevationUsedCount=${
+                    telemetryInsights.recordingGpsElevationUsedCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingAccuracySampleCount=${telemetryInsights.recordingAccuracySampleCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingAccuracyAvgMeters=${telemetryInsights.recordingAccuracyAvgMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingAccuracyMinMeters=${telemetryInsights.recordingAccuracyMinMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingAccuracyMaxMeters=${telemetryInsights.recordingAccuracyMaxMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingElevationGainMeters=${telemetryInsights.recordingElevationGainMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingElevationLossMeters=${telemetryInsights.recordingElevationLossMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLiveHeartRateBpm=${telemetryInsights.recordingLiveHeartRateBpm?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLiveStepCount=${telemetryInsights.recordingLiveStepCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLiveCadenceSpm=${telemetryInsights.recordingLiveCadenceSpm?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLivePressureHpa=${telemetryInsights.recordingLivePressureHpa?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingHeartRateAgeMs=${telemetryInsights.recordingHeartRateAgeMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingStepCountAgeMs=${telemetryInsights.recordingStepCountAgeMs?.toString() ?: "na"}",
+            )
+            writer.appendLine("recordingCadenceAgeMs=${telemetryInsights.recordingCadenceAgeMs?.toString() ?: "na"}")
+            writer.appendLine("recordingPressureAgeMs=${telemetryInsights.recordingPressureAgeMs?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingHeartRateSensorEventCount=${
+                    telemetryInsights.recordingHeartRateSensorEventCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingStepSensorEventCount=${
+                    telemetryInsights.recordingStepSensorEventCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingCadenceSensorEventCount=${
+                    telemetryInsights.recordingCadenceSensorEventCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingPressureSensorEventCount=${
+                    telemetryInsights.recordingPressureSensorEventCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine("recordingSensorRegisterCount=${telemetryInsights.recordingSensorRegisterCount}")
+            writer.appendLine("recordingSensorRegistered=${telemetryInsights.recordingSensorRegistered ?: "na"}")
+            writer.appendLine("recordingSensorAvailable=${telemetryInsights.recordingSensorAvailable ?: "na"}")
+            writer.appendLine(
+                "recordingBodySensorsGranted=${telemetryInsights.recordingBodySensorsGranted?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingActivityRecognitionGranted=${
+                    telemetryInsights.recordingActivityRecognitionGranted?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine("recordingCalorieModel=${telemetryInsights.recordingCalorieModel ?: "na"}")
+            writer.appendLine(
+                "recordingCaloriesGrossKcal=${telemetryInsights.recordingCaloriesGrossKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingCaloriesActiveKcal=${telemetryInsights.recordingCaloriesActiveKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingCaloriesRestingKcal=${telemetryInsights.recordingCaloriesRestingKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingPandolfBaseGrossKcal=${telemetryInsights.recordingPandolfBaseGrossKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingPandolfBaseActiveKcal=${telemetryInsights.recordingPandolfBaseActiveKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingPandolfBaseRestingKcal=${telemetryInsights.recordingPandolfBaseRestingKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine("recordingCalorieCompareModel=${telemetryInsights.recordingCalorieCompareModel ?: "na"}")
+            writer.appendLine("recordingLcdaGrossKcal=${telemetryInsights.recordingLcdaGrossKcal?.toString() ?: "na"}")
+            writer.appendLine("recordingLcdaActiveKcal=${telemetryInsights.recordingLcdaActiveKcal?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingLcdaRestingKcal=${telemetryInsights.recordingLcdaRestingKcal?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLastSavedByteSize=${telemetryInsights.recordingLastSavedByteSize?.toString() ?: "na"}",
+            )
+            writer.appendLine()
+            writer.appendLine("Runtime Reliability")
+            writer.appendLine("locationServiceStartFailureCount=${telemetryInsights.locationServiceStartFailureCount}")
+            writer.appendLine(
+                "locationServiceStartFallbackFailureCount=${
+                    telemetryInsights.locationServiceStartFallbackFailureCount
+                }",
+            )
+            writer.appendLine(
+                "locationStartForegroundFailureCount=${telemetryInsights.locationStartForegroundFailureCount}",
+            )
+            writer.appendLine("thermalStatusEventCount=${telemetryInsights.thermalStatusEventCount}")
+            writer.appendLine("thermalMaxStatus=${telemetryInsights.thermalMaxStatus?.toString() ?: "na"}")
+            writer.appendLine("thermalLastStatusLabel=${telemetryInsights.thermalLastStatusLabel ?: "na"}")
             writer.appendLine(
                 "batchAvgRawCandidates=${
                     formatAverage(
@@ -1202,6 +1536,21 @@ object DiagnosticsExporter {
             insights.passiveExternalRejectedSampleCount > 0 -> "samples_rejected"
             else -> "unknown"
         }
+
+    private fun recordingGuidanceSessionMode(insights: TelemetryInsights): String {
+        val recordingObserved =
+            insights.recordingStartCount > 0 ||
+                insights.recordingPointSampleCount > 0 ||
+                insights.recordingSaveStartCount > 0 ||
+                insights.recordingSaveSuccessCount > 0
+        val guidanceObserved = insights.turnByTurnActiveSampleCount > 0
+        return when {
+            recordingObserved && guidanceObserved -> "recordingAndGuidance"
+            recordingObserved -> "recordingOnly"
+            guidanceObserved -> "guidanceOnly"
+            else -> "none"
+        }
+    }
 
     private fun formatMarkerMotionBlockedReasons(reasonCounts: Map<String, Int>): String =
         if (reasonCounts.isEmpty()) {
