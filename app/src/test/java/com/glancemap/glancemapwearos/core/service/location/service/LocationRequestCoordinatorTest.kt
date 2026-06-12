@@ -103,12 +103,13 @@ class LocationRequestCoordinatorTest {
         }
 
     @Test
-    fun screenOffUsesPassiveRequestWhenBackgroundGpsIsEnabled() =
+    fun screenOffBackgroundGpsUsesActiveCadenceWhenBackgroundGpsIsEnabled() =
         runBlocking {
             val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
             telemetry.setDebugEnabled(false)
             val engine = LocationEngine(telemetry)
             val gateway = CapturingLocationGateway()
+            var requestedSourceMode: LocationSourceMode? = null
             val scope = CoroutineScope(coroutineContext + SupervisorJob())
             val coordinator =
                 LocationRequestCoordinator(
@@ -144,7 +145,10 @@ class LocationRequestCoordinatorTest {
                     strictSourceWarmupMs = 0L,
                     setSourceModeWarmup = { _, _ -> },
                     clearSourceModeWarmup = {},
-                    locationGatewayFor = { gateway },
+                    locationGatewayFor = { sourceMode ->
+                        requestedSourceMode = sourceMode
+                        gateway
+                    },
                     locationUpdateSink = { NoopLocationUpdateSink },
                     removeAllLocationUpdates = {},
                     removeInactiveLocationUpdates = {},
@@ -165,7 +169,8 @@ class LocationRequestCoordinatorTest {
                 }
             }
 
-            assertEquals(60_000L, gateway.lastRequest?.intervalMs)
+            assertEquals(3_000L, gateway.lastRequest?.intervalMs)
+            assertEquals(LocationSourceMode.AUTO_FUSED, requestedSourceMode)
             assertFalse(gateway.lastRequest?.waitForAccurateLocation == true)
         }
 

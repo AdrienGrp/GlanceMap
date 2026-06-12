@@ -60,6 +60,8 @@ data class RecordingDashboardSnapshot(
     val stepCount: Int? = null,
     val cadenceSpm: Int? = null,
     val barometricPressureHpa: Double? = null,
+    val lastLiveFixAgeMillis: Long? = null,
+    val lastRecordedPointAgeMillis: Long? = null,
 )
 
 internal val recordingMetricDefinitions =
@@ -119,6 +121,11 @@ internal fun buildRecordingDashboardSnapshot(
         (nowMillis - startedAt - state.accumulatedPausedMillis - currentPausedMillis).coerceAtLeast(0L)
     val activeDurationSeconds = activeDurationMillis / 1000.0
     val elevationTotals = elevationGainLossMeters(state.points)
+    val lastRecordedPoint = state.points.lastOrNull()
+    val livePoint =
+        state.latestLivePoint
+            ?.takeIf { livePoint -> livePoint.timeMillis.isFreshLivePointTime(nowMillis) }
+    val currentPoint = livePoint ?: lastRecordedPoint
     val calorieEstimate =
         estimateRecordingCalories(
             points = state.points,
@@ -130,15 +137,15 @@ internal fun buildRecordingDashboardSnapshot(
         distanceMeters = state.distanceMeters,
         elevationGainMeters = elevationTotals.first,
         elevationLossMeters = elevationTotals.second,
-        currentElevationMeters = state.points.lastOrNull()?.elevationMeters,
-        currentSpeedMps = state.points.lastOrNull()?.speedMps,
+        currentElevationMeters = currentPoint?.elevationMeters ?: lastRecordedPoint?.elevationMeters,
+        currentSpeedMps = currentPoint?.speedMps ?: lastRecordedPoint?.speedMps,
         averageSpeedMps =
             if (activeDurationSeconds > 0.0) {
                 state.distanceMeters / activeDurationSeconds
             } else {
                 null
             },
-        gpsAccuracyMeters = state.points.lastOrNull()?.accuracyMeters,
+        gpsAccuracyMeters = currentPoint?.accuracyMeters ?: lastRecordedPoint?.accuracyMeters,
         pointCount = state.points.size,
         gpsActiveDurationSeconds = state.gpsActiveDurationMillis / 1000.0,
         recordingGapCount = state.recordingGapCount,
@@ -150,6 +157,8 @@ internal fun buildRecordingDashboardSnapshot(
         stepCount = state.stepCount,
         cadenceSpm = state.cadenceSpm,
         barometricPressureHpa = state.barometricPressureHpa,
+        lastLiveFixAgeMillis = state.latestLivePoint?.timeMillis?.ageMillisAt(nowMillis),
+        lastRecordedPointAgeMillis = lastRecordedPoint?.timeMillis?.ageMillisAt(nowMillis),
     )
 }
 
@@ -313,12 +322,13 @@ internal fun estimateRecordingCalories(
     var pandolfBaseGrossKcal = 0.0
     var lcdaGrossKcal = 0.0
     var modeledDurationSeconds = 0.0
-    points.zipWithNext().forEach { (start, end) ->
+    val calorieElevations = smoothedCalorieElevations(points)
+    points.zipWithNext().forEachIndexed { index, (start, end) ->
         val segmentDurationSeconds =
             ((end.timeMillis - start.timeMillis) / 1000.0)
                 .takeIf { it.isFinite() && it > 0.0 }
                 ?.coerceAtMost(MAX_CALORIE_SEGMENT_DURATION_SECONDS)
-                ?: return@forEach
+                ?: return@forEachIndexed
         val distanceMeters = haversineMeters(start.latLong, end.latLong).coerceAtLeast(0.0)
         val speedMetersPerSecond =
             (distanceMeters / segmentDurationSeconds)
@@ -326,8 +336,8 @@ internal fun estimateRecordingCalories(
                 ?.coerceIn(0.0, MAX_PANDOLF_SPEED_MPS)
                 ?: 0.0
         val elevationDeltaMeters =
-            if (start.elevationMeters != null && end.elevationMeters != null) {
-                end.elevationMeters - start.elevationMeters
+            if (calorieElevations[index] != null && calorieElevations[index + 1] != null) {
+                calorieElevations[index + 1]!! - calorieElevations[index]!!
             } else {
                 0.0
             }
@@ -383,6 +393,28 @@ internal fun estimateRecordingCalories(
         lcdaActiveKcal = lcdaActiveKcal,
         lcdaRestingKcal = lcdaRestingKcal,
     )
+}
+
+private fun smoothedCalorieElevations(points: List<RecordedTracePoint>): List<Double?> {
+    if (points.size < 3) return points.map { it.elevationMeters?.takeIf { elevation -> elevation.isFinite() } }
+    val rawElevations = points.map { it.elevationMeters?.takeIf { elevation -> elevation.isFinite() } }
+    return rawElevations.mapIndexed { index, elevation ->
+        if (elevation == null) {
+            null
+        } else {
+            val window =
+                listOfNotNull(
+                    rawElevations.getOrNull(index - 1),
+                    elevation,
+                    rawElevations.getOrNull(index + 1),
+                ).sorted()
+            if (window.size >= MIN_ELEVATION_SMOOTHING_WINDOW_SIZE) {
+                window[window.size / 2]
+            } else {
+                elevation
+            }
+        }
+    }
 }
 
 private fun pandolfSanteeWatts(
@@ -526,6 +558,11 @@ private fun elevationGainLossMeters(points: List<RecordedTracePoint>): Pair<Doub
     return gain to loss
 }
 
+private fun Long.ageMillisAt(nowMillis: Long): Long = (nowMillis - this).coerceAtLeast(0L)
+
+private fun Long.isFreshLivePointTime(nowMillis: Long): Boolean =
+    this > 0L && ageMillisAt(nowMillis) <= LIVE_POINT_MAX_AGE_MS
+
 private const val METERS_TO_MILES = 0.000621371
 private const val METERS_PER_MILE = 1_609.344
 private const val JOULES_PER_KILOCALORIE = 4_184.0
@@ -553,5 +590,7 @@ private const val LCDA_BACKPACK_LOAD_EXPONENT = 1.36
 private const val LCDA_VEST_LOAD_COEFFICIENT = 1.38
 private const val LCDA_VEST_LOAD_EXPONENT = 1.21
 private const val MIN_DISTANCE_METERS_FOR_GRADE = 1.0
+private const val MIN_ELEVATION_SMOOTHING_WINDOW_SIZE = 3
 private const val MAX_CALORIE_SEGMENT_DURATION_SECONDS = 600.0
+private const val LIVE_POINT_MAX_AGE_MS = 15_000L
 private val RECORDING_DISTANCE_FORMAT = DecimalFormat("0.00")

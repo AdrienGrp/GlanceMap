@@ -173,6 +173,7 @@ internal fun deriveTelemetryInsights(
     var recordingMaxPausedMs: Long? = null
     var recordingGpsActiveDurationMs: Long? = null
     var recordingGapCount: Int? = null
+    var recordingGapEventCount = 0
     var recordingMaxGapMs: Long? = null
     var recordingLastPointAgeMs: Long? = null
     var recordingSkippedIntervalCount: Int? = null
@@ -188,6 +189,23 @@ internal fun deriveTelemetryInsights(
     var recordingAccuracyMaxMeters: Int? = null
     var recordingElevationGainMeters: Int? = null
     var recordingElevationLossMeters: Int? = null
+    var recordingLiveHeartRateBpm: Int? = null
+    var recordingLiveStepCount: Int? = null
+    var recordingLiveCadenceSpm: Int? = null
+    var recordingLivePressureHpa: Int? = null
+    var recordingHeartRateAgeMs: Long? = null
+    var recordingStepCountAgeMs: Long? = null
+    var recordingCadenceAgeMs: Long? = null
+    var recordingPressureAgeMs: Long? = null
+    var recordingHeartRateSensorEventCount: Int? = null
+    var recordingStepSensorEventCount: Int? = null
+    var recordingCadenceSensorEventCount: Int? = null
+    var recordingPressureSensorEventCount: Int? = null
+    var recordingSensorRegisterCount = 0
+    var recordingSensorRegistered: String? = null
+    var recordingSensorAvailable: String? = null
+    var recordingBodySensorsGranted: Boolean? = null
+    var recordingActivityRecognitionGranted: Boolean? = null
     var recordingCalorieModel: String? = null
     var recordingCaloriesGrossKcal: Int? = null
     var recordingCaloriesActiveKcal: Int? = null
@@ -386,6 +404,7 @@ internal fun deriveTelemetryInsights(
                 "pause" -> recordingPauseCount += 1
                 "resume" -> recordingResumeCount += 1
                 "point" -> recordingPointSampleCount += 1
+                "gap" -> recordingGapEventCount += 1
                 "save_start" -> recordingSaveStartCount += 1
                 "save_success" -> recordingSaveSuccessCount += 1
                 "save_failure" -> recordingSaveFailureCount += 1
@@ -460,6 +479,42 @@ internal fun deriveTelemetryInsights(
             }
             parseIntToken(line, "elevationGainMeters=")?.let { recordingElevationGainMeters = it }
             parseIntToken(line, "elevationLossMeters=")?.let { recordingElevationLossMeters = it }
+            parseIntToken(line, "liveHeartRateBpm=")?.takeIf { it >= 0 }?.let {
+                recordingLiveHeartRateBpm = it
+            }
+            parseIntToken(line, "liveStepCount=")?.takeIf { it >= 0 }?.let {
+                recordingLiveStepCount = it
+            }
+            parseIntToken(line, "liveCadenceSpm=")?.takeIf { it >= 0 }?.let {
+                recordingLiveCadenceSpm = it
+            }
+            parseIntToken(line, "livePressureHpa=")?.takeIf { it >= 0 }?.let {
+                recordingLivePressureHpa = it
+            }
+            parseLongToken(line, "heartRateAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingHeartRateAgeMs = it
+            }
+            parseLongToken(line, "stepCountAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingStepCountAgeMs = it
+            }
+            parseLongToken(line, "cadenceAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingCadenceAgeMs = it
+            }
+            parseLongToken(line, "pressureAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingPressureAgeMs = it
+            }
+            parseIntToken(line, "heartRateSensorEvents=")?.let {
+                recordingHeartRateSensorEventCount = maxOf(recordingHeartRateSensorEventCount ?: it, it)
+            }
+            parseIntToken(line, "stepSensorEvents=")?.let {
+                recordingStepSensorEventCount = maxOf(recordingStepSensorEventCount ?: it, it)
+            }
+            parseIntToken(line, "cadenceSensorEvents=")?.let {
+                recordingCadenceSensorEventCount = maxOf(recordingCadenceSensorEventCount ?: it, it)
+            }
+            parseIntToken(line, "pressureSensorEvents=")?.let {
+                recordingPressureSensorEventCount = maxOf(recordingPressureSensorEventCount ?: it, it)
+            }
             extractTokenValue(line, "calorieModel=")?.takeIf { it.isNotBlank() }?.let {
                 recordingCalorieModel = it
             }
@@ -477,6 +532,24 @@ internal fun deriveTelemetryInsights(
             parseIntToken(line, "lcdaRestingKcal=")?.let { recordingLcdaRestingKcal = it }
             parseIntToken(line, "byteSize=")?.takeIf { it >= 0 }?.let {
                 recordingLastSavedByteSize = it
+            }
+        }
+
+        if ("[TraceRecordingSensors]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "register" -> recordingSensorRegisterCount += 1
+            }
+            extractTokenValue(line, "registered=")?.takeIf { it.isNotBlank() }?.let {
+                recordingSensorRegistered = it
+            }
+            extractTokenValue(line, "available=")?.takeIf { it.isNotBlank() }?.let {
+                recordingSensorAvailable = it
+            }
+            parseBooleanToken(line, "bodySensorsGranted=")?.let {
+                recordingBodySensorsGranted = it
+            }
+            parseBooleanToken(line, "activityRecognitionGranted=")?.let {
+                recordingActivityRecognitionGranted = it
             }
         }
 
@@ -698,6 +771,7 @@ internal fun deriveTelemetryInsights(
         recordingMaxPausedMs = recordingMaxPausedMs,
         recordingGpsActiveDurationMs = recordingGpsActiveDurationMs,
         recordingGapCount = recordingGapCount,
+        recordingGapEventCount = recordingGapEventCount,
         recordingMaxGapMs = recordingMaxGapMs,
         recordingLastPointAgeMs = recordingLastPointAgeMs,
         recordingSkippedIntervalCount = recordingSkippedIntervalCount,
@@ -713,6 +787,23 @@ internal fun deriveTelemetryInsights(
         recordingAccuracyMaxMeters = recordingAccuracyMaxMeters,
         recordingElevationGainMeters = recordingElevationGainMeters,
         recordingElevationLossMeters = recordingElevationLossMeters,
+        recordingLiveHeartRateBpm = recordingLiveHeartRateBpm,
+        recordingLiveStepCount = recordingLiveStepCount,
+        recordingLiveCadenceSpm = recordingLiveCadenceSpm,
+        recordingLivePressureHpa = recordingLivePressureHpa,
+        recordingHeartRateAgeMs = recordingHeartRateAgeMs,
+        recordingStepCountAgeMs = recordingStepCountAgeMs,
+        recordingCadenceAgeMs = recordingCadenceAgeMs,
+        recordingPressureAgeMs = recordingPressureAgeMs,
+        recordingHeartRateSensorEventCount = recordingHeartRateSensorEventCount,
+        recordingStepSensorEventCount = recordingStepSensorEventCount,
+        recordingCadenceSensorEventCount = recordingCadenceSensorEventCount,
+        recordingPressureSensorEventCount = recordingPressureSensorEventCount,
+        recordingSensorRegisterCount = recordingSensorRegisterCount,
+        recordingSensorRegistered = recordingSensorRegistered,
+        recordingSensorAvailable = recordingSensorAvailable,
+        recordingBodySensorsGranted = recordingBodySensorsGranted,
+        recordingActivityRecognitionGranted = recordingActivityRecognitionGranted,
         recordingCalorieModel = recordingCalorieModel,
         recordingCaloriesGrossKcal = recordingCaloriesGrossKcal,
         recordingCaloriesActiveKcal = recordingCaloriesActiveKcal,

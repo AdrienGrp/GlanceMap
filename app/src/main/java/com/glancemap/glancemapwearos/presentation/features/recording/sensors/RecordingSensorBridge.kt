@@ -188,10 +188,16 @@ fun RecordingSensorBridge(
                 selectedMetricIds = sensorMetricIds,
                 context = context,
             )
+        val available = availableRecordingSensors(sensorManager)
+        val bodySensorsGranted = hasPermission(context, Manifest.permission.BODY_SENSORS)
+        val activityRecognitionGranted = hasActivityRecognitionPermission(context)
         DebugTelemetry.log(
             "TraceRecordingSensors",
             "event=register requested=${sensorMetricIds.joinToString("|")} " +
-                "registered=${registered.joinToString("|").ifBlank { "none" }}",
+                "registered=${registered.joinToString("|").ifBlank { "none" }} " +
+                "available=${available.joinToString("|").ifBlank { "none" }} " +
+                "bodySensorsGranted=$bodySensorsGranted " +
+                "activityRecognitionGranted=$activityRecognitionGranted",
         )
 
         onDispose {
@@ -200,6 +206,22 @@ fun RecordingSensorBridge(
         }
     }
 }
+
+private fun availableRecordingSensors(sensorManager: SensorManager): List<String> =
+    buildList {
+        if (sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE) != null) {
+            add("heart_rate")
+        }
+        if (sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) != null) {
+            add("step_counter")
+        }
+        if (sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR) != null) {
+            add("step_detector")
+        }
+        if (sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE) != null) {
+            add("pressure")
+        }
+    }
 
 fun recordingSensorMetricsSelected(metricIds: List<String>): Boolean =
     metricIds.any { it in recordingSensorMetricIds }

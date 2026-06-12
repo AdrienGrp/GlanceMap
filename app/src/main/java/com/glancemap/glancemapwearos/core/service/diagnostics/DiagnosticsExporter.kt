@@ -179,6 +179,7 @@ object DiagnosticsExporter {
         val recordingMaxPausedMs: Long? = null,
         val recordingGpsActiveDurationMs: Long? = null,
         val recordingGapCount: Int? = null,
+        val recordingGapEventCount: Int = 0,
         val recordingMaxGapMs: Long? = null,
         val recordingLastPointAgeMs: Long? = null,
         val recordingSkippedIntervalCount: Int? = null,
@@ -194,6 +195,23 @@ object DiagnosticsExporter {
         val recordingAccuracyMaxMeters: Int? = null,
         val recordingElevationGainMeters: Int? = null,
         val recordingElevationLossMeters: Int? = null,
+        val recordingLiveHeartRateBpm: Int? = null,
+        val recordingLiveStepCount: Int? = null,
+        val recordingLiveCadenceSpm: Int? = null,
+        val recordingLivePressureHpa: Int? = null,
+        val recordingHeartRateAgeMs: Long? = null,
+        val recordingStepCountAgeMs: Long? = null,
+        val recordingCadenceAgeMs: Long? = null,
+        val recordingPressureAgeMs: Long? = null,
+        val recordingHeartRateSensorEventCount: Int? = null,
+        val recordingStepSensorEventCount: Int? = null,
+        val recordingCadenceSensorEventCount: Int? = null,
+        val recordingPressureSensorEventCount: Int? = null,
+        val recordingSensorRegisterCount: Int = 0,
+        val recordingSensorRegistered: String? = null,
+        val recordingSensorAvailable: String? = null,
+        val recordingBodySensorsGranted: Boolean? = null,
+        val recordingActivityRecognitionGranted: Boolean? = null,
         val recordingCalorieModel: String? = null,
         val recordingCaloriesGrossKcal: Int? = null,
         val recordingCaloriesActiveKcal: Int? = null,
@@ -864,6 +882,7 @@ object DiagnosticsExporter {
             )
             writer.appendLine()
             writer.appendLine("Trace Recording")
+            writer.appendLine("navigationSessionMode=${recordingGuidanceSessionMode(telemetryInsights)}")
             writer.appendLine("recordingStartCount=${telemetryInsights.recordingStartCount}")
             writer.appendLine("recordingRecoveredCount=${telemetryInsights.recordingRecoveredCount}")
             writer.appendLine("recordingPauseCount=${telemetryInsights.recordingPauseCount}")
@@ -903,6 +922,7 @@ object DiagnosticsExporter {
                 }",
             )
             writer.appendLine("recordingGapCount=${telemetryInsights.recordingGapCount?.toString() ?: "na"}")
+            writer.appendLine("recordingGapEventCount=${telemetryInsights.recordingGapEventCount}")
             writer.appendLine("recordingMaxGapMs=${telemetryInsights.recordingMaxGapMs?.toString() ?: "na"}")
             writer.appendLine(
                 "recordingLastPointAgeMs=${telemetryInsights.recordingLastPointAgeMs?.toString() ?: "na"}",
@@ -943,6 +963,57 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "recordingElevationLossMeters=${telemetryInsights.recordingElevationLossMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLiveHeartRateBpm=${telemetryInsights.recordingLiveHeartRateBpm?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLiveStepCount=${telemetryInsights.recordingLiveStepCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLiveCadenceSpm=${telemetryInsights.recordingLiveCadenceSpm?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLivePressureHpa=${telemetryInsights.recordingLivePressureHpa?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingHeartRateAgeMs=${telemetryInsights.recordingHeartRateAgeMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingStepCountAgeMs=${telemetryInsights.recordingStepCountAgeMs?.toString() ?: "na"}",
+            )
+            writer.appendLine("recordingCadenceAgeMs=${telemetryInsights.recordingCadenceAgeMs?.toString() ?: "na"}")
+            writer.appendLine("recordingPressureAgeMs=${telemetryInsights.recordingPressureAgeMs?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingHeartRateSensorEventCount=${
+                    telemetryInsights.recordingHeartRateSensorEventCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingStepSensorEventCount=${
+                    telemetryInsights.recordingStepSensorEventCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingCadenceSensorEventCount=${
+                    telemetryInsights.recordingCadenceSensorEventCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingPressureSensorEventCount=${
+                    telemetryInsights.recordingPressureSensorEventCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine("recordingSensorRegisterCount=${telemetryInsights.recordingSensorRegisterCount}")
+            writer.appendLine("recordingSensorRegistered=${telemetryInsights.recordingSensorRegistered ?: "na"}")
+            writer.appendLine("recordingSensorAvailable=${telemetryInsights.recordingSensorAvailable ?: "na"}")
+            writer.appendLine(
+                "recordingBodySensorsGranted=${telemetryInsights.recordingBodySensorsGranted?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingActivityRecognitionGranted=${
+                    telemetryInsights.recordingActivityRecognitionGranted?.toString() ?: "na"
+                }",
             )
             writer.appendLine("recordingCalorieModel=${telemetryInsights.recordingCalorieModel ?: "na"}")
             writer.appendLine(
@@ -1465,6 +1536,21 @@ object DiagnosticsExporter {
             insights.passiveExternalRejectedSampleCount > 0 -> "samples_rejected"
             else -> "unknown"
         }
+
+    private fun recordingGuidanceSessionMode(insights: TelemetryInsights): String {
+        val recordingObserved =
+            insights.recordingStartCount > 0 ||
+                insights.recordingPointSampleCount > 0 ||
+                insights.recordingSaveStartCount > 0 ||
+                insights.recordingSaveSuccessCount > 0
+        val guidanceObserved = insights.turnByTurnActiveSampleCount > 0
+        return when {
+            recordingObserved && guidanceObserved -> "recordingAndGuidance"
+            recordingObserved -> "recordingOnly"
+            guidanceObserved -> "guidanceOnly"
+            else -> "none"
+        }
+    }
 
     private fun formatMarkerMotionBlockedReasons(reasonCounts: Map<String, Int>): String =
         if (reasonCounts.isEmpty()) {

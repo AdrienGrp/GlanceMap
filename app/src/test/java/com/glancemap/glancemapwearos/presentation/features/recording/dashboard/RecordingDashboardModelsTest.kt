@@ -196,6 +196,75 @@ class RecordingDashboardModelsTest {
     }
 
     @Test
+    fun buildRecordingDashboardSnapshotUsesFreshLivePointOnlyForCurrentMetrics() {
+        val snapshot =
+            buildRecordingDashboardSnapshot(
+                state =
+                    TraceRecordingUiState(
+                        active = true,
+                        startedAtMillis = 0L,
+                        points =
+                            listOf(
+                                recordingPoint(
+                                    longitude = 0.0,
+                                    elevationMeters = 100.0,
+                                    timeMillis = 0L,
+                                ),
+                            ),
+                        latestLivePoint =
+                            recordingPoint(
+                                longitude = 0.001,
+                                elevationMeters = 104.0,
+                                timeMillis = 9_000L,
+                                speedMps = 2.5f,
+                            ),
+                        distanceMeters = 0.0,
+                    ),
+                nowMillis = 10_000L,
+            )
+
+        assertEquals(0.0, snapshot.distanceMeters, 0.0)
+        assertEquals(1, snapshot.pointCount)
+        assertEquals(104.0, snapshot.currentElevationMeters!!, 0.0)
+        assertEquals(2.5f, snapshot.currentSpeedMps!!)
+        assertEquals(1_000L, snapshot.lastLiveFixAgeMillis)
+        assertEquals(10_000L, snapshot.lastRecordedPointAgeMillis)
+    }
+
+    @Test
+    fun buildRecordingDashboardSnapshotIgnoresStaleLivePoint() {
+        val snapshot =
+            buildRecordingDashboardSnapshot(
+                state =
+                    TraceRecordingUiState(
+                        active = true,
+                        startedAtMillis = 0L,
+                        points =
+                            listOf(
+                                recordingPoint(
+                                    longitude = 0.0,
+                                    elevationMeters = 100.0,
+                                    timeMillis = 0L,
+                                    speedMps = 1.0f,
+                                ),
+                            ),
+                        latestLivePoint =
+                            recordingPoint(
+                                longitude = 0.001,
+                                elevationMeters = 104.0,
+                                timeMillis = 1_000L,
+                                speedMps = 2.5f,
+                            ),
+                    ),
+                nowMillis = 20_000L,
+            )
+
+        assertEquals(100.0, snapshot.currentElevationMeters!!, 0.0)
+        assertEquals(1.0f, snapshot.currentSpeedMps!!)
+        assertEquals(19_000L, snapshot.lastLiveFixAgeMillis)
+    }
+
+    @Test
     fun formattedRecordingMetricEstimatesCaloriesFromWeightDistanceAndDuration() {
         val estimate =
             estimateRecordingCalories(
@@ -267,6 +336,35 @@ class RecordingDashboardModelsTest {
         assertEquals(0.0, downhill.pandolfBaseGrossKcal, 1.0)
     }
 
+    @Test
+    fun estimateRecordingCaloriesSmoothsIsolatedElevationSpike() {
+        val flat =
+            estimateRecordingCalories(
+                points = oneHourFlatWalkPoints(),
+                userWeightKg = 75f,
+                backpackWeightKg = 0f,
+            )
+        val spiked =
+            estimateRecordingCalories(
+                points =
+                    oneHourWalkPoints(
+                        startElevationMeters = 0.0,
+                        endElevationMeters = 0.0,
+                    ).mapIndexed { index, point ->
+                        if (index == ONE_HOUR_WALK_SEGMENT_COUNT / 2) {
+                            point.copy(elevationMeters = 300.0)
+                        } else {
+                            point
+                        }
+                    },
+                userWeightKg = 75f,
+                backpackWeightKg = 0f,
+            )
+
+        assertEquals(flat.grossKcal, spiked.grossKcal, 1.0)
+        assertEquals(flat.lcdaGrossKcal, spiked.lcdaGrossKcal, 1.0)
+    }
+
     private fun oneHourFlatWalkPoints(): List<RecordedTracePoint> =
         oneHourWalkPoints(startElevationMeters = 0.0, endElevationMeters = 0.0)
 
@@ -305,13 +403,14 @@ class RecordingDashboardModelsTest {
         longitude: Double,
         elevationMeters: Double,
         timeMillis: Long,
+        speedMps: Float? = null,
     ): RecordedTracePoint =
         RecordedTracePoint(
             latLong = LatLong(0.0, longitude),
             elevationMeters = elevationMeters,
             timeMillis = timeMillis,
             accuracyMeters = null,
-            speedMps = null,
+            speedMps = speedMps,
         )
 
     private companion object {

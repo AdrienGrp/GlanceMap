@@ -20,6 +20,7 @@ data class TraceRecordingUiState(
     val paused: Boolean = false,
     val saving: Boolean = false,
     val points: List<RecordedTracePoint> = emptyList(),
+    val latestLivePoint: RecordedTracePoint? = null,
     val distanceMeters: Double = 0.0,
     val startedAtMillis: Long? = null,
     val pausedAtMillis: Long? = null,
