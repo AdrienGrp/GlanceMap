@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +38,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
@@ -48,6 +48,7 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import java.text.DecimalFormat
@@ -233,11 +234,18 @@ private fun RotaryWeightPickerDialog(
     if (!visible) return
 
     val adaptive = rememberWearAdaptiveSpec()
+    val screenSize = rememberWearScreenSize()
     val focusRequester = remember { FocusRequester() }
     var localValueKg by remember(valueKg) {
         mutableFloatStateOf(valueKg.roundToTenth().coerceIn(minKg, maxKg))
     }
     var rotaryAccumulator by remember { mutableFloatStateOf(0f) }
+    val contentWidthFraction =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 0.70f
+            WearScreenSize.MEDIUM -> 0.72f
+            WearScreenSize.SMALL -> 0.76f
+        }
 
     fun applyDelta(deltaSteps: Int) {
         if (deltaSteps == 0) return
@@ -262,7 +270,7 @@ private fun RotaryWeightPickerDialog(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.86f))
+                    .background(Color.Black.copy(alpha = 0.96f))
                     .onPreRotaryScrollEvent { event ->
                         val delta = event.verticalScrollPixels
                         if (!delta.isFinite() || delta == 0f) return@onPreRotaryScrollEvent false
@@ -284,55 +292,58 @@ private fun RotaryWeightPickerDialog(
                     .focusable(),
             contentAlignment = Alignment.Center,
         ) {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            horizontal = adaptive.dialogHorizontalPadding + 6.dp,
-                            vertical = adaptive.dialogVerticalPadding + 10.dp,
-                        ),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f),
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = formatUserWeight(localValueKg, isMetric),
-                    style = MaterialTheme.typography.displayMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+            cappedFontScale(maxFontScale = 1f) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth(contentWidthFraction)
+                            .padding(
+                                horizontal = adaptive.dialogHorizontalPadding,
+                                vertical = adaptive.dialogVerticalPadding,
+                            ),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    WeightPickerButton(
-                        text = "-",
-                        onClick = { applyDelta(-1) },
-                        onLongClick = { applyDelta(-WEIGHT_PICKER_LONG_PRESS_STEP_COUNT) },
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.82f),
+                        textAlign = TextAlign.Center,
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = formatUserWeight(localValueKg, isMetric),
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(34.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        WeightPickerButton(
+                            text = "-",
+                            onClick = { applyDelta(-1) },
+                            onLongClick = { applyDelta(-WEIGHT_PICKER_LONG_PRESS_STEP_COUNT) },
+                        )
+                        WeightPickerButton(
+                            text = "+",
+                            onClick = { applyDelta(1) },
+                            onLongClick = { applyDelta(WEIGHT_PICKER_LONG_PRESS_STEP_COUNT) },
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
                     Button(
                         onClick = onDismiss,
                         modifier =
                             Modifier
                                 .height(48.dp)
-                                .width(92.dp),
+                                .width(108.dp),
                         colors = ButtonDefaults.buttonColors(),
                     ) {
                         Text("Done")
                     }
-                    WeightPickerButton(
-                        text = "+",
-                        onClick = { applyDelta(1) },
-                        onLongClick = { applyDelta(WEIGHT_PICKER_LONG_PRESS_STEP_COUNT) },
-                    )
                 }
             }
         }
@@ -373,5 +384,5 @@ private const val KG_TO_LB = 2.2046226218f
 private const val WEIGHT_PICKER_STEP_KG = 0.1f
 private const val WEIGHT_PICKER_LONG_PRESS_STEP_COUNT = 50
 private const val WEIGHT_PICKER_ROTARY_THRESHOLD_PX = 32f
-private val WEIGHT_PICKER_ACTION_BUTTON_SIZE = 56.dp
+private val WEIGHT_PICKER_ACTION_BUTTON_SIZE = 48.dp
 private val ONE_DECIMAL_FORMAT = DecimalFormat("0.0")
