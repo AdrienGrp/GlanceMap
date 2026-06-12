@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.material3.SwipeToDismissBox
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
@@ -113,36 +114,39 @@ internal fun BoxScope.RecordingDashboardOverlay(
                 .align(Alignment.Center)
                 .fillMaxSize(),
     ) {
-        ExpandedRecordingDashboard(
-            state = state,
-            slots =
-                slots
-                    .drop(dashboardPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
-                    .take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT),
-            pageIndex = dashboardPageIndex,
-            pageCount = pageCount,
-            snapshot = snapshot,
-            screenSize = screenSize,
-            isMetric = isMetric,
-            onSlotLongPress = { slotIndex ->
-                metricPickerSlot = dashboardPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
-            },
-            onCollapse = { expanded = false },
-            onPreviousPage = {
-                val nextPageIndex = (dashboardPageIndex - 1).floorMod(pageCount)
-                dashboardPageIndex = nextPageIndex
-                logRecordingDashboardPageChange(nextPageIndex, pageCount, "swipe_down")
-            },
-            onNextPage = {
-                val nextPageIndex = (dashboardPageIndex + 1).floorMod(pageCount)
-                dashboardPageIndex = nextPageIndex
-                logRecordingDashboardPageChange(nextPageIndex, pageCount, "swipe_up")
-            },
-            onShowActions = {
-                expanded = false
-                showCompactControls = true
-            },
-        )
+        SwipeToDismissBox(onDismissed = { expanded = false }) { isBackground ->
+            if (!isBackground) {
+                ExpandedRecordingDashboard(
+                    state = state,
+                    slots =
+                        slots
+                            .drop(dashboardPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
+                            .take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT),
+                    pageIndex = dashboardPageIndex,
+                    pageCount = pageCount,
+                    snapshot = snapshot,
+                    screenSize = screenSize,
+                    isMetric = isMetric,
+                    onSlotLongPress = { slotIndex ->
+                        metricPickerSlot = dashboardPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
+                    },
+                    onPreviousPage = {
+                        val nextPageIndex = (dashboardPageIndex - 1).floorMod(pageCount)
+                        dashboardPageIndex = nextPageIndex
+                        logRecordingDashboardPageChange(nextPageIndex, pageCount, "swipe_down")
+                    },
+                    onNextPage = {
+                        val nextPageIndex = (dashboardPageIndex + 1).floorMod(pageCount)
+                        dashboardPageIndex = nextPageIndex
+                        logRecordingDashboardPageChange(nextPageIndex, pageCount, "swipe_up")
+                    },
+                    onShowActions = {
+                        expanded = false
+                        showCompactControls = true
+                    },
+                )
+            }
+        }
     }
 
     if (!expanded) {

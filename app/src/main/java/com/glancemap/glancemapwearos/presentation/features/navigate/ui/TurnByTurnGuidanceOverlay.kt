@@ -10,7 +10,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -48,7 +47,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,13 +60,13 @@ import androidx.wear.compose.foundation.basicCurvedText
 import androidx.wear.compose.foundation.padding
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstructionCommand
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
-import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -148,15 +146,18 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
         exit = fadeOut(),
         modifier = Modifier.align(Alignment.Center),
     ) {
-        ExpandedGuidanceOverlay(
-            state = state,
-            screenSize = screenSize,
-            isMetric = isMetric,
-            compassHeadingDeg = compassHeadingDeg,
-            guideBackToRouteActive = guideBackToRouteActive,
-            onLongPress = { showActionPrompt = true },
-            onCollapse = { expanded = false },
-        )
+        SwipeToDismissBox(onDismissed = { expanded = false }) { isBackground ->
+            if (!isBackground) {
+                ExpandedGuidanceOverlay(
+                    state = state,
+                    screenSize = screenSize,
+                    isMetric = isMetric,
+                    compassHeadingDeg = compassHeadingDeg,
+                    guideBackToRouteActive = guideBackToRouteActive,
+                    onLongPress = { showActionPrompt = true },
+                )
+            }
+        }
     }
 
     if (!expanded) {
@@ -284,7 +285,6 @@ private fun ExpandedGuidanceOverlay(
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     onLongPress: () -> Unit,
-    onCollapse: () -> Unit,
 ) {
     val titleRadialPadding =
         when (screenSize) {
@@ -319,21 +319,7 @@ private fun ExpandedGuidanceOverlay(
                 .combinedClickable(
                     onClick = {},
                     onLongClick = onLongPress,
-                )
-                .pointerInput(state.mode, state.nextInstruction) {
-                    var totalDrag = 0f
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (abs(totalDrag) > POPUP_MINIMIZE_DRAG_THRESHOLD_PX) {
-                                onCollapse()
-                            }
-                            totalDrag = 0f
-                        },
-                        onDragCancel = { totalDrag = 0f },
-                    ) { _, dragAmount ->
-                        totalDrag += dragAmount
-                    }
-                },
+                ),
         contentAlignment = Alignment.Center,
     ) {
         RouteProgressRing(
@@ -806,5 +792,3 @@ private fun rotationForCommand(command: RouteInstructionCommand?): Float =
         RouteInstructionCommand.FINISH -> 0f
         RouteInstructionCommand.CONTINUE, null -> 0f
     }
-
-private const val POPUP_MINIMIZE_DRAG_THRESHOLD_PX = 24f

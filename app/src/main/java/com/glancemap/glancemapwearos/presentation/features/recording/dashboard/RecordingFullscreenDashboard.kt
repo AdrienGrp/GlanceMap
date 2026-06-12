@@ -6,7 +6,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,7 +42,6 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
-import kotlin.math.abs
 
 @Composable
 internal fun ExpandedRecordingDashboard(
@@ -54,7 +53,6 @@ internal fun ExpandedRecordingDashboard(
     screenSize: WearScreenSize,
     isMetric: Boolean,
     onSlotLongPress: (Int) -> Unit,
-    onCollapse: () -> Unit,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
@@ -96,27 +94,20 @@ internal fun ExpandedRecordingDashboard(
                     onLongClick = onShowActions,
                 )
                 .pointerInput(state.active, state.paused, pageIndex, pageCount) {
-                    var totalDragX = 0f
                     var totalDragY = 0f
-                    detectDragGestures(
+                    detectVerticalDragGestures(
                         onDragEnd = {
-                            val horizontalDominates = abs(totalDragX) > abs(totalDragY)
-                            val verticalDominates = abs(totalDragY) > abs(totalDragX)
                             when {
-                                horizontalDominates && abs(totalDragX) > POPUP_MINIMIZE_DRAG_THRESHOLD_PX -> onCollapse()
-                                verticalDominates && totalDragY < -POPUP_PAGE_DRAG_THRESHOLD_PX -> onNextPage()
-                                verticalDominates && totalDragY > POPUP_PAGE_DRAG_THRESHOLD_PX -> onPreviousPage()
+                                totalDragY < -POPUP_PAGE_DRAG_THRESHOLD_PX -> onNextPage()
+                                totalDragY > POPUP_PAGE_DRAG_THRESHOLD_PX -> onPreviousPage()
                             }
-                            totalDragX = 0f
                             totalDragY = 0f
                         },
                         onDragCancel = {
-                            totalDragX = 0f
                             totalDragY = 0f
                         },
                     ) { _, dragAmount ->
-                        totalDragX += dragAmount.x
-                        totalDragY += dragAmount.y
+                        totalDragY += dragAmount
                     }
                 }
                 .onPreRotaryScrollEvent { event ->

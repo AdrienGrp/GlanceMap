@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -70,6 +69,7 @@ import androidx.wear.compose.foundation.basicCurvedText
 import androidx.wear.compose.foundation.padding
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
@@ -91,7 +91,6 @@ import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -192,37 +191,40 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                 .align(Alignment.Center)
                 .fillMaxSize(),
     ) {
-        CombinedFullscreenDashboard(
-            guidanceState = guidanceState,
-            guidancePaused = guidancePaused,
-            recordingState = recordingState,
-            slots = visibleSlots,
-            pageIndex = pageIndex,
-            pageCount = pageCount,
-            recordingPageIndex = recordingPageIndex,
-            snapshot = snapshot,
-            screenSize = screenSize,
-            isMetric = isMetric,
-            compassHeadingDeg = compassHeadingDeg,
-            guideBackToRouteActive = guideBackToRouteActive,
-            onSlotLongPress = { slotIndex ->
-                if (pageIndex > 0) {
-                    metricPickerSlot = recordingPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
-                }
-            },
-            onCollapse = { expanded = false },
-            onPreviousPage = {
-                val nextPageIndex = (pageIndex - 1).floorMod(pageCount)
-                pageIndex = nextPageIndex
-                logRecordingDashboardPageChange(nextPageIndex, pageCount, "combined_swipe_down")
-            },
-            onNextPage = {
-                val nextPageIndex = (pageIndex + 1).floorMod(pageCount)
-                pageIndex = nextPageIndex
-                logRecordingDashboardPageChange(nextPageIndex, pageCount, "combined_swipe_up")
-            },
-            onShowActions = { showActions = true },
-        )
+        SwipeToDismissBox(onDismissed = { expanded = false }) { isBackground ->
+            if (!isBackground) {
+                CombinedFullscreenDashboard(
+                    guidanceState = guidanceState,
+                    guidancePaused = guidancePaused,
+                    recordingState = recordingState,
+                    slots = visibleSlots,
+                    pageIndex = pageIndex,
+                    pageCount = pageCount,
+                    recordingPageIndex = recordingPageIndex,
+                    snapshot = snapshot,
+                    screenSize = screenSize,
+                    isMetric = isMetric,
+                    compassHeadingDeg = compassHeadingDeg,
+                    guideBackToRouteActive = guideBackToRouteActive,
+                    onSlotLongPress = { slotIndex ->
+                        if (pageIndex > 0) {
+                            metricPickerSlot = recordingPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
+                        }
+                    },
+                    onPreviousPage = {
+                        val nextPageIndex = (pageIndex - 1).floorMod(pageCount)
+                        pageIndex = nextPageIndex
+                        logRecordingDashboardPageChange(nextPageIndex, pageCount, "combined_swipe_down")
+                    },
+                    onNextPage = {
+                        val nextPageIndex = (pageIndex + 1).floorMod(pageCount)
+                        pageIndex = nextPageIndex
+                        logRecordingDashboardPageChange(nextPageIndex, pageCount, "combined_swipe_up")
+                    },
+                    onShowActions = { showActions = true },
+                )
+            }
+        }
     }
 
     if (!expanded) {
@@ -415,7 +417,6 @@ private fun CombinedFullscreenDashboard(
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     onSlotLongPress: (Int) -> Unit,
-    onCollapse: () -> Unit,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
@@ -439,27 +440,20 @@ private fun CombinedFullscreenDashboard(
                     onLongClick = onShowActions,
                 )
                 .pointerInput(recordingState.active, recordingState.paused, pageIndex, pageCount) {
-                    var totalDragX = 0f
                     var totalDragY = 0f
-                    detectDragGestures(
+                    detectVerticalDragGestures(
                         onDragEnd = {
-                            val horizontalDominates = abs(totalDragX) > abs(totalDragY)
-                            val verticalDominates = abs(totalDragY) > abs(totalDragX)
                             when {
-                                horizontalDominates && abs(totalDragX) > COMBINED_POPUP_DRAG_THRESHOLD_PX -> onCollapse()
-                                verticalDominates && totalDragY < -COMBINED_POPUP_DRAG_THRESHOLD_PX -> onNextPage()
-                                verticalDominates && totalDragY > COMBINED_POPUP_DRAG_THRESHOLD_PX -> onPreviousPage()
+                                totalDragY < -COMBINED_POPUP_DRAG_THRESHOLD_PX -> onNextPage()
+                                totalDragY > COMBINED_POPUP_DRAG_THRESHOLD_PX -> onPreviousPage()
                             }
-                            totalDragX = 0f
                             totalDragY = 0f
                         },
                         onDragCancel = {
-                            totalDragX = 0f
                             totalDragY = 0f
                         },
                     ) { _, dragAmount ->
-                        totalDragX += dragAmount.x
-                        totalDragY += dragAmount.y
+                        totalDragY += dragAmount
                     }
                 }
                 .onPreRotaryScrollEvent { event ->
