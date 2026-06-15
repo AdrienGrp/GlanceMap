@@ -132,6 +132,8 @@ class LocationService : Service() {
 
     @Volatile private var latestRuntimeBackgroundGps: Boolean = false
 
+    @Volatile private var latestRuntimeReason: String = "idle"
+
     @Volatile private var latestScreenState: LocationScreenState = LocationScreenState.INTERACTIVE
 
     @Volatile private var latestGpsDebugTelemetry: Boolean = false
@@ -141,6 +143,9 @@ class LocationService : Service() {
     @Volatile private var latestPhoneConnected: Boolean? = null
 
     @Volatile private var latestUserIntervalMs: Long = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+
+    @Volatile private var latestRecordingIntervalMs: Long =
+        SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS * 1_000L
 
     @Volatile private var latestAmbientIntervalMs: Long = SettingsRepository.DEFAULT_AMBIENT_GPS_INTERVAL_MS
 
@@ -296,6 +301,12 @@ class LocationService : Service() {
                     immediateLocationCoordinator.cancelImmediateLocationWork(reason = reason)
                 },
                 currentState = {
+                    val effectiveUserIntervalMs =
+                        if (latestRuntimeReason == "recording") {
+                            minOf(latestUserIntervalMs, latestRecordingIntervalMs)
+                        } else {
+                            latestUserIntervalMs
+                        }
                     RequestUpdateState(
                         bound = isBound.value,
                         tracking = latestTrackingEnabled,
@@ -306,8 +317,9 @@ class LocationService : Service() {
                                 selfHealFailoverCoordinator.isAutoFusedFallbackToWatchGps(),
                         screenState = latestScreenState,
                         backgroundGps = effectiveBackgroundGpsEnabled(),
+                        runtimeReason = latestRuntimeReason,
                         passiveLocationExperiment = latestGpsDebugTelemetry && latestPassiveLocationExperiment,
-                        userIntervalMs = latestUserIntervalMs,
+                        userIntervalMs = effectiveUserIntervalMs,
                         ambientIntervalMs = latestAmbientIntervalMs,
                     )
                 },
@@ -384,6 +396,10 @@ class LocationService : Service() {
                 updateGnssDiagnostics(enabled = latestGpsDebugTelemetry)
             }
             runCatching { latestUserIntervalMs = settingsRepository.gpsInterval.first() }
+            runCatching {
+                latestRecordingIntervalMs =
+                    settingsRepository.recordingSampleIntervalSeconds.first().coerceAtLeast(1) * 1_000L
+            }
             requestLocationUpdateIfNeeded()
         }
 
@@ -398,7 +414,8 @@ class LocationService : Service() {
         val hasScreenState = intent?.hasExtra(EXTRA_SCREEN_STATE) == true
         val hasTrackingEnabled = intent?.hasExtra(EXTRA_TRACKING_ENABLED) == true
         val hasBackgroundGpsEnabled = intent?.hasExtra(EXTRA_BACKGROUND_GPS_ENABLED) == true
-        if (hasScreenState || hasTrackingEnabled || hasBackgroundGpsEnabled) {
+        val hasRuntimeReason = intent?.hasExtra(EXTRA_RUNTIME_REASON) == true
+        if (hasScreenState || hasTrackingEnabled || hasBackgroundGpsEnabled || hasRuntimeReason) {
             val screenStateName = intent.getStringExtra(EXTRA_SCREEN_STATE)
             val screenState =
                 runCatching {
@@ -417,6 +434,12 @@ class LocationService : Service() {
                         intent.getBooleanExtra(EXTRA_BACKGROUND_GPS_ENABLED, false)
                     } else {
                         latestRuntimeBackgroundGps
+                    },
+                runtimeReason =
+                    if (hasRuntimeReason) {
+                        intent.getStringExtra(EXTRA_RUNTIME_REASON).orEmpty()
+                    } else {
+                        latestRuntimeReason
                     },
             )
         }
@@ -494,15 +517,18 @@ class LocationService : Service() {
         screenState: LocationScreenState,
         trackingEnabled: Boolean,
         backgroundGpsEnabled: Boolean = latestRuntimeBackgroundGps,
+        runtimeReason: String = latestRuntimeReason,
     ) {
         val screenStateChanged = latestScreenState != screenState
         val trackingChanged = latestTrackingEnabled != trackingEnabled
         val backgroundGpsChanged = latestRuntimeBackgroundGps != backgroundGpsEnabled
-        if (!screenStateChanged && !trackingChanged && !backgroundGpsChanged) return
+        val reasonChanged = latestRuntimeReason != runtimeReason
+        if (!screenStateChanged && !trackingChanged && !backgroundGpsChanged && !reasonChanged) return
 
         latestScreenState = screenState
         latestTrackingEnabled = trackingEnabled
         latestRuntimeBackgroundGps = backgroundGpsEnabled
+        latestRuntimeReason = runtimeReason.ifBlank { "idle" }
         lastRuntimeStateChangedAtElapsedMs = SystemClock.elapsedRealtime()
         pendingDebouncedImmediateLocationJob?.cancel()
         pendingDebouncedImmediateLocationJob = null
@@ -514,6 +540,8 @@ class LocationService : Service() {
             screenStateChanged = screenStateChanged,
             trackingChanged = trackingChanged,
             backgroundGpsEnabled = effectiveBackgroundGpsEnabled,
+            runtimeReason = latestRuntimeReason,
+            runtimeReasonChanged = reasonChanged,
         )
         if (screenStateChanged) {
             telemetry.logScreenState(screenState.name)
@@ -712,10 +740,13 @@ class LocationService : Service() {
                     watchOnly = watchOnly,
                     intervalMs = interval,
                     ambientIntervalMs = ambientInterval,
+                    recordingIntervalMs = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS * 1_000L,
                     ambientGps = ambientGps,
                     debugTelemetry = debugTelemetry,
                     passiveLocationExperiment = false,
                 )
+            }.combine(settingsRepository.recordingSampleIntervalSeconds) { state, recordingSampleSeconds ->
+                state.copy(recordingIntervalMs = recordingSampleSeconds.coerceAtLeast(1) * 1_000L)
             }.combine(settingsRepository.gpsPassiveLocationExperiment) { state, passiveLocationExperiment ->
                 state.copy(passiveLocationExperiment = passiveLocationExperiment)
             }.collectLatest { state ->
@@ -733,6 +764,7 @@ class LocationService : Service() {
         val watchOnlyChanged = latestWatchGpsOnly != state.watchOnly
         latestWatchGpsOnly = state.watchOnly
         latestUserIntervalMs = state.intervalMs
+        latestRecordingIntervalMs = state.recordingIntervalMs
         latestAmbientIntervalMs = state.ambientIntervalMs
         latestAmbientGps = state.ambientGps
         latestGpsDebugTelemetry = debugTelemetryEnabledNow
@@ -1132,6 +1164,7 @@ class LocationService : Service() {
         const val EXTRA_TRACKING_ENABLED = "extra_tracking_enabled"
         const val EXTRA_SCREEN_STATE = "extra_screen_state"
         const val EXTRA_BACKGROUND_GPS_ENABLED = "extra_background_gps_enabled"
+        const val EXTRA_RUNTIME_REASON = "extra_runtime_reason"
         private const val IMMEDIATE_GET_CURRENT_TIMEOUT_MS = 12_000L
         private const val HARD_STALE_FIX_MAX_AGE_INTERACTIVE_MS = 20_000L
         private const val HARD_STALE_FIX_MAX_AGE_PASSIVE_MS = 60_000L

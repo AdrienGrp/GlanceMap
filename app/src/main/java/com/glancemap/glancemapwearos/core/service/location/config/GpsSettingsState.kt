@@ -4,6 +4,7 @@ internal data class GpsSettingsState(
     val watchOnly: Boolean,
     val intervalMs: Long,
     val ambientIntervalMs: Long,
+    val recordingIntervalMs: Long,
     val ambientGps: Boolean,
     val debugTelemetry: Boolean,
     val passiveLocationExperiment: Boolean,

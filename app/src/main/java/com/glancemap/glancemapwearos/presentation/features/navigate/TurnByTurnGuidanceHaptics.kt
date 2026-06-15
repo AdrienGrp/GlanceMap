@@ -86,7 +86,7 @@ internal fun TurnByTurnGuidanceHapticEffect(
     }
 }
 
-private fun shouldAlertForTurn(
+internal fun shouldAlertForTurn(
     mode: String,
     command: RouteInstructionCommand,
 ): Boolean =
@@ -108,7 +108,7 @@ private fun turnAlertEffect(command: RouteInstructionCommand): VibrationEffect =
         else -> VibrationEffect.createOneShot(65L, VibrationEffect.DEFAULT_AMPLITUDE)
     }
 
-private fun turnAlertDistanceMeters(speedMps: Float?): Double {
+internal fun turnAlertDistanceMeters(speedMps: Float?): Double {
     val speed = speedMps?.takeIf { it.isFinite() && it > 0f }?.toDouble() ?: return TURN_ALERT_DEFAULT_DISTANCE_METERS
     return (speed * TURN_ALERT_LOOKAHEAD_SECONDS)
         .coerceIn(TURN_ALERT_MIN_DISTANCE_METERS, TURN_ALERT_MAX_DISTANCE_METERS)

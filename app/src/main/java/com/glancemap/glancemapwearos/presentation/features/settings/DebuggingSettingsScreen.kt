@@ -93,8 +93,8 @@ fun DebuggingSettingsScreen(
     val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
     val gpsDebugTelemetryPopupEnabled by viewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
     val turnByTurnGuidanceSource by viewModel.turnByTurnGuidanceSource.collectAsState()
-    val turnByTurnUseBrouterTiles by viewModel.turnByTurnUseBrouterTiles.collectAsState()
     val turnByTurnHapticsEnabled by viewModel.turnByTurnHapticsEnabled.collectAsState()
+    val turnByTurnVoiceGuidanceEnabled by viewModel.turnByTurnVoiceGuidanceEnabled.collectAsState()
     val turnByTurnTurnAlertsMode by viewModel.turnByTurnTurnAlertsMode.collectAsState()
     val turnByTurnOffRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
     val turnByTurnOffRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
@@ -105,8 +105,17 @@ fun DebuggingSettingsScreen(
     val turnByTurnReverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
     val recordingSampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
     val recordingElevationSource by viewModel.recordingElevationSource.collectAsState()
+    val recordingHeartRateSource by viewModel.recordingHeartRateSource.collectAsState()
+    val recordingCadenceSource by viewModel.recordingCadenceSource.collectAsState()
+    val recordingSpeedSource by viewModel.recordingSpeedSource.collectAsState()
+    val recordingDistanceSource by viewModel.recordingDistanceSource.collectAsState()
+    val recordingStepsSource by viewModel.recordingStepsSource.collectAsState()
     val recordingShowSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
     val recordingStartWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
+    val recordingExternalHeartRateAddress by viewModel.recordingExternalHeartRateAddress.collectAsState()
+    val recordingExternalHeartRateName by viewModel.recordingExternalHeartRateName.collectAsState()
+    val recordingExternalRunPodAddress by viewModel.recordingExternalRunPodAddress.collectAsState()
+    val recordingExternalRunPodName by viewModel.recordingExternalRunPodName.collectAsState()
     val userWeightKg by viewModel.userWeightKg.collectAsState()
     val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
     var diagnosticsExportStatus by remember {
@@ -370,13 +379,28 @@ fun DebuggingSettingsScreen(
                                                 backButtonExitsNavigation = backButtonExitsNavigation,
                                                 recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
                                                 recordingElevationSource = recordingElevationSource,
+                                                recordingHeartRateSource = recordingHeartRateSource,
+                                                recordingCadenceSource = recordingCadenceSource,
+                                                recordingSpeedSource = recordingSpeedSource,
+                                                recordingDistanceSource = recordingDistanceSource,
+                                                recordingStepsSource = recordingStepsSource,
                                                 recordingShowSavedGpxOnMap = recordingShowSavedGpxOnMap,
                                                 recordingStartWithTurnByTurn = recordingStartWithTurnByTurn,
+                                                recordingExternalHeartRateLinked =
+                                                    !recordingExternalHeartRateAddress.isNullOrBlank(),
+                                                recordingExternalHeartRateName = recordingExternalHeartRateName,
+                                                recordingExternalHeartRateAddressSuffix =
+                                                    recordingExternalHeartRateAddress?.takeLast(5),
+                                                recordingExternalRunPodLinked =
+                                                    !recordingExternalRunPodAddress.isNullOrBlank(),
+                                                recordingExternalRunPodName = recordingExternalRunPodName,
+                                                recordingExternalRunPodAddressSuffix =
+                                                    recordingExternalRunPodAddress?.takeLast(5),
                                                 userWeightKg = userWeightKg,
                                                 backpackWeightKg = backpackWeightKg,
                                                 turnByTurnGuidanceSource = turnByTurnGuidanceSource,
-                                                turnByTurnUseBrouterTiles = turnByTurnUseBrouterTiles,
                                                 turnByTurnHapticsEnabled = turnByTurnHapticsEnabled,
+                                                turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
                                                 turnByTurnTurnAlertsMode = turnByTurnTurnAlertsMode,
                                                 turnByTurnOffRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
                                                 turnByTurnOffRouteAlertThresholdMeters =

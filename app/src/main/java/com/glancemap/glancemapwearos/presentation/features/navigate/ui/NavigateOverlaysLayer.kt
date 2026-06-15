@@ -181,6 +181,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
             0.dp
         }
     val suppressLiveMetricsForPoi = poiTapMessage != null
+    val suppressGuidanceForPanning = navMode == NavMode.PANNING
     val hasTurnByTurnDecisionPrompt = startDecisionPrompt != null || showGuideBackPrompt
     val combinedGuidanceRecordingActive =
         traceRecordingState.active &&
@@ -490,6 +491,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         startDecisionPrompt = startDecisionPrompt,
         suppressed =
             poiTapMessage != null ||
+                suppressGuidanceForPanning ||
                 recordingDashboardFullScreenExpanded ||
                 combinedGuidanceRecordingActive,
         onPause = onPauseTurnByTurnGuidance,
@@ -536,7 +538,10 @@ internal fun BoxScope.NavigateOverlaysLayer(
         guideBackToRouteActive = guideBackToRouteActive,
         expandRequestToken = recordingDashboardExpandRequestToken,
         actionPromptRequestToken = recordingActionPromptRequestToken,
-        suppressed = poiTapMessage != null || !combinedGuidanceRecordingActive,
+        suppressed =
+            poiTapMessage != null ||
+                suppressGuidanceForPanning ||
+                !combinedGuidanceRecordingActive,
         onPauseGuidance = onPauseTurnByTurnGuidance,
         onResumeGuidance = onResumeTurnByTurnGuidance,
         onStopGuidance = onStopTurnByTurnGuidance,

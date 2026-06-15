@@ -17,6 +17,7 @@ fun TurnByTurnSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val guidanceSource by viewModel.turnByTurnGuidanceSource.collectAsState()
     val hapticsEnabled by viewModel.turnByTurnHapticsEnabled.collectAsState()
+    val voiceGuidanceEnabled by viewModel.turnByTurnVoiceGuidanceEnabled.collectAsState()
     val turnAlertsMode by viewModel.turnByTurnTurnAlertsMode.collectAsState()
     val offRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
     val offRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
@@ -63,6 +64,14 @@ fun TurnByTurnSettingsScreen(
                 onCheckedChanged = viewModel::setTurnByTurnHapticsEnabled,
                 label = "Guidance haptics",
                 secondaryLabel = if (hapticsEnabled) "Vibrate for guidance cues" else "Silent guidance",
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = voiceGuidanceEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnVoiceGuidanceEnabled,
+                label = "Voice guidance",
+                secondaryLabel = if (voiceGuidanceEnabled) "Speak turn cues" else "Off by default",
             )
         }
         item {

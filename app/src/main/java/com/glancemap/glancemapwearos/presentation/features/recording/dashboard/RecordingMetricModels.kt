@@ -1,6 +1,12 @@
 package com.glancemap.glancemapwearos.presentation.features.recording.dashboard
 
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.presentation.features.gpx.FileSig
+import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
+import com.glancemap.glancemapwearos.presentation.features.gpx.buildProfile
+import com.glancemap.glancemapwearos.presentation.features.gpx.totalAscent
+import com.glancemap.glancemapwearos.presentation.features.gpx.totalDescent
+import com.glancemap.glancemapwearos.presentation.features.gpx.totalDistance
 import com.glancemap.glancemapwearos.presentation.features.recording.RecordedTracePoint
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
@@ -26,6 +32,7 @@ internal data class RecordingMetricValue(
     val label: String,
     val value: String,
     val unit: String? = null,
+    val bluetooth: Boolean = false,
 )
 
 data class RecordingCalorieEstimate(
@@ -47,7 +54,9 @@ data class RecordingDashboardSnapshot(
     val elevationLossMeters: Double,
     val currentElevationMeters: Double?,
     val currentSpeedMps: Float?,
+    val externalSpeedMps: Float? = null,
     val averageSpeedMps: Double?,
+    val externalDistanceMeters: Double? = null,
     val gpsAccuracyMeters: Float?,
     val pointCount: Int,
     val gpsActiveDurationSeconds: Double,
@@ -57,17 +66,25 @@ data class RecordingDashboardSnapshot(
     val backpackWeightKg: Float = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG,
     val calorieEstimate: RecordingCalorieEstimate = RecordingCalorieEstimate(),
     val heartRateBpm: Int? = null,
+    val heartRateFromBluetooth: Boolean = false,
+    val averageHeartRateBpm: Int? = null,
     val stepCount: Int? = null,
+    val stepCountFromBluetooth: Boolean = false,
     val cadenceSpm: Int? = null,
+    val cadenceFromBluetooth: Boolean = false,
     val barometricPressureHpa: Double? = null,
     val lastLiveFixAgeMillis: Long? = null,
     val lastRecordedPointAgeMillis: Long? = null,
+    val speedSource: String = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE,
+    val distanceSource: String = SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE,
+    val stepsSource: String = SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE,
+    val hasElevationData: Boolean = true,
 )
 
 internal val recordingMetricDefinitions =
     listOf(
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_DISTANCE, "Distance"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_DURATION, "Duration"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_DURATION, "Active time"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN, "Elev +"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS, "Elev -"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION, "Altitude"),
@@ -120,31 +137,46 @@ internal fun buildRecordingDashboardSnapshot(
     val activeDurationMillis =
         (nowMillis - startedAt - state.accumulatedPausedMillis - currentPausedMillis).coerceAtLeast(0L)
     val activeDurationSeconds = activeDurationMillis / 1000.0
-    val elevationTotals = elevationGainLossMeters(state.points)
+    val canonicalProfile = buildRecordingCanonicalProfile(state.points)
     val lastRecordedPoint = state.points.lastOrNull()
     val livePoint =
         state.latestLivePoint
             ?.takeIf { livePoint -> livePoint.timeMillis.isFreshLivePointTime(nowMillis) }
     val currentPoint = livePoint ?: lastRecordedPoint
+    val displayDistanceMeters =
+        when (state.distanceSource) {
+            SettingsRepository.RECORDING_SENSOR_SOURCE_POD ->
+                state.externalDistanceMeters ?: canonicalProfile?.totalDistance ?: state.distanceMeters
+            else -> canonicalProfile?.totalDistance ?: state.distanceMeters
+        }
+    val displayCurrentSpeedMps =
+        when (state.speedSource) {
+            SettingsRepository.RECORDING_SENSOR_SOURCE_POD -> state.externalSpeedMps
+            else -> currentPoint?.speedMps ?: lastRecordedPoint?.speedMps
+        }
     val calorieEstimate =
         estimateRecordingCalories(
             points = state.points,
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
         )
+    val hasElevationData = state.points.any { it.elevationMeters?.isFinite() == true }
     return RecordingDashboardSnapshot(
         durationSeconds = activeDurationSeconds,
-        distanceMeters = state.distanceMeters,
-        elevationGainMeters = elevationTotals.first,
-        elevationLossMeters = elevationTotals.second,
+        distanceMeters = displayDistanceMeters,
+        elevationGainMeters = canonicalProfile?.totalAscent ?: 0.0,
+        elevationLossMeters = canonicalProfile?.totalDescent ?: 0.0,
+        hasElevationData = hasElevationData,
         currentElevationMeters = currentPoint?.elevationMeters ?: lastRecordedPoint?.elevationMeters,
-        currentSpeedMps = currentPoint?.speedMps ?: lastRecordedPoint?.speedMps,
+        currentSpeedMps = displayCurrentSpeedMps,
+        externalSpeedMps = state.externalSpeedMps,
         averageSpeedMps =
             if (activeDurationSeconds > 0.0) {
-                state.distanceMeters / activeDurationSeconds
+                displayDistanceMeters / activeDurationSeconds
             } else {
                 null
             },
+        externalDistanceMeters = state.externalDistanceMeters,
         gpsAccuracyMeters = currentPoint?.accuracyMeters ?: lastRecordedPoint?.accuracyMeters,
         pointCount = state.points.size,
         gpsActiveDurationSeconds = state.gpsActiveDurationMillis / 1000.0,
@@ -154,11 +186,18 @@ internal fun buildRecordingDashboardSnapshot(
         backpackWeightKg = backpackWeightKg,
         calorieEstimate = calorieEstimate,
         heartRateBpm = state.heartRateBpm,
+        heartRateFromBluetooth = state.heartRateFromBluetooth,
+        averageHeartRateBpm = state.points.averageHeartRateBpm(),
         stepCount = state.stepCount,
+        stepCountFromBluetooth = state.stepCountFromBluetooth,
         cadenceSpm = state.cadenceSpm,
+        cadenceFromBluetooth = state.cadenceFromBluetooth,
         barometricPressureHpa = state.barometricPressureHpa,
         lastLiveFixAgeMillis = state.latestLivePoint?.timeMillis?.ageMillisAt(nowMillis),
         lastRecordedPointAgeMillis = lastRecordedPoint?.timeMillis?.ageMillisAt(nowMillis),
+        speedSource = state.speedSource,
+        distanceSource = state.distanceSource,
+        stepsSource = state.stepsSource,
     )
 }
 
@@ -171,15 +210,22 @@ internal fun formattedRecordingMetric(
     return when (definition.id) {
         SettingsRepository.RECORDING_METRIC_DISTANCE -> {
             val (value, unit) = formatRecordingDistance(snapshot.distanceMeters, isMetric)
-            RecordingMetricValue(definition.label, value, unit)
+            RecordingMetricValue(
+                label = definition.label,
+                value = value,
+                unit = unit,
+                bluetooth = snapshot.distanceFromBluetooth(),
+            )
         }
         SettingsRepository.RECORDING_METRIC_DURATION ->
             RecordingMetricValue(definition.label, formatRecordingDurationClock(snapshot.durationSeconds))
         SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN -> {
+            if (!snapshot.hasElevationData) return RecordingMetricValue(definition.label, "--")
             val (value, unit) = UnitFormatter.formatElevation(snapshot.elevationGainMeters, isMetric)
             RecordingMetricValue(definition.label, value, unit)
         }
         SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS -> {
+            if (!snapshot.hasElevationData) return RecordingMetricValue(definition.label, "--")
             val (value, unit) = UnitFormatter.formatElevation(snapshot.elevationLossMeters, isMetric)
             RecordingMetricValue(definition.label, value, unit)
         }
@@ -193,19 +239,54 @@ internal fun formattedRecordingMetric(
             }
         }
         SettingsRepository.RECORDING_METRIC_CURRENT_SPEED ->
-            speedMetricValue(definition.label, snapshot.currentSpeedMps?.toDouble(), isMetric)
+            speedMetricValue(
+                definition.label,
+                snapshot.currentSpeedMps?.toDouble(),
+                isMetric,
+                bluetooth = snapshot.speedFromBluetooth(),
+            )
         SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED ->
-            speedMetricValue(definition.label, snapshot.averageSpeedMps, isMetric)
+            speedMetricValue(
+                definition.label,
+                snapshot.averageSpeedMps,
+                isMetric,
+                bluetooth = snapshot.distanceFromBluetooth(),
+            )
         SettingsRepository.RECORDING_METRIC_CURRENT_PACE ->
-            paceMetricValue(definition.label, snapshot.currentSpeedMps?.toDouble(), isMetric)
+            paceMetricValue(
+                definition.label,
+                snapshot.currentSpeedMps?.toDouble(),
+                isMetric,
+                bluetooth = snapshot.speedFromBluetooth(),
+            )
         SettingsRepository.RECORDING_METRIC_AVERAGE_PACE ->
-            paceMetricValue(definition.label, snapshot.averageSpeedMps, isMetric)
+            paceMetricValue(
+                definition.label,
+                snapshot.averageSpeedMps,
+                isMetric,
+                bluetooth = snapshot.distanceFromBluetooth(),
+            )
         SettingsRepository.RECORDING_METRIC_HEART_RATE ->
-            sensorIntegerMetricValue(definition.label, snapshot.heartRateBpm, "bpm")
+            sensorIntegerMetricValue(
+                label = definition.label,
+                value = snapshot.heartRateBpm,
+                unit = "bpm",
+                bluetooth = snapshot.heartRateFromBluetooth,
+            )
         SettingsRepository.RECORDING_METRIC_STEPS ->
-            sensorIntegerMetricValue(definition.label, snapshot.stepCount, null)
+            sensorIntegerMetricValue(
+                definition.label,
+                snapshot.stepCount,
+                null,
+                bluetooth = snapshot.stepCountFromBluetooth,
+            )
         SettingsRepository.RECORDING_METRIC_CADENCE ->
-            sensorIntegerMetricValue(definition.label, snapshot.cadenceSpm, "spm")
+            sensorIntegerMetricValue(
+                definition.label,
+                snapshot.cadenceSpm,
+                "spm",
+                bluetooth = snapshot.cadenceFromBluetooth,
+            )
         SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE ->
             pressureMetricValue(definition.label, snapshot.barometricPressureHpa)
         SettingsRepository.RECORDING_METRIC_CALORIES ->
@@ -243,6 +324,7 @@ private fun speedMetricValue(
     label: String,
     speedMps: Double?,
     isMetric: Boolean,
+    bluetooth: Boolean = false,
 ): RecordingMetricValue {
     if (speedMps == null || !speedMps.isFinite() || speedMps <= 0.0) {
         return RecordingMetricValue(label, "--")
@@ -257,6 +339,7 @@ private fun speedMetricValue(
         label = label,
         value = (value * 10.0).roundToInt().let { (it / 10.0).toString() },
         unit = if (isMetric) "km/h" else "mph",
+        bluetooth = bluetooth,
     )
 }
 
@@ -264,11 +347,12 @@ private fun sensorIntegerMetricValue(
     label: String,
     value: Int?,
     unit: String?,
+    bluetooth: Boolean = false,
 ): RecordingMetricValue =
     if (value == null || value < 0) {
-        RecordingMetricValue(label, "--", unit)
+        RecordingMetricValue(label, "--", unit, bluetooth = false)
     } else {
-        RecordingMetricValue(label, value.toString(), unit)
+        RecordingMetricValue(label, value.toString(), unit, bluetooth = bluetooth)
     }
 
 private fun pressureMetricValue(
@@ -521,6 +605,7 @@ private fun paceMetricValue(
     label: String,
     speedMps: Double?,
     isMetric: Boolean,
+    bluetooth: Boolean = false,
 ): RecordingMetricValue {
     if (speedMps == null || !speedMps.isFinite() || speedMps <= 0.0) {
         return RecordingMetricValue(label, "--", if (isMetric) "min/km" else "min/mi")
@@ -538,24 +623,45 @@ private fun paceMetricValue(
         label = label,
         value = "$minutes:${seconds.twoDigits()}",
         unit = if (isMetric) "min/km" else "min/mi",
+        bluetooth = bluetooth,
     )
 }
 
-private fun elevationGainLossMeters(points: List<RecordedTracePoint>): Pair<Double, Double> {
-    var gain = 0.0
-    var loss = 0.0
-    var previous = points.firstOrNull()?.elevationMeters ?: return 0.0 to 0.0
-    points.drop(1).forEach { point ->
-        val elevation = point.elevationMeters ?: return@forEach
-        val delta = elevation - previous
-        if (delta > 0.0) {
-            gain += delta
-        } else {
-            loss += -delta
+private fun RecordingDashboardSnapshot.speedFromBluetooth(): Boolean =
+    speedSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD &&
+        externalSpeedMps != null
+
+private fun RecordingDashboardSnapshot.distanceFromBluetooth(): Boolean =
+    distanceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD &&
+        externalDistanceMeters != null
+
+private fun buildRecordingCanonicalProfile(points: List<RecordedTracePoint>) =
+    points
+        .map {
+            TrackPoint(
+                latLong = it.latLong,
+                elevation = it.elevationMeters,
+                hasTimestamp = true,
+                timeMillis = it.timeMillis,
+                accuracyMeters = it.accuracyMeters,
+                speedMps = it.speedMps,
+                heartRateBpm = it.heartRateBpm,
+                stepCount = it.stepCount,
+                cadenceSpm = it.cadenceSpm,
+                barometricPressureHpa = it.barometricPressureHpa,
+            )
+        }.takeIf { it.isNotEmpty() }
+        ?.let { trackPoints ->
+            buildProfile(
+                sig = FileSig(lastModified = 0L, length = trackPoints.size.toLong()),
+                pts = trackPoints,
+            )
         }
-        previous = elevation
-    }
-    return gain to loss
+
+private fun List<RecordedTracePoint>.averageHeartRateBpm(): Int? {
+    val values = mapNotNull { point -> point.heartRateBpm?.takeIf { it > 0 } }
+    if (values.isEmpty()) return null
+    return values.average().roundToInt()
 }
 
 private fun Long.ageMillisAt(nowMillis: Long): Long = (nowMillis - this).coerceAtLeast(0L)

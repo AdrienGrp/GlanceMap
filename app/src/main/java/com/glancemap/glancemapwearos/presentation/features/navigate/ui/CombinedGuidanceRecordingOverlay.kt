@@ -61,11 +61,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.wear.compose.foundation.AnchorType
-import androidx.wear.compose.foundation.CurvedLayout
-import androidx.wear.compose.foundation.CurvedModifier
-import androidx.wear.compose.foundation.CurvedTextStyle
-import androidx.wear.compose.foundation.basicCurvedText
 import androidx.wear.compose.foundation.padding
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
@@ -79,12 +74,13 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Tur
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardMetricTile
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingStopPromptCard
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.buildRecordingDashboardSnapshot
-import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.floorMod
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.formattedRecordingMetric
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.logRecordingDashboardPageChange
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.normalizedRecordingDashboardSlots
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingDashboardMetricTileHeight
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricDefinitions
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -124,9 +120,16 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     var expanded by remember { mutableStateOf(false) }
     var showActions by remember { mutableStateOf(false) }
     var showStopPrompt by remember { mutableStateOf(false) }
+    var stopPromptPausedRecording by remember { mutableStateOf(false) }
     var metricPickerSlot by remember { mutableIntStateOf(NO_SELECTED_SLOT) }
     var pageIndex by remember { mutableIntStateOf(0) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var lastHandledActionPromptRequestToken by remember {
+        mutableLongStateOf(actionPromptRequestToken)
+    }
+    var lastHandledExpandRequestToken by remember {
+        mutableLongStateOf(expandRequestToken)
+    }
 
     LaunchedEffect(recordingState.active, recordingState.paused, recordingState.saving) {
         while (isActive && (recordingState.active || recordingState.saving)) {
@@ -139,6 +142,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             expanded = false
             showActions = false
             showStopPrompt = false
+            stopPromptPausedRecording = false
             metricPickerSlot = NO_SELECTED_SLOT
             onExpandedChange(false)
         }
@@ -147,15 +151,32 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
         onExpandedChange(expanded)
     }
     LaunchedEffect(actionPromptRequestToken) {
-        if (actionPromptRequestToken != 0L && recordingState.active && !recordingState.saving) {
+        val shouldHandle =
+            actionPromptRequestToken != 0L &&
+                actionPromptRequestToken != lastHandledActionPromptRequestToken
+        lastHandledActionPromptRequestToken = actionPromptRequestToken
+        if (shouldHandle && recordingState.active && !recordingState.saving) {
             showActions = true
         }
     }
     LaunchedEffect(expandRequestToken) {
-        if (expandRequestToken != 0L && recordingState.active && !recordingState.saving) {
+        val shouldHandle =
+            expandRequestToken != 0L &&
+                expandRequestToken != lastHandledExpandRequestToken
+        lastHandledExpandRequestToken = expandRequestToken
+        if (shouldHandle && recordingState.active && !recordingState.saving) {
+            DebugTelemetry.log(
+                "TraceRecording",
+                "event=combined_expand_token handled=true suppressed=$suppressed active=${recordingState.active} saving=${recordingState.saving}",
+            )
             showActions = false
             showStopPrompt = false
             expanded = true
+        } else if (shouldHandle) {
+            DebugTelemetry.log(
+                "TraceRecording",
+                "event=combined_expand_token handled=false suppressed=$suppressed active=${recordingState.active} saving=${recordingState.saving}",
+            )
         }
     }
     DisposableEffect(Unit) {
@@ -212,14 +233,18 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                         }
                     },
                     onPreviousPage = {
-                        val nextPageIndex = (pageIndex - 1).floorMod(pageCount)
-                        pageIndex = nextPageIndex
-                        logRecordingDashboardPageChange(nextPageIndex, pageCount, "combined_swipe_down")
+                        val nextPageIndex = (pageIndex - 1).coerceAtLeast(0)
+                        if (nextPageIndex != pageIndex) {
+                            pageIndex = nextPageIndex
+                            logRecordingDashboardPageChange(nextPageIndex, pageCount, "combined_swipe_down")
+                        }
                     },
                     onNextPage = {
-                        val nextPageIndex = (pageIndex + 1).floorMod(pageCount)
-                        pageIndex = nextPageIndex
-                        logRecordingDashboardPageChange(nextPageIndex, pageCount, "combined_swipe_up")
+                        val nextPageIndex = (pageIndex + 1).coerceAtMost(pageCount - 1)
+                        if (nextPageIndex != pageIndex) {
+                            pageIndex = nextPageIndex
+                            logRecordingDashboardPageChange(nextPageIndex, pageCount, "combined_swipe_up")
+                        }
                     },
                     onShowActions = { showActions = true },
                 )
@@ -264,7 +289,13 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                 showActions = false
                 if (recordingState.paused) onResumeRecording() else onPauseRecording()
             },
-            onStopRecording = { showStopPrompt = true },
+            onStopRecording = {
+                stopPromptPausedRecording = recordingState.active && !recordingState.paused && !recordingState.saving
+                if (stopPromptPausedRecording) {
+                    onPauseRecording()
+                }
+                showStopPrompt = true
+            },
             onCancel = { showActions = false },
         )
     }
@@ -278,15 +309,23 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                 showStopPrompt = false
                 showActions = false
                 expanded = false
+                stopPromptPausedRecording = false
                 onDiscardRecording()
             },
             onSave = { title ->
                 showStopPrompt = false
                 showActions = false
                 expanded = false
+                stopPromptPausedRecording = false
                 onFinishRecording(title)
             },
-            onCancel = { showStopPrompt = false },
+            onCancel = {
+                showStopPrompt = false
+                if (stopPromptPausedRecording) {
+                    onResumeRecording()
+                }
+                stopPromptPausedRecording = false
+            },
         )
     }
 
@@ -481,13 +520,11 @@ private fun CombinedFullscreenDashboard(
             )
         } else {
             CombinedRecordingPage(
-                recordingState = recordingState,
                 slots = slots,
                 snapshot = snapshot,
                 screenSize = screenSize,
                 isMetric = isMetric,
                 onSlotLongPress = onSlotLongPress,
-                onShowActions = onShowActions,
             )
         }
         CombinedPageIndicator(
@@ -516,12 +553,6 @@ private fun CombinedGuidancePage(
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
 ) {
-    val titleRadialPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 16.dp
-            WearScreenSize.MEDIUM -> 15.dp
-            WearScreenSize.SMALL -> 14.dp
-        }
     val contentWidthFraction =
         when (screenSize) {
             WearScreenSize.LARGE -> 0.70f
@@ -545,26 +576,6 @@ private fun CombinedGuidancePage(
         progress = state.routeProgressFraction,
         modifier = Modifier.fillMaxSize(),
     )
-    if (!state.trackTitle.isNullOrBlank()) {
-        CurvedLayout(
-            modifier = Modifier.fillMaxSize(),
-            anchor = 270f,
-            anchorType = AnchorType.Center,
-        ) {
-            basicCurvedText(
-                text = state.trackTitle,
-                modifier = CurvedModifier.padding(titleRadialPadding),
-                overflow = TextOverflow.Ellipsis,
-                style = {
-                    CurvedTextStyle(
-                        color = Color.White.copy(alpha = 0.64f),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                },
-            )
-        }
-    }
     cappedFontScale(maxFontScale = 1f) {
         Column(
             modifier = Modifier.fillMaxWidth(contentWidthFraction),
@@ -632,29 +643,17 @@ private fun CombinedGuidancePage(
                     textAlign = TextAlign.Center,
                 )
             }
-            if (state.offRoute) {
-                Spacer(modifier = Modifier.size(6.dp))
-                Text(
-                    text = "Off route",
-                    color = Color(0xFFFFB74D),
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.sp,
-                    lineHeight = 12.sp,
-                )
-            }
         }
     }
 }
 
 @Composable
 private fun CombinedRecordingPage(
-    recordingState: TraceRecordingUiState,
     slots: List<String>,
     snapshot: RecordingDashboardSnapshot,
     screenSize: WearScreenSize,
     isMetric: Boolean,
     onSlotLongPress: (Int) -> Unit,
-    onShowActions: () -> Unit,
 ) {
     val tileSlots =
         List(RECORDING_DASHBOARD_PAGE_SLOT_COUNT) { index ->
@@ -666,17 +665,12 @@ private fun CombinedRecordingPage(
             WearScreenSize.MEDIUM -> 0.68f
             WearScreenSize.SMALL -> 0.64f
         }
-    val tileHeight =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 46.dp
-            WearScreenSize.MEDIUM -> 42.dp
-            WearScreenSize.SMALL -> 38.dp
-        }
+    val tileHeight = recordingDashboardMetricTileHeight(screenSize)
     val statusRowHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 28.dp
-            WearScreenSize.MEDIUM -> 26.dp
-            WearScreenSize.SMALL -> 24.dp
+            WearScreenSize.LARGE -> 18.dp
+            WearScreenSize.MEDIUM -> 16.dp
+            WearScreenSize.SMALL -> 14.dp
         }
 
     cappedFontScale(maxFontScale = 1f) {
@@ -685,21 +679,8 @@ private fun CombinedRecordingPage(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(statusRowHeight),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                RecordingStatusDot(
-                    paused = recordingState.paused,
-                    saving = recordingState.saving,
-                    modifier = Modifier,
-                    onClick = onShowActions,
-                )
-            }
-            RecordingMiniTile(
+            Box(modifier = Modifier.height(statusRowHeight))
+            RecordingDashboardMetricTile(
                 metric = formattedRecordingMetric(tileSlots[0], snapshot, isMetric),
                 height = tileHeight,
                 onLongPress = { onSlotLongPress(0) },
@@ -709,20 +690,20 @@ private fun CombinedRecordingPage(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                RecordingMiniTile(
+                RecordingDashboardMetricTile(
                     metric = formattedRecordingMetric(tileSlots[1], snapshot, isMetric),
                     height = tileHeight,
                     onLongPress = { onSlotLongPress(1) },
                     modifier = Modifier.weight(1f),
                 )
-                RecordingMiniTile(
+                RecordingDashboardMetricTile(
                     metric = formattedRecordingMetric(tileSlots[2], snapshot, isMetric),
                     height = tileHeight,
                     onLongPress = { onSlotLongPress(2) },
                     modifier = Modifier.weight(1f),
                 )
             }
-            RecordingMiniTile(
+            RecordingDashboardMetricTile(
                 metric = formattedRecordingMetric(tileSlots[3], snapshot, isMetric),
                 height = tileHeight,
                 onLongPress = { onSlotLongPress(3) },
@@ -769,54 +750,6 @@ private fun CombinedRouteProgressRing(
                 size = arcSize,
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
             )
-        }
-    }
-}
-
-@Composable
-private fun RecordingMiniTile(
-    metric: com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingMetricValue,
-    height: androidx.compose.ui.unit.Dp,
-    onLongPress: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier =
-            modifier
-                .height(height)
-                .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
-                .combinedClickable(onClick = {}, onLongClick = onLongPress)
-                .padding(horizontal = 6.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = metric.label,
-            color = Color.White.copy(alpha = 0.62f),
-            fontSize = 8.sp,
-            lineHeight = 8.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = metric.value,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                lineHeight = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            metric.unit?.let {
-                Text(
-                    text = it,
-                    color = Color.White.copy(alpha = 0.70f),
-                    fontSize = 8.sp,
-                    lineHeight = 9.sp,
-                    maxLines = 1,
-                )
-            }
         }
     }
 }
@@ -973,44 +906,6 @@ private fun CompactCancelButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun RecordingStatusDot(
-    paused: Boolean,
-    saving: Boolean,
-    modifier: Modifier,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier =
-            modifier
-                .size(48.dp)
-                .combinedClickable(onClick = onClick, onLongClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(20.dp)
-                    .background(Color.White.copy(alpha = 0.16f), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(12.dp)
-                        .background(
-                            when {
-                                saving -> Color(0xFFFFD54F)
-                                paused -> Color(0xFFFFB74D)
-                                else -> Color(0xFFFF1744)
-                            },
-                            CircleShape,
-                        ),
-            )
-        }
-    }
-}
-
-@Composable
 private fun CombinedGuidanceIcon(
     state: TurnByTurnGuidanceState,
     compassHeadingDeg: Float,
@@ -1024,7 +919,7 @@ private fun CombinedGuidanceIcon(
         tint = tint,
         modifier =
             modifier.rotate(
-                if (guideBackToRouteActive && state.bearingToRouteDegrees != null) {
+                if ((guideBackToRouteActive || state.offRoute) && state.bearingToRouteDegrees != null) {
                     state.bearingToRouteDegrees - compassHeadingDeg
                 } else {
                     when (state.mode) {
@@ -1092,6 +987,8 @@ private fun combinedGuidancePrimaryText(
 ): String =
     if (guideBackToRouteActive) {
         "To route"
+    } else if (state.offRoute) {
+        "Off route"
     } else {
         when (state.mode) {
             GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
@@ -1108,6 +1005,8 @@ private fun combinedGuidanceSecondaryText(
 ): String =
     if (guideBackToRouteActive) {
         state.distanceToRouteMeters?.let { formatLiveDistanceLabel(it, isMetric) } ?: "Find route"
+    } else if (state.offRoute) {
+        state.distanceToRouteMeters?.let { "${formatLiveDistanceLabel(it, isMetric)} from GPX" } ?: "Find route"
     } else {
         when (state.mode) {
             GuidanceMode.WAITING_FOR_LOCATION -> state.trackTitle ?: "GPX guidance"
@@ -1126,6 +1025,8 @@ private fun combinedGuidanceCompactText(
 ): String =
     if (guideBackToRouteActive) {
         state.distanceToRouteMeters?.let { "Route ${formatLiveDistanceLabel(it, isMetric)}" } ?: "To route"
+    } else if (state.offRoute) {
+        state.distanceToRouteMeters?.let { "Off ${formatLiveDistanceLabel(it, isMetric)}" } ?: "Off route"
     } else {
         when (state.mode) {
             GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
@@ -1161,7 +1062,8 @@ private fun handleCombinedRotaryPageEvent(
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
 ): Boolean {
-    if (pageCount <= 1 || !delta.isFinite() || delta == 0f) return false
+    if (!delta.isFinite() || delta == 0f) return false
+    if (pageCount <= 1) return true
     var nextAccumulator =
         if (accumulator != 0f && (accumulator > 0f) != (delta > 0f)) {
             0f

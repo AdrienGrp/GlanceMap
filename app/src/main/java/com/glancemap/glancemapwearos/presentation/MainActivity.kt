@@ -162,6 +162,13 @@ class MainActivity : ComponentActivity() {
             val offlineMode by appContainer.settingsViewModel.offlineMode.collectAsState(initial = false)
             val recordingDashboardMetricSlots by appContainer.settingsViewModel.recordingDashboardMetricSlots.collectAsState()
             val recordingStartWithTurnByTurn by appContainer.settingsViewModel.recordingStartWithTurnByTurn.collectAsState()
+            val recordingHeartRateSource by appContainer.settingsViewModel.recordingHeartRateSource.collectAsState()
+            val recordingCadenceSource by appContainer.settingsViewModel.recordingCadenceSource.collectAsState()
+            val recordingSpeedSource by appContainer.settingsViewModel.recordingSpeedSource.collectAsState()
+            val recordingDistanceSource by appContainer.settingsViewModel.recordingDistanceSource.collectAsState()
+            val recordingStepsSource by appContainer.settingsViewModel.recordingStepsSource.collectAsState()
+            val recordingExternalHeartRateAddress by appContainer.settingsViewModel.recordingExternalHeartRateAddress.collectAsState()
+            val recordingExternalRunPodAddress by appContainer.settingsViewModel.recordingExternalRunPodAddress.collectAsState()
 
             val isAmbient = _isAmbient
             val ambientTickMs = _ambientTickMs
@@ -184,6 +191,13 @@ class MainActivity : ComponentActivity() {
                     active = traceRecordingState.active,
                     paused = traceRecordingState.paused,
                     selectedMetricIds = recordingDashboardMetricSlots,
+                    heartRateSource = recordingHeartRateSource,
+                    cadenceSource = recordingCadenceSource,
+                    speedSource = recordingSpeedSource,
+                    distanceSource = recordingDistanceSource,
+                    stepsSource = recordingStepsSource,
+                    externalHeartRateAddress = recordingExternalHeartRateAddress,
+                    externalRunPodAddress = recordingExternalRunPodAddress,
                     onMetrics = appContainer.traceRecordingViewModel::onSensorMetrics,
                 )
                 val locationPermissionGranted =
@@ -239,6 +253,7 @@ class MainActivity : ComponentActivity() {
                         screenState = activityLocationScreenState,
                         trackingEnabled = runtimeDemand.trackingEnabled,
                         backgroundGpsEnabled = runtimeDemand.backgroundGpsEnabled,
+                        runtimeReason = runtimeDemand.reason,
                     )
                     DebugTelemetry.log(
                         "NavigationRuntime",
@@ -280,21 +295,31 @@ class MainActivity : ComponentActivity() {
                                         recordingChipActive -> Color(0xFFFF1744)
                                         else -> Color.White
                                     }
+                                val onRecordingTimeTap = {
+                                    DebugTelemetry.log(
+                                        "TraceRecording",
+                                        "event=time_chip_tap debugCapture=${DebugTelemetry.isEnabled()}",
+                                    )
+                                    recordingDashboardExpandRequestToken =
+                                        System.currentTimeMillis()
+                                }
+                                val onRecordingTimeLongPress = {
+                                    DebugTelemetry.log(
+                                        "TraceRecording",
+                                        "event=time_chip_long_press debugCapture=${DebugTelemetry.isEnabled()}",
+                                    )
+                                    recordingActionPromptRequestToken =
+                                        System.currentTimeMillis()
+                                }
                                 val statusChipModifier =
                                     Modifier
                                         .padding(top = if (recordingChipActive) 4.dp else 2.dp)
                                         .then(
-                                            if (recordingChipActive) {
+                                            if (recordingChipActive && !DebugTelemetry.isEnabled()) {
                                                 Modifier.pointerInput(traceRecordingState.active, traceRecordingState.saving) {
                                                     detectTapGestures(
-                                                        onTap = {
-                                                            recordingDashboardExpandRequestToken =
-                                                                System.currentTimeMillis()
-                                                        },
-                                                        onLongPress = {
-                                                            recordingActionPromptRequestToken =
-                                                                System.currentTimeMillis()
-                                                        },
+                                                        onTap = { onRecordingTimeTap() },
+                                                        onLongPress = { onRecordingTimeLongPress() },
                                                     )
                                                 }
                                             } else {
@@ -307,6 +332,8 @@ class MainActivity : ComponentActivity() {
                                         timeFormat = navigateTimeFormat,
                                         accentColor = recordingStatusColor,
                                         modifier = statusChipModifier,
+                                        onTap = onRecordingTimeTap,
+                                        onLongPress = onRecordingTimeLongPress,
                                     )
                                 } else {
                                     TimeText(
@@ -624,6 +651,7 @@ class MainActivity : ComponentActivity() {
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 RecordingExternalSensorsScreen(
+                                    viewModel = appContainer.settingsViewModel,
                                     onOpenRecordingSettings = {
                                         navController.navigate(WatchRoutes.RECORDING_SETTINGS) {
                                             popUpTo(WatchRoutes.RECORDING_SETTINGS) { inclusive = false }
@@ -949,6 +977,8 @@ private fun RecordingTimeChip(
     timeFormat: String,
     accentColor: Color,
     modifier: Modifier = Modifier,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
 ) {
     val context = LocalContext.current
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -964,45 +994,72 @@ private fun RecordingTimeChip(
         } else {
             ""
         }
+    val debugCaptureEnabled = DebugTelemetry.isEnabled()
+    val debugCaptureHitSlopModifier =
+        if (debugCaptureEnabled) {
+            Modifier.pointerInput(showTime, timeFormat, accentColor) {
+                detectTapGestures(
+                    onTap = { onTap() },
+                    onLongPress = { onLongPress() },
+                )
+            }
+        } else {
+            Modifier
+        }
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .then(if (debugCaptureEnabled) Modifier.height(48.dp) else Modifier)
+                .then(debugCaptureHitSlopModifier)
                 .then(modifier),
         contentAlignment = Alignment.TopCenter,
     ) {
         if (label.isBlank()) {
-            RecordingStatusDot(
-                color = accentColor,
+            Box(
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
-                        .padding(top = 12.dp),
-            )
+                        .then(if (debugCaptureEnabled) Modifier.size(48.dp) else Modifier),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                RecordingStatusDot(
+                    color = accentColor,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
         } else {
             Box(
                 modifier =
                     Modifier
+                        .then(if (debugCaptureEnabled) Modifier.height(48.dp) else Modifier)
+                        .padding(top = 0.dp),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Box(
+                    modifier =
+                        Modifier
                         .height(20.dp)
                         .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
                         .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
                         .padding(start = 7.dp, end = 8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    contentAlignment = Alignment.Center,
                 ) {
-                    RecordingStatusDot(accentColor)
-                    Text(
-                        text = label,
-                        modifier = Modifier.padding(start = 5.dp),
-                        style =
-                            MaterialTheme.typography.titleMedium.copy(
-                                fontSize = 15.sp,
-                            ),
-                        color = Color.White,
-                        maxLines = 1,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RecordingStatusDot(accentColor)
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(start = 5.dp),
+                            style =
+                                MaterialTheme.typography.titleMedium.copy(
+                                    fontSize = 15.sp,
+                                ),
+                            color = Color.White,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }

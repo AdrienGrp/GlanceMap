@@ -16,6 +16,17 @@ class FileTransferViewModelUriSupportTest {
     }
 
     @Test
+    fun `recognizes common gpx mime aliases`() {
+        assertTrue(isGpxMimeType("application/gpx+xml"))
+        assertTrue(isGpxMimeType("application/x-gpx+xml"))
+        assertTrue(isGpxMimeType("application/vnd.gpx+xml"))
+        assertTrue(isGpxMimeType("application/gpx"))
+        assertTrue(isGpxMimeType("application/x-gpx"))
+        assertFalse(isGpxMimeType("application/octet-stream"))
+        assertFalse(isGpxMimeType("application/xml"))
+    }
+
+    @Test
     fun `keeps normal gpx display name`() {
         assertEquals(
             "tour-du-lac.gpx",

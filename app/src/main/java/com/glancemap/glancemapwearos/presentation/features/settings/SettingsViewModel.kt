@@ -108,6 +108,71 @@ class SettingsViewModel(
             settingsRepository.setRecordingElevationSource(source)
         }
 
+    val recordingHeartRateSource: StateFlow<String> =
+        settingsRepository.recordingHeartRateSource
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_HEART_RATE_SOURCE,
+            )
+
+    fun setRecordingHeartRateSource(source: String) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingHeartRateSource(source)
+        }
+
+    val recordingCadenceSource: StateFlow<String> =
+        settingsRepository.recordingCadenceSource
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE,
+            )
+
+    fun setRecordingCadenceSource(source: String) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingCadenceSource(source)
+        }
+
+    val recordingSpeedSource: StateFlow<String> =
+        settingsRepository.recordingSpeedSource
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE,
+            )
+
+    fun setRecordingSpeedSource(source: String) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingSpeedSource(source)
+        }
+
+    val recordingDistanceSource: StateFlow<String> =
+        settingsRepository.recordingDistanceSource
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE,
+            )
+
+    fun setRecordingDistanceSource(source: String) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingDistanceSource(source)
+        }
+
+    val recordingStepsSource: StateFlow<String> =
+        settingsRepository.recordingStepsSource
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE,
+            )
+
+    fun setRecordingStepsSource(source: String) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingStepsSource(source)
+        }
+
     val recordingDashboardMetricSlots: StateFlow<List<String>> =
         settingsRepository.recordingDashboardMetricSlots
             .stateIn(
@@ -149,6 +214,36 @@ class SettingsViewModel(
             settingsRepository.setRecordingStartWithTurnByTurn(enabled)
         }
 
+    val recordingExternalHeartRateAddress: StateFlow<String?> =
+        settingsRepository.recordingExternalHeartRateAddress
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val recordingExternalHeartRateName: StateFlow<String?> =
+        settingsRepository.recordingExternalHeartRateName
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun setRecordingExternalHeartRateDevice(
+        address: String?,
+        name: String?,
+    ) = viewModelScope.launch {
+        settingsRepository.setRecordingExternalHeartRateDevice(address, name)
+    }
+
+    val recordingExternalRunPodAddress: StateFlow<String?> =
+        settingsRepository.recordingExternalRunPodAddress
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val recordingExternalRunPodName: StateFlow<String?> =
+        settingsRepository.recordingExternalRunPodName
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun setRecordingExternalRunPodDevice(
+        address: String?,
+        name: String?,
+    ) = viewModelScope.launch {
+        settingsRepository.setRecordingExternalRunPodDevice(address, name)
+    }
+
     val turnByTurnGuidanceSource: StateFlow<String> =
         settingsRepository.turnByTurnGuidanceSource
             .stateIn(
@@ -162,15 +257,6 @@ class SettingsViewModel(
             settingsRepository.setTurnByTurnGuidanceSource(source)
         }
 
-    val turnByTurnUseBrouterTiles: StateFlow<Boolean> =
-        settingsRepository.turnByTurnUseBrouterTiles
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
-    fun setTurnByTurnUseBrouterTiles(enabled: Boolean) =
-        viewModelScope.launch {
-            settingsRepository.setTurnByTurnUseBrouterTiles(enabled)
-        }
-
     val turnByTurnHapticsEnabled: StateFlow<Boolean> =
         settingsRepository.turnByTurnHapticsEnabled
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -178,6 +264,19 @@ class SettingsViewModel(
     fun setTurnByTurnHapticsEnabled(enabled: Boolean) =
         viewModelScope.launch {
             settingsRepository.setTurnByTurnHapticsEnabled(enabled)
+        }
+
+    val turnByTurnVoiceGuidanceEnabled: StateFlow<Boolean> =
+        settingsRepository.turnByTurnVoiceGuidanceEnabled
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED,
+            )
+
+    fun setTurnByTurnVoiceGuidanceEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnVoiceGuidanceEnabled(enabled)
         }
 
     val turnByTurnTurnAlertsMode: StateFlow<String> =
@@ -477,15 +576,6 @@ class SettingsViewModel(
     fun setNavigationMarkerAnchorMode(mode: String) =
         viewModelScope.launch {
             settingsRepository.setNavigationMarkerAnchorMode(mode)
-        }
-
-    val mapDoubleTapAction: StateFlow<String> =
-        settingsRepository.mapDoubleTapAction
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "zoom_in")
-
-    fun setMapDoubleTapAction(action: String) =
-        viewModelScope.launch {
-            settingsRepository.setMapDoubleTapAction(action)
         }
 
     val liveElevation: StateFlow<Boolean> =

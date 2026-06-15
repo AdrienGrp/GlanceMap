@@ -1,8 +1,11 @@
 package com.glancemap.glancemapwearos.core.service.diagnostics
 
+import android.Manifest
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.BuildConfig
 import com.glancemap.glancemapwearos.core.service.location.config.ENABLE_STRICT_FIX_FILTERING
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
@@ -40,13 +43,24 @@ data class DiagnosticsSettingsSnapshot(
     val backButtonExitsNavigation: Boolean,
     val recordingSampleIntervalSeconds: Int = 0,
     val recordingElevationSource: String = "na",
+    val recordingHeartRateSource: String = "na",
+    val recordingCadenceSource: String = "na",
+    val recordingSpeedSource: String = "na",
+    val recordingDistanceSource: String = "na",
+    val recordingStepsSource: String = "na",
     val recordingShowSavedGpxOnMap: Boolean = true,
     val recordingStartWithTurnByTurn: Boolean = false,
+    val recordingExternalHeartRateLinked: Boolean = false,
+    val recordingExternalHeartRateName: String? = null,
+    val recordingExternalHeartRateAddressSuffix: String? = null,
+    val recordingExternalRunPodLinked: Boolean = false,
+    val recordingExternalRunPodName: String? = null,
+    val recordingExternalRunPodAddressSuffix: String? = null,
     val userWeightKg: Float = 0f,
     val backpackWeightKg: Float = 0f,
     val turnByTurnGuidanceSource: String = "na",
-    val turnByTurnUseBrouterTiles: Boolean = false,
     val turnByTurnHapticsEnabled: Boolean = true,
+    val turnByTurnVoiceGuidanceEnabled: Boolean = false,
     val turnByTurnTurnAlertsMode: String = "na",
     val turnByTurnOffRouteAlertsEnabled: Boolean = true,
     val turnByTurnOffRouteAlertThresholdMeters: Int = 0,
@@ -178,10 +192,19 @@ object DiagnosticsExporter {
         val recordingLastPausedMs: Long? = null,
         val recordingMaxPausedMs: Long? = null,
         val recordingGpsActiveDurationMs: Long? = null,
+        val recordingExpectedPointCount: Int? = null,
+        val recordingAveragePointIntervalMs: Long? = null,
+        val recordingPointCaptureRatePercent: Int? = null,
         val recordingGapCount: Int? = null,
         val recordingGapEventCount: Int = 0,
         val recordingMaxGapMs: Long? = null,
         val recordingLastPointAgeMs: Long? = null,
+        val recordingForcedAcceptCount: Int? = null,
+        val recordingGapRecoveryAcceptCount: Int? = null,
+        val recordingLastSkippedIntervalElapsedMs: Long? = null,
+        val recordingMaxSkippedIntervalElapsedMs: Long? = null,
+        val recordingLastLiveProvider: String? = null,
+        val recordingLastLiveAccuracyMeters: Int? = null,
         val recordingSkippedIntervalCount: Int? = null,
         val recordingSkippedPausedCount: Int? = null,
         val recordingSkippedUnusableCount: Int? = null,
@@ -198,20 +221,65 @@ object DiagnosticsExporter {
         val recordingLiveHeartRateBpm: Int? = null,
         val recordingLiveStepCount: Int? = null,
         val recordingLiveCadenceSpm: Int? = null,
+        val recordingLiveExternalSpeedMps: String? = null,
+        val recordingLiveExternalRawDistanceUnits: Long? = null,
+        val recordingLiveExternalDistanceMeters: Int? = null,
+        val recordingLiveExternalSessionDistanceMeters: Int? = null,
+        val recordingLiveExternalIntegratedDistanceMeters: Int? = null,
         val recordingLivePressureHpa: Int? = null,
         val recordingHeartRateAgeMs: Long? = null,
         val recordingStepCountAgeMs: Long? = null,
         val recordingCadenceAgeMs: Long? = null,
+        val recordingExternalSpeedAgeMs: Long? = null,
+        val recordingExternalDistanceAgeMs: Long? = null,
         val recordingPressureAgeMs: Long? = null,
         val recordingHeartRateSensorEventCount: Int? = null,
         val recordingStepSensorEventCount: Int? = null,
         val recordingCadenceSensorEventCount: Int? = null,
         val recordingPressureSensorEventCount: Int? = null,
         val recordingSensorRegisterCount: Int = 0,
+        val recordingSensorRequested: String? = null,
         val recordingSensorRegistered: String? = null,
         val recordingSensorAvailable: String? = null,
         val recordingBodySensorsGranted: Boolean? = null,
         val recordingActivityRecognitionGranted: Boolean? = null,
+        val externalSensorScanStartCount: Int = 0,
+        val externalSensorScanStopCount: Int = 0,
+        val externalSensorScanFailedCount: Int = 0,
+        val externalSensorLastScanDeviceCount: Int? = null,
+        val externalHeartRateBridgeStartCount: Int = 0,
+        val externalHeartRateBridgeStopCount: Int = 0,
+        val externalHeartRateConnectRequestedCount: Int = 0,
+        val externalHeartRateConnectSkippedCount: Int = 0,
+        val externalHeartRateLastConnectSkippedReason: String? = null,
+        val externalHeartRateConnectedCount: Int = 0,
+        val externalHeartRateDisconnectedCount: Int = 0,
+        val externalHeartRateNotifyRequestedCount: Int = 0,
+        val externalHeartRateNotifyFailedCount: Int = 0,
+        val externalHeartRateServiceFailureCount: Int = 0,
+        val externalHeartRateMeasurementMissingCount: Int = 0,
+        val externalHeartRateSampleCount: Int = 0,
+        val externalHeartRateLastBpm: Int? = null,
+        val externalHeartRateMinBpm: Int? = null,
+        val externalHeartRateMaxBpm: Int? = null,
+        val externalHeartRateLastSampleAgeMs: Long? = null,
+        val externalRunPodBridgeStartCount: Int = 0,
+        val externalRunPodBridgeStopCount: Int = 0,
+        val externalRunPodConnectRequestedCount: Int = 0,
+        val externalRunPodConnectSkippedCount: Int = 0,
+        val externalRunPodLastConnectSkippedReason: String? = null,
+        val externalRunPodConnectedCount: Int = 0,
+        val externalRunPodDisconnectedCount: Int = 0,
+        val externalRunPodNotifyRequestedCount: Int = 0,
+        val externalRunPodNotifyFailedCount: Int = 0,
+        val externalRunPodServiceFailureCount: Int = 0,
+        val externalRunPodMeasurementMissingCount: Int = 0,
+        val externalRunPodSampleCount: Int = 0,
+        val externalRunPodLastCadenceSpm: Int? = null,
+        val externalRunPodLastSpeedMps: String? = null,
+        val externalRunPodLastRawDistanceUnits: Long? = null,
+        val externalRunPodLastDistanceMeters: Int? = null,
+        val externalRunPodLastSampleAgeMs: Long? = null,
         val recordingCalorieModel: String? = null,
         val recordingCaloriesGrossKcal: Int? = null,
         val recordingCaloriesActiveKcal: Int? = null,
@@ -522,13 +590,34 @@ object DiagnosticsExporter {
             writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
             writer.appendLine("recordingBackgroundGps=always_on_when_recording")
             writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
+            writer.appendLine("recordingHeartRateSource=${settings.recordingHeartRateSource}")
+            writer.appendLine("recordingCadenceSource=${settings.recordingCadenceSource}")
+            writer.appendLine("recordingSpeedSource=${settings.recordingSpeedSource}")
+            writer.appendLine("recordingDistanceSource=${settings.recordingDistanceSource}")
+            writer.appendLine("recordingStepsSource=${settings.recordingStepsSource}")
             writer.appendLine("recordingShowSavedGpxOnMap=${settings.recordingShowSavedGpxOnMap}")
             writer.appendLine("recordingStartWithTurnByTurn=${settings.recordingStartWithTurnByTurn}")
+            writer.appendLine("recordingExternalHeartRateLinked=${settings.recordingExternalHeartRateLinked}")
+            writer.appendLine("recordingExternalHeartRateName=${settings.recordingExternalHeartRateName ?: "na"}")
+            writer.appendLine(
+                "recordingExternalHeartRateAddressSuffix=${
+                    settings.recordingExternalHeartRateAddressSuffix ?: "na"
+                }",
+            )
+            writer.appendLine("recordingExternalRunPodLinked=${settings.recordingExternalRunPodLinked}")
+            writer.appendLine("recordingExternalRunPodName=${settings.recordingExternalRunPodName ?: "na"}")
+            writer.appendLine(
+                "recordingExternalRunPodAddressSuffix=${
+                    settings.recordingExternalRunPodAddressSuffix ?: "na"
+                }",
+            )
+            writer.appendLine("bluetoothScanPermissionGranted=${hasBluetoothScanPermission(context)}")
+            writer.appendLine("bluetoothConnectPermissionGranted=${hasBluetoothConnectPermission(context)}")
             writer.appendLine("userWeightKg=${settings.userWeightKg}")
             writer.appendLine("backpackWeightKg=${settings.backpackWeightKg}")
             writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
-            writer.appendLine("turnByTurnUseBrouterTiles=${settings.turnByTurnUseBrouterTiles}")
             writer.appendLine("turnByTurnHapticsEnabled=${settings.turnByTurnHapticsEnabled}")
+            writer.appendLine("turnByTurnVoiceGuidanceEnabled=${settings.turnByTurnVoiceGuidanceEnabled}")
             writer.appendLine("turnByTurnTurnAlertsMode=${settings.turnByTurnTurnAlertsMode}")
             writer.appendLine("turnByTurnOffRouteAlertsEnabled=${settings.turnByTurnOffRouteAlertsEnabled}")
             writer.appendLine(
@@ -921,11 +1010,50 @@ object DiagnosticsExporter {
                     telemetryInsights.recordingGpsActiveDurationMs?.toString() ?: "na"
                 }",
             )
+            writer.appendLine(
+                "recordingExpectedPointCount=${
+                    telemetryInsights.recordingExpectedPointCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingAveragePointIntervalMs=${
+                    telemetryInsights.recordingAveragePointIntervalMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingPointCaptureRatePercent=${
+                    telemetryInsights.recordingPointCaptureRatePercent?.toString() ?: "na"
+                }",
+            )
             writer.appendLine("recordingGapCount=${telemetryInsights.recordingGapCount?.toString() ?: "na"}")
             writer.appendLine("recordingGapEventCount=${telemetryInsights.recordingGapEventCount}")
             writer.appendLine("recordingMaxGapMs=${telemetryInsights.recordingMaxGapMs?.toString() ?: "na"}")
             writer.appendLine(
                 "recordingLastPointAgeMs=${telemetryInsights.recordingLastPointAgeMs?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingForcedAcceptCount=${telemetryInsights.recordingForcedAcceptCount?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingGapRecoveryAcceptCount=${
+                    telemetryInsights.recordingGapRecoveryAcceptCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingLastSkippedIntervalElapsedMs=${
+                    telemetryInsights.recordingLastSkippedIntervalElapsedMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingMaxSkippedIntervalElapsedMs=${
+                    telemetryInsights.recordingMaxSkippedIntervalElapsedMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine("recordingLastLiveProvider=${telemetryInsights.recordingLastLiveProvider ?: "na"}")
+            writer.appendLine(
+                "recordingLastLiveAccuracyMeters=${
+                    telemetryInsights.recordingLastLiveAccuracyMeters?.toString() ?: "na"
+                }",
             )
             writer.appendLine(
                 "recordingSkippedIntervalCount=${
@@ -974,6 +1102,29 @@ object DiagnosticsExporter {
                 "recordingLiveCadenceSpm=${telemetryInsights.recordingLiveCadenceSpm?.toString() ?: "na"}",
             )
             writer.appendLine(
+                "recordingLiveExternalSpeedMps=${telemetryInsights.recordingLiveExternalSpeedMps ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingLiveExternalRawDistanceUnits=${
+                    telemetryInsights.recordingLiveExternalRawDistanceUnits?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingLiveExternalDistanceMeters=${
+                    telemetryInsights.recordingLiveExternalDistanceMeters?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingLiveExternalSessionDistanceMeters=${
+                    telemetryInsights.recordingLiveExternalSessionDistanceMeters?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingLiveExternalIntegratedDistanceMeters=${
+                    telemetryInsights.recordingLiveExternalIntegratedDistanceMeters?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
                 "recordingLivePressureHpa=${telemetryInsights.recordingLivePressureHpa?.toString() ?: "na"}",
             )
             writer.appendLine(
@@ -983,6 +1134,16 @@ object DiagnosticsExporter {
                 "recordingStepCountAgeMs=${telemetryInsights.recordingStepCountAgeMs?.toString() ?: "na"}",
             )
             writer.appendLine("recordingCadenceAgeMs=${telemetryInsights.recordingCadenceAgeMs?.toString() ?: "na"}")
+            writer.appendLine(
+                "recordingExternalSpeedAgeMs=${
+                    telemetryInsights.recordingExternalSpeedAgeMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingExternalDistanceAgeMs=${
+                    telemetryInsights.recordingExternalDistanceAgeMs?.toString() ?: "na"
+                }",
+            )
             writer.appendLine("recordingPressureAgeMs=${telemetryInsights.recordingPressureAgeMs?.toString() ?: "na"}")
             writer.appendLine(
                 "recordingHeartRateSensorEventCount=${
@@ -1005,6 +1166,7 @@ object DiagnosticsExporter {
                 }",
             )
             writer.appendLine("recordingSensorRegisterCount=${telemetryInsights.recordingSensorRegisterCount}")
+            writer.appendLine("recordingSensorRequested=${telemetryInsights.recordingSensorRequested ?: "na"}")
             writer.appendLine("recordingSensorRegistered=${telemetryInsights.recordingSensorRegistered ?: "na"}")
             writer.appendLine("recordingSensorAvailable=${telemetryInsights.recordingSensorAvailable ?: "na"}")
             writer.appendLine(
@@ -1013,6 +1175,91 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "recordingActivityRecognitionGranted=${
                     telemetryInsights.recordingActivityRecognitionGranted?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine("externalSensorScanStartCount=${telemetryInsights.externalSensorScanStartCount}")
+            writer.appendLine("externalSensorScanStopCount=${telemetryInsights.externalSensorScanStopCount}")
+            writer.appendLine("externalSensorScanFailedCount=${telemetryInsights.externalSensorScanFailedCount}")
+            writer.appendLine(
+                "externalSensorLastScanDeviceCount=${
+                    telemetryInsights.externalSensorLastScanDeviceCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine("externalHeartRateStatus=${formatExternalHeartRateStatus(settings, telemetryInsights)}")
+            writer.appendLine(
+                "externalHeartRateBridgeStartCount=${telemetryInsights.externalHeartRateBridgeStartCount}",
+            )
+            writer.appendLine(
+                "externalHeartRateBridgeStopCount=${telemetryInsights.externalHeartRateBridgeStopCount}",
+            )
+            writer.appendLine(
+                "externalHeartRateConnectRequestedCount=${
+                    telemetryInsights.externalHeartRateConnectRequestedCount
+                }",
+            )
+            writer.appendLine(
+                "externalHeartRateConnectSkippedCount=${telemetryInsights.externalHeartRateConnectSkippedCount}",
+            )
+            writer.appendLine(
+                "externalHeartRateLastConnectSkippedReason=${
+                    telemetryInsights.externalHeartRateLastConnectSkippedReason ?: "na"
+                }",
+            )
+            writer.appendLine("externalHeartRateConnectedCount=${telemetryInsights.externalHeartRateConnectedCount}")
+            writer.appendLine(
+                "externalHeartRateDisconnectedCount=${telemetryInsights.externalHeartRateDisconnectedCount}",
+            )
+            writer.appendLine(
+                "externalHeartRateNotifyRequestedCount=${telemetryInsights.externalHeartRateNotifyRequestedCount}",
+            )
+            writer.appendLine("externalHeartRateNotifyFailedCount=${telemetryInsights.externalHeartRateNotifyFailedCount}")
+            writer.appendLine(
+                "externalHeartRateServiceFailureCount=${telemetryInsights.externalHeartRateServiceFailureCount}",
+            )
+            writer.appendLine(
+                "externalHeartRateMeasurementMissingCount=${
+                    telemetryInsights.externalHeartRateMeasurementMissingCount
+                }",
+            )
+            writer.appendLine("externalHeartRateSampleCount=${telemetryInsights.externalHeartRateSampleCount}")
+            writer.appendLine("externalHeartRateLastBpm=${telemetryInsights.externalHeartRateLastBpm ?: "na"}")
+            writer.appendLine("externalHeartRateMinBpm=${telemetryInsights.externalHeartRateMinBpm ?: "na"}")
+            writer.appendLine("externalHeartRateMaxBpm=${telemetryInsights.externalHeartRateMaxBpm ?: "na"}")
+            writer.appendLine(
+                "externalHeartRateLastSampleAgeMs=${
+                    telemetryInsights.externalHeartRateLastSampleAgeMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine("externalRunPodStatus=${formatExternalRunPodStatus(settings, telemetryInsights)}")
+            writer.appendLine("externalRunPodBridgeStartCount=${telemetryInsights.externalRunPodBridgeStartCount}")
+            writer.appendLine("externalRunPodBridgeStopCount=${telemetryInsights.externalRunPodBridgeStopCount}")
+            writer.appendLine("externalRunPodConnectRequestedCount=${telemetryInsights.externalRunPodConnectRequestedCount}")
+            writer.appendLine("externalRunPodConnectSkippedCount=${telemetryInsights.externalRunPodConnectSkippedCount}")
+            writer.appendLine(
+                "externalRunPodLastConnectSkippedReason=${
+                    telemetryInsights.externalRunPodLastConnectSkippedReason ?: "na"
+                }",
+            )
+            writer.appendLine("externalRunPodConnectedCount=${telemetryInsights.externalRunPodConnectedCount}")
+            writer.appendLine("externalRunPodDisconnectedCount=${telemetryInsights.externalRunPodDisconnectedCount}")
+            writer.appendLine("externalRunPodNotifyRequestedCount=${telemetryInsights.externalRunPodNotifyRequestedCount}")
+            writer.appendLine("externalRunPodNotifyFailedCount=${telemetryInsights.externalRunPodNotifyFailedCount}")
+            writer.appendLine("externalRunPodServiceFailureCount=${telemetryInsights.externalRunPodServiceFailureCount}")
+            writer.appendLine(
+                "externalRunPodMeasurementMissingCount=${telemetryInsights.externalRunPodMeasurementMissingCount}",
+            )
+            writer.appendLine("externalRunPodSampleCount=${telemetryInsights.externalRunPodSampleCount}")
+            writer.appendLine("externalRunPodLastCadenceSpm=${telemetryInsights.externalRunPodLastCadenceSpm ?: "na"}")
+            writer.appendLine("externalRunPodLastSpeedMps=${telemetryInsights.externalRunPodLastSpeedMps ?: "na"}")
+            writer.appendLine(
+                "externalRunPodLastRawDistanceUnits=${telemetryInsights.externalRunPodLastRawDistanceUnits ?: "na"}",
+            )
+            writer.appendLine(
+                "externalRunPodLastDistanceMeters=${telemetryInsights.externalRunPodLastDistanceMeters ?: "na"}",
+            )
+            writer.appendLine(
+                "externalRunPodLastSampleAgeMs=${
+                    telemetryInsights.externalRunPodLastSampleAgeMs?.toString() ?: "na"
                 }",
             )
             writer.appendLine("recordingCalorieModel=${telemetryInsights.recordingCalorieModel ?: "na"}")
@@ -1536,6 +1783,55 @@ object DiagnosticsExporter {
             insights.passiveExternalRejectedSampleCount > 0 -> "samples_rejected"
             else -> "unknown"
         }
+
+    private fun formatExternalHeartRateStatus(
+        settings: DiagnosticsSettingsSnapshot,
+        insights: TelemetryInsights,
+    ): String =
+        when {
+            !settings.recordingExternalHeartRateLinked -> "not_linked"
+            settings.recordingHeartRateSource == "WATCH" -> "watch_selected"
+            insights.externalHeartRateBridgeStartCount == 0 -> "linked_not_started"
+            insights.externalHeartRateConnectSkippedCount > 0 ->
+                "connect_skipped_${insights.externalHeartRateLastConnectSkippedReason ?: "unknown"}"
+            insights.externalHeartRateConnectRequestedCount == 0 -> "not_requested"
+            insights.externalHeartRateConnectedCount == 0 -> "requested_not_connected"
+            insights.externalHeartRateNotifyFailedCount > 0 -> "notify_failed"
+            insights.externalHeartRateServiceFailureCount > 0 -> "service_discovery_failed"
+            insights.externalHeartRateMeasurementMissingCount > 0 -> "measurement_missing"
+            insights.externalHeartRateSampleCount > 0 -> "samples_received"
+            insights.externalHeartRateNotifyRequestedCount > 0 -> "notifications_requested_no_samples"
+            else -> "connected_no_samples"
+        }
+
+    private fun formatExternalRunPodStatus(
+        settings: DiagnosticsSettingsSnapshot,
+        insights: TelemetryInsights,
+    ): String =
+        when {
+            !settings.recordingExternalRunPodLinked -> "not_linked"
+            insights.externalRunPodBridgeStartCount == 0 -> "linked_not_started"
+            insights.externalRunPodConnectSkippedCount > 0 ->
+                "connect_skipped_${insights.externalRunPodLastConnectSkippedReason ?: "unknown"}"
+            insights.externalRunPodConnectRequestedCount == 0 -> "not_requested"
+            insights.externalRunPodConnectedCount == 0 -> "requested_not_connected"
+            insights.externalRunPodNotifyFailedCount > 0 -> "notify_failed"
+            insights.externalRunPodServiceFailureCount > 0 -> "service_discovery_failed"
+            insights.externalRunPodMeasurementMissingCount > 0 -> "measurement_missing"
+            insights.externalRunPodSampleCount > 0 -> "samples_received"
+            insights.externalRunPodNotifyRequestedCount > 0 -> "notifications_requested_no_samples"
+            else -> "connected_no_samples"
+        }
+
+    private fun hasBluetoothScanPermission(context: Context): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) ==
+            PackageManager.PERMISSION_GRANTED
+
+    private fun hasBluetoothConnectPermission(context: Context): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) ==
+            PackageManager.PERMISSION_GRANTED
 
     private fun recordingGuidanceSessionMode(insights: TelemetryInsights): String {
         val recordingObserved =

@@ -15,9 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
@@ -32,13 +30,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
@@ -65,17 +57,12 @@ internal fun ExpandedRecordingDashboard(
             WearScreenSize.MEDIUM -> 0.68f
             WearScreenSize.SMALL -> 0.64f
         }
-    val tileHeight =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 44.dp
-            WearScreenSize.MEDIUM -> 40.dp
-            WearScreenSize.SMALL -> 36.dp
-        }
+    val tileHeight = recordingDashboardMetricTileHeight(screenSize)
     val statusRowHeight =
         when (screenSize) {
-            WearScreenSize.LARGE -> 28.dp
-            WearScreenSize.MEDIUM -> 26.dp
-            WearScreenSize.SMALL -> 24.dp
+            WearScreenSize.LARGE -> 14.dp
+            WearScreenSize.MEDIUM -> 12.dp
+            WearScreenSize.SMALL -> 10.dp
         }
 
     LaunchedEffect(pageCount) {
@@ -130,13 +117,8 @@ internal fun ExpandedRecordingDashboard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
             ) {
-                RecordingStatusRow(
-                    paused = state.paused,
-                    saving = state.saving,
-                    onClick = onShowActions,
-                    modifier = Modifier.height(statusRowHeight),
-                )
-                RecordingMetricTile(
+                Box(modifier = Modifier.height(statusRowHeight))
+                RecordingDashboardMetricTile(
                     metric = formattedRecordingMetric(slots[0], snapshot, isMetric),
                     height = tileHeight,
                     onLongPress = { onSlotLongPress(0) },
@@ -146,20 +128,20 @@ internal fun ExpandedRecordingDashboard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    RecordingMetricTile(
+                    RecordingDashboardMetricTile(
                         metric = formattedRecordingMetric(slots[1], snapshot, isMetric),
                         height = tileHeight,
                         onLongPress = { onSlotLongPress(1) },
                         modifier = Modifier.weight(1f),
                     )
-                    RecordingMetricTile(
+                    RecordingDashboardMetricTile(
                         metric = formattedRecordingMetric(slots[2], snapshot, isMetric),
                         height = tileHeight,
                         onLongPress = { onSlotLongPress(2) },
                         modifier = Modifier.weight(1f),
                     )
                 }
-                RecordingMetricTile(
+                RecordingDashboardMetricTile(
                     metric = formattedRecordingMetric(slots[3], snapshot, isMetric),
                     height = tileHeight,
                     onLongPress = { onSlotLongPress(3) },
@@ -171,7 +153,7 @@ internal fun ExpandedRecordingDashboard(
             modifier =
                 Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 18.dp),
+                    .padding(bottom = 22.dp),
         )
         RecordingPageIndicator(
             pageIndex = pageIndex,
@@ -181,124 +163,6 @@ internal fun ExpandedRecordingDashboard(
                     .align(Alignment.CenterEnd)
                     .padding(end = 14.dp),
         )
-    }
-}
-
-@Composable
-private fun RecordingStatusRow(
-    paused: Boolean,
-    saving: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        RecordingDot(
-            paused = paused,
-            saving = saving,
-            onClick = onClick,
-        )
-    }
-}
-
-@Composable
-private fun RecordingMetricTile(
-    metric: RecordingMetricValue,
-    height: Dp,
-    onLongPress: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier =
-            modifier
-                .height(height)
-                .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = onLongPress,
-                )
-                .padding(horizontal = 6.dp, vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = metric.label,
-            color = Color.White.copy(alpha = 0.62f),
-            fontSize = 9.sp,
-            lineHeight = 9.sp,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Text(
-                text = metric.value,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                lineHeight = 18.sp,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            metric.unit?.let { unit ->
-                Text(
-                    text = unit,
-                    color = Color.White.copy(alpha = 0.70f),
-                    fontSize = 9.sp,
-                    lineHeight = 11.sp,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecordingDot(
-    paused: Boolean,
-    saving: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val touchSize = 48.dp
-    val visualSize = 18.dp
-    Box(
-        modifier =
-            modifier
-                .size(touchSize)
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onClick,
-                ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(visualSize)
-                    .background(Color.White.copy(alpha = 0.16f), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(visualSize * 0.58f)
-                        .background(
-                            when {
-                                saving -> Color(0xFFFFD54F)
-                                paused -> Color(0xFFFFB74D)
-                                else -> Color(0xFFFF1744)
-                            },
-                            CircleShape,
-                        ),
-            )
-        }
     }
 }
 
@@ -348,7 +212,8 @@ private fun handleDashboardRotaryPageEvent(
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
 ): Boolean {
-    if (pageCount <= 1 || !delta.isFinite() || delta == 0f) return false
+    if (!delta.isFinite() || delta == 0f) return false
+    if (pageCount <= 1) return true
     var nextAccumulator =
         if (accumulator != 0f && (accumulator > 0f) != (delta > 0f)) {
             0f

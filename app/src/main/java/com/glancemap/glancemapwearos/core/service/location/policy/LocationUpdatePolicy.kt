@@ -32,6 +32,7 @@ internal object LocationUpdatePolicy {
         watchOnly: Boolean,
         hasFinePermission: Boolean,
         passiveLocationExperiment: Boolean,
+        activeBackgroundTracking: Boolean,
         userIntervalMs: Long,
         ambientUserIntervalMs: Long,
         minUserIntervalMs: Long,
@@ -71,6 +72,21 @@ internal object LocationUpdatePolicy {
                 }
             return LocationUpdateConfig(
                 priority = interactivePriority,
+                intervalMs = safeUserIntervalMs,
+                minDistanceMeters = foregroundMinDistanceM,
+                mode = LocationRuntimeMode.INTERACTIVE,
+                sourceMode = sourceMode,
+            )
+        }
+
+        if (activeBackgroundTracking) {
+            return LocationUpdateConfig(
+                priority =
+                    if (hasFinePermission) {
+                        Priority.PRIORITY_HIGH_ACCURACY
+                    } else {
+                        Priority.PRIORITY_BALANCED_POWER_ACCURACY
+                    },
                 intervalMs = safeUserIntervalMs,
                 minDistanceMeters = foregroundMinDistanceM,
                 mode = LocationRuntimeMode.INTERACTIVE,

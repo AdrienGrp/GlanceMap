@@ -214,7 +214,16 @@ internal fun recordingRecapMetricsForSnapshot(
     isMetric: Boolean,
 ): List<RecordingRecapMetric> =
     RECORDING_RECAP_METRIC_IDS.map { metricId ->
-        formattedRecordingMetric(metricId, snapshot, isMetric).toRecordingRecapMetric()
+        if (metricId == SettingsRepository.RECORDING_METRIC_HEART_RATE) {
+            val heartRate = snapshot.averageHeartRateBpm ?: snapshot.heartRateBpm
+            recordingRecapMetric(
+                label = "Avg HR",
+                value = heartRate?.takeIf { it > 0 }?.toString() ?: "--",
+                unit = "bpm",
+            )
+        } else {
+            formattedRecordingMetric(metricId, snapshot, isMetric).toRecordingRecapMetric()
+        }
     }
 
 private fun isShortRecording(

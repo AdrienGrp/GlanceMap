@@ -52,6 +52,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
@@ -216,6 +219,7 @@ internal fun NavigateContent(
     }
     val mapView = mapHolder?.mapView
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val latestOnNavigateTimeSuppressedChange = rememberUpdatedState(onNavigateTimeSuppressedChange)
@@ -243,6 +247,24 @@ internal fun NavigateContent(
     ) {
         turnByTurnFullScreenExpanded = false
         recordingDashboardFullScreenExpanded = false
+    }
+    LaunchedEffect(turnByTurnFullScreenExpanded, recordingDashboardFullScreenExpanded) {
+        if (!turnByTurnFullScreenExpanded && !recordingDashboardFullScreenExpanded) {
+            focusRequester.requestFocus()
+        }
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                    turnByTurnFullScreenExpanded = false
+                    recordingDashboardFullScreenExpanded = false
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     DisposableEffect(mapView, onMapViewReadyForRendering) {
@@ -715,10 +737,16 @@ internal fun NavigateContent(
     var liveElevationLabel by remember(mapHolder, isMetric) { mutableStateOf<String?>(null) }
     var liveDistanceLabel by remember(isMetric) { mutableStateOf<String?>(null) }
     val routeToolModeActive = routeToolSession != null || crosshairSelectionActive || reshapePreviewInspectMode
-    val shouldSuppressNavigateTime =
+    val fullScreenPopupExpanded =
         turnByTurnFullScreenExpanded ||
-            recordingDashboardFullScreenExpanded ||
-            (adaptive.fontScale > 1f && (showScaleBar || routeToolModeActive))
+            recordingDashboardFullScreenExpanded
+    val shouldSuppressNavigateTime =
+        !fullScreenPopupExpanded &&
+            adaptive.fontScale > 1f &&
+            (showScaleBar || routeToolModeActive)
+    val overlayOwnsRotary =
+        turnByTurnFullScreenExpanded ||
+            recordingDashboardFullScreenExpanded
 
     LaunchedEffect(shouldSuppressNavigateTime) {
         latestOnNavigateTimeSuppressedChange.value(shouldSuppressNavigateTime)
@@ -881,6 +909,7 @@ internal fun NavigateContent(
                 .onSizeChanged { visibleMapSizePx = it }
                 // Crown/rotary zoom support for Navigate screen.
                 .onPreRotaryScrollEvent { event ->
+                    if (overlayOwnsRotary) return@onPreRotaryScrollEvent false
                     if (!crownZoomEnabled) return@onPreRotaryScrollEvent false
                     val delta = event.verticalScrollPixels
                     if (!delta.isFinite() || delta == 0f) return@onPreRotaryScrollEvent false
@@ -1272,6 +1301,7 @@ internal fun NavigateContent(
             MarkerMotionDebugOverlay(
                 label = markerMotionDebugOverlayLabel,
                 screenSize = screenSize,
+                recordingStatusChipVisible = traceRecordingState.active || traceRecordingState.saving,
             )
 
             GpsEnvironmentWarningOverlay(
@@ -1486,14 +1516,23 @@ private fun BoxScope.GpsEnvironmentWarningOverlay(
 private fun BoxScope.MarkerMotionDebugOverlay(
     label: String?,
     screenSize: WearScreenSize,
+    recordingStatusChipVisible: Boolean,
 ) {
     if (label.isNullOrBlank()) return
 
     val overlayPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 24.dp
-            WearScreenSize.MEDIUM -> 22.dp
-            WearScreenSize.SMALL -> 20.dp
+        if (recordingStatusChipVisible) {
+            when (screenSize) {
+                WearScreenSize.LARGE -> 52.dp
+                WearScreenSize.MEDIUM -> 50.dp
+                WearScreenSize.SMALL -> 48.dp
+            }
+        } else {
+            when (screenSize) {
+                WearScreenSize.LARGE -> 24.dp
+                WearScreenSize.MEDIUM -> 22.dp
+                WearScreenSize.SMALL -> 20.dp
+            }
         }
     val overlayTextSize =
         when (screenSize) {

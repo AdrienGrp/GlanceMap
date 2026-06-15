@@ -497,15 +497,18 @@ internal class LocationServiceTelemetry(
         screenStateChanged: Boolean,
         trackingChanged: Boolean,
         backgroundGpsEnabled: Boolean,
+        runtimeReason: String,
+        runtimeReasonChanged: Boolean,
     ) {
         val changedFields =
             buildList {
                 if (screenStateChanged) add("screenState")
                 if (trackingChanged) add("tracking")
+                if (runtimeReasonChanged) add("reason")
             }.joinToString(separator = ",")
         log(
             "runtimeState: screenState=$screenState trackingEnabled=$trackingEnabled " +
-                "backgroundGpsEnabled=$backgroundGpsEnabled changed=$changedFields",
+                "backgroundGpsEnabled=$backgroundGpsEnabled reason=$runtimeReason changed=$changedFields",
         )
     }
 
@@ -540,6 +543,7 @@ internal class LocationServiceTelemetry(
         trackingEnabled: Boolean,
         interactive: Boolean,
         screenState: String,
+        runtimeReason: String,
         hasFinePermission: Boolean,
         hasCoarsePermission: Boolean,
         passivePriority: Boolean,
@@ -552,7 +556,7 @@ internal class LocationServiceTelemetry(
                 "minDistanceM=$minDistanceMeters state=${activityState.name} " +
                 "bound=$bound keepOpen=$keepOpen watchOnly=$watchOnly burst=$burst " +
                 "backend=$backend mode=$runtimeMode trackingEnabled=$trackingEnabled " +
-                "interactive=$interactive screenState=$screenState " +
+                "interactive=$interactive screenState=$screenState reason=$runtimeReason " +
                 "finePermission=$hasFinePermission coarsePermission=$hasCoarsePermission " +
                 "passivePriority=$passivePriority",
         )

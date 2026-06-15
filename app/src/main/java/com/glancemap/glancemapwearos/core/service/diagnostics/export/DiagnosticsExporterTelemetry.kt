@@ -11,6 +11,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private val telemetryLineTimestampFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
@@ -172,10 +173,19 @@ internal fun deriveTelemetryInsights(
     var recordingLastPausedMs: Long? = null
     var recordingMaxPausedMs: Long? = null
     var recordingGpsActiveDurationMs: Long? = null
+    var recordingExpectedPointCount: Int? = null
+    var recordingAveragePointIntervalMs: Long? = null
+    var recordingPointCaptureRatePercent: Int? = null
     var recordingGapCount: Int? = null
     var recordingGapEventCount = 0
     var recordingMaxGapMs: Long? = null
     var recordingLastPointAgeMs: Long? = null
+    var recordingForcedAcceptCount: Int? = null
+    var recordingGapRecoveryAcceptCount: Int? = null
+    var recordingLastSkippedIntervalElapsedMs: Long? = null
+    var recordingMaxSkippedIntervalElapsedMs: Long? = null
+    var recordingLastLiveProvider: String? = null
+    var recordingLastLiveAccuracyMeters: Int? = null
     var recordingSkippedIntervalCount: Int? = null
     var recordingSkippedPausedCount: Int? = null
     var recordingSkippedUnusableCount: Int? = null
@@ -192,20 +202,65 @@ internal fun deriveTelemetryInsights(
     var recordingLiveHeartRateBpm: Int? = null
     var recordingLiveStepCount: Int? = null
     var recordingLiveCadenceSpm: Int? = null
+    var recordingLiveExternalSpeedMps: String? = null
+    var recordingLiveExternalRawDistanceUnits: Long? = null
+    var recordingLiveExternalDistanceMeters: Int? = null
+    var recordingLiveExternalSessionDistanceMeters: Int? = null
+    var recordingLiveExternalIntegratedDistanceMeters: Int? = null
     var recordingLivePressureHpa: Int? = null
     var recordingHeartRateAgeMs: Long? = null
     var recordingStepCountAgeMs: Long? = null
     var recordingCadenceAgeMs: Long? = null
+    var recordingExternalSpeedAgeMs: Long? = null
+    var recordingExternalDistanceAgeMs: Long? = null
     var recordingPressureAgeMs: Long? = null
     var recordingHeartRateSensorEventCount: Int? = null
     var recordingStepSensorEventCount: Int? = null
     var recordingCadenceSensorEventCount: Int? = null
     var recordingPressureSensorEventCount: Int? = null
     var recordingSensorRegisterCount = 0
+    var recordingSensorRequested: String? = null
     var recordingSensorRegistered: String? = null
     var recordingSensorAvailable: String? = null
     var recordingBodySensorsGranted: Boolean? = null
     var recordingActivityRecognitionGranted: Boolean? = null
+    var externalSensorScanStartCount = 0
+    var externalSensorScanStopCount = 0
+    var externalSensorScanFailedCount = 0
+    var externalSensorLastScanDeviceCount: Int? = null
+    var externalHeartRateBridgeStartCount = 0
+    var externalHeartRateBridgeStopCount = 0
+    var externalHeartRateConnectRequestedCount = 0
+    var externalHeartRateConnectSkippedCount = 0
+    var externalHeartRateLastConnectSkippedReason: String? = null
+    var externalHeartRateConnectedCount = 0
+    var externalHeartRateDisconnectedCount = 0
+    var externalHeartRateNotifyRequestedCount = 0
+    var externalHeartRateNotifyFailedCount = 0
+    var externalHeartRateServiceFailureCount = 0
+    var externalHeartRateMeasurementMissingCount = 0
+    var externalHeartRateSampleCount = 0
+    var externalHeartRateLastBpm: Int? = null
+    var externalHeartRateMinBpm: Int? = null
+    var externalHeartRateMaxBpm: Int? = null
+    var externalHeartRateLastSampleAtMs: Long? = null
+    var externalRunPodBridgeStartCount = 0
+    var externalRunPodBridgeStopCount = 0
+    var externalRunPodConnectRequestedCount = 0
+    var externalRunPodConnectSkippedCount = 0
+    var externalRunPodLastConnectSkippedReason: String? = null
+    var externalRunPodConnectedCount = 0
+    var externalRunPodDisconnectedCount = 0
+    var externalRunPodNotifyRequestedCount = 0
+    var externalRunPodNotifyFailedCount = 0
+    var externalRunPodServiceFailureCount = 0
+    var externalRunPodMeasurementMissingCount = 0
+    var externalRunPodSampleCount = 0
+    var externalRunPodLastCadenceSpm: Int? = null
+    var externalRunPodLastSpeedMps: String? = null
+    var externalRunPodLastRawDistanceUnits: Long? = null
+    var externalRunPodLastDistanceMeters: Int? = null
+    var externalRunPodLastSampleAtMs: Long? = null
     var recordingCalorieModel: String? = null
     var recordingCaloriesGrossKcal: Int? = null
     var recordingCaloriesActiveKcal: Int? = null
@@ -390,7 +445,7 @@ internal fun deriveTelemetryInsights(
                     "GPX_GEOMETRY" -> turnByTurnGeometryInstructionSampleCount += 1
                     "BROUTER_HINT" -> turnByTurnBrouterHintInstructionSampleCount += 1
                 }
-                parseIntToken(line, "distToRouteM=")?.let { distance ->
+                parseFloatToken(line, "distToRouteM=")?.roundToInt()?.let { distance ->
                     turnByTurnMaxDistanceToRouteMeters =
                         maxOf(turnByTurnMaxDistanceToRouteMeters ?: distance, distance)
                 }
@@ -405,6 +460,11 @@ internal fun deriveTelemetryInsights(
                 "resume" -> recordingResumeCount += 1
                 "point" -> recordingPointSampleCount += 1
                 "gap" -> recordingGapEventCount += 1
+                "gap_recovery_accept" -> {
+                    parseIntToken(line, "gapRecoveryAcceptCount=")?.let { count ->
+                        recordingGapRecoveryAcceptCount = maxOf(recordingGapRecoveryAcceptCount ?: count, count)
+                    }
+                }
                 "save_start" -> recordingSaveStartCount += 1
                 "save_success" -> recordingSaveSuccessCount += 1
                 "save_failure" -> recordingSaveFailureCount += 1
@@ -437,6 +497,15 @@ internal fun deriveTelemetryInsights(
             parseLongToken(line, "gpsActiveDurationMs=")?.let { duration ->
                 recordingGpsActiveDurationMs = maxOf(recordingGpsActiveDurationMs ?: duration, duration)
             }
+            parseIntToken(line, "expectedPointCount=")?.let { count ->
+                recordingExpectedPointCount = maxOf(recordingExpectedPointCount ?: count, count)
+            }
+            parseLongToken(line, "averagePointIntervalMs=")?.takeIf { it >= 0L }?.let { interval ->
+                recordingAveragePointIntervalMs = interval
+            }
+            parseIntToken(line, "pointCaptureRatePercent=")?.takeIf { it >= 0 }?.let { rate ->
+                recordingPointCaptureRatePercent = rate
+            }
             parseIntToken(line, "recordingGapCount=")?.let { count ->
                 recordingGapCount = maxOf(recordingGapCount ?: count, count)
             }
@@ -445,6 +514,24 @@ internal fun deriveTelemetryInsights(
             }
             parseLongToken(line, "lastPointAgeMs=")?.takeIf { it >= 0L }?.let { age ->
                 recordingLastPointAgeMs = age
+            }
+            parseIntToken(line, "forcedAcceptCount=")?.let { count ->
+                recordingForcedAcceptCount = maxOf(recordingForcedAcceptCount ?: count, count)
+            }
+            parseIntToken(line, "gapRecoveryAcceptCount=")?.let { count ->
+                recordingGapRecoveryAcceptCount = maxOf(recordingGapRecoveryAcceptCount ?: count, count)
+            }
+            parseLongToken(line, "lastSkippedIntervalElapsedMs=")?.takeIf { it >= 0L }?.let { elapsed ->
+                recordingLastSkippedIntervalElapsedMs = elapsed
+            }
+            parseLongToken(line, "maxSkippedIntervalElapsedMs=")?.takeIf { it >= 0L }?.let { elapsed ->
+                recordingMaxSkippedIntervalElapsedMs = maxOf(recordingMaxSkippedIntervalElapsedMs ?: elapsed, elapsed)
+            }
+            extractTokenValue(line, "lastLiveProvider=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                recordingLastLiveProvider = it
+            }
+            parseIntToken(line, "lastLiveAccuracyMeters=")?.takeIf { it >= 0 }?.let {
+                recordingLastLiveAccuracyMeters = it
             }
             parseIntToken(line, "skippedInterval=")?.let { skipped ->
                 recordingSkippedIntervalCount = maxOf(recordingSkippedIntervalCount ?: skipped, skipped)
@@ -488,6 +575,23 @@ internal fun deriveTelemetryInsights(
             parseIntToken(line, "liveCadenceSpm=")?.takeIf { it >= 0 }?.let {
                 recordingLiveCadenceSpm = it
             }
+            extractTokenValue(line, "liveExternalSpeedMps=")?.takeIf { value ->
+                value.isNotBlank() && value != "-1.0" && value != "-1"
+            }?.let {
+                recordingLiveExternalSpeedMps = it
+            }
+            parseLongToken(line, "liveExternalRawDistanceUnits=")?.takeIf { it >= 0 }?.let {
+                recordingLiveExternalRawDistanceUnits = it
+            }
+            parseIntToken(line, "liveExternalDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingLiveExternalDistanceMeters = it
+            }
+            parseIntToken(line, "liveExternalSessionDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingLiveExternalSessionDistanceMeters = it
+            }
+            parseIntToken(line, "liveExternalIntegratedDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingLiveExternalIntegratedDistanceMeters = it
+            }
             parseIntToken(line, "livePressureHpa=")?.takeIf { it >= 0 }?.let {
                 recordingLivePressureHpa = it
             }
@@ -499,6 +603,12 @@ internal fun deriveTelemetryInsights(
             }
             parseLongToken(line, "cadenceAgeMs=")?.takeIf { it >= 0L }?.let {
                 recordingCadenceAgeMs = it
+            }
+            parseLongToken(line, "externalSpeedAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingExternalSpeedAgeMs = it
+            }
+            parseLongToken(line, "externalDistanceAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingExternalDistanceAgeMs = it
             }
             parseLongToken(line, "pressureAgeMs=")?.takeIf { it >= 0L }?.let {
                 recordingPressureAgeMs = it
@@ -539,7 +649,10 @@ internal fun deriveTelemetryInsights(
             when (extractTokenValue(line, "event=")) {
                 "register" -> recordingSensorRegisterCount += 1
             }
-            extractTokenValue(line, "registered=")?.takeIf { it.isNotBlank() }?.let {
+            extractTokenValue(line, "requested=")?.takeIf { it.isNotBlank() && it != "unknown" }?.let {
+                recordingSensorRequested = it
+            }
+            extractTokenValue(line, "registered=")?.takeIf { it.isNotBlank() && it != "unknown" }?.let {
                 recordingSensorRegistered = it
             }
             extractTokenValue(line, "available=")?.takeIf { it.isNotBlank() }?.let {
@@ -550,6 +663,83 @@ internal fun deriveTelemetryInsights(
             }
             parseBooleanToken(line, "activityRecognitionGranted=")?.let {
                 recordingActivityRecognitionGranted = it
+            }
+        }
+
+        if ("[ExternalSensors]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "scan_started" -> externalSensorScanStartCount += 1
+                "scan_stopped" -> externalSensorScanStopCount += 1
+                "scan_failed",
+                "scan_start_failed" -> externalSensorScanFailedCount += 1
+            }
+            parseIntToken(line, "devices=")?.takeIf { it >= 0 }?.let {
+                externalSensorLastScanDeviceCount = it
+            }
+        }
+
+        if ("[ExternalHeartRate]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "bridge_start" -> externalHeartRateBridgeStartCount += 1
+                "bridge_stop" -> externalHeartRateBridgeStopCount += 1
+                "connect_requested" -> externalHeartRateConnectRequestedCount += 1
+                "connect_skipped" -> {
+                    externalHeartRateConnectSkippedCount += 1
+                    extractTokenValue(line, "reason=")?.takeIf { it.isNotBlank() }?.let {
+                        externalHeartRateLastConnectSkippedReason = it
+                    }
+                }
+                "connected" -> externalHeartRateConnectedCount += 1
+                "disconnected" -> externalHeartRateDisconnectedCount += 1
+                "notify_requested" -> externalHeartRateNotifyRequestedCount += 1
+                "notify_failed" -> externalHeartRateNotifyFailedCount += 1
+                "services_failed" -> externalHeartRateServiceFailureCount += 1
+                "measurement_missing" -> externalHeartRateMeasurementMissingCount += 1
+                "sample" -> {
+                    externalHeartRateSampleCount += 1
+                    parseIntToken(line, "bpm=")?.takeIf { it > 0 }?.let { bpm ->
+                        externalHeartRateLastBpm = bpm
+                        externalHeartRateMinBpm = minOf(externalHeartRateMinBpm ?: bpm, bpm)
+                        externalHeartRateMaxBpm = maxOf(externalHeartRateMaxBpm ?: bpm, bpm)
+                    }
+                    lineEpochMs?.let { externalHeartRateLastSampleAtMs = it }
+                }
+            }
+        }
+
+        if ("[ExternalRunPod]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "bridge_start" -> externalRunPodBridgeStartCount += 1
+                "bridge_stop" -> externalRunPodBridgeStopCount += 1
+                "connect_requested" -> externalRunPodConnectRequestedCount += 1
+                "connect_skipped" -> {
+                    externalRunPodConnectSkippedCount += 1
+                    extractTokenValue(line, "reason=")?.takeIf { it.isNotBlank() }?.let {
+                        externalRunPodLastConnectSkippedReason = it
+                    }
+                }
+                "connected" -> externalRunPodConnectedCount += 1
+                "disconnected" -> externalRunPodDisconnectedCount += 1
+                "notify_requested" -> externalRunPodNotifyRequestedCount += 1
+                "notify_failed" -> externalRunPodNotifyFailedCount += 1
+                "services_failed" -> externalRunPodServiceFailureCount += 1
+                "measurement_missing" -> externalRunPodMeasurementMissingCount += 1
+                "sample" -> {
+                    externalRunPodSampleCount += 1
+                    parseIntToken(line, "cadenceSpm=")?.takeIf { it > 0 }?.let {
+                        externalRunPodLastCadenceSpm = it
+                    }
+                    extractTokenValue(line, "speedMps=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                        externalRunPodLastSpeedMps = it
+                    }
+                    parseLongToken(line, "rawDistanceUnits=")?.takeIf { it >= 0 }?.let {
+                        externalRunPodLastRawDistanceUnits = it
+                    }
+                    parseFloatToken(line, "distanceMeters=")?.takeIf { it >= 0f }?.let {
+                        externalRunPodLastDistanceMeters = it.roundToInt()
+                    }
+                    lineEpochMs?.let { externalRunPodLastSampleAtMs = it }
+                }
             }
         }
 
@@ -770,10 +960,19 @@ internal fun deriveTelemetryInsights(
         recordingLastPausedMs = recordingLastPausedMs,
         recordingMaxPausedMs = recordingMaxPausedMs,
         recordingGpsActiveDurationMs = recordingGpsActiveDurationMs,
+        recordingExpectedPointCount = recordingExpectedPointCount,
+        recordingAveragePointIntervalMs = recordingAveragePointIntervalMs,
+        recordingPointCaptureRatePercent = recordingPointCaptureRatePercent,
         recordingGapCount = recordingGapCount,
         recordingGapEventCount = recordingGapEventCount,
         recordingMaxGapMs = recordingMaxGapMs,
         recordingLastPointAgeMs = recordingLastPointAgeMs,
+        recordingForcedAcceptCount = recordingForcedAcceptCount,
+        recordingGapRecoveryAcceptCount = recordingGapRecoveryAcceptCount,
+        recordingLastSkippedIntervalElapsedMs = recordingLastSkippedIntervalElapsedMs,
+        recordingMaxSkippedIntervalElapsedMs = recordingMaxSkippedIntervalElapsedMs,
+        recordingLastLiveProvider = recordingLastLiveProvider,
+        recordingLastLiveAccuracyMeters = recordingLastLiveAccuracyMeters,
         recordingSkippedIntervalCount = recordingSkippedIntervalCount,
         recordingSkippedPausedCount = recordingSkippedPausedCount,
         recordingSkippedUnusableCount = recordingSkippedUnusableCount,
@@ -790,20 +989,73 @@ internal fun deriveTelemetryInsights(
         recordingLiveHeartRateBpm = recordingLiveHeartRateBpm,
         recordingLiveStepCount = recordingLiveStepCount,
         recordingLiveCadenceSpm = recordingLiveCadenceSpm,
+        recordingLiveExternalSpeedMps = recordingLiveExternalSpeedMps,
+        recordingLiveExternalRawDistanceUnits = recordingLiveExternalRawDistanceUnits,
+        recordingLiveExternalDistanceMeters = recordingLiveExternalDistanceMeters,
+        recordingLiveExternalSessionDistanceMeters = recordingLiveExternalSessionDistanceMeters,
+        recordingLiveExternalIntegratedDistanceMeters = recordingLiveExternalIntegratedDistanceMeters,
         recordingLivePressureHpa = recordingLivePressureHpa,
         recordingHeartRateAgeMs = recordingHeartRateAgeMs,
         recordingStepCountAgeMs = recordingStepCountAgeMs,
         recordingCadenceAgeMs = recordingCadenceAgeMs,
+        recordingExternalSpeedAgeMs = recordingExternalSpeedAgeMs,
+        recordingExternalDistanceAgeMs = recordingExternalDistanceAgeMs,
         recordingPressureAgeMs = recordingPressureAgeMs,
         recordingHeartRateSensorEventCount = recordingHeartRateSensorEventCount,
         recordingStepSensorEventCount = recordingStepSensorEventCount,
         recordingCadenceSensorEventCount = recordingCadenceSensorEventCount,
         recordingPressureSensorEventCount = recordingPressureSensorEventCount,
         recordingSensorRegisterCount = recordingSensorRegisterCount,
+        recordingSensorRequested = recordingSensorRequested,
         recordingSensorRegistered = recordingSensorRegistered,
         recordingSensorAvailable = recordingSensorAvailable,
         recordingBodySensorsGranted = recordingBodySensorsGranted,
         recordingActivityRecognitionGranted = recordingActivityRecognitionGranted,
+        externalSensorScanStartCount = externalSensorScanStartCount,
+        externalSensorScanStopCount = externalSensorScanStopCount,
+        externalSensorScanFailedCount = externalSensorScanFailedCount,
+        externalSensorLastScanDeviceCount = externalSensorLastScanDeviceCount,
+        externalHeartRateBridgeStartCount = externalHeartRateBridgeStartCount,
+        externalHeartRateBridgeStopCount = externalHeartRateBridgeStopCount,
+        externalHeartRateConnectRequestedCount = externalHeartRateConnectRequestedCount,
+        externalHeartRateConnectSkippedCount = externalHeartRateConnectSkippedCount,
+        externalHeartRateLastConnectSkippedReason = externalHeartRateLastConnectSkippedReason,
+        externalHeartRateConnectedCount = externalHeartRateConnectedCount,
+        externalHeartRateDisconnectedCount = externalHeartRateDisconnectedCount,
+        externalHeartRateNotifyRequestedCount = externalHeartRateNotifyRequestedCount,
+        externalHeartRateNotifyFailedCount = externalHeartRateNotifyFailedCount,
+        externalHeartRateServiceFailureCount = externalHeartRateServiceFailureCount,
+        externalHeartRateMeasurementMissingCount = externalHeartRateMeasurementMissingCount,
+        externalHeartRateSampleCount = externalHeartRateSampleCount,
+        externalHeartRateLastBpm = externalHeartRateLastBpm,
+        externalHeartRateMinBpm = externalHeartRateMinBpm,
+        externalHeartRateMaxBpm = externalHeartRateMaxBpm,
+        externalHeartRateLastSampleAgeMs =
+            externalHeartRateLastSampleAtMs?.let { sampleAt ->
+                val end = captureWindowEndEpochMs ?: sampleAt
+                (end - sampleAt).coerceAtLeast(0L)
+            },
+        externalRunPodBridgeStartCount = externalRunPodBridgeStartCount,
+        externalRunPodBridgeStopCount = externalRunPodBridgeStopCount,
+        externalRunPodConnectRequestedCount = externalRunPodConnectRequestedCount,
+        externalRunPodConnectSkippedCount = externalRunPodConnectSkippedCount,
+        externalRunPodLastConnectSkippedReason = externalRunPodLastConnectSkippedReason,
+        externalRunPodConnectedCount = externalRunPodConnectedCount,
+        externalRunPodDisconnectedCount = externalRunPodDisconnectedCount,
+        externalRunPodNotifyRequestedCount = externalRunPodNotifyRequestedCount,
+        externalRunPodNotifyFailedCount = externalRunPodNotifyFailedCount,
+        externalRunPodServiceFailureCount = externalRunPodServiceFailureCount,
+        externalRunPodMeasurementMissingCount = externalRunPodMeasurementMissingCount,
+        externalRunPodSampleCount = externalRunPodSampleCount,
+        externalRunPodLastCadenceSpm = externalRunPodLastCadenceSpm,
+        externalRunPodLastSpeedMps = externalRunPodLastSpeedMps,
+        externalRunPodLastRawDistanceUnits = externalRunPodLastRawDistanceUnits,
+        externalRunPodLastDistanceMeters = externalRunPodLastDistanceMeters,
+        externalRunPodLastSampleAgeMs =
+            externalRunPodLastSampleAtMs?.let { sampleAt ->
+                val end = captureWindowEndEpochMs ?: sampleAt
+                (end - sampleAt).coerceAtLeast(0L)
+            },
         recordingCalorieModel = recordingCalorieModel,
         recordingCaloriesGrossKcal = recordingCaloriesGrossKcal,
         recordingCaloriesActiveKcal = recordingCaloriesActiveKcal,

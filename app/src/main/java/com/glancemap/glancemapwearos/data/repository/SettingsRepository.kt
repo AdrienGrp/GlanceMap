@@ -33,7 +33,18 @@ interface SettingsRepository {
         const val RECORDING_ELEVATION_SOURCE_GPS = "GPS"
         const val RECORDING_ELEVATION_SOURCE_DEM = "DEM"
         const val RECORDING_ELEVATION_SOURCE_AUTO = "AUTO"
-        const val DEFAULT_RECORDING_ELEVATION_SOURCE = RECORDING_ELEVATION_SOURCE_GPS
+        const val DEFAULT_RECORDING_ELEVATION_SOURCE = RECORDING_ELEVATION_SOURCE_AUTO
+        const val RECORDING_HEART_RATE_SOURCE_AUTO = "AUTO"
+        const val RECORDING_HEART_RATE_SOURCE_WATCH = "WATCH"
+        const val RECORDING_HEART_RATE_SOURCE_STRAP = "STRAP"
+        const val DEFAULT_RECORDING_HEART_RATE_SOURCE = RECORDING_HEART_RATE_SOURCE_WATCH
+        const val RECORDING_SENSOR_SOURCE_AUTO = "AUTO"
+        const val RECORDING_SENSOR_SOURCE_WATCH_GPS = "WATCH_GPS"
+        const val RECORDING_SENSOR_SOURCE_POD = "POD"
+        const val DEFAULT_RECORDING_CADENCE_SOURCE = RECORDING_SENSOR_SOURCE_WATCH_GPS
+        const val DEFAULT_RECORDING_SPEED_SOURCE = RECORDING_SENSOR_SOURCE_WATCH_GPS
+        const val DEFAULT_RECORDING_DISTANCE_SOURCE = RECORDING_SENSOR_SOURCE_WATCH_GPS
+        const val DEFAULT_RECORDING_STEPS_SOURCE = RECORDING_SENSOR_SOURCE_WATCH_GPS
         const val DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP = true
         const val DEFAULT_RECORDING_START_WITH_TURN_BY_TURN = false
         const val DEFAULT_USER_WEIGHT_KG = 75f
@@ -85,6 +96,7 @@ interface SettingsRepository {
         const val TURN_BY_TURN_TURN_ALERTS_OFF = "OFF"
         const val TURN_BY_TURN_TURN_ALERTS_IMPORTANT = "IMPORTANT"
         const val TURN_BY_TURN_TURN_ALERTS_ALL = "ALL"
+        const val DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED = false
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS = 60
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS = 60
         const val TURN_BY_TURN_ROUTE_START_GO_TO_START = "GO_TO_START"
@@ -170,6 +182,26 @@ interface SettingsRepository {
 
     suspend fun setRecordingElevationSource(source: String)
 
+    val recordingHeartRateSource: Flow<String>
+
+    suspend fun setRecordingHeartRateSource(source: String)
+
+    val recordingCadenceSource: Flow<String>
+
+    suspend fun setRecordingCadenceSource(source: String)
+
+    val recordingSpeedSource: Flow<String>
+
+    suspend fun setRecordingSpeedSource(source: String)
+
+    val recordingDistanceSource: Flow<String>
+
+    suspend fun setRecordingDistanceSource(source: String)
+
+    val recordingStepsSource: Flow<String>
+
+    suspend fun setRecordingStepsSource(source: String)
+
     val recordingDashboardMetricSlots: Flow<List<String>>
 
     suspend fun setRecordingDashboardMetricSlot(
@@ -185,6 +217,24 @@ interface SettingsRepository {
 
     suspend fun setRecordingStartWithTurnByTurn(enabled: Boolean)
 
+    val recordingExternalHeartRateAddress: Flow<String?>
+
+    val recordingExternalHeartRateName: Flow<String?>
+
+    suspend fun setRecordingExternalHeartRateDevice(
+        address: String?,
+        name: String?,
+    )
+
+    val recordingExternalRunPodAddress: Flow<String?>
+
+    val recordingExternalRunPodName: Flow<String?>
+
+    suspend fun setRecordingExternalRunPodDevice(
+        address: String?,
+        name: String?,
+    )
+
     val userWeightKg: Flow<Float>
 
     suspend fun setUserWeightKg(weightKg: Float)
@@ -197,13 +247,13 @@ interface SettingsRepository {
 
     suspend fun setTurnByTurnGuidanceSource(source: String)
 
-    val turnByTurnUseBrouterTiles: Flow<Boolean>
-
-    suspend fun setTurnByTurnUseBrouterTiles(enabled: Boolean)
-
     val turnByTurnHapticsEnabled: Flow<Boolean>
 
     suspend fun setTurnByTurnHapticsEnabled(enabled: Boolean)
+
+    val turnByTurnVoiceGuidanceEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnVoiceGuidanceEnabled(enabled: Boolean)
 
     val turnByTurnTurnAlertsMode: Flow<String>
 
@@ -325,10 +375,6 @@ interface SettingsRepository {
     val navigationMarkerAnchorMode: Flow<String>
 
     suspend fun setNavigationMarkerAnchorMode(mode: String)
-
-    val mapDoubleTapAction: Flow<String>
-
-    suspend fun setMapDoubleTapAction(action: String)
 
     val liveElevation: Flow<Boolean>
 

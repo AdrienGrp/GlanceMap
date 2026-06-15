@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -104,6 +105,7 @@ class MainActivityMobile : ComponentActivity() {
     }
 
     private fun updateIncomingSelection(intent: Intent?) {
+        logIncomingIntent(intent)
         val uris = extractIncomingUris(intent)
         if (uris.isEmpty()) return
         incomingUris = uris
@@ -147,5 +149,16 @@ class MainActivityMobile : ComponentActivity() {
         }
 
         return uris.toList()
+    }
+
+    private fun logIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+        val data = intent.data
+        Log.d(
+            "GpxOpenIntent",
+            "action=${intent.action} type=${intent.type ?: "none"} " +
+                "scheme=${data?.scheme ?: "none"} host=${data?.host ?: "none"} " +
+                "path=${data?.path ?: "none"} flags=${intent.flags}",
+        )
     }
 }

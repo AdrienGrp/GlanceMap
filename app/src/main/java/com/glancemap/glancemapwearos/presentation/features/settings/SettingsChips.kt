@@ -31,6 +31,10 @@ private val PickerChipBackground = Color(0xFF2B2F36)
 private val PickerChipContent = Color(0xFFF1F5FB)
 private val PickerChipSecondary = Color(0xFFBAC5D4)
 private val PickerChipIcon = Color(0xFF9FB2C9)
+private val SelectedPickerChipBackground = Color(0xFF254336)
+private val SelectedPickerChipContent = Color(0xFFF1FFF5)
+private val SelectedPickerChipSecondary = Color(0xFFB7DCC4)
+private val SelectedPickerChipIcon = Color(0xFF8FF0A4)
 
 private val SectionChipBackground = Color(0xFF1F3554)
 private val SectionChipContent = Color(0xFFF4F7FB)
@@ -71,9 +75,14 @@ internal fun SettingsPickerChip(
     onClick: () -> Unit,
     secondaryLabel: String? = null,
     iconImageVector: ImageVector? = Icons.Filled.UnfoldMore,
+    selected: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val minHeight = rememberSettingsChipMinHeight(hasSecondaryLabel = secondaryLabel != null)
+    val backgroundColor = if (selected) SelectedPickerChipBackground else PickerChipBackground
+    val contentColor = if (selected) SelectedPickerChipContent else PickerChipContent
+    val secondaryContentColor = if (selected) SelectedPickerChipSecondary else PickerChipSecondary
+    val iconColor = if (selected) SelectedPickerChipIcon else PickerChipIcon
 
     if (iconImageVector != null) {
         Chip(
@@ -93,10 +102,10 @@ internal fun SettingsPickerChip(
             },
             colors =
                 ChipDefaults.secondaryChipColors(
-                    backgroundColor = PickerChipBackground,
-                    contentColor = PickerChipContent,
-                    secondaryContentColor = PickerChipSecondary,
-                    iconColor = PickerChipIcon,
+                    backgroundColor = backgroundColor,
+                    contentColor = contentColor,
+                    secondaryContentColor = secondaryContentColor,
+                    iconColor = iconColor,
                 ),
             onClick = onClick,
         )
@@ -111,9 +120,9 @@ internal fun SettingsPickerChip(
             secondaryLabel = secondaryLabel,
             colors =
                 ChipDefaults.secondaryChipColors(
-                    backgroundColor = PickerChipBackground,
-                    contentColor = PickerChipContent,
-                    secondaryContentColor = PickerChipSecondary,
+                    backgroundColor = backgroundColor,
+                    contentColor = contentColor,
+                    secondaryContentColor = secondaryContentColor,
                 ),
             onClick = onClick,
         )

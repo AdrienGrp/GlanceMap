@@ -1,11 +1,13 @@
 package com.glancemap.glancemapwearos.presentation.features.gpx
 
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterConfig
 import com.glancemap.glancemapwearos.core.gpx.GpxElevationFilterDefaults
 import com.glancemap.glancemapwearos.core.routing.RoutePlanner
 import com.glancemap.glancemapwearos.core.routing.RoutePlannerRequest
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.GpxExportRepository
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
@@ -37,10 +39,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import java.io.File
+import kotlin.math.roundToInt
 
 data class GpxGuidanceStartResult(
     val warningMessage: String? = null,
 )
+
+private fun String.telemetryToken(): String =
+    replace(Regex("\\s+"), "_")
+        .take(100)
 
 private data class GpxGuidanceBuildResult(
     val session: GpxGuidanceSession,
@@ -380,6 +387,13 @@ class GpxViewModel(
 
         val points = profile.points
         if (points.isEmpty()) return null
+        parsed.activitySummary?.let { summary ->
+            return summary.toRecordingDashboardSnapshot(
+                fallbackProfile = profile,
+                fallbackPoints = points,
+                fallbackDurationSeconds = parsed.activityDurationSec ?: points.durationFromTimestampsSeconds(),
+            )
+        }
 
         val durationSeconds = parsed.activityDurationSec ?: points.durationFromTimestampsSeconds()
         val recordedPoints = points.toRecordedTracePoints()
@@ -416,9 +430,51 @@ class GpxViewModel(
             backpackWeightKg = backpackWeightKg,
             calorieEstimate = calorieEstimate,
             heartRateBpm = points.lastMappedNotNull { it.heartRateBpm },
+            averageHeartRateBpm = points.averageHeartRateBpm(),
             stepCount = points.lastMappedNotNull { it.stepCount },
             cadenceSpm = points.lastMappedNotNull { it.cadenceSpm },
             barometricPressureHpa = points.lastMappedNotNull { it.barometricPressureHpa },
+        )
+    }
+
+    private fun GpxActivitySummary.toRecordingDashboardSnapshot(
+        fallbackProfile: TrackProfile,
+        fallbackPoints: List<TrackPoint>,
+        fallbackDurationSeconds: Double?,
+    ): RecordingDashboardSnapshot {
+        val lastPoint = fallbackPoints.lastOrNull()
+        val duration = durationSeconds ?: fallbackDurationSeconds ?: 0.0
+        val distance = distanceMeters ?: fallbackProfile.totalDistance
+        return RecordingDashboardSnapshot(
+            durationSeconds = duration,
+            distanceMeters = distance,
+            elevationGainMeters = elevationGainMeters ?: fallbackProfile.totalAscent,
+            elevationLossMeters = elevationLossMeters ?: fallbackProfile.totalDescent,
+            currentElevationMeters = currentElevationMeters ?: lastPoint?.elevation,
+            currentSpeedMps = currentSpeedMps ?: lastPoint?.speedMps ?: fallbackPoints.lastSegmentSpeedMps(),
+            averageSpeedMps =
+                averageSpeedMps
+                    ?: duration
+                        .takeIf { it > 0.0 }
+                        ?.let { distance / it },
+            gpsAccuracyMeters = gpsAccuracyMeters ?: fallbackPoints.lastMappedNotNull { it.accuracyMeters },
+            pointCount = pointCount ?: fallbackPoints.size,
+            gpsActiveDurationSeconds = gpsActiveDurationSeconds ?: duration,
+            recordingGapCount = recordingGapCount ?: 0,
+            recordingMaxGapSeconds = recordingMaxGapSeconds ?: 0.0,
+            userWeightKg = userWeightKg,
+            backpackWeightKg = backpackWeightKg,
+            calorieEstimate =
+                RecordingCalorieEstimate(
+                    grossKcal = caloriesGrossKcal ?: 0.0,
+                    activeKcal = caloriesActiveKcal ?: 0.0,
+                    restingKcal = caloriesRestingKcal ?: 0.0,
+                ),
+            heartRateBpm = fallbackPoints.lastMappedNotNull { it.heartRateBpm },
+            averageHeartRateBpm = heartRateBpm ?: fallbackPoints.averageHeartRateBpm(),
+            stepCount = stepCount ?: fallbackPoints.lastMappedNotNull { it.stepCount },
+            cadenceSpm = cadenceSpm ?: fallbackPoints.lastMappedNotNull { it.cadenceSpm },
+            barometricPressureHpa = barometricPressureHpa ?: fallbackPoints.lastMappedNotNull { it.barometricPressureHpa },
         )
     }
 
@@ -436,6 +492,11 @@ class GpxViewModel(
         onComplete: (Result<GpxGuidanceStartResult>) -> Unit,
     ) {
         viewModelScope.launch {
+            val buildStartElapsedMs = SystemClock.elapsedRealtime()
+            DebugTelemetry.log(
+                "TurnByTurnStart",
+                "event=build_start file=${File(path).name.telemetryToken()} activeSession=${_turnByTurnGuidanceSession.value?.trackId?.let { File(it).name.telemetryToken() } ?: "none"}",
+            )
             val result =
                 withContext(Dispatchers.IO) {
                     runCatching {
@@ -461,6 +522,21 @@ class GpxViewModel(
                     if (session.trackId !in currentActive) {
                         gpxRepository.setActiveGpxFiles(currentActive + session.trackId)
                     }
+                    DebugTelemetry.log(
+                        "TurnByTurnStart",
+                        "event=build_success elapsedMs=${(SystemClock.elapsedRealtime() - buildStartElapsedMs).coerceAtLeast(0L)} " +
+                            "file=${File(path).name.telemetryToken()} points=${session.trackPoints.size} " +
+                            "instructions=${session.instructions.size} distanceMeters=${session.totalDistanceMeters.toInt()} " +
+                            "warning=${buildResult.warningMessage?.telemetryToken() ?: "none"}",
+                    )
+                }
+                .onFailure { error ->
+                    DebugTelemetry.log(
+                        "TurnByTurnStart",
+                        "event=build_failure elapsedMs=${(SystemClock.elapsedRealtime() - buildStartElapsedMs).coerceAtLeast(0L)} " +
+                            "file=${File(path).name.telemetryToken()} error=${error.javaClass.simpleName.telemetryToken()} " +
+                            "message=${error.localizedMessage?.telemetryToken() ?: "na"}",
+                    )
                 }
             onComplete(result.map { GpxGuidanceStartResult(warningMessage = it.warningMessage) })
         }
@@ -1310,6 +1386,12 @@ private fun List<TrackPoint>.lastSegmentSpeedMps(): Float? {
     val elapsedSeconds = ((lastTime - previousTime).coerceAtLeast(0L) / 1000.0).takeIf { it > 0.0 } ?: return null
     val distanceMeters = haversineMeters(previous.latLong, last.latLong)
     return (distanceMeters / elapsedSeconds).toFloat().takeIf { it.isFinite() && it >= 0f }
+}
+
+private fun List<TrackPoint>.averageHeartRateBpm(): Int? {
+    val values = mapNotNull { point -> point.heartRateBpm?.takeIf { it > 0 } }
+    if (values.isEmpty()) return null
+    return values.average().roundToInt()
 }
 
 private fun List<TrackPoint>.toRecordedTracePoints(): List<RecordedTracePoint> =

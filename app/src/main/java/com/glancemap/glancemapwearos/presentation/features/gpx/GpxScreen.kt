@@ -62,6 +62,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingRecapMetricsGrid
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetricsForSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetric
@@ -69,7 +70,6 @@ import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
-import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -112,7 +112,7 @@ fun GpxScreen(
     var guidanceMessageTitle by remember { mutableStateOf<String?>(null) }
     var guidanceMessageBody by remember { mutableStateOf<String?>(null) }
     var navigateAfterGuidanceMessage by remember { mutableStateOf(false) }
-    var guidanceStartPromptFile by remember { mutableStateOf<GpxFileState?>(null) }
+    var guidanceStartingPath by remember { mutableStateOf<String?>(null) }
     var showActivities by remember { mutableStateOf(false) }
     val visibleGpxFiles = remember(gpxFiles, showActivities) { gpxFiles.filter { it.isActivity == showActivities } }
     val haptic = LocalHapticFeedback.current
@@ -277,8 +277,31 @@ fun GpxScreen(
     }
 
     fun startGuidance(gpxFile: GpxFileState) {
+        if (guidanceStartingPath != null) {
+            DebugTelemetry.log(
+                "TurnByTurnStart",
+                "event=tap_ignored reason=already_starting activeFile=${guidanceStartingPath?.telemetryToken() ?: "na"} " +
+                    "requestedFile=${gpxFile.path.telemetryToken()}",
+            )
+            return
+        }
+        val tapElapsedMs = SystemClock.elapsedRealtime()
+        guidanceStartingPath = gpxFile.path
+        DebugTelemetry.log(
+            "TurnByTurnStart",
+            "event=tap file=${gpxFile.path.telemetryToken()} title=${gpxFile.displayTitle.telemetryToken()} " +
+                "autoStartRecording=$autoStartRecordingWithGuidance recordingActiveOrSaving=$recordingActiveOrSaving",
+        )
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         gpxViewModel.startTurnByTurnGuidance(gpxFile.path) { result ->
+            val elapsedMs = (SystemClock.elapsedRealtime() - tapElapsedMs).coerceAtLeast(0L)
+            if (guidanceStartingPath == gpxFile.path) {
+                guidanceStartingPath = null
+            }
+            DebugTelemetry.log(
+                "TurnByTurnStart",
+                "event=tap_complete success=${result.isSuccess} elapsedMs=$elapsedMs file=${gpxFile.path.telemetryToken()}",
+            )
             result
                 .onSuccess { startResult ->
                     if (autoStartRecordingWithGuidance && !recordingActiveOrSaving) {
@@ -373,19 +396,6 @@ fun GpxScreen(
                         }
                 }
             },
-        )
-
-        WearActionDialog(
-            visible = guidanceStartPromptFile != null,
-            title = "Start guidance?",
-            message = guidanceStartPromptFile?.displayTitle ?: "Start turn-by-turn for this GPX?",
-            confirmText = "Start",
-            dismissText = "Cancel",
-            onConfirm = {
-                guidanceStartPromptFile?.let { startGuidance(it) }
-                guidanceStartPromptFile = null
-            },
-            onDismissRequest = { guidanceStartPromptFile = null },
         )
 
         elevationProfileUiState?.let { profile ->
@@ -641,11 +651,6 @@ fun GpxScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 gpxViewModel.stopTurnByTurnGuidance()
                             },
-                            onRequestGuidanceStart = {
-                                if (turnByTurnGuidanceSession?.trackId != gpxFile.path) {
-                                    guidanceStartPromptFile = gpxFile
-                                }
-                            },
                             onSend = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 selectedSendPaths =
@@ -669,6 +674,7 @@ fun GpxScreen(
                             showRename = isRenameMode,
                             showGuidance = !isSendMode && !isDeleteMode && !isRenameMode,
                             isGuidanceActive = turnByTurnGuidanceSession?.trackId == gpxFile.path,
+                            isGuidanceStarting = guidanceStartingPath == gpxFile.path,
                             exportState = exportUiState.takeIf { it.filePath == gpxFile.path },
                             isMetric = isMetric,
                             rowSpacing = rowSpacing,
@@ -867,7 +873,11 @@ private fun ActivityDetailsDialog(
 
 private const val GPX_HELP_PREFS = "gpx_screen_help_prefs"
 private const val GPX_HELP_SHOWN_KEY = "gpx_help_shown"
-private const val GPX_ROW_DOUBLE_TAP_TIMEOUT_MS = 300L
+
+private fun String.telemetryToken(): String =
+    substringAfterLast('/')
+        .replace(Regex("\\s+"), "_")
+        .take(100)
 
 @Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 @Composable
@@ -878,7 +888,6 @@ private fun GpxTrackItem(
     onRename: () -> Unit,
     onStartGuidance: () -> Unit,
     onStopGuidance: () -> Unit,
-    onRequestGuidanceStart: () -> Unit,
     onSend: () -> Unit,
     onLongPress: () -> Unit,
     onShowActivityDetails: () -> Unit,
@@ -888,6 +897,7 @@ private fun GpxTrackItem(
     showRename: Boolean,
     showGuidance: Boolean,
     isGuidanceActive: Boolean,
+    isGuidanceStarting: Boolean,
     exportState: GpxExportUiState?,
     isMetric: Boolean,
     rowSpacing: Dp,
@@ -899,10 +909,8 @@ private fun GpxTrackItem(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val longPressHandler by rememberUpdatedState(onLongPress)
-    val doubleTapHandler by rememberUpdatedState(onRequestGuidanceStart)
     val longPressTimeoutMs = remember { ViewConfiguration.getLongPressTimeout().toLong() }
     var suppressNextToggle by remember(gpxFile.path) { mutableStateOf(false) }
-    var lastTapElapsedMs by remember(gpxFile.path) { mutableStateOf(0L) }
 
     LaunchedEffect(interactionSource, gpxFile.path, longPressTimeoutMs) {
         var trackedPress: PressInteraction.Press? = null
@@ -911,15 +919,7 @@ private fun GpxTrackItem(
         interactionSource.interactions.collect { interaction ->
             when (interaction) {
                 is PressInteraction.Press -> {
-                    val now = SystemClock.elapsedRealtime()
-                    if (now - lastTapElapsedMs <= GPX_ROW_DOUBLE_TAP_TIMEOUT_MS) {
-                        suppressNextToggle = true
-                        lastTapElapsedMs = 0L
-                        doubleTapHandler()
-                    } else {
-                        suppressNextToggle = false
-                        lastTapElapsedMs = now
-                    }
+                    suppressNextToggle = false
                     trackedPress = interaction
                     longPressJob?.cancel()
                     longPressJob =
@@ -1065,6 +1065,7 @@ private fun GpxTrackItem(
                     }
                     GuidanceActionButton(
                         isGuidanceActive = isGuidanceActive,
+                        isGuidanceStarting = isGuidanceStarting,
                         visualSize = activityActionButtonSize,
                         iconSize = 15.dp,
                         onStartGuidance = onStartGuidance,
@@ -1074,6 +1075,7 @@ private fun GpxTrackItem(
             } else {
                 GuidanceActionButton(
                     isGuidanceActive = isGuidanceActive,
+                    isGuidanceStarting = isGuidanceStarting,
                     visualSize = singleGuidanceButtonSize,
                     iconSize = null,
                     onStartGuidance = onStartGuidance,
@@ -1087,6 +1089,7 @@ private fun GpxTrackItem(
 @Composable
 private fun GuidanceActionButton(
     isGuidanceActive: Boolean,
+    isGuidanceStarting: Boolean,
     visualSize: Dp,
     iconSize: Dp?,
     onStartGuidance: () -> Unit,
@@ -1094,7 +1097,9 @@ private fun GuidanceActionButton(
 ) {
     CompactIconHitTargetButton(
         onClick = {
-            if (isGuidanceActive) {
+            if (isGuidanceStarting) {
+                return@CompactIconHitTargetButton
+            } else if (isGuidanceActive) {
                 onStopGuidance()
             } else {
                 onStartGuidance()
@@ -1102,30 +1107,29 @@ private fun GuidanceActionButton(
         },
         visualSize = visualSize,
         containerColor =
-            if (isGuidanceActive) {
-                MaterialTheme.colorScheme.errorContainer
-            } else {
-                Color.Black.copy(alpha = 0.72f)
+            when {
+                isGuidanceStarting -> MaterialTheme.colorScheme.primaryContainer
+                isGuidanceActive -> MaterialTheme.colorScheme.errorContainer
+                else -> Color.Black.copy(alpha = 0.72f)
             },
         contentColor =
-            if (isGuidanceActive) {
-                MaterialTheme.colorScheme.onErrorContainer
-            } else {
-                Color.White
+            when {
+                isGuidanceStarting -> MaterialTheme.colorScheme.onPrimaryContainer
+                isGuidanceActive -> MaterialTheme.colorScheme.onErrorContainer
+                else -> Color.White
             },
     ) {
         Icon(
             imageVector =
-                if (isGuidanceActive) {
-                    Icons.Default.Stop
-                } else {
-                    Icons.AutoMirrored.Filled.AssistantDirection
+                when {
+                    isGuidanceActive -> Icons.Default.Stop
+                    else -> Icons.AutoMirrored.Filled.AssistantDirection
                 },
             contentDescription =
-                if (isGuidanceActive) {
-                    "Stop GPX guidance"
-                } else {
-                    "Start GPX guidance"
+                when {
+                    isGuidanceStarting -> "Starting GPX guidance"
+                    isGuidanceActive -> "Stop GPX guidance"
+                    else -> "Start GPX guidance"
                 },
             modifier = iconSize?.let { Modifier.size(it) } ?: Modifier,
         )

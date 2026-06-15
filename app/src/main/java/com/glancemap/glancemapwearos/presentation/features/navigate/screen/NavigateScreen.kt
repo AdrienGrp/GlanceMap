@@ -45,6 +45,7 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
+import com.glancemap.glancemapwearos.presentation.features.navigate.UI_RECORDING_WAKE_REFRESH_SOURCE
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
@@ -230,6 +231,9 @@ fun NavigateScreen(
     val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
     val keepGpsInAmbient by settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
     val turnByTurnHapticsEnabled by settingsViewModel.turnByTurnHapticsEnabled.collectAsState(initial = true)
+    val turnByTurnVoiceGuidanceEnabled by settingsViewModel.turnByTurnVoiceGuidanceEnabled.collectAsState(
+        initial = SettingsRepository.DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED,
+    )
     val turnByTurnTurnAlertsMode by settingsViewModel.turnByTurnTurnAlertsMode.collectAsState(
         initial = SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT,
     )
@@ -423,6 +427,7 @@ fun NavigateScreen(
         )
     val effectiveBackgroundGpsEnabled = runtimeDemand.backgroundGpsEnabled
     val shouldTrackLocation = runtimeDemand.trackingEnabled
+    val runtimeReason = runtimeDemand.reason
     val effectiveNavMode = if (offlineMode) NavMode.PANNING else navMode
     val effectiveCompassProviderMode = compassProviderMode
     val selectedCompassProviderType =
@@ -670,11 +675,12 @@ fun NavigateScreen(
 
     // Keep service runtime state in sync with one combined update so
     // screen-state transitions do not trigger back-to-back request recomputes.
-    LaunchedEffect(screenState, shouldTrackLocation, effectiveBackgroundGpsEnabled) {
+    LaunchedEffect(screenState, shouldTrackLocation, effectiveBackgroundGpsEnabled, runtimeReason) {
         locationViewModel.syncRuntimeState(
             screenState = screenState,
             trackingEnabled = shouldTrackLocation,
             backgroundGpsEnabled = effectiveBackgroundGpsEnabled,
+            runtimeReason = runtimeReason,
         )
     }
     val disposeRuntimeDemand by rememberUpdatedState(
@@ -706,6 +712,28 @@ fun NavigateScreen(
             )
         }
     }
+    LaunchedEffect(
+        screenState,
+        isScreenResumed,
+        offlineMode,
+        locationPermissionState.hasLocationPermission,
+        traceRecordingState.active,
+        traceRecordingState.paused,
+        traceRecordingState.saving,
+    ) {
+        if (
+            isScreenResumed &&
+            screenState == LocationScreenState.INTERACTIVE &&
+            !offlineMode &&
+            locationPermissionState.hasLocationPermission &&
+            traceRecordingState.active &&
+            !traceRecordingState.paused &&
+            !traceRecordingState.saving
+        ) {
+            traceRecordingViewModel.onWakeRefreshRequested(UI_RECORDING_WAKE_REFRESH_SOURCE)
+            locationViewModel.requestImmediateLocation(source = UI_RECORDING_WAKE_REFRESH_SOURCE)
+        }
+    }
     DisposableEffect(locationViewModel) {
         onDispose {
             // Leaving Navigate drops the visible-map demand but keeps explicit REC/guidance demand.
@@ -713,6 +741,7 @@ fun NavigateScreen(
                 screenState = LocationScreenState.INTERACTIVE,
                 trackingEnabled = disposeRuntimeDemand.trackingEnabled,
                 backgroundGpsEnabled = disposeRuntimeDemand.backgroundGpsEnabled,
+                runtimeReason = disposeRuntimeDemand.reason,
             )
         }
     }
@@ -1211,6 +1240,15 @@ fun NavigateScreen(
         offRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
     )
 
+    TurnByTurnGuidanceVoiceEffect(
+        context = context,
+        state = turnByTurnGuidanceState,
+        currentSpeedMps = rawCurrentLocation?.speed,
+        voiceEnabled = turnByTurnVoiceGuidanceEnabled,
+        turnAlertsMode = turnByTurnTurnAlertsMode,
+        paused = turnByTurnGuidancePaused,
+    )
+
     LaunchedEffect(
         turnByTurnGuidanceState.active,
         turnByTurnGuidanceState.mode,
@@ -1232,6 +1270,7 @@ fun NavigateScreen(
         turnByTurnReverseSuggestionMode,
         turnByTurnOffRouteThresholdMeters,
         turnByTurnHapticsEnabled,
+        turnByTurnVoiceGuidanceEnabled,
         turnByTurnTurnAlertsMode,
         turnByTurnOffRouteAlertsEnabled,
         turnByTurnGpsInAmbient,
@@ -1252,6 +1291,7 @@ fun NavigateScreen(
                 reverseSuggestionMode = turnByTurnReverseSuggestionMode,
                 offRouteThresholdMeters = turnByTurnOffRouteThresholdMeters,
                 hapticsEnabled = turnByTurnHapticsEnabled,
+                voiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
                 turnAlertsMode = turnByTurnTurnAlertsMode,
                 offRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
                 guidanceGpsInAmbient = turnByTurnGpsInAmbient,
@@ -1754,6 +1794,7 @@ private fun buildTurnByTurnTelemetryMessage(
     reverseSuggestionMode: String,
     offRouteThresholdMeters: Int,
     hapticsEnabled: Boolean,
+    voiceGuidanceEnabled: Boolean,
     turnAlertsMode: String,
     offRouteAlertsEnabled: Boolean,
     guidanceGpsInAmbient: Boolean,
@@ -1782,6 +1823,7 @@ private fun buildTurnByTurnTelemetryMessage(
         append(" reverseSuggestion=$reverseSuggestionMode")
         append(" offRouteThresholdM=$offRouteThresholdMeters")
         append(" haptics=$hapticsEnabled")
+        append(" voice=$voiceGuidanceEnabled")
         append(" turnAlerts=$turnAlertsMode")
         append(" offRouteAlerts=$offRouteAlertsEnabled")
         append(" guidanceGpsAmbient=$guidanceGpsInAmbient")

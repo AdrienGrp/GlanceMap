@@ -24,6 +24,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalHeartRateSensorBridge
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodSensorBridge
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlin.math.roundToInt
 
 data class RecordingSensorMetrics(
@@ -31,10 +35,18 @@ data class RecordingSensorMetrics(
     val heartRateUpdatedAtMillis: Long = 0L,
     val stepCount: Int? = null,
     val stepCountUpdatedAtMillis: Long = 0L,
+    val stepCountFromBluetooth: Boolean = false,
     val cadenceSpm: Int? = null,
     val cadenceUpdatedAtMillis: Long = 0L,
+    val cadenceFromBluetooth: Boolean = false,
+    val externalSpeedMps: Float? = null,
+    val externalSpeedUpdatedAtMillis: Long = 0L,
+    val externalDistanceRawUnits: Long? = null,
+    val externalDistanceMeters: Double? = null,
+    val externalDistanceUpdatedAtMillis: Long = 0L,
     val barometricPressureHpa: Double? = null,
     val barometricPressureUpdatedAtMillis: Long = 0L,
+    val heartRateFromBluetooth: Boolean = false,
 )
 
 @Composable
@@ -42,10 +54,44 @@ fun RecordingSensorBridge(
     active: Boolean,
     paused: Boolean,
     selectedMetricIds: List<String>,
+    heartRateSource: String,
+    cadenceSource: String,
+    speedSource: String,
+    distanceSource: String,
+    stepsSource: String,
+    externalHeartRateAddress: String?,
+    externalRunPodAddress: String?,
     onMetrics: (RecordingSensorMetrics) -> Unit,
 ) {
     val context = LocalContext.current
-    val sensorMetricIds = remember(selectedMetricIds) { selectedMetricIds.filter { it in recordingSensorMetricIds } }
+    val externalHeartRateLinked = !externalHeartRateAddress.isNullOrBlank()
+    val useExternalHeartRate =
+        externalHeartRateLinked &&
+            heartRateSource == SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP
+    val useWatchHeartRate =
+        heartRateSource == SettingsRepository.RECORDING_HEART_RATE_SOURCE_WATCH
+    val externalRunPodLinked = !externalRunPodAddress.isNullOrBlank()
+    val useExternalCadence =
+        externalRunPodLinked &&
+            cadenceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
+    val useInternalCadence =
+        cadenceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
+    val useInternalSteps =
+        stepsSource == SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
+    val useExternalSpeed =
+        externalRunPodLinked && speedSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
+    val useExternalDistance =
+        externalRunPodLinked && distanceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
+    val useExternalRunPod =
+        useExternalCadence || useExternalSpeed || useExternalDistance
+    val sensorMetricIds =
+        remember(selectedMetricIds, useWatchHeartRate, useInternalCadence, useInternalSteps) {
+            selectedMetricIds
+                .filter { it in recordingSensorMetricIds }
+                .filterNot { !useWatchHeartRate && it == SettingsRepository.RECORDING_METRIC_HEART_RATE }
+                .filterNot { !useInternalCadence && it == SettingsRepository.RECORDING_METRIC_CADENCE }
+                .filterNot { !useInternalSteps && it == SettingsRepository.RECORDING_METRIC_STEPS }
+        }
     var permissionResultVersion by remember { mutableIntStateOf(0) }
     val permissionsToRequest = remember(context, sensorMetricIds, permissionResultVersion) {
         recordingSensorPermissionsToRequest(context, sensorMetricIds)
@@ -66,6 +112,66 @@ fun RecordingSensorBridge(
     var lastStepCounterTimeMs by remember { mutableLongStateOf(0L) }
     val stepDetectorEventTimes = remember { mutableStateListOf<Long>() }
 
+    ExternalHeartRateSensorBridge(
+        active = active && useExternalHeartRate,
+        paused = paused,
+        address = externalHeartRateAddress,
+        onHeartRate = { bpm, timeMillis ->
+            metrics =
+                metrics.copy(
+                    heartRateBpm = bpm,
+                    heartRateUpdatedAtMillis = timeMillis,
+                    heartRateFromBluetooth = true,
+                )
+            onMetrics(metrics)
+        },
+    )
+    ExternalRunPodSensorBridge(
+        active = active && useExternalRunPod,
+        paused = paused,
+        address = externalRunPodAddress,
+        onMeasurement = { measurement ->
+            metrics =
+                metrics.copy(
+                    cadenceSpm =
+                        if (useExternalCadence) {
+                            measurement.cadenceSpm ?: metrics.cadenceSpm
+                        } else {
+                            metrics.cadenceSpm
+                        },
+                    cadenceUpdatedAtMillis =
+                        if (useExternalCadence && measurement.cadenceSpm != null) {
+                            measurement.timeMillis
+                        } else {
+                            metrics.cadenceUpdatedAtMillis
+                        },
+                    cadenceFromBluetooth =
+                        if (useExternalCadence && measurement.cadenceSpm != null) {
+                            true
+                        } else {
+                            metrics.cadenceFromBluetooth
+                        },
+                    externalSpeedMps = measurement.speedMps ?: metrics.externalSpeedMps,
+                    externalSpeedUpdatedAtMillis =
+                        if (measurement.speedMps != null) {
+                            measurement.timeMillis
+                        } else {
+                            metrics.externalSpeedUpdatedAtMillis
+                        },
+                    externalDistanceMeters = measurement.totalDistanceMeters ?: metrics.externalDistanceMeters,
+                    externalDistanceRawUnits =
+                        measurement.rawTotalDistanceUnits ?: metrics.externalDistanceRawUnits,
+                    externalDistanceUpdatedAtMillis =
+                        if (measurement.totalDistanceMeters != null) {
+                            measurement.timeMillis
+                        } else {
+                            metrics.externalDistanceUpdatedAtMillis
+                        },
+                )
+            onMetrics(metrics)
+        },
+    )
+
     LaunchedEffect(active) {
         if (!active) {
             metrics = RecordingSensorMetrics()
@@ -83,7 +189,61 @@ fun RecordingSensorBridge(
         }
     }
 
-    DisposableEffect(context, active, paused, sensorMetricIds, permissionsToRequest) {
+    LaunchedEffect(
+        context,
+        active,
+        paused,
+        sensorMetricIds,
+        permissionsToRequest,
+        heartRateSource,
+        cadenceSource,
+        speedSource,
+        distanceSource,
+        stepsSource,
+        useExternalHeartRate,
+        useExternalCadence,
+        useExternalRunPod,
+    ) {
+        if (!active) return@LaunchedEffect
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        while (isActive) {
+            logRecordingSensorStatus(
+                context = context,
+                sensorManager = sensorManager,
+                selectedMetricIds = sensorMetricIds,
+                heartRateSource = heartRateSource,
+                externalHeartRateLinked = externalHeartRateLinked,
+                useExternalHeartRate = useExternalHeartRate,
+                useWatchHeartRate = useWatchHeartRate,
+                externalRunPodLinked = externalRunPodLinked,
+                cadenceSource = cadenceSource,
+                speedSource = speedSource,
+                distanceSource = distanceSource,
+                stepsSource = stepsSource,
+                useExternalCadence = useExternalCadence,
+                useExternalRunPod = useExternalRunPod,
+                paused = paused,
+                event = "status",
+            )
+            delay(RECORDING_SENSOR_STATUS_INTERVAL_MS)
+        }
+    }
+
+    DisposableEffect(
+        context,
+        active,
+        paused,
+        sensorMetricIds,
+        permissionsToRequest,
+        heartRateSource,
+        cadenceSource,
+        speedSource,
+        distanceSource,
+        stepsSource,
+        useExternalHeartRate,
+        useExternalCadence,
+        useExternalRunPod,
+    ) {
         if (!active || paused || sensorMetricIds.isEmpty()) {
             return@DisposableEffect onDispose {}
         }
@@ -100,6 +260,7 @@ fun RecordingSensorBridge(
                                 metrics.copy(
                                     heartRateBpm = bpm,
                                     heartRateUpdatedAtMillis = if (bpm != null) now else metrics.heartRateUpdatedAtMillis,
+                                    heartRateFromBluetooth = false,
                                 )
                         }
                         Sensor.TYPE_STEP_COUNTER -> {
@@ -127,12 +288,19 @@ fun RecordingSensorBridge(
                                 metrics.copy(
                                     stepCount = steps,
                                     stepCountUpdatedAtMillis = now,
+                                    stepCountFromBluetooth = false,
                                     cadenceSpm = cadence ?: metrics.cadenceSpm,
                                     cadenceUpdatedAtMillis =
                                         if (cadence != null) {
                                             now
                                         } else {
                                             metrics.cadenceUpdatedAtMillis
+                                        },
+                                    cadenceFromBluetooth =
+                                        if (cadence != null) {
+                                            false
+                                        } else {
+                                            metrics.cadenceFromBluetooth
                                         },
                                 )
                         }
@@ -154,6 +322,12 @@ fun RecordingSensorBridge(
                                             now
                                         } else {
                                             metrics.cadenceUpdatedAtMillis
+                                        },
+                                    cadenceFromBluetooth =
+                                        if (cadence != null) {
+                                            false
+                                        } else {
+                                            metrics.cadenceFromBluetooth
                                         },
                                 )
                         }
@@ -184,20 +358,28 @@ fun RecordingSensorBridge(
         val registered =
             registerRecordingSensors(
                 sensorManager = sensorManager,
-                listener = listener,
-                selectedMetricIds = sensorMetricIds,
-                context = context,
+            listener = listener,
+            selectedMetricIds = sensorMetricIds,
+            context = context,
             )
-        val available = availableRecordingSensors(sensorManager)
-        val bodySensorsGranted = hasPermission(context, Manifest.permission.BODY_SENSORS)
-        val activityRecognitionGranted = hasActivityRecognitionPermission(context)
-        DebugTelemetry.log(
-            "TraceRecordingSensors",
-            "event=register requested=${sensorMetricIds.joinToString("|")} " +
-                "registered=${registered.joinToString("|").ifBlank { "none" }} " +
-                "available=${available.joinToString("|").ifBlank { "none" }} " +
-                "bodySensorsGranted=$bodySensorsGranted " +
-                "activityRecognitionGranted=$activityRecognitionGranted",
+        logRecordingSensorStatus(
+            context = context,
+            sensorManager = sensorManager,
+            selectedMetricIds = sensorMetricIds,
+            heartRateSource = heartRateSource,
+            externalHeartRateLinked = externalHeartRateLinked,
+            useExternalHeartRate = useExternalHeartRate,
+            useWatchHeartRate = useWatchHeartRate,
+            externalRunPodLinked = externalRunPodLinked,
+            cadenceSource = cadenceSource,
+            speedSource = speedSource,
+            distanceSource = distanceSource,
+            stepsSource = stepsSource,
+            useExternalCadence = useExternalCadence,
+            useExternalRunPod = useExternalRunPod,
+            registered = registered,
+            paused = paused,
+            event = "register",
         )
 
         onDispose {
@@ -205,6 +387,52 @@ fun RecordingSensorBridge(
             DebugTelemetry.log("TraceRecordingSensors", "event=unregister")
         }
     }
+}
+
+private fun logRecordingSensorStatus(
+    context: Context,
+    sensorManager: SensorManager,
+    selectedMetricIds: List<String>,
+    heartRateSource: String,
+    externalHeartRateLinked: Boolean,
+    useExternalHeartRate: Boolean,
+    useWatchHeartRate: Boolean,
+    externalRunPodLinked: Boolean,
+    cadenceSource: String,
+    speedSource: String,
+    distanceSource: String,
+    stepsSource: String,
+    useExternalCadence: Boolean,
+    useExternalRunPod: Boolean,
+    registered: List<String>? = null,
+    paused: Boolean,
+    event: String,
+) {
+    val available = availableRecordingSensors(sensorManager)
+    val bodySensorsGranted = hasPermission(context, Manifest.permission.BODY_SENSORS)
+    val activityRecognitionGranted = hasActivityRecognitionPermission(context)
+    val requested = selectedMetricIds.joinToString("|").ifBlank { "none" }
+    val registeredText = registered?.joinToString("|")?.ifBlank { "none" } ?: "unknown"
+    DebugTelemetry.log(
+        "TraceRecordingSensors",
+        "event=$event requested=$requested " +
+            "registered=$registeredText " +
+            "available=${available.joinToString("|").ifBlank { "none" }} " +
+            "heartRateSource=$heartRateSource " +
+            "externalHeartRateLinked=$externalHeartRateLinked " +
+            "externalHeartRateActive=$useExternalHeartRate " +
+            "watchHeartRateActive=$useWatchHeartRate " +
+            "externalRunPodLinked=$externalRunPodLinked " +
+            "cadenceSource=$cadenceSource " +
+            "speedSource=$speedSource " +
+            "distanceSource=$distanceSource " +
+            "stepsSource=$stepsSource " +
+            "externalCadenceActive=$useExternalCadence " +
+            "externalRunPodActive=$useExternalRunPod " +
+            "paused=$paused " +
+            "bodySensorsGranted=$bodySensorsGranted " +
+            "activityRecognitionGranted=$activityRecognitionGranted",
+    )
 }
 
 private fun availableRecordingSensors(sensorManager: SensorManager): List<String> =
@@ -311,3 +539,4 @@ private val recordingSensorMetricIds =
     )
 
 private const val CADENCE_WINDOW_MS = 30_000L
+private const val RECORDING_SENSOR_STATUS_INTERVAL_MS = 60_000L

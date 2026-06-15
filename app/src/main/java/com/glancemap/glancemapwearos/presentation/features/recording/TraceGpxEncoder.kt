@@ -8,6 +8,7 @@ import java.util.Locale
 internal fun encodeRecordedTraceAsGpx(
     title: String,
     points: List<RecordedTracePoint>,
+    summary: RecordedTraceSummary? = null,
 ): ByteArray {
     val writer = StringWriter()
     writer.append("""<?xml version="1.0" encoding="UTF-8"?>""")
@@ -19,6 +20,7 @@ internal fun encodeRecordedTraceAsGpx(
         textTag("name", title)
         textTag("extensions") {
             textTag("gmap:activityType", "recording")
+            summary?.let { writeRecordingSummaryExtensions(it) }
         }
     }
     writer.textTag("trk") {
@@ -38,6 +40,66 @@ internal fun encodeRecordedTraceAsGpx(
     }
     writer.append("</gpx>")
     return writer.toString().toByteArray(Charsets.UTF_8)
+}
+
+data class RecordedTraceSummary(
+    val durationSeconds: Double,
+    val distanceMeters: Double,
+    val elevationGainMeters: Double,
+    val elevationLossMeters: Double,
+    val currentElevationMeters: Double?,
+    val currentSpeedMps: Float?,
+    val averageSpeedMps: Double?,
+    val gpsAccuracyMeters: Float?,
+    val pointCount: Int,
+    val gpsActiveDurationSeconds: Double,
+    val recordingGapCount: Int,
+    val recordingMaxGapSeconds: Double,
+    val caloriesGrossKcal: Double,
+    val caloriesActiveKcal: Double,
+    val caloriesRestingKcal: Double,
+    val heartRateBpm: Int?,
+    val stepCount: Int?,
+    val cadenceSpm: Int?,
+    val barometricPressureHpa: Double?,
+)
+
+private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceSummary) {
+    textTag("gmap:durationSeconds", formatDouble(summary.durationSeconds))
+    textTag("gmap:distanceMeters", formatDouble(summary.distanceMeters))
+    textTag("gmap:elevationGainMeters", formatDouble(summary.elevationGainMeters))
+    textTag("gmap:elevationLossMeters", formatDouble(summary.elevationLossMeters))
+    summary.currentElevationMeters?.takeIf { it.isFinite() }?.let {
+        textTag("gmap:currentElevationMeters", formatDouble(it))
+    }
+    summary.currentSpeedMps?.takeIf { it.isFinite() && it >= 0f }?.let {
+        textTag("gmap:currentSpeedMps", formatFloat(it))
+    }
+    summary.averageSpeedMps?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+        textTag("gmap:averageSpeedMps", formatDouble(it))
+    }
+    summary.gpsAccuracyMeters?.takeIf { it.isFinite() && it >= 0f }?.let {
+        textTag("gmap:gpsAccuracyMeters", formatFloat(it))
+    }
+    textTag("gmap:pointCount", summary.pointCount.coerceAtLeast(0).toString())
+    textTag("gmap:gpsActiveDurationSeconds", formatDouble(summary.gpsActiveDurationSeconds))
+    textTag("gmap:recordingGapCount", summary.recordingGapCount.coerceAtLeast(0).toString())
+    textTag("gmap:recordingMaxGapSeconds", formatDouble(summary.recordingMaxGapSeconds))
+    textTag("gmap:caloriesGrossKcal", formatDouble(summary.caloriesGrossKcal))
+    textTag("gmap:caloriesActiveKcal", formatDouble(summary.caloriesActiveKcal))
+    textTag("gmap:caloriesRestingKcal", formatDouble(summary.caloriesRestingKcal))
+    summary.heartRateBpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:heartRateBpm", it.toString())
+    }
+    summary.stepCount?.takeIf { it >= 0 }?.let {
+        textTag("gmap:stepCount", it.toString())
+    }
+    summary.cadenceSpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:cadenceSpm", it.toString())
+    }
+    summary.barometricPressureHpa?.takeIf { it.isFinite() && it > 0.0 }?.let {
+        textTag("gmap:pressureHpa", formatDouble(it))
+    }
 }
 
 private fun StringWriter.writePointExtensions(point: RecordedTracePoint) {

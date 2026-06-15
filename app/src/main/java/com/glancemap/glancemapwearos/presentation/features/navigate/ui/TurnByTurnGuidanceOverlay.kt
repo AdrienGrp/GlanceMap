@@ -10,6 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -42,21 +43,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.wear.compose.foundation.AnchorType
-import androidx.wear.compose.foundation.CurvedLayout
-import androidx.wear.compose.foundation.CurvedModifier
-import androidx.wear.compose.foundation.CurvedTextStyle
-import androidx.wear.compose.foundation.basicCurvedText
 import androidx.wear.compose.foundation.padding
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
@@ -286,12 +285,10 @@ private fun ExpandedGuidanceOverlay(
     guideBackToRouteActive: Boolean,
     onLongPress: () -> Unit,
 ) {
-    val titleRadialPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 16.dp
-            WearScreenSize.MEDIUM -> 15.dp
-            WearScreenSize.SMALL -> 14.dp
-        }
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
     val contentWidthFraction =
         when (screenSize) {
             WearScreenSize.LARGE -> 0.70f
@@ -319,34 +316,18 @@ private fun ExpandedGuidanceOverlay(
                 .combinedClickable(
                     onClick = {},
                     onLongClick = onLongPress,
-                ),
+                )
+                .onPreRotaryScrollEvent { event ->
+                    event.verticalScrollPixels.isFinite() && event.verticalScrollPixels != 0f
+                }
+                .focusRequester(focusRequester)
+                .focusable(),
         contentAlignment = Alignment.Center,
     ) {
         RouteProgressRing(
             progress = state.routeProgressFraction,
             modifier = Modifier.fillMaxSize(),
         )
-
-        if (!state.trackTitle.isNullOrBlank()) {
-            CurvedLayout(
-                modifier = Modifier.fillMaxSize(),
-                anchor = 270f,
-                anchorType = AnchorType.Center,
-            ) {
-                basicCurvedText(
-                    text = state.trackTitle,
-                    modifier = CurvedModifier.padding(titleRadialPadding),
-                    overflow = TextOverflow.Ellipsis,
-                    style = {
-                        CurvedTextStyle(
-                            color = Color.White.copy(alpha = 0.64f),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    },
-                )
-            }
-        }
 
         cappedFontScale(maxFontScale = 1f) {
             Column(
@@ -408,16 +389,6 @@ private fun ExpandedGuidanceOverlay(
                         fontSize = 9.sp,
                         lineHeight = 10.sp,
                         textAlign = TextAlign.Center,
-                    )
-                }
-                if (state.offRoute) {
-                    Spacer(modifier = Modifier.size(6.dp))
-                    Text(
-                        text = "Off route",
-                        color = Color(0xFFFFB74D),
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.sp,
-                        lineHeight = 12.sp,
                     )
                 }
             }
@@ -709,7 +680,7 @@ private fun GuidanceArrowIcon(
         tint = tint,
         modifier =
             modifier.rotate(
-                if (guideBackToRouteActive && state.bearingToRouteDegrees != null) {
+                if ((guideBackToRouteActive || state.offRoute) && state.bearingToRouteDegrees != null) {
                     state.bearingToRouteDegrees - compassHeadingDeg
                 } else {
                     when (state.mode) {
@@ -731,6 +702,8 @@ private fun guidancePrimaryText(
 ): String =
     if (guideBackToRouteActive) {
         "To route"
+    } else if (state.offRoute) {
+        "Off route"
     } else {
         when (state.mode) {
         GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
@@ -747,6 +720,8 @@ private fun guidanceSecondaryText(
 ): String =
     if (guideBackToRouteActive) {
         state.distanceToRouteMeters?.let { formatLiveDistanceLabel(it, isMetric) } ?: "Find route"
+    } else if (state.offRoute) {
+        state.distanceToRouteMeters?.let { "${formatLiveDistanceLabel(it, isMetric)} from GPX" } ?: "Find route"
     } else {
         when (state.mode) {
         GuidanceMode.WAITING_FOR_LOCATION -> state.trackTitle ?: "GPX guidance"
@@ -767,6 +742,8 @@ private fun guidanceCompactText(
 ): String =
     if (guideBackToRouteActive) {
         state.distanceToRouteMeters?.let { "Route ${formatLiveDistanceLabel(it, isMetric)}" } ?: "To route"
+    } else if (state.offRoute) {
+        state.distanceToRouteMeters?.let { "Off ${formatLiveDistanceLabel(it, isMetric)}" } ?: "Off route"
     } else {
         when (state.mode) {
         GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"

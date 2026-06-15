@@ -173,10 +173,20 @@ internal fun isGpxUri(
             .orEmpty()
             .lowercase()
     return name.lowercase().endsWith(".gpx") ||
-        mimeType == "application/gpx+xml" ||
-        mimeType == "application/x-gpx+xml" ||
+        isGpxMimeType(mimeType) ||
         isLikelyGpxContent(context, uri)
 }
+
+internal fun isGpxMimeType(mimeType: String?): Boolean =
+    when (mimeType?.trim()?.lowercase(Locale.ROOT)) {
+        "application/gpx+xml",
+        "application/x-gpx+xml",
+        "application/vnd.gpx+xml",
+        "application/gpx",
+        "application/x-gpx",
+        -> true
+        else -> false
+    }
 
 private fun isLikelyGpxContent(
     context: Context,

@@ -51,14 +51,23 @@ class SettingsRepositoryImpl private constructor(
         val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
         val RECORDING_SAMPLE_INTERVAL_SECONDS = intPreferencesKey("recording_sample_interval_seconds")
         val RECORDING_ELEVATION_SOURCE = stringPreferencesKey("recording_elevation_source")
+        val RECORDING_HEART_RATE_SOURCE = stringPreferencesKey("recording_heart_rate_source")
+        val RECORDING_CADENCE_SOURCE = stringPreferencesKey("recording_cadence_source")
+        val RECORDING_SPEED_SOURCE = stringPreferencesKey("recording_speed_source")
+        val RECORDING_DISTANCE_SOURCE = stringPreferencesKey("recording_distance_source")
+        val RECORDING_STEPS_SOURCE = stringPreferencesKey("recording_steps_source")
         val RECORDING_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("recording_dashboard_metric_slots")
         val RECORDING_SHOW_SAVED_GPX_ON_MAP = booleanPreferencesKey("recording_show_saved_gpx_on_map")
         val RECORDING_START_WITH_TURN_BY_TURN = booleanPreferencesKey("recording_start_with_turn_by_turn")
+        val RECORDING_EXTERNAL_HEART_RATE_ADDRESS = stringPreferencesKey("recording_external_heart_rate_address")
+        val RECORDING_EXTERNAL_HEART_RATE_NAME = stringPreferencesKey("recording_external_heart_rate_name")
+        val RECORDING_EXTERNAL_RUN_POD_ADDRESS = stringPreferencesKey("recording_external_run_pod_address")
+        val RECORDING_EXTERNAL_RUN_POD_NAME = stringPreferencesKey("recording_external_run_pod_name")
         val USER_WEIGHT_KG = floatPreferencesKey("user_weight_kg")
         val BACKPACK_WEIGHT_KG = floatPreferencesKey("backpack_weight_kg")
         val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
-        val TURN_BY_TURN_USE_BROUTER_TILES = booleanPreferencesKey("turn_by_turn_use_brouter_tiles")
         val TURN_BY_TURN_HAPTICS_ENABLED = booleanPreferencesKey("turn_by_turn_haptics_enabled")
+        val TURN_BY_TURN_VOICE_GUIDANCE_ENABLED = booleanPreferencesKey("turn_by_turn_voice_guidance_enabled")
         val TURN_BY_TURN_TURN_ALERTS_MODE = stringPreferencesKey("turn_by_turn_turn_alerts_mode")
         val TURN_BY_TURN_OFF_ROUTE_ALERTS_ENABLED =
             booleanPreferencesKey("turn_by_turn_off_route_alerts_enabled")
@@ -95,7 +104,6 @@ class SettingsRepositoryImpl private constructor(
             booleanPreferencesKey("compass_cone_accuracy_colors_enabled")
         val NAVIGATION_MARKER_STYLE = stringPreferencesKey("navigation_marker_style")
         val NAVIGATION_MARKER_ANCHOR_MODE = stringPreferencesKey("navigation_marker_anchor_mode")
-        val MAP_DOUBLE_TAP_ACTION = stringPreferencesKey("map_double_tap_action")
         val LIVE_ELEVATION = booleanPreferencesKey("live_elevation")
         val LIVE_DISTANCE = booleanPreferencesKey("live_distance")
         val OFFLINE_MODE = booleanPreferencesKey("offline_mode")
@@ -216,6 +224,78 @@ class SettingsRepositoryImpl private constructor(
         }
     }
 
+    override val recordingHeartRateSource: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_HEART_RATE_SOURCE]
+                .takeIf { source -> source in allowedRecordingHeartRateSources }
+                ?: SettingsRepository.DEFAULT_RECORDING_HEART_RATE_SOURCE
+        }
+
+    override suspend fun setRecordingHeartRateSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_HEART_RATE_SOURCE] =
+                source.takeIf { candidate -> candidate in allowedRecordingHeartRateSources }
+                    ?: SettingsRepository.DEFAULT_RECORDING_HEART_RATE_SOURCE
+        }
+    }
+
+    override val recordingCadenceSource: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeRecordingSensorSource(
+                source = it[PrefKeys.RECORDING_CADENCE_SOURCE],
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE,
+            )
+        }
+
+    override suspend fun setRecordingCadenceSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_CADENCE_SOURCE] =
+                sanitizeRecordingSensorSource(source, SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE)
+        }
+    }
+
+    override val recordingSpeedSource: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeRecordingSensorSource(
+                source = it[PrefKeys.RECORDING_SPEED_SOURCE],
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE,
+            )
+        }
+
+    override suspend fun setRecordingSpeedSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_SPEED_SOURCE] =
+                sanitizeRecordingSensorSource(source, SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE)
+        }
+    }
+
+    override val recordingDistanceSource: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeRecordingSensorSource(
+                source = it[PrefKeys.RECORDING_DISTANCE_SOURCE],
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE,
+            )
+        }
+
+    override suspend fun setRecordingDistanceSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_DISTANCE_SOURCE] =
+                sanitizeRecordingSensorSource(source, SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE)
+        }
+    }
+
+    override val recordingStepsSource: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeRecordingStepsSource(it[PrefKeys.RECORDING_STEPS_SOURCE])
+        }
+
+    override suspend fun setRecordingStepsSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_STEPS_SOURCE] =
+                sanitizeRecordingStepsSource(source)
+        }
+    }
+
     override val recordingDashboardMetricSlots: Flow<List<String>> =
         context.dataStore.data.map {
             sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
@@ -266,6 +346,68 @@ class SettingsRepositoryImpl private constructor(
         }
     }
 
+    override val recordingExternalHeartRateAddress: Flow<String?> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_EXTERNAL_HEART_RATE_ADDRESS]?.takeIf(String::isNotBlank)
+        }
+
+    override val recordingExternalHeartRateName: Flow<String?> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_EXTERNAL_HEART_RATE_NAME]?.takeIf(String::isNotBlank)
+        }
+
+    override suspend fun setRecordingExternalHeartRateDevice(
+        address: String?,
+        name: String?,
+    ) {
+        context.dataStore.edit {
+            val sanitizedAddress = address?.trim()?.takeIf(String::isNotBlank)
+            if (sanitizedAddress == null) {
+                it.remove(PrefKeys.RECORDING_EXTERNAL_HEART_RATE_ADDRESS)
+                it.remove(PrefKeys.RECORDING_EXTERNAL_HEART_RATE_NAME)
+            } else {
+                it[PrefKeys.RECORDING_EXTERNAL_HEART_RATE_ADDRESS] = sanitizedAddress
+                val sanitizedName = name?.trim()?.takeIf(String::isNotBlank)
+                if (sanitizedName == null) {
+                    it.remove(PrefKeys.RECORDING_EXTERNAL_HEART_RATE_NAME)
+                } else {
+                    it[PrefKeys.RECORDING_EXTERNAL_HEART_RATE_NAME] = sanitizedName
+                }
+            }
+        }
+    }
+
+    override val recordingExternalRunPodAddress: Flow<String?> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_EXTERNAL_RUN_POD_ADDRESS]?.takeIf(String::isNotBlank)
+        }
+
+    override val recordingExternalRunPodName: Flow<String?> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_EXTERNAL_RUN_POD_NAME]?.takeIf(String::isNotBlank)
+        }
+
+    override suspend fun setRecordingExternalRunPodDevice(
+        address: String?,
+        name: String?,
+    ) {
+        context.dataStore.edit {
+            val sanitizedAddress = address?.trim()?.takeIf(String::isNotBlank)
+            if (sanitizedAddress == null) {
+                it.remove(PrefKeys.RECORDING_EXTERNAL_RUN_POD_ADDRESS)
+                it.remove(PrefKeys.RECORDING_EXTERNAL_RUN_POD_NAME)
+            } else {
+                it[PrefKeys.RECORDING_EXTERNAL_RUN_POD_ADDRESS] = sanitizedAddress
+                val sanitizedName = name?.trim()?.takeIf(String::isNotBlank)
+                if (sanitizedName == null) {
+                    it.remove(PrefKeys.RECORDING_EXTERNAL_RUN_POD_NAME)
+                } else {
+                    it[PrefKeys.RECORDING_EXTERNAL_RUN_POD_NAME] = sanitizedName
+                }
+            }
+        }
+    }
+
     override val userWeightKg: Flow<Float> =
         context.dataStore.data.map {
             sanitizeUserWeightKg(it[PrefKeys.USER_WEIGHT_KG])
@@ -306,18 +448,21 @@ class SettingsRepositoryImpl private constructor(
         }
     }
 
-    override val turnByTurnUseBrouterTiles: Flow<Boolean> =
-        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_USE_BROUTER_TILES] ?: true }
-
-    override suspend fun setTurnByTurnUseBrouterTiles(enabled: Boolean) {
-        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_USE_BROUTER_TILES] = enabled }
-    }
-
     override val turnByTurnHapticsEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_HAPTICS_ENABLED] ?: true }
 
     override suspend fun setTurnByTurnHapticsEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_HAPTICS_ENABLED] = enabled }
+    }
+
+    override val turnByTurnVoiceGuidanceEnabled: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_VOICE_GUIDANCE_ENABLED]
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED
+        }
+
+    override suspend fun setTurnByTurnVoiceGuidanceEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_VOICE_GUIDANCE_ENABLED] = enabled }
     }
 
     override val turnByTurnTurnAlertsMode: Flow<String> =
@@ -726,12 +871,6 @@ class SettingsRepositoryImpl private constructor(
                     SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER
                 }
         }
-    }
-
-    override val mapDoubleTapAction: Flow<String> = context.dataStore.data.map { it[PrefKeys.MAP_DOUBLE_TAP_ACTION] ?: "zoom_in" }
-
-    override suspend fun setMapDoubleTapAction(action: String) {
-        context.dataStore.edit { it[PrefKeys.MAP_DOUBLE_TAP_ACTION] = action }
     }
 
     override val liveElevation: Flow<Boolean> =
@@ -1192,6 +1331,20 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
                 SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO,
             )
+        private val allowedRecordingHeartRateSources =
+            setOf(
+                SettingsRepository.RECORDING_HEART_RATE_SOURCE_WATCH,
+                SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP,
+            )
+        private val allowedRecordingSensorSources =
+            setOf(
+                SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
+                SettingsRepository.RECORDING_SENSOR_SOURCE_POD,
+            )
+        private val allowedRecordingStepsSources =
+            setOf(
+                SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
+            )
         private val LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS =
             listOf(
                 SettingsRepository.RECORDING_METRIC_DISTANCE,
@@ -1270,6 +1423,19 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR,
                 SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
             )
+
+        private fun sanitizeRecordingSensorSource(
+            source: String?,
+            defaultSource: String,
+        ): String =
+            source
+                ?.takeIf { it in allowedRecordingSensorSources }
+                ?: defaultSource
+
+        private fun sanitizeRecordingStepsSource(source: String?): String =
+            source
+                ?.takeIf { it in allowedRecordingStepsSources }
+                ?: SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE
 
         private fun sanitizeRecordingDashboardMetricSlots(raw: String?): List<String> {
             val parsed =

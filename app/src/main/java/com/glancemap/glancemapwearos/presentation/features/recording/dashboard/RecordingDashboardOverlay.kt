@@ -51,9 +51,16 @@ internal fun BoxScope.RecordingDashboardOverlay(
     var expanded by remember { mutableStateOf(false) }
     var showCompactControls by remember { mutableStateOf(false) }
     var showStopPrompt by remember { mutableStateOf(false) }
+    var stopPromptPausedRecording by remember { mutableStateOf(false) }
     var metricPickerSlot by remember { mutableIntStateOf(NO_SELECTED_SLOT) }
     var dashboardPageIndex by remember { mutableIntStateOf(0) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var lastHandledActionPromptRequestToken by remember {
+        mutableLongStateOf(actionPromptRequestToken)
+    }
+    var lastHandledExpandRequestToken by remember {
+        mutableLongStateOf(expandRequestToken)
+    }
 
     LaunchedEffect(state.active, state.paused, state.saving) {
         while (isActive && (state.active || state.saving)) {
@@ -66,6 +73,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
             expanded = false
             showCompactControls = false
             showStopPrompt = false
+            stopPromptPausedRecording = false
             metricPickerSlot = NO_SELECTED_SLOT
             onExpandedChange(false)
         }
@@ -74,15 +82,32 @@ internal fun BoxScope.RecordingDashboardOverlay(
         onExpandedChange(expanded)
     }
     LaunchedEffect(actionPromptRequestToken) {
-        if (actionPromptRequestToken != 0L && state.active && !state.saving) {
+        val shouldHandle =
+            actionPromptRequestToken != 0L &&
+                actionPromptRequestToken != lastHandledActionPromptRequestToken
+        lastHandledActionPromptRequestToken = actionPromptRequestToken
+        if (shouldHandle && state.active && !state.saving) {
             showCompactControls = true
         }
     }
     LaunchedEffect(expandRequestToken) {
-        if (expandRequestToken != 0L && state.active && !state.saving) {
+        val shouldHandle =
+            expandRequestToken != 0L &&
+                expandRequestToken != lastHandledExpandRequestToken
+        lastHandledExpandRequestToken = expandRequestToken
+        if (shouldHandle && state.active && !state.saving) {
+            DebugTelemetry.log(
+                "TraceRecording",
+                "event=dashboard_expand_token handled=true suppressed=$suppressed active=${state.active} saving=${state.saving}",
+            )
             showCompactControls = false
             showStopPrompt = false
             expanded = true
+        } else if (shouldHandle) {
+            DebugTelemetry.log(
+                "TraceRecording",
+                "event=dashboard_expand_token handled=false suppressed=$suppressed active=${state.active} saving=${state.saving}",
+            )
         }
     }
     DisposableEffect(Unit) {
@@ -131,14 +156,18 @@ internal fun BoxScope.RecordingDashboardOverlay(
                         metricPickerSlot = dashboardPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
                     },
                     onPreviousPage = {
-                        val nextPageIndex = (dashboardPageIndex - 1).floorMod(pageCount)
-                        dashboardPageIndex = nextPageIndex
-                        logRecordingDashboardPageChange(nextPageIndex, pageCount, "swipe_down")
+                        val nextPageIndex = (dashboardPageIndex - 1).coerceAtLeast(0)
+                        if (nextPageIndex != dashboardPageIndex) {
+                            dashboardPageIndex = nextPageIndex
+                            logRecordingDashboardPageChange(nextPageIndex, pageCount, "swipe_down")
+                        }
                     },
                     onNextPage = {
-                        val nextPageIndex = (dashboardPageIndex + 1).floorMod(pageCount)
-                        dashboardPageIndex = nextPageIndex
-                        logRecordingDashboardPageChange(nextPageIndex, pageCount, "swipe_up")
+                        val nextPageIndex = (dashboardPageIndex + 1).coerceAtMost(pageCount - 1)
+                        if (nextPageIndex != dashboardPageIndex) {
+                            dashboardPageIndex = nextPageIndex
+                            logRecordingDashboardPageChange(nextPageIndex, pageCount, "swipe_up")
+                        }
                     },
                     onShowActions = {
                         expanded = false
@@ -166,6 +195,10 @@ internal fun BoxScope.RecordingDashboardOverlay(
                     }
                 },
                 onStop = {
+                    stopPromptPausedRecording = state.active && !state.paused && !state.saving
+                    if (stopPromptPausedRecording) {
+                        onPause()
+                    }
                     showStopPrompt = true
                 },
                 onDismiss = {
@@ -184,15 +217,23 @@ internal fun BoxScope.RecordingDashboardOverlay(
                 showStopPrompt = false
                 showCompactControls = false
                 expanded = false
+                stopPromptPausedRecording = false
                 onDiscard()
             },
             onSave = { title ->
                 showStopPrompt = false
                 showCompactControls = false
                 expanded = false
+                stopPromptPausedRecording = false
                 onStopConfirmed(title)
             },
-            onCancel = { showStopPrompt = false },
+            onCancel = {
+                showStopPrompt = false
+                if (stopPromptPausedRecording) {
+                    onResume()
+                }
+                stopPromptPausedRecording = false
+            },
         )
     }
 

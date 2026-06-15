@@ -47,6 +47,8 @@ class RecordingElevationProvider(context: Context) {
                 when {
                     sanitizedSource == SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM && demElevation != null ->
                         SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM
+                    sanitizedSource == SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM && demElevation == null ->
+                        RECORDING_ELEVATION_SOURCE_DEM_MISSING
                     sanitizedSource == SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO && demElevation != null ->
                         SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM
                     sanitizedSource == SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO && gpsAltitudeMeters != null ->
@@ -75,3 +77,4 @@ data class RecordingElevationResult(
 )
 
 private const val DEM_VOID_ELEVATION_METERS = -10_000.0
+internal const val RECORDING_ELEVATION_SOURCE_DEM_MISSING = "DEM_MISSING"

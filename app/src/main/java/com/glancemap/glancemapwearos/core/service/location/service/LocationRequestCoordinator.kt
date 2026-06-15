@@ -30,6 +30,7 @@ internal data class RequestUpdateState(
     val watchOnlyEffective: Boolean,
     val screenState: LocationScreenState,
     val backgroundGps: Boolean,
+    val runtimeReason: String,
     val passiveLocationExperiment: Boolean,
     val userIntervalMs: Long,
     val ambientIntervalMs: Long,
@@ -214,6 +215,7 @@ internal class LocationRequestCoordinator(
                         trackingEnabled = appliedPlan.state.tracking,
                         interactive = appliedPlan.interactiveTracking,
                         screenState = appliedPlan.state.screenState.name,
+                        runtimeReason = appliedPlan.state.runtimeReason,
                         hasFinePermission = permissions.hasFinePermission,
                         hasCoarsePermission = permissions.hasCoarsePermission,
                         passivePriority = requestSpec.priority == Priority.PRIORITY_PASSIVE,
@@ -228,6 +230,7 @@ internal class LocationRequestCoordinator(
                             "backend=${requestSpec.sourceMode.telemetryValue} mode=${requestSpec.mode.name} " +
                             "interactive=${appliedPlan.interactiveTracking} " +
                             "screenState=${appliedPlan.state.screenState.name} " +
+                            "reason=${appliedPlan.state.runtimeReason} " +
                             "passivePriority=${requestSpec.priority == Priority.PRIORITY_PASSIVE}",
                     )
                 } catch (cancelled: CancellationException) {
@@ -288,6 +291,7 @@ internal class LocationRequestCoordinator(
         permissions: LocationPermissionSnapshot,
     ): ResolvedRequestPlan {
         val explicitBackgroundTracking = state.tracking && state.screenState.isNonInteractive && state.backgroundGps
+        val activeBackgroundTracking = explicitBackgroundTracking && state.runtimeReason == "recording"
         val passiveExperimentListening =
             state.passiveLocationExperiment && !state.watchOnlyEffective && state.keepOpen
         val passiveTracking =
@@ -301,6 +305,7 @@ internal class LocationRequestCoordinator(
                 watchOnly = state.watchOnlyEffective,
                 hasFinePermission = permissions.hasFinePermission,
                 passiveLocationExperiment = state.passiveLocationExperiment && !explicitBackgroundTracking,
+                activeBackgroundTracking = activeBackgroundTracking,
                 userIntervalMs = state.userIntervalMs,
                 ambientIntervalMs =
                     if (explicitBackgroundTracking) {

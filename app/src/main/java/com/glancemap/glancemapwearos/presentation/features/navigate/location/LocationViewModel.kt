@@ -46,6 +46,7 @@ class LocationViewModel(
     private var desiredKeepAppOpen: Boolean = false
     private var desiredScreenState: LocationScreenState = LocationScreenState.INTERACTIVE
     private var desiredBackgroundGpsEnabled: Boolean = false
+    private var desiredRuntimeReason: String = "idle"
     private var pendingImmediateLocationRequestSource: String? = null
     private var lastImmediateRequestAtMs: Long = Long.MIN_VALUE
     private var lastStartupImmediateRequestAtMs: Long = Long.MIN_VALUE
@@ -97,6 +98,7 @@ class LocationViewModel(
                     screenState = desiredScreenState,
                     trackingEnabled = isTrackingEnabled,
                     backgroundGpsEnabled = desiredBackgroundGpsEnabled,
+                    runtimeReason = desiredRuntimeReason,
                 )
                 pendingImmediateLocationRequestSource?.let { pendingSource ->
                     if (isTrackingEnabled) {
@@ -134,11 +136,13 @@ class LocationViewModel(
         screenState: LocationScreenState,
         trackingEnabled: Boolean,
         backgroundGpsEnabled: Boolean = desiredBackgroundGpsEnabled,
+        runtimeReason: String = desiredRuntimeReason,
     ) {
         val screenStateChanged = desiredScreenState != screenState
         val trackingChanged = isTrackingEnabled != trackingEnabled
         val backgroundGpsChanged = desiredBackgroundGpsEnabled != backgroundGpsEnabled
-        if (!screenStateChanged && !trackingChanged && !backgroundGpsChanged) return
+        val runtimeReasonChanged = desiredRuntimeReason != runtimeReason
+        if (!screenStateChanged && !trackingChanged && !backgroundGpsChanged && !runtimeReasonChanged) return
 
         if (screenStateChanged) {
             updateScreenOffTelemetryState(
@@ -150,12 +154,14 @@ class LocationViewModel(
 
         desiredScreenState = screenState
         desiredBackgroundGpsEnabled = backgroundGpsEnabled
+        desiredRuntimeReason = runtimeReason.ifBlank { "idle" }
 
         if (!trackingChanged) {
             locationService?.setRuntimeState(
                 screenState = screenState,
                 trackingEnabled = trackingEnabled,
                 backgroundGpsEnabled = backgroundGpsEnabled,
+                runtimeReason = desiredRuntimeReason,
             )
             return
         }
@@ -169,6 +175,7 @@ class LocationViewModel(
                 screenState = screenState,
                 trackingEnabled = true,
                 backgroundGpsEnabled = backgroundGpsEnabled,
+                runtimeReason = desiredRuntimeReason,
             )
             dispatchPendingImmediateLocationRequestIfTrackingEnabled(suffix = "after_tracking_enable")
             ensureConnectionWatchdog()
@@ -177,6 +184,7 @@ class LocationViewModel(
                 screenState = screenState,
                 trackingEnabled = false,
                 backgroundGpsEnabled = backgroundGpsEnabled,
+                runtimeReason = desiredRuntimeReason,
             )
             pendingImmediateLocationRequestSource = null
             if (desiredKeepAppOpen && locationService == null) {
@@ -228,7 +236,7 @@ class LocationViewModel(
     fun requestImmediateLocation(source: String = "ui_unknown") {
         val now = SystemClock.elapsedRealtime()
         val forceImmediateRequest = shouldForceUiImmediateLocationRequest(source)
-        if (lastImmediateRequestAtMs != Long.MIN_VALUE) {
+        if (!forceImmediateRequest && lastImmediateRequestAtMs != Long.MIN_VALUE) {
             val elapsedSinceLastRequestMs = (now - lastImmediateRequestAtMs).coerceAtLeast(0L)
             if (elapsedSinceLastRequestMs < UI_IMMEDIATE_REQUEST_DEBOUNCE_MS) {
                 return
@@ -396,6 +404,7 @@ class LocationViewModel(
             intent.putExtra(LocationService.EXTRA_TRACKING_ENABLED, trackingEnabled)
             intent.putExtra(LocationService.EXTRA_SCREEN_STATE, desiredScreenState.name)
             intent.putExtra(LocationService.EXTRA_BACKGROUND_GPS_ENABLED, desiredBackgroundGpsEnabled)
+            intent.putExtra(LocationService.EXTRA_RUNTIME_REASON, desiredRuntimeReason)
             val shouldUseForegroundStart = trackingEnabled && (keepAppOpen || desiredBackgroundGpsEnabled)
             val startResult =
                 runCatching {
@@ -530,6 +539,7 @@ class LocationViewModel(
 
 internal fun shouldForceUiImmediateLocationRequest(source: String): Boolean =
     source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX) ||
+        source == UI_RECORDING_WAKE_REFRESH_SOURCE ||
         source == UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
 
 private data class WakeBurstSkipCandidate(
@@ -594,6 +604,7 @@ private const val UI_IMMEDIATE_REQUEST_DEBOUNCE_MS = 1_500L
 private const val UI_STARTUP_IMMEDIATE_REQUEST_COOLDOWN_MS = 6_000L
 private const val UI_STARTUP_REQUEST_SOURCE_PREFIX = "ui_startup_fresh_fix"
 internal const val UI_WAKE_REACQUIRE_TIMEOUT_SOURCE = "ui_wake_reacquire_timeout"
+internal const val UI_RECORDING_WAKE_REFRESH_SOURCE = "ui_recording_wake_refresh"
 private const val WAKE_BURST_SKIP_FIX_MAX_AGE_MS = 2_000L
 private const val WAKE_BURST_SKIP_MAX_ACCURACY_M = 35f
 private const val WAKE_BURST_SKIP_SCREEN_OFF_MAX_MS = 10_000L
