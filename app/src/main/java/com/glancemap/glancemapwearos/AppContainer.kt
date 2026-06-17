@@ -92,7 +92,14 @@ class DefaultAppContainer(
     }
 
     override val gpxViewModel: GpxViewModel by lazy {
-        GpxViewModel(gpxRepository, gpxExportRepository, syncManager, settingsRepository, routePlanner)
+        GpxViewModel(
+            gpxRepository = gpxRepository,
+            gpxExportRepository = gpxExportRepository,
+            syncManager = syncManager,
+            settingsRepository = settingsRepository,
+            routePlanner = routePlanner,
+            elevationProvider = RecordingElevationProvider(applicationContext),
+        )
     }
 
     override val mapViewModel: MapViewModel by lazy {

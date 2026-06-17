@@ -44,6 +44,10 @@ data class RecordingSensorMetrics(
     val externalDistanceRawUnits: Long? = null,
     val externalDistanceMeters: Double? = null,
     val externalDistanceUpdatedAtMillis: Long = 0L,
+    val externalPowerWatts: Int? = null,
+    val externalPowerUpdatedAtMillis: Long = 0L,
+    val externalBatteryLevelPercent: Int? = null,
+    val externalBatteryUpdatedAtMillis: Long = 0L,
     val barometricPressureHpa: Double? = null,
     val barometricPressureUpdatedAtMillis: Long = 0L,
     val heartRateFromBluetooth: Boolean = false,
@@ -82,15 +86,24 @@ fun RecordingSensorBridge(
         externalRunPodLinked && speedSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
     val useExternalDistance =
         externalRunPodLinked && distanceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
+    val useExternalPower =
+        externalRunPodLinked && SettingsRepository.RECORDING_METRIC_POWER in selectedMetricIds
     val useExternalRunPod =
-        useExternalCadence || useExternalSpeed || useExternalDistance
+        useExternalCadence || useExternalSpeed || useExternalDistance || useExternalPower
+    val collectBarometricPressure = active
     val sensorMetricIds =
-        remember(selectedMetricIds, useWatchHeartRate, useInternalCadence, useInternalSteps) {
-            selectedMetricIds
+        remember(selectedMetricIds, useWatchHeartRate, useInternalCadence, useInternalSteps, collectBarometricPressure) {
+            val filteredMetricIds =
+                selectedMetricIds
                 .filter { it in recordingSensorMetricIds }
                 .filterNot { !useWatchHeartRate && it == SettingsRepository.RECORDING_METRIC_HEART_RATE }
                 .filterNot { !useInternalCadence && it == SettingsRepository.RECORDING_METRIC_CADENCE }
                 .filterNot { !useInternalSteps && it == SettingsRepository.RECORDING_METRIC_STEPS }
+            if (collectBarometricPressure) {
+                (filteredMetricIds + SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE).distinct()
+            } else {
+                filteredMetricIds
+            }
         }
     var permissionResultVersion by remember { mutableIntStateOf(0) }
     val permissionsToRequest = remember(context, sensorMetricIds, permissionResultVersion) {
@@ -166,6 +179,25 @@ fun RecordingSensorBridge(
                             measurement.timeMillis
                         } else {
                             metrics.externalDistanceUpdatedAtMillis
+                        },
+                    externalPowerWatts =
+                        if (useExternalPower) {
+                            measurement.powerWatts ?: metrics.externalPowerWatts
+                        } else {
+                            metrics.externalPowerWatts
+                        },
+                    externalPowerUpdatedAtMillis =
+                        if (useExternalPower && measurement.powerWatts != null) {
+                            measurement.timeMillis
+                        } else {
+                            metrics.externalPowerUpdatedAtMillis
+                        },
+                    externalBatteryLevelPercent = measurement.batteryLevelPercent ?: metrics.externalBatteryLevelPercent,
+                    externalBatteryUpdatedAtMillis =
+                        if (measurement.batteryLevelPercent != null) {
+                            measurement.timeMillis
+                        } else {
+                            metrics.externalBatteryUpdatedAtMillis
                         },
                 )
             onMetrics(metrics)

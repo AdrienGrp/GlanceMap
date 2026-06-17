@@ -13,6 +13,7 @@ interface SettingsRepository {
         const val DEFAULT_AMBIENT_GPS_INTERVAL_MS = 60_000L
         const val MIN_AMBIENT_GPS_INTERVAL_MS = 1_000L
         const val MAX_AMBIENT_GPS_INTERVAL_MS = 120_000L
+        const val RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS = -1
         const val DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS = 5
         const val RECORDING_METRIC_DISTANCE = "distance"
         const val RECORDING_METRIC_DURATION = "duration"
@@ -26,6 +27,7 @@ interface SettingsRepository {
         const val RECORDING_METRIC_HEART_RATE = "heart_rate"
         const val RECORDING_METRIC_STEPS = "steps"
         const val RECORDING_METRIC_CADENCE = "cadence"
+        const val RECORDING_METRIC_POWER = "power"
         const val RECORDING_METRIC_BAROMETRIC_PRESSURE = "barometric_pressure"
         const val RECORDING_METRIC_CALORIES = "calories"
         const val RECORDING_METRIC_ACTIVE_CALORIES = "active_calories"
@@ -33,12 +35,11 @@ interface SettingsRepository {
         const val RECORDING_ELEVATION_SOURCE_GPS = "GPS"
         const val RECORDING_ELEVATION_SOURCE_DEM = "DEM"
         const val RECORDING_ELEVATION_SOURCE_AUTO = "AUTO"
+        const val RECORDING_SOURCE_DISABLED = "DISABLED"
         const val DEFAULT_RECORDING_ELEVATION_SOURCE = RECORDING_ELEVATION_SOURCE_AUTO
-        const val RECORDING_HEART_RATE_SOURCE_AUTO = "AUTO"
         const val RECORDING_HEART_RATE_SOURCE_WATCH = "WATCH"
         const val RECORDING_HEART_RATE_SOURCE_STRAP = "STRAP"
         const val DEFAULT_RECORDING_HEART_RATE_SOURCE = RECORDING_HEART_RATE_SOURCE_WATCH
-        const val RECORDING_SENSOR_SOURCE_AUTO = "AUTO"
         const val RECORDING_SENSOR_SOURCE_WATCH_GPS = "WATCH_GPS"
         const val RECORDING_SENSOR_SOURCE_POD = "POD"
         const val DEFAULT_RECORDING_CADENCE_SOURCE = RECORDING_SENSOR_SOURCE_WATCH_GPS

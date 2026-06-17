@@ -40,6 +40,7 @@ import com.glancemap.glancemapwearos.presentation.features.recording.external.Ex
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorKind
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanner
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodRuntimeStatus
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
@@ -59,6 +60,7 @@ fun RecordingExternalSensorsScreen(
     val linkedHeartRateName by viewModel.recordingExternalHeartRateName.collectAsState()
     val linkedRunPodAddress by viewModel.recordingExternalRunPodAddress.collectAsState()
     val linkedRunPodName by viewModel.recordingExternalRunPodName.collectAsState()
+    val runPodRuntimeInfos by ExternalRunPodRuntimeStatus.infos.collectAsState()
     var permissionRefresh by remember { mutableIntStateOf(0) }
     var unsupportedSensorMessage by remember { mutableStateOf<String?>(null) }
     val hasPermissions =
@@ -124,6 +126,7 @@ fun RecordingExternalSensorsScreen(
                 LinkedExternalSensorChip(
                     name = linkedRunPodName.orLinkedSensorFallback("Run pod"),
                     address = address,
+                    batteryLevelPercent = runPodRuntimeInfos[address]?.batteryLevelPercent,
                     onUnlink = {
                         unsupportedSensorMessage = null
                         viewModel.setRecordingExternalRunPodDevice(null, null)
@@ -201,6 +204,7 @@ fun RecordingExternalSensorsScreen(
 private fun LinkedExternalSensorChip(
     name: String,
     address: String,
+    batteryLevelPercent: Int? = null,
     onUnlink: () -> Unit,
 ) {
     val adaptive = rememberWearAdaptiveSpec()
@@ -213,6 +217,7 @@ private fun LinkedExternalSensorChip(
     LinkedExternalSensorChipContent(
         name = name,
         address = address,
+        batteryLevelPercent = batteryLevelPercent,
         minHeight = minHeight,
         onUnlink = onUnlink,
     )
@@ -223,6 +228,7 @@ private fun LinkedExternalSensorChip(
 private fun LinkedExternalSensorChipContent(
     name: String,
     address: String,
+    batteryLevelPercent: Int?,
     minHeight: androidx.compose.ui.unit.Dp,
     onUnlink: () -> Unit,
 ) {
@@ -240,7 +246,7 @@ private fun LinkedExternalSensorChipContent(
         },
         secondaryLabel = {
             Text(
-                text = address,
+                text = linkedSensorSecondaryText(address, batteryLevelPercent),
                 modifier = Modifier.basicMarquee(),
                 maxLines = 1,
                 overflow = TextOverflow.Clip,
@@ -263,6 +269,15 @@ private fun LinkedExternalSensorChipContent(
         onClick = onUnlink,
     )
 }
+
+private fun linkedSensorSecondaryText(
+    address: String,
+    batteryLevelPercent: Int?,
+): String =
+    batteryLevelPercent
+        ?.takeIf { it in 0..100 }
+        ?.let { "$address · $it%" }
+        ?: address
 
 @Composable
 private fun ExternalSensorScanChip(

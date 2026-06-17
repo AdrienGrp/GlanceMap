@@ -25,8 +25,6 @@ import kotlin.math.roundToInt
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 private const val RECORDING_DASHBOARD_SLOT_SEPARATOR = ","
-private const val RECORDING_DASHBOARD_PAGE_SLOT_COUNT = 4
-private const val RECORDING_DASHBOARD_SLOT_COUNT = 8
 
 class SettingsRepositoryImpl private constructor(
     private val context: Context,
@@ -1320,6 +1318,7 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_METRIC_HEART_RATE,
                 SettingsRepository.RECORDING_METRIC_STEPS,
                 SettingsRepository.RECORDING_METRIC_CADENCE,
+                SettingsRepository.RECORDING_METRIC_POWER,
                 SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
                 SettingsRepository.RECORDING_METRIC_CALORIES,
                 SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,
@@ -1330,27 +1329,24 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
                 SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
                 SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO,
+                SettingsRepository.RECORDING_SOURCE_DISABLED,
             )
         private val allowedRecordingHeartRateSources =
             setOf(
                 SettingsRepository.RECORDING_HEART_RATE_SOURCE_WATCH,
                 SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP,
+                SettingsRepository.RECORDING_SOURCE_DISABLED,
             )
         private val allowedRecordingSensorSources =
             setOf(
                 SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
                 SettingsRepository.RECORDING_SENSOR_SOURCE_POD,
+                SettingsRepository.RECORDING_SOURCE_DISABLED,
             )
         private val allowedRecordingStepsSources =
             setOf(
                 SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
-            )
-        private val LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS =
-            listOf(
-                SettingsRepository.RECORDING_METRIC_DISTANCE,
-                SettingsRepository.RECORDING_METRIC_DURATION,
-                SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
-                SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
+                SettingsRepository.RECORDING_SOURCE_DISABLED,
             )
         private val allowedPoiIconSizesPx =
             setOf(
@@ -1369,7 +1365,8 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID,
                 SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION,
             )
-        private val allowedRecordingSampleIntervalsSeconds = setOf(1, 2, 5, 10, 15, 30, 60)
+        private val allowedRecordingSampleIntervalsSeconds =
+            setOf(SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS, 1, 2, 5, 10, 15, 30, 60)
         private const val LEGACY_ZOOM_BUTTONS_HIDE_MINUS = "HIDE_MINUS"
         private const val CACHE_PREFS_NAME = "settings_runtime_cache"
         private const val CACHE_KEY_NAVIGATION_MARKER_STYLE = "navigation_marker_style"
@@ -1444,18 +1441,7 @@ class SettingsRepositoryImpl private constructor(
                     ?.mapNotNull { value ->
                         value.trim().takeIf { it in allowedRecordingDashboardMetricIds }
                     }.orEmpty()
-            val migratedParsed =
-                if (parsed.take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT) == LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS) {
-                    SettingsRepository.DEFAULT_RECORDING_DASHBOARD_METRICS +
-                        parsed.drop(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
-                } else {
-                    parsed
-                }
-            return (
-                migratedParsed.take(RECORDING_DASHBOARD_SLOT_COUNT) +
-                    SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS.drop(migratedParsed.size)
-            )
-                .take(RECORDING_DASHBOARD_SLOT_COUNT)
+            return normalizeRecordingDashboardMetricSlots(parsed)
         }
 
         private fun sanitizeUserWeightKg(weightKg: Float?): Float =

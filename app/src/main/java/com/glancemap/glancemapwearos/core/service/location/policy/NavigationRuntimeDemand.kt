@@ -18,6 +18,7 @@ fun navigationRuntimeDemand(
     generalGpsInAmbient: Boolean,
     recordingActive: Boolean,
     recordingPaused: Boolean,
+    recordingGpsEnabled: Boolean,
     turnByTurnActive: Boolean,
     turnByTurnPaused: Boolean,
     turnByTurnGpsInAmbient: Boolean,
@@ -25,7 +26,7 @@ fun navigationRuntimeDemand(
     if (!hasLocationPermission) return NavigationRuntimeDemand(false, false, NavigationRuntimeDemandReason.NO_PERMISSION)
     if (offlineMode) return NavigationRuntimeDemand(false, false, NavigationRuntimeDemandReason.OFFLINE)
 
-    val recordingDemand = recordingActive && !recordingPaused
+    val recordingDemand = recordingActive && !recordingPaused && recordingGpsEnabled
     val guidanceDemand = turnByTurnActive && !turnByTurnPaused
     val guidanceBackgroundDemand = guidanceDemand && turnByTurnGpsInAmbient
     val generalBackgroundDemand = isNavigateScreen && generalGpsInAmbient

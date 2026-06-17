@@ -8,6 +8,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.SyncManager
+import com.glancemap.glancemapwearos.presentation.features.gpx.parseGpxData
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.buildRecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.estimateRecordingCalories
@@ -25,6 +26,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import java.io.ByteArrayInputStream
+import java.io.File
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -180,6 +182,10 @@ class TraceRecordingViewModel(
             skippedPausedCount += 1
             return
         }
+        if (!isGpsSamplingEnabled()) {
+            skippedIntervalCount += 1
+            return
+        }
         if (!isUsableLocation(location)) {
             skippedUnusableLocationCount += 1
             return
@@ -201,9 +207,10 @@ class TraceRecordingViewModel(
             } else {
                 -1L
             }
+        val sampleAcceptThresholdMillis = recordingSampleAcceptThresholdMillis()
         if (elapsedSinceAcceptedMs >= 0L) {
             val elapsedMs = elapsedSinceAcceptedMs
-            if (elapsedMs < sampleIntervalSeconds * 1_000L && forceAcceptReason == null) {
+            if (elapsedMs < sampleAcceptThresholdMillis && forceAcceptReason == null) {
                 skippedIntervalCount += 1
                 lastSkippedIntervalElapsedMs = elapsedMs
                 maxSkippedIntervalElapsedMs = maxOf(maxSkippedIntervalElapsedMs, elapsedMs)
@@ -213,6 +220,7 @@ class TraceRecordingViewModel(
                         "TraceRecording",
                         "event=live_fix_skipped_interval skippedInterval=$skippedIntervalCount " +
                             "sampleIntervalSeconds=$sampleIntervalSeconds " +
+                            "acceptThresholdMs=$sampleAcceptThresholdMillis " +
                             "elapsedSinceAcceptedMs=$elapsedMs " +
                             "maxSkippedIntervalElapsedMs=$maxSkippedIntervalElapsedMs " +
                             "liveFixAgeMs=${livePoint.timeMillis.let { nowMillis - it }.coerceAtLeast(0L)} " +
@@ -295,6 +303,7 @@ class TraceRecordingViewModel(
                         heartRateBpm = sensorMetrics?.heartRateBpm,
                         stepCount = sensorMetrics?.stepCount,
                         cadenceSpm = sensorMetrics?.cadenceSpm,
+                        powerWatts = sensorMetrics?.externalPowerWatts,
                         barometricPressureHpa = sensorMetrics?.barometricPressureHpa,
                     )
                 val currentState = _uiState.value
@@ -336,6 +345,7 @@ class TraceRecordingViewModel(
                             sensorTelemetryTokens(nowMillis = System.currentTimeMillis()) + " " +
                             "heartRateBpm=${point.heartRateBpm ?: -1} stepCount=${point.stepCount ?: -1} " +
                             "cadenceSpm=${point.cadenceSpm ?: -1} " +
+                            "powerWatts=${point.powerWatts ?: -1} " +
                             "pressureHpa=${point.barometricPressureHpa?.toInt() ?: -1} " +
                             "skippedInterval=$skippedIntervalCount skippedPaused=$skippedPausedCount " +
                             "skippedUnusable=$skippedUnusableLocationCount",
@@ -366,6 +376,9 @@ class TraceRecordingViewModel(
                 externalRawDistanceUnits = metrics.externalDistanceRawUnits,
                 externalDistanceMeters = externalDistanceMeters ?: state.externalDistanceMeters,
                 externalIntegratedDistanceMeters = integratedDistanceMeters ?: state.externalIntegratedDistanceMeters,
+                externalPowerWatts = metrics.externalPowerWatts,
+                externalPowerFromBluetooth = metrics.externalPowerWatts != null,
+                externalBatteryLevelPercent = metrics.externalBatteryLevelPercent ?: state.externalBatteryLevelPercent,
                 cadenceSource = recordingCadenceSource,
                 speedSource = recordingSpeedSource,
                 distanceSource = recordingDistanceSource,
@@ -391,6 +404,7 @@ class TraceRecordingViewModel(
     fun onWakeRefreshRequested(source: String) {
         val state = _uiState.value
         if (!state.active || state.paused || state.saving) return
+        if (!isGpsSamplingEnabled()) return
         forceAcceptNextGoodFixReason = source
         val nowMillis = System.currentTimeMillis()
         DebugTelemetry.log(
@@ -509,6 +523,22 @@ class TraceRecordingViewModel(
                             expectedSize = bytes.size.toLong(),
                         )
                         val savedPath = gpxRepository.absolutePathForFileName(fileName)
+                        runCatching { parseGpxData(File(savedPath)) }
+                            .onSuccess { parsed ->
+                                DebugTelemetry.log(
+                                    "TraceRecording",
+                                    "event=saved_gpx_verified fileName=$fileName " +
+                                        "writtenPoints=${state.points.size} parsedPoints=${parsed.points.size} " +
+                                        "summaryPoints=${parsed.activitySummary?.pointCount ?: -1} " +
+                                        "summaryDistanceMeters=${parsed.activitySummary?.distanceMeters?.toInt() ?: -1}",
+                                )
+                            }.onFailure { error ->
+                                DebugTelemetry.log(
+                                    "TraceRecording",
+                                    "event=saved_gpx_verify_failed fileName=$fileName " +
+                                        "error=${sanitizeTelemetryValue(error.javaClass.simpleName)}",
+                                )
+                            }
                         if (showSavedGpxOnMap) {
                             val activePaths = gpxRepository.getActiveGpxFiles().first()
                             gpxRepository.setActiveGpxFiles(activePaths + savedPath)
@@ -696,16 +726,20 @@ class TraceRecordingViewModel(
         val cadenceSpm =
             latestSensorMetrics.cadenceSpm
                 ?.takeIf { latestSensorMetrics.cadenceUpdatedAtMillis.isFreshSensorTime(nowMillis) }
+        val powerWatts =
+            latestSensorMetrics.externalPowerWatts
+                ?.takeIf { latestSensorMetrics.externalPowerUpdatedAtMillis.isFreshSensorTime(nowMillis) }
         val pressureHpa =
             latestSensorMetrics.barometricPressureHpa
                 ?.takeIf { latestSensorMetrics.barometricPressureUpdatedAtMillis.isFreshSensorTime(nowMillis) }
-        if (heartRateBpm == null && stepCount == null && cadenceSpm == null && pressureHpa == null) {
+        if (heartRateBpm == null && stepCount == null && cadenceSpm == null && powerWatts == null && pressureHpa == null) {
             return null
         }
         return RecordingSensorMetrics(
             heartRateBpm = heartRateBpm,
             stepCount = stepCount,
             cadenceSpm = cadenceSpm,
+            externalPowerWatts = powerWatts,
             barometricPressureHpa = pressureHpa,
         )
     }
@@ -737,6 +771,7 @@ class TraceRecordingViewModel(
                     "TraceRecording",
                     "event=gap gapMs=$gapMillis thresholdMs=$thresholdMillis " +
                         "sampleIntervalSeconds=$sampleIntervalSeconds " +
+                        "acceptThresholdMs=${recordingSampleAcceptThresholdMillis()} " +
                         "expectedPointCount=$expectedPointCount " +
                         "acceptedPointCount=$nextPointCount " +
                         "accuracyMeters=${accuracyMeters?.toInt() ?: -1} " +
@@ -774,7 +809,7 @@ class TraceRecordingViewModel(
     }
 
     private fun expectedActivePointGapMillis(): Long =
-        (sampleIntervalSeconds * 1_000L)
+        (effectiveSampleIntervalSeconds() * 1_000L)
             .coerceAtLeast(RECORDING_GPS_ACTIVE_GAP_FLOOR_MS)
             .coerceAtMost(RECORDING_GPS_ACTIVE_GAP_CAP_MS)
 
@@ -784,12 +819,12 @@ class TraceRecordingViewModel(
     }
 
     private fun expectedPointCountForElapsed(durationMillis: Long): Int {
-        val intervalMillis = (sampleIntervalSeconds * 1_000L).coerceAtLeast(1_000L)
+        val intervalMillis = (effectiveSampleIntervalSeconds() * 1_000L).coerceAtLeast(1_000L)
         return (durationMillis / intervalMillis + 1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
     private fun recordingGapThresholdMillis(): Long =
-        maxOf(sampleIntervalSeconds * 2_000L, RECORDING_GAP_MIN_THRESHOLD_MS)
+        maxOf(effectiveSampleIntervalSeconds() * 2_000L, RECORDING_GAP_MIN_THRESHOLD_MS)
 
     private fun updateAccuracyTelemetry(accuracyMeters: Float?) {
         val accuracy = accuracyMeters ?: return
@@ -827,12 +862,14 @@ class TraceRecordingViewModel(
             } else {
                 null
             }
-        val calories =
-            estimateRecordingCalories(
-                points = state.points,
+        val displaySnapshot =
+            buildRecordingDashboardSnapshot(
+                state = state,
+                nowMillis = nowMillis,
                 userWeightKg = userWeightKg,
                 backpackWeightKg = backpackWeightKg,
             )
+        val calories = displaySnapshot.calorieEstimate
         val sensorTokens = sensorTelemetryTokens(nowMillis)
         val expectedPointCount = expectedPointCountForElapsed(durationMillis)
         val averagePointIntervalMillis =
@@ -847,7 +884,11 @@ class TraceRecordingViewModel(
             } else {
                 -1
             }
-        return "points=${state.points.size} distanceMeters=${state.distanceMeters.toInt()} " +
+        return "points=${state.points.size} distanceMeters=${displaySnapshot.distanceMeters.toInt()} " +
+            "gpsDistanceMeters=${state.distanceMeters.toInt()} " +
+            "displayDistanceMeters=${displaySnapshot.distanceMeters.toInt()} " +
+            "podSessionDistanceMeters=${state.externalDistanceMeters?.toInt() ?: -1} " +
+            "podIntegratedDistanceMeters=${state.externalIntegratedDistanceMeters?.toInt() ?: -1} " +
             "active=${state.active} paused=${state.paused} lastUiAction=${lastUiAction ?: "na"} " +
             "durationMs=$durationMillis pausedMs=$pausedMillis " +
             "cadenceSource=$recordingCadenceSource speedSource=$recordingSpeedSource " +
@@ -867,8 +908,10 @@ class TraceRecordingViewModel(
             "elevationGainMeters=${elevation.first.toInt()} elevationLossMeters=${elevation.second.toInt()} " +
             "elevationSource=$recordingElevationSource demHits=$demElevationHitCount " +
             "$sensorTokens " +
+            "averageHeartRateBpm=${displaySnapshot.averageHeartRateBpm ?: -1} " +
             "lastHeartRateBpm=${lastPoint?.heartRateBpm ?: -1} lastStepCount=${lastPoint?.stepCount ?: -1} " +
             "lastCadenceSpm=${lastPoint?.cadenceSpm ?: -1} " +
+            "lastPowerWatts=${lastPoint?.powerWatts ?: -1} " +
             "lastPressureHpa=${lastPoint?.barometricPressureHpa?.toInt() ?: -1} " +
             "demMisses=$demElevationMissCount gpsElevationUsed=$gpsElevationUsedCount " +
             "calorieModel=pandolf_santee_segment_v2 " +
@@ -899,12 +942,16 @@ class TraceRecordingViewModel(
             "liveExternalDistanceMeters=${latestSensorMetrics.externalDistanceMeters?.toInt() ?: -1} " +
             "liveExternalSessionDistanceMeters=${externalSessionDistanceMeters?.toInt() ?: -1} " +
             "liveExternalIntegratedDistanceMeters=${externalIntegratedDistanceMeters?.toInt() ?: -1} " +
+            "liveExternalPowerWatts=${latestSensorMetrics.externalPowerWatts ?: -1} " +
+            "liveExternalBatteryPercent=${latestSensorMetrics.externalBatteryLevelPercent ?: -1} " +
             "livePressureHpa=${latestSensorMetrics.barometricPressureHpa?.toInt() ?: -1} " +
             "heartRateAgeMs=${sensorAgeMillis(nowMillis, latestSensorMetrics.heartRateUpdatedAtMillis)} " +
             "stepCountAgeMs=${sensorAgeMillis(nowMillis, latestSensorMetrics.stepCountUpdatedAtMillis)} " +
             "cadenceAgeMs=${sensorAgeMillis(nowMillis, latestSensorMetrics.cadenceUpdatedAtMillis)} " +
             "externalSpeedAgeMs=${sensorAgeMillis(nowMillis, latestSensorMetrics.externalSpeedUpdatedAtMillis)} " +
             "externalDistanceAgeMs=${sensorAgeMillis(nowMillis, latestSensorMetrics.externalDistanceUpdatedAtMillis)} " +
+            "externalPowerAgeMs=${sensorAgeMillis(nowMillis, latestSensorMetrics.externalPowerUpdatedAtMillis)} " +
+            "externalBatteryAgeMs=${sensorAgeMillis(nowMillis, latestSensorMetrics.externalBatteryUpdatedAtMillis)} " +
             "pressureAgeMs=${sensorAgeMillis(nowMillis, latestSensorMetrics.barometricPressureUpdatedAtMillis)} " +
             "heartRateSensorEvents=$heartRateSensorEventCount " +
             "stepSensorEvents=$stepSensorEventCount " +
@@ -933,8 +980,18 @@ class TraceRecordingViewModel(
         lastAcceptedElapsedMs == Long.MIN_VALUE ||
             nowElapsedMs - lastAcceptedElapsedMs >= RECORDING_FORCE_ACCEPT_MIN_AGE_MS
 
+    private fun recordingSampleAcceptThresholdMillis(): Long =
+        (effectiveSampleIntervalSeconds() * 1_000L - RECORDING_SAMPLE_ACCEPT_TOLERANCE_MS)
+            .coerceAtLeast(RECORDING_MIN_SAMPLE_ACCEPT_THRESHOLD_MS)
+
     private fun lastLiveFixAgeMillis(): Long =
         lastLiveFixTimeMillis?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) } ?: -1L
+
+    private fun isGpsSamplingEnabled(): Boolean =
+        sampleIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+
+    private fun effectiveSampleIntervalSeconds(): Int =
+        sampleIntervalSeconds.takeIf { it > 0 } ?: SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
 }
 
 private fun RecordingDashboardSnapshot.toRecordedTraceSummary(): RecordedTraceSummary =
@@ -957,6 +1014,7 @@ private fun RecordingDashboardSnapshot.toRecordedTraceSummary(): RecordedTraceSu
         heartRateBpm = averageHeartRateBpm ?: heartRateBpm,
         stepCount = stepCount,
         cadenceSpm = cadenceSpm,
+        powerWatts = powerWatts,
         barometricPressureHpa = barometricPressureHpa,
     )
 
@@ -969,6 +1027,8 @@ private const val RECORDING_GAP_MIN_THRESHOLD_MS = 15_000L
 private const val RECORDING_GPS_ACTIVE_GAP_FLOOR_MS = 1_000L
 private const val RECORDING_GPS_ACTIVE_GAP_CAP_MS = 15_000L
 private const val RECORDING_FORCE_ACCEPT_MIN_AGE_MS = 2_000L
+private const val RECORDING_SAMPLE_ACCEPT_TOLERANCE_MS = 500L
+private const val RECORDING_MIN_SAMPLE_ACCEPT_THRESHOLD_MS = 1_000L
 private const val EXTERNAL_SPEED_INTEGRATION_MAX_GAP_MS = 5_000L
 private const val SENSOR_SNAPSHOT_MAX_AGE_MS = 15_000L
 private const val MAX_RECORDING_TITLE_LENGTH = 64

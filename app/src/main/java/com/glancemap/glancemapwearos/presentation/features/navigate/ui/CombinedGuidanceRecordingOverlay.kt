@@ -10,7 +10,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,7 +36,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -46,8 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -55,7 +51,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,14 +62,15 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstructionCommand
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
-import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardMetricTile
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingFullscreenPageShell
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingStopPromptCard
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.buildRecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.formattedRecordingMetric
@@ -156,6 +152,9 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                 actionPromptRequestToken != lastHandledActionPromptRequestToken
         lastHandledActionPromptRequestToken = actionPromptRequestToken
         if (shouldHandle && recordingState.active && !recordingState.saving) {
+            expanded = false
+            showStopPrompt = false
+            metricPickerSlot = NO_SELECTED_SLOT
             showActions = true
         }
     }
@@ -460,54 +459,14 @@ private fun CombinedFullscreenDashboard(
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
 ) {
-    val focusRequester = remember { FocusRequester() }
-    var rotaryAccumulator by remember(pageCount) { mutableFloatStateOf(0f) }
-
-    LaunchedEffect(pageCount) {
-        if (pageCount > 1) {
-            focusRequester.requestFocus()
-        }
-    }
-
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(Color.Black)
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = onShowActions,
-                )
-                .pointerInput(recordingState.active, recordingState.paused, pageIndex, pageCount) {
-                    var totalDragY = 0f
-                    detectVerticalDragGestures(
-                        onDragEnd = {
-                            when {
-                                totalDragY < -COMBINED_POPUP_DRAG_THRESHOLD_PX -> onNextPage()
-                                totalDragY > COMBINED_POPUP_DRAG_THRESHOLD_PX -> onPreviousPage()
-                            }
-                            totalDragY = 0f
-                        },
-                        onDragCancel = {
-                            totalDragY = 0f
-                        },
-                    ) { _, dragAmount ->
-                        totalDragY += dragAmount
-                    }
-                }
-                .onPreRotaryScrollEvent { event ->
-                    handleCombinedRotaryPageEvent(
-                        delta = event.verticalScrollPixels,
-                        pageCount = pageCount,
-                        accumulator = rotaryAccumulator,
-                        onAccumulatorChange = { rotaryAccumulator = it },
-                        onPreviousPage = onPreviousPage,
-                        onNextPage = onNextPage,
-                    )
-                }
-                .focusRequester(focusRequester)
-                .focusable(),
-        contentAlignment = Alignment.Center,
+    RecordingFullscreenPageShell(
+        pageIndex = pageIndex,
+        pageCount = pageCount,
+        dragKey = recordingState.active to recordingState.paused,
+        handleBottomPadding = 18.dp,
+        onPreviousPage = onPreviousPage,
+        onNextPage = onNextPage,
+        onShowActions = onShowActions,
     ) {
         if (pageIndex == 0) {
             CombinedGuidancePage(
@@ -527,20 +486,6 @@ private fun CombinedFullscreenDashboard(
                 onSlotLongPress = onSlotLongPress,
             )
         }
-        CombinedPageIndicator(
-            pageIndex = pageIndex,
-            pageCount = pageCount,
-            modifier =
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 14.dp),
-        )
-        SwipeMinimizeHandle(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 18.dp),
-        )
     }
 }
 
@@ -947,40 +892,6 @@ private fun SwipeExpandCue(modifier: Modifier = Modifier) {
     )
 }
 
-@Composable
-private fun SwipeMinimizeHandle(modifier: Modifier = Modifier) {
-    Box(
-        modifier =
-            modifier
-                .width(28.dp)
-                .height(3.dp)
-                .background(Color.White.copy(alpha = 0.28f), RoundedCornerShape(2.dp)),
-    )
-}
-
-@Composable
-private fun CombinedPageIndicator(
-    pageIndex: Int,
-    pageCount: Int,
-    modifier: Modifier = Modifier,
-) {
-    if (pageCount <= 1) return
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(pageCount) { index ->
-            Box(
-                modifier =
-                    Modifier
-                        .width(4.dp)
-                        .height(if (index == pageIndex) 18.dp else 6.dp)
-                        .background(
-                            Color.White.copy(alpha = if (index == pageIndex) 0.72f else 0.28f),
-                            RoundedCornerShape(4.dp),
-                        ),
-            )
-        }
-    }
-}
-
 private fun combinedGuidancePrimaryText(
     state: TurnByTurnGuidanceState,
     guideBackToRouteActive: Boolean,
@@ -1054,38 +965,5 @@ private fun rotationForCommand(command: RouteInstructionCommand?): Float =
         -> 0f
     }
 
-private fun handleCombinedRotaryPageEvent(
-    delta: Float,
-    pageCount: Int,
-    accumulator: Float,
-    onAccumulatorChange: (Float) -> Unit,
-    onPreviousPage: () -> Unit,
-    onNextPage: () -> Unit,
-): Boolean {
-    if (!delta.isFinite() || delta == 0f) return false
-    if (pageCount <= 1) return true
-    var nextAccumulator =
-        if (accumulator != 0f && (accumulator > 0f) != (delta > 0f)) {
-            0f
-        } else {
-            accumulator
-        }
-    nextAccumulator += delta
-    var consumed = false
-    if (nextAccumulator >= COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX) {
-        onNextPage()
-        nextAccumulator = 0f
-        consumed = true
-    }
-    if (nextAccumulator <= -COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX) {
-        onPreviousPage()
-        nextAccumulator = 0f
-        consumed = true
-    }
-    onAccumulatorChange(nextAccumulator)
-    return consumed || nextAccumulator != 0f
-}
-
 private const val NO_SELECTED_SLOT = -1
 private const val COMBINED_POPUP_DRAG_THRESHOLD_PX = 24f
-private const val COMBINED_POPUP_ROTARY_PAGE_THRESHOLD_PX = 56f

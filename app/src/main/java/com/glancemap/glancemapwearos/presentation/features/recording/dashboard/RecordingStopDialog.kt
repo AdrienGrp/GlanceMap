@@ -253,6 +253,7 @@ private val RECORDING_RECAP_METRIC_IDS =
         SettingsRepository.RECORDING_METRIC_HEART_RATE,
         SettingsRepository.RECORDING_METRIC_STEPS,
         SettingsRepository.RECORDING_METRIC_CADENCE,
+        SettingsRepository.RECORDING_METRIC_POWER,
         SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
         SettingsRepository.RECORDING_METRIC_CALORIES,
         SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,

@@ -26,11 +26,15 @@ class RecordingElevationProvider(context: Context) {
                     SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
                     SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO,
                     SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
+                    SettingsRepository.RECORDING_SOURCE_DISABLED,
                     -> source
                     else -> SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
                 }
             val demElevation =
-                if (sanitizedSource != SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS) {
+                if (
+                    sanitizedSource != SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS &&
+                    sanitizedSource != SettingsRepository.RECORDING_SOURCE_DISABLED
+                ) {
                     demRepository
                         .elevationAt(latitude, longitude)
                         ?.takeIf { it.isFinite() && it > DEM_VOID_ELEVATION_METERS }
@@ -41,6 +45,7 @@ class RecordingElevationProvider(context: Context) {
                 when (sanitizedSource) {
                     SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM -> demElevation
                     SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO -> demElevation ?: gpsAltitudeMeters
+                    SettingsRepository.RECORDING_SOURCE_DISABLED -> null
                     else -> gpsAltitudeMeters
                 }
             val resolvedSource =
@@ -61,7 +66,9 @@ class RecordingElevationProvider(context: Context) {
             RecordingElevationResult(
                 elevationMeters = elevation,
                 resolvedSource = resolvedSource,
-                demAttempted = sanitizedSource != SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
+                demAttempted =
+                    sanitizedSource != SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS &&
+                        sanitizedSource != SettingsRepository.RECORDING_SOURCE_DISABLED,
                 demHit = demElevation != null,
                 gpsUsed = elevation != null && resolvedSource == SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
             )

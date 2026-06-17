@@ -43,6 +43,7 @@ class TraceRecordingDraftStore(
                                     heartRateBpm = pointJson.optionalInt("heartRateBpm"),
                                     stepCount = pointJson.optionalInt("stepCount"),
                                     cadenceSpm = pointJson.optionalInt("cadenceSpm"),
+                                    powerWatts = pointJson.optionalInt("powerWatts"),
                                     barometricPressureHpa = pointJson.optionalDouble("barometricPressureHpa"),
                                 ),
                             )
@@ -136,6 +137,7 @@ private fun RecordedTracePoint.toJson(): JSONObject =
         .put("heartRateBpm", heartRateBpm ?: JSONObject.NULL)
         .put("stepCount", stepCount ?: JSONObject.NULL)
         .put("cadenceSpm", cadenceSpm ?: JSONObject.NULL)
+        .put("powerWatts", powerWatts ?: JSONObject.NULL)
         .put("barometricPressureHpa", barometricPressureHpa ?: JSONObject.NULL)
 
 private fun JSONObject.optionalDouble(key: String): Double? =

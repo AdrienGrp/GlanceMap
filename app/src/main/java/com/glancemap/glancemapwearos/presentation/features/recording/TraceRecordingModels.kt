@@ -13,6 +13,7 @@ data class RecordedTracePoint(
     val heartRateBpm: Int? = null,
     val stepCount: Int? = null,
     val cadenceSpm: Int? = null,
+    val powerWatts: Int? = null,
     val barometricPressureHpa: Double? = null,
 )
 
@@ -35,6 +36,9 @@ data class TraceRecordingUiState(
     val externalRawDistanceUnits: Long? = null,
     val externalDistanceMeters: Double? = null,
     val externalIntegratedDistanceMeters: Double? = null,
+    val externalPowerWatts: Int? = null,
+    val externalPowerFromBluetooth: Boolean = false,
+    val externalBatteryLevelPercent: Int? = null,
     val cadenceSource: String = SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE,
     val speedSource: String = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE,
     val distanceSource: String = SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE,

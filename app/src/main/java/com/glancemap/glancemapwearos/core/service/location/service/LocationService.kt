@@ -398,13 +398,20 @@ class LocationService : Service() {
             runCatching { latestUserIntervalMs = settingsRepository.gpsInterval.first() }
             runCatching {
                 latestRecordingIntervalMs =
-                    settingsRepository.recordingSampleIntervalSeconds.first().coerceAtLeast(1) * 1_000L
+                    recordingIntervalMillis(settingsRepository.recordingSampleIntervalSeconds.first())
             }
             requestLocationUpdateIfNeeded()
         }
 
         observeGpsSettings()
     }
+
+    private fun recordingIntervalMillis(recordingSampleSeconds: Int): Long =
+        if (recordingSampleSeconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) {
+            Long.MAX_VALUE
+        } else {
+            recordingSampleSeconds.coerceAtLeast(1) * 1_000L
+        }
 
     override fun onStartCommand(
         intent: Intent?,
@@ -746,7 +753,7 @@ class LocationService : Service() {
                     passiveLocationExperiment = false,
                 )
             }.combine(settingsRepository.recordingSampleIntervalSeconds) { state, recordingSampleSeconds ->
-                state.copy(recordingIntervalMs = recordingSampleSeconds.coerceAtLeast(1) * 1_000L)
+                state.copy(recordingIntervalMs = recordingIntervalMillis(recordingSampleSeconds))
             }.combine(settingsRepository.gpsPassiveLocationExperiment) { state, passiveLocationExperiment ->
                 state.copy(passiveLocationExperiment = passiveLocationExperiment)
             }.collectLatest { state ->

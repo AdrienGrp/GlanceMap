@@ -72,11 +72,14 @@ data class RecordingDashboardSnapshot(
     val stepCountFromBluetooth: Boolean = false,
     val cadenceSpm: Int? = null,
     val cadenceFromBluetooth: Boolean = false,
+    val powerWatts: Int? = null,
+    val powerFromBluetooth: Boolean = false,
     val barometricPressureHpa: Double? = null,
     val lastLiveFixAgeMillis: Long? = null,
     val lastRecordedPointAgeMillis: Long? = null,
     val speedSource: String = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE,
     val distanceSource: String = SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE,
+    val cadenceSource: String = SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE,
     val stepsSource: String = SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE,
     val hasElevationData: Boolean = true,
 )
@@ -106,6 +109,11 @@ internal val recordingMetricDefinitions =
             SettingsRepository.RECORDING_METRIC_CADENCE,
             "Cadence",
             RecordingMetricSource.INTERNAL_SENSOR,
+        ),
+        RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_POWER,
+            "Power",
+            RecordingMetricSource.EXTERNAL,
         ),
         RecordingMetricDefinition(
             SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
@@ -192,11 +200,14 @@ internal fun buildRecordingDashboardSnapshot(
         stepCountFromBluetooth = state.stepCountFromBluetooth,
         cadenceSpm = state.cadenceSpm,
         cadenceFromBluetooth = state.cadenceFromBluetooth,
+        powerWatts = state.externalPowerWatts,
+        powerFromBluetooth = state.externalPowerFromBluetooth,
         barometricPressureHpa = state.barometricPressureHpa,
         lastLiveFixAgeMillis = state.latestLivePoint?.timeMillis?.ageMillisAt(nowMillis),
         lastRecordedPointAgeMillis = lastRecordedPoint?.timeMillis?.ageMillisAt(nowMillis),
         speedSource = state.speedSource,
         distanceSource = state.distanceSource,
+        cadenceSource = state.cadenceSource,
         stepsSource = state.stepsSource,
     )
 }
@@ -209,6 +220,9 @@ internal fun formattedRecordingMetric(
     val definition = metricDefinitionFor(metricId)
     return when (definition.id) {
         SettingsRepository.RECORDING_METRIC_DISTANCE -> {
+            if (snapshot.distanceSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                return RecordingMetricValue(definition.label, "--")
+            }
             val (value, unit) = formatRecordingDistance(snapshot.distanceMeters, isMetric)
             RecordingMetricValue(
                 label = definition.label,
@@ -239,33 +253,49 @@ internal fun formattedRecordingMetric(
             }
         }
         SettingsRepository.RECORDING_METRIC_CURRENT_SPEED ->
-            speedMetricValue(
-                definition.label,
-                snapshot.currentSpeedMps?.toDouble(),
-                isMetric,
-                bluetooth = snapshot.speedFromBluetooth(),
-            )
+            if (snapshot.speedSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                speedMetricValue(
+                    definition.label,
+                    snapshot.currentSpeedMps?.toDouble(),
+                    isMetric,
+                    bluetooth = snapshot.speedFromBluetooth(),
+                )
+            }
         SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED ->
-            speedMetricValue(
-                definition.label,
-                snapshot.averageSpeedMps,
-                isMetric,
-                bluetooth = snapshot.distanceFromBluetooth(),
-            )
+            if (snapshot.distanceSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                speedMetricValue(
+                    definition.label,
+                    snapshot.averageSpeedMps,
+                    isMetric,
+                    bluetooth = snapshot.distanceFromBluetooth(),
+                )
+            }
         SettingsRepository.RECORDING_METRIC_CURRENT_PACE ->
-            paceMetricValue(
-                definition.label,
-                snapshot.currentSpeedMps?.toDouble(),
-                isMetric,
-                bluetooth = snapshot.speedFromBluetooth(),
-            )
+            if (snapshot.speedSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                paceMetricValue(
+                    definition.label,
+                    snapshot.currentSpeedMps?.toDouble(),
+                    isMetric,
+                    bluetooth = snapshot.speedFromBluetooth(),
+                )
+            }
         SettingsRepository.RECORDING_METRIC_AVERAGE_PACE ->
-            paceMetricValue(
-                definition.label,
-                snapshot.averageSpeedMps,
-                isMetric,
-                bluetooth = snapshot.distanceFromBluetooth(),
-            )
+            if (snapshot.distanceSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                paceMetricValue(
+                    definition.label,
+                    snapshot.averageSpeedMps,
+                    isMetric,
+                    bluetooth = snapshot.distanceFromBluetooth(),
+                )
+            }
         SettingsRepository.RECORDING_METRIC_HEART_RATE ->
             sensorIntegerMetricValue(
                 label = definition.label,
@@ -274,18 +304,33 @@ internal fun formattedRecordingMetric(
                 bluetooth = snapshot.heartRateFromBluetooth,
             )
         SettingsRepository.RECORDING_METRIC_STEPS ->
-            sensorIntegerMetricValue(
-                definition.label,
-                snapshot.stepCount,
-                null,
-                bluetooth = snapshot.stepCountFromBluetooth,
-            )
+            if (snapshot.stepsSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                sensorIntegerMetricValue(
+                    definition.label,
+                    snapshot.stepCount,
+                    null,
+                    bluetooth = snapshot.stepCountFromBluetooth,
+                )
+            }
         SettingsRepository.RECORDING_METRIC_CADENCE ->
+            if (snapshot.cadenceSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                sensorIntegerMetricValue(
+                    definition.label,
+                    snapshot.cadenceSpm,
+                    "spm",
+                    bluetooth = snapshot.cadenceFromBluetooth,
+                )
+            }
+        SettingsRepository.RECORDING_METRIC_POWER ->
             sensorIntegerMetricValue(
                 definition.label,
-                snapshot.cadenceSpm,
-                "spm",
-                bluetooth = snapshot.cadenceFromBluetooth,
+                snapshot.powerWatts,
+                "W",
+                bluetooth = snapshot.powerFromBluetooth,
             )
         SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE ->
             pressureMetricValue(definition.label, snapshot.barometricPressureHpa)
@@ -648,6 +693,7 @@ private fun buildRecordingCanonicalProfile(points: List<RecordedTracePoint>) =
                 heartRateBpm = it.heartRateBpm,
                 stepCount = it.stepCount,
                 cadenceSpm = it.cadenceSpm,
+                powerWatts = it.powerWatts,
                 barometricPressureHpa = it.barometricPressureHpa,
             )
         }.takeIf { it.isNotEmpty() }

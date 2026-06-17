@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.SwipeToDismissBox
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.data.repository.normalizeRecordingDashboardMetricSlots
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -87,6 +89,9 @@ internal fun BoxScope.RecordingDashboardOverlay(
                 actionPromptRequestToken != lastHandledActionPromptRequestToken
         lastHandledActionPromptRequestToken = actionPromptRequestToken
         if (shouldHandle && state.active && !state.saving) {
+            expanded = false
+            showStopPrompt = false
+            metricPickerSlot = NO_SELECTED_SLOT
             showCompactControls = true
         }
     }
@@ -115,7 +120,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
     }
     if (suppressed) return
 
-    val slots = normalizedSlots(metricSlots)
+    val slots = normalizedRecordingDashboardSlots(metricSlots)
     val pageCount = (slots.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT).coerceAtLeast(1)
     LaunchedEffect(pageCount) {
         if (dashboardPageIndex >= pageCount) {
@@ -265,30 +270,6 @@ private fun recordingActionPromptTopPadding(screenSize: WearScreenSize): Dp =
     }
 
 internal fun normalizedRecordingDashboardSlots(metricSlots: List<String>): List<String> =
-    normalizeRecordingDashboardSlotList(metricSlots)
-
-private fun normalizedSlots(metricSlots: List<String>): List<String> =
-    normalizedRecordingDashboardSlots(metricSlots)
-
-private fun normalizeRecordingDashboardSlotList(metricSlots: List<String>): List<String> {
-    val migratedSlots =
-        if (metricSlots.take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT) == LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS) {
-            SettingsRepository.DEFAULT_RECORDING_DASHBOARD_METRICS +
-                metricSlots.drop(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
-        } else {
-            metricSlots
-        }
-    return (
-        migratedSlots.take(RECORDING_DASHBOARD_TOTAL_SLOT_COUNT) +
-            SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS.drop(migratedSlots.size)
-    ).take(RECORDING_DASHBOARD_TOTAL_SLOT_COUNT)
-}
+    normalizeRecordingDashboardMetricSlots(metricSlots)
 
 private const val NO_SELECTED_SLOT = -1
-private val LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS =
-    listOf(
-        SettingsRepository.RECORDING_METRIC_DISTANCE,
-        SettingsRepository.RECORDING_METRIC_DURATION,
-        SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
-        SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
-    )

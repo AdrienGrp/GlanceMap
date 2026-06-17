@@ -61,6 +61,7 @@ data class RecordedTraceSummary(
     val heartRateBpm: Int?,
     val stepCount: Int?,
     val cadenceSpm: Int?,
+    val powerWatts: Int?,
     val barometricPressureHpa: Double?,
 )
 
@@ -97,6 +98,9 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     summary.cadenceSpm?.takeIf { it > 0 }?.let {
         textTag("gmap:cadenceSpm", it.toString())
     }
+    summary.powerWatts?.takeIf { it >= 0 }?.let {
+        textTag("gmap:powerWatts", it.toString())
+    }
     summary.barometricPressureHpa?.takeIf { it.isFinite() && it > 0.0 }?.let {
         textTag("gmap:pressureHpa", formatDouble(it))
     }
@@ -109,6 +113,7 @@ private fun StringWriter.writePointExtensions(point: RecordedTracePoint) {
     val heartRateBpm = point.heartRateBpm?.takeIf { it > 0 }
     val stepCount = point.stepCount?.takeIf { it >= 0 }
     val cadenceSpm = point.cadenceSpm?.takeIf { it > 0 }
+    val powerWatts = point.powerWatts?.takeIf { it >= 0 }
     val pressureHpa = point.barometricPressureHpa?.takeIf { it.isFinite() && it > 0.0 }
     if (
         accuracyMeters == null &&
@@ -117,6 +122,7 @@ private fun StringWriter.writePointExtensions(point: RecordedTracePoint) {
         heartRateBpm == null &&
         stepCount == null &&
         cadenceSpm == null &&
+        powerWatts == null &&
         pressureHpa == null
     ) {
         return
@@ -140,6 +146,9 @@ private fun StringWriter.writePointExtensions(point: RecordedTracePoint) {
         }
         cadenceSpm?.let {
             textTag("gmap:cadenceSpm", it.toString())
+        }
+        powerWatts?.let {
+            textTag("gmap:powerWatts", it.toString())
         }
         pressureHpa?.let {
             textTag("gmap:pressureHpa", formatDouble(it))
