@@ -17,6 +17,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoText
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 
 @Composable
@@ -32,16 +33,16 @@ fun GpxHelpBottomSheet(
         onDismiss = onDismiss,
     ) {
         item {
-            GpxHelpText("Toggle tracks on the map.")
+            WearInfoText("Toggle tracks on the map.")
         }
         item {
-            GpxHelpText("Switch GPX and activities with the route/activity icon.")
+            WearInfoText("Switch GPX and activities with the route/activity icon.")
         }
         item {
-            GpxHelpText("Use the guidance icon to start turn-by-turn.")
+            WearInfoText("Use the guidance icon to start turn-by-turn.")
         }
         item {
-            GpxHelpText("Long press for elevation.")
+            WearInfoText("Long press for elevation.")
         }
         item {
             cappedFontScale(maxFontScale = 1.08f) {
@@ -76,19 +77,7 @@ fun GpxHelpBottomSheet(
             }
         }
         item {
-            GpxHelpText("Edit or delete tracks with mode buttons.")
+            WearInfoText("Edit or delete tracks with mode buttons.")
         }
-    }
-}
-
-@Suppress("FunctionNaming")
-@Composable
-private fun GpxHelpText(text: String) {
-    cappedFontScale(maxFontScale = 1.08f) {
-        Text(
-            text,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }

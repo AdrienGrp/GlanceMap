@@ -36,12 +36,7 @@ fun DownloadSettingsScreen(
     onOpenGeneralSettings: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val listTokens =
-        rememberSettingsListTokens(
-            compactTop = 40.dp,
-            standardTop = 44.dp,
-            expandedTop = 48.dp,
-        )
+    val listTokens = rememberSettingsListTokens()
     var showDemSourcePicker by remember { mutableStateOf(false) }
 
     OptionPickerDialog(

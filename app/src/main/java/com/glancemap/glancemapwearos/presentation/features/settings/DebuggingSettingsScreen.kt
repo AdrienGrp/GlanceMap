@@ -47,6 +47,7 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoText
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.glancemap.shared.transfer.TransferDataLayerContract
@@ -235,7 +236,10 @@ fun DebuggingSettingsScreen(
         }
 
         item {
-            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            GeneralSettingsShortcutChip(
+                onClick = onOpenGeneralSettings,
+                applyTopPadding = false,
+            )
         }
 
         item {
@@ -595,13 +599,10 @@ private fun DiagnosticsExportInfoDialog(
         onDismiss = onDismiss,
     ) {
         item {
-            Text(
-                text =
-                    "After export, check your phone.\n" +
-                        "It opens the email draft with diagnostics attached.\n" +
-                        "If you closed the phone prompt, come back here and tap Resend.",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+            WearInfoText(
+                "After export, check your phone.\n" +
+                    "It opens the email draft with diagnostics attached.\n" +
+                    "If you closed the phone prompt, come back here and tap Resend.",
             )
         }
     }

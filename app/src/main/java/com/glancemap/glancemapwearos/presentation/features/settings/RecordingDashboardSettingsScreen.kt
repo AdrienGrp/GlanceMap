@@ -8,8 +8,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
-import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+import com.glancemap.glancemapwearos.data.repository.normalizeRecordingDashboardMetricSlots
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricDefinitions
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoText
 
 @Composable
 fun RecordingDashboardSettingsScreen(
@@ -18,12 +21,19 @@ fun RecordingDashboardSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val dashboardMetricSlots by viewModel.recordingDashboardMetricSlots.collectAsState()
-    val dashboardSlots = normalizedDashboardSlots(dashboardMetricSlots)
+    val dashboardSlots = normalizeRecordingDashboardMetricSlots(dashboardMetricSlots)
     var showDashboardPagePicker by remember { mutableStateOf(false) }
     var selectedDashboardPage by remember { mutableStateOf(0) }
     var selectedDashboardSlot by remember { mutableStateOf<Int?>(null) }
+    var showInfoDialog by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            SettingsInfoButton(
+                contentDescription = "Dashboard info",
+                onClick = { showInfoDialog = true },
+            )
+        }
         item {
             SettingsSectionChip(
                 label = "Recording settings",
@@ -48,6 +58,10 @@ fun RecordingDashboardSettingsScreen(
             }
         }
     }
+    RecordingDashboardInfoDialog(
+        visible = showInfoDialog,
+        onDismiss = { showInfoDialog = false },
+    )
 
     OptionPickerDialog(
         visible = showDashboardPagePicker,
@@ -80,6 +94,22 @@ fun RecordingDashboardSettingsScreen(
 }
 
 @Composable
+private fun RecordingDashboardInfoDialog(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+) {
+    WearInfoDialog(
+        visible = visible,
+        title = "Dashboard",
+        onDismiss = onDismiss,
+    ) {
+        item {
+            WearInfoText("In the REC popup, long press any metric to change it.")
+        }
+    }
+}
+
+@Composable
 private fun RecordingDashboardPageSetting(
     selectedDashboardPage: Int,
     onClick: () -> Unit,
@@ -106,32 +136,8 @@ private fun RecordingMetricSlotSetting(
 
 private val RECORDING_DASHBOARD_PAGE_OPTIONS = listOf(0, 1)
 private val RECORDING_DASHBOARD_SLOT_LABELS = listOf("Top measure", "Left measure", "Right measure", "Bottom measure")
-private const val RECORDING_DASHBOARD_PAGE_SLOT_COUNT = 4
-private const val RECORDING_DASHBOARD_TOTAL_SLOT_COUNT = 8
 
 private fun recordingDashboardPageLabel(pageIndex: Int): String = "Page ${pageIndex + 1}"
 
 private fun recordingMetricLabel(metricId: String): String =
     recordingMetricDefinitions.firstOrNull { it.id == metricId }?.label ?: "Distance"
-
-private fun normalizedDashboardSlots(slots: List<String>): List<String> {
-    val migratedSlots =
-        if (slots.take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT) == LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS) {
-            SettingsRepository.DEFAULT_RECORDING_DASHBOARD_METRICS +
-                slots.drop(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
-        } else {
-            slots
-        }
-    return (
-        migratedSlots.take(RECORDING_DASHBOARD_TOTAL_SLOT_COUNT) +
-            SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS.drop(migratedSlots.size)
-    ).take(RECORDING_DASHBOARD_TOTAL_SLOT_COUNT)
-}
-
-private val LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS =
-    listOf(
-        SettingsRepository.RECORDING_METRIC_DISTANCE,
-        SettingsRepository.RECORDING_METRIC_DURATION,
-        SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
-        SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
-    )

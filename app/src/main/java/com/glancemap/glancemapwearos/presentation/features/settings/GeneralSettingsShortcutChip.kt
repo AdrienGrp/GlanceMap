@@ -22,6 +22,7 @@ import com.google.android.horologist.compose.material.Chip
 internal fun GeneralSettingsShortcutChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    applyTopPadding: Boolean = true,
 ) {
     val adaptive = rememberWearAdaptiveSpec()
     val useCompactLabels = adaptive.windowClass == WearWindowClass.COMPACT || adaptive.fontScale >= 1.25f
@@ -30,7 +31,7 @@ internal fun GeneralSettingsShortcutChip(
             useCompactLabels -> 84.dp
             else -> 52.dp
         }
-    val topPadding = rememberSettingsFirstItemTopPadding()
+    val topPadding = if (applyTopPadding) rememberSettingsFirstItemTopPadding() else 0.dp
     val label =
         if (useCompactLabels) {
             "General"

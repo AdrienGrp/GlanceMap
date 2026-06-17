@@ -115,6 +115,20 @@ fun WearInfoDialog(
 }
 
 @Composable
+fun WearInfoText(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    cappedFontScale(maxFontScale = 1.08f) {
+        Text(
+            text = text,
+            textAlign = TextAlign.Center,
+            modifier = modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
 private fun InfoDialogDragHandle(
     dismissible: Boolean,
     onDismiss: () -> Unit,

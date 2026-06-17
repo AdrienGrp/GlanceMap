@@ -14,10 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -34,19 +31,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoText
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -60,7 +54,6 @@ fun UserProfileSettingsScreen(
     onOpenGeneralSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
-    val screenSize = rememberWearScreenSize()
     val isMetric by viewModel.isMetric.collectAsState()
     val userWeightKg by viewModel.userWeightKg.collectAsState()
     val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
@@ -68,29 +61,19 @@ fun UserProfileSettingsScreen(
     var showWeightPicker by remember { mutableStateOf(false) }
     var showBackpackPicker by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
-    val infoButtonSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 24.dp
-            WearScreenSize.MEDIUM -> 22.dp
-            WearScreenSize.SMALL -> 20.dp
-        }
-    val infoIconSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 14.dp
-            WearScreenSize.MEDIUM -> 13.dp
-            WearScreenSize.SMALL -> 12.dp
-        }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
-            UserProfileInfoButton(
-                buttonSize = infoButtonSize,
-                iconSize = infoIconSize,
+            SettingsInfoButton(
+                contentDescription = "User profile info",
                 onClick = { showInfoDialog = true },
             )
         }
         item {
-            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            GeneralSettingsShortcutChip(
+                onClick = onOpenGeneralSettings,
+                applyTopPadding = false,
+            )
         }
         item {
             SettingsPickerChip(
@@ -154,40 +137,6 @@ fun UserProfileSettingsScreen(
 }
 
 @Composable
-private fun UserProfileInfoButton(
-    buttonSize: Dp,
-    iconSize: Dp,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 2.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        IconButton(
-            onClick = onClick,
-            modifier =
-                Modifier
-                    .size(buttonSize)
-                    .wrapContentSize(align = Alignment.Center),
-            colors =
-                IconButtonDefaults.iconButtonColors(
-                    containerColor = Color.Black.copy(alpha = 0.7f),
-                    contentColor = Color.White,
-                ),
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Info,
-                contentDescription = "User profile info",
-                modifier = Modifier.size(iconSize),
-            )
-        }
-    }
-}
-
-@Composable
 private fun UserProfileInfoDialog(
     visible: Boolean,
     onDismiss: () -> Unit,
@@ -198,13 +147,10 @@ private fun UserProfileInfoDialog(
         onDismiss = onDismiss,
     ) {
         item {
-            Text(
-                text =
-                    "Weight and backpack improve hiking calories.\n" +
-                        "Calories use Pandolf/Santee and LCDA with speed and slope.\n" +
-                        "DEM elevation is used when available.",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+            WearInfoText(
+                "Weight and backpack improve hiking calories.\n" +
+                    "Calories use Pandolf/Santee and LCDA with speed and slope.\n" +
+                    "DEM elevation is used when available.",
             )
         }
     }
