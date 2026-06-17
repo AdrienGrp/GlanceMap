@@ -17,8 +17,12 @@ import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
+import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
+import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolDraftSummaryDialog
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolLoopRetryOption
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolProgressDialog
@@ -26,11 +30,203 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolR
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolsActionPanel
+import com.glancemap.glancemapwearos.presentation.features.routetools.withVisibleLoopDefaults
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
 import org.mapsforge.core.model.LatLong
+
+@Composable
+@Suppress("LongParameterList", "FunctionNaming")
+internal fun NavigateScreenDialogsHost(
+    showKeepAppOpenInfoDialog: Boolean,
+    helpDialogMaxHeight: Dp,
+    onContinueKeepAppOpen: () -> Unit,
+    onDismissKeepAppOpen: () -> Unit,
+    showNotificationPermissionDialog: Boolean,
+    onContinueNotificationPermission: () -> Unit,
+    onDismissNotificationPermission: () -> Unit,
+    showCreatedPoiRenameDialog: Boolean,
+    createdPoiPendingRename: UserPoiRecord?,
+    createdPoiRenameInProgress: Boolean,
+    createdPoiRenameError: String?,
+    onDismissCreatedPoiRename: () -> Unit,
+    onConfirmCreatedPoiRename: (String) -> Unit,
+    createdPoiCreateInProgress: Boolean,
+    showRouteToolsPanel: Boolean,
+    activeGpxDetailsCount: Int,
+    coordinateSeed: LatLong?,
+    poiSearchState: PoiSearchUiState,
+    routeToolOptions: RouteToolOptions,
+    routeToolPreflightMessage: String?,
+    onRouteToolOptionsChange: (RouteToolOptions) -> Unit,
+    poiViewModel: PoiViewModel,
+    routeToolActions: NavigateRouteToolActions,
+    completedRouteToolDraft: RouteToolSession?,
+    reshapePreviewInspectMode: Boolean,
+    routeToolExecutionInProgress: Boolean,
+    routeToolExecutionMessage: String?,
+    routeToolExecutionStatus: String?,
+    routeToolLoopRetryOptions: List<RouteToolLoopRetryOption>,
+    onDismissDraftSummary: () -> Unit,
+    onSetRouteToolOptions: (RouteToolOptions) -> Unit,
+    onClearRouteToolExecutionMessage: () -> Unit,
+    onClearRouteToolLoopRetryOptions: () -> Unit,
+    routeToolResult: RouteToolSaveResult?,
+    routeToolRenameInProgress: Boolean,
+    routeToolRenameError: String?,
+    isMetric: Boolean,
+    gpxViewModel: GpxViewModel,
+    onSetRouteToolResult: (RouteToolSaveResult?) -> Unit,
+    onSetRouteToolRenameInProgress: (Boolean) -> Unit,
+    onSetRouteToolRenameError: (String?) -> Unit,
+    onDismissRouteToolsPanel: () -> Unit,
+) {
+    NavigateKeepAppOpenDialog(
+        visible = showKeepAppOpenInfoDialog,
+        helpDialogMaxHeight = helpDialogMaxHeight,
+        onContinue = onContinueKeepAppOpen,
+        onDismiss = onDismissKeepAppOpen,
+    )
+
+    NavigateNotificationPermissionDialog(
+        visible = showNotificationPermissionDialog,
+        onContinue = onContinueNotificationPermission,
+        onDismiss = onDismissNotificationPermission,
+    )
+
+    NavigateCreatedPoiRenameDialog(
+        visible = showCreatedPoiRenameDialog,
+        pendingRename = createdPoiPendingRename,
+        isSaving = createdPoiRenameInProgress,
+        error = createdPoiRenameError,
+        onDismiss = onDismissCreatedPoiRename,
+        onConfirm = onConfirmCreatedPoiRename,
+    )
+
+    RouteToolProgressDialog(
+        visible = createdPoiCreateInProgress,
+        message = "Saving POI...",
+        fullScreenBackground = true,
+    )
+
+    NavigateRouteToolDialogs(
+        showRouteToolsPanel = showRouteToolsPanel,
+        canModifyActiveGpx = activeGpxDetailsCount == 1,
+        coordinateSeed = coordinateSeed,
+        poiSearchState = poiSearchState,
+        options = routeToolOptions,
+        preflightMessage = routeToolPreflightMessage,
+        onOptionsChange = onRouteToolOptionsChange,
+        onSearchPoi = { query -> poiViewModel.searchOfflinePoi(query) },
+        onClearPoiSearch = { poiViewModel.clearOfflinePoiSearch() },
+        onDismissRouteToolsPanel = onDismissRouteToolsPanel,
+        onStartRouteToolSelection = routeToolActions.startRouteToolSelection,
+        completedRouteToolDraft = if (reshapePreviewInspectMode) null else completedRouteToolDraft,
+        routeToolExecutionInProgress = routeToolExecutionInProgress,
+        routeToolExecutionMessage = routeToolExecutionMessage,
+        routeToolLoopRetryOptions = routeToolLoopRetryOptions,
+        onDismissDraftSummary = onDismissDraftSummary,
+        onConfirmCreateDraft =
+            completedRouteToolDraft
+                ?.takeIf { it.options.toolKind == RouteToolKind.CREATE }
+                ?.let { draft ->
+                    {
+                        onClearRouteToolLoopRetryOptions()
+                        if (draft.options.createMode == RouteCreateMode.LOOP_AROUND_HERE) {
+                            routeToolActions.startRouteToolSelection(draft)
+                        } else {
+                            routeToolActions.executeCreateDraft(draft, false)
+                        }
+                    }
+                },
+        onConfirmModifyDraft =
+            completedRouteToolDraft
+                ?.takeIf { it.options.toolKind == RouteToolKind.MODIFY }
+                ?.let { draft ->
+                    {
+                        routeToolActions.executeModifyDraft(draft, false)
+                    }
+                },
+        onSelectLoopRetryOption = { retryOption ->
+            val draft = completedRouteToolDraft ?: return@NavigateRouteToolDialogs
+            onClearRouteToolExecutionMessage()
+            onClearRouteToolLoopRetryOptions()
+            onSetRouteToolOptions(retryOption.options.withVisibleLoopDefaults())
+            routeToolActions.startRouteToolSelection(
+                draft.copy(
+                    options = retryOption.options,
+                    loopVariationIndex = 0,
+                ),
+            )
+        },
+        routeToolProgressVisible =
+            routeToolExecutionInProgress &&
+                completedRouteToolDraft == null &&
+                routeToolExecutionStatus != null,
+        routeToolProgressMessage = routeToolExecutionStatus ?: "Working...",
+        routeToolResult = routeToolResult,
+        isMetric = isMetric,
+        routeToolRenameInProgress = routeToolRenameInProgress,
+        routeToolRenameError = routeToolRenameError,
+        onDismissRouteToolResult = {
+            if (!routeToolRenameInProgress) {
+                onSetRouteToolResult(null)
+                onSetRouteToolRenameError(null)
+            }
+        },
+        onDeleteRouteToolResult = {
+            val currentResult = routeToolResult ?: return@NavigateRouteToolDialogs
+            if (routeToolRenameInProgress) return@NavigateRouteToolDialogs
+            gpxViewModel.deleteGpxFile(currentResult.filePath)
+            onSetRouteToolResult(null)
+            onSetRouteToolRenameError(null)
+        },
+        onOpenRouteToolRename = {
+            onSetRouteToolRenameError(null)
+        },
+        onConfirmRouteToolRename = { newName ->
+            val currentResult = routeToolResult ?: return@NavigateRouteToolDialogs
+            if (routeToolRenameInProgress) return@NavigateRouteToolDialogs
+            onSetRouteToolRenameInProgress(true)
+            onSetRouteToolRenameError(null)
+            gpxViewModel.renameRouteToolResult(
+                filePath = currentResult.filePath,
+                newName = newName,
+            ) { result ->
+                onSetRouteToolRenameInProgress(false)
+                result
+                    .onSuccess { updatedResult ->
+                        onSetRouteToolRenameError(null)
+                        onSetRouteToolResult(updatedResult)
+                    }.onFailure { error ->
+                        onSetRouteToolRenameError(
+                            error.localizedMessage?.takeIf { it.isNotBlank() }
+                                ?: "Failed to rename the GPX.",
+                        )
+                    }
+            }
+        },
+        onStartRouteToolGuidance = {
+            val currentResult = routeToolResult ?: return@NavigateRouteToolDialogs
+            if (routeToolRenameInProgress) return@NavigateRouteToolDialogs
+            onSetRouteToolRenameError(null)
+            gpxViewModel.startTurnByTurnGuidance(currentResult.filePath) { result ->
+                result
+                    .onSuccess {
+                        onSetRouteToolResult(null)
+                        onSetRouteToolRenameError(null)
+                    }.onFailure { error ->
+                        onSetRouteToolRenameError(
+                            error.localizedMessage?.takeIf { it.isNotBlank() }
+                                ?: "Failed to start guidance.",
+                        )
+                    }
+            }
+        },
+    )
+}
 
 @Composable
 @Suppress("FunctionNaming")

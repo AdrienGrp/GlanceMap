@@ -2,36 +2,21 @@ package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import android.graphics.Rect
 import android.view.GestureDetector
-import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import android.widget.FrameLayout
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -45,20 +30,11 @@ import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.wear.compose.material3.Button
-import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
-import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
@@ -69,28 +45,13 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Tur
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCrosshairOverlay
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteMultiPointMapProjection
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteMultiPointOverlayState
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteMultiPointPointsOverlay
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteReshapeHandlesOverlay
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteReshapePreviewOverlay
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
-import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
-import com.glancemap.glancemapwearos.presentation.ui.WearVerticalScrollIndicator
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
-import org.mapsforge.core.util.MercatorProjection
 import org.mapsforge.map.model.common.Observer
 
 @Suppress(
@@ -219,314 +180,49 @@ internal fun NavigateContent(
     }
     val mapView = mapHolder?.mapView
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val latestOnNavigateTimeSuppressedChange = rememberUpdatedState(onNavigateTimeSuppressedChange)
-    var turnByTurnFullScreenExpanded by remember { mutableStateOf(false) }
-    var recordingDashboardFullScreenExpanded by remember { mutableStateOf(false) }
-    var localRecordingActionPromptRequestToken by remember { mutableLongStateOf(0L) }
+    val expandedOverlayState =
+        rememberNavigateExpandedOverlayState(
+            focusRequester = focusRequester,
+            backButtonExitsNavigation = backButtonExitsNavigation,
+            turnByTurnGuidanceActive = turnByTurnGuidanceState.active,
+            traceRecordingActive = traceRecordingState.active,
+            recordingActionPromptRequestToken = recordingActionPromptRequestToken,
+        )
+    val turnByTurnFullScreenExpanded = expandedOverlayState.turnByTurnFullScreenExpanded
+    val recordingDashboardFullScreenExpanded = expandedOverlayState.recordingDashboardFullScreenExpanded
     val effectiveRecordingActionPromptRequestToken =
-        maxOf(recordingActionPromptRequestToken, localRecordingActionPromptRequestToken)
-    val suppressMapRenderingForGuidance =
-        (turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded) ||
-            (traceRecordingState.active && recordingDashboardFullScreenExpanded)
-    LaunchedEffect(turnByTurnGuidanceState.active) {
-        if (!turnByTurnGuidanceState.active) {
-            turnByTurnFullScreenExpanded = false
-        }
-    }
-    LaunchedEffect(traceRecordingState.active) {
-        if (!traceRecordingState.active) {
-            recordingDashboardFullScreenExpanded = false
-            localRecordingActionPromptRequestToken = 0L
-        }
-    }
-    BackHandler(
-        enabled = backButtonExitsNavigation && (turnByTurnFullScreenExpanded || recordingDashboardFullScreenExpanded),
-    ) {
-        turnByTurnFullScreenExpanded = false
-        recordingDashboardFullScreenExpanded = false
-    }
-    LaunchedEffect(turnByTurnFullScreenExpanded, recordingDashboardFullScreenExpanded) {
-        if (!turnByTurnFullScreenExpanded && !recordingDashboardFullScreenExpanded) {
-            focusRequester.requestFocus()
-        }
-    }
-    DisposableEffect(lifecycleOwner) {
-        val observer =
-            LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
-                    turnByTurnFullScreenExpanded = false
-                    recordingDashboardFullScreenExpanded = false
-                }
-            }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
+        expandedOverlayState.effectiveRecordingActionPromptRequestToken
+    val suppressMapRenderingForGuidance = expandedOverlayState.suppressMapRenderingForGuidance
 
-    DisposableEffect(mapView, onMapViewReadyForRendering) {
-        if (mapView == null) return@DisposableEffect onDispose {}
-
-        val focusListener =
-            ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
-                if (hasFocus && mapView.isAttachedToWindow && mapView.width > 0 && mapView.height > 0) {
-                    onMapViewReadyForRendering()
-                }
-            }
-
-        val observer = mapView.viewTreeObserver
-        observer.addOnWindowFocusChangeListener(focusListener)
-
-        onDispose {
-            if (observer.isAlive) {
-                observer.removeOnWindowFocusChangeListener(focusListener)
-            }
-        }
-    }
-    val gestureExclusionStripDp =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 96f
-                WearScreenSize.MEDIUM -> 84f
-                WearScreenSize.SMALL -> 72f
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 84f
-                WearScreenSize.MEDIUM -> 72f
-                WearScreenSize.SMALL -> 60f
-            }
-        }
-    val zoomButtonSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 26.dp
-                WearScreenSize.MEDIUM -> 24.dp
-                WearScreenSize.SMALL -> 22.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 28.dp
-                WearScreenSize.MEDIUM -> 26.dp
-                WearScreenSize.SMALL -> 24.dp
-            }
-        }
-    val zoomIconSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 18.dp
-                WearScreenSize.MEDIUM -> 16.dp
-                WearScreenSize.SMALL -> 14.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 19.dp
-                WearScreenSize.MEDIUM -> 17.dp
-                WearScreenSize.SMALL -> 15.dp
-            }
-        }
-    val zoomLabelTopPadding =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 24.dp
-                WearScreenSize.MEDIUM -> 22.dp
-                WearScreenSize.SMALL -> 18.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 20.dp
-                WearScreenSize.MEDIUM -> 18.dp
-                WearScreenSize.SMALL -> 16.dp
-            }
-        }
-    val zoomScaleBarWidth =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 52.dp
-                WearScreenSize.MEDIUM -> 48.dp
-                WearScreenSize.SMALL -> 42.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 58.dp
-                WearScreenSize.MEDIUM -> 54.dp
-                WearScreenSize.SMALL -> 48.dp
-            }
-        }
-    val (showZoomPlusButton, showZoomMinusButton) =
-        when (mapZoomButtonsMode) {
-            SettingsRepository.ZOOM_BUTTONS_HIDE_BOTH -> false to false
-            SettingsRepository.ZOOM_BUTTONS_HIDE_PLUS -> false to true
-            else -> true to true
-        }
-    val sideButtonSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 30.dp
-                WearScreenSize.MEDIUM -> 28.dp
-                WearScreenSize.SMALL -> 26.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 32.dp
-                WearScreenSize.MEDIUM -> 30.dp
-                WearScreenSize.SMALL -> 28.dp
-            }
-        }
-    val sideButtonIconSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 20.dp
-                WearScreenSize.MEDIUM -> 18.dp
-                WearScreenSize.SMALL -> 16.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 21.dp
-                WearScreenSize.MEDIUM -> 19.dp
-                WearScreenSize.SMALL -> 17.dp
-            }
-        }
-    val sideButtonEdgePadding =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 4.dp
-                WearScreenSize.MEDIUM -> 3.dp
-                WearScreenSize.SMALL -> 2.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 6.dp
-                WearScreenSize.MEDIUM -> 5.dp
-                WearScreenSize.SMALL -> 4.dp
-            }
-        }
-    val liveElevationIconSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 22.dp
-                WearScreenSize.MEDIUM -> 20.dp
-                WearScreenSize.SMALL -> 18.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 24.dp
-                WearScreenSize.MEDIUM -> 22.dp
-                WearScreenSize.SMALL -> 20.dp
-            }
-        }
-    val navButtonBottomPadding =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 4.dp
-                WearScreenSize.MEDIUM -> 3.dp
-                WearScreenSize.SMALL -> 2.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 8.dp
-                WearScreenSize.MEDIUM -> 7.dp
-                WearScreenSize.SMALL -> 6.dp
-            }
-        }
-    val navButtonSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 28.dp
-                WearScreenSize.MEDIUM -> 26.dp
-                WearScreenSize.SMALL -> 24.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 30.dp
-                WearScreenSize.MEDIUM -> 28.dp
-                WearScreenSize.SMALL -> 26.dp
-            }
-        }
-    val navButtonIconSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 20.dp
-                WearScreenSize.MEDIUM -> 18.dp
-                WearScreenSize.SMALL -> 16.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 21.dp
-                WearScreenSize.MEDIUM -> 19.dp
-                WearScreenSize.SMALL -> 17.dp
-            }
-        }
-    val northIndicatorButtonSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 20.dp
-                WearScreenSize.MEDIUM -> 18.dp
-                WearScreenSize.SMALL -> 16.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 22.dp
-                WearScreenSize.MEDIUM -> 20.dp
-                WearScreenSize.SMALL -> 18.dp
-            }
-        }
-    val northIndicatorIconSize =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 14.dp
-                WearScreenSize.MEDIUM -> 12.dp
-                WearScreenSize.SMALL -> 11.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 15.dp
-                WearScreenSize.MEDIUM -> 13.dp
-                WearScreenSize.SMALL -> 12.dp
-            }
-        }
-    val permissionContentPadding =
-        if (adaptive.isRound) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 16.dp
-                WearScreenSize.MEDIUM -> 14.dp
-                WearScreenSize.SMALL -> 12.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 18.dp
-                WearScreenSize.MEDIUM -> 16.dp
-                WearScreenSize.SMALL -> 14.dp
-            }
-        }
-    val permissionButtonMinHeight =
-        when {
-            adaptive.fontScale >= 1.45f -> 56.dp
-            adaptive.fontScale >= 1.25f -> 50.dp
-            else -> 0.dp
-        }
-    val permissionScrollBottomPadding =
-        permissionContentPadding +
-            when {
-                adaptive.fontScale >= 1.45f -> 36.dp
-                adaptive.fontScale >= 1.25f -> 28.dp
-                else -> 20.dp
-            }
-    val permissionScrollTopPadding =
-        permissionContentPadding +
-            adaptive.headerTopSafeInset +
-            if (adaptive.isRound) {
-                when {
-                    adaptive.fontScale >= 1.45f -> 34.dp
-                    adaptive.fontScale >= 1.25f -> 26.dp
-                    else -> 18.dp
-                }
-            } else {
-                0.dp
-            }
+    NavigateMapReadyEffect(
+        mapView = mapView,
+        onMapViewReadyForRendering = onMapViewReadyForRendering,
+    )
+    val sizing =
+        rememberNavigateContentSizing(
+            adaptive = adaptive,
+            screenSize = screenSize,
+            mapZoomButtonsMode = mapZoomButtonsMode,
+        )
+    val gestureExclusionStripDp = sizing.gestureExclusionStripDp
+    val zoomButtonSize = sizing.zoomButtonSize
+    val zoomIconSize = sizing.zoomIconSize
+    val zoomLabelTopPadding = sizing.zoomLabelTopPadding
+    val zoomScaleBarWidth = sizing.zoomScaleBarWidth
+    val showZoomPlusButton = sizing.showZoomPlusButton
+    val showZoomMinusButton = sizing.showZoomMinusButton
+    val sideButtonSize = sizing.sideButtonSize
+    val sideButtonIconSize = sizing.sideButtonIconSize
+    val sideButtonEdgePadding = sizing.sideButtonEdgePadding
+    val liveElevationIconSize = sizing.liveElevationIconSize
+    val navButtonBottomPadding = sizing.navButtonBottomPadding
+    val navButtonSize = sizing.navButtonSize
+    val navButtonIconSize = sizing.navButtonIconSize
+    val northIndicatorButtonSize = sizing.northIndicatorButtonSize
+    val northIndicatorIconSize = sizing.northIndicatorIconSize
     val latestNavMode = rememberUpdatedState(navMode)
     val latestOnUserPanStarted = rememberUpdatedState(onUserPanStarted)
     val latestOnInspectTrack = rememberUpdatedState(onInspectTrack)
@@ -731,12 +427,27 @@ internal fun NavigateContent(
                 },
             )
         }
-    var scaleIndicator by remember(mapView, isMetric) { mutableStateOf<ScaleIndicatorUi?>(null) }
-    var hasSeenInitialZoomState by remember { mutableStateOf(false) }
-    var showScaleBar by remember { mutableStateOf(false) }
-    var liveElevationLabel by remember(mapHolder, isMetric) { mutableStateOf<String?>(null) }
-    var liveDistanceLabel by remember(isMetric) { mutableStateOf<String?>(null) }
     val routeToolModeActive = routeToolSession != null || crosshairSelectionActive || reshapePreviewInspectMode
+    val density = LocalDensity.current
+    var visibleMapSizePx by remember { mutableStateOf(IntSize.Zero) }
+    val liveHudState =
+        rememberNavigateLiveHudState(
+            enabled = hasLocationPermission && mapView != null,
+            mapHolder = mapHolder,
+            mapView = mapView,
+            currentZoomLevel = currentZoomLevel,
+            isMetric = isMetric,
+            navMode = navMode,
+            liveElevationEnabled = liveElevationEnabled,
+            liveDistanceEnabled = liveDistanceEnabled,
+            locationMarker = locationMarker,
+            lastKnownLocation = lastKnownLocation,
+            visibleMapSizePx = visibleMapSizePx,
+        )
+    val scaleIndicator = liveHudState.scaleIndicator
+    val showScaleBar = liveHudState.showScaleBar
+    val liveElevationLabel = liveHudState.liveElevationLabel
+    val liveDistanceLabel = liveHudState.liveDistanceLabel
     val fullScreenPopupExpanded =
         turnByTurnFullScreenExpanded ||
             recordingDashboardFullScreenExpanded
@@ -744,9 +455,7 @@ internal fun NavigateContent(
         !fullScreenPopupExpanded &&
             adaptive.fontScale > 1f &&
             (showScaleBar || routeToolModeActive)
-    val overlayOwnsRotary =
-        turnByTurnFullScreenExpanded ||
-            recordingDashboardFullScreenExpanded
+    val overlayOwnsRotary = expandedOverlayState.overlayOwnsRotary
 
     LaunchedEffect(shouldSuppressNavigateTime) {
         latestOnNavigateTimeSuppressedChange.value(shouldSuppressNavigateTime)
@@ -756,29 +465,6 @@ internal fun NavigateContent(
         onDispose {
             latestOnNavigateTimeSuppressedChange.value(false)
         }
-    }
-
-    LaunchedEffect(mapView, isMetric) {
-        scaleIndicator =
-            mapView?.let {
-                calculateScaleIndicator(mapView = it, isMetric = isMetric)
-            }
-    }
-
-    LaunchedEffect(currentZoomLevel, mapView, isMetric) {
-        if (currentZoomLevel <= 0) return@LaunchedEffect
-        if (!hasSeenInitialZoomState) {
-            hasSeenInitialZoomState = true
-            return@LaunchedEffect
-        }
-        scaleIndicator =
-            mapView?.let {
-                calculateScaleIndicator(mapView = it, isMetric = isMetric)
-            }
-        if (scaleIndicator == null) return@LaunchedEffect
-        showScaleBar = true
-        delay(5_000L)
-        showScaleBar = false
     }
 
     LaunchedEffect(poiTapPopup, poiTapPopupExpanded, poiPopupTimeoutSeconds, poiPopupManualCloseOnly) {
@@ -795,94 +481,6 @@ internal fun NavigateContent(
         poiTapPopup = null
         poiTapPopupExpanded = false
         poiTapPopupScrollInProgress = false
-    }
-    val density = LocalDensity.current
-    var visibleMapSizePx by remember { mutableStateOf(IntSize.Zero) }
-
-    LaunchedEffect(
-        navMode,
-        liveElevationEnabled,
-        liveDistanceEnabled,
-        mapHolder,
-        mapView,
-        locationMarker,
-        lastKnownLocation,
-        isMetric,
-    ) {
-        if (
-            navMode != NavMode.PANNING ||
-            (!liveElevationEnabled && !liveDistanceEnabled) ||
-            mapView == null
-        ) {
-            liveElevationLabel = null
-            liveDistanceLabel = null
-            return@LaunchedEffect
-        }
-
-        var lastElevationSampleCenter: LatLong? = null
-        while (isActive) {
-            val visibleScreenCenter =
-                resolveVisibleScreenCenterLatLong(
-                    mapView = mapView,
-                    visibleHeightPx = visibleMapSizePx.height,
-                )
-            val elevationCenter = visibleScreenCenter ?: mapView.model.mapViewPosition.center
-            if (liveElevationEnabled) {
-                val previousCenter = lastElevationSampleCenter
-                val movedMeters =
-                    if (previousCenter != null) {
-                        navigateHaversineMeters(
-                            lat1 = previousCenter.latitude,
-                            lon1 = previousCenter.longitude,
-                            lat2 = elevationCenter.latitude,
-                            lon2 = elevationCenter.longitude,
-                        )
-                    } else {
-                        Double.POSITIVE_INFINITY
-                    }
-                val shouldResampleElevation =
-                    previousCenter == null ||
-                        liveElevationLabel == null ||
-                        movedMeters >= LIVE_ELEVATION_RESAMPLE_DISTANCE_METERS
-
-                if (shouldResampleElevation) {
-                    val sampledMeters =
-                        withContext(Dispatchers.Default) {
-                            mapHolder.renderer.sampleElevationMeters(
-                                lat = elevationCenter.latitude,
-                                lon = elevationCenter.longitude,
-                            )
-                        }
-                    liveElevationLabel = sampledMeters?.let { meters ->
-                        val (value, unit) = UnitFormatter.formatElevation(meters, isMetric)
-                        "$value $unit"
-                    } ?: "--"
-                    lastElevationSampleCenter = elevationCenter
-                }
-            } else {
-                liveElevationLabel = null
-                lastElevationSampleCenter = null
-            }
-
-            val liveDistanceOrigin =
-                resolveLiveDistanceOrigin(
-                    currentMarkerLatLong = locationMarker?.latLong,
-                    fallbackLatLong = lastKnownLocation,
-                )
-            if (liveDistanceEnabled && liveDistanceOrigin != null) {
-                val straightDistanceMeters =
-                    visibleScreenCenter?.let { target ->
-                        resolveLiveDistanceMeters(
-                            origin = liveDistanceOrigin,
-                            target = target,
-                        )
-                    }
-                liveDistanceLabel = straightDistanceMeters?.let { formatLiveDistanceLabel(it, isMetric) }
-            } else {
-                liveDistanceLabel = null
-            }
-            delay(320L)
-        }
     }
 
     val poiTapMessage =
@@ -1252,7 +850,7 @@ internal fun NavigateContent(
                 onRecordingClick = {
                     onShortcutTrayDismiss()
                     if (traceRecordingState.active || traceRecordingState.saving) {
-                        localRecordingActionPromptRequestToken = System.currentTimeMillis()
+                        expandedOverlayState.requestRecordingActionPrompt()
                     } else {
                         onStartRecording()
                     }
@@ -1286,12 +884,8 @@ internal fun NavigateContent(
                 onPauseTurnByTurnGuidance = onPauseTurnByTurnGuidance,
                 onResumeTurnByTurnGuidance = onResumeTurnByTurnGuidance,
                 onStopTurnByTurnGuidance = onStopTurnByTurnGuidance,
-                onTurnByTurnExpandedChange = { expanded ->
-                    turnByTurnFullScreenExpanded = expanded
-                },
-                onRecordingExpandedChange = { expanded ->
-                    recordingDashboardFullScreenExpanded = expanded
-                },
+                onTurnByTurnExpandedChange = expandedOverlayState.onTurnByTurnExpandedChange,
+                onRecordingExpandedChange = expandedOverlayState.onRecordingExpandedChange,
                 onGuideBackToRoute = onGuideBackToRoute,
                 onDismissGuideBackPrompt = onDismissGuideBackPrompt,
                 onAcceptStartDecisionPrompt = onAcceptStartDecisionPrompt,
@@ -1314,377 +908,48 @@ internal fun NavigateContent(
                 modifier = Modifier.align(Alignment.Center),
             )
 
-            if (routeToolSession != null) {
-                val session = routeToolSession
-                val activeRouteToolTrack = activeGpxDetails.singleOrNull()
-                RouteReshapeHandlesOverlay(
-                    session = session,
-                    activeTrack = activeRouteToolTrack,
-                    mapView = mapView,
-                    mapRotationDeg = mapRotationDeg,
-                    viewportRevision = routeToolOverlayRevision,
-                )
-                RouteCrosshairOverlay(
-                    session = session,
-                    screenSize = screenSize,
-                    isMetric = isMetric,
-                    createPreview = routeToolCreatePreview,
-                    createPreviewInProgress = routeToolCreatePreviewInProgress,
-                    createPreviewMessage = routeToolCreatePreviewMessage,
-                    onPickHere = {
-                        onRouteToolPickHere(
-                            resolveVisibleScreenCenterLatLong(
-                                mapView = mapView,
-                                visibleHeightPx = visibleMapSizePx.height,
-                            ) ?: mapView.model.mapViewPosition.center,
-                        )
-                    },
-                    onCancel = onCancelRouteToolMode,
-                    onUndoLastPoint = onRouteToolUndoLastPoint,
-                    onSaveCreatePreview = onRouteToolSaveCreatePreview,
-                    onRefreshCreatePreview = onRouteToolRefreshCreatePreview,
-                )
-                RouteMultiPointPointsOverlay(
-                    overlayState =
-                        RouteMultiPointOverlayState(
-                            session = session,
-                            draftConnectorPoints = routeToolDraftConnectorPoints,
-                            gpxTrackColor = gpxTrackColor,
-                        ),
-                    mapProjection =
-                        RouteMultiPointMapProjection(
-                            mapView = mapView,
-                            mapRotationDeg = mapRotationDeg,
-                            viewportRevision = routeToolOverlayRevision,
-                        ),
-                )
-            } else if (reshapePreviewInspectMode && reshapePreviewPoints.size >= 2) {
-                RouteReshapePreviewOverlay(
-                    screenSize = screenSize,
-                    busy = reshapePreviewBusy,
-                    busyMessage = reshapePreviewBusyMessage,
-                    message = reshapePreviewMessage,
-                    onDismiss = onDismissReshapePreview,
-                    onSave = onSaveReshapePreview,
-                )
-            } else if (
-                crosshairSelectionActive &&
-                onCrosshairSelectionPickHere != null &&
-                onCancelCrosshairSelection != null
-            ) {
-                val poiSelectionSession =
-                    remember {
-                        RouteToolSession(
-                            options =
-                                RouteToolOptions(
-                                    toolKind = RouteToolKind.CREATE,
-                                    createMode = RouteCreateMode.CURRENT_TO_HERE,
-                                ),
-                        )
-                    }
-                RouteCrosshairOverlay(
-                    session = poiSelectionSession,
-                    screenSize = screenSize,
-                    isMetric = isMetric,
-                    busy = crosshairSelectionBusy,
-                    busyMessage = crosshairSelectionBusyMessage,
-                    titleOverride = crosshairSelectionTitle ?: "+ POI",
-                    instructionOverride = crosshairSelectionInstruction ?: "Move map, then check.",
-                    popupTopOffset = 4.dp,
-                    showCapturedPoints = false,
-                    onPickHere = {
-                        onCrosshairSelectionPickHere(
-                            resolveVisibleScreenCenterLatLong(
-                                mapView = mapView,
-                                visibleHeightPx = visibleMapSizePx.height,
-                            ) ?: mapView.model.mapViewPosition.center,
-                        )
-                    },
-                    onCancel = onCancelCrosshairSelection,
-                )
-            }
+            NavigateRouteToolOverlayHost(
+                routeToolSession = routeToolSession,
+                activeGpxDetails = activeGpxDetails,
+                mapView = mapView,
+                mapRotationDeg = mapRotationDeg,
+                viewportRevision = routeToolOverlayRevision,
+                screenSize = screenSize,
+                isMetric = isMetric,
+                routeToolCreatePreview = routeToolCreatePreview,
+                routeToolCreatePreviewInProgress = routeToolCreatePreviewInProgress,
+                routeToolCreatePreviewMessage = routeToolCreatePreviewMessage,
+                routeToolDraftConnectorPoints = routeToolDraftConnectorPoints,
+                gpxTrackColor = gpxTrackColor,
+                onRouteToolPickHere = onRouteToolPickHere,
+                onRouteToolUndoLastPoint = onRouteToolUndoLastPoint,
+                onRouteToolSaveCreatePreview = onRouteToolSaveCreatePreview,
+                onRouteToolRefreshCreatePreview = onRouteToolRefreshCreatePreview,
+                onCancelRouteToolMode = onCancelRouteToolMode,
+                reshapePreviewInspectMode = reshapePreviewInspectMode,
+                reshapePreviewPoints = reshapePreviewPoints,
+                reshapePreviewBusy = reshapePreviewBusy,
+                reshapePreviewBusyMessage = reshapePreviewBusyMessage,
+                reshapePreviewMessage = reshapePreviewMessage,
+                onDismissReshapePreview = onDismissReshapePreview,
+                onSaveReshapePreview = onSaveReshapePreview,
+                crosshairSelectionActive = crosshairSelectionActive,
+                crosshairSelectionBusy = crosshairSelectionBusy,
+                crosshairSelectionBusyMessage = crosshairSelectionBusyMessage,
+                crosshairSelectionTitle = crosshairSelectionTitle,
+                crosshairSelectionInstruction = crosshairSelectionInstruction,
+                onCrosshairSelectionPickHere = onCrosshairSelectionPickHere,
+                onCancelCrosshairSelection = onCancelCrosshairSelection,
+                visibleMapSizePx = visibleMapSizePx,
+            )
         } else {
-            scaleIndicator = null
-            val permissionScrollState = rememberScrollState()
-            Box(modifier = Modifier.fillMaxSize()) {
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = maxHeight)
-                                .verticalScroll(permissionScrollState)
-                                .padding(
-                                    start = permissionContentPadding,
-                                    top = permissionScrollTopPadding,
-                                    end = permissionContentPadding,
-                                    bottom = permissionScrollBottomPadding,
-                                ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-                    ) {
-                        Text(
-                            "Location permission required for this screen.",
-                            textAlign = TextAlign.Center,
-                        )
-                        Button(
-                            onClick = onPermissionLaunch,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = permissionButtonMinHeight),
-                        ) {
-                            Text(
-                                "Grant Permission",
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(1.dp))
-                    }
-                }
-                WearVerticalScrollIndicator(
-                    scrollState = permissionScrollState,
-                    modifier =
-                        Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(end = 2.dp),
-                )
-            }
+            NavigatePermissionRequiredContent(
+                sizing = sizing,
+                onPermissionLaunch = onPermissionLaunch,
+            )
         }
     }
 }
-
-@Composable
-private fun RecordingStatusMessageChip(
-    message: String?,
-    modifier: Modifier = Modifier,
-) {
-    if (message.isNullOrBlank()) return
-
-    Text(
-        text = message,
-        modifier =
-            modifier
-                .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(18.dp))
-                .padding(horizontal = 14.dp, vertical = 6.dp),
-        color = Color.White,
-        fontSize = 14.sp,
-        lineHeight = 15.sp,
-        fontWeight = FontWeight.SemiBold,
-        textAlign = TextAlign.Center,
-        maxLines = 1,
-    )
-}
-
-@Suppress("FunctionName")
-@Composable
-private fun BoxScope.GpsEnvironmentWarningOverlay(
-    warning: GpsEnvironmentWarning,
-    visible: Boolean,
-) {
-    val message =
-        when (warning) {
-            GpsEnvironmentWarning.NONE -> null
-            GpsEnvironmentWarning.LOCATION_SETTINGS_UNSATISFIED -> "Turn on watch Location"
-            GpsEnvironmentWarning.WATCH_GPS_UNAVAILABLE -> null
-            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_NO_WATCH_GPS,
-            GpsEnvironmentWarning.AUTO_PHONE_DISCONNECTED_USING_WATCH_GPS,
-            -> null
-        }
-    if (!visible || message == null) return
-
-    Text(
-        text = message,
-        modifier =
-            Modifier
-                .align(Alignment.TopCenter)
-                .padding(horizontal = 38.dp, vertical = 10.dp)
-                .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-        color = Color.White,
-        fontSize = 11.sp,
-        lineHeight = 12.sp,
-        fontWeight = FontWeight.SemiBold,
-        textAlign = TextAlign.Center,
-        maxLines = 2,
-    )
-}
-
-@Suppress("FunctionName")
-@Composable
-private fun BoxScope.MarkerMotionDebugOverlay(
-    label: String?,
-    screenSize: WearScreenSize,
-    recordingStatusChipVisible: Boolean,
-) {
-    if (label.isNullOrBlank()) return
-
-    val overlayPadding =
-        if (recordingStatusChipVisible) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 52.dp
-                WearScreenSize.MEDIUM -> 50.dp
-                WearScreenSize.SMALL -> 48.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 24.dp
-                WearScreenSize.MEDIUM -> 22.dp
-                WearScreenSize.SMALL -> 20.dp
-            }
-        }
-    val overlayTextSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 10.sp
-            WearScreenSize.MEDIUM -> 10.sp
-            WearScreenSize.SMALL -> 10.sp
-        }
-
-    Text(
-        text = label,
-        modifier =
-            Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = overlayPadding)
-                .padding(horizontal = overlayPadding)
-                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
-                .padding(horizontal = 6.dp, vertical = 4.dp),
-        color = Color.White,
-        fontSize = overlayTextSize,
-        lineHeight = overlayTextSize,
-        fontWeight = FontWeight.Medium,
-        textAlign = TextAlign.Center,
-    )
-}
-
-private fun fitMapViewToPreviewPoints(
-    mapView: org.mapsforge.map.android.view.MapView,
-    points: List<LatLong>,
-    zoomMin: Int,
-    zoomMax: Int,
-) {
-    if (points.isEmpty()) return
-    val widthPx = mapView.width.toDouble()
-    val heightPx = mapView.height.toDouble()
-    if (widthPx <= 0.0 || heightPx <= 0.0) return
-
-    val minLat = points.minOf { it.latitude }
-    val maxLat = points.maxOf { it.latitude }
-    val minLon = points.minOf { it.longitude }
-    val maxLon = points.maxOf { it.longitude }
-    val center =
-        LatLong(
-            (minLat + maxLat) / 2.0,
-            (minLon + maxLon) / 2.0,
-        )
-
-    val usableWidth = maxOf(96.0, widthPx * 0.68)
-    val usableHeight = maxOf(96.0, heightPx * 0.52)
-    val tileSize = mapView.model.displayModel.tileSize
-    val horizontalPaddingPx = 28.0
-    val verticalPaddingPx = 36.0
-
-    var chosenZoom = zoomMin.coerceAtMost(zoomMax)
-    for (zoom in zoomMax downTo zoomMin) {
-        val mapSize = MercatorProjection.getMapSize(zoom.toByte(), tileSize)
-        val spanX =
-            points.maxOf { MercatorProjection.longitudeToPixelX(it.longitude, mapSize) } -
-                points.minOf { MercatorProjection.longitudeToPixelX(it.longitude, mapSize) } +
-                horizontalPaddingPx
-        val spanY =
-            points.maxOf { MercatorProjection.latitudeToPixelY(it.latitude, mapSize) } -
-                points.minOf { MercatorProjection.latitudeToPixelY(it.latitude, mapSize) } +
-                verticalPaddingPx
-        if (spanX <= usableWidth && spanY <= usableHeight) {
-            chosenZoom = zoom
-            break
-        }
-    }
-
-    mapView.setCenter(center)
-    mapView.model.mapViewPosition.setZoomLevel(chosenZoom.toByte(), false)
-}
-
-private fun navigationMapViewLayoutParams(
-    expandedMapSurfaceEnabled: Boolean,
-    expandedMapSurfaceHeightPx: Int,
-): FrameLayout.LayoutParams =
-    FrameLayout.LayoutParams(
-        ViewGroup.LayoutParams.MATCH_PARENT,
-        if (expandedMapSurfaceEnabled) {
-            expandedMapSurfaceHeightPx
-        } else {
-            ViewGroup.LayoutParams.MATCH_PARENT
-        },
-        Gravity.TOP,
-    )
-
-private data class NavigationMapSurfaceTelemetryState(
-    val visibleMapSizePx: IntSize,
-    val navigationMarkerAnchorMode: String,
-    val expandedMapSurfaceEnabled: Boolean,
-    val targetMapSurfaceHeightPx: Int,
-)
-
-private fun logNavigationMapSurfaceTelemetryIfChanged(
-    mapView: org.mapsforge.map.android.view.MapView,
-    visibleContainer: View,
-    state: NavigationMapSurfaceTelemetryState,
-    lastSignature: String?,
-    onLogged: (String) -> Unit,
-) {
-    if (!DebugTelemetry.isEnabled()) return
-    val anchor = mapView.resolveNavigationMarkerScreenAnchor(state.navigationMarkerAnchorMode)
-    val signature =
-        buildNavigationMapSurfaceTelemetrySignature(
-            state = state,
-            visibleContainer = visibleContainer,
-            mapView = mapView,
-            anchor = anchor,
-        )
-    if (signature == lastSignature) return
-    onLogged(signature)
-    val center = mapView.model.mapViewPosition.center
-    DebugTelemetry.log(
-        "NavigationTelemetry",
-        "event=map_surface_geometry " +
-            "anchorMode=${state.navigationMarkerAnchorMode} " +
-            "surface=${if (state.expandedMapSurfaceEnabled) "expanded" else "normal"} " +
-            "visibleState=${state.visibleMapSizePx.width}x${state.visibleMapSizePx.height} " +
-            "container=${visibleContainer.width}x${visibleContainer.height} " +
-            "mapView=${mapView.width}x${mapView.height} " +
-            "targetChildHeight=${state.targetMapSurfaceHeightPx} " +
-            "pivot=${anchor.x.formatTelemetryDouble()},${anchor.y.formatTelemetryDouble()} " +
-            "rotation=${mapView.mapRotation.degrees.formatTelemetryFloat()} " +
-            "center=${center.latitude.formatTelemetryDouble()},${center.longitude.formatTelemetryDouble()}",
-    )
-}
-
-private fun buildNavigationMapSurfaceTelemetrySignature(
-    state: NavigationMapSurfaceTelemetryState,
-    visibleContainer: View,
-    mapView: org.mapsforge.map.android.view.MapView,
-    anchor: ScreenAnchor,
-): String =
-    listOf(
-        state.navigationMarkerAnchorMode,
-        state.expandedMapSurfaceEnabled,
-        state.visibleMapSizePx.width,
-        state.visibleMapSizePx.height,
-        visibleContainer.width,
-        visibleContainer.height,
-        mapView.width,
-        mapView.height,
-        state.targetMapSurfaceHeightPx,
-        anchor.x.toInt(),
-        anchor.y.toInt(),
-        mapView.mapRotation.degrees.toInt(),
-    ).joinToString(separator = "|")
-
-private fun Double.formatTelemetryDouble(): String = "%.5f".format(java.util.Locale.US, this)
-
-private fun Float.formatTelemetryFloat(): String = "%.2f".format(java.util.Locale.US, this)
 
 internal fun shouldEnterPanningAfterDoubleTap(
     center: LatLong?,
