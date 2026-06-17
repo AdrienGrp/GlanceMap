@@ -168,6 +168,14 @@ internal fun deriveTelemetryInsights(
     var recordingMaxPointCount: Int? = null
     var recordingLastDistanceMeters: Int? = null
     var recordingMaxDistanceMeters: Int? = null
+    var recordingGpsDistanceMeters: Int? = null
+    var recordingDisplayDistanceMeters: Int? = null
+    var recordingPodSessionDistanceMeters: Int? = null
+    var recordingPodIntegratedDistanceMeters: Int? = null
+    var recordingSavedGpxWrittenPoints: Int? = null
+    var recordingSavedGpxParsedPoints: Int? = null
+    var recordingSavedGpxSummaryPoints: Int? = null
+    var recordingSavedGpxSummaryDistanceMeters: Int? = null
     var recordingLastDurationMs: Long? = null
     var recordingMaxDurationMs: Long? = null
     var recordingLastPausedMs: Long? = null
@@ -200,6 +208,7 @@ internal fun deriveTelemetryInsights(
     var recordingElevationGainMeters: Int? = null
     var recordingElevationLossMeters: Int? = null
     var recordingLiveHeartRateBpm: Int? = null
+    var recordingAverageHeartRateBpm: Int? = null
     var recordingLiveStepCount: Int? = null
     var recordingLiveCadenceSpm: Int? = null
     var recordingLiveExternalSpeedMps: String? = null
@@ -257,6 +266,8 @@ internal fun deriveTelemetryInsights(
     var externalRunPodMeasurementMissingCount = 0
     var externalRunPodSampleCount = 0
     var externalRunPodLastCadenceSpm: Int? = null
+    var externalRunPodLastPowerWatts: Int? = null
+    var externalRunPodLastBatteryPercent: Int? = null
     var externalRunPodLastSpeedMps: String? = null
     var externalRunPodLastRawDistanceUnits: Long? = null
     var externalRunPodLastDistanceMeters: Int? = null
@@ -472,6 +483,20 @@ internal fun deriveTelemetryInsights(
                 "draft_failure" -> recordingDraftFailureCount += 1
                 "draft_clear_failure" -> recordingDraftClearFailureCount += 1
             }
+            if (extractTokenValue(line, "event=") == "saved_gpx_verified") {
+                parseIntToken(line, "writtenPoints=")?.takeIf { it >= 0 }?.let {
+                    recordingSavedGpxWrittenPoints = it
+                }
+                parseIntToken(line, "parsedPoints=")?.takeIf { it >= 0 }?.let {
+                    recordingSavedGpxParsedPoints = it
+                }
+                parseIntToken(line, "summaryPoints=")?.takeIf { it >= 0 }?.let {
+                    recordingSavedGpxSummaryPoints = it
+                }
+                parseIntToken(line, "summaryDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                    recordingSavedGpxSummaryDistanceMeters = it
+                }
+            }
             extractTokenValue(line, "lastUiAction=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
                 recordingLastUiAction = it
             }
@@ -485,6 +510,18 @@ internal fun deriveTelemetryInsights(
             parseIntToken(line, "distanceMeters=")?.let { distance ->
                 recordingLastDistanceMeters = distance
                 recordingMaxDistanceMeters = maxOf(recordingMaxDistanceMeters ?: distance, distance)
+            }
+            parseIntToken(line, "gpsDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingGpsDistanceMeters = it
+            }
+            parseIntToken(line, "displayDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingDisplayDistanceMeters = it
+            }
+            parseIntToken(line, "podSessionDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingPodSessionDistanceMeters = it
+            }
+            parseIntToken(line, "podIntegratedDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingPodIntegratedDistanceMeters = it
             }
             parseLongToken(line, "durationMs=")?.let { duration ->
                 recordingLastDurationMs = duration
@@ -568,6 +605,9 @@ internal fun deriveTelemetryInsights(
             parseIntToken(line, "elevationLossMeters=")?.let { recordingElevationLossMeters = it }
             parseIntToken(line, "liveHeartRateBpm=")?.takeIf { it >= 0 }?.let {
                 recordingLiveHeartRateBpm = it
+            }
+            parseIntToken(line, "averageHeartRateBpm=")?.takeIf { it >= 0 }?.let {
+                recordingAverageHeartRateBpm = it
             }
             parseIntToken(line, "liveStepCount=")?.takeIf { it >= 0 }?.let {
                 recordingLiveStepCount = it
@@ -739,6 +779,17 @@ internal fun deriveTelemetryInsights(
                         externalRunPodLastDistanceMeters = it.roundToInt()
                     }
                     lineEpochMs?.let { externalRunPodLastSampleAtMs = it }
+                }
+                "power_sample" -> {
+                    parseIntToken(line, "powerWatts=")?.takeIf { it >= 0 }?.let {
+                        externalRunPodLastPowerWatts = it
+                    }
+                    lineEpochMs?.let { externalRunPodLastSampleAtMs = it }
+                }
+                "battery" -> {
+                    parseIntToken(line, "levelPercent=")?.takeIf { it in 0..100 }?.let {
+                        externalRunPodLastBatteryPercent = it
+                    }
                 }
             }
         }
@@ -955,6 +1006,14 @@ internal fun deriveTelemetryInsights(
         recordingMaxPointCount = recordingMaxPointCount,
         recordingLastDistanceMeters = recordingLastDistanceMeters,
         recordingMaxDistanceMeters = recordingMaxDistanceMeters,
+        recordingGpsDistanceMeters = recordingGpsDistanceMeters,
+        recordingDisplayDistanceMeters = recordingDisplayDistanceMeters,
+        recordingPodSessionDistanceMeters = recordingPodSessionDistanceMeters,
+        recordingPodIntegratedDistanceMeters = recordingPodIntegratedDistanceMeters,
+        recordingSavedGpxWrittenPoints = recordingSavedGpxWrittenPoints,
+        recordingSavedGpxParsedPoints = recordingSavedGpxParsedPoints,
+        recordingSavedGpxSummaryPoints = recordingSavedGpxSummaryPoints,
+        recordingSavedGpxSummaryDistanceMeters = recordingSavedGpxSummaryDistanceMeters,
         recordingLastDurationMs = recordingLastDurationMs,
         recordingMaxDurationMs = recordingMaxDurationMs,
         recordingLastPausedMs = recordingLastPausedMs,
@@ -987,6 +1046,7 @@ internal fun deriveTelemetryInsights(
         recordingElevationGainMeters = recordingElevationGainMeters,
         recordingElevationLossMeters = recordingElevationLossMeters,
         recordingLiveHeartRateBpm = recordingLiveHeartRateBpm,
+        recordingAverageHeartRateBpm = recordingAverageHeartRateBpm,
         recordingLiveStepCount = recordingLiveStepCount,
         recordingLiveCadenceSpm = recordingLiveCadenceSpm,
         recordingLiveExternalSpeedMps = recordingLiveExternalSpeedMps,
@@ -1048,6 +1108,8 @@ internal fun deriveTelemetryInsights(
         externalRunPodMeasurementMissingCount = externalRunPodMeasurementMissingCount,
         externalRunPodSampleCount = externalRunPodSampleCount,
         externalRunPodLastCadenceSpm = externalRunPodLastCadenceSpm,
+        externalRunPodLastPowerWatts = externalRunPodLastPowerWatts,
+        externalRunPodLastBatteryPercent = externalRunPodLastBatteryPercent,
         externalRunPodLastSpeedMps = externalRunPodLastSpeedMps,
         externalRunPodLastRawDistanceUnits = externalRunPodLastRawDistanceUnits,
         externalRunPodLastDistanceMeters = externalRunPodLastDistanceMeters,

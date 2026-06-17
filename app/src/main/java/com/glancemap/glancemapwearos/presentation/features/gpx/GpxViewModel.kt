@@ -17,6 +17,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Gpx
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.buildGpxGuidanceSession
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.features.recording.RecordedTracePoint
+import com.glancemap.glancemapwearos.presentation.features.recording.RecordingElevationProvider
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingCalorieEstimate
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.estimateRecordingCalories
@@ -60,6 +61,7 @@ class GpxViewModel(
     private val syncManager: SyncManager,
     private val settingsRepository: SettingsRepository,
     private val routePlanner: RoutePlanner,
+    private val elevationProvider: RecordingElevationProvider,
 ) : ViewModel() {
     private val _gpxFiles = MutableStateFlow<List<GpxFileState>>(emptyList())
     val gpxFiles: StateFlow<List<GpxFileState>> = _gpxFiles.asStateFlow()
@@ -303,6 +305,33 @@ class GpxViewModel(
                             profileCache[path] = created
                             profileCache.trimTo(maxProfileCacheEntries)
                         }
+                    val isActivity =
+                        cachedMeta?.isActivity
+                            ?: parsed?.isActivity
+                            ?: file.name.startsWith("Recording-", ignoreCase = true)
+                    val activityProfile =
+                        if (isActivity) {
+                            recoverActivityDemProfileIfNeeded(
+                                sig = sig,
+                                profile = profile,
+                                parsed = parsed,
+                            )
+                        } else {
+                            profile
+                        }
+                    val activitySummary =
+                        when {
+                            !isActivity -> null
+                            cachedMeta?.activitySummary?.hasElevationData == true -> cachedMeta.activitySummary
+                            parsed != null ->
+                                buildSavedActivitySummary(
+                                    profile = activityProfile,
+                                    parsed = parsed,
+                                )
+                            cachedMeta?.activitySummary != null ->
+                                cachedMeta.activitySummary.withRecoveredElevationIfAvailable(activityProfile)
+                            else -> null
+                        }
                     val canonicalMeta =
                         CachedMeta(
                             sig = sig,
@@ -311,21 +340,11 @@ class GpxViewModel(
                                 profile.totalDistance.takeIf { it > 0.0 }
                                     ?: parsed?.totalDistance
                                     ?: 0.0,
-                            elevationGain = profile.totalAscent,
-                            elevationLoss = profile.totalDescent,
-                            isActivity =
-                                cachedMeta?.isActivity
-                                    ?: parsed?.isActivity
-                                    ?: file.name.startsWith("Recording-", ignoreCase = true),
+                            elevationGain = activityProfile.totalAscent,
+                            elevationLoss = activityProfile.totalDescent,
+                            isActivity = isActivity,
                             activityDurationSec = cachedMeta?.activityDurationSec ?: parsed?.activityDurationSec,
-                            activitySummary =
-                                cachedMeta?.activitySummary
-                                    ?: parsed?.let {
-                                        buildSavedActivitySummary(
-                                            profile = profile,
-                                            parsed = it,
-                                        )
-                                    },
+                            activitySummary = activitySummary,
                         )
                     val meta =
                         if (cachedMeta == canonicalMeta) {
@@ -379,6 +398,39 @@ class GpxViewModel(
         }
     }
 
+    private suspend fun recoverActivityDemProfileIfNeeded(
+        sig: FileSig,
+        profile: TrackProfile,
+        parsed: ParsedGpxData?,
+    ): TrackProfile {
+        if (profile.points.hasElevationData()) return profile
+        val recoveredPoints =
+            profile.points.map { point ->
+                val demElevation =
+                    elevationProvider
+                        .resolveElevation(
+                            latitude = point.latLong.latitude,
+                            longitude = point.latLong.longitude,
+                            gpsAltitudeMeters = null,
+                            source = SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
+                        ).elevationMeters
+                if (demElevation != null) point.copy(elevation = demElevation) else point
+            }
+        val recoveredCount = recoveredPoints.count { it.elevation?.isFinite() == true }
+        if (recoveredCount == 0) return profile
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=activity_dem_recovered points=${profile.points.size} recoveredPoints=$recoveredCount " +
+                "parsedPoints=${parsed?.points?.size ?: -1} summaryPoints=${parsed?.activitySummary?.pointCount ?: -1} " +
+                "summaryDistanceMeters=${parsed?.activitySummary?.distanceMeters?.toInt() ?: -1}",
+        )
+        return buildProfile(
+            sig = sig,
+            pts = recoveredPoints,
+            elevationFilterConfig = elevationFilterConfig,
+        )
+    }
+
     private fun buildSavedActivitySummary(
         profile: TrackProfile,
         parsed: ParsedGpxData,
@@ -386,6 +438,7 @@ class GpxViewModel(
         if (!parsed.isActivity) return null
 
         val points = profile.points
+        val hasElevationData = points.hasElevationData()
         if (points.isEmpty()) return null
         parsed.activitySummary?.let { summary ->
             return summary.toRecordingDashboardSnapshot(
@@ -433,7 +486,10 @@ class GpxViewModel(
             averageHeartRateBpm = points.averageHeartRateBpm(),
             stepCount = points.lastMappedNotNull { it.stepCount },
             cadenceSpm = points.lastMappedNotNull { it.cadenceSpm },
+            powerWatts = points.lastMappedNotNull { it.powerWatts },
+            powerFromBluetooth = points.lastMappedNotNull { it.powerWatts } != null,
             barometricPressureHpa = points.lastMappedNotNull { it.barometricPressureHpa },
+            hasElevationData = hasElevationData,
         )
     }
 
@@ -445,11 +501,38 @@ class GpxViewModel(
         val lastPoint = fallbackPoints.lastOrNull()
         val duration = durationSeconds ?: fallbackDurationSeconds ?: 0.0
         val distance = distanceMeters ?: fallbackProfile.totalDistance
+        val fallbackHasElevationData = fallbackPoints.hasElevationData()
+        val shouldUseRecoveredElevation =
+            fallbackHasElevationData &&
+                currentElevationMeters == null &&
+                (elevationGainMeters == null || elevationGainMeters == 0.0) &&
+                (elevationLossMeters == null || elevationLossMeters == 0.0)
+        val recoveredCalories =
+            if (shouldUseRecoveredElevation) {
+                val recordedPoints = fallbackPoints.toRecordedTracePoints()
+                estimateRecordingCalories(
+                    points = recordedPoints,
+                    userWeightKg = userWeightKg,
+                    backpackWeightKg = backpackWeightKg,
+                )
+            } else {
+                null
+            }
         return RecordingDashboardSnapshot(
             durationSeconds = duration,
             distanceMeters = distance,
-            elevationGainMeters = elevationGainMeters ?: fallbackProfile.totalAscent,
-            elevationLossMeters = elevationLossMeters ?: fallbackProfile.totalDescent,
+            elevationGainMeters =
+                if (shouldUseRecoveredElevation) {
+                    fallbackProfile.totalAscent
+                } else {
+                    elevationGainMeters ?: fallbackProfile.totalAscent
+                },
+            elevationLossMeters =
+                if (shouldUseRecoveredElevation) {
+                    fallbackProfile.totalDescent
+                } else {
+                    elevationLossMeters ?: fallbackProfile.totalDescent
+                },
             currentElevationMeters = currentElevationMeters ?: lastPoint?.elevation,
             currentSpeedMps = currentSpeedMps ?: lastPoint?.speedMps ?: fallbackPoints.lastSegmentSpeedMps(),
             averageSpeedMps =
@@ -465,16 +548,39 @@ class GpxViewModel(
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
             calorieEstimate =
-                RecordingCalorieEstimate(
-                    grossKcal = caloriesGrossKcal ?: 0.0,
-                    activeKcal = caloriesActiveKcal ?: 0.0,
-                    restingKcal = caloriesRestingKcal ?: 0.0,
-                ),
+                recoveredCalories
+                    ?: RecordingCalorieEstimate(
+                        grossKcal = caloriesGrossKcal ?: 0.0,
+                        activeKcal = caloriesActiveKcal ?: 0.0,
+                        restingKcal = caloriesRestingKcal ?: 0.0,
+                    ),
             heartRateBpm = fallbackPoints.lastMappedNotNull { it.heartRateBpm },
             averageHeartRateBpm = heartRateBpm ?: fallbackPoints.averageHeartRateBpm(),
             stepCount = stepCount ?: fallbackPoints.lastMappedNotNull { it.stepCount },
             cadenceSpm = cadenceSpm ?: fallbackPoints.lastMappedNotNull { it.cadenceSpm },
+            powerWatts = powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts },
+            powerFromBluetooth = (powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts }) != null,
             barometricPressureHpa = barometricPressureHpa ?: fallbackPoints.lastMappedNotNull { it.barometricPressureHpa },
+            hasElevationData = fallbackHasElevationData || currentElevationMeters != null,
+        )
+    }
+
+    private fun RecordingDashboardSnapshot.withRecoveredElevationIfAvailable(
+        profile: TrackProfile,
+    ): RecordingDashboardSnapshot {
+        if (hasElevationData || !profile.points.hasElevationData()) return this
+        val recoveredCalories =
+            estimateRecordingCalories(
+                points = profile.points.toRecordedTracePoints(),
+                userWeightKg = userWeightKg,
+                backpackWeightKg = backpackWeightKg,
+            )
+        return copy(
+            elevationGainMeters = profile.totalAscent,
+            elevationLossMeters = profile.totalDescent,
+            currentElevationMeters = profile.points.lastMappedNotNull { it.elevation },
+            calorieEstimate = recoveredCalories,
+            hasElevationData = true,
         )
     }
 
@@ -1394,6 +1500,9 @@ private fun List<TrackPoint>.averageHeartRateBpm(): Int? {
     return values.average().roundToInt()
 }
 
+private fun List<TrackPoint>.hasElevationData(): Boolean =
+    any { point -> point.elevation?.isFinite() == true }
+
 private fun List<TrackPoint>.toRecordedTracePoints(): List<RecordedTracePoint> =
     mapNotNull { point ->
         val timeMillis = point.timeMillis ?: return@mapNotNull null
@@ -1406,6 +1515,7 @@ private fun List<TrackPoint>.toRecordedTracePoints(): List<RecordedTracePoint> =
             heartRateBpm = point.heartRateBpm,
             stepCount = point.stepCount,
             cadenceSpm = point.cadenceSpm,
+            powerWatts = point.powerWatts,
             barometricPressureHpa = point.barometricPressureHpa,
         )
     }

@@ -61,6 +61,7 @@ data class TrackPoint(
     val heartRateBpm: Int? = null,
     val stepCount: Int? = null,
     val cadenceSpm: Int? = null,
+    val powerWatts: Int? = null,
     val barometricPressureHpa: Double? = null,
     val guidanceHint: GpxGuidanceHint? = null,
 )

@@ -16,7 +16,6 @@ import org.mapsforge.map.android.util.AndroidUtil
 import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.datastore.MapDataStore
 import org.mapsforge.map.layer.cache.TileCache
-import org.mapsforge.map.layer.hills.DemFolderFS
 import org.mapsforge.map.layer.hills.HillsRenderConfig
 import org.mapsforge.map.layer.hills.MemoryCachingHgtReaderTileSource
 import org.mapsforge.map.layer.hills.SimpleShadingAlgorithm
@@ -812,7 +811,7 @@ class MapRenderer(
                 timingStatus = "missing_dem"
                 Log.d(
                     TAG,
-                    "Hill shading enabled but no DEM files found in ${demRootDir.absolutePath}.",
+                    "Hill shading enabled but no DEM files found in ${demRootDirs.joinToString { it.absolutePath }}.",
                 )
                 destroyHillsRenderConfig()
                 return null
@@ -828,7 +827,7 @@ class MapRenderer(
 
             val config =
                 runCatching {
-                    val demFolder = DemFolderFS(demRootDir)
+                    val demFolder = MapsforgeHillshadeDemFolder(demRootDirs)
                     val tileSource =
                         MemoryCachingHgtReaderTileSource(
                             demFolder,
@@ -840,7 +839,11 @@ class MapRenderer(
                         .indexOnThread()
                 }.getOrElse { e ->
                     timingStatus = "error_${e.javaClass.simpleName}"
-                    Log.w(TAG, "Failed to initialize DEM hillshading from ${demRootDir.absolutePath}", e)
+                    Log.w(
+                        TAG,
+                        "Failed to initialize DEM hillshading from ${demRootDirs.joinToString { it.absolutePath }}",
+                        e,
+                    )
                     return null
                 }
 

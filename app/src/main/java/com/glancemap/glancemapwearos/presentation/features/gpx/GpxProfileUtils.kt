@@ -57,6 +57,7 @@ internal data class GpxActivitySummary(
     val heartRateBpm: Int?,
     val stepCount: Int?,
     val cadenceSpm: Int?,
+    val powerWatts: Int?,
     val barometricPressureHpa: Double?,
 )
 
@@ -167,6 +168,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var summaryHeartRateBpm: Int? = null
     var summaryStepCount: Int? = null
     var summaryCadenceSpm: Int? = null
+    var summaryPowerWatts: Int? = null
     var summaryPressureHpa: Double? = null
 
     var inTrackPoint = false
@@ -180,6 +182,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var currentHeartRateBpm: Int? = null
     var currentStepCount: Int? = null
     var currentCadenceSpm: Int? = null
+    var currentPowerWatts: Int? = null
     var currentPressureHpa: Double? = null
     var currentDesc: String? = null
     var currentSym: String? = null
@@ -287,6 +290,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 currentHeartRateBpm = null
                                 currentStepCount = null
                                 currentCadenceSpm = null
+                                currentPowerWatts = null
                                 currentPressureHpa = null
                                 currentDesc = null
                                 currentSym = null
@@ -360,6 +364,13 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                     currentCadenceSpm = parser.nextText()?.trim()?.toIntOrNull()
                                 }
                             }
+                            "powerWatts" -> {
+                                if (inMetadataExtensions) {
+                                    summaryPowerWatts = parser.nextTextInt()
+                                } else if (inTrackPoint) {
+                                    currentPowerWatts = parser.nextText()?.trim()?.toIntOrNull()
+                                }
+                            }
                             "pressureHpa" -> {
                                 if (inMetadataExtensions) {
                                     summaryPressureHpa = parser.nextTextDouble()
@@ -396,6 +407,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                                 heartRateBpm = currentHeartRateBpm,
                                                 stepCount = currentStepCount,
                                                 cadenceSpm = currentCadenceSpm,
+                                                powerWatts = currentPowerWatts,
                                                 barometricPressureHpa = currentPressureHpa,
                                                 guidanceHint =
                                                     parseGpxGuidanceHint(
@@ -435,6 +447,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 currentHeartRateBpm = null
                                 currentStepCount = null
                                 currentCadenceSpm = null
+                                currentPowerWatts = null
                                 currentPressureHpa = null
                                 currentDesc = null
                                 currentSym = null
@@ -478,6 +491,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                     heartRateBpm = summaryHeartRateBpm,
                     stepCount = summaryStepCount,
                     cadenceSpm = summaryCadenceSpm,
+                    powerWatts = summaryPowerWatts,
                     barometricPressureHpa = summaryPressureHpa,
                 ),
         )
@@ -512,6 +526,7 @@ private fun buildGpxActivitySummary(
     heartRateBpm: Int?,
     stepCount: Int?,
     cadenceSpm: Int?,
+    powerWatts: Int?,
     barometricPressureHpa: Double?,
 ): GpxActivitySummary? {
     if (
@@ -542,6 +557,7 @@ private fun buildGpxActivitySummary(
         heartRateBpm = heartRateBpm,
         stepCount = stepCount,
         cadenceSpm = cadenceSpm,
+        powerWatts = powerWatts,
         barometricPressureHpa = barometricPressureHpa,
     )
 }

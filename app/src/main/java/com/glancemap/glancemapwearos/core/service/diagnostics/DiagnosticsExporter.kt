@@ -8,6 +8,10 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.BuildConfig
 import com.glancemap.glancemapwearos.core.service.location.config.ENABLE_STRICT_FIX_FILTERING
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeDemDownloadSections
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeEnergyByModeSummarySection
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeGnssSections
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeLineDumpSection
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import java.io.File
@@ -187,6 +191,14 @@ object DiagnosticsExporter {
         val recordingMaxPointCount: Int? = null,
         val recordingLastDistanceMeters: Int? = null,
         val recordingMaxDistanceMeters: Int? = null,
+        val recordingGpsDistanceMeters: Int? = null,
+        val recordingDisplayDistanceMeters: Int? = null,
+        val recordingPodSessionDistanceMeters: Int? = null,
+        val recordingPodIntegratedDistanceMeters: Int? = null,
+        val recordingSavedGpxWrittenPoints: Int? = null,
+        val recordingSavedGpxParsedPoints: Int? = null,
+        val recordingSavedGpxSummaryPoints: Int? = null,
+        val recordingSavedGpxSummaryDistanceMeters: Int? = null,
         val recordingLastDurationMs: Long? = null,
         val recordingMaxDurationMs: Long? = null,
         val recordingLastPausedMs: Long? = null,
@@ -219,6 +231,7 @@ object DiagnosticsExporter {
         val recordingElevationGainMeters: Int? = null,
         val recordingElevationLossMeters: Int? = null,
         val recordingLiveHeartRateBpm: Int? = null,
+        val recordingAverageHeartRateBpm: Int? = null,
         val recordingLiveStepCount: Int? = null,
         val recordingLiveCadenceSpm: Int? = null,
         val recordingLiveExternalSpeedMps: String? = null,
@@ -276,6 +289,8 @@ object DiagnosticsExporter {
         val externalRunPodMeasurementMissingCount: Int = 0,
         val externalRunPodSampleCount: Int = 0,
         val externalRunPodLastCadenceSpm: Int? = null,
+        val externalRunPodLastPowerWatts: Int? = null,
+        val externalRunPodLastBatteryPercent: Int? = null,
         val externalRunPodLastSpeedMps: String? = null,
         val externalRunPodLastRawDistanceUnits: Long? = null,
         val externalRunPodLastDistanceMeters: Int? = null,
@@ -998,6 +1013,44 @@ object DiagnosticsExporter {
                 "recordingMaxDistanceMeters=${telemetryInsights.recordingMaxDistanceMeters?.toString() ?: "na"}",
             )
             writer.appendLine(
+                "recordingGpsDistanceMeters=${telemetryInsights.recordingGpsDistanceMeters?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingDisplayDistanceMeters=${
+                    telemetryInsights.recordingDisplayDistanceMeters?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingPodSessionDistanceMeters=${
+                    telemetryInsights.recordingPodSessionDistanceMeters?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingPodIntegratedDistanceMeters=${
+                    telemetryInsights.recordingPodIntegratedDistanceMeters?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSavedGpxWrittenPoints=${
+                    telemetryInsights.recordingSavedGpxWrittenPoints?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSavedGpxParsedPoints=${
+                    telemetryInsights.recordingSavedGpxParsedPoints?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSavedGpxSummaryPoints=${
+                    telemetryInsights.recordingSavedGpxSummaryPoints?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "recordingSavedGpxSummaryDistanceMeters=${
+                    telemetryInsights.recordingSavedGpxSummaryDistanceMeters?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
                 "recordingLastDurationMs=${telemetryInsights.recordingLastDurationMs?.toString() ?: "na"}",
             )
             writer.appendLine(
@@ -1094,6 +1147,11 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "recordingLiveHeartRateBpm=${telemetryInsights.recordingLiveHeartRateBpm?.toString() ?: "na"}",
+            )
+            writer.appendLine(
+                "recordingAverageHeartRateBpm=${
+                    telemetryInsights.recordingAverageHeartRateBpm?.toString() ?: "na"
+                }",
             )
             writer.appendLine(
                 "recordingLiveStepCount=${telemetryInsights.recordingLiveStepCount?.toString() ?: "na"}",
@@ -1250,6 +1308,10 @@ object DiagnosticsExporter {
             )
             writer.appendLine("externalRunPodSampleCount=${telemetryInsights.externalRunPodSampleCount}")
             writer.appendLine("externalRunPodLastCadenceSpm=${telemetryInsights.externalRunPodLastCadenceSpm ?: "na"}")
+            writer.appendLine("externalRunPodLastPowerWatts=${telemetryInsights.externalRunPodLastPowerWatts ?: "na"}")
+            writer.appendLine(
+                "externalRunPodLastBatteryPercent=${telemetryInsights.externalRunPodLastBatteryPercent ?: "na"}",
+            )
             writer.appendLine("externalRunPodLastSpeedMps=${telemetryInsights.externalRunPodLastSpeedMps ?: "na"}")
             writer.appendLine(
                 "externalRunPodLastRawDistanceUnits=${telemetryInsights.externalRunPodLastRawDistanceUnits ?: "na"}",
@@ -1366,148 +1428,31 @@ object DiagnosticsExporter {
                         gnssInsights = gnssInsights,
                     ),
             )
-            writer.appendLine()
-            writer.appendLine("Telemetry")
-            if (telemetryLines.isEmpty()) {
-                writer.appendLine("No telemetry captured yet. Enable diagnostics capture and reproduce.")
-            } else {
-                telemetryLines.forEach { line -> writer.appendLine(line) }
-            }
-            writer.appendLine()
-            writer.appendLine("Energy By Mode Summary")
-            if (energySummary.modes.isEmpty()) {
-                writer.appendLine("No energy diagnostics samples yet.")
-            } else {
-                energySummary.modes.forEach { (mode, stats) ->
-                    writer.appendLine(
-                        "mode[$mode]=samples=${stats.sampleCount} currentSamples=${stats.currentSampleCount} " +
-                            "avgCurNowUa=${stats.avgCurrentNowUa?.toString() ?: "na"} " +
-                            "minCurNowUa=${stats.minCurrentNowUa?.toString() ?: "na"} " +
-                            "maxCurNowUa=${stats.maxCurrentNowUa?.toString() ?: "na"} " +
-                            "levelMin=${stats.minLevelPct?.toString() ?: "na"} " +
-                            "levelMax=${stats.maxLevelPct?.toString() ?: "na"} " +
-                            "levelAvg=${formatOneDecimal(stats.avgLevelPct)} " +
-                            "tempMinC=${formatOneDecimal(stats.minTempC)} " +
-                            "tempMaxC=${formatOneDecimal(stats.maxTempC)} " +
-                            "tempAvgC=${formatOneDecimal(stats.avgTempC)}",
-                    )
-                }
-            }
-            writer.appendLine()
-            writer.appendLine("Energy Diagnostics")
-            if (energyLines.isEmpty()) {
-                writer.appendLine("No energy diagnostics samples yet.")
-            } else {
-                energyLines.forEach { line -> writer.appendLine(line) }
-            }
-            writer.appendLine()
-            writer.appendLine("DEM Download Summary")
-            writer.appendLine("eventCount=${demDownloadSummary.eventCount}")
-            writer.appendLine("bufferMaxLines=${demDownloadSummary.maxBufferedLines}")
-            writer.appendLine("droppedLines=${demDownloadSummary.droppedLineCount}")
-            writer.appendLine("truncated=$demDownloadTruncated")
-            writer.appendLine("startedCount=${demDownloadSummary.startedCount}")
-            writer.appendLine("completedCount=${demDownloadSummary.completedCount}")
-            writer.appendLine("downloadedCount=${demDownloadSummary.downloadedCount}")
-            writer.appendLine("skippedCount=${demDownloadSummary.skippedCount}")
-            writer.appendLine("missingCount=${demDownloadSummary.missingCount}")
-            writer.appendLine("failedCount=${demDownloadSummary.failedCount}")
-            writer.appendLine("resumeAttemptCount=${demDownloadSummary.resumeAttemptCount}")
-            writer.appendLine("resumeRestartCount=${demDownloadSummary.resumeRestartCount}")
-            writer.appendLine("validationFailureCount=${demDownloadSummary.validationFailureCount}")
-            writer.appendLine("networkUnavailableCount=${demDownloadSummary.networkUnavailableCount}")
-            writer.appendLine("activityState=${demDownloadSummary.activityState}")
-            writer.appendLine("diagnosticContext=${demDownloadSummary.diagnosticContext}")
-            writer.appendLine()
-            writer.appendLine("DEM Download Events")
-            if (demDownloadLines.isEmpty()) {
-                writer.appendLine("No DEM download events captured yet.")
-            } else {
-                demDownloadLines.forEach { line -> writer.appendLine(line) }
-            }
-            writer.appendLine()
-            writer.appendLine("GNSS Summary")
-            writer.appendLine("statusSampleCount=${gnssInsights.statusSampleCount}")
-            writer.appendLine("startedCount=${gnssInsights.startedCount}")
-            writer.appendLine("stoppedCount=${gnssInsights.stoppedCount}")
-            writer.appendLine("firstFixCount=${gnssInsights.firstFixCount}")
-            writer.appendLine(
-                "firstFixTtffAvgMs=${
-                    if (gnssInsights.firstFixCount > 0) gnssInsights.firstFixTtffAvgMs.toString() else "na"
-                }",
+            writer.writeLineDumpSection(
+                title = "Telemetry",
+                emptyMessage = "No telemetry captured yet. Enable diagnostics capture and reproduce.",
+                lines = telemetryLines,
             )
-            writer.appendLine(
-                "firstFixTtffMinMs=${
-                    if (gnssInsights.firstFixCount > 0) gnssInsights.firstFixTtffMinMs.toString() else "na"
-                }",
+            writer.writeEnergyByModeSummarySection(energySummary)
+            writer.writeLineDumpSection(
+                title = "Energy Diagnostics",
+                emptyMessage = "No energy diagnostics samples yet.",
+                lines = energyLines,
             )
-            writer.appendLine(
-                "firstFixTtffMaxMs=${
-                    if (gnssInsights.firstFixCount > 0) gnssInsights.firstFixTtffMaxMs.toString() else "na"
-                }",
+            writer.writeDemDownloadSections(
+                demDownloadSummary = demDownloadSummary,
+                demDownloadLines = demDownloadLines,
+                demDownloadTruncated = demDownloadTruncated,
             )
-            writer.appendLine(
-                "satellitesAvg=${
-                    if (gnssInsights.statusSampleCount > 0) "%.2f".format(gnssInsights.satellitesAvg) else "na"
-                }",
+            writer.writeGnssSections(
+                gnssInsights = gnssInsights,
+                gnssLines = gnssLines,
             )
-            writer.appendLine(
-                "satellitesMax=${
-                    if (gnssInsights.statusSampleCount > 0) gnssInsights.satellitesMax.toString() else "na"
-                }",
+            writer.writeLineDumpSection(
+                title = "Field Markers",
+                emptyMessage = "No field markers captured.",
+                lines = fieldMarkerLines,
             )
-            writer.appendLine(
-                "usedInFixAvg=${
-                    if (gnssInsights.statusSampleCount > 0) "%.2f".format(gnssInsights.usedInFixAvg) else "na"
-                }",
-            )
-            writer.appendLine(
-                "usedInFixMax=${
-                    if (gnssInsights.statusSampleCount > 0) gnssInsights.usedInFixMax.toString() else "na"
-                }",
-            )
-            writer.appendLine(
-                "cn0AvgDbHz=${
-                    gnssInsights.cn0AvgDbHz?.let { "%.2f".format(it) } ?: "na"
-                }",
-            )
-            writer.appendLine(
-                "cn0MaxDbHz=${
-                    gnssInsights.cn0MaxDbHz?.let { "%.1f".format(it) } ?: "na"
-                }",
-            )
-            writer.appendLine("carrierFrequencyStatusCount=${gnssInsights.carrierFrequencyStatusCount}")
-            writer.appendLine("l1ObservedStatusCount=${gnssInsights.l1ObservedStatusCount}")
-            writer.appendLine("l5ObservedStatusCount=${gnssInsights.l5ObservedStatusCount}")
-            writer.appendLine("dualBandObservedStatusCount=${gnssInsights.dualBandObservedStatusCount}")
-            writer.appendLine("collectorRegisteredCount=${gnssInsights.collectorRegisteredCount}")
-            writer.appendLine("collectorUnregisteredCount=${gnssInsights.collectorUnregisteredCount}")
-            writer.appendLine("collectorInactiveCount=${gnssInsights.collectorInactiveCount}")
-            writer.appendLine("collectorPolicyDisabledCount=${gnssInsights.collectorPolicyDisabledCount}")
-            writer.appendLine(
-                "l1SatelliteMax=${
-                    if (gnssInsights.statusSampleCount > 0) gnssInsights.l1SatelliteMax.toString() else "na"
-                }",
-            )
-            writer.appendLine(
-                "l5SatelliteMax=${
-                    if (gnssInsights.statusSampleCount > 0) gnssInsights.l5SatelliteMax.toString() else "na"
-                }",
-            )
-            writer.appendLine()
-            writer.appendLine("GNSS Events")
-            if (gnssLines.isEmpty()) {
-                writer.appendLine("No GNSS diagnostics samples captured yet.")
-            } else {
-                gnssLines.forEach { line -> writer.appendLine(line) }
-            }
-            writer.appendLine()
-            writer.appendLine("Field Markers")
-            if (fieldMarkerLines.isEmpty()) {
-                writer.appendLine("No field markers captured.")
-            } else {
-                fieldMarkerLines.forEach { line -> writer.appendLine(line) }
-            }
             writer.appendLine()
             writer.appendLine("Marker Motion Summary")
             writer.appendLine("summary=${markerMotionSummary.summaryLabel()}")
