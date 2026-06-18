@@ -169,6 +169,18 @@ fun GpxScreen(
             WearScreenSize.MEDIUM -> 13.dp
             WearScreenSize.SMALL -> 12.dp
         }
+    val activityToggleButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 40.dp
+            WearScreenSize.MEDIUM -> 38.dp
+            WearScreenSize.SMALL -> 36.dp
+        }
+    val activityToggleIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 20.dp
+            WearScreenSize.MEDIUM -> 19.dp
+            WearScreenSize.SMALL -> 18.dp
+        }
     val headerActionVisualOffsetY =
         when (screenSize) {
             WearScreenSize.LARGE -> 4.dp
@@ -478,7 +490,7 @@ fun GpxScreen(
                             isRenameMode = false
                             isDeleteMode = false
                         },
-                        visualSize = headerActionButtonSize,
+                        visualSize = activityToggleButtonSize,
                         visualOffsetY = headerActionVisualOffsetY,
                         containerColor =
                             if (showActivities) {
@@ -506,7 +518,7 @@ fun GpxScreen(
                                 } else {
                                     "Show recorded activities"
                                 },
-                            modifier = Modifier.size(headerActionIconSize),
+                            modifier = Modifier.size(activityToggleIconSize),
                         )
                     }
                 }
