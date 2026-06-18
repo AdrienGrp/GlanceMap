@@ -1,11 +1,8 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.getValue
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemand
@@ -58,27 +55,9 @@ internal fun rememberNavigateRuntimeState(
             turnByTurnPaused = turnByTurnPaused,
             turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
         )
-    val disposeRuntimeDemand by rememberUpdatedState(
-        navigationRuntimeDemand(
-            isNavigateScreen = false,
-            screenState = LocationScreenState.INTERACTIVE,
-            isScreenResumed = true,
-            hasLocationPermission = hasLocationPermission,
-            offlineMode = offlineMode,
-            generalGpsInAmbient = generalGpsInAmbient,
-            recordingActive = traceRecordingState.active,
-            recordingPaused = traceRecordingState.paused,
-            recordingGpsEnabled = recordingGpsEnabled,
-            turnByTurnActive = turnByTurnActive,
-            turnByTurnPaused = turnByTurnPaused,
-            turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
-        ),
-    )
-
     NavigateRuntimeEffects(
         screenState = screenState,
         runtimeDemand = runtimeDemand,
-        disposeRuntimeDemand = disposeRuntimeDemand,
         isScreenResumed = isScreenResumed,
         hasLocationPermission = hasLocationPermission,
         offlineMode = offlineMode,
@@ -100,7 +79,6 @@ internal fun rememberNavigateRuntimeState(
 private fun NavigateRuntimeEffects(
     screenState: LocationScreenState,
     runtimeDemand: NavigationRuntimeDemand,
-    disposeRuntimeDemand: NavigationRuntimeDemand,
     isScreenResumed: Boolean,
     hasLocationPermission: Boolean,
     offlineMode: Boolean,
@@ -161,14 +139,4 @@ private fun NavigateRuntimeEffects(
         }
     }
 
-    DisposableEffect(locationViewModel) {
-        onDispose {
-            locationViewModel.syncRuntimeState(
-                screenState = LocationScreenState.INTERACTIVE,
-                trackingEnabled = disposeRuntimeDemand.trackingEnabled,
-                backgroundGpsEnabled = disposeRuntimeDemand.backgroundGpsEnabled,
-                runtimeReason = disposeRuntimeDemand.reason,
-            )
-        }
-    }
 }
