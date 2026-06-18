@@ -51,28 +51,18 @@ fun RecordingDashboardSettingsScreen(
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
-            RecordingSettingsShortcutChip(
-                onClick = onOpenRecordingSettings,
-            )
-        }
-        item {
-            SettingsInfoButton(
-                contentDescription = "Dashboard info",
-                onClick = { showInfoDialog = true },
-            )
-        }
-        item {
             RecordingDashboardPageCard(
                 pageIndex = selectedDashboardPage,
                 pageCount = dashboardPageCount,
                 metricPreview = selectedPagePreview,
+                applyTopPadding = true,
                 onClick = { showPageManager = true },
             )
         }
         if (dashboardPageCount < RECORDING_DASHBOARD_MAX_PAGE_COUNT) {
             item {
                 SettingsSectionChip(
-                    label = "Add page",
+                    label = "Add dashboard page",
                     secondaryLabel = "$dashboardPageCount of $RECORDING_DASHBOARD_MAX_PAGE_COUNT pages",
                     iconImageVector = Icons.Filled.Add,
                     onClick = {
@@ -85,7 +75,7 @@ fun RecordingDashboardSettingsScreen(
         if (dashboardPageCount > RECORDING_DASHBOARD_MIN_PAGE_COUNT) {
             item {
                 SettingsPickerChip(
-                    label = "Delete page",
+                    label = "Delete this page",
                     secondaryLabel = recordingDashboardPageLabel(selectedDashboardPage),
                     iconImageVector = Icons.Filled.Delete,
                     onClick = {
@@ -106,6 +96,18 @@ fun RecordingDashboardSettingsScreen(
                     onClick = { selectedDashboardSlot = absoluteSlotIndex },
                 )
             }
+        }
+        item {
+            SettingsInfoButton(
+                contentDescription = "Dashboard info",
+                onClick = { showInfoDialog = true },
+            )
+        }
+        item {
+            RecordingSettingsShortcutChip(
+                onClick = onOpenRecordingSettings,
+                applyTopPadding = false,
+            )
         }
     }
     RecordingDashboardInfoDialog(

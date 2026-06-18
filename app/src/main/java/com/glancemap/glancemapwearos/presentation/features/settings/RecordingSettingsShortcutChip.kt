@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 internal fun RecordingSettingsShortcutChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    applyTopPadding: Boolean = true,
 ) {
     AdaptiveSettingsShortcutChip(
         standardLabel = "Recording settings",
@@ -16,7 +17,7 @@ internal fun RecordingSettingsShortcutChip(
         standardSecondaryLabel = "Back to REC settings",
         compactSecondaryLabel = "Back",
         iconImageVector = Icons.Filled.Folder,
-        applyTopPadding = true,
+        applyTopPadding = applyTopPadding,
         modifier = modifier,
         onClick = onClick,
     )

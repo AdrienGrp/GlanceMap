@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,19 +41,35 @@ internal fun RecordingDashboardPageCard(
     metricPreview: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    applyTopPadding: Boolean = false,
 ) {
+    val topPadding = if (applyTopPadding) rememberSettingsFirstItemTopPadding() else 0.dp
+    val cardShape = RoundedCornerShape(20.dp)
+
     Column(
         modifier =
             modifier
+                .padding(top = topPadding)
                 .fillMaxWidth()
-                .background(Color(0xFF1F3554), RoundedCornerShape(18.dp))
+                .background(Color(0xFF213D63), cardShape)
+                .border(
+                    width = 1.5.dp,
+                    color = Color(0xFFF6C453).copy(alpha = 0.9f),
+                    shape = cardShape,
+                )
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 13.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
-            text = "Page ${pageIndex + 1} / $pageCount",
+            text = "DASHBOARD PAGE",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFFF6C453),
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = "Page ${pageIndex + 1}",
             style = MaterialTheme.typography.titleLarge,
             color = Color.White,
             textAlign = TextAlign.Center,
@@ -62,9 +79,9 @@ internal fun RecordingDashboardPageCard(
             pageCount = pageCount,
         )
         Text(
-            text = metricPreview,
+            text = "$metricPreview  •  Tap to select",
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.76f),
+            color = Color.White.copy(alpha = 0.82f),
             textAlign = TextAlign.Center,
         )
     }
