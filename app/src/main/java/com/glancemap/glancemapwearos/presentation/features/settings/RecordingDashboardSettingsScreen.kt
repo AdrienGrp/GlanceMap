@@ -1,6 +1,10 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,6 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_MAX_PAGE_COUNT
+import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_MIN_PAGE_COUNT
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.data.repository.normalizeRecordingDashboardMetricSlots
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricDefinitions
@@ -21,9 +27,21 @@ fun RecordingDashboardSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val dashboardMetricSlots by viewModel.recordingDashboardMetricSlots.collectAsState()
     val dashboardSlots = normalizeRecordingDashboardMetricSlots(dashboardMetricSlots)
+    val dashboardPageCount = dashboardSlots.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT
     var selectedDashboardPage by remember { mutableStateOf(0) }
+    var pendingAddedPage by remember { mutableStateOf<Int?>(null) }
     var selectedDashboardSlot by remember { mutableStateOf<Int?>(null) }
     var showInfoDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(dashboardPageCount) {
+        pendingAddedPage?.let { requestedPage ->
+            if (requestedPage < dashboardPageCount) {
+                selectedDashboardPage = requestedPage
+                pendingAddedPage = null
+            }
+        }
+        selectedDashboardPage = selectedDashboardPage.coerceIn(0, dashboardPageCount - 1)
+    }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
@@ -41,7 +59,7 @@ fun RecordingDashboardSettingsScreen(
             SettingsOptionPickerRow(
                 label = "Dashboard page",
                 selectedValue = selectedDashboardPage,
-                options = RECORDING_DASHBOARD_PAGE_OPTIONS.map { it to recordingDashboardPageLabel(it) },
+                options = (0 until dashboardPageCount).map { it to recordingDashboardPageLabel(it) },
                 secondaryLabel = recordingDashboardPageLabel(selectedDashboardPage),
                 onSelect = { selectedDashboardPage = it },
             )
@@ -53,6 +71,34 @@ fun RecordingDashboardSettingsScreen(
                     label = label,
                     metricId = dashboardSlots[absoluteSlotIndex],
                     onClick = { selectedDashboardSlot = absoluteSlotIndex },
+                )
+            }
+        }
+        if (dashboardPageCount < RECORDING_DASHBOARD_MAX_PAGE_COUNT) {
+            item {
+                SettingsSectionChip(
+                    label = "Add dashboard page",
+                    secondaryLabel = "$dashboardPageCount of $RECORDING_DASHBOARD_MAX_PAGE_COUNT pages",
+                    iconImageVector = Icons.Filled.Add,
+                    onClick = {
+                        pendingAddedPage = dashboardPageCount
+                        viewModel.addRecordingDashboardPage()
+                    },
+                )
+            }
+        }
+        if (dashboardPageCount > RECORDING_DASHBOARD_MIN_PAGE_COUNT) {
+            item {
+                SettingsPickerChip(
+                    label = "Delete this page",
+                    secondaryLabel = recordingDashboardPageLabel(selectedDashboardPage),
+                    iconImageVector = Icons.Filled.Delete,
+                    onClick = {
+                        val pageToDelete = selectedDashboardPage
+                        selectedDashboardPage =
+                            selectedDashboardPage.coerceAtMost(dashboardPageCount - 2)
+                        viewModel.deleteRecordingDashboardPage(pageToDelete)
+                    },
                 )
             }
         }
@@ -107,7 +153,6 @@ private fun RecordingMetricSlotSetting(
     )
 }
 
-private val RECORDING_DASHBOARD_PAGE_OPTIONS = listOf(0, 1)
 private val RECORDING_DASHBOARD_SLOT_LABELS = listOf("Top measure", "Left measure", "Right measure", "Bottom measure")
 
 private fun recordingDashboardPageLabel(pageIndex: Int): String = "Page ${pageIndex + 1}"
