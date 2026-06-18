@@ -4,6 +4,7 @@ import android.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import com.glancemap.glancemapwearos.data.repository.PoiType
@@ -345,22 +346,14 @@ private fun CompassConeLayerEffect(
         showCompassConeOverlay &&
             locationMarker != null &&
             (navMode == NavMode.COMPASS_FOLLOW || navMode == NavMode.NORTH_UP_FOLLOW)
+    val coneHeadingDeg =
+        when (navMode) {
+            NavMode.COMPASS_FOLLOW -> 0f
+            NavMode.NORTH_UP_FOLLOW -> renderedHeadingDeg
+            NavMode.PANNING -> 0f
+        }
 
-    LaunchedEffect(
-        mapView,
-        navMode,
-        showCompassConeOverlay,
-        compassConeBaseSizePx,
-        compassQuality,
-        compassHeadingErrorDeg,
-        compassRenderStateFlow,
-        gpsFixAccuracyM,
-        gpsFixFresh,
-        gpsFixSpeedMps,
-        gpsFixBearingDeg,
-        renderedHeadingDeg,
-        locationMarker,
-    ) {
+    SideEffect {
         coneTelemetryLogger.log(
             ConeTelemetryDecision(
                 navMode = navMode,
@@ -387,6 +380,17 @@ private fun CompassConeLayerEffect(
                     ),
             ),
         )
+    }
+
+    LaunchedEffect(
+        mapView,
+        shouldShow,
+        compassConeBaseSizePx,
+        compassQuality,
+        compassHeadingErrorDeg,
+        coneHeadingDeg,
+        locationMarker,
+    ) {
         mapView.mutateLayers { layers ->
             val hasLayer = layers.contains(coneLayer)
             if (!hasLayer) {
@@ -396,19 +400,10 @@ private fun CompassConeLayerEffect(
             coneLayer.baseMarkerSizePx = compassConeBaseSizePx
             coneLayer.quality = compassQuality
             coneLayer.headingErrorDeg = compassHeadingErrorDeg
-            coneLayer.headingDeg =
-                when (navMode) {
-                    NavMode.COMPASS_FOLLOW -> 0f
-                    NavMode.NORTH_UP_FOLLOW -> renderedHeadingDeg
-                    NavMode.PANNING -> 0f
-                }
+            coneLayer.headingDeg = coneHeadingDeg
             coneLayer.isVisible = shouldShow
-            val reordered = topOverlayCoordinator.sync(layers)
-            if (!hasLayer || reordered) {
-                requestMapRedraw()
-            } else {
-                mapView.requestLayerRedrawSafely()
-            }
+            topOverlayCoordinator.sync(layers)
+            requestMapRedraw()
         }
     }
 
@@ -417,7 +412,7 @@ private fun CompassConeLayerEffect(
             mapView.mutateLayers {
                 coneLayer.anchorMarker = null
                 coneLayer.isVisible = false
-                mapView.requestLayerRedrawSafely()
+                requestMapRedraw()
             }
         }
     }

@@ -155,7 +155,6 @@ fun NavigationOrientationEffect(
                 if (shouldDriveHeadingNow || shouldSeedCachedHeading) {
                     val rot = -displayedHeading.floatValue
                     applyMapRotation(rot)
-                    recenterLowerMarkerAnchor()
                 } else {
                     onRenderedMapRotationChanged(syncDisplayedMapRotationFromMap())
                 }
@@ -163,7 +162,6 @@ fun NavigationOrientationEffect(
 
             NavMode.NORTH_UP_FOLLOW -> {
                 applyMapRotation(0f)
-                recenterLowerMarkerAnchor()
             }
 
             NavMode.PANNING -> {
@@ -234,12 +232,9 @@ fun NavigationOrientationEffect(
                 when (navMode) {
                     NavMode.COMPASS_FOLLOW -> {
                         applyMapRotation(-next)
-                        recenterLowerMarkerAnchor()
-                        applyMarkersForMode(navMode)
                     }
                     NavMode.NORTH_UP_FOLLOW -> {
                         applyMapRotation(0f)
-                        recenterLowerMarkerAnchor()
                         applyMarkersForMode(navMode)
                     }
                     NavMode.PANNING -> Unit
