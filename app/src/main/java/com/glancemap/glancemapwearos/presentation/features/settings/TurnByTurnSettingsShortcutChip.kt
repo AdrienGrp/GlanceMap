@@ -16,6 +16,8 @@ internal fun TurnByTurnSettingsShortcutChip(
         standardSecondaryLabel = "Back to turn-by-turn",
         compactSecondaryLabel = "Back",
         iconImageVector = Icons.Filled.Folder,
+        applyTopPadding = true,
+        compactRoundWidthFraction = 0.78f,
         modifier = modifier,
         onClick = onClick,
     )
