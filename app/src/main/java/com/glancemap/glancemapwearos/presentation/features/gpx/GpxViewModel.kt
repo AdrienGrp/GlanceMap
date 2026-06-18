@@ -487,6 +487,7 @@ class GpxViewModel(
             stepCount = points.lastMappedNotNull { it.stepCount },
             cadenceSpm = points.lastMappedNotNull { it.cadenceSpm },
             powerWatts = points.lastMappedNotNull { it.powerWatts },
+            averagePowerWatts = points.averagePowerWatts(),
             powerFromBluetooth = points.lastMappedNotNull { it.powerWatts } != null,
             barometricPressureHpa = points.lastMappedNotNull { it.barometricPressureHpa },
             hasElevationData = hasElevationData,
@@ -559,6 +560,7 @@ class GpxViewModel(
             stepCount = stepCount ?: fallbackPoints.lastMappedNotNull { it.stepCount },
             cadenceSpm = cadenceSpm ?: fallbackPoints.lastMappedNotNull { it.cadenceSpm },
             powerWatts = powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts },
+            averagePowerWatts = fallbackPoints.averagePowerWatts(),
             powerFromBluetooth = (powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts }) != null,
             barometricPressureHpa = barometricPressureHpa ?: fallbackPoints.lastMappedNotNull { it.barometricPressureHpa },
             hasElevationData = fallbackHasElevationData || currentElevationMeters != null,
@@ -1502,6 +1504,12 @@ private fun List<TrackPoint>.averageHeartRateBpm(): Int? {
 
 private fun List<TrackPoint>.hasElevationData(): Boolean =
     any { point -> point.elevation?.isFinite() == true }
+
+private fun List<TrackPoint>.averagePowerWatts(): Int? {
+    val values = mapNotNull { point -> point.powerWatts?.takeIf { it >= 0 } }
+    if (values.isEmpty()) return null
+    return values.average().roundToInt()
+}
 
 private fun List<TrackPoint>.toRecordedTracePoints(): List<RecordedTracePoint> =
     mapNotNull { point ->

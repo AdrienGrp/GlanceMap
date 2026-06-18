@@ -28,6 +28,7 @@ interface SettingsRepository {
         const val RECORDING_METRIC_STEPS = "steps"
         const val RECORDING_METRIC_CADENCE = "cadence"
         const val RECORDING_METRIC_POWER = "power"
+        const val RECORDING_METRIC_AVERAGE_POWER = "average_power"
         const val RECORDING_METRIC_BAROMETRIC_PRESSURE = "barometric_pressure"
         const val RECORDING_METRIC_CALORIES = "calories"
         const val RECORDING_METRIC_ACTIVE_CALORIES = "active_calories"

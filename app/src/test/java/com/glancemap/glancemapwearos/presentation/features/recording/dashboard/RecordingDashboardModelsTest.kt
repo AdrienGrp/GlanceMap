@@ -5,6 +5,7 @@ import com.glancemap.glancemapwearos.presentation.features.recording.RecordedTra
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import org.mapsforge.core.model.LatLong
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RecordingDashboardModelsTest {
@@ -225,6 +226,52 @@ class RecordingDashboardModelsTest {
     }
 
     @Test
+    fun averagePowerUsesRecordedPowerSamples() {
+        val snapshot =
+            buildRecordingDashboardSnapshot(
+                state =
+                    TraceRecordingUiState(
+                        active = true,
+                        startedAtMillis = 1_000L,
+                        points =
+                            listOf(
+                                recordingPoint(
+                                    longitude = 0.0,
+                                    elevationMeters = 0.0,
+                                    timeMillis = 1_000L,
+                                    powerWatts = 180,
+                                ),
+                                recordingPoint(
+                                    longitude = 0.001,
+                                    elevationMeters = 0.0,
+                                    timeMillis = 2_000L,
+                                    powerWatts = 220,
+                                ),
+                            ),
+                    ),
+                nowMillis = 3_000L,
+            )
+
+        val metric =
+            formattedRecordingMetric(
+                metricId = SettingsRepository.RECORDING_METRIC_AVERAGE_POWER,
+                snapshot = snapshot,
+                isMetric = true,
+            )
+
+        assertEquals("Average power", metric.label)
+        assertEquals("200", metric.value)
+        assertEquals("W", metric.unit)
+    }
+
+    @Test
+    fun metricPickerOptionsAreAlphabetical() {
+        val labels = recordingMetricPickerOptions.map { it.second }
+        assertEquals(labels.sortedBy { it.lowercase() }, labels)
+        assertTrue(labels.contains("Average power"))
+    }
+
+    @Test
     fun buildRecordingDashboardSnapshotUsesFreshLivePointOnlyForCurrentMetrics() {
         val snapshot =
             buildRecordingDashboardSnapshot(
@@ -433,6 +480,7 @@ class RecordingDashboardModelsTest {
         elevationMeters: Double,
         timeMillis: Long,
         speedMps: Float? = null,
+        powerWatts: Int? = null,
     ): RecordedTracePoint =
         RecordedTracePoint(
             latLong = LatLong(0.0, longitude),
@@ -440,6 +488,7 @@ class RecordingDashboardModelsTest {
             timeMillis = timeMillis,
             accuracyMeters = null,
             speedMps = speedMps,
+            powerWatts = powerWatts,
         )
 
     private companion object {

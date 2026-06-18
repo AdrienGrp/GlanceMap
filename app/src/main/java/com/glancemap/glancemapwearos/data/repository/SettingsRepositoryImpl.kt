@@ -1344,6 +1344,7 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_METRIC_STEPS,
                 SettingsRepository.RECORDING_METRIC_CADENCE,
                 SettingsRepository.RECORDING_METRIC_POWER,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_POWER,
                 SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
                 SettingsRepository.RECORDING_METRIC_CALORIES,
                 SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,

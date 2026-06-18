@@ -77,7 +77,7 @@ import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.f
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.logRecordingDashboardPageChange
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.normalizedRecordingDashboardSlots
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingDashboardMetricTileHeight
-import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricDefinitions
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricPickerOptions
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
@@ -334,7 +334,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             visible = true,
             title = "Choose measure",
             selectedValue = currentMetric,
-            options = recordingMetricDefinitions.map { it.id to it.label },
+            options = recordingMetricPickerOptions,
             onDismiss = { metricPickerSlot = NO_SELECTED_SLOT },
             onSelect = { metricId ->
                 onMetricSelected(metricPickerSlot, metricId)

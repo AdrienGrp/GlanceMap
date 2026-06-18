@@ -146,7 +146,11 @@ fun RecordingSensorBridge(
     val useExternalDistance =
         externalRunPodLinked && distanceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
     val useExternalPower =
-        externalRunPodLinked && SettingsRepository.RECORDING_METRIC_POWER in selectedMetricIds
+        externalRunPodLinked &&
+            (
+                SettingsRepository.RECORDING_METRIC_POWER in selectedMetricIds ||
+                    SettingsRepository.RECORDING_METRIC_AVERAGE_POWER in selectedMetricIds
+            )
     val useExternalRunPod =
         useExternalCadence || useExternalSpeed || useExternalDistance || useExternalPower
     val collectBarometricPressure = active

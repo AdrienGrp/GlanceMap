@@ -248,7 +248,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
             visible = true,
             title = "Choose measure",
             selectedValue = currentMetric,
-            options = recordingMetricDefinitions.map { it.id to it.label },
+            options = recordingMetricPickerOptions,
             onDismiss = { metricPickerSlot = NO_SELECTED_SLOT },
             onSelect = { metricId ->
                 onMetricSelected(metricPickerSlot, metricId)

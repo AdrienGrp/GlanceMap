@@ -73,6 +73,7 @@ data class RecordingDashboardSnapshot(
     val cadenceSpm: Int? = null,
     val cadenceFromBluetooth: Boolean = false,
     val powerWatts: Int? = null,
+    val averagePowerWatts: Int? = null,
     val powerFromBluetooth: Boolean = false,
     val barometricPressureHpa: Double? = null,
     val lastLiveFixAgeMillis: Long? = null,
@@ -116,6 +117,11 @@ internal val recordingMetricDefinitions =
             RecordingMetricSource.EXTERNAL,
         ),
         RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_AVERAGE_POWER,
+            "Average power",
+            RecordingMetricSource.EXTERNAL,
+        ),
+        RecordingMetricDefinition(
             SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
             "Pressure",
             RecordingMetricSource.INTERNAL_SENSOR,
@@ -124,6 +130,11 @@ internal val recordingMetricDefinitions =
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES, "Active cal"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_RESTING_CALORIES, "Rest cal"),
     )
+
+internal val recordingMetricPickerOptions: List<Pair<String, String>> =
+    recordingMetricDefinitions
+        .sortedBy { it.label.lowercase() }
+        .map { it.id to it.label }
 
 internal fun metricDefinitionFor(id: String): RecordingMetricDefinition =
     recordingMetricDefinitions.firstOrNull { it.id == id }
@@ -201,7 +212,10 @@ internal fun buildRecordingDashboardSnapshot(
         cadenceSpm = state.cadenceSpm,
         cadenceFromBluetooth = state.cadenceFromBluetooth,
         powerWatts = state.externalPowerWatts,
-        powerFromBluetooth = state.externalPowerFromBluetooth,
+        averagePowerWatts = state.points.averagePowerWatts(),
+        powerFromBluetooth =
+            state.externalPowerFromBluetooth ||
+                state.points.any { point -> point.powerWatts != null },
         barometricPressureHpa = state.barometricPressureHpa,
         lastLiveFixAgeMillis = state.latestLivePoint?.timeMillis?.ageMillisAt(nowMillis),
         lastRecordedPointAgeMillis = lastRecordedPoint?.timeMillis?.ageMillisAt(nowMillis),
@@ -329,6 +343,13 @@ internal fun formattedRecordingMetric(
             sensorIntegerMetricValue(
                 definition.label,
                 snapshot.powerWatts,
+                "W",
+                bluetooth = snapshot.powerFromBluetooth,
+            )
+        SettingsRepository.RECORDING_METRIC_AVERAGE_POWER ->
+            sensorIntegerMetricValue(
+                definition.label,
+                snapshot.averagePowerWatts,
                 "W",
                 bluetooth = snapshot.powerFromBluetooth,
             )
@@ -706,6 +727,12 @@ private fun buildRecordingCanonicalProfile(points: List<RecordedTracePoint>) =
 
 private fun List<RecordedTracePoint>.averageHeartRateBpm(): Int? {
     val values = mapNotNull { point -> point.heartRateBpm?.takeIf { it > 0 } }
+    if (values.isEmpty()) return null
+    return values.average().roundToInt()
+}
+
+private fun List<RecordedTracePoint>.averagePowerWatts(): Int? {
+    val values = mapNotNull { point -> point.powerWatts?.takeIf { it >= 0 } }
     if (values.isEmpty()) return null
     return values.average().roundToInt()
 }
