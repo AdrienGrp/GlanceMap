@@ -333,7 +333,7 @@ internal fun resolveNavigateInitialRenderedHeadingDeg(
 
 private fun normalize360(deg: Float): Float = (deg % 360f + 360f) % 360f
 
-private const val MAP_ROTATION_APPLY_EPSILON_DEG = 0.05f
+private const val MAP_ROTATION_APPLY_EPSILON_DEG = 0.2f
 
 // Interpolation factor per display frame (~60fps). At 0.5, closes half the remaining
 // gap each frame: a 10° step reaches <0.1° in ~7 frames (~117ms). Tracks 50Hz sensor
