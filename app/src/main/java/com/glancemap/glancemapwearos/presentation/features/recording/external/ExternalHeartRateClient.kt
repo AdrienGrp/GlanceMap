@@ -16,6 +16,9 @@ class ExternalHeartRateClient(
             logTag = "ExternalHeartRate",
             serviceUuid = HEART_RATE_SERVICE_UUID,
             measurementUuid = HEART_RATE_MEASUREMENT_UUID,
+            onConnectionChanged = { connected ->
+                ExternalSensorConnectionStatus.update(address, connected)
+            },
             onMeasurement = ::handleMeasurement,
         )
 

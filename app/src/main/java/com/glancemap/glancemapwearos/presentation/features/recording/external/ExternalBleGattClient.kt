@@ -27,6 +27,7 @@ internal class ExternalBleGattClient(
     private val readCharacteristics: List<BleCharacteristicRef> = emptyList(),
     private val onServicesReady: (BluetoothGatt) -> Unit = {},
     private val onCharacteristicRead: (UUID, ByteArray) -> Unit = { _, _ -> },
+    private val onConnectionChanged: (Boolean) -> Unit = {},
     private val onMeasurement: (UUID, ByteArray) -> Unit,
 ) {
     private var gatt: BluetoothGatt? = null
@@ -42,10 +43,12 @@ internal class ExternalBleGattClient(
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
                         DebugTelemetry.log(logTag, "event=connected status=$status")
+                        onConnectionChanged(true)
                         runCatching { gatt.discoverServices() }
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         DebugTelemetry.log(logTag, "event=disconnected status=$status")
+                        onConnectionChanged(false)
                     }
                 }
             }
@@ -136,6 +139,7 @@ internal class ExternalBleGattClient(
 
     @SuppressLint("MissingPermission")
     fun connect() {
+        onConnectionChanged(false)
         if (!hasConnectPermission(context)) {
             DebugTelemetry.log(logTag, "event=connect_skipped reason=permission")
             return
@@ -169,6 +173,7 @@ internal class ExternalBleGattClient(
             gatt?.close()
         }
         gatt = null
+        onConnectionChanged(false)
         DebugTelemetry.log(logTag, "event=disconnect_requested")
     }
 

@@ -46,6 +46,12 @@ class ExternalRunPodClient(
                 ),
             onServicesReady = { gatt -> logGattTable(gatt.services) },
             onCharacteristicRead = ::handleRead,
+            onConnectionChanged = { connected ->
+                ExternalSensorConnectionStatus.update(address, connected)
+                if (!connected) {
+                    ExternalRunPodRuntimeStatus.markDisconnected(address)
+                }
+            },
             onMeasurement = ::handleMeasurement,
         )
 
@@ -55,7 +61,6 @@ class ExternalRunPodClient(
 
     fun disconnect() {
         client.disconnect()
-        ExternalRunPodRuntimeStatus.markDisconnected(address)
     }
 
     private fun logGattTable(services: List<BluetoothGattService>) {

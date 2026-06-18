@@ -2,7 +2,6 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -37,6 +36,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorDevice
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorConnectionStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorKind
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanner
@@ -61,6 +61,7 @@ fun RecordingExternalSensorsScreen(
     val linkedRunPodAddress by viewModel.recordingExternalRunPodAddress.collectAsState()
     val linkedRunPodName by viewModel.recordingExternalRunPodName.collectAsState()
     val runPodRuntimeInfos by ExternalRunPodRuntimeStatus.infos.collectAsState()
+    val connectedAddresses by ExternalSensorConnectionStatus.connectedAddresses.collectAsState()
     var permissionRefresh by remember { mutableIntStateOf(0) }
     var unsupportedSensorMessage by remember { mutableStateOf<String?>(null) }
     val hasPermissions =
@@ -111,7 +112,7 @@ fun RecordingExternalSensorsScreen(
             item {
                 LinkedExternalSensorChip(
                     name = linkedHeartRateName.orLinkedSensorFallback("Heart strap"),
-                    address = address,
+                    connected = address in connectedAddresses,
                     onUnlink = {
                         unsupportedSensorMessage = null
                         viewModel.setRecordingExternalHeartRateDevice(null, null)
@@ -123,7 +124,7 @@ fun RecordingExternalSensorsScreen(
             item {
                 LinkedExternalSensorChip(
                     name = linkedRunPodName.orLinkedSensorFallback("Run pod"),
-                    address = address,
+                    connected = address in connectedAddresses,
                     batteryLevelPercent = runPodRuntimeInfos[address]?.batteryLevelPercent,
                     onUnlink = {
                         unsupportedSensorMessage = null
@@ -201,7 +202,7 @@ fun RecordingExternalSensorsScreen(
 @Composable
 private fun LinkedExternalSensorChip(
     name: String,
-    address: String,
+    connected: Boolean,
     batteryLevelPercent: Int? = null,
     onUnlink: () -> Unit,
 ) {
@@ -214,7 +215,7 @@ private fun LinkedExternalSensorChip(
         }
     LinkedExternalSensorChipContent(
         name = name,
-        address = address,
+        connected = connected,
         batteryLevelPercent = batteryLevelPercent,
         minHeight = minHeight,
         onUnlink = onUnlink,
@@ -225,7 +226,7 @@ private fun LinkedExternalSensorChip(
 @Composable
 private fun LinkedExternalSensorChipContent(
     name: String,
-    address: String,
+    connected: Boolean,
     batteryLevelPercent: Int?,
     minHeight: androidx.compose.ui.unit.Dp,
     onUnlink: () -> Unit,
@@ -237,45 +238,42 @@ private fun LinkedExternalSensorChipContent(
                 .heightIn(min = minHeight),
         label = {
             Text(
-                text = name,
+                text =
+                    if (connected && batteryLevelPercent in 0..100) {
+                        "$name · $batteryLevelPercent%"
+                    } else {
+                        name
+                    },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         },
-        secondaryLabel = {
-            Text(
-                text = linkedSensorSecondaryText(address, batteryLevelPercent),
-                modifier = Modifier.basicMarquee(),
-                maxLines = 1,
-                overflow = TextOverflow.Clip,
-            )
-        },
         icon = {
             Icon(
-                imageVector = Icons.Default.CheckCircle,
+                imageVector =
+                    if (connected) {
+                        Icons.Default.CheckCircle
+                    } else {
+                        Icons.Default.Bluetooth
+                    },
                 contentDescription = null,
                 modifier = Modifier.size(ChipDefaults.IconSize),
             )
         },
         colors =
-            ChipDefaults.secondaryChipColors(
-                backgroundColor = Color(0xFF254336),
-                contentColor = Color(0xFFF1FFF5),
-                secondaryContentColor = Color(0xFFB7DCC4),
-                iconColor = Color(0xFF8FF0A4),
-            ),
+            if (connected) {
+                ChipDefaults.secondaryChipColors(
+                    backgroundColor = Color(0xFF254336),
+                    contentColor = Color(0xFFF1FFF5),
+                    secondaryContentColor = Color(0xFFB7DCC4),
+                    iconColor = Color(0xFF8FF0A4),
+                )
+            } else {
+                ChipDefaults.secondaryChipColors()
+            },
         onClick = onUnlink,
     )
 }
-
-private fun linkedSensorSecondaryText(
-    address: String,
-    batteryLevelPercent: Int?,
-): String =
-    batteryLevelPercent
-        ?.takeIf { it in 0..100 }
-        ?.let { "$address · $it%" }
-        ?: address
 
 @Composable
 private fun ExternalSensorScanChip(
