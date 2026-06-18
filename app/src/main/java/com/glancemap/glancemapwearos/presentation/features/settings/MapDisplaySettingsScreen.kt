@@ -2,14 +2,10 @@
 
 package com.glancemap.glancemapwearos.presentation.features.settings
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -45,10 +41,6 @@ fun MapDisplaySettingsScreen(
             SettingsRepository.TIME_FORMAT_24_HOUR,
             SettingsRepository.TIME_FORMAT_12_HOUR,
         )
-    var showTimeFormatPicker by remember { mutableStateOf(false) }
-    var showNorthIndicatorPicker by remember { mutableStateOf(false) }
-    var showMarkerStylePicker by remember { mutableStateOf(false) }
-    var showZoomButtonsPicker by remember { mutableStateOf(false) }
     val timeFormatOptions =
         remember {
             timeFormats.map { it to timeFormatLabel(it) }
@@ -80,36 +72,40 @@ fun MapDisplaySettingsScreen(
         }
         if (showTimeInNavigate) {
             item {
-                SettingsPickerChip(
+                SettingsOptionPickerRow(
                     label = "Time format",
-                    onClick = { showTimeFormatPicker = true },
-                    iconImageVector = Icons.Filled.UnfoldMore,
+                    selectedValue = navigateTimeFormat,
+                    options = timeFormatOptions,
                     secondaryLabel = timeFormatLabel(navigateTimeFormat),
+                    onSelect = viewModel::setNavigateTimeFormat,
                 )
             }
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "North indicator",
-                onClick = { showNorthIndicatorPicker = true },
-                iconImageVector = Icons.Filled.UnfoldMore,
+                selectedValue = northIndicatorMode,
+                options = northIndicatorOptions,
                 secondaryLabel = northIndicatorModeLabel(northIndicatorMode),
+                onSelect = viewModel::setNorthIndicatorMode,
             )
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "Zoom buttons",
-                onClick = { showZoomButtonsPicker = true },
-                iconImageVector = Icons.Filled.UnfoldMore,
+                selectedValue = mapZoomButtonsMode,
+                options = zoomButtonOptions,
                 secondaryLabel = zoomButtonsModeLabel(mapZoomButtonsMode),
+                onSelect = viewModel::setMapZoomButtonsMode,
             )
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "Marker style",
-                onClick = { showMarkerStylePicker = true },
-                iconImageVector = Icons.Filled.UnfoldMore,
+                selectedValue = navigationMarkerStyle,
+                options = markerStyleOptions,
                 secondaryLabel = markerStyleLabel(navigationMarkerStyle),
+                onSelect = viewModel::setNavigationMarkerStyle,
             )
         }
         item {
@@ -122,38 +118,6 @@ fun MapDisplaySettingsScreen(
         }
     }
 
-    OptionPickerDialog(
-        visible = showTimeFormatPicker,
-        title = "Time format",
-        selectedValue = navigateTimeFormat,
-        options = timeFormatOptions,
-        onDismiss = { showTimeFormatPicker = false },
-        onSelect = { selected -> viewModel.setNavigateTimeFormat(selected) },
-    )
-    OptionPickerDialog(
-        visible = showNorthIndicatorPicker,
-        title = "North indicator",
-        selectedValue = northIndicatorMode,
-        options = northIndicatorOptions,
-        onDismiss = { showNorthIndicatorPicker = false },
-        onSelect = { selected -> viewModel.setNorthIndicatorMode(selected) },
-    )
-    OptionPickerDialog(
-        visible = showMarkerStylePicker,
-        title = "Marker style",
-        selectedValue = navigationMarkerStyle,
-        options = markerStyleOptions,
-        onDismiss = { showMarkerStylePicker = false },
-        onSelect = { selected -> viewModel.setNavigationMarkerStyle(selected) },
-    )
-    OptionPickerDialog(
-        visible = showZoomButtonsPicker,
-        title = "Zoom buttons",
-        selectedValue = mapZoomButtonsMode,
-        options = zoomButtonOptions,
-        onDismiss = { showZoomButtonsPicker = false },
-        onSelect = { selected -> viewModel.setMapZoomButtonsMode(selected) },
-    )
 }
 
 internal const val TAG_MAP_DISPLAY_SHOW_TIME_CHIP = "map_display_show_time_chip"

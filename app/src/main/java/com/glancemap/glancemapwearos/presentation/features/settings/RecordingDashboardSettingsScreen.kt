@@ -11,8 +11,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.data.repository.normalizeRecordingDashboardMetricSlots
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricDefinitions
-import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
-import com.glancemap.glancemapwearos.presentation.ui.WearInfoText
+import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 
 @Composable
 fun RecordingDashboardSettingsScreen(
@@ -22,7 +21,6 @@ fun RecordingDashboardSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val dashboardMetricSlots by viewModel.recordingDashboardMetricSlots.collectAsState()
     val dashboardSlots = normalizeRecordingDashboardMetricSlots(dashboardMetricSlots)
-    var showDashboardPagePicker by remember { mutableStateOf(false) }
     var selectedDashboardPage by remember { mutableStateOf(0) }
     var selectedDashboardSlot by remember { mutableStateOf<Int?>(null) }
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -35,16 +33,17 @@ fun RecordingDashboardSettingsScreen(
             )
         }
         item {
-            SettingsSectionChip(
-                label = "Recording settings",
-                secondaryLabel = "Back to REC settings",
+            RecordingSettingsShortcutChip(
                 onClick = onOpenRecordingSettings,
             )
         }
         item {
-            RecordingDashboardPageSetting(
-                selectedDashboardPage = selectedDashboardPage,
-                onClick = { showDashboardPagePicker = true },
+            SettingsOptionPickerRow(
+                label = "Dashboard page",
+                selectedValue = selectedDashboardPage,
+                options = RECORDING_DASHBOARD_PAGE_OPTIONS.map { it to recordingDashboardPageLabel(it) },
+                secondaryLabel = recordingDashboardPageLabel(selectedDashboardPage),
+                onSelect = { selectedDashboardPage = it },
             )
         }
         RECORDING_DASHBOARD_SLOT_LABELS.forEachIndexed { pageSlotIndex, label ->
@@ -63,17 +62,6 @@ fun RecordingDashboardSettingsScreen(
         onDismiss = { showInfoDialog = false },
     )
 
-    OptionPickerDialog(
-        visible = showDashboardPagePicker,
-        title = "Dashboard page",
-        selectedValue = selectedDashboardPage,
-        options = RECORDING_DASHBOARD_PAGE_OPTIONS.map { it to recordingDashboardPageLabel(it) },
-        onDismiss = { showDashboardPagePicker = false },
-        onSelect = { page ->
-            selectedDashboardPage = page
-            showDashboardPagePicker = false
-        },
-    )
     selectedDashboardSlot?.let { slotIndex ->
         OptionPickerDialog(
             visible = true,
@@ -98,26 +86,11 @@ private fun RecordingDashboardInfoDialog(
     visible: Boolean,
     onDismiss: () -> Unit,
 ) {
-    WearInfoDialog(
+    WearHelpDialog(
         visible = visible,
         title = "Dashboard",
         onDismiss = onDismiss,
-    ) {
-        item {
-            WearInfoText("In the REC popup, long press any metric to change it.")
-        }
-    }
-}
-
-@Composable
-private fun RecordingDashboardPageSetting(
-    selectedDashboardPage: Int,
-    onClick: () -> Unit,
-) {
-    SettingsPickerChip(
-        label = "Dashboard page",
-        secondaryLabel = recordingDashboardPageLabel(selectedDashboardPage),
-        onClick = onClick,
+        lines = listOf("In the REC popup, long press any metric to change it."),
     )
 }
 

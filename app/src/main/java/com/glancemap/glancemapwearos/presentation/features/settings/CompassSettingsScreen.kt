@@ -28,7 +28,7 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
-import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
@@ -45,10 +45,6 @@ fun CompassSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val adaptive = rememberWearAdaptiveSpec()
     var showCalibrationDialog by remember { mutableStateOf(false) }
-    var showCompassModePicker by remember { mutableStateOf(false) }
-    var showProviderPicker by remember { mutableStateOf(false) }
-    var showNorthModePicker by remember { mutableStateOf(false) }
-    var showHeadingSourcePicker by remember { mutableStateOf(false) }
     var showCompatibilityDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
     var showAdvancedSection by remember { mutableStateOf(false) }
@@ -191,8 +187,6 @@ fun CompassSettingsScreen(
     LaunchedEffect(showSensorControls) {
         if (showSensorControls) return@LaunchedEffect
         showCalibrationDialog = false
-        showCompassModePicker = false
-        showHeadingSourcePicker = false
         showCompatibilityDialog = false
         showAdvancedSection = false
     }
@@ -319,25 +313,29 @@ fun CompassSettingsScreen(
     WearSettingsListScreen(listTokens = listTokens) {
         item { GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings) }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "Orientation provider",
+                selectedValue = compassProviderModeSetting,
+                options = compassProviderOptions,
                 secondaryLabel =
                     compassProviderStatusLabel(
                         requestedMode = compassProviderModeSetting,
                         activeProviderType = activeProviderType,
                     ),
-                onClick = { showProviderPicker = true },
+                onSelect = viewModel::setCompassProviderMode,
             )
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "North mode",
+                selectedValue = northReferenceMode,
+                options = northReferenceOptions,
                 secondaryLabel =
                     northReferenceStatusSecondaryLabel(
                         requestedMode = northReferenceMode,
                         status = northReferenceStatus,
                     ),
-                onClick = { showNorthModePicker = true },
+                onSelect = viewModel::setNorthReferenceMode,
             )
         }
         if (showSensorControls) {
@@ -348,10 +346,17 @@ fun CompassSettingsScreen(
                 )
             }
             item {
-                SettingsPickerChip(
+                SettingsOptionPickerRow(
                     label = "Compass mode",
+                    selectedValue = compassSettingsMode,
+                    options = compassModeOptions,
                     secondaryLabel = compassSettingsModeLabel(compassSettingsMode),
-                    onClick = { showCompassModePicker = true },
+                    onSelect = { selected ->
+                        viewModel.setCompassSettingsMode(selected)
+                        if (selected == SettingsRepository.COMPASS_SETTINGS_MODE_AUTOMATIC) {
+                            viewModel.setCompassHeadingSourceMode(SettingsRepository.COMPASS_HEADING_SOURCE_AUTO)
+                        }
+                    },
                 )
             }
             if (showCompassConeAccuracyColorsSetting) {
@@ -409,10 +414,15 @@ fun CompassSettingsScreen(
                     )
                 }
                 item {
-                    SettingsPickerChip(
+                    SettingsOptionPickerRow(
                         label = "Heading source",
+                        selectedValue = headingSourceModeSetting,
+                        options = headingSourceOptions,
                         secondaryLabel = headingSourceModeLabel(headingSourceModeSetting),
-                        onClick = { showHeadingSourcePicker = true },
+                        onSelect = { selected ->
+                            viewModel.setCompassSettingsMode(SettingsRepository.COMPASS_SETTINGS_MODE_ADVANCED)
+                            viewModel.setCompassHeadingSourceMode(selected)
+                        },
                     )
                 }
             }
@@ -429,49 +439,6 @@ fun CompassSettingsScreen(
             )
         }
     }
-
-    OptionPickerDialog(
-        visible = showProviderPicker,
-        title = "Orientation provider",
-        selectedValue = compassProviderModeSetting,
-        options = compassProviderOptions,
-        onDismiss = { showProviderPicker = false },
-        onSelect = { selected ->
-            viewModel.setCompassProviderMode(selected)
-        },
-    )
-    OptionPickerDialog(
-        visible = showCompassModePicker,
-        title = "Compass mode",
-        selectedValue = compassSettingsMode,
-        options = compassModeOptions,
-        onDismiss = { showCompassModePicker = false },
-        onSelect = { selected ->
-            viewModel.setCompassSettingsMode(selected)
-            if (selected == SettingsRepository.COMPASS_SETTINGS_MODE_AUTOMATIC) {
-                viewModel.setCompassHeadingSourceMode(SettingsRepository.COMPASS_HEADING_SOURCE_AUTO)
-            }
-        },
-    )
-    OptionPickerDialog(
-        visible = showNorthModePicker,
-        title = "North mode",
-        selectedValue = northReferenceMode,
-        options = northReferenceOptions,
-        onDismiss = { showNorthModePicker = false },
-        onSelect = { selected -> viewModel.setNorthReferenceMode(selected) },
-    )
-    OptionPickerDialog(
-        visible = showHeadingSourcePicker,
-        title = "Heading source",
-        selectedValue = headingSourceModeSetting,
-        options = headingSourceOptions,
-        onDismiss = { showHeadingSourcePicker = false },
-        onSelect = { selected ->
-            viewModel.setCompassSettingsMode(SettingsRepository.COMPASS_SETTINGS_MODE_ADVANCED)
-            viewModel.setCompassHeadingSourceMode(selected)
-        },
-    )
 
     if (showCompatibilityDialog) {
         val result = compatibilityState.result
@@ -554,13 +521,12 @@ fun CompassSettingsScreen(
         }
     }
 
-    WearInfoDialog(
+    WearHelpDialog(
         visible = showInfoDialog,
         title = "Compass help",
         onDismiss = { showInfoDialog = false },
-    ) {
-        item {
-            Text(
+        lines =
+            listOf(
                 "Recommended setup: Google Fused + True north.\n\n" +
                     "Quick test: stand still, face a clear landmark, then switch North-up / Compass.\n" +
                     "The map should keep the same direction and should not jump after open or wake.\n\n" +
@@ -572,9 +538,6 @@ fun CompassSettingsScreen(
                     "Custom mode prefers Rotation vector when available,\n" +
                     "and gives you Recalibrate Compass, source test,\n" +
                     "heading source selection, and accuracy-color options.",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
+            ),
+    )
 }

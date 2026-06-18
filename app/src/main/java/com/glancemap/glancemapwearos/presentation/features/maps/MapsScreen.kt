@@ -69,6 +69,8 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolB
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListHeader
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListScaffold
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearDataDialog
@@ -663,30 +665,26 @@ fun MapsScreen(
                 )
             }
         }
-        Column(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            // Header + actions
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = headerTopSafePadding, bottom = headerBottomPadding),
-                contentAlignment = Alignment.Center,
+        FeatureListScaffold(horizontalAlignment = Alignment.Start) {
+            FeatureListHeader(
+                title = "Maps",
+                topPadding = headerTopSafePadding,
+                bottomPadding = headerBottomPadding,
+                actionSpacing = headerActionSpacing,
+                verticalSpacing = headerVerticalSpacing,
+                statusText =
+                    when {
+                        isRenameMode -> "Rename mode"
+                        isDeleteMode -> "Delete mode"
+                        else -> null
+                    },
+                statusColor =
+                    if (isDeleteMode) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(headerVerticalSpacing),
-                ) {
-                    Text(
-                        text = "Maps",
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center,
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
                         CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -737,21 +735,6 @@ fun MapsScreen(
                                 modifier = Modifier.size(headerActionIconSize),
                             )
                         }
-                    }
-                    if (isRenameMode) {
-                        Text(
-                            text = "Rename mode",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    } else if (isDeleteMode) {
-                        Text(
-                            text = "Delete mode",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
             }
 
             // Middle list

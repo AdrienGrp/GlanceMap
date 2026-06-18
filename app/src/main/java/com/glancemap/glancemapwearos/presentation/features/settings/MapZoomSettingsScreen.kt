@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,7 +38,6 @@ fun MapZoomSettingsScreen(
     val zoomMinScaleMeters by viewModel.mapZoomMinScaleMeters.collectAsState()
     val zoomMaxScaleMeters by viewModel.mapZoomMaxScaleMeters.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
-    var showCrownDirectionPicker by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
@@ -55,12 +53,13 @@ fun MapZoomSettingsScreen(
         }
         if (crownZoomEnabled) {
             item {
-                SettingsPickerChip(
+                SettingsOptionPickerRow(
                     modifier = Modifier.fillMaxWidth(),
                     label = "Crown direction",
-                    iconImageVector = Icons.Filled.UnfoldMore,
+                    selectedValue = crownZoomInverted,
+                    options = listOf(false to "Normal", true to "Inverted"),
                     secondaryLabel = if (crownZoomInverted) "Inverted" else "Normal",
-                    onClick = { showCrownDirectionPicker = true },
+                    onSelect = viewModel::setCrownZoomInverted,
                 )
             }
         }
@@ -90,18 +89,6 @@ fun MapZoomSettingsScreen(
         }
     }
 
-    OptionPickerDialog(
-        visible = showCrownDirectionPicker,
-        title = "Crown direction",
-        selectedValue = crownZoomInverted,
-        options =
-            listOf(
-                false to "Normal",
-                true to "Inverted",
-            ),
-        onDismiss = { showCrownDirectionPicker = false },
-        onSelect = { inverted -> viewModel.setCrownZoomInverted(inverted) },
-    )
 }
 
 @Composable

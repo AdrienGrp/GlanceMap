@@ -39,8 +39,7 @@ import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
-import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
-import com.glancemap.glancemapwearos.presentation.ui.WearInfoText
+import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -57,7 +56,6 @@ fun UserProfileSettingsScreen(
     val isMetric by viewModel.isMetric.collectAsState()
     val userWeightKg by viewModel.userWeightKg.collectAsState()
     val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
-    var showUnitsPicker by remember { mutableStateOf(false) }
     var showWeightPicker by remember { mutableStateOf(false) }
     var showBackpackPicker by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -76,10 +74,12 @@ fun UserProfileSettingsScreen(
             )
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "Units",
+                selectedValue = isMetric,
+                options = listOf(true to "Metric", false to "Imperial"),
                 secondaryLabel = if (isMetric) "Metric" else "Imperial",
-                onClick = { showUnitsPicker = true },
+                onSelect = viewModel::setMetric,
             )
         }
         item {
@@ -98,18 +98,6 @@ fun UserProfileSettingsScreen(
         }
     }
 
-    OptionPickerDialog(
-        visible = showUnitsPicker,
-        title = "Units",
-        selectedValue = isMetric,
-        options =
-            listOf(
-                true to "Metric",
-                false to "Imperial",
-            ),
-        onDismiss = { showUnitsPicker = false },
-        onSelect = viewModel::setMetric,
-    )
     RotaryWeightPickerDialog(
         visible = showWeightPicker,
         title = "Body weight",
@@ -141,19 +129,17 @@ private fun UserProfileInfoDialog(
     visible: Boolean,
     onDismiss: () -> Unit,
 ) {
-    WearInfoDialog(
+    WearHelpDialog(
         visible = visible,
         title = "User profile",
         onDismiss = onDismiss,
-    ) {
-        item {
-            WearInfoText(
+        lines =
+            listOf(
                 "Weight and backpack improve hiking calories.\n" +
                     "Calories use Pandolf/Santee and LCDA with speed and slope.\n" +
                     "DEM elevation is used when available.",
-            )
-        }
-    }
+            ),
+    )
 }
 
 private fun formatUserWeight(

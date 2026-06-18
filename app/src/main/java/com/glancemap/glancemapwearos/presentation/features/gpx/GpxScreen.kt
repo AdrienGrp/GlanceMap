@@ -69,7 +69,10 @@ import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.r
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListHeader
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListScaffold
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -411,7 +414,7 @@ fun GpxScreen(
             onDismiss = { dismissHelpDialog() },
         )
 
-        WearInfoDialog(
+        WearHelpDialog(
             visible = guidanceMessageBody != null,
             title = guidanceMessageTitle ?: "GPX guidance",
             onDismiss = {
@@ -426,15 +429,8 @@ fun GpxScreen(
                     }
                 }
             },
-        ) {
-            item {
-                Text(
-                    text = guidanceMessageBody.orEmpty(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
+            lines = listOf(guidanceMessageBody.orEmpty()),
+        )
 
         ActivityDetailsDialog(
             gpxFile = activityDetailsFile,
@@ -442,162 +438,135 @@ fun GpxScreen(
             onDismiss = { activityDetailsFile = null },
         )
 
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // Header + actions
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = headerTopSafePadding, bottom = headerBottomPadding),
-                contentAlignment = Alignment.Center,
+        FeatureListScaffold {
+            FeatureListHeader(
+                title = if (showActivities) "Activities" else "GPX Tracks",
+                titleStyle =
+                    if (adaptive.isCompact) {
+                        MaterialTheme.typography.titleSmall
+                    } else {
+                        MaterialTheme.typography.titleMedium
+                    },
+                topPadding = headerTopSafePadding,
+                bottomPadding = headerBottomPadding,
+                actionSpacing = headerActionSpacing,
+                verticalSpacing = headerVerticalSpacing,
+                statusText =
+                    when {
+                        isSendMode && selectedSendPaths.isEmpty() -> "Select GPX"
+                        isSendMode -> "${selectedSendPaths.size} selected"
+                        isRenameMode -> "Rename mode"
+                        isDeleteMode -> "Delete mode"
+                        else -> null
+                    },
+                statusColor =
+                    when {
+                        isSendMode -> MaterialTheme.colorScheme.secondary
+                        isRenameMode -> MaterialTheme.colorScheme.primary
+                        isDeleteMode -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onBackground
+                    },
+                statusTopPadding = if (isSendMode) 8.dp else 0.dp,
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(headerVerticalSpacing),
-                ) {
-                    Text(
-                        text = if (showActivities) "Activities" else "GPX Tracks",
-                        style =
-                            if (adaptive.isCompact) {
-                                MaterialTheme.typography.titleSmall
+                if (gpxFiles.isNotEmpty()) {
+                    CompactIconHitTargetButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showActivities = !showActivities
+                            isSendMode = false
+                            selectedSendPaths = emptySet()
+                            isRenameMode = false
+                            isDeleteMode = false
+                        },
+                        visualSize = headerActionButtonSize,
+                        visualOffsetY = headerActionVisualOffsetY,
+                        containerColor =
+                            if (showActivities) {
+                                MaterialTheme.colorScheme.primaryContainer
                             } else {
-                                MaterialTheme.typography.titleMedium
+                                Color.Black.copy(alpha = 0.7f)
                             },
-                        textAlign = TextAlign.Center,
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
-                        verticalAlignment = Alignment.CenterVertically,
+                        contentColor =
+                            if (showActivities) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                Color.White
+                            },
                     ) {
-                        if (gpxFiles.isNotEmpty()) {
-                            CompactIconHitTargetButton(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    showActivities = !showActivities
-                                    isSendMode = false
-                                    selectedSendPaths = emptySet()
-                                    isRenameMode = false
-                                    isDeleteMode = false
+                        Icon(
+                            imageVector =
+                                if (showActivities) {
+                                    Icons.AutoMirrored.Filled.DirectionsRun
+                                } else {
+                                    Icons.Default.Route
                                 },
-                                visualSize = headerActionButtonSize,
-                                visualOffsetY = headerActionVisualOffsetY,
-                                containerColor =
-                                    if (showActivities) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        Color.Black.copy(alpha = 0.7f)
-                                    },
-                                contentColor =
-                                    if (showActivities) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        Color.White
-                                    },
-                            ) {
-                                Icon(
-                                    imageVector =
-                                        if (showActivities) {
-                                            Icons.AutoMirrored.Filled.DirectionsRun
-                                        } else {
-                                            Icons.Default.Route
-                                        },
-                                    contentDescription =
-                                        if (showActivities) {
-                                            "Show GPX tracks"
-                                        } else {
-                                            "Show recorded activities"
-                                        },
-                                    modifier = Modifier.size(headerActionIconSize),
-                                )
+                            contentDescription =
+                                if (showActivities) {
+                                    "Show GPX tracks"
+                                } else {
+                                    "Show recorded activities"
+                                },
+                            modifier = Modifier.size(headerActionIconSize),
+                        )
+                    }
+                }
+                CompactIconHitTargetButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showHelpDialog = true
+                    },
+                    visualSize = headerActionButtonSize,
+                    visualOffsetY = headerActionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "GPX actions help",
+                        modifier = Modifier.size(headerActionIconSize),
+                    )
+                }
+                if (gpxFiles.isNotEmpty()) {
+                    CompactIconHitTargetButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            val nextSendMode = !isSendMode
+                            isSendMode = nextSendMode
+                            if (nextSendMode) {
+                                isRenameMode = false
+                                isDeleteMode = false
+                            } else {
+                                selectedSendPaths = emptySet()
                             }
-                        }
-                        CompactIconHitTargetButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showHelpDialog = true
+                        },
+                        visualSize = headerActionButtonSize,
+                        visualOffsetY = headerActionVisualOffsetY,
+                        containerColor =
+                            if (isSendMode) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                Color.Black.copy(alpha = 0.7f)
                             },
-                            visualSize = headerActionButtonSize,
-                            visualOffsetY = headerActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = Color.White,
-                        ) {
+                        contentColor =
+                            if (isSendMode) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                Color.White
+                            },
+                    ) {
+                        if (isSendMode) {
                             Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "GPX actions help",
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Exit send mode",
+                                modifier = Modifier.size(headerActionIconSize),
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_mobile_arrow_right),
+                                contentDescription = "Send GPX to phone",
                                 modifier = Modifier.size(headerActionIconSize),
                             )
                         }
-                        if (gpxFiles.isNotEmpty()) {
-                            CompactIconHitTargetButton(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val nextSendMode = !isSendMode
-                                    isSendMode = nextSendMode
-                                    if (nextSendMode) {
-                                        isRenameMode = false
-                                        isDeleteMode = false
-                                    } else {
-                                        selectedSendPaths = emptySet()
-                                    }
-                                },
-                                visualSize = headerActionButtonSize,
-                                visualOffsetY = headerActionVisualOffsetY,
-                                containerColor =
-                                    if (isSendMode) {
-                                        MaterialTheme.colorScheme.secondaryContainer
-                                    } else {
-                                        Color.Black.copy(alpha = 0.7f)
-                                    },
-                                contentColor =
-                                    if (isSendMode) {
-                                        MaterialTheme.colorScheme.onSecondaryContainer
-                                    } else {
-                                        Color.White
-                                    },
-                            ) {
-                                if (isSendMode) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Exit send mode",
-                                        modifier = Modifier.size(headerActionIconSize),
-                                    )
-                                } else {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_mobile_arrow_right),
-                                        contentDescription = "Send GPX to phone",
-                                        modifier = Modifier.size(headerActionIconSize),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    if (isSendMode) {
-                        Text(
-                            text =
-                                if (selectedSendPaths.isEmpty()) {
-                                    "Select GPX"
-                                } else {
-                                    "${selectedSendPaths.size} selected"
-                                },
-                            modifier = Modifier.padding(top = 8.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.secondary,
-                        )
-                    } else if (isRenameMode) {
-                        Text(
-                            text = "Rename mode",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    } else if (isDeleteMode) {
-                        Text(
-                            text = "Delete mode",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
                     }
                 }
             }

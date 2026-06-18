@@ -77,7 +77,11 @@ fun GpxSettingsScreen(
     val gpxElevationAutoAdjustPerGpx by viewModel.gpxElevationAutoAdjustPerGpx.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
     var showAdvancedElevationFilter by remember { mutableStateOf(false) }
-    var showTrackColorModeDialog by remember { mutableStateOf(false) }
+    val trackColorModeOptions =
+        listOf(
+            SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID to "Solid color",
+            SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION to "Elevation",
+        )
 
     val colorPalette =
         listOf(
@@ -249,14 +253,16 @@ fun GpxSettingsScreen(
             }
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "Color Mode",
+                selectedValue = trackColorMode,
+                options = trackColorModeOptions,
                 secondaryLabel =
                     when (trackColorMode) {
                         SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION -> "Elevation"
                         else -> "Solid color"
                     },
-                onClick = { showTrackColorModeDialog = true },
+                onSelect = viewModel::setGpxTrackColorMode,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -446,18 +452,6 @@ fun GpxSettingsScreen(
         }
     }
 
-    OptionPickerDialog(
-        visible = showTrackColorModeDialog,
-        title = "Color Mode",
-        selectedValue = trackColorMode,
-        options =
-            listOf(
-                SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID to "Solid color",
-                SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION to "Elevation",
-            ),
-        onDismiss = { showTrackColorModeDialog = false },
-        onSelect = viewModel::setGpxTrackColorMode,
-    )
 }
 
 @Composable

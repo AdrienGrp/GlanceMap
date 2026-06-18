@@ -55,6 +55,8 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListHeader
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListScaffold
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -612,35 +614,32 @@ fun PoiScreen(
             }
         }
 
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = headerTopSafePadding, bottom = headerBottomPadding),
-                contentAlignment = Alignment.Center,
+        FeatureListScaffold {
+            FeatureListHeader(
+                title = "POI",
+                titleStyle =
+                    if (adaptive.isCompact) {
+                        MaterialTheme.typography.titleSmall
+                    } else {
+                        MaterialTheme.typography.titleMedium
+                    },
+                topPadding = headerTopSafePadding,
+                bottomPadding = headerBottomPadding,
+                actionSpacing = headerActionSpacing,
+                verticalSpacing = headerVerticalSpacing,
+                statusText =
+                    when {
+                        isDeleteMode -> "Delete mode"
+                        isRenameMode -> "Rename mode"
+                        else -> null
+                    },
+                statusColor =
+                    if (isDeleteMode) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(headerVerticalSpacing),
-                ) {
-                    Text(
-                        text = "POI",
-                        style =
-                            if (adaptive.isCompact) {
-                                MaterialTheme.typography.titleSmall
-                            } else {
-                                MaterialTheme.typography.titleMedium
-                            },
-                        textAlign = TextAlign.Center,
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
                         CompactIconHitTargetButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -657,21 +656,6 @@ fun PoiScreen(
                                 modifier = Modifier.size(headerActionIconSize),
                             )
                         }
-                    }
-                    if (isDeleteMode) {
-                        Text(
-                            text = "Delete mode",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    } else if (isRenameMode) {
-                        Text(
-                            text = "Rename mode",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
             }
 
             Box(

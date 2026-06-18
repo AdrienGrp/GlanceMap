@@ -66,6 +66,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.SettingsList
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsScalingLazyListState
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListScaffold
 import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
@@ -328,10 +329,7 @@ fun DownloadScreen(
     )
 
     ScreenScaffold(scrollState = listState) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+        FeatureListScaffold {
             DownloadHeader(
                 isDownloading = uiState.isDownloading,
                 isCheckingUpdates = uiState.isCheckingUpdates,

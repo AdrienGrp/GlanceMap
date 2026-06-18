@@ -22,17 +22,25 @@ fun RecordingSettingsScreen(
     val sampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
     val showSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
     val startWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
-    var showIntervalPicker by remember { mutableStateOf(false) }
     var showGpsDisabledWarning by remember { mutableStateOf(false) }
+    val intervalOptions = RECORDING_INTERVAL_OPTIONS_SECONDS.map { it to recordingIntervalLabel(it) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
         }
         item {
-            RecordingGpsIntervalSetting(
-                sampleIntervalSeconds = sampleIntervalSeconds,
-                onClick = { showIntervalPicker = true },
+            SettingsOptionPickerRow(
+                label = "GPS Frequency",
+                selectedValue = sampleIntervalSeconds,
+                options = intervalOptions,
+                secondaryLabel = recordingIntervalLabel(sampleIntervalSeconds),
+                onSelect = { seconds ->
+                    viewModel.setRecordingSampleIntervalSeconds(seconds)
+                    if (seconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) {
+                        showGpsDisabledWarning = true
+                    }
+                },
             )
         }
         item {
@@ -62,19 +70,6 @@ fun RecordingSettingsScreen(
         }
     }
 
-    OptionPickerDialog(
-        visible = showIntervalPicker,
-        title = "GPS Frequency",
-        selectedValue = sampleIntervalSeconds,
-        options = RECORDING_INTERVAL_OPTIONS_SECONDS.map { it to recordingIntervalLabel(it) },
-        onDismiss = { showIntervalPicker = false },
-        onSelect = { seconds ->
-            viewModel.setRecordingSampleIntervalSeconds(seconds)
-            if (seconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) {
-                showGpsDisabledWarning = true
-            }
-        },
-    )
     WearActionDialog(
         visible = showGpsDisabledWarning,
         title = "GPS deactivated",
@@ -82,18 +77,6 @@ fun RecordingSettingsScreen(
         confirmText = "OK",
         onConfirm = { showGpsDisabledWarning = false },
         onDismissRequest = { showGpsDisabledWarning = false },
-    )
-}
-
-@Composable
-private fun RecordingGpsIntervalSetting(
-    sampleIntervalSeconds: Int,
-    onClick: () -> Unit,
-) {
-    SettingsPickerChip(
-        label = "GPS Frequency",
-        secondaryLabel = recordingIntervalLabel(sampleIntervalSeconds),
-        onClick = onClick,
     )
 }
 

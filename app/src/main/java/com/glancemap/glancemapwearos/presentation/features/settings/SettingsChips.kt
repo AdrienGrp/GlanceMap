@@ -36,10 +36,10 @@ private val SelectedPickerChipContent = Color(0xFFF1FFF5)
 private val SelectedPickerChipSecondary = Color(0xFFB7DCC4)
 private val SelectedPickerChipIcon = Color(0xFF8FF0A4)
 
-private val SectionChipBackground = Color(0xFF1F3554)
-private val SectionChipContent = Color(0xFFF4F7FB)
-private val SectionChipSecondary = Color(0xFFC9D7EA)
-private val SectionChipIcon = Color(0xFFF6C453)
+internal val SectionChipBackground = Color(0xFF1F3554)
+internal val SectionChipContent = Color(0xFFF4F7FB)
+internal val SectionChipSecondary = Color(0xFFC9D7EA)
+internal val SectionChipIcon = Color(0xFFF6C453)
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable

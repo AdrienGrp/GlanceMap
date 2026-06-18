@@ -92,9 +92,7 @@ fun RecordingExternalSensorsScreen(
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
-            SettingsSectionChip(
-                label = "Recording settings",
-                secondaryLabel = "Back to REC settings",
+            RecordingSettingsShortcutChip(
                 onClick = onOpenRecordingSettings,
             )
         }
