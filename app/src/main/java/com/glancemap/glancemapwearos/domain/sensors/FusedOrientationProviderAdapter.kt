@@ -580,9 +580,7 @@ internal class FusedOrientationProviderAdapter(
         val jump = abs(shortestAngleDiffDeg(target = displayHeading, current = currentHeading))
 
         val pendingJump = fusedPendingJumpHeading
-        val hasPendingJump =
-            pendingJump != null &&
-                (now - fusedPendingJumpAtMs) <= HEADING_LARGE_JUMP_CONFIRM_WINDOW_MS
+        val hasPendingJump = pendingJump != null
         val pendingDelta =
             if (hasPendingJump) {
                 abs(shortestAngleDiffDeg(target = displayHeading, current = pendingJump))
@@ -611,7 +609,8 @@ internal class FusedOrientationProviderAdapter(
                 if (!inRelock && jump > HEADING_LARGE_JUMP_REJECT_DEG) {
                     logDiagnostics(
                         "google_fused large_jump accepted jump=${jump.format(1)} " +
-                            "pendingDelta=${pendingDelta.formatOrNA(1)}",
+                            "pendingDelta=${pendingDelta.formatOrNA(1)} " +
+                            "pendingAgeMs=$pendingAgeMs",
                     )
                 }
                 fusedPendingJumpHeading = null
@@ -626,7 +625,9 @@ internal class FusedOrientationProviderAdapter(
                     )
                 }
                 fusedPendingJumpHeading = displayHeading
-                fusedPendingJumpAtMs = now
+                if (!hasPendingJump) {
+                    fusedPendingJumpAtMs = now
+                }
             }
             LargeJumpAction.NONE -> {
                 if (fusedPendingJumpHeading != null) {
@@ -1031,6 +1032,7 @@ private const val FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG = 12f
 private const val FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG = 45f
 private const val FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MIN_CONFIRM_AGE_MS = 120L
 private const val FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MAX_DELTA_DEG = 18f
+private const val FUSED_LARGE_JUMP_ABSOLUTE_TIMEOUT_MS = 500L
 
 internal enum class FusedRestartHeadingAction {
     IGNORE_FIRST,
@@ -1169,6 +1171,13 @@ internal fun resolveFusedLargeJumpAction(
             pendingAgeMs >= FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MIN_CONFIRM_AGE_MS &&
             pendingDeltaDeg.isFinite() &&
             pendingDeltaDeg <= FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MAX_DELTA_DEG
+    val pendingConfirmationTimedOut =
+        hasPendingLargeJump &&
+            pendingAgeMs >= FUSED_LARGE_JUMP_ABSOLUTE_TIMEOUT_MS
+
+    if (pendingConfirmationTimedOut) {
+        return LargeJumpAction.ACCEPT_CONFIRMED
+    }
 
     if (!hasTrustedConservativeError && !hasTrustedLiveError && hasPendingLargeJump) {
         return if (weakConfidencePendingConfirmationReady) {

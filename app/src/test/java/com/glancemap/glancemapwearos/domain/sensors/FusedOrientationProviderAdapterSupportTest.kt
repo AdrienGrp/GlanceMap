@@ -239,6 +239,22 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
+    fun pendingLargeJumpIsAcceptedAfterAbsoluteTimeoutDespiteInconsistentSamples() {
+        val action =
+            resolveFusedLargeJumpAction(
+                jumpDeg = 148f,
+                inRelock = false,
+                hasPendingLargeJump = true,
+                pendingDeltaDeg = 80f,
+                pendingAgeMs = 500L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
+        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
+    }
+
+    @Test
     fun bootstrapSensorHeadingCanBridgeGoogleFusedWarmup() {
         val fusedState = initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED)
         val bootstrapState =
