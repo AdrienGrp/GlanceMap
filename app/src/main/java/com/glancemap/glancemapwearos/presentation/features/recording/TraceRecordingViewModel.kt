@@ -368,7 +368,7 @@ class TraceRecordingViewModel(
                 (distance - base).coerceAtLeast(0.0)
             }
         externalDistanceMeters?.let { externalSessionDistanceMeters = it }
-        _uiState.value =
+        val nextState =
             state.copy(
                 heartRateBpm = metrics.heartRateBpm,
                 heartRateFromBluetooth = metrics.heartRateFromBluetooth,
@@ -389,6 +389,9 @@ class TraceRecordingViewModel(
                 cadenceFromBluetooth = metrics.cadenceFromBluetooth,
                 barometricPressureHpa = metrics.barometricPressureHpa,
             )
+        if (nextState != state) {
+            _uiState.value = nextState
+        }
     }
 
     private fun updateRecordingSourceState() {
@@ -803,8 +806,13 @@ class TraceRecordingViewModel(
         if (next.cadenceUpdatedAtMillis > previous.cadenceUpdatedAtMillis) {
             cadenceSensorEventCount += 1
         }
-        if (next.barometricPressureUpdatedAtMillis > previous.barometricPressureUpdatedAtMillis) {
-            pressureSensorEventCount += 1
+        if (next.barometricPressureSensorEventCount > previous.barometricPressureSensorEventCount) {
+            val newEvents =
+                next.barometricPressureSensorEventCount - previous.barometricPressureSensorEventCount
+            pressureSensorEventCount =
+                (pressureSensorEventCount.toLong() + newEvents)
+                    .coerceAtMost(Int.MAX_VALUE.toLong())
+                    .toInt()
         }
     }
 

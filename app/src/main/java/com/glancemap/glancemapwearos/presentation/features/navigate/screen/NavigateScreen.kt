@@ -98,6 +98,11 @@ fun NavigateScreen(
     val lifecycleState = rememberNavigateScreenLifecycleState(isDeviceInteractive = isDeviceInteractive)
     val isScreenResumed = lifecycleState.isScreenResumed
     val lastScreenResumeElapsedMs = lifecycleState.lastScreenResumeElapsedMs
+    val startRecordingWithActivityPermission =
+        rememberRecordingStartWithActivityPermission(
+            context = context,
+            onStartRecording = traceRecordingViewModel::startRecording,
+        )
     val menuClickGuardUntilElapsedMs = lifecycleState.menuClickGuardUntilElapsedMs
 
     // ---- UI STATE ----
@@ -862,7 +867,7 @@ fun NavigateScreen(
         recordingActionPromptRequestToken = recordingActionPromptRequestToken,
         onStartRecording = {
             shortcutTrayExpanded = false
-            traceRecordingViewModel.startRecording()
+            startRecordingWithActivityPermission()
         },
         onPauseRecording = traceRecordingViewModel::pauseRecording,
         onResumeRecording = traceRecordingViewModel::resumeRecording,

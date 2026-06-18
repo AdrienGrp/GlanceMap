@@ -8,6 +8,10 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.Looper
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -15,8 +19,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -28,6 +30,9 @@ import com.glancemap.glancemapwearos.presentation.features.recording.external.Ex
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodSensorBridge
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 data class RecordingSensorMetrics(
@@ -50,8 +55,62 @@ data class RecordingSensorMetrics(
     val externalBatteryUpdatedAtMillis: Long = 0L,
     val barometricPressureHpa: Double? = null,
     val barometricPressureUpdatedAtMillis: Long = 0L,
+    val barometricPressureSensorEventCount: Long = 0L,
     val heartRateFromBluetooth: Boolean = false,
 )
+
+private data class StepCounterReading(
+    val steps: Int,
+    val cadenceSpm: Int?,
+)
+
+private class RecordingSensorRuntimeState {
+    private var stepCounterBase: Float? = null
+    private var lastStepCounterValue: Float? = null
+    private var lastStepCounterTimeMs = 0L
+    private val stepDetectorEventTimes = ArrayDeque<Long>()
+
+    @Synchronized
+    fun reset() {
+        stepCounterBase = null
+        lastStepCounterValue = null
+        lastStepCounterTimeMs = 0L
+        stepDetectorEventTimes.clear()
+    }
+
+    @Synchronized
+    fun updateStepCounter(
+        value: Float,
+        nowMillis: Long,
+    ): StepCounterReading {
+        val base = stepCounterBase ?: value.also { stepCounterBase = it }
+        val steps = (value - base).roundToInt().coerceAtLeast(0)
+        val previousValue = lastStepCounterValue
+        val previousTimeMs = lastStepCounterTimeMs
+        val cadence =
+            if (previousValue != null && previousTimeMs > 0L && nowMillis > previousTimeMs) {
+                val deltaSteps = (value - previousValue).coerceAtLeast(0f)
+                val deltaMinutes = (nowMillis - previousTimeMs) / 60_000.0
+                (deltaSteps / deltaMinutes).roundToInt().takeIf { it > 0 }
+            } else {
+                null
+            }
+        lastStepCounterValue = value
+        lastStepCounterTimeMs = nowMillis
+        return StepCounterReading(steps = steps, cadenceSpm = cadence)
+    }
+
+    @Synchronized
+    fun updateStepDetector(nowMillis: Long): Int? {
+        stepDetectorEventTimes.addLast(nowMillis)
+        while (stepDetectorEventTimes.firstOrNull()?.let { nowMillis - it > CADENCE_WINDOW_MS } == true) {
+            stepDetectorEventTimes.removeFirst()
+        }
+        return ((stepDetectorEventTimes.size * 60_000.0) / CADENCE_WINDOW_MS)
+            .roundToInt()
+            .takeIf { it > 0 }
+    }
+}
 
 @Composable
 fun RecordingSensorBridge(
@@ -120,10 +179,8 @@ fun RecordingSensorBridge(
             )
         }
     var metrics by remember { mutableStateOf(RecordingSensorMetrics()) }
-    var stepCounterBase by remember { mutableStateOf<Float?>(null) }
-    var lastStepCounterValue by remember { mutableStateOf<Float?>(null) }
-    var lastStepCounterTimeMs by remember { mutableLongStateOf(0L) }
-    val stepDetectorEventTimes = remember { mutableStateListOf<Long>() }
+    val sensorRuntimeState = remember { RecordingSensorRuntimeState() }
+    val pressureSensorEventCount = remember { AtomicLong(0L) }
 
     ExternalHeartRateSensorBridge(
         active = active && useExternalHeartRate,
@@ -207,10 +264,8 @@ fun RecordingSensorBridge(
     LaunchedEffect(active) {
         if (!active) {
             metrics = RecordingSensorMetrics()
-            stepCounterBase = null
-            lastStepCounterValue = null
-            lastStepCounterTimeMs = 0L
-            stepDetectorEventTimes.clear()
+            sensorRuntimeState.reset()
+            pressureSensorEventCount.set(0L)
             onMetrics(metrics)
         }
     }
@@ -281,6 +336,22 @@ fun RecordingSensorBridge(
         }
 
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val mainHandler = Handler(Looper.getMainLooper())
+        val sensorThread = HandlerThread(RECORDING_SENSOR_THREAD_NAME).apply { start() }
+        val sensorHandler = Handler(sensorThread.looper)
+        val disposed = AtomicBoolean(false)
+        var lastPressurePublishedAtElapsedMs = 0L
+        var lastPressurePublishedHpa: Double? = null
+
+        fun publishSensorUpdate(update: (RecordingSensorMetrics) -> RecordingSensorMetrics) {
+            mainHandler.post {
+                if (disposed.get()) return@post
+                val updatedMetrics = update(metrics)
+                metrics = updatedMetrics
+                onMetrics(updatedMetrics)
+            }
+        }
+
         val listener =
             object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
@@ -288,97 +359,92 @@ fun RecordingSensorBridge(
                         Sensor.TYPE_HEART_RATE -> {
                             val bpm = event.values.firstOrNull()?.roundToInt()?.takeIf { it > 0 }
                             val now = System.currentTimeMillis()
-                            metrics =
-                                metrics.copy(
+                            publishSensorUpdate { current ->
+                                current.copy(
                                     heartRateBpm = bpm,
-                                    heartRateUpdatedAtMillis = if (bpm != null) now else metrics.heartRateUpdatedAtMillis,
+                                    heartRateUpdatedAtMillis =
+                                        if (bpm != null) now else current.heartRateUpdatedAtMillis,
                                     heartRateFromBluetooth = false,
                                 )
+                            }
                         }
                         Sensor.TYPE_STEP_COUNTER -> {
                             val value = event.values.firstOrNull() ?: return
-                            val base = stepCounterBase ?: value.also { stepCounterBase = it }
-                            val steps = (value - base).roundToInt().coerceAtLeast(0)
                             val now = System.currentTimeMillis()
-                            val previousValue = lastStepCounterValue
-                            val previousTimeMs = lastStepCounterTimeMs
-                            val cadence =
-                                if (previousValue != null && previousTimeMs > 0L && now > previousTimeMs) {
-                                    val deltaSteps = (value - previousValue).coerceAtLeast(0f)
-                                    val deltaMinutes = (now - previousTimeMs) / 60_000.0
-                                    if (deltaMinutes > 0.0) {
-                                        (deltaSteps / deltaMinutes).roundToInt().takeIf { it > 0 }
-                                    } else {
-                                        null
-                                    }
-                                } else {
-                                    metrics.cadenceSpm
-                                }
-                            lastStepCounterValue = value
-                            lastStepCounterTimeMs = now
-                            metrics =
-                                metrics.copy(
-                                    stepCount = steps,
+                            val reading = sensorRuntimeState.updateStepCounter(value = value, nowMillis = now)
+                            publishSensorUpdate { current ->
+                                current.copy(
+                                    stepCount = reading.steps,
                                     stepCountUpdatedAtMillis = now,
                                     stepCountFromBluetooth = false,
-                                    cadenceSpm = cadence ?: metrics.cadenceSpm,
+                                    cadenceSpm = reading.cadenceSpm ?: current.cadenceSpm,
                                     cadenceUpdatedAtMillis =
-                                        if (cadence != null) {
+                                        if (reading.cadenceSpm != null) {
                                             now
                                         } else {
-                                            metrics.cadenceUpdatedAtMillis
+                                            current.cadenceUpdatedAtMillis
                                         },
                                     cadenceFromBluetooth =
-                                        if (cadence != null) {
+                                        if (reading.cadenceSpm != null) {
                                             false
                                         } else {
-                                            metrics.cadenceFromBluetooth
+                                            current.cadenceFromBluetooth
                                         },
                                 )
+                            }
                         }
                         Sensor.TYPE_STEP_DETECTOR -> {
                             val now = System.currentTimeMillis()
-                            stepDetectorEventTimes.add(now)
-                            while (stepDetectorEventTimes.firstOrNull()?.let { now - it > CADENCE_WINDOW_MS } == true) {
-                                stepDetectorEventTimes.removeAt(0)
-                            }
-                            val cadence =
-                                ((stepDetectorEventTimes.size * 60_000.0) / CADENCE_WINDOW_MS)
-                                    .roundToInt()
-                                    .takeIf { it > 0 }
-                            metrics =
-                                metrics.copy(
-                                    cadenceSpm = cadence ?: metrics.cadenceSpm,
+                            val cadence = sensorRuntimeState.updateStepDetector(nowMillis = now)
+                            publishSensorUpdate { current ->
+                                current.copy(
+                                    cadenceSpm = cadence ?: current.cadenceSpm,
                                     cadenceUpdatedAtMillis =
                                         if (cadence != null) {
                                             now
                                         } else {
-                                            metrics.cadenceUpdatedAtMillis
+                                            current.cadenceUpdatedAtMillis
                                         },
                                     cadenceFromBluetooth =
                                         if (cadence != null) {
                                             false
                                         } else {
-                                            metrics.cadenceFromBluetooth
+                                            current.cadenceFromBluetooth
                                         },
                                 )
+                            }
                         }
                         Sensor.TYPE_PRESSURE -> {
-                            val pressure = event.values.firstOrNull()?.toDouble()?.takeIf { it > 0.0 }
+                            val pressure =
+                                event.values.firstOrNull()?.toDouble()?.takeIf { it > 0.0 }
+                                    ?: return
+                            val rawEventCount = pressureSensorEventCount.incrementAndGet()
                             val now = System.currentTimeMillis()
-                            metrics =
-                                metrics.copy(
+                            val nowElapsed = SystemClock.elapsedRealtime()
+                            val elapsedSincePublish = nowElapsed - lastPressurePublishedAtElapsedMs
+                            val meaningfullyChanged =
+                                lastPressurePublishedHpa
+                                    ?.let { abs(pressure - it) >= PRESSURE_MEANINGFUL_CHANGE_HPA }
+                                    ?: true
+                            val shouldPublish =
+                                lastPressurePublishedAtElapsedMs == 0L ||
+                                    elapsedSincePublish >= PRESSURE_UI_PUBLISH_INTERVAL_MS ||
+                                    (
+                                        meaningfullyChanged &&
+                                            elapsedSincePublish >= PRESSURE_MEANINGFUL_CHANGE_MIN_INTERVAL_MS
+                                    )
+                            if (!shouldPublish) return
+                            lastPressurePublishedAtElapsedMs = nowElapsed
+                            lastPressurePublishedHpa = pressure
+                            publishSensorUpdate { current ->
+                                current.copy(
                                     barometricPressureHpa = pressure,
-                                    barometricPressureUpdatedAtMillis =
-                                        if (pressure != null) {
-                                            now
-                                        } else {
-                                            metrics.barometricPressureUpdatedAtMillis
-                                        },
+                                    barometricPressureUpdatedAtMillis = now,
+                                    barometricPressureSensorEventCount = rawEventCount,
                                 )
+                            }
                         }
                     }
-                    onMetrics(metrics)
                 }
 
                 override fun onAccuracyChanged(
@@ -390,9 +456,10 @@ fun RecordingSensorBridge(
         val registered =
             registerRecordingSensors(
                 sensorManager = sensorManager,
-            listener = listener,
-            selectedMetricIds = sensorMetricIds,
-            context = context,
+                listener = listener,
+                selectedMetricIds = sensorMetricIds,
+                context = context,
+                handler = sensorHandler,
             )
         logRecordingSensorStatus(
             context = context,
@@ -415,7 +482,9 @@ fun RecordingSensorBridge(
         )
 
         onDispose {
+            disposed.set(true)
             sensorManager.unregisterListener(listener)
+            sensorThread.quitSafely()
             DebugTelemetry.log("TraceRecordingSensors", "event=unregister")
         }
     }
@@ -491,6 +560,7 @@ private fun registerRecordingSensors(
     listener: SensorEventListener,
     selectedMetricIds: List<String>,
     context: Context,
+    handler: Handler,
 ): List<String> {
     val registered = mutableListOf<String>()
     fun register(
@@ -498,7 +568,14 @@ private fun registerRecordingSensors(
         token: String,
     ) {
         val sensor = sensorManager.getDefaultSensor(type) ?: return
-        if (sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)) {
+        if (
+            sensorManager.registerListener(
+                listener,
+                sensor,
+                SensorManager.SENSOR_DELAY_NORMAL,
+                handler,
+            )
+        ) {
             registered += token
         }
     }
@@ -536,12 +613,6 @@ private fun recordingSensorPermissionsToRequest(
         ) {
             add(Manifest.permission.BODY_SENSORS)
         }
-        val needsStepPermission =
-            SettingsRepository.RECORDING_METRIC_STEPS in selectedMetricIds ||
-                SettingsRepository.RECORDING_METRIC_CADENCE in selectedMetricIds
-        if (needsStepPermission && !hasActivityRecognitionPermission(context)) {
-            add(activityRecognitionPermission())
-        }
     }
 
 private fun hasActivityRecognitionPermission(context: Context): Boolean =
@@ -572,3 +643,7 @@ private val recordingSensorMetricIds =
 
 private const val CADENCE_WINDOW_MS = 30_000L
 private const val RECORDING_SENSOR_STATUS_INTERVAL_MS = 60_000L
+private const val RECORDING_SENSOR_THREAD_NAME = "RecordingSensorThread"
+private const val PRESSURE_UI_PUBLISH_INTERVAL_MS = 1_000L
+private const val PRESSURE_MEANINGFUL_CHANGE_MIN_INTERVAL_MS = 250L
+private const val PRESSURE_MEANINGFUL_CHANGE_HPA = 0.5
