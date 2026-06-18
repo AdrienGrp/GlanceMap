@@ -1,0 +1,63 @@
+package com.glancemap.glancemapwearos.presentation.features.settings
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+
+@Composable
+fun TurnByTurnGuidanceSettingsScreen(
+    viewModel: SettingsViewModel,
+    onOpenTurnByTurnSettings: () -> Unit,
+) {
+    val guidanceSource by viewModel.turnByTurnGuidanceSource.collectAsState()
+    val routeStartBehavior by viewModel.turnByTurnRouteStartBehavior.collectAsState()
+    val reverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
+    val brouterGuideBackEnabled by viewModel.turnByTurnBrouterGuideBackEnabled.collectAsState()
+
+    WearSettingsListScreen(horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            TurnByTurnSettingsShortcutChip(onClick = onOpenTurnByTurnSettings)
+        }
+        item {
+            SettingsOptionPickerRow(
+                label = "Guidance source",
+                selectedValue = guidanceSource,
+                options = TurnByTurnGuidanceSourceOptions,
+                secondaryLabel = guidanceSourceLabel(guidanceSource),
+                onSelect = viewModel::setTurnByTurnGuidanceSource,
+            )
+        }
+        item {
+            SettingsOptionPickerRow(
+                label = "Route start behavior",
+                selectedValue = routeStartBehavior,
+                options = TurnByTurnRouteStartOptions,
+                secondaryLabel = routeStartBehaviorLabel(routeStartBehavior),
+                onSelect = viewModel::setTurnByTurnRouteStartBehavior,
+            )
+        }
+        item {
+            SettingsOptionPickerRow(
+                label = "Reverse suggestion",
+                selectedValue = reverseSuggestionMode,
+                options = TurnByTurnReverseSuggestionOptions,
+                secondaryLabel = reverseSuggestionLabel(reverseSuggestionMode),
+                onSelect = viewModel::setTurnByTurnReverseSuggestionMode,
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = brouterGuideBackEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnBrouterGuideBackEnabled,
+                label = "BRouter guide back",
+                secondaryLabel =
+                    if (brouterGuideBackEnabled) {
+                        "Route back when tiles are available"
+                    } else {
+                        "Use direct arrow back to GPX"
+                    },
+            )
+        }
+    }
+}

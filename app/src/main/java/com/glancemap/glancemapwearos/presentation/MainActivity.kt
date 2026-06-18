@@ -77,6 +77,10 @@ import com.glancemap.glancemapwearos.presentation.features.settings.RecordingSou
 import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefaultsConfirmScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnAlertsSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnBackgroundSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnFeedbackSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnGuidanceSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.UserProfileSettingsScreen
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
@@ -698,7 +702,6 @@ class MainActivity : ComponentActivity() {
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 TurnByTurnSettingsScreen(
-                                    viewModel = appContainer.settingsViewModel,
                                     onOpenGeneralSettings = {
                                         navController.navigate(WatchRoutes.SETTINGS) {
                                             popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
@@ -706,6 +709,62 @@ class MainActivity : ComponentActivity() {
                                             restoreState = true
                                         }
                                     },
+                                    onOpenGuidanceSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_GUIDANCE_SETTINGS)
+                                    },
+                                    onOpenAlertsSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_ALERTS_SETTINGS)
+                                    },
+                                    onOpenFeedbackSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_FEEDBACK_SETTINGS)
+                                    },
+                                    onOpenBackgroundSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_BACKGROUND_SETTINGS)
+                                    },
+                                )
+                            }
+                        }
+
+                        val openTurnByTurnSettings = {
+                            navController.navigate(WatchRoutes.TURN_BY_TURN_SETTINGS) {
+                                popUpTo(WatchRoutes.TURN_BY_TURN_SETTINGS) { inclusive = false }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                        val turnByTurnCategoryScreens: List<Pair<String, @Composable () -> Unit>> =
+                            listOf(
+                                WatchRoutes.TURN_BY_TURN_GUIDANCE_SETTINGS to {
+                                    TurnByTurnGuidanceSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                                WatchRoutes.TURN_BY_TURN_ALERTS_SETTINGS to {
+                                    TurnByTurnAlertsSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                                WatchRoutes.TURN_BY_TURN_FEEDBACK_SETTINGS to {
+                                    TurnByTurnFeedbackSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                                WatchRoutes.TURN_BY_TURN_BACKGROUND_SETTINGS to {
+                                    TurnByTurnBackgroundSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                            )
+                        turnByTurnCategoryScreens.forEach { (route, screen) ->
+                            composable(route) {
+                                DismissableScreen(
+                                    onDismiss = { navController.popBackStack() },
+                                    onSwipeLeftNavigate = navigateViaSwipeLeft,
+                                    content = screen,
                                 )
                             }
                         }
