@@ -594,7 +594,7 @@ internal class FusedOrientationProviderAdapter(
                 0L
             }
 
-        when (
+        val largeJumpAction =
             resolveFusedLargeJumpAction(
                 jumpDeg = jump,
                 inRelock = inRelock,
@@ -604,13 +604,20 @@ internal class FusedOrientationProviderAdapter(
                 headingErrorDeg = headingErrorDeg,
                 conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
             )
-        ) {
+
+        when (largeJumpAction) {
             LargeJumpAction.ACCEPT_IMMEDIATE, LargeJumpAction.ACCEPT_CONFIRMED -> {
                 if (!inRelock && jump > HEADING_LARGE_JUMP_REJECT_DEG) {
+                    val acceptanceReason =
+                        fusedLargeJumpAcceptanceReason(
+                            action = largeJumpAction,
+                            pendingAgeMs = pendingAgeMs,
+                        )
                     logDiagnostics(
                         "google_fused large_jump accepted jump=${jump.format(1)} " +
                             "pendingDelta=${pendingDelta.formatOrNA(1)} " +
-                            "pendingAgeMs=$pendingAgeMs",
+                            "pendingAgeMs=$pendingAgeMs " +
+                            "acceptReason=${acceptanceReason.telemetryToken}",
                     )
                 }
                 fusedPendingJumpHeading = null
@@ -1193,4 +1200,23 @@ internal fun resolveFusedLargeJumpAction(
         hasPendingLargeJump = hasPendingLargeJump,
         pendingDeltaDeg = pendingDeltaDeg,
     )
+}
+
+internal enum class FusedLargeJumpAcceptanceReason(
+    val telemetryToken: String,
+) {
+    STABLE("stable"),
+    TIMEOUT_500_MS("500ms_timeout"),
+}
+
+internal fun fusedLargeJumpAcceptanceReason(
+    action: LargeJumpAction,
+    pendingAgeMs: Long,
+): FusedLargeJumpAcceptanceReason {
+    require(action == LargeJumpAction.ACCEPT_IMMEDIATE || action == LargeJumpAction.ACCEPT_CONFIRMED)
+    return if (pendingAgeMs >= FUSED_LARGE_JUMP_ABSOLUTE_TIMEOUT_MS) {
+        FusedLargeJumpAcceptanceReason.TIMEOUT_500_MS
+    } else {
+        FusedLargeJumpAcceptanceReason.STABLE
+    }
 }

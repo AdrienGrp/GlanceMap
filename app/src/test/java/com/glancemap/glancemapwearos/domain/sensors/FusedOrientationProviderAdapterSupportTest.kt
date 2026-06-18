@@ -252,6 +252,30 @@ class FusedOrientationProviderAdapterSupportTest {
             )
 
         assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
+        assertEquals(
+            FusedLargeJumpAcceptanceReason.TIMEOUT_500_MS,
+            fusedLargeJumpAcceptanceReason(action = action, pendingAgeMs = 500L),
+        )
+    }
+
+    @Test
+    fun coherentPendingLargeJumpReportsStableAcceptanceReason() {
+        val action =
+            resolveFusedLargeJumpAction(
+                jumpDeg = 148f,
+                inRelock = false,
+                hasPendingLargeJump = true,
+                pendingDeltaDeg = 12f,
+                pendingAgeMs = 150L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
+        assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
+        assertEquals(
+            FusedLargeJumpAcceptanceReason.STABLE,
+            fusedLargeJumpAcceptanceReason(action = action, pendingAgeMs = 150L),
+        )
     }
 
     @Test
