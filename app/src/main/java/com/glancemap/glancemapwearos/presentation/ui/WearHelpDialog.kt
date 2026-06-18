@@ -19,10 +19,13 @@ fun WearHelpDialog(
         dismissible = dismissible,
         backgroundColor = backgroundColor,
     ) {
-        lines.forEach { line ->
-            item {
-                WearInfoText(line)
+        lines
+            .flatMap { line -> line.lines() }
+            .filter { line -> line.isNotBlank() }
+            .forEach { line ->
+                item {
+                    WearInfoText(line)
+                }
             }
-        }
     }
 }

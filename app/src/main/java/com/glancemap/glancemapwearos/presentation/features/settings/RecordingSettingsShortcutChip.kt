@@ -16,6 +16,7 @@ internal fun RecordingSettingsShortcutChip(
         standardSecondaryLabel = "Back to REC settings",
         compactSecondaryLabel = "Back",
         iconImageVector = Icons.Filled.Folder,
+        applyTopPadding = true,
         modifier = modifier,
         onClick = onClick,
     )

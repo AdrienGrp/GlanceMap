@@ -111,27 +111,27 @@ fun RecordingSourceSettingsScreen(
 
 private val RECORDING_ELEVATION_SOURCE_OPTIONS =
     listOf(
-        SettingsRepository.RECORDING_SOURCE_DISABLED,
         SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
         SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
         SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO,
+        SettingsRepository.RECORDING_SOURCE_DISABLED,
     )
 private val RECORDING_HEART_RATE_SOURCE_OPTIONS =
     listOf(
-        SettingsRepository.RECORDING_SOURCE_DISABLED,
         SettingsRepository.RECORDING_HEART_RATE_SOURCE_WATCH,
         SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP,
+        SettingsRepository.RECORDING_SOURCE_DISABLED,
     )
 private val RECORDING_SENSOR_SOURCE_OPTIONS =
     listOf(
-        SettingsRepository.RECORDING_SOURCE_DISABLED,
         SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
         SettingsRepository.RECORDING_SENSOR_SOURCE_POD,
+        SettingsRepository.RECORDING_SOURCE_DISABLED,
     )
 private val RECORDING_STEPS_SOURCE_OPTIONS =
     listOf(
-        SettingsRepository.RECORDING_SOURCE_DISABLED,
         SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
+        SettingsRepository.RECORDING_SOURCE_DISABLED,
     )
 
 private fun recordingElevationSourceLabel(source: String): String =

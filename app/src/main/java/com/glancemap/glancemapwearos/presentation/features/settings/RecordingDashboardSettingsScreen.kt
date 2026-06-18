@@ -51,14 +51,14 @@ fun RecordingDashboardSettingsScreen(
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
-            SettingsInfoButton(
-                contentDescription = "Dashboard info",
-                onClick = { showInfoDialog = true },
+            RecordingSettingsShortcutChip(
+                onClick = onOpenRecordingSettings,
             )
         }
         item {
-            RecordingSettingsShortcutChip(
-                onClick = onOpenRecordingSettings,
+            SettingsInfoButton(
+                contentDescription = "Dashboard info",
+                onClick = { showInfoDialog = true },
             )
         }
         item {
