@@ -1,20 +1,33 @@
 package com.glancemap.glancemapwearos.data.repository
 
 internal const val RECORDING_DASHBOARD_PAGE_SLOT_COUNT = 4
-internal const val RECORDING_DASHBOARD_TOTAL_SLOT_COUNT = 8
+internal const val RECORDING_DASHBOARD_MIN_PAGE_COUNT = 1
+internal const val RECORDING_DASHBOARD_MAX_PAGE_COUNT = 5
+internal const val RECORDING_DASHBOARD_MAX_SLOT_COUNT =
+    RECORDING_DASHBOARD_PAGE_SLOT_COUNT * RECORDING_DASHBOARD_MAX_PAGE_COUNT
 
 internal fun normalizeRecordingDashboardMetricSlots(metricSlots: List<String>): List<String> {
-    val migratedSlots =
-        if (metricSlots.take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT) == LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS) {
-            SettingsRepository.DEFAULT_RECORDING_DASHBOARD_METRICS +
-                metricSlots.drop(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
-        } else {
-            metricSlots
-        }
+    if (metricSlots.isEmpty()) return SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+    if (metricSlots.size == RECORDING_DASHBOARD_PAGE_SLOT_COUNT &&
+        metricSlots == LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS
+    ) {
+        return SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+    }
+
+    val boundedSlots = metricSlots.take(RECORDING_DASHBOARD_MAX_SLOT_COUNT)
+    val targetSize =
+        boundedSlots.size
+            .coerceAtLeast(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
+            .let { size ->
+                val remainder = size % RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+                if (remainder == 0) size else size + RECORDING_DASHBOARD_PAGE_SLOT_COUNT - remainder
+            }.coerceAtMost(RECORDING_DASHBOARD_MAX_SLOT_COUNT)
     return (
-        migratedSlots.take(RECORDING_DASHBOARD_TOTAL_SLOT_COUNT) +
-            SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS.drop(migratedSlots.size)
-    ).take(RECORDING_DASHBOARD_TOTAL_SLOT_COUNT)
+        boundedSlots +
+            generateSequence { SettingsRepository.DEFAULT_RECORDING_DASHBOARD_NEW_PAGE_METRICS }
+                .flatten()
+                .take(targetSize - boundedSlots.size)
+    ).take(targetSize)
 }
 
 private val LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS =

@@ -188,6 +188,16 @@ class SettingsViewModel(
         settingsRepository.setRecordingDashboardMetricSlot(slotIndex, metricId)
     }
 
+    fun addRecordingDashboardPage() =
+        viewModelScope.launch {
+            settingsRepository.addRecordingDashboardPage()
+        }
+
+    fun deleteRecordingDashboardPage(pageIndex: Int) =
+        viewModelScope.launch {
+            settingsRepository.deleteRecordingDashboardPage(pageIndex)
+        }
+
     val recordingShowSavedGpxOnMap: StateFlow<Boolean> =
         settingsRepository.recordingShowSavedGpxOnMap
             .stateIn(

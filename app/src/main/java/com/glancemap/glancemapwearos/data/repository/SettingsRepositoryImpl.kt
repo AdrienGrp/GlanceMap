@@ -320,6 +320,31 @@ class SettingsRepositoryImpl private constructor(
         }
     }
 
+    override suspend fun addRecordingDashboardPage() {
+        context.dataStore.edit {
+            val current = sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+            if (current.size >= RECORDING_DASHBOARD_MAX_SLOT_COUNT) return@edit
+            val next = current + SettingsRepository.DEFAULT_RECORDING_DASHBOARD_NEW_PAGE_METRICS
+            it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] =
+                next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override suspend fun deleteRecordingDashboardPage(pageIndex: Int) {
+        context.dataStore.edit {
+            val current = sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+            val pageCount = current.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+            if (pageCount <= RECORDING_DASHBOARD_MIN_PAGE_COUNT || pageIndex !in 0 until pageCount) return@edit
+            val startIndex = pageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+            val next =
+                current.filterIndexed { index, _ ->
+                    index !in startIndex until startIndex + RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+                }
+            it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] =
+                next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
     override val recordingShowSavedGpxOnMap: Flow<Boolean> =
         context.dataStore.data.map {
             it[PrefKeys.RECORDING_SHOW_SAVED_GPX_ON_MAP]

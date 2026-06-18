@@ -70,6 +70,13 @@ interface SettingsRepository {
             )
         val DEFAULT_RECORDING_DASHBOARD_ALL_METRICS =
             DEFAULT_RECORDING_DASHBOARD_METRICS + DEFAULT_RECORDING_DASHBOARD_PAGE_TWO_METRICS
+        val DEFAULT_RECORDING_DASHBOARD_NEW_PAGE_METRICS =
+            listOf(
+                RECORDING_METRIC_CURRENT_SPEED,
+                RECORDING_METRIC_AVERAGE_SPEED,
+                RECORDING_METRIC_CURRENT_PACE,
+                RECORDING_METRIC_HEART_RATE,
+            )
 
         const val ZOOM_BUTTONS_BOTH = "BOTH"
         const val ZOOM_BUTTONS_HIDE_BOTH = "HIDE_BOTH"
@@ -209,6 +216,10 @@ interface SettingsRepository {
         slotIndex: Int,
         metricId: String,
     )
+
+    suspend fun addRecordingDashboardPage()
+
+    suspend fun deleteRecordingDashboardPage(pageIndex: Int)
 
     val recordingShowSavedGpxOnMap: Flow<Boolean>
 
