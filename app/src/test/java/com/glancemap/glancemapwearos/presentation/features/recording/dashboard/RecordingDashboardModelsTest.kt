@@ -27,18 +27,47 @@ class RecordingDashboardModelsTest {
     }
 
     @Test
-    fun normalizedRecordingDashboardSlotsTrimsToTwoPages() {
+    fun normalizedRecordingDashboardSlotsPreservesDynamicPages() {
         val slots =
             normalizedRecordingDashboardSlots(
                 SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS +
                     listOf(
+                        SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
+                        SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
                         SettingsRepository.RECORDING_METRIC_AVERAGE_PACE,
                         SettingsRepository.RECORDING_METRIC_HEART_RATE,
                     ),
             )
 
+        assertEquals(12, slots.size)
+        assertEquals(SettingsRepository.RECORDING_METRIC_HEART_RATE, slots.last())
+    }
+
+    @Test
+    fun normalizedRecordingDashboardSlotsKeepsExistingEightSlotsAsTwoPages() {
+        val slots =
+            normalizedRecordingDashboardSlots(
+                SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS,
+            )
+
         assertEquals(8, slots.size)
         assertEquals(SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS, slots)
+    }
+
+    @Test
+    fun normalizedRecordingDashboardSlotsCapsPagesAtFive() {
+        val sixPages =
+            List(24) { index ->
+                if (index % 2 == 0) {
+                    SettingsRepository.RECORDING_METRIC_DISTANCE
+                } else {
+                    SettingsRepository.RECORDING_METRIC_DURATION
+                }
+            }
+
+        val slots = normalizedRecordingDashboardSlots(sixPages)
+
+        assertEquals(20, slots.size)
     }
 
     @Test

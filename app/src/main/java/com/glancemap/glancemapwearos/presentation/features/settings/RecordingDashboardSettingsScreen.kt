@@ -32,6 +32,12 @@ fun RecordingDashboardSettingsScreen(
     var pendingAddedPage by remember { mutableStateOf<Int?>(null) }
     var selectedDashboardSlot by remember { mutableStateOf<Int?>(null) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    var showPageManager by remember { mutableStateOf(false) }
+    val selectedPageSlots =
+        dashboardSlots
+            .drop(selectedDashboardPage * RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
+            .take(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
+    val selectedPagePreview = selectedPageSlots.joinToString(" · ", transform = ::recordingMetricLabel)
 
     LaunchedEffect(dashboardPageCount) {
         pendingAddedPage?.let { requestedPage ->
@@ -56,28 +62,17 @@ fun RecordingDashboardSettingsScreen(
             )
         }
         item {
-            SettingsOptionPickerRow(
-                label = "Dashboard page",
-                selectedValue = selectedDashboardPage,
-                options = (0 until dashboardPageCount).map { it to recordingDashboardPageLabel(it) },
-                secondaryLabel = recordingDashboardPageLabel(selectedDashboardPage),
-                onSelect = { selectedDashboardPage = it },
+            RecordingDashboardPageCard(
+                pageIndex = selectedDashboardPage,
+                pageCount = dashboardPageCount,
+                metricPreview = selectedPagePreview,
+                onClick = { showPageManager = true },
             )
-        }
-        RECORDING_DASHBOARD_SLOT_LABELS.forEachIndexed { pageSlotIndex, label ->
-            val absoluteSlotIndex = selectedDashboardPage * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + pageSlotIndex
-            item {
-                RecordingMetricSlotSetting(
-                    label = label,
-                    metricId = dashboardSlots[absoluteSlotIndex],
-                    onClick = { selectedDashboardSlot = absoluteSlotIndex },
-                )
-            }
         }
         if (dashboardPageCount < RECORDING_DASHBOARD_MAX_PAGE_COUNT) {
             item {
                 SettingsSectionChip(
-                    label = "Add dashboard page",
+                    label = "Add page",
                     secondaryLabel = "$dashboardPageCount of $RECORDING_DASHBOARD_MAX_PAGE_COUNT pages",
                     iconImageVector = Icons.Filled.Add,
                     onClick = {
@@ -90,7 +85,7 @@ fun RecordingDashboardSettingsScreen(
         if (dashboardPageCount > RECORDING_DASHBOARD_MIN_PAGE_COUNT) {
             item {
                 SettingsPickerChip(
-                    label = "Delete this page",
+                    label = "Delete page",
                     secondaryLabel = recordingDashboardPageLabel(selectedDashboardPage),
                     iconImageVector = Icons.Filled.Delete,
                     onClick = {
@@ -102,10 +97,40 @@ fun RecordingDashboardSettingsScreen(
                 )
             }
         }
+        RECORDING_DASHBOARD_SLOT_LABELS.forEachIndexed { pageSlotIndex, label ->
+            val absoluteSlotIndex = selectedDashboardPage * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + pageSlotIndex
+            item {
+                RecordingMetricSlotSetting(
+                    label = label,
+                    metricId = dashboardSlots[absoluteSlotIndex],
+                    onClick = { selectedDashboardSlot = absoluteSlotIndex },
+                )
+            }
+        }
     }
     RecordingDashboardInfoDialog(
         visible = showInfoDialog,
         onDismiss = { showInfoDialog = false },
+    )
+    RecordingDashboardPageManagerDialog(
+        visible = showPageManager,
+        pageIndex = selectedDashboardPage,
+        pageCount = dashboardPageCount,
+        metricPreview = selectedPagePreview,
+        canAddPage = dashboardPageCount < RECORDING_DASHBOARD_MAX_PAGE_COUNT,
+        canDeletePage = dashboardPageCount > RECORDING_DASHBOARD_MIN_PAGE_COUNT,
+        onSelectPage = { selectedDashboardPage = it },
+        onAddPage = {
+            pendingAddedPage = dashboardPageCount
+            viewModel.addRecordingDashboardPage()
+        },
+        onDeletePage = {
+            val pageToDelete = selectedDashboardPage
+            selectedDashboardPage = selectedDashboardPage.coerceAtMost(dashboardPageCount - 2)
+            viewModel.deleteRecordingDashboardPage(pageToDelete)
+        },
+        onEditPage = { showPageManager = false },
+        onDismiss = { showPageManager = false },
     )
 
     selectedDashboardSlot?.let { slotIndex ->
