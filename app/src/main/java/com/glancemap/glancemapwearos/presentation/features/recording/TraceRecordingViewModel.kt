@@ -42,13 +42,18 @@ class TraceRecordingViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TraceRecordingUiState())
     val uiState: StateFlow<TraceRecordingUiState> = _uiState.asStateFlow()
+    private val _startWarning = MutableStateFlow<RecordingStartWarning?>(null)
+    val startWarning: StateFlow<RecordingStartWarning?> = _startWarning.asStateFlow()
 
     private var sampleIntervalSeconds = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
     private var recordingElevationSource = SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
+    private var recordingHeartRateSource = SettingsRepository.DEFAULT_RECORDING_HEART_RATE_SOURCE
     private var recordingCadenceSource = SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE
     private var recordingSpeedSource = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE
     private var recordingDistanceSource = SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE
     private var recordingStepsSource = SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE
+    private var recordingExternalHeartRateAddress: String? = null
+    private var recordingExternalRunPodAddress: String? = null
     private var userWeightKg = SettingsRepository.DEFAULT_USER_WEIGHT_KG
     private var backpackWeightKg = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
     private var showSavedGpxOnMap = SettingsRepository.DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP
@@ -95,6 +100,9 @@ class TraceRecordingViewModel(
         settingsRepository.recordingElevationSource
             .onEach { recordingElevationSource = it }
             .launchIn(viewModelScope)
+        settingsRepository.recordingHeartRateSource
+            .onEach { recordingHeartRateSource = it }
+            .launchIn(viewModelScope)
         settingsRepository.recordingCadenceSource
             .onEach { source ->
                 recordingCadenceSource = source
@@ -118,6 +126,12 @@ class TraceRecordingViewModel(
                 recordingStepsSource = source
                 updateRecordingSourceState()
             }
+            .launchIn(viewModelScope)
+        settingsRepository.recordingExternalHeartRateAddress
+            .onEach { recordingExternalHeartRateAddress = it }
+            .launchIn(viewModelScope)
+        settingsRepository.recordingExternalRunPodAddress
+            .onEach { recordingExternalRunPodAddress = it }
             .launchIn(viewModelScope)
         settingsRepository.userWeightKg
             .onEach { userWeightKg = it }
@@ -149,6 +163,50 @@ class TraceRecordingViewModel(
     }
 
     fun startRecording() {
+        val state = _uiState.value
+        if (state.active || state.saving || _startWarning.value != null) return
+
+        val warning =
+            resolveRecordingStartWarning(
+                heartRateSource = recordingHeartRateSource,
+                cadenceSource = recordingCadenceSource,
+                speedSource = recordingSpeedSource,
+                distanceSource = recordingDistanceSource,
+                externalHeartRateAddress = recordingExternalHeartRateAddress,
+                externalRunPodAddress = recordingExternalRunPodAddress,
+            )
+        if (warning != null) {
+            _startWarning.value = warning
+            DebugTelemetry.log(
+                "TraceRecording",
+                "event=external_sensor_start_warning " +
+                    "unlinked=${warning.unlinkedDevices.joinToString(separator = ",").ifBlank { "none" }} " +
+                    "disconnected=${warning.disconnectedDevices.joinToString(separator = ",").ifBlank { "none" }}",
+            )
+            return
+        }
+
+        startRecordingNow()
+    }
+
+    fun confirmStartRecordingWithUnavailableSensors() {
+        val warning = _startWarning.value ?: return
+        _startWarning.value = null
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=external_sensor_start_warning_confirmed " +
+                "unlinked=${warning.unlinkedDevices.size} disconnected=${warning.disconnectedDevices.size}",
+        )
+        startRecordingNow()
+    }
+
+    fun cancelStartRecordingWithUnavailableSensors() {
+        if (_startWarning.value == null) return
+        _startWarning.value = null
+        DebugTelemetry.log("TraceRecording", "event=external_sensor_start_warning_cancelled")
+    }
+
+    private fun startRecordingNow() {
         val now = System.currentTimeMillis()
         lastAcceptedElapsedMs = Long.MIN_VALUE
         resetSessionTelemetry()

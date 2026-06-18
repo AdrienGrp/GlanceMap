@@ -84,6 +84,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnGu
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.UserProfileSettingsScreen
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.google.android.horologist.compose.layout.AppScaffold
 import kotlinx.coroutines.delay
@@ -159,6 +160,7 @@ class MainActivity : ComponentActivity() {
             val navigateTimeFormat by appContainer.settingsViewModel.navigateTimeFormat.collectAsState()
             val isMetric by appContainer.settingsViewModel.isMetric.collectAsState()
             val traceRecordingState by appContainer.traceRecordingViewModel.uiState.collectAsState()
+            val recordingStartWarning by appContainer.traceRecordingViewModel.startWarning.collectAsState()
             val turnByTurnGuidanceSession by appContainer.gpxViewModel.turnByTurnGuidanceSession.collectAsState()
             val turnByTurnGuidancePaused by appContainer.gpxViewModel.turnByTurnGuidancePaused.collectAsState()
             val gpsInAmbientMode by appContainer.settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
@@ -926,6 +928,16 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                WearActionDialog(
+                    visible = recordingStartWarning != null,
+                    title = "External sensors unavailable",
+                    message = recordingStartWarning?.message.orEmpty(),
+                    confirmText = "Record anyway",
+                    onConfirm = appContainer.traceRecordingViewModel::confirmStartRecordingWithUnavailableSensors,
+                    dismissText = "Cancel",
+                    onDismiss = appContainer.traceRecordingViewModel::cancelStartRecordingWithUnavailableSensors,
+                    onDismissRequest = appContainer.traceRecordingViewModel::cancelStartRecordingWithUnavailableSensors,
+                )
             }
         }
     }

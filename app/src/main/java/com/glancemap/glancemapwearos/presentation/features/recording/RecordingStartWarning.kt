@@ -1,0 +1,65 @@
+package com.glancemap.glancemapwearos.presentation.features.recording
+
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+
+data class RecordingStartWarning(
+    val unlinkedDevices: List<String>,
+    val disconnectedDevices: List<String>,
+) {
+    val message: String
+        get() =
+            buildList {
+                if (unlinkedDevices.isNotEmpty()) {
+                    add("No linked device: ${unlinkedDevices.joinToString()}.")
+                }
+                if (disconnectedDevices.isNotEmpty()) {
+                    add("Not connected yet: ${disconnectedDevices.joinToString()}.")
+                }
+                if (disconnectedDevices.isNotEmpty()) {
+                    add("Recording will try to connect linked sensors after it starts.")
+                }
+                add("Record anyway?")
+            }.joinToString(separator = "\n\n")
+}
+
+internal fun resolveRecordingStartWarning(
+    heartRateSource: String,
+    cadenceSource: String,
+    speedSource: String,
+    distanceSource: String,
+    externalHeartRateAddress: String?,
+    externalRunPodAddress: String?,
+): RecordingStartWarning? {
+    val heartRateStrapSelected =
+        heartRateSource == SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP
+    val runPodSelected =
+        cadenceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD ||
+            speedSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD ||
+            distanceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
+
+    if (!heartRateStrapSelected && !runPodSelected) return null
+
+    val unlinkedDevices =
+        buildList {
+            if (heartRateStrapSelected && externalHeartRateAddress.isNullOrBlank()) {
+                add("heart-rate strap")
+            }
+            if (runPodSelected && externalRunPodAddress.isNullOrBlank()) {
+                add("run pod")
+            }
+        }
+    val disconnectedDevices =
+        buildList {
+            if (heartRateStrapSelected && !externalHeartRateAddress.isNullOrBlank()) {
+                add("heart-rate strap")
+            }
+            if (runPodSelected && !externalRunPodAddress.isNullOrBlank()) {
+                add("run pod")
+            }
+        }
+
+    return RecordingStartWarning(
+        unlinkedDevices = unlinkedDevices,
+        disconnectedDevices = disconnectedDevices,
+    )
+}
