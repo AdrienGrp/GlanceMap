@@ -157,7 +157,7 @@ internal object EnergyDiagnostics {
         val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         if (level < 0 || scale <= 0) return "na"
         val pct = (level * 100f / scale.toFloat())
-        return "%.0f".format(pct)
+        return TelemetryFormatters.decimal(pct, 0)
     }
 
     private fun batteryTemperatureC(intent: Intent?): String {
@@ -165,7 +165,7 @@ internal object EnergyDiagnostics {
             intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
                 ?: Int.MIN_VALUE
         if (tempTenths == Int.MIN_VALUE) return "na"
-        return "%.1f".format(tempTenths / 10f)
+        return TelemetryFormatters.decimal(tempTenths / 10f, 1)
     }
 
     private fun batteryVoltageMv(intent: Intent?): String {

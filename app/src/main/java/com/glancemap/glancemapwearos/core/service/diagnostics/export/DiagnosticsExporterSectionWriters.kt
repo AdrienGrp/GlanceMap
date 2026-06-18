@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.core.service.diagnostics.export
 import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadSummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.TelemetryFormatters
 
 internal fun Appendable.writeLineDumpSection(
     title: String,
@@ -32,10 +33,10 @@ internal fun Appendable.writeEnergyByModeSummarySection(energySummary: EnergyDia
                     "maxCurNowUa=${stats.maxCurrentNowUa?.toString() ?: "na"} " +
                     "levelMin=${stats.minLevelPct?.toString() ?: "na"} " +
                     "levelMax=${stats.maxLevelPct?.toString() ?: "na"} " +
-                    "levelAvg=${formatOneDecimal(stats.avgLevelPct)} " +
-                    "tempMinC=${formatOneDecimal(stats.minTempC)} " +
-                    "tempMaxC=${formatOneDecimal(stats.maxTempC)} " +
-                    "tempAvgC=${formatOneDecimal(stats.avgTempC)}",
+                    "levelAvg=${TelemetryFormatters.decimalOrNa(stats.avgLevelPct, 1)} " +
+                    "tempMinC=${TelemetryFormatters.decimalOrNa(stats.minTempC, 1)} " +
+                    "tempMaxC=${TelemetryFormatters.decimalOrNa(stats.maxTempC, 1)} " +
+                    "tempAvgC=${TelemetryFormatters.decimalOrNa(stats.avgTempC, 1)}",
             )
         }
     }
@@ -84,12 +85,12 @@ internal fun Appendable.writeGnssSections(
     appendLine("firstFixTtffAvgMs=${if (gnssInsights.firstFixCount > 0) gnssInsights.firstFixTtffAvgMs else "na"}")
     appendLine("firstFixTtffMinMs=${if (gnssInsights.firstFixCount > 0) gnssInsights.firstFixTtffMinMs else "na"}")
     appendLine("firstFixTtffMaxMs=${if (gnssInsights.firstFixCount > 0) gnssInsights.firstFixTtffMaxMs else "na"}")
-    appendLine("satellitesAvg=${if (gnssInsights.statusSampleCount > 0) "%.2f".format(gnssInsights.satellitesAvg) else "na"}")
+    appendLine("satellitesAvg=${if (gnssInsights.statusSampleCount > 0) TelemetryFormatters.decimal(gnssInsights.satellitesAvg, 2) else "na"}")
     appendLine("satellitesMax=${if (gnssInsights.statusSampleCount > 0) gnssInsights.satellitesMax else "na"}")
-    appendLine("usedInFixAvg=${if (gnssInsights.statusSampleCount > 0) "%.2f".format(gnssInsights.usedInFixAvg) else "na"}")
+    appendLine("usedInFixAvg=${if (gnssInsights.statusSampleCount > 0) TelemetryFormatters.decimal(gnssInsights.usedInFixAvg, 2) else "na"}")
     appendLine("usedInFixMax=${if (gnssInsights.statusSampleCount > 0) gnssInsights.usedInFixMax else "na"}")
-    appendLine("cn0AvgDbHz=${gnssInsights.cn0AvgDbHz?.let { "%.2f".format(it) } ?: "na"}")
-    appendLine("cn0MaxDbHz=${gnssInsights.cn0MaxDbHz?.let { "%.1f".format(it) } ?: "na"}")
+    appendLine("cn0AvgDbHz=${TelemetryFormatters.decimalOrNa(gnssInsights.cn0AvgDbHz, 2)}")
+    appendLine("cn0MaxDbHz=${TelemetryFormatters.decimalOrNa(gnssInsights.cn0MaxDbHz, 1)}")
     appendLine("carrierFrequencyStatusCount=${gnssInsights.carrierFrequencyStatusCount}")
     appendLine("l1ObservedStatusCount=${gnssInsights.l1ObservedStatusCount}")
     appendLine("l5ObservedStatusCount=${gnssInsights.l5ObservedStatusCount}")
@@ -106,6 +107,3 @@ internal fun Appendable.writeGnssSections(
         lines = gnssLines,
     )
 }
-
-private fun formatOneDecimal(value: Double?): String =
-    value?.let { "%.1f".format(it) } ?: "na"

@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.core.service.location.telemetry
 
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.diagnostics.TelemetryFormatters
 import com.glancemap.glancemapwearos.core.service.location.activity.LocationActivityState
 
 internal class LocationServiceTelemetry(
@@ -649,8 +650,8 @@ internal class LocationServiceTelemetry(
 
         summaryWindowStartedAtMs = nowElapsedMs
         log(
-            "summary windowMs=$windowMs callbacks=$locationCallbacks cbPerMin=${"%.1f".format(callbackRatePerMin)} " +
-                "fixes=$acceptedFixes fixPerMin=${"%.1f".format(acceptedRatePerMin)} " +
+            "summary windowMs=$windowMs callbacks=$locationCallbacks cbPerMin=${TelemetryFormatters.decimal(callbackRatePerMin, 1)} " +
+                "fixes=$acceptedFixes fixPerMin=${TelemetryFormatters.decimal(acceptedRatePerMin, 1)} " +
                 "callbackFixes=$callbackAcceptedFixes immediateFixes=$immediateAcceptedFixes " +
                 "fixGapAvgMs=$avgFixGapMs fixGapMinMs=$minFixGapMs fixGapMaxMs=$maxFixGapMs " +
                 "filteredAcc=$filteredByAccuracy filteredCoord=$filteredByInvalidCoordinates " +
@@ -687,4 +688,4 @@ internal class LocationServiceTelemetry(
     }
 }
 
-private fun Float.format(digits: Int): String = "%.${digits}f".format(this)
+private fun Float.format(digits: Int): String = TelemetryFormatters.decimal(this, digits)

@@ -10,7 +10,6 @@ import java.io.BufferedWriter
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.roundToInt
 
 private val telemetryLineTimestampFormatter: DateTimeFormatter =
@@ -1356,27 +1355,6 @@ private fun parseLongToken(
     key: String,
 ): Long? = extractTokenValue(line, key)?.toLongOrNull()
 
-internal fun formatBooleanToken(value: Boolean?): String = value?.toString() ?: "na"
-
-internal fun formatAverage(
-    total: Int,
-    count: Int,
-): String {
-    if (count <= 0) return "na"
-    return "%.2f".format(total.toDouble() / count.toDouble())
-}
-
-internal fun formatRatePercent(
-    numerator: Int,
-    denominator: Int,
-): String {
-    if (denominator <= 0) return "na"
-    val pct = numerator.toDouble() * 100.0 / denominator.toDouble()
-    return "%.2f".format(pct)
-}
-
-private fun formatOneDecimalOrNa(value: Number?): String = value?.let { String.format(Locale.US, "%.1f", it.toDouble()) } ?: "na"
-
 internal fun writeAcceptedFixQualitySection(
     writer: BufferedWriter,
     prefix: String,
@@ -1388,10 +1366,10 @@ internal fun writeAcceptedFixQualitySection(
     writer.appendLine("${prefix}ImmediateFixCount=${summary.immediateFixCount}")
     writer.appendLine("${prefix}ProviderGpsCount=${summary.providerGpsCount}")
     writer.appendLine("${prefix}ProviderFusedCount=${summary.providerFusedCount}")
-    writer.appendLine("${prefix}ReportedAccuracyMedianM=${formatOneDecimalOrNa(summary.reportedAccuracyMedianM)}")
-    writer.appendLine("${prefix}ReportedAccuracyP90M=${formatOneDecimalOrNa(summary.reportedAccuracyP90M)}")
-    writer.appendLine("${prefix}ReportedAccuracyMinM=${formatOneDecimalOrNa(summary.reportedAccuracyMinM)}")
-    writer.appendLine("${prefix}ReportedAccuracyMaxM=${formatOneDecimalOrNa(summary.reportedAccuracyMaxM)}")
+    writer.appendLine("${prefix}ReportedAccuracyMedianM=${TelemetryFormatters.decimalOrNa(summary.reportedAccuracyMedianM, 1)}")
+    writer.appendLine("${prefix}ReportedAccuracyP90M=${TelemetryFormatters.decimalOrNa(summary.reportedAccuracyP90M, 1)}")
+    writer.appendLine("${prefix}ReportedAccuracyMinM=${TelemetryFormatters.decimalOrNa(summary.reportedAccuracyMinM, 1)}")
+    writer.appendLine("${prefix}ReportedAccuracyMaxM=${TelemetryFormatters.decimalOrNa(summary.reportedAccuracyMaxM, 1)}")
     writer.appendLine("${prefix}ReportedAccuracyDistinctCount=${summary.reportedAccuracyDistinctCount}")
     writer.appendLine("${prefix}ReportedAccuracyAllSame=${summary.reportedAccuracyAllSame}")
     writer.appendLine("${prefix}AcceptedFixAgeMedianMs=${summary.ageMedianMs?.toString() ?: "na"}")
@@ -1550,8 +1528,8 @@ private fun buildObservedFixQualityReason(
     }
     val gnssSupport =
         buildString {
-            append("gnss usedInFixAvg=").append("%.1f".format(gnssInsights.usedInFixAvg))
-            append(" cn0AvgDbHz=").append(gnssInsights.cn0AvgDbHz?.let { "%.1f".format(it) } ?: "na")
+            append("gnss usedInFixAvg=").append(TelemetryFormatters.decimal(gnssInsights.usedInFixAvg, 1))
+            append(" cn0AvgDbHz=").append(TelemetryFormatters.decimalOrNa(gnssInsights.cn0AvgDbHz, 1))
             append(" firstFixCount=").append(gnssInsights.firstFixCount)
         }
     return if (reportedAccuracyReliability == "suspect_constant_watch_gps") {

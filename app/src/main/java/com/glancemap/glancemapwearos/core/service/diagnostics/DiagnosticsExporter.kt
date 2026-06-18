@@ -783,13 +783,13 @@ object DiagnosticsExporter {
             writer.appendLine("foregroundPinnedSetting=${settings.keepAppOpen}")
             writer.appendLine(
                 "foregroundPinnedLastObserved=${
-                    formatBooleanToken(telemetryInsights.lastObservedKeepOpen)
+                    TelemetryFormatters.booleanOrNa(telemetryInsights.lastObservedKeepOpen)
                 }",
             )
-            writer.appendLine("boundLastObserved=${formatBooleanToken(telemetryInsights.lastObservedBound)}")
+            writer.appendLine("boundLastObserved=${TelemetryFormatters.booleanOrNa(telemetryInsights.lastObservedBound)}")
             writer.appendLine(
                 "trackingEnabledLastObserved=${
-                    formatBooleanToken(telemetryInsights.lastObservedTrackingEnabled)
+                    TelemetryFormatters.booleanOrNa(telemetryInsights.lastObservedTrackingEnabled)
                 }",
             )
             val gpsTrackingExpectedLastObserved =
@@ -799,7 +799,7 @@ object DiagnosticsExporter {
                     }
             writer.appendLine(
                 "gpsTrackingExpectedByPolicyLastObserved=${
-                    formatBooleanToken(gpsTrackingExpectedLastObserved)
+                    TelemetryFormatters.booleanOrNa(gpsTrackingExpectedLastObserved)
                 }",
             )
             writer.appendLine(
@@ -851,7 +851,7 @@ object DiagnosticsExporter {
             writer.appendLine("passiveExternalLastMaxAgeMs=${telemetryInsights.passiveExternalLastMaxAgeMs ?: "na"}")
             writer.appendLine(
                 "passiveExternalLastAccuracyM=${
-                    formatOneDecimal(telemetryInsights.passiveExternalLastAccuracyM)
+                    TelemetryFormatters.decimalOrNa(telemetryInsights.passiveExternalLastAccuracyM, 1)
                 }",
             )
             writer.appendLine("passiveExternalLastProvider=${telemetryInsights.passiveExternalLastProvider ?: "na"}")
@@ -866,7 +866,7 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "watchGpsDegradedLastObserved=${
-                    formatBooleanToken(telemetryInsights.watchGpsDegradedLastObserved)
+                    TelemetryFormatters.booleanOrNa(telemetryInsights.watchGpsDegradedLastObserved)
                 }",
             )
             writer.appendLine()
@@ -879,7 +879,7 @@ object DiagnosticsExporter {
             writer.appendLine("largeJumpAcceptedCount=${compassTelemetryInsights.largeJumpAcceptedCount}")
             writer.appendLine(
                 "largeJumpRatePercent=${
-                    formatRatePercent(
+                    TelemetryFormatters.ratePercent(
                         compassTelemetryInsights.largeJumpPendingCount +
                             compassTelemetryInsights.largeJumpAcceptedCount,
                         compassTelemetryInsights.headingSampleCount,
@@ -889,7 +889,7 @@ object DiagnosticsExporter {
             writer.appendLine("staleSampleCount=${compassTelemetryInsights.staleSampleCount}")
             writer.appendLine(
                 "staleSampleRatePercent=${
-                    formatRatePercent(
+                    TelemetryFormatters.ratePercent(
                         compassTelemetryInsights.staleSampleCount,
                         compassTelemetryInsights.headingSampleCount,
                     )
@@ -1368,7 +1368,7 @@ object DiagnosticsExporter {
             writer.appendLine("thermalLastStatusLabel=${telemetryInsights.thermalLastStatusLabel ?: "na"}")
             writer.appendLine(
                 "batchAvgRawCandidates=${
-                    formatAverage(
+                    TelemetryFormatters.average(
                         total = telemetryInsights.batchRawCandidatesTotal,
                         count = telemetryInsights.batchEventCount,
                     )
@@ -1376,7 +1376,7 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "batchAvgAcceptedCandidates=${
-                    formatAverage(
+                    TelemetryFormatters.average(
                         total = telemetryInsights.batchAcceptedCandidatesTotal,
                         count = telemetryInsights.batchEventCount,
                     )
@@ -1384,7 +1384,7 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "batchAcceptanceRatePct=${
-                    formatRatePercent(
+                    TelemetryFormatters.ratePercent(
                         numerator = telemetryInsights.batchAcceptedCandidatesTotal,
                         denominator = telemetryInsights.batchNormalizedCandidatesTotal,
                     )
@@ -1472,22 +1472,22 @@ object DiagnosticsExporter {
             writer.appendLine("latestFixAgeMs=${markerMotionSnapshot.fixAgeMs?.toString() ?: "na"}")
             writer.appendLine(
                 "latestAccuracyM=${
-                    markerMotionSnapshot.accuracyM?.let { "%.1f".format(it) } ?: "na"
+                    TelemetryFormatters.decimalOrNa(markerMotionSnapshot.accuracyM, 1)
                 }",
             )
             writer.appendLine(
                 "latestSpeedMps=${
-                    markerMotionSnapshot.speedMps?.let { "%.2f".format(it) } ?: "na"
+                    TelemetryFormatters.decimalOrNa(markerMotionSnapshot.speedMps, 2)
                 }",
             )
             writer.appendLine(
                 "latestBearingDeg=${
-                    markerMotionSnapshot.bearingDeg?.let { "%.1f".format(it) } ?: "na"
+                    TelemetryFormatters.decimalOrNa(markerMotionSnapshot.bearingDeg, 1)
                 }",
             )
             writer.appendLine(
                 "latestCorrectionDistanceM=${
-                    markerMotionSnapshot.correctionDistanceM?.let { "%.1f".format(it) } ?: "na"
+                    TelemetryFormatters.decimalOrNa(markerMotionSnapshot.correctionDistanceM, 1)
                 }",
             )
             writer.appendLine("latestUpdatedAtElapsedMs=${markerMotionSnapshot.updatedAtElapsedMs}")
@@ -1706,10 +1706,6 @@ object DiagnosticsExporter {
             origin = origin,
             gnssInsights = gnssInsights,
         )
-
-    private fun formatOneDecimal(value: Double?): String = value?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
-
-    private fun formatOneDecimal(value: Float?): String = value?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
 
     private fun formatPassiveExternalStatus(
         settings: DiagnosticsSettingsSnapshot,
