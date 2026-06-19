@@ -40,7 +40,9 @@ import com.glancemap.glancemapwearos.presentation.features.recording.external.Ex
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorKind
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanner
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalHeartRateSensorBridge
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodRuntimeStatus
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodSensorBridge
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
@@ -49,6 +51,7 @@ import com.google.android.horologist.compose.material.Chip
 fun RecordingExternalSensorsScreen(
     viewModel: SettingsViewModel,
     onOpenRecordingSettings: () -> Unit,
+    connectLinkedSensors: Boolean = true,
 ) {
     val listTokens = rememberSettingsListTokens()
     val context = LocalContext.current
@@ -76,6 +79,19 @@ fun RecordingExternalSensorsScreen(
                 scanner.startScan()
             }
         }
+
+    ExternalHeartRateSensorBridge(
+        active = connectLinkedSensors && !linkedHeartRateAddress.isNullOrBlank(),
+        paused = false,
+        address = linkedHeartRateAddress,
+        onHeartRate = { _, _ -> },
+    )
+    ExternalRunPodSensorBridge(
+        active = connectLinkedSensors && !linkedRunPodAddress.isNullOrBlank(),
+        paused = false,
+        address = linkedRunPodAddress,
+        onMeasurement = {},
+    )
 
     DisposableEffect(scanner) {
         onDispose { scanner.stopScan() }
@@ -109,32 +125,6 @@ fun RecordingExternalSensorsScreen(
                 onStopScan = scanner::stopScan,
             )
         }
-        linkedHeartRateAddress?.takeIf { it.isNotBlank() }?.let { address ->
-            item {
-                LinkedExternalSensorChip(
-                    name = linkedHeartRateName.orLinkedSensorFallback("Heart strap"),
-                    connected = address in connectedAddresses,
-                    batteryLevelPercent = externalSensorBatteryLevels[address],
-                    onUnlink = {
-                        unsupportedSensorMessage = null
-                        viewModel.setRecordingExternalHeartRateDevice(null, null)
-                    },
-                )
-            }
-        }
-        linkedRunPodAddress?.takeIf { it.isNotBlank() }?.let { address ->
-            item {
-                LinkedExternalSensorChip(
-                    name = linkedRunPodName.orLinkedSensorFallback("Run pod"),
-                    connected = address in connectedAddresses,
-                    batteryLevelPercent = runPodRuntimeInfos[address]?.batteryLevelPercent,
-                    onUnlink = {
-                        unsupportedSensorMessage = null
-                        viewModel.setRecordingExternalRunPodDevice(null, null)
-                    },
-                )
-            }
-        }
         item {
             ExternalSensorInfo(
                 primaryText = "Polar straps use Heart Rate. Pods usually use Running Speed/Cadence.",
@@ -149,9 +139,41 @@ fun RecordingExternalSensorsScreen(
                 )
             }
         }
-        val linkedAddresses = setOfNotNull(linkedHeartRateAddress, linkedRunPodAddress)
-        val visibleDevices = devices.filterNot { it.address in linkedAddresses }
-        if (visibleDevices.isEmpty()) {
+        val scannedAddresses = devices.mapTo(mutableSetOf()) { it.address }
+        linkedHeartRateAddress
+            ?.takeIf { it.isNotBlank() && it !in scannedAddresses }
+            ?.let { address ->
+                item {
+                    LinkedExternalSensorChip(
+                        name = linkedHeartRateName.orLinkedSensorFallback("Heart strap"),
+                        connected = address in connectedAddresses,
+                        batteryLevelPercent = externalSensorBatteryLevels[address],
+                        onUnlink = {
+                            unsupportedSensorMessage = null
+                            viewModel.setRecordingExternalHeartRateDevice(null, null)
+                        },
+                    )
+                }
+            }
+        linkedRunPodAddress
+            ?.takeIf { it.isNotBlank() && it !in scannedAddresses }
+            ?.let { address ->
+                item {
+                    LinkedExternalSensorChip(
+                        name = linkedRunPodName.orLinkedSensorFallback("Run pod"),
+                        connected = address in connectedAddresses,
+                        batteryLevelPercent =
+                            runPodRuntimeInfos[address]?.batteryLevelPercent
+                                ?: externalSensorBatteryLevels[address],
+                        onUnlink = {
+                            unsupportedSensorMessage = null
+                            viewModel.setRecordingExternalRunPodDevice(null, null)
+                        },
+                    )
+                }
+            }
+        val hasLinkedDevice = !linkedHeartRateAddress.isNullOrBlank() || !linkedRunPodAddress.isNullOrBlank()
+        if (devices.isEmpty() && !hasLinkedDevice) {
             item {
                 ExternalSensorInfo(
                     primaryText =
@@ -164,37 +186,56 @@ fun RecordingExternalSensorsScreen(
                 )
             }
         } else {
-            visibleDevices.forEach { device ->
+            devices.forEach { device ->
                 item {
                     val heartRateSelected = linkedHeartRateAddress == device.address
                     val runPodSelected = linkedRunPodAddress == device.address
-                    ExternalSensorDeviceChip(
-                        device = device,
-                        heartRateSelected = heartRateSelected,
-                        runPodSelected = runPodSelected,
-                        onClick = {
-                            if (heartRateSelected) {
+                    if (heartRateSelected || runPodSelected) {
+                        LinkedExternalSensorChip(
+                            name =
+                                if (heartRateSelected) {
+                                    linkedHeartRateName.orLinkedSensorFallback(device.name)
+                                } else {
+                                    linkedRunPodName.orLinkedSensorFallback(device.name)
+                                },
+                            connected = device.address in connectedAddresses,
+                            batteryLevelPercent =
+                                if (heartRateSelected) {
+                                    externalSensorBatteryLevels[device.address]
+                                } else {
+                                    runPodRuntimeInfos[device.address]?.batteryLevelPercent
+                                        ?: externalSensorBatteryLevels[device.address]
+                                },
+                            onUnlink = {
                                 unsupportedSensorMessage = null
-                                viewModel.setRecordingExternalHeartRateDevice(null, null)
-                            } else if (runPodSelected) {
-                                unsupportedSensorMessage = null
-                                viewModel.setRecordingExternalRunPodDevice(null, null)
-                            } else if (device.canLinkHeartRate()) {
-                                unsupportedSensorMessage = null
-                                viewModel.setRecordingExternalHeartRateDevice(device.address, device.name)
-                            } else if (device.canLinkRunPod()) {
-                                unsupportedSensorMessage = null
-                                viewModel.setRecordingExternalRunPodDevice(device.address, device.name)
-                            } else {
-                                unsupportedSensorMessage = "${device.name} is not supported yet"
-                                DebugTelemetry.log(
-                                    "ExternalSensors",
-                                    "event=device_tap_unsupported name=${device.name.sanitizeTelemetryToken()} " +
-                                        "kinds=${device.supportedLabel.sanitizeTelemetryToken()}",
-                                )
-                            }
-                        },
-                    )
+                                if (heartRateSelected) {
+                                    viewModel.setRecordingExternalHeartRateDevice(null, null)
+                                } else {
+                                    viewModel.setRecordingExternalRunPodDevice(null, null)
+                                }
+                            },
+                        )
+                    } else {
+                        ExternalSensorDeviceChip(
+                            device = device,
+                            onClick = {
+                                if (device.canLinkHeartRate()) {
+                                    unsupportedSensorMessage = null
+                                    viewModel.setRecordingExternalHeartRateDevice(device.address, device.name)
+                                } else if (device.canLinkRunPod()) {
+                                    unsupportedSensorMessage = null
+                                    viewModel.setRecordingExternalRunPodDevice(device.address, device.name)
+                                } else {
+                                    unsupportedSensorMessage = "${device.name} is not supported yet"
+                                    DebugTelemetry.log(
+                                        "ExternalSensors",
+                                        "event=device_tap_unsupported name=${device.name.sanitizeTelemetryToken()} " +
+                                            "kinds=${device.supportedLabel.sanitizeTelemetryToken()}",
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -313,14 +354,10 @@ private fun ExternalSensorScanChip(
 @Composable
 private fun ExternalSensorDeviceChip(
     device: ExternalSensorDevice,
-    heartRateSelected: Boolean,
-    runPodSelected: Boolean,
     onClick: () -> Unit,
 ) {
-    val selected = heartRateSelected || runPodSelected
     val icon =
         when {
-            selected -> Icons.Default.CheckCircle
             device.kinds.any { it.label == "Heart rate" } -> Icons.Default.Favorite
             device.kinds.isNotEmpty() -> Icons.Default.Sensors
             else -> Icons.Default.Bluetooth
@@ -329,13 +366,10 @@ private fun ExternalSensorDeviceChip(
         label = device.name,
         secondaryLabel =
             buildString {
-                if (heartRateSelected) append("Connected HR · ")
-                if (runPodSelected) append("Connected pod · ")
                 append(device.supportedLabel)
                 device.rssi?.let { append(" · $it dBm") }
             },
         iconImageVector = icon,
-        selected = selected,
         onClick = onClick,
     )
 }

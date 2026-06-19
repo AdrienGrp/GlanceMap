@@ -687,6 +687,8 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 RecordingExternalSensorsScreen(
                                     viewModel = appContainer.settingsViewModel,
+                                    connectLinkedSensors =
+                                        !traceRecordingState.active || traceRecordingState.paused,
                                     onOpenRecordingSettings = {
                                         navController.navigate(WatchRoutes.RECORDING_SETTINGS) {
                                             popUpTo(WatchRoutes.RECORDING_SETTINGS) { inclusive = false }
