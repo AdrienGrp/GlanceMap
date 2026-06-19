@@ -81,6 +81,7 @@ fun SettingsScreen(
             SettingsSectionChip(
                 label = "User profile",
                 secondaryLabel = formatUserProfileSummary(isMetric, userWeightKg, backpackWeightKg),
+                compactRoundWidthFraction = 0.86f,
                 onClick = { navController.navigate(WatchRoutes.USER_PROFILE_SETTINGS) },
             )
         }

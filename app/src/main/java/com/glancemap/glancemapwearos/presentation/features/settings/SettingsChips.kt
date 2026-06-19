@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.Text
+import com.glancemap.glancemapwearos.presentation.ui.WearWindowClass
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
@@ -137,14 +138,20 @@ internal fun SettingsSectionChip(
     iconImageVector: ImageVector = Icons.Filled.Folder,
     iconContent: (@Composable () -> Unit)? = null,
     secondaryLabel: String? = null,
+    compactRoundWidthFraction: Float = 1f,
     modifier: Modifier = Modifier,
 ) {
+    val adaptive = rememberWearAdaptiveSpec()
     val minHeight = rememberSettingsChipMinHeight(hasSecondaryLabel = secondaryLabel != null)
+    val useCompactWidth =
+        adaptive.isRound &&
+            (adaptive.windowClass == WearWindowClass.COMPACT || adaptive.fontScale >= 1.25f)
+    val widthFraction = if (useCompactWidth) compactRoundWidthFraction else 1f
 
     Chip(
         modifier =
             Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(widthFraction)
                 .heightIn(min = minHeight)
                 .then(modifier),
         label = label,
