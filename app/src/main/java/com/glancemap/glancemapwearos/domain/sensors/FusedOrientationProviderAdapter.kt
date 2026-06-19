@@ -517,10 +517,12 @@ internal class FusedOrientationProviderAdapter(
                 }
 
                 FusedRestartHeadingAction.AWAIT_PENDING -> {
+                    val previousPendingHeading = pendingRestartHeading
+                    val previousPendingSampleCount = pendingRestartHeadingSampleCount
                     val reseededPendingHeading =
-                        pendingRestartHeading != null &&
+                        previousPendingHeading != null &&
                             decision.nextPendingSampleCount == 1 &&
-                            decision.nextPendingHeadingDeg != pendingRestartHeading
+                            decision.nextPendingHeadingDeg != previousPendingHeading
                     pendingRestartHeading = decision.nextPendingHeadingDeg
                     pendingRestartHeadingAtElapsedMs = decision.nextPendingAtElapsedMs
                     pendingRestartHeadingSampleCount = decision.nextPendingSampleCount
@@ -528,16 +530,23 @@ internal class FusedOrientationProviderAdapter(
                         reseededPendingHeading ->
                             logDiagnostics(
                                 "google_fused restart_heading_reseed reason=$lastOrientationRequestReason " +
-                                    "heading=${displayHeading.format(1)} " +
+                                    "candidateHeading=${previousPendingHeading.formatOrNA(1)} " +
+                                    "replacementHeading=${displayHeading.format(1)} heading=${displayHeading.format(1)} " +
                                     "delta=${decision.deltaDeg.format(1)} " +
-                                    "delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs",
+                                    "stableSamples=$previousPendingSampleCount " +
+                                    "stableAgeMs=${decision.pendingAgeMs} delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs " +
+                                    "errorDeg=${headingErrorDeg.formatOrNA(1)} " +
+                                    "conservativeErrorDeg=${conservativeHeadingErrorDeg.formatOrNA(1)}",
                             )
                         decision.nextPendingSampleCount == 2 ->
                             logDiagnostics(
                                 "google_fused restart_heading_pending reason=$lastOrientationRequestReason " +
                                     "heading=${displayHeading.format(1)} " +
                                     "delta=${decision.deltaDeg.format(1)} " +
-                                    "delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs",
+                                    "stableSamples=${decision.sampleCount} " +
+                                    "stableAgeMs=${decision.pendingAgeMs} delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs " +
+                                    "errorDeg=${headingErrorDeg.formatOrNA(1)} " +
+                                    "conservativeErrorDeg=${conservativeHeadingErrorDeg.formatOrNA(1)}",
                             )
                     }
                     return
@@ -553,8 +562,10 @@ internal class FusedOrientationProviderAdapter(
                             "ignoredHeading=${pendingHeading.formatOrNA(1)} " +
                             "confirmedHeading=${displayHeading.format(1)} " +
                             "delta=${decision.deltaDeg.format(1)} " +
-                            "delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs " +
-                            "samples=${decision.sampleCount}",
+                            "stableAgeMs=${decision.pendingAgeMs} delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs " +
+                            "stableSamples=${decision.sampleCount} samples=${decision.sampleCount} " +
+                            "errorDeg=${headingErrorDeg.formatOrNA(1)} " +
+                            "conservativeErrorDeg=${conservativeHeadingErrorDeg.formatOrNA(1)}",
                     )
                 }
             }
