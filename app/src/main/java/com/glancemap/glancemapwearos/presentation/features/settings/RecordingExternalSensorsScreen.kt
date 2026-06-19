@@ -125,12 +125,6 @@ fun RecordingExternalSensorsScreen(
                 onStopScan = scanner::stopScan,
             )
         }
-        item {
-            ExternalSensorInfo(
-                primaryText = "Polar straps use Heart Rate. Pods usually use Running Speed/Cadence.",
-                secondaryText = "Linked pods provide cadence during REC.",
-            )
-        }
         unsupportedSensorMessage?.let { message ->
             item {
                 ExternalSensorInfo(
@@ -182,7 +176,6 @@ fun RecordingExternalSensorsScreen(
                         } else {
                             "No devices found yet."
                         },
-                    secondaryText = "Wake the strap or pod and keep it close to the watch.",
                 )
             }
         } else {
@@ -377,7 +370,7 @@ private fun ExternalSensorDeviceChip(
 @Composable
 private fun ExternalSensorInfo(
     primaryText: String,
-    secondaryText: String,
+    secondaryText: String? = null,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -389,12 +382,14 @@ private fun ExternalSensorInfo(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
-        Text(
-            text = secondaryText,
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
-        )
+        secondaryText?.let { text ->
+            Text(
+                text = text,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
+            )
+        }
     }
 }
 
