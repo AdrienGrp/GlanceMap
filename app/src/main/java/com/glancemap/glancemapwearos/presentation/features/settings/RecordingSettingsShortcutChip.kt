@@ -18,6 +18,7 @@ internal fun RecordingSettingsShortcutChip(
         compactSecondaryLabel = "Back",
         iconImageVector = Icons.Filled.Folder,
         applyTopPadding = applyTopPadding,
+        compactRoundWidthFraction = 0.78f,
         modifier = modifier,
         onClick = onClick,
     )
