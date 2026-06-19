@@ -33,6 +33,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.UI_RECORDING_WAKE_REFRESH_SOURCE
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
+import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassWakeTelemetry
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
@@ -544,6 +545,14 @@ fun NavigateScreen(
         onRenderedHeadingChanged = { renderedCompassHeadingDeg = it },
         onRenderedMapRotationChanged = { renderedMapRotationDeg = it },
         onPoiMarkersSnapshotChanged = { markers -> visiblePoiMarkers = markers },
+    )
+    NavigateCompassWakeTelemetry(
+        isScreenResumed = isScreenResumed,
+        screenState = screenState,
+        isOfflineMode = offlineMode,
+        renderState = compassRenderState,
+        renderedHeadingDeg = renderedCompassHeadingDeg,
+        renderedMapRotationDeg = renderedMapRotationDeg,
     )
 
     NavigateBackHandler(

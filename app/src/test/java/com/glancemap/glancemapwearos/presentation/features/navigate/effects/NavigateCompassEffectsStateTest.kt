@@ -76,6 +76,41 @@ class NavigateCompassEffectsStateTest {
     }
 
     @Test
+    fun resumeDefersStopWhileWaitingForInteractiveState() {
+        assertTrue(
+            shouldDeferNavigateCompassStopOnResume(
+                screenState = LocationScreenState.SCREEN_OFF,
+                isOfflineMode = false,
+            ),
+        )
+        assertTrue(
+            shouldDeferNavigateCompassStopOnResume(
+                screenState = LocationScreenState.AMBIENT,
+                isOfflineMode = false,
+            ),
+        )
+        assertFalse(
+            shouldDeferNavigateCompassStopOnResume(
+                screenState = LocationScreenState.INTERACTIVE,
+                isOfflineMode = false,
+            ),
+        )
+        assertFalse(
+            shouldDeferNavigateCompassStopOnResume(
+                screenState = LocationScreenState.SCREEN_OFF,
+                isOfflineMode = true,
+            ),
+        )
+    }
+
+    @Test
+    fun wakeHeadingDeltaUsesShortestCircularDistance() {
+        assertEquals(2f, shortestHeadingDeltaDeg(359f, 1f), 0.001f)
+        assertEquals(2f, shortestHeadingDeltaDeg(1f, 359f), 0.001f)
+        assertEquals(180f, shortestHeadingDeltaDeg(0f, 180f), 0.001f)
+    }
+
+    @Test
     fun stopReasonReflectsWhyCompassWasStopped() {
         org.junit.Assert.assertEquals(
             "screen_off",
