@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -23,7 +24,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -142,7 +146,7 @@ fun RecordingExternalSensorsScreen(
                         name = linkedHeartRateName.orLinkedSensorFallback("Heart strap"),
                         connected = address in connectedAddresses,
                         batteryLevelPercent = externalSensorBatteryLevels[address],
-                        onUnlink = {
+                        onForget = {
                             unsupportedSensorMessage = null
                             viewModel.setRecordingExternalHeartRateDevice(null, null)
                         },
@@ -159,7 +163,7 @@ fun RecordingExternalSensorsScreen(
                         batteryLevelPercent =
                             runPodRuntimeInfos[address]?.batteryLevelPercent
                                 ?: externalSensorBatteryLevels[address],
-                        onUnlink = {
+                        onForget = {
                             unsupportedSensorMessage = null
                             viewModel.setRecordingExternalRunPodDevice(null, null)
                         },
@@ -199,7 +203,7 @@ fun RecordingExternalSensorsScreen(
                                     runPodRuntimeInfos[device.address]?.batteryLevelPercent
                                         ?: externalSensorBatteryLevels[device.address]
                                 },
-                            onUnlink = {
+                            onForget = {
                                 unsupportedSensorMessage = null
                                 if (heartRateSelected) {
                                     viewModel.setRecordingExternalHeartRateDevice(null, null)
@@ -240,7 +244,7 @@ private fun LinkedExternalSensorChip(
     name: String,
     connected: Boolean,
     batteryLevelPercent: Int? = null,
-    onUnlink: () -> Unit,
+    onForget: () -> Unit,
 ) {
     val adaptive = rememberWearAdaptiveSpec()
     val minHeight =
@@ -254,7 +258,7 @@ private fun LinkedExternalSensorChip(
         connected = connected,
         batteryLevelPercent = batteryLevelPercent,
         minHeight = minHeight,
-        onUnlink = onUnlink,
+        onForget = onForget,
     )
 }
 
@@ -265,13 +269,22 @@ private fun LinkedExternalSensorChipContent(
     connected: Boolean,
     batteryLevelPercent: Int?,
     minHeight: androidx.compose.ui.unit.Dp,
-    onUnlink: () -> Unit,
+    onForget: () -> Unit,
 ) {
+    val haptic = LocalHapticFeedback.current
     Chip(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = minHeight),
+                .heightIn(min = minHeight)
+                .pointerInput(onForget) {
+                    detectTapGestures(
+                        onLongPress = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onForget()
+                        },
+                    )
+                },
         label = {
             Text(
                 text =
@@ -307,7 +320,7 @@ private fun LinkedExternalSensorChipContent(
             } else {
                 ChipDefaults.secondaryChipColors()
             },
-        onClick = onUnlink,
+        onClick = {},
     )
 }
 
