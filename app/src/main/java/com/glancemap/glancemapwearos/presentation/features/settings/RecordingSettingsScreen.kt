@@ -63,10 +63,10 @@ fun RecordingSettingsScreen(
             RecordingDashboardSettingsFolder(onClick = onOpenDashboardSettings)
         }
         item {
-            RecordingExternalSensorsSetting(onClick = onOpenExternalSensors)
+            RecordingSourceSettingsFolder(onClick = onOpenSourceSettings)
         }
         item {
-            RecordingSourceSettingsFolder(onClick = onOpenSourceSettings)
+            RecordingExternalSensorsSetting(onClick = onOpenExternalSensors)
         }
     }
 
