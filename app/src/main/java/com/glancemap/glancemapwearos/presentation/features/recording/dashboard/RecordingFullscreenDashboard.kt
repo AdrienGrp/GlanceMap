@@ -52,7 +52,6 @@ internal fun ExpandedRecordingDashboard(
         pageIndex = pageIndex,
         pageCount = pageCount,
         dragKey = state.active to state.paused,
-        handleBottomPadding = 22.dp,
         onPreviousPage = onPreviousPage,
         onNextPage = onNextPage,
         onShowActions = onShowActions,

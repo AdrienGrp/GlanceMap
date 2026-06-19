@@ -26,7 +26,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 
@@ -35,7 +34,6 @@ internal fun RecordingFullscreenPageShell(
     pageIndex: Int,
     pageCount: Int,
     dragKey: Any?,
-    handleBottomPadding: Dp,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
@@ -99,12 +97,6 @@ internal fun RecordingFullscreenPageShell(
                     .align(Alignment.CenterEnd)
                     .padding(end = 14.dp),
         )
-        RecordingDashboardSwipeHandle(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = handleBottomPadding),
-        )
     }
 }
 
@@ -116,17 +108,6 @@ internal fun logRecordingDashboardPageChange(
     DebugTelemetry.log(
         "TraceRecording",
         "event=dashboard_page_change page=${pageIndex + 1} pageCount=$pageCount source=$source",
-    )
-}
-
-@Composable
-private fun RecordingDashboardSwipeHandle(modifier: Modifier = Modifier) {
-    Box(
-        modifier =
-            modifier
-                .width(28.dp)
-                .height(3.dp)
-                .background(Color.White.copy(alpha = 0.28f), RoundedCornerShape(2.dp)),
     )
 }
 

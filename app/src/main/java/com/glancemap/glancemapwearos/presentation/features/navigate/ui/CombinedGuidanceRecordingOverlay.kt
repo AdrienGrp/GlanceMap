@@ -463,7 +463,6 @@ private fun CombinedFullscreenDashboard(
         pageIndex = pageIndex,
         pageCount = pageCount,
         dragKey = recordingState.active to recordingState.paused,
-        handleBottomPadding = 18.dp,
         onPreviousPage = onPreviousPage,
         onNextPage = onNextPage,
         onShowActions = onShowActions,
