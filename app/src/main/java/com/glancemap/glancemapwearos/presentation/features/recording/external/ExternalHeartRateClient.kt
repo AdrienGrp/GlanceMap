@@ -16,9 +16,14 @@ class ExternalHeartRateClient(
             logTag = "ExternalHeartRate",
             serviceUuid = HEART_RATE_SERVICE_UUID,
             measurementUuid = HEART_RATE_MEASUREMENT_UUID,
+            readCharacteristics =
+                listOf(
+                    BleCharacteristicRef(BATTERY_SERVICE_UUID, BATTERY_LEVEL_UUID),
+                ),
             onConnectionChanged = { connected ->
                 ExternalSensorConnectionStatus.update(address, connected)
             },
+            onCharacteristicRead = ::handleRead,
             onMeasurement = ::handleMeasurement,
         )
 
@@ -40,11 +45,25 @@ class ExternalHeartRateClient(
         DebugTelemetry.log("ExternalHeartRate", "event=sample bpm=$bpm")
     }
 
+    private fun handleRead(
+        characteristicUuid: UUID,
+        value: ByteArray,
+    ) {
+        if (characteristicUuid != BATTERY_LEVEL_UUID) return
+        val batteryLevelPercent = decodeBatteryLevel(value) ?: return
+        ExternalSensorConnectionStatus.updateBattery(address, batteryLevelPercent)
+        DebugTelemetry.log("ExternalHeartRate", "event=battery levelPercent=$batteryLevelPercent")
+    }
+
     companion object {
         val HEART_RATE_SERVICE_UUID: UUID =
             BluetoothUuid.service16(0x180D)
         private val HEART_RATE_MEASUREMENT_UUID: UUID =
             BluetoothUuid.characteristic16(0x2A37)
+        private val BATTERY_SERVICE_UUID: UUID =
+            BluetoothUuid.service16(0x180F)
+        private val BATTERY_LEVEL_UUID: UUID =
+            BluetoothUuid.characteristic16(0x2A19)
 
         fun decodeHeartRateMeasurement(value: ByteArray): Int? {
             if (value.size < 2) return null
@@ -56,5 +75,11 @@ class ExternalHeartRateClient(
                 (value[1].toInt() and 0xFF) or ((value[2].toInt() and 0xFF) shl 8)
             }.takeIf { it in 20..240 }
         }
+
+        internal fun decodeBatteryLevel(value: ByteArray): Int? =
+            value.firstOrNull()
+                ?.toInt()
+                ?.and(0xFF)
+                ?.takeIf { it in 0..100 }
     }
 }

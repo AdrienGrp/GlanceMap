@@ -62,6 +62,7 @@ fun RecordingExternalSensorsScreen(
     val linkedRunPodName by viewModel.recordingExternalRunPodName.collectAsState()
     val runPodRuntimeInfos by ExternalRunPodRuntimeStatus.infos.collectAsState()
     val connectedAddresses by ExternalSensorConnectionStatus.connectedAddresses.collectAsState()
+    val externalSensorBatteryLevels by ExternalSensorConnectionStatus.batteryLevels.collectAsState()
     var permissionRefresh by remember { mutableIntStateOf(0) }
     var unsupportedSensorMessage by remember { mutableStateOf<String?>(null) }
     val hasPermissions =
@@ -113,6 +114,7 @@ fun RecordingExternalSensorsScreen(
                 LinkedExternalSensorChip(
                     name = linkedHeartRateName.orLinkedSensorFallback("Heart strap"),
                     connected = address in connectedAddresses,
+                    batteryLevelPercent = externalSensorBatteryLevels[address],
                     onUnlink = {
                         unsupportedSensorMessage = null
                         viewModel.setRecordingExternalHeartRateDevice(null, null)
