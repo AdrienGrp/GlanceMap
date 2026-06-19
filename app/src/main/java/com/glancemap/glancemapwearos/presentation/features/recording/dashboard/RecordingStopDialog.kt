@@ -27,6 +27,7 @@ import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.recording.buildRecordingTitle
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
+import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
@@ -52,6 +53,7 @@ internal fun RecordingStopPromptCard(
     var draftTitle by remember(defaultTitle) { mutableStateOf(defaultTitle) }
     val shortRecording = isShortRecording(snapshot, state)
     var showRenameDialog by remember(defaultTitle) { mutableStateOf(false) }
+    var showDiscardConfirmation by remember(defaultTitle) { mutableStateOf(false) }
 
     if (showRenameDialog) {
         RenameValueDialog(
@@ -70,8 +72,20 @@ internal fun RecordingStopPromptCard(
         )
     }
 
+    DeleteConfirmationDialog(
+        visible = showDiscardConfirmation,
+        title = "Discard recording?",
+        message = "This recording will be permanently deleted and cannot be recovered.",
+        confirmText = "Discard",
+        onConfirm = {
+            showDiscardConfirmation = false
+            onDiscard()
+        },
+        onDismiss = { showDiscardConfirmation = false },
+    )
+
     WearActionDialog(
-        visible = true,
+        visible = !showDiscardConfirmation,
         title = if (shortRecording) "Short recording" else "Save recording",
         onDismissRequest = onCancel,
         backgroundColor = Color.Black,
@@ -83,7 +97,10 @@ internal fun RecordingStopPromptCard(
                 ),
                 WearActionDialogButton(
                     text = "Discard",
-                    onClick = onDiscard,
+                    onClick = {
+                        showRenameDialog = false
+                        showDiscardConfirmation = true
+                    },
                     role = WearActionButtonRole.Destructive,
                 ),
                 WearActionDialogButton(
