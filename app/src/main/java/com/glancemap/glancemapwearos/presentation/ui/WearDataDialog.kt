@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -102,19 +103,26 @@ private fun WearDataDialogSurface(
     bottomAction: (@Composable BoxScope.() -> Unit)?,
     content: LazyListScope.() -> Unit,
 ) {
-    Box(
+    Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.90f)),
     ) {
-        DataDialogList(
-            title = title,
-            onDismiss = onDismiss,
-            dialogState = dialogState,
-            content = content,
-        )
-        WearLazyListScreenEdgeScrollIndicator(listState = dialogState.listState)
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+        ) {
+            DataDialogList(
+                title = title,
+                onDismiss = onDismiss,
+                dialogState = dialogState,
+                content = content,
+            )
+            WearLazyListScreenEdgeScrollIndicator(listState = dialogState.listState)
+        }
         if (bottomAction != null) {
             DataDialogBottomAction(bottomPadding = dialogState.bottomActionPadding, content = bottomAction)
         }
@@ -141,7 +149,7 @@ private fun dataDialogPadding(
         bottom =
             adaptive.dialogVerticalPadding +
                 when {
-                    hasBottomAction -> 92.dp
+                    hasBottomAction -> 12.dp
                     highFontRound -> 260.dp
                     adaptive.isRound -> 42.dp
                     else -> 18.dp
@@ -194,14 +202,13 @@ private fun DataDialogTitle(title: String) {
 }
 
 @Composable
-private fun BoxScope.DataDialogBottomAction(
+private fun DataDialogBottomAction(
     bottomPadding: Dp,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
         modifier =
             Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(bottom = bottomPadding),
         contentAlignment = Alignment.Center,

@@ -429,8 +429,9 @@ fun MapsScreen(
                             onClick = { showDeleteAllRoutingDialog = true },
                             modifier =
                                 Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 34.dp),
+                                    .wrapContentWidth()
+                                    .height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                             colors =
                                 ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -438,19 +439,18 @@ fun MapsScreen(
                                 ),
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = null,
-                                    modifier = Modifier.size(15.dp),
+                                    modifier = Modifier.size(12.dp),
                                 )
-                                Spacer(modifier = Modifier.size(6.dp))
+                                Spacer(modifier = Modifier.size(4.dp))
                                 Text(
                                     text = "Delete all",
-                                    style = MaterialTheme.typography.labelMedium,
+                                    style = MaterialTheme.typography.labelSmall,
                                 )
                             }
                         }
