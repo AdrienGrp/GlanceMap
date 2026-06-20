@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,8 +28,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -43,7 +43,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -65,7 +64,6 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
-import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstructionCommand
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
@@ -414,8 +412,8 @@ private fun CombinedCompactPopup(
     val compactWidth =
         when (screenSize) {
             WearScreenSize.LARGE -> 112.dp
-            WearScreenSize.MEDIUM -> 104.dp
-            WearScreenSize.SMALL -> 96.dp
+            WearScreenSize.MEDIUM -> 112.dp
+            WearScreenSize.SMALL -> 108.dp
         }
     val compactIconSize =
         when (screenSize) {
@@ -434,6 +432,7 @@ private fun CombinedCompactPopup(
             modifier
                 .padding(top = topPadding)
                 .widthIn(max = compactWidth)
+                .heightIn(min = 48.dp)
                 .background(Color.Black.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
                 .combinedClickable(
                     onClick = onExpand,
@@ -453,7 +452,7 @@ private fun CombinedCompactPopup(
                 }
                 .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
-        cappedFontScale(maxFontScale = 1f) {
+        cappedFontScale(maxFontScale = 1.2f) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -479,7 +478,7 @@ private fun CombinedCompactPopup(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                SwipeExpandCue()
+                CombinedGuidanceControlsCue(onClick = onShowActions)
             }
         }
     }
@@ -565,7 +564,7 @@ private fun CombinedGuidancePage(
         progress = state.routeProgressFraction,
         modifier = Modifier.fillMaxSize(),
     )
-    cappedFontScale(maxFontScale = 1f) {
+    cappedFontScale(maxFontScale = 1.15f) {
         Column(
             modifier = Modifier.fillMaxWidth(contentWidthFraction),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -761,7 +760,7 @@ private fun CombinedActionPrompt(
                 .padding(horizontal = 2.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
-        cappedFontScale(maxFontScale = 1f) {
+        cappedFontScale(maxFontScale = 1.2f) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy((-4).dp),
@@ -902,38 +901,34 @@ private fun CombinedGuidanceIcon(
     modifier: Modifier,
     tint: Color = Color.White,
 ) {
-    Icon(
-        imageVector = Icons.Default.Navigation,
-        contentDescription = null,
+    GuidanceManeuverIcon(
+        state = state,
+        compassHeadingDeg = compassHeadingDeg,
+        guideBackToRouteActive = guideBackToRouteActive,
+        modifier = modifier,
         tint = tint,
-        modifier =
-            modifier.rotate(
-                if ((guideBackToRouteActive || state.offRoute) && state.bearingToRouteDegrees != null) {
-                    state.bearingToRouteDegrees - compassHeadingDeg
-                } else {
-                    when (state.mode) {
-                        GuidanceMode.TO_START -> (state.bearingToStartDegrees ?: 0f) - compassHeadingDeg
-                        GuidanceMode.FOLLOW_ROUTE -> rotationForCommand(state.nextInstruction?.command)
-                        GuidanceMode.FINISHED,
-                        GuidanceMode.WAITING_FOR_LOCATION,
-                        -> 0f
-                    }
-                },
-            ),
     )
 }
 
 @Composable
-private fun SwipeExpandCue(modifier: Modifier = Modifier) {
-    Icon(
-        imageVector = Icons.Default.ExpandLess,
-        contentDescription = "Swipe up to expand",
-        tint = Color.White.copy(alpha = 0.62f),
+private fun CombinedGuidanceControlsCue(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
         modifier =
             modifier
-                .size(12.dp)
-                .rotate(180f),
-    )
+                .size(36.dp)
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.MoreVert,
+            contentDescription = "Guidance and recording controls",
+            tint = Color.White.copy(alpha = 0.62f),
+            modifier = Modifier.size(18.dp),
+        )
+    }
 }
 
 private fun combinedGuidancePrimaryText(
@@ -993,20 +988,6 @@ private fun combinedGuidanceCompactText(
                 } ?: combinedGuidancePrimaryText(state, guideBackToRouteActive)
             GuidanceMode.FINISHED -> "Finished"
         }
-    }
-
-private fun rotationForCommand(command: RouteInstructionCommand?): Float =
-    when (command) {
-        RouteInstructionCommand.SLIGHT_LEFT -> -45f
-        RouteInstructionCommand.LEFT -> -90f
-        RouteInstructionCommand.SHARP_LEFT -> -135f
-        RouteInstructionCommand.SLIGHT_RIGHT -> 45f
-        RouteInstructionCommand.RIGHT -> 90f
-        RouteInstructionCommand.SHARP_RIGHT -> 135f
-        RouteInstructionCommand.CONTINUE,
-        RouteInstructionCommand.FINISH,
-        null,
-        -> 0f
     }
 
 private const val NO_SELECTED_SLOT = -1

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,8 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -42,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -62,7 +61,6 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
-import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstructionCommand
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
@@ -124,8 +122,8 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     val compactWidth =
         when (screenSize) {
             WearScreenSize.LARGE -> 112.dp
-            WearScreenSize.MEDIUM -> 104.dp
-            WearScreenSize.SMALL -> 96.dp
+            WearScreenSize.MEDIUM -> 112.dp
+            WearScreenSize.SMALL -> 108.dp
         }
     val compactIconSize =
         when (screenSize) {
@@ -167,6 +165,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     .align(Alignment.TopCenter)
                     .padding(top = topPadding)
                     .widthIn(max = compactWidth)
+                    .heightIn(min = 48.dp)
                     .background(Color.Black.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
                     .combinedClickable(
                         onClick = {
@@ -177,12 +176,12 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     )
                     .padding(horizontal = 6.dp, vertical = 3.dp),
         ) {
-            cappedFontScale(maxFontScale = 1f) {
+            cappedFontScale(maxFontScale = 1.2f) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    GuidanceArrowIcon(
+                    GuidanceManeuverIcon(
                         state = state,
                         compassHeadingDeg = compassHeadingDeg,
                         guideBackToRouteActive = guideBackToRouteActive,
@@ -203,7 +202,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    SwipeExpandCue()
+                    GuidanceControlsCue(onClick = { showActionPrompt = true })
                 }
             }
         }
@@ -343,7 +342,7 @@ private fun ExpandedGuidanceOverlay(
             modifier = Modifier.fillMaxSize(),
         )
 
-        cappedFontScale(maxFontScale = 1f) {
+        cappedFontScale(maxFontScale = 1.15f) {
             Column(
                 modifier = Modifier.fillMaxWidth(contentWidthFraction),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -356,7 +355,7 @@ private fun ExpandedGuidanceOverlay(
                             .background(MaterialTheme.colorScheme.primary, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    GuidanceArrowIcon(
+                    GuidanceManeuverIcon(
                         state = state,
                         compassHeadingDeg = compassHeadingDeg,
                         guideBackToRouteActive = guideBackToRouteActive,
@@ -408,40 +407,26 @@ private fun ExpandedGuidanceOverlay(
             }
         }
 
-        SwipeMinimizeHandle(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 18.dp),
-        )
     }
 }
 
 @Composable
-private fun SwipeMinimizeHandle(modifier: Modifier = Modifier) {
+private fun GuidanceControlsCue(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Box(
         modifier =
             modifier
-                .width(28.dp)
-                .height(3.dp)
-                .background(Color.White.copy(alpha = 0.28f), RoundedCornerShape(2.dp)),
-    )
-}
-
-@Composable
-private fun SwipeExpandCue(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.width(12.dp),
+                .size(36.dp)
+                .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Default.ExpandLess,
-            contentDescription = "Tap to expand guidance",
+            imageVector = Icons.Default.MoreVert,
+            contentDescription = "Guidance controls",
             tint = Color.White.copy(alpha = 0.62f),
-            modifier =
-                Modifier
-                    .size(12.dp)
-                    .rotate(180f),
+            modifier = Modifier.size(18.dp),
         )
     }
 }
@@ -462,7 +447,7 @@ private fun GuidanceActionPromptCard(
                 .padding(horizontal = 2.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
-        cappedFontScale(maxFontScale = 1f) {
+        cappedFontScale(maxFontScale = 1.2f) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
@@ -594,12 +579,12 @@ private fun GuidancePromptCard(
     Box(
         modifier =
             modifier
-                .widthIn(max = 170.dp)
+                .widthIn(max = 180.dp)
                 .background(Color.Black.copy(alpha = 0.94f), RoundedCornerShape(8.dp))
                 .padding(horizontal = 10.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        cappedFontScale(maxFontScale = 1f) {
+        cappedFontScale(maxFontScale = 1.2f) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = title,
@@ -635,12 +620,14 @@ private fun GuideBackPromptButton(
         text = text,
         modifier =
             Modifier
+                .widthIn(min = 48.dp)
+                .heightIn(min = 40.dp)
                 .background(
                     if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f),
                     RoundedCornerShape(6.dp),
                 )
                 .clickable(onClick = onClick)
-                .padding(horizontal = 9.dp, vertical = 5.dp),
+                .padding(horizontal = 7.dp, vertical = 5.dp),
         color = if (selected) MaterialTheme.colorScheme.onPrimary else Color.White,
         fontWeight = FontWeight.SemiBold,
         fontSize = 10.sp,
@@ -687,36 +674,6 @@ private fun RouteProgressRing(
             )
         }
     }
-}
-
-@Composable
-private fun GuidanceArrowIcon(
-    state: TurnByTurnGuidanceState,
-    compassHeadingDeg: Float,
-    guideBackToRouteActive: Boolean,
-    modifier: Modifier,
-    tint: Color = Color.White,
-) {
-    Icon(
-        imageVector = Icons.Default.Navigation,
-        contentDescription = null,
-        tint = tint,
-        modifier =
-            modifier.rotate(
-                if ((guideBackToRouteActive || state.offRoute) && state.bearingToRouteDegrees != null) {
-                    state.bearingToRouteDegrees - compassHeadingDeg
-                } else {
-                    when (state.mode) {
-                    GuidanceMode.TO_START ->
-                        (state.bearingToStartDegrees ?: 0f) - compassHeadingDeg
-                    GuidanceMode.FOLLOW_ROUTE ->
-                        rotationForCommand(state.nextInstruction?.command)
-                    GuidanceMode.FINISHED -> 0f
-                    GuidanceMode.WAITING_FOR_LOCATION -> 0f
-                    }
-                },
-            ),
-    )
 }
 
 private fun guidancePrimaryText(
@@ -779,16 +736,4 @@ private fun guidanceCompactText(
             } ?: guidancePrimaryText(state)
         GuidanceMode.FINISHED -> "Finished"
         }
-    }
-
-private fun rotationForCommand(command: RouteInstructionCommand?): Float =
-    when (command) {
-        RouteInstructionCommand.SLIGHT_LEFT -> -45f
-        RouteInstructionCommand.LEFT -> -90f
-        RouteInstructionCommand.SHARP_LEFT -> -135f
-        RouteInstructionCommand.SLIGHT_RIGHT -> 45f
-        RouteInstructionCommand.RIGHT -> 90f
-        RouteInstructionCommand.SHARP_RIGHT -> 135f
-        RouteInstructionCommand.FINISH -> 0f
-        RouteInstructionCommand.CONTINUE, null -> 0f
     }
