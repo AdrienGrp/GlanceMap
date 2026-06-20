@@ -703,28 +703,29 @@ class DownloadViewModel(
             return
         }
         stopRequest = null
+        _uiState.update {
+            it.copy(
+                isDownloading = true,
+                phase = "STARTING",
+                detail = "${targets.size} bundle(s)",
+                bytesDone = 0L,
+                totalBytes = null,
+                isPausedDownload = false,
+                selectedRefreshBundleIds = emptySet(),
+                statusMessage = "Refreshing bundles",
+                errorMessage = null,
+                networkWarningMessage = null,
+            )
+        }
         downloadJob =
             viewModelScope.launch {
-                notificationController.showProgress(
-                    title = "Refreshing bundles",
-                    detail = "${targets.size} bundle(s)",
-                    bytesDone = 0L,
-                    totalBytes = null,
-                )
-                _uiState.update {
-                    it.copy(
-                        isDownloading = true,
-                        phase = "STARTING",
+                try {
+                    notificationController.showProgress(
+                        title = "Refreshing bundles",
                         detail = "${targets.size} bundle(s)",
                         bytesDone = 0L,
                         totalBytes = null,
-                        isPausedDownload = false,
-                        statusMessage = "Refreshing bundles",
-                        errorMessage = null,
-                        networkWarningMessage = null,
                     )
-                }
-                try {
                     targets.forEachIndexed { index, target ->
                         downloader.downloadBundle(
                             area = target.area,

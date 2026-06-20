@@ -102,6 +102,7 @@ fun DownloadScreen(
     var showOamInfoDialog by remember { mutableStateOf(false) }
     var deleteMode by remember { mutableStateOf(false) }
     var refreshMode by remember { mutableStateOf(false) }
+    val effectiveRefreshMode = refreshMode && !uiState.isDownloading
     var showAreaSearchDialog by remember { mutableStateOf(false) }
     val infoPrefs =
         remember(context) {
@@ -263,6 +264,13 @@ fun DownloadScreen(
             viewModel.clearRefreshBundleSelection()
         }
     }
+    LaunchedEffect(uiState.isDownloading) {
+        if (uiState.isDownloading) {
+            refreshMode = false
+            deleteMode = false
+            onAreaPickerOpenChange(false)
+        }
+    }
     LaunchedEffect(showAreaPicker) {
         val closedAreaPicker = wasAreaPickerOpen && !showAreaPicker
         wasAreaPickerOpen = showAreaPicker
@@ -334,7 +342,7 @@ fun DownloadScreen(
                 isDownloading = uiState.isDownloading,
                 isCheckingUpdates = uiState.isCheckingUpdates,
                 hasInstalledBundles = uiState.installedBundles.isNotEmpty(),
-                refreshMode = refreshMode,
+                refreshMode = effectiveRefreshMode,
                 deleteMode = deleteMode,
                 selectedRefreshBundleCount = uiState.selectedRefreshBundleIds.size,
                 useLargeFontHeader = adaptive.isRound && adaptive.fontScale > 1f,
@@ -347,7 +355,7 @@ fun DownloadScreen(
                 verticalSpacing = headerVerticalSpacing,
                 onInfoClick = { showOamInfoDialog = true },
                 onRefreshModeClick = {
-                    val nextRefreshMode = !refreshMode
+                    val nextRefreshMode = !effectiveRefreshMode
                     refreshMode = nextRefreshMode
                     if (!nextRefreshMode) {
                         viewModel.clearRefreshBundleSelection()
@@ -397,7 +405,7 @@ fun DownloadScreen(
                         onToggleArea = viewModel::toggleArea,
                     )
                 } else {
-                    if (!refreshMode) {
+                    if (!effectiveRefreshMode) {
                         item {
                             DownloadChip(
                                 label = selectedAreaLabel,
@@ -459,7 +467,7 @@ fun DownloadScreen(
                         }
                     }
 
-                    if (!refreshMode) {
+                    if (!effectiveRefreshMode) {
                         item {
                             Text(
                                 text = "Installed bundles",
@@ -482,7 +490,7 @@ fun DownloadScreen(
                         }
                     } else {
                         if (
-                            refreshMode &&
+                            effectiveRefreshMode &&
                             (
                                 uiState.selectedRefreshBundleIds.isNotEmpty() ||
                                     uiState.isCheckingUpdates
@@ -510,11 +518,11 @@ fun DownloadScreen(
                             item {
                                 InstalledBundleRow(
                                     bundle = bundle,
-                                    refreshMode = refreshMode,
+                                    refreshMode = effectiveRefreshMode,
                                     refreshSelected = bundle.areaId in uiState.selectedRefreshBundleIds,
                                     deleteMode = deleteMode,
                                     onRefresh = {
-                                        if (!uiState.isDownloading && refreshMode) {
+                                        if (!uiState.isDownloading && effectiveRefreshMode) {
                                             viewModel.toggleRefreshBundleSelection(bundle.areaId)
                                         }
                                     },
