@@ -652,4 +652,11 @@ class NavigateLocationEffectsTimeTest {
         assertEquals(45_000L, computeWakeAnchorMaxAgeMs(15_000L))
         assertEquals(60_000L, computeWakeAnchorMaxAgeMs(60_000L))
     }
+
+    @Test
+    fun warmReturnAnchorAllowsLongerStationaryCacheThanMovingCache() {
+        assertEquals(30_000L, computeWarmReturnAnchorMaxAgeMs(expectedGpsIntervalMs = 3_000L, speedMps = 0f))
+        assertEquals(12_000L, computeWarmReturnAnchorMaxAgeMs(expectedGpsIntervalMs = 3_000L, speedMps = 1.2f))
+        assertEquals(45_000L, computeWarmReturnAnchorMaxAgeMs(expectedGpsIntervalMs = 15_000L, speedMps = 1.2f))
+    }
 }

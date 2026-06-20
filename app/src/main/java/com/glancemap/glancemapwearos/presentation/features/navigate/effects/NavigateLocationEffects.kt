@@ -166,12 +166,21 @@ internal fun rememberNavigateLocationUiState(
         postWakePredictionHoldUntilElapsedMs = 0L
         wakeAnchorSeeded = false
         markerMotionController.reset(reason = "interactive_start")
+        val cachedLocation = locationViewModel.currentLocation.value
         resolveWakeAnchorSeedOrNull(
-            location = locationViewModel.currentLocation.value,
+            location = cachedLocation,
             receivedAtElapsedMs = nowElapsedMs,
             nowWallClockMs = System.currentTimeMillis(),
-            maxAgeMs = computeWakeAnchorMaxAgeMs(expectedGpsIntervalMs),
-            maxAccuracyM = WAKE_ANCHOR_MAX_ACCURACY_M,
+            maxAgeMs =
+                computeWarmReturnAnchorMaxAgeMs(
+                    expectedGpsIntervalMs = expectedGpsIntervalMs,
+                    speedMps =
+                        cachedLocation
+                            ?.takeIf { it.hasSpeed() && it.speed.isFinite() }
+                            ?.speed
+                            ?: 0f,
+                ),
+            maxAccuracyM = WARM_RETURN_ANCHOR_MAX_ACCURACY_M,
         )?.let { anchor ->
             val markerSourceMode =
                 if (indicatorWatchGpsOnlyActive) {
@@ -210,6 +219,11 @@ internal fun rememberNavigateLocationUiState(
                         mapView.requestLayerRedrawSafely()
                     }
             }
+            DebugTelemetry.log(
+                NAV_MARKER_TELEMETRY_TAG,
+                "warmReturn restored=true ageMs=${(nowElapsedMs - anchor.fixElapsedMs).coerceAtLeast(0L)} " +
+                    "accuracyM=${anchor.accuracyM} speedMps=${anchor.speedMps}",
+            )
         }
         val wakeReacquireInCooldown =
             isWakeReacquireCooldownActive(
@@ -759,7 +773,10 @@ private const val INTERACTIVE_STALE_REFRESH_AFTER_PREDICTION_STALL_MS = 1_250L
 private const val INTERACTIVE_STALE_REFRESH_MIN_MOTION_IDLE_MS = 1_250L
 private const val INTERACTIVE_STALE_REFRESH_COOLDOWN_MS = 12_000L
 private const val WAKE_REACQUIRE_SNAP_MAX_ACCURACY_M = 35f
-private const val WAKE_ANCHOR_MAX_ACCURACY_M = 35f
+private const val WARM_RETURN_ANCHOR_MAX_ACCURACY_M = 50f
+private const val WARM_RETURN_MOVING_SPEED_THRESHOLD_MPS = 0.8f
+private const val WARM_RETURN_MOVING_MAX_AGE_MS = 12_000L
+private const val WARM_RETURN_STATIONARY_MAX_AGE_MS = 30_000L
 private const val TRACKING_SESSION_FIX_MAX_SKEW_MS = 400L
 private const val CORRECTION_CLAMP_BYPASS_MULTIPLIER = 2L
 private const val NAV_MARKER_TELEMETRY_TAG = "MarkerMotion"
@@ -851,6 +868,20 @@ internal fun resolveWakeAnchorSeedOrNull(
 }
 
 internal fun computeWakeAnchorMaxAgeMs(expectedGpsIntervalMs: Long): Long = resolveLocationTimingProfile(expectedGpsIntervalMs).wakeAnchorMaxAgeMs
+
+internal fun computeWarmReturnAnchorMaxAgeMs(
+    expectedGpsIntervalMs: Long,
+    speedMps: Float,
+): Long {
+    val baseline = computeWakeAnchorMaxAgeMs(expectedGpsIntervalMs)
+    val warmReturnLimit =
+        if (speedMps.isFinite() && speedMps >= WARM_RETURN_MOVING_SPEED_THRESHOLD_MPS) {
+            WARM_RETURN_MOVING_MAX_AGE_MS
+        } else {
+            WARM_RETURN_STATIONARY_MAX_AGE_MS
+        }
+    return maxOf(baseline, warmReturnLimit)
+}
 
 internal fun resolveStartupFreshFixMaxAgeMs(
     expectedGpsIntervalMs: Long,
