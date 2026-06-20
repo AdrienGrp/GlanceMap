@@ -1188,6 +1188,17 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var largeJumpWithinManagerStart500MsCount = 0
     var sampleAfterStopScheduledCount = 0
     var sampleAfterStopRequestedCount = 0
+    var startupSummaryCount = 0
+    var startupHeadingSpanMaxDeg: Float? = null
+    var startupMaxJumpMaxDeg: Float? = null
+    var startupStable3Count = 0
+    var startupStable5Count = 0
+    var startupOverlapSummaryCount = 0
+    var startupOverlapFinalDeltaTotalDeg = 0f
+    var startupOverlapFinalDeltaCount = 0
+    var startupOverlapRestartComparisonCount = 0
+    var startupOverlapRestartImprovedCount = 0
+    var headingLooksWrongReportCount = 0
     var lastManagerStartAtMs: Long? = null
     var lastStopScheduledAtMs: Long? = null
     var lastStopRequestedAtMs: Long? = null
@@ -1236,6 +1247,33 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         if ("sample_stale" in line) {
             staleSampleCount += 1
         }
+        if ("wake_session stage=startup_summary" in line) {
+            startupSummaryCount += 1
+            parseFloatToken(line, "headingSpanDeg=")?.let { value ->
+                startupHeadingSpanMaxDeg = maxOf(startupHeadingSpanMaxDeg ?: value, value)
+            }
+            parseFloatToken(line, "maxJumpDeg=")?.let { value ->
+                startupMaxJumpMaxDeg = maxOf(startupMaxJumpMaxDeg ?: value, value)
+            }
+            if (extractTokenValue(line, "stable3Ms=") != "na") startupStable3Count += 1
+            if (extractTokenValue(line, "stable5Ms=") != "na") startupStable5Count += 1
+        }
+        if ("google_fused startup_overlap_summary" in line) {
+            startupOverlapSummaryCount += 1
+            parseFloatToken(line, "finalDeltaDeg=")?.let { value ->
+                startupOverlapFinalDeltaTotalDeg += value
+                startupOverlapFinalDeltaCount += 1
+            }
+            parseFloatToken(line, "restartDeltaChangeDeg=")?.let { value ->
+                startupOverlapRestartComparisonCount += 1
+                if (value <= -STARTUP_OVERLAP_MEANINGFUL_IMPROVEMENT_DEG) {
+                    startupOverlapRestartImprovedCount += 1
+                }
+            }
+        }
+        if ("user_report heading_looks_wrong" in line) {
+            headingLooksWrongReportCount += 1
+        }
         if (largeJump && lineEpochMs != null) {
             val startAtMs = lastManagerStartAtMs
             if (startAtMs != null && lineEpochMs - startAtMs in 0L..500L) {
@@ -1255,8 +1293,25 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         largeJumpWithinManagerStart500MsCount = largeJumpWithinManagerStart500MsCount,
         sampleAfterStopScheduledCount = sampleAfterStopScheduledCount,
         sampleAfterStopRequestedCount = sampleAfterStopRequestedCount,
+        startupSummaryCount = startupSummaryCount,
+        startupHeadingSpanMaxDeg = startupHeadingSpanMaxDeg,
+        startupMaxJumpMaxDeg = startupMaxJumpMaxDeg,
+        startupStable3Count = startupStable3Count,
+        startupStable5Count = startupStable5Count,
+        startupOverlapSummaryCount = startupOverlapSummaryCount,
+        startupOverlapFinalDeltaAvgDeg =
+            if (startupOverlapFinalDeltaCount > 0) {
+                startupOverlapFinalDeltaTotalDeg / startupOverlapFinalDeltaCount
+            } else {
+                null
+            },
+        startupOverlapRestartComparisonCount = startupOverlapRestartComparisonCount,
+        startupOverlapRestartImprovedCount = startupOverlapRestartImprovedCount,
+        headingLooksWrongReportCount = headingLooksWrongReportCount,
     )
 }
+
+private const val STARTUP_OVERLAP_MEANINGFUL_IMPROVEMENT_DEG = 15f
 
 private fun parseRequestMode(line: String): LocationRequestMode? {
     if ("requestUpdates applied:" !in line && "reason=gps_request_applied" !in line) return null

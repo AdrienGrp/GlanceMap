@@ -327,6 +327,16 @@ object DiagnosticsExporter {
         val largeJumpWithinManagerStart500MsCount: Int = 0,
         val sampleAfterStopScheduledCount: Int = 0,
         val sampleAfterStopRequestedCount: Int = 0,
+        val startupSummaryCount: Int = 0,
+        val startupHeadingSpanMaxDeg: Float? = null,
+        val startupMaxJumpMaxDeg: Float? = null,
+        val startupStable3Count: Int = 0,
+        val startupStable5Count: Int = 0,
+        val startupOverlapSummaryCount: Int = 0,
+        val startupOverlapFinalDeltaAvgDeg: Float? = null,
+        val startupOverlapRestartComparisonCount: Int = 0,
+        val startupOverlapRestartImprovedCount: Int = 0,
+        val headingLooksWrongReportCount: Int = 0,
     )
 
     internal data class GnssInsights(
@@ -906,6 +916,46 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "sampleAfterStopRequestedCount=${compassTelemetryInsights.sampleAfterStopRequestedCount}",
+            )
+            writer.appendLine("startupSummaryCount=${compassTelemetryInsights.startupSummaryCount}")
+            writer.appendLine(
+                "startupHeadingSpanMaxDeg=${
+                    compassTelemetryInsights.startupHeadingSpanMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "startupMaxJumpMaxDeg=${
+                    compassTelemetryInsights.startupMaxJumpMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine("startupStable3Count=${compassTelemetryInsights.startupStable3Count}")
+            writer.appendLine("startupStable5Count=${compassTelemetryInsights.startupStable5Count}")
+            writer.appendLine(
+                "startupOverlapSummaryCount=${compassTelemetryInsights.startupOverlapSummaryCount}",
+            )
+            writer.appendLine(
+                "startupOverlapFinalDeltaAvgDeg=${
+                    compassTelemetryInsights.startupOverlapFinalDeltaAvgDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "startupOverlapRestartComparisonCount=${
+                    compassTelemetryInsights.startupOverlapRestartComparisonCount
+                }",
+            )
+            writer.appendLine(
+                "startupOverlapRestartImprovedCount=${
+                    compassTelemetryInsights.startupOverlapRestartImprovedCount
+                }",
+            )
+            writer.appendLine(
+                "headingLooksWrongReportCount=${compassTelemetryInsights.headingLooksWrongReportCount}",
             )
             writer.appendLine("batchEventCount=${telemetryInsights.batchEventCount}")
             writer.appendLine("batchOriginAutoFusedCount=${telemetryInsights.batchOriginAutoFusedCount}")

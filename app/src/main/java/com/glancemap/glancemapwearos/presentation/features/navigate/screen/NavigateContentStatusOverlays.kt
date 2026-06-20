@@ -1,7 +1,9 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,6 +82,7 @@ internal fun BoxScope.MarkerMotionDebugOverlay(
     label: String?,
     screenSize: WearScreenSize,
     recordingStatusChipVisible: Boolean,
+    onHeadingLooksWrong: () -> Unit,
 ) {
     if (label.isNullOrBlank()) return
 
@@ -104,8 +107,7 @@ internal fun BoxScope.MarkerMotionDebugOverlay(
             WearScreenSize.SMALL -> 10.sp
         }
 
-    Text(
-        text = label,
+    Column(
         modifier =
             Modifier
                 .align(Alignment.TopCenter)
@@ -113,10 +115,29 @@ internal fun BoxScope.MarkerMotionDebugOverlay(
                 .padding(horizontal = overlayPadding)
                 .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
                 .padding(horizontal = 6.dp, vertical = 4.dp),
-        color = Color.White,
-        fontSize = overlayTextSize,
-        lineHeight = overlayTextSize,
-        fontWeight = FontWeight.Medium,
-        textAlign = TextAlign.Center,
-    )
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = overlayTextSize,
+            lineHeight = overlayTextSize,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = "Heading wrong",
+            modifier =
+                Modifier
+                    .padding(top = 3.dp)
+                    .background(Color(0xFF6D2430), RoundedCornerShape(5.dp))
+                    .clickable(onClick = onHeadingLooksWrong)
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+            color = Color.White,
+            fontSize = overlayTextSize,
+            lineHeight = overlayTextSize,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+    }
 }

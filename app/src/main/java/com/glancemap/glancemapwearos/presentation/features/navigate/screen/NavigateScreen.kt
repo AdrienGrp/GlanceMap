@@ -20,11 +20,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
 import com.glancemap.glancemapwearos.domain.sensors.CompassHeadingSourceMode
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
+import com.glancemap.glancemapwearos.domain.sensors.COMPASS_TELEMETRY_TAG
 import com.glancemap.glancemapwearos.domain.sensors.NorthReferenceMode
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
@@ -960,6 +962,22 @@ fun NavigateScreen(
         poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
         poiPopupManualCloseOnly = poiPopupManualCloseOnly,
         markerMotionDebugOverlayLabel = markerMotionDebugOverlayLabel,
+        onHeadingLooksWrong = {
+            FieldMarkerDiagnostics.recordMarker(
+                type = "heading_looks_wrong",
+                note = "navigate_compass_follow",
+            )
+            DebugTelemetry.log(
+                COMPASS_TELEMETRY_TAG,
+                "user_report heading_looks_wrong " +
+                    "source=${compassRenderState.headingSource.telemetryToken} " +
+                    "heading=${"%.1f".format(Locale.US, compassRenderState.headingDeg)} " +
+                    "rendered=${"%.1f".format(Locale.US, renderedCompassHeadingDeg)} " +
+                    "mapRotation=${"%.1f".format(Locale.US, renderedMapRotationDeg)} " +
+                    "accuracy=${compassRenderState.accuracy} " +
+                    "headingError=${compassRenderState.headingErrorDeg ?: "na"}",
+            )
+        },
     )
 
     LaunchedEffect(isScreenResumed) {

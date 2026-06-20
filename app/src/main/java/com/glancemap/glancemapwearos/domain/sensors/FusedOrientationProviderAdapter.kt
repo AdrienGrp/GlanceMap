@@ -193,6 +193,18 @@ internal class FusedOrientationProviderAdapter(
 
     @Volatile private var lastFusedSampleLogAtElapsedMs = 0L
 
+    @Volatile private var startupOverlapSampleCount = 0
+
+    @Volatile private var startupOverlapDeltaTotalDeg = 0f
+
+    @Volatile private var startupOverlapMaxDeltaDeg = 0f
+
+    @Volatile private var startupOverlapFirstDeltaDeg: Float? = null
+
+    @Volatile private var startupOverlapLastDeltaDeg: Float? = null
+
+    @Volatile private var previousStartupOverlapFinalDeltaDeg: Float? = null
+
     @Volatile private var consecutiveUnusableFusedSamples = 0
 
     @Volatile private var firstUnusableFusedSampleAtElapsedMs = 0L
@@ -268,6 +280,7 @@ internal class FusedOrientationProviderAdapter(
 
     override fun stop() {
         started = false
+        logStartupOverlapSummary(reason = "stop", confirmed = false)
         stopOrientationUpdates()
         callbackThread?.quitSafely()
         callbackThread = null
@@ -288,6 +301,7 @@ internal class FusedOrientationProviderAdapter(
         awaitingFirstOrientationSample = false
         clearRestartHeadingConfirmationState()
         lastFusedSampleLogAtElapsedMs = 0L
+        resetStartupOverlapMetrics()
         resetUnusableFusedSampleState()
         publishNorthReferenceStatus()
     }
@@ -392,6 +406,7 @@ internal class FusedOrientationProviderAdapter(
         pendingRestartHeadingAtElapsedMs = 0L
         pendingRestartHeadingSampleCount = 0
         lastFusedSampleLogAtElapsedMs = 0L
+        resetStartupOverlapMetrics()
         resetUnusableFusedSampleState()
 
         val samplingPeriodMicros = currentSamplingPeriodMicros()
@@ -461,6 +476,7 @@ internal class FusedOrientationProviderAdapter(
             conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
             mappedAccuracy = mappedAccuracy,
         )
+        recordStartupOverlap(displayHeadingDeg = displayHeading)
 
         if (!isUsableGoogleFusedHeadingError(headingErrorDeg)) {
             publishUnusableFusedSampleState(
@@ -555,6 +571,7 @@ internal class FusedOrientationProviderAdapter(
                 FusedRestartHeadingAction.CONFIRM -> {
                     val pendingHeading = pendingRestartHeading
                     clearRestartHeadingConfirmationState()
+                    logStartupOverlapSummary(reason = lastOrientationRequestReason, confirmed = true)
                     stopBootstrapFallbackProvider(reason = "fused_confirmed")
                     logDiagnostics(
                         "google_fused restart_heading_confirmed reason=$lastOrientationRequestReason " +
@@ -944,6 +961,66 @@ internal class FusedOrientationProviderAdapter(
                 "waitingDecl=${northStatus.waitingForDeclination} " +
                 "relock=${nowElapsedMs < headingRelockUntilElapsedMs}",
         )
+    }
+
+    private fun recordStartupOverlap(displayHeadingDeg: Float) {
+        if (!_useBootstrapFallbackProvider.value || !displayHeadingDeg.isFinite()) return
+        val fallbackState = fallbackProvider.renderState.value
+        if (
+            fallbackState.headingSource == HeadingSource.NONE ||
+            !fallbackState.headingDeg.isFinite() ||
+            fallbackState.headingSampleStale
+        ) {
+            return
+        }
+        val deltaDeg =
+            abs(
+                shortestAngleDiffDeg(
+                    target = displayHeadingDeg,
+                    current = fallbackState.headingDeg,
+                ),
+            )
+        startupOverlapSampleCount += 1
+        startupOverlapDeltaTotalDeg += deltaDeg
+        startupOverlapMaxDeltaDeg = maxOf(startupOverlapMaxDeltaDeg, deltaDeg)
+        if (startupOverlapFirstDeltaDeg == null) startupOverlapFirstDeltaDeg = deltaDeg
+        startupOverlapLastDeltaDeg = deltaDeg
+    }
+
+    private fun logStartupOverlapSummary(
+        reason: String,
+        confirmed: Boolean,
+    ) {
+        val samples = startupOverlapSampleCount
+        if (samples <= 0) return
+        val finalDeltaDeg = startupOverlapLastDeltaDeg
+        val previousFinalDeltaDeg = previousStartupOverlapFinalDeltaDeg
+        val averageDeltaDeg = startupOverlapDeltaTotalDeg / samples
+        logDiagnostics(
+            "google_fused startup_overlap_summary reason=$reason confirmed=$confirmed " +
+                "samples=$samples avgDeltaDeg=${averageDeltaDeg.format(1)} " +
+                "maxDeltaDeg=${startupOverlapMaxDeltaDeg.format(1)} " +
+                "firstDeltaDeg=${startupOverlapFirstDeltaDeg.formatOrNA(1)} " +
+                "finalDeltaDeg=${finalDeltaDeg.formatOrNA(1)} " +
+                "previousFinalDeltaDeg=${previousFinalDeltaDeg.formatOrNA(1)} " +
+                "restartDeltaChangeDeg=${
+                    if (finalDeltaDeg != null && previousFinalDeltaDeg != null) {
+                        (finalDeltaDeg - previousFinalDeltaDeg).format(1)
+                    } else {
+                        "na"
+                    }
+                }",
+        )
+        previousStartupOverlapFinalDeltaDeg = finalDeltaDeg
+        resetStartupOverlapMetrics()
+    }
+
+    private fun resetStartupOverlapMetrics() {
+        startupOverlapSampleCount = 0
+        startupOverlapDeltaTotalDeg = 0f
+        startupOverlapMaxDeltaDeg = 0f
+        startupOverlapFirstDeltaDeg = null
+        startupOverlapLastDeltaDeg = null
     }
 }
 
