@@ -99,6 +99,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
 
     var expanded by remember(state.trackTitle) { mutableStateOf(false) }
     var showActionPrompt by remember(state.trackTitle, paused) { mutableStateOf(false) }
+    var arrivalPromptDismissed by remember(state.trackTitle) { mutableStateOf(false) }
     LaunchedEffect(suppressed) {
         if (suppressed) {
             expanded = false
@@ -261,6 +262,19 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
             dismissText = "Ignore",
             onAccept = onGuideBackToRoute,
             onDismiss = onDismissGuideBackPrompt,
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 36.dp),
+        )
+    } else if (state.mode == GuidanceMode.FINISHED && !arrivalPromptDismissed) {
+        GuidanceDecisionPromptCard(
+            title = "Route complete",
+            detail = "End turn-by-turn guidance?",
+            acceptText = "End",
+            dismissText = "Keep",
+            onAccept = onStop,
+            onDismiss = { arrivalPromptDismissed = true },
             modifier =
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -532,13 +546,15 @@ private fun GuidanceMiniStopButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun GuidanceDecisionPromptCard(
+internal fun GuidanceDecisionPromptCard(
     title: String,
     detail: String,
     acceptText: String,
     dismissText: String,
     onAccept: () -> Unit,
     onDismiss: () -> Unit,
+    tertiaryText: String? = null,
+    onTertiary: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     GuidancePromptCard(
@@ -557,6 +573,13 @@ private fun GuidanceDecisionPromptCard(
                 selected = false,
                 onClick = onDismiss,
             )
+            if (tertiaryText != null && onTertiary != null) {
+                GuideBackPromptButton(
+                    text = tertiaryText,
+                    selected = false,
+                    onClick = onTertiary,
+                )
+            }
         }
     }
 }

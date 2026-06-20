@@ -28,10 +28,12 @@ internal fun TurnByTurnGuidanceHapticEffect(
 ) {
     val vibrator = remember { vibratorFrom(context) }
     var alertedInstructionKey by remember { mutableStateOf<String?>(null) }
+    var arrivalAlertedTrack by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(state.active, state.trackTitle) {
         if (!state.active) {
             alertedInstructionKey = null
+            arrivalAlertedTrack = null
         }
     }
 
@@ -62,6 +64,15 @@ internal fun TurnByTurnGuidanceHapticEffect(
                 "mode=$turnAlertsMode",
         )
         vibrator?.vibrate(turnAlertEffect(instruction.command))
+    }
+
+    LaunchedEffect(state.active, state.mode, state.trackTitle, hapticsEnabled) {
+        if (!hapticsEnabled || !state.active || state.mode != GuidanceMode.FINISHED) return@LaunchedEffect
+        val trackKey = state.trackTitle ?: "active_route"
+        if (arrivalAlertedTrack == trackKey) return@LaunchedEffect
+        arrivalAlertedTrack = trackKey
+        DebugTelemetry.log("TurnByTurn", "haptic=arrival track=${state.trackTitle ?: "unknown"}")
+        vibrator?.vibrate(ARRIVAL_ALERT_EFFECT)
     }
 
     LaunchedEffect(
@@ -122,3 +133,6 @@ private const val OFF_ROUTE_MIN_REPEAT_SECONDS = 15
 
 private val OFF_ROUTE_ALERT_EFFECT: VibrationEffect =
     VibrationEffect.createWaveform(longArrayOf(0L, 120L, 80L, 120L, 80L, 120L), -1)
+
+private val ARRIVAL_ALERT_EFFECT: VibrationEffect =
+    VibrationEffect.createWaveform(longArrayOf(0L, 90L, 70L, 90L, 70L, 180L), -1)

@@ -31,6 +31,7 @@ internal fun TurnByTurnGuidanceVoiceEffect(
     val appContext = context.applicationContext
     var ttsReady by remember { mutableStateOf(false) }
     var alertedInstructionKey by remember { mutableStateOf<String?>(null) }
+    var arrivalAlertedTrack by remember { mutableStateOf<String?>(null) }
     val tts =
         remember(appContext) {
             TextToSpeech(appContext) { status ->
@@ -57,6 +58,7 @@ internal fun TurnByTurnGuidanceVoiceEffect(
     LaunchedEffect(state.active, state.trackTitle) {
         if (!state.active) {
             alertedInstructionKey = null
+            arrivalAlertedTrack = null
             tts.stop()
         }
     }
@@ -90,6 +92,17 @@ internal fun TurnByTurnGuidanceVoiceEffect(
                 "distanceM=${distanceMeters.toInt()} alertDistanceM=${alertDistanceMeters.toInt()}",
         )
         tts.speak(spokenText, TextToSpeech.QUEUE_FLUSH, null, instructionKey)
+    }
+
+    LaunchedEffect(ttsReady, state.active, state.mode, state.trackTitle, paused) {
+        if (!ttsReady || paused || !state.active || state.mode != GuidanceMode.FINISHED) {
+            return@LaunchedEffect
+        }
+        val trackKey = state.trackTitle ?: "active_route"
+        if (arrivalAlertedTrack == trackKey) return@LaunchedEffect
+        arrivalAlertedTrack = trackKey
+        DebugTelemetry.log("TurnByTurn", "voice=arrival track=${state.trackTitle ?: "unknown"}")
+        tts.speak("You have arrived", TextToSpeech.QUEUE_FLUSH, null, "arrival:$trackKey")
     }
 }
 
