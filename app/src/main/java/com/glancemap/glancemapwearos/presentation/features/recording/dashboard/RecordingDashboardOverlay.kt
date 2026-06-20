@@ -88,7 +88,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
             actionPromptRequestToken != 0L &&
                 actionPromptRequestToken != lastHandledActionPromptRequestToken
         lastHandledActionPromptRequestToken = actionPromptRequestToken
-        if (shouldHandle && state.active && !state.saving) {
+        if (shouldHandle && state.active && !state.saving && !suppressed) {
             expanded = false
             showStopPrompt = false
             metricPickerSlot = NO_SELECTED_SLOT
@@ -100,7 +100,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
             expandRequestToken != 0L &&
                 expandRequestToken != lastHandledExpandRequestToken
         lastHandledExpandRequestToken = expandRequestToken
-        if (shouldHandle && state.active && !state.saving) {
+        if (shouldHandle && state.active && !state.saving && !suppressed) {
             DebugTelemetry.log(
                 "TraceRecording",
                 "event=dashboard_expand_token handled=true suppressed=$suppressed active=${state.active} saving=${state.saving}",

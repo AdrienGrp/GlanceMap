@@ -912,6 +912,8 @@ fun NavigateScreen(
         turnByTurnGuidanceState = guidanceRuntime.state,
         turnByTurnGuidancePaused = turnByTurnGuidancePaused,
         turnByTurnPausedTrackTitle = turnByTurnGuidanceSession?.trackTitle,
+        turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
+        onTurnByTurnVoiceGuidanceChange = settingsViewModel::setTurnByTurnVoiceGuidanceEnabled,
         guideBackToRouteActive = guidanceRuntime.guideBackToRouteActive,
         showGuideBackPrompt = guidanceRuntime.showGuideBackPrompt,
         startDecisionPrompt = guidanceRuntime.startDecisionPrompt,

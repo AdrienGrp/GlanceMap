@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -42,10 +43,13 @@ internal fun RecordingFullscreenPageShell(
     val focusRequester = remember { FocusRequester() }
     var rotaryAccumulator by remember(pageCount) { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(pageCount) {
-        if (pageCount > 1) {
-            focusRequester.requestFocus()
-        }
+    LaunchedEffect(pageCount, pageIndex) {
+        withFrameNanos { }
+        focusRequester.requestFocus()
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=dashboard_rotary_focus_requested page=${pageIndex + 1} pageCount=$pageCount",
+        )
     }
 
     Box(

@@ -12,9 +12,10 @@ import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
@@ -28,7 +29,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -328,18 +328,6 @@ class MainActivity : ComponentActivity() {
                                 val statusChipModifier =
                                     Modifier
                                         .padding(top = if (recordingChipActive) 4.dp else 2.dp)
-                                        .then(
-                                            if (recordingChipActive && !DebugTelemetry.isEnabled()) {
-                                                Modifier.pointerInput(traceRecordingState.active, traceRecordingState.saving) {
-                                                    detectTapGestures(
-                                                        onTap = { onRecordingTimeTap() },
-                                                        onLongPress = { onRecordingTimeLongPress() },
-                                                    )
-                                                }
-                                            } else {
-                                                Modifier
-                                            },
-                                        )
                                 if (recordingChipActive) {
                                     RecordingTimeChip(
                                         showTime = canShowNavigateTime,
@@ -1072,6 +1060,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun RecordingTimeChip(
     showTime: Boolean,
     timeFormat: String,
@@ -1094,24 +1083,15 @@ private fun RecordingTimeChip(
         } else {
             ""
         }
-    val debugCaptureEnabled = DebugTelemetry.isEnabled()
-    val debugCaptureHitSlopModifier =
-        if (debugCaptureEnabled) {
-            Modifier.pointerInput(showTime, timeFormat, accentColor) {
-                detectTapGestures(
-                    onTap = { onTap() },
-                    onLongPress = { onLongPress() },
-                )
-            }
-        } else {
-            Modifier
-        }
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .then(if (debugCaptureEnabled) Modifier.height(48.dp) else Modifier)
-                .then(debugCaptureHitSlopModifier)
+                .height(48.dp)
+                .combinedClickable(
+                    onClick = onTap,
+                    onLongClick = onLongPress,
+                )
                 .then(modifier),
         contentAlignment = Alignment.TopCenter,
     ) {
@@ -1120,7 +1100,7 @@ private fun RecordingTimeChip(
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
-                        .then(if (debugCaptureEnabled) Modifier.size(48.dp) else Modifier),
+                        .size(48.dp),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 RecordingStatusDot(
@@ -1132,7 +1112,7 @@ private fun RecordingTimeChip(
             Box(
                 modifier =
                     Modifier
-                        .then(if (debugCaptureEnabled) Modifier.height(48.dp) else Modifier)
+                        .height(48.dp)
                         .padding(top = 0.dp),
                 contentAlignment = Alignment.TopCenter,
             ) {

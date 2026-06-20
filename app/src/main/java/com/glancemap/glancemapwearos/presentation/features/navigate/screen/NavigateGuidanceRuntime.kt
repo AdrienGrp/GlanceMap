@@ -328,6 +328,8 @@ internal fun rememberNavigateGuidanceRuntime(
         currentSpeedMps = rawCurrentLocation?.speed,
         voiceEnabled = voiceGuidanceEnabled,
         turnAlertsMode = turnAlertsMode,
+        offRouteAlertsEnabled = offRouteAlertsEnabled,
+        offRouteRepeatSeconds = offRouteRepeatSeconds,
         paused = paused,
         isMetric = isMetric,
     )

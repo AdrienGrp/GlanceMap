@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
@@ -28,8 +29,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -60,6 +62,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -72,6 +75,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     state: TurnByTurnGuidanceState,
     paused: Boolean,
     pausedTrackTitle: String?,
+    voiceGuidanceEnabled: Boolean,
     screenSize: WearScreenSize,
     isMetric: Boolean,
     compassHeadingDeg: Float,
@@ -82,6 +86,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit,
+    onVoiceGuidanceChange: (Boolean) -> Unit,
     onExpandedChange: (Boolean) -> Unit,
     onGuideBackToRoute: () -> Unit,
     onDismissGuideBackPrompt: () -> Unit,
@@ -152,6 +157,8 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     isMetric = isMetric,
                     compassHeadingDeg = compassHeadingDeg,
                     guideBackToRouteActive = guideBackToRouteActive,
+                    voiceGuidanceEnabled = voiceGuidanceEnabled,
+                    onVoiceGuidanceChange = onVoiceGuidanceChange,
                     onLongPress = { showActionPrompt = true },
                 )
             }
@@ -159,20 +166,29 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     }
 
     if (!expanded) {
+        val compactBackground =
+            if (state.offRoute) OFF_ROUTE_AMBER.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.9f)
+        val compactBorder =
+            if (state.offRoute) OFF_ROUTE_AMBER.copy(alpha = 0.95f) else Color.Transparent
         Box(
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = topPadding)
-                    .widthIn(max = compactWidth)
+                    .width(compactWidth)
                     .heightIn(min = 48.dp)
-                    .background(Color.Black.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
+                    .background(compactBackground, RoundedCornerShape(8.dp))
+                    .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
                     .combinedClickable(
                         onClick = {
+                            DebugTelemetry.log("TurnByTurn", "event=compact_popup_tap mode=guidance")
                             showActionPrompt = false
                             expanded = true
                         },
-                        onLongClick = { showActionPrompt = true },
+                        onLongClick = {
+                            DebugTelemetry.log("TurnByTurn", "event=compact_popup_long_press mode=guidance")
+                            showActionPrompt = true
+                        },
                     )
                     .padding(horizontal = 6.dp, vertical = 3.dp),
         ) {
@@ -195,14 +211,13 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                                 guidanceCompactText(state, isMetric, guideBackToRouteActive)
                             },
                         modifier = Modifier.weight(1f),
-                        color = Color.White,
+                        color = if (state.offRoute) OFF_ROUTE_AMBER else Color.White,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = titleFont,
                         lineHeight = titleFont,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    GuidanceControlsCue(onClick = { showActionPrompt = true })
                 }
             }
         }
@@ -296,6 +311,8 @@ private fun ExpandedGuidanceOverlay(
     isMetric: Boolean,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
+    voiceGuidanceEnabled: Boolean,
+    onVoiceGuidanceChange: (Boolean) -> Unit,
     onLongPress: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -339,7 +356,20 @@ private fun ExpandedGuidanceOverlay(
     ) {
         RouteProgressRing(
             progress = state.routeProgressFraction,
+            offRoute = state.offRoute,
             modifier = Modifier.fillMaxSize(),
+        )
+
+        GuidanceVoiceToggle(
+            enabled = voiceGuidanceEnabled,
+            onClick = {
+                DebugTelemetry.log("TurnByTurn", "event=voice_toggle enabled=${!voiceGuidanceEnabled}")
+                onVoiceGuidanceChange(!voiceGuidanceEnabled)
+            },
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 26.dp, end = 10.dp),
         )
 
         cappedFontScale(maxFontScale = 1.15f) {
@@ -352,7 +382,10 @@ private fun ExpandedGuidanceOverlay(
                     modifier =
                         Modifier
                             .size(arrowContainerSize)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape),
+                            .background(
+                                if (state.offRoute) OFF_ROUTE_AMBER else MaterialTheme.colorScheme.primary,
+                                CircleShape,
+                            ),
                     contentAlignment = Alignment.Center,
                 ) {
                     GuidanceManeuverIcon(
@@ -360,13 +393,13 @@ private fun ExpandedGuidanceOverlay(
                         compassHeadingDeg = compassHeadingDeg,
                         guideBackToRouteActive = guideBackToRouteActive,
                         modifier = Modifier.size(arrowIconSize),
-                        tint = MaterialTheme.colorScheme.onPrimary,
+                        tint = if (state.offRoute) Color.Black else MaterialTheme.colorScheme.onPrimary,
                     )
                 }
                 Spacer(modifier = Modifier.size(10.dp))
                 Text(
                     text = guidancePrimaryText(state, guideBackToRouteActive),
-                    color = Color.White,
+                    color = if (state.offRoute) OFF_ROUTE_AMBER else Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 21.sp,
                     lineHeight = 22.sp,
@@ -456,22 +489,23 @@ private fun formatGuidanceDuration(seconds: Long): String {
 }
 
 @Composable
-private fun GuidanceControlsCue(
+private fun GuidanceVoiceToggle(
+    enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
         modifier =
             modifier
-                .size(36.dp)
+                .size(48.dp)
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Default.MoreVert,
-            contentDescription = "Guidance controls",
-            tint = Color.White.copy(alpha = 0.62f),
-            modifier = Modifier.size(18.dp),
+            imageVector = if (enabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+            contentDescription = if (enabled) "Turn voice off" else "Turn voice on",
+            tint = if (enabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.62f),
+            modifier = Modifier.size(17.dp),
         )
     }
 }
@@ -683,10 +717,11 @@ private fun GuideBackPromptButton(
 @Composable
 private fun RouteProgressRing(
     progress: Float?,
+    offRoute: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val clampedProgress = progress?.coerceIn(0f, 1f) ?: return
-    val progressColor = MaterialTheme.colorScheme.primary
+    val progressColor = if (offRoute) OFF_ROUTE_AMBER else MaterialTheme.colorScheme.primary
     Canvas(modifier = modifier) {
         val strokeWidth = 5.dp.toPx()
         val inset = strokeWidth / 2f + 5.dp.toPx()
@@ -700,8 +735,8 @@ private fun RouteProgressRing(
         val arcSize = Size(side, side)
         drawArc(
             color = Color.White.copy(alpha = 0.12f),
-            startAngle = -90f,
-            sweepAngle = 360f,
+            startAngle = PROGRESS_ARC_START_DEGREES,
+            sweepAngle = PROGRESS_ARC_SWEEP_DEGREES,
             useCenter = false,
             topLeft = topLeft,
             size = arcSize,
@@ -710,8 +745,8 @@ private fun RouteProgressRing(
         if (clampedProgress > 0f) {
             drawArc(
                 color = progressColor,
-                startAngle = -90f,
-                sweepAngle = 360f * clampedProgress,
+                startAngle = PROGRESS_ARC_START_DEGREES,
+                sweepAngle = PROGRESS_ARC_SWEEP_DEGREES * clampedProgress,
                 useCenter = false,
                 topLeft = topLeft,
                 size = arcSize,
@@ -784,3 +819,6 @@ private fun guidanceCompactText(
     }
 
 private const val FOLLOWING_TURN_MAX_GAP_METERS = 300.0
+private const val PROGRESS_ARC_START_DEGREES = -72f
+private const val PROGRESS_ARC_SWEEP_DEGREES = 324f
+private val OFF_ROUTE_AMBER = Color(0xFFFFC107)
