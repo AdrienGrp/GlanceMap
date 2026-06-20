@@ -54,8 +54,26 @@ object ExternalSensorConnectionStatus {
     ): Boolean {
         val normalizedAddress = normalizeAddress(address) ?: return false
         if (normalizedAddress in _connectedAddresses.value) return true
+        if (normalizedAddress in _connectingAddresses.value) return true
         val lastConnectedAt = lastConnectedAtElapsedMs[normalizedAddress] ?: return false
         return nowElapsedMs - lastConnectedAt in 0L..recentWindowMs
+    }
+
+    @Synchronized
+    fun availabilitySummary(
+        address: String?,
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+    ): String {
+        val normalizedAddress = normalizeAddress(address) ?: return "unlinked"
+        if (normalizedAddress in _connectedAddresses.value) return "connected"
+        if (normalizedAddress in _connectingAddresses.value) return "connecting"
+        val lastConnectedAt = lastConnectedAtElapsedMs[normalizedAddress] ?: return "not_verified"
+        val ageMs = (nowElapsedMs - lastConnectedAt).coerceAtLeast(0L)
+        return if (ageMs <= RECENTLY_VERIFIED_WINDOW_MS) {
+            "recently_verified(ageMs=$ageMs)"
+        } else {
+            "verification_expired(ageMs=$ageMs)"
+        }
     }
 
     fun normalizedAddress(address: String?): String? = normalizeAddress(address)
@@ -66,5 +84,8 @@ object ExternalSensorConnectionStatus {
             ?.uppercase()
             ?.takeIf(String::isNotBlank)
 
-    private const val RECENTLY_VERIFIED_WINDOW_MS = 60_000L
+    // The settings screen owns only a temporary GATT connection. Keep that successful
+    // verification through the normal settings -> navigate -> REC handoff without
+    // maintaining an always-on BLE connection.
+    private const val RECENTLY_VERIFIED_WINDOW_MS = 5 * 60_000L
 }

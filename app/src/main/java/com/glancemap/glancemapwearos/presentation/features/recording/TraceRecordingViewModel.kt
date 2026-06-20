@@ -167,6 +167,10 @@ class TraceRecordingViewModel(
         val state = _uiState.value
         if (state.active || state.saving || _startWarning.value != null) return
 
+        val heartRateAvailability =
+            ExternalSensorConnectionStatus.availabilitySummary(recordingExternalHeartRateAddress)
+        val runPodAvailability =
+            ExternalSensorConnectionStatus.availabilitySummary(recordingExternalRunPodAddress)
         val warning =
             resolveRecordingStartWarning(
                 heartRateSource = recordingHeartRateSource,
@@ -181,6 +185,18 @@ class TraceRecordingViewModel(
                         addRecentlyAvailableAddress(recordingExternalRunPodAddress)
                     },
             )
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=external_sensor_preflight " +
+                "heartRateSelected=${
+                    recordingHeartRateSource == SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP
+                } heartRateAvailability=$heartRateAvailability " +
+                "runPodSelected=${
+                    recordingCadenceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD ||
+                        recordingSpeedSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD ||
+                        recordingDistanceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
+                } runPodAvailability=$runPodAvailability warning=${warning != null}",
+        )
         if (warning != null) {
             _startWarning.value = warning
             DebugTelemetry.log(
