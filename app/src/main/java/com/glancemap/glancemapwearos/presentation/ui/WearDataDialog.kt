@@ -141,7 +141,7 @@ private fun dataDialogPadding(
         bottom =
             adaptive.dialogVerticalPadding +
                 when {
-                    hasBottomAction -> 76.dp
+                    hasBottomAction -> 92.dp
                     highFontRound -> 260.dp
                     adaptive.isRound -> 42.dp
                     else -> 18.dp
@@ -202,6 +202,7 @@ private fun BoxScope.DataDialogBottomAction(
         modifier =
             Modifier
                 .align(Alignment.BottomCenter)
+                .fillMaxWidth()
                 .padding(bottom = bottomPadding),
         contentAlignment = Alignment.Center,
         content = content,
