@@ -1,23 +1,24 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Straight
+import androidx.compose.material.icons.filled.TurnLeft
+import androidx.compose.material.icons.filled.TurnRight
+import androidx.compose.material.icons.filled.TurnSharpLeft
+import androidx.compose.material.icons.filled.TurnSharpRight
+import androidx.compose.material.icons.filled.TurnSlightLeft
+import androidx.compose.material.icons.filled.TurnSlightRight
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.wear.compose.material3.Icon
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstructionCommand
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
-import kotlin.math.cos
-import kotlin.math.sin
 
 @Composable
 internal fun GuidanceManeuverIcon(
@@ -65,57 +66,38 @@ private fun ManeuverArrow(
     tint: Color,
     modifier: Modifier,
 ) {
-    val angleDegrees =
-        when (command) {
-            RouteInstructionCommand.SLIGHT_LEFT -> -45f
-            RouteInstructionCommand.LEFT -> -90f
-            RouteInstructionCommand.SHARP_LEFT -> -135f
-            RouteInstructionCommand.SLIGHT_RIGHT -> 45f
-            RouteInstructionCommand.RIGHT -> 90f
-            RouteInstructionCommand.SHARP_RIGHT -> 135f
-            RouteInstructionCommand.CONTINUE,
-            RouteInstructionCommand.FINISH,
-            null,
-            -> 0f
-        }
-    Canvas(modifier = modifier) {
-        val strokeWidth = size.minDimension * 0.14f
-        val pivot = Offset(size.width * 0.5f, size.height * 0.52f)
-        val start = Offset(size.width * 0.5f, size.height * 0.88f)
-        val angleRadians = Math.toRadians(angleDegrees.toDouble())
-        val direction = Offset(sin(angleRadians).toFloat(), -cos(angleRadians).toFloat())
-        val end = pivot + direction * (size.minDimension * 0.34f)
-        val path =
-            Path().apply {
-                moveTo(start.x, start.y)
-                lineTo(pivot.x, pivot.y)
-                quadraticTo(
-                    pivot.x,
-                    pivot.y - size.height * 0.16f,
-                    end.x,
-                    end.y,
-                )
-            }
-        drawPath(
-            path = path,
-            color = tint,
-            style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-        )
-        val back = direction * (-size.minDimension * 0.20f)
-        val perpendicular = Offset(-direction.y, direction.x) * (size.minDimension * 0.12f)
-        drawLine(
-            color = tint,
-            start = end + back + perpendicular,
-            end = end,
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            color = tint,
-            start = end + back - perpendicular,
-            end = end,
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
-    }
+    Icon(
+        imageVector = command.maneuverIcon(),
+        contentDescription = command.maneuverContentDescription(),
+        tint = tint,
+        modifier = modifier,
+    )
 }
+
+private fun RouteInstructionCommand?.maneuverIcon(): ImageVector =
+    when (this) {
+        RouteInstructionCommand.SLIGHT_LEFT -> Icons.Default.TurnSlightLeft
+        RouteInstructionCommand.LEFT -> Icons.Default.TurnLeft
+        RouteInstructionCommand.SHARP_LEFT -> Icons.Default.TurnSharpLeft
+        RouteInstructionCommand.SLIGHT_RIGHT -> Icons.Default.TurnSlightRight
+        RouteInstructionCommand.RIGHT -> Icons.Default.TurnRight
+        RouteInstructionCommand.SHARP_RIGHT -> Icons.Default.TurnSharpRight
+        RouteInstructionCommand.CONTINUE,
+        RouteInstructionCommand.FINISH,
+        null,
+        -> Icons.Default.Straight
+    }
+
+private fun RouteInstructionCommand?.maneuverContentDescription(): String =
+    when (this) {
+        RouteInstructionCommand.SLIGHT_LEFT -> "Slight left"
+        RouteInstructionCommand.LEFT -> "Turn left"
+        RouteInstructionCommand.SHARP_LEFT -> "Sharp left"
+        RouteInstructionCommand.SLIGHT_RIGHT -> "Slight right"
+        RouteInstructionCommand.RIGHT -> "Turn right"
+        RouteInstructionCommand.SHARP_RIGHT -> "Sharp right"
+        RouteInstructionCommand.CONTINUE,
+        RouteInstructionCommand.FINISH,
+        null,
+        -> "Continue straight"
+    }
