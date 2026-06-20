@@ -27,6 +27,7 @@ internal class ExternalBleGattClient(
     private val readCharacteristics: List<BleCharacteristicRef> = emptyList(),
     private val onServicesReady: (BluetoothGatt) -> Unit = {},
     private val onCharacteristicRead: (UUID, ByteArray) -> Unit = { _, _ -> },
+    private val onConnecting: () -> Unit = {},
     private val onConnectionChanged: (Boolean) -> Unit = {},
     private val onMeasurement: (UUID, ByteArray) -> Unit,
 ) {
@@ -157,6 +158,7 @@ internal class ExternalBleGattClient(
                     DebugTelemetry.log(logTag, "event=connect_skipped reason=bad_address")
                     return
                 }
+        onConnecting()
         gatt =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)

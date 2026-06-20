@@ -2,11 +2,16 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.Bluetooth
@@ -25,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
@@ -69,6 +73,7 @@ fun RecordingExternalSensorsScreen(
     val linkedRunPodName by viewModel.recordingExternalRunPodName.collectAsState()
     val runPodRuntimeInfos by ExternalRunPodRuntimeStatus.infos.collectAsState()
     val connectedAddresses by ExternalSensorConnectionStatus.connectedAddresses.collectAsState()
+    val connectingAddresses by ExternalSensorConnectionStatus.connectingAddresses.collectAsState()
     val externalSensorBatteryLevels by ExternalSensorConnectionStatus.batteryLevels.collectAsState()
     var permissionRefresh by remember { mutableIntStateOf(0) }
     var unsupportedSensorMessage by remember { mutableStateOf<String?>(null) }
@@ -144,8 +149,10 @@ fun RecordingExternalSensorsScreen(
                 item {
                     LinkedExternalSensorChip(
                         name = linkedHeartRateName.orLinkedSensorFallback("Heart strap"),
-                        connected = address in connectedAddresses,
-                        batteryLevelPercent = externalSensorBatteryLevels[address],
+                        address = address,
+                        connected = address.isConnectedIn(connectedAddresses),
+                        reconnecting = address.isConnectedIn(connectingAddresses),
+                        batteryLevelPercent = externalSensorBatteryLevels[address.normalizedBluetoothAddress()],
                         onForget = {
                             unsupportedSensorMessage = null
                             viewModel.setRecordingExternalHeartRateDevice(null, null)
@@ -159,10 +166,12 @@ fun RecordingExternalSensorsScreen(
                 item {
                     LinkedExternalSensorChip(
                         name = linkedRunPodName.orLinkedSensorFallback("Run pod"),
-                        connected = address in connectedAddresses,
+                        address = address,
+                        connected = address.isConnectedIn(connectedAddresses),
+                        reconnecting = address.isConnectedIn(connectingAddresses),
                         batteryLevelPercent =
                             runPodRuntimeInfos[address]?.batteryLevelPercent
-                                ?: externalSensorBatteryLevels[address],
+                                ?: externalSensorBatteryLevels[address.normalizedBluetoothAddress()],
                         onForget = {
                             unsupportedSensorMessage = null
                             viewModel.setRecordingExternalRunPodDevice(null, null)
@@ -195,13 +204,19 @@ fun RecordingExternalSensorsScreen(
                                 } else {
                                     linkedRunPodName.orLinkedSensorFallback(device.name)
                                 },
-                            connected = device.address in connectedAddresses,
+                            address = device.address,
+                            connected = device.address.isConnectedIn(connectedAddresses),
+                            reconnecting = device.address.isConnectedIn(connectingAddresses),
                             batteryLevelPercent =
                                 if (heartRateSelected) {
-                                    externalSensorBatteryLevels[device.address]
+                                    externalSensorBatteryLevels[
+                                        device.address.normalizedBluetoothAddress()
+                                    ]
                                 } else {
                                     runPodRuntimeInfos[device.address]?.batteryLevelPercent
-                                        ?: externalSensorBatteryLevels[device.address]
+                                        ?: externalSensorBatteryLevels[
+                                            device.address.normalizedBluetoothAddress()
+                                        ]
                                 },
                             onForget = {
                                 unsupportedSensorMessage = null
@@ -242,20 +257,24 @@ fun RecordingExternalSensorsScreen(
 @Composable
 private fun LinkedExternalSensorChip(
     name: String,
+    address: String,
     connected: Boolean,
+    reconnecting: Boolean,
     batteryLevelPercent: Int? = null,
     onForget: () -> Unit,
 ) {
     val adaptive = rememberWearAdaptiveSpec()
     val minHeight =
         when {
-            adaptive.fontScale >= 1.45f -> 76.dp
-            adaptive.fontScale >= 1.25f -> 68.dp
-            else -> 52.dp
+            adaptive.fontScale >= 1.45f -> 84.dp
+            adaptive.fontScale >= 1.25f -> 76.dp
+            else -> 60.dp
         }
     LinkedExternalSensorChipContent(
         name = name,
+        address = address,
         connected = connected,
+        reconnecting = reconnecting,
         batteryLevelPercent = batteryLevelPercent,
         minHeight = minHeight,
         onForget = onForget,
@@ -266,63 +285,104 @@ private fun LinkedExternalSensorChip(
 @Composable
 private fun LinkedExternalSensorChipContent(
     name: String,
+    address: String,
     connected: Boolean,
+    reconnecting: Boolean,
     batteryLevelPercent: Int?,
     minHeight: androidx.compose.ui.unit.Dp,
     onForget: () -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
-    Chip(
+    val backgroundColor =
+        when {
+            connected -> Color(0xFF254336)
+            reconnecting -> Color(0xFF3D3520)
+            else -> Color(0xFF2B2F36)
+        }
+    val contentColor =
+        when {
+            connected -> Color(0xFFF1FFF5)
+            reconnecting -> Color(0xFFFFF1C2)
+            else -> Color(0xFFF1F5FB)
+        }
+    val secondaryColor =
+        when {
+            connected -> Color(0xFFB7DCC4)
+            reconnecting -> Color(0xFFE2C978)
+            else -> Color(0xFFBAC5D4)
+        }
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = minHeight)
-                .pointerInput(onForget) {
-                    detectTapGestures(
-                        onLongPress = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onForget()
-                        },
-                    )
-                },
-        label = {
-            Text(
-                text =
-                    if (connected && batteryLevelPercent in 0..100) {
-                        "$name · $batteryLevelPercent%"
-                    } else {
-                        name
+                .background(backgroundColor, RoundedCornerShape(24.dp))
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onForget()
                     },
+                )
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector =
+                when {
+                    connected -> Icons.Default.CheckCircle
+                    reconnecting -> Icons.AutoMirrored.Filled.BluetoothSearching
+                    else -> Icons.Default.Bluetooth
+                },
+            contentDescription = null,
+            modifier = Modifier.size(ChipDefaults.IconSize),
+            tint =
+                when {
+                    connected -> Color(0xFF8FF0A4)
+                    reconnecting -> Color(0xFFF6C453)
+                    else -> Color(0xFF9FB2C9)
+                },
+        )
+        Spacer(modifier = Modifier.size(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = name,
+                    modifier = Modifier.weight(1f),
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (connected && batteryLevelPercent in 0..100) {
+                    Text(
+                        text = "$batteryLevelPercent%",
+                        modifier = Modifier.padding(start = 5.dp),
+                        color = contentColor,
+                        maxLines = 1,
+                    )
+                } else if (reconnecting) {
+                    Text(
+                        text = "Connecting",
+                        modifier = Modifier.padding(start = 5.dp),
+                        color = contentColor,
+                        maxLines = 1,
+                    )
+                }
+            }
+            Text(
+                text = address,
+                color = secondaryColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-        },
-        icon = {
-            Icon(
-                imageVector =
-                    if (connected) {
-                        Icons.Default.CheckCircle
-                    } else {
-                        Icons.Default.Bluetooth
-                    },
-                contentDescription = null,
-                modifier = Modifier.size(ChipDefaults.IconSize),
-            )
-        },
-        colors =
-            if (connected) {
-                ChipDefaults.secondaryChipColors(
-                    backgroundColor = Color(0xFF254336),
-                    contentColor = Color(0xFFF1FFF5),
-                    secondaryContentColor = Color(0xFFB7DCC4),
-                    iconColor = Color(0xFF8FF0A4),
-                )
-            } else {
-                ChipDefaults.secondaryChipColors()
-            },
-        onClick = {},
-    )
+        }
+    }
 }
+
+private fun String.normalizedBluetoothAddress(): String = trim().uppercase()
+
+private fun String.isConnectedIn(connectedAddresses: Set<String>): Boolean =
+    normalizedBluetoothAddress() in connectedAddresses
 
 @Composable
 private fun ExternalSensorScanChip(

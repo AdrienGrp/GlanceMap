@@ -44,6 +44,9 @@ class ExternalRunPodClient(
                     BleCharacteristicRef(DEVICE_INFORMATION_SERVICE_UUID, FIRMWARE_REVISION_UUID),
                     BleCharacteristicRef(DEVICE_INFORMATION_SERVICE_UUID, SOFTWARE_REVISION_UUID),
                 ),
+            onConnecting = {
+                ExternalSensorConnectionStatus.markConnecting(address)
+            },
             onServicesReady = { gatt -> logGattTable(gatt.services) },
             onCharacteristicRead = ::handleRead,
             onConnectionChanged = { connected ->

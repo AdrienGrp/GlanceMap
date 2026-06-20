@@ -29,6 +29,7 @@ internal fun resolveRecordingStartWarning(
     distanceSource: String,
     externalHeartRateAddress: String?,
     externalRunPodAddress: String?,
+    connectedExternalAddresses: Set<String> = emptySet(),
 ): RecordingStartWarning? {
     val heartRateStrapSelected =
         heartRateSource == SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP
@@ -50,16 +51,30 @@ internal fun resolveRecordingStartWarning(
         }
     val disconnectedDevices =
         buildList {
-            if (heartRateStrapSelected && !externalHeartRateAddress.isNullOrBlank()) {
+            if (
+                heartRateStrapSelected &&
+                !externalHeartRateAddress.isNullOrBlank() &&
+                externalHeartRateAddress.normalizedBluetoothAddress() !in connectedExternalAddresses
+            ) {
                 add("heart-rate strap")
             }
-            if (runPodSelected && !externalRunPodAddress.isNullOrBlank()) {
+            if (
+                runPodSelected &&
+                !externalRunPodAddress.isNullOrBlank() &&
+                externalRunPodAddress.normalizedBluetoothAddress() !in connectedExternalAddresses
+            ) {
                 add("run pod")
             }
         }
 
-    return RecordingStartWarning(
-        unlinkedDevices = unlinkedDevices,
-        disconnectedDevices = disconnectedDevices,
-    )
+    return if (unlinkedDevices.isEmpty() && disconnectedDevices.isEmpty()) {
+        null
+    } else {
+        RecordingStartWarning(
+            unlinkedDevices = unlinkedDevices,
+            disconnectedDevices = disconnectedDevices,
+        )
+    }
 }
+
+private fun String.normalizedBluetoothAddress(): String = trim().uppercase()

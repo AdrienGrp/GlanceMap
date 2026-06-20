@@ -20,6 +20,9 @@ class ExternalHeartRateClient(
                 listOf(
                     BleCharacteristicRef(BATTERY_SERVICE_UUID, BATTERY_LEVEL_UUID),
                 ),
+            onConnecting = {
+                ExternalSensorConnectionStatus.markConnecting(address)
+            },
             onConnectionChanged = { connected ->
                 ExternalSensorConnectionStatus.update(address, connected)
             },

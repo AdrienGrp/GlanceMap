@@ -12,6 +12,7 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.parseGpxData
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.buildRecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.estimateRecordingCalories
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorConnectionStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorMetrics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -174,6 +175,11 @@ class TraceRecordingViewModel(
                 distanceSource = recordingDistanceSource,
                 externalHeartRateAddress = recordingExternalHeartRateAddress,
                 externalRunPodAddress = recordingExternalRunPodAddress,
+                connectedExternalAddresses =
+                    buildSet {
+                        addRecentlyAvailableAddress(recordingExternalHeartRateAddress)
+                        addRecentlyAvailableAddress(recordingExternalRunPodAddress)
+                    },
             )
         if (warning != null) {
             _startWarning.value = warning
@@ -187,6 +193,11 @@ class TraceRecordingViewModel(
         }
 
         startRecordingNow()
+    }
+
+    private fun MutableSet<String>.addRecentlyAvailableAddress(address: String?) {
+        if (!ExternalSensorConnectionStatus.isConnectedOrRecentlyVerified(address)) return
+        ExternalSensorConnectionStatus.normalizedAddress(address)?.let(::add)
     }
 
     fun confirmStartRecordingWithUnavailableSensors() {

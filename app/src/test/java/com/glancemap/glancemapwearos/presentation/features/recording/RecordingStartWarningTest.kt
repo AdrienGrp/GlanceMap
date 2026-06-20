@@ -40,6 +40,25 @@ class RecordingStartWarningTest {
     }
 
     @Test
+    fun `connected external sources do not require a warning`() {
+        assertNull(
+            resolveRecordingStartWarning(
+                heartRateSource = SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP,
+                cadenceSource = SettingsRepository.RECORDING_SENSOR_SOURCE_POD,
+                speedSource = SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
+                distanceSource = SettingsRepository.RECORDING_SENSOR_SOURCE_POD,
+                externalHeartRateAddress = "aa:bb:cc:dd:ee:01",
+                externalRunPodAddress = "aa:bb:cc:dd:ee:02",
+                connectedExternalAddresses =
+                    setOf(
+                        "AA:BB:CC:DD:EE:01",
+                        "AA:BB:CC:DD:EE:02",
+                    ),
+            ),
+        )
+    }
+
+    @Test
     fun `selected external source without a linked device is explicit`() {
         val warning =
             resolveRecordingStartWarning(
