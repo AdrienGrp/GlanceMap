@@ -66,12 +66,20 @@ internal fun rememberNavigateGuidanceRuntime(
                 offRouteDistanceMeters = offRouteThresholdMeters.toDouble(),
             )
         }
+    var previousGuidanceProgressMeters by
+        remember(activeSession?.trackId, activeSession?.reversed) {
+            mutableStateOf<Double?>(null)
+        }
     val state =
         computeTurnByTurnGuidanceState(
             session = activeSession,
             currentLocation = guidanceLocation,
             tuning = tuning,
+            previousDistanceFromStartMeters = previousGuidanceProgressMeters,
         )
+    LaunchedEffect(activeSession?.trackId, activeSession?.reversed, state.distanceFromStartMeters) {
+        state.distanceFromStartMeters?.let { previousGuidanceProgressMeters = it }
+    }
     var guideBackToRouteActive by remember { mutableStateOf(false) }
     var brouterGuideBackRoute by remember { mutableStateOf<List<LatLong>>(emptyList()) }
     var dismissedGuideBackPromptTrackId by remember { mutableStateOf<String?>(null) }

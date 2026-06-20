@@ -236,6 +236,55 @@ class GpxTurnByTurnGuidanceTest {
         assertEquals(0.5, projection?.t ?: 0.0, 0.05)
     }
 
+    @Test
+    fun projectionPrefersProgressContinuityAtRouteCrossing() {
+        val points =
+            listOf(
+                LatLong(45.0000, 6.0000),
+                LatLong(45.0010, 6.0010),
+                LatLong(45.0000, 6.0020),
+                LatLong(44.9990, 6.0010),
+                LatLong(45.0000, 6.0000),
+                LatLong(45.0010, 5.9990),
+            )
+        val cumulative = buildCumulativeDistances(points)
+        val location = LatLong(45.0000, 6.0000)
+
+        val projection =
+            projectLocationToRoute(
+                points = points,
+                cumulativeDistancesMeters = cumulative,
+                location = location,
+                previousDistanceFromStartMeters = cumulative[3],
+            )
+
+        assertNotNull(projection)
+        assertTrue((projection?.distanceFromStartMeters ?: 0.0) > cumulative[2])
+    }
+
+    @Test
+    fun projectionRelocksWhenContinuityWindowIsClearlyWrong() {
+        val points =
+            listOf(
+                LatLong(45.0000, 6.0000),
+                LatLong(45.0000, 6.0010),
+                LatLong(45.0100, 6.0100),
+                LatLong(45.0100, 6.0110),
+            )
+        val cumulative = buildCumulativeDistances(points)
+
+        val projection =
+            projectLocationToRoute(
+                points = points,
+                cumulativeDistancesMeters = cumulative,
+                location = LatLong(45.0100, 6.0105),
+                previousDistanceFromStartMeters = 20.0,
+            )
+
+        assertNotNull(projection)
+        assertTrue((projection?.distanceFromStartMeters ?: 0.0) > cumulative[1])
+    }
+
     private fun point(
         lat: Double,
         lon: Double,

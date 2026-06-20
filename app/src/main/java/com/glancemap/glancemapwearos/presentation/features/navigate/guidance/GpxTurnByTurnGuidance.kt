@@ -69,6 +69,7 @@ data class TurnByTurnGuidanceState(
     val distanceRemainingMeters: Double?,
     val routeProgressFraction: Float?,
     val offRoute: Boolean,
+    val distanceFromStartMeters: Double? = null,
 )
 
 data class GuidanceProjection(
@@ -127,6 +128,7 @@ fun computeTurnByTurnGuidanceState(
     session: GpxGuidanceSession?,
     currentLocation: LatLong?,
     tuning: GpxGuidanceTuning = GpxGuidanceTuning(),
+    previousDistanceFromStartMeters: Double? = null,
 ): TurnByTurnGuidanceState {
     if (session == null) {
         return TurnByTurnGuidanceState(
@@ -187,6 +189,7 @@ fun computeTurnByTurnGuidanceState(
             points = points,
             cumulativeDistancesMeters = session.cumulativeDistancesMeters,
             location = currentLocation,
+            previousDistanceFromStartMeters = previousDistanceFromStartMeters,
         )
     val nearestRoutePoint =
         projection?.let {
@@ -218,6 +221,7 @@ fun computeTurnByTurnGuidanceState(
             distanceRemainingMeters = 0.0,
             routeProgressFraction = 1f,
             offRoute = false,
+            distanceFromStartMeters = session.totalDistanceMeters,
         )
     }
 
@@ -242,6 +246,7 @@ fun computeTurnByTurnGuidanceState(
         distanceRemainingMeters = remaining,
         routeProgressFraction = routeProgressFraction(distanceFromStart, session.totalDistanceMeters),
         offRoute = (distanceToRoute ?: 0.0) > tuning.offRouteDistanceMeters,
+        distanceFromStartMeters = distanceFromStart,
     )
 }
 
@@ -446,10 +451,11 @@ fun projectLocationToRoute(
     points: List<LatLong>,
     cumulativeDistancesMeters: List<Double> = buildCumulativeDistances(points),
     location: LatLong,
+    previousDistanceFromStartMeters: Double? = null,
 ): GuidanceProjection? {
     if (points.size < 2) return null
 
-    var best: GuidanceProjection? = null
+    val candidates = ArrayList<GuidanceProjection>(points.lastIndex)
     for (index in 0 until points.lastIndex) {
         val a = points[index]
         val b = points[index + 1]
@@ -467,11 +473,32 @@ fun projectLocationToRoute(
                 distanceFromStartMeters = distanceFromStart,
                 distanceToRouteMeters = projected.distanceMeters,
             )
-        if (best == null || candidate.distanceToRouteMeters < best.distanceToRouteMeters) {
-            best = candidate
-        }
+        candidates += candidate
     }
-    return best
+    val globallyNearest = candidates.minByOrNull { it.distanceToRouteMeters } ?: return null
+    val previousProgress =
+        previousDistanceFromStartMeters
+            ?.takeIf { it.isFinite() && it >= 0.0 }
+            ?: return globallyNearest
+    val continuityCandidate =
+        candidates
+            .asSequence()
+            .filter {
+                it.distanceFromStartMeters >= previousProgress - ROUTE_MATCH_MAX_BACKTRACK_METERS &&
+                    it.distanceFromStartMeters <= previousProgress + ROUTE_MATCH_MAX_FORWARD_JUMP_METERS
+            }.minByOrNull { candidate ->
+                candidate.distanceToRouteMeters +
+                    abs(candidate.distanceFromStartMeters - previousProgress) * ROUTE_MATCH_PROGRESS_PENALTY
+            }
+            ?: return globallyNearest
+    return if (
+        continuityCandidate.distanceToRouteMeters <=
+        globallyNearest.distanceToRouteMeters + ROUTE_MATCH_RELOCK_ADVANTAGE_METERS
+    ) {
+        continuityCandidate
+    } else {
+        globallyNearest
+    }
 }
 
 fun buildCumulativeDistances(points: List<LatLong>): List<Double> {
@@ -552,6 +579,11 @@ private fun commandForTurn(deltaDegrees: Double): RouteInstructionCommand =
         deltaDegrees >= 25.0 -> RouteInstructionCommand.SLIGHT_RIGHT
         else -> RouteInstructionCommand.CONTINUE
     }
+
+private const val ROUTE_MATCH_MAX_BACKTRACK_METERS = 45.0
+private const val ROUTE_MATCH_MAX_FORWARD_JUMP_METERS = 300.0
+private const val ROUTE_MATCH_PROGRESS_PENALTY = 0.015
+private const val ROUTE_MATCH_RELOCK_ADVANTAGE_METERS = 35.0
 
 val RouteInstructionCommand.message: String
     get() =
