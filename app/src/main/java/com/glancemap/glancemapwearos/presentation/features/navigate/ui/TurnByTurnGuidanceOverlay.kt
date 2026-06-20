@@ -384,10 +384,22 @@ private fun ExpandedGuidanceOverlay(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                guidanceFollowingText(state, isMetric)?.let { followingText ->
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text(
+                        text = followingText,
+                        color = Color.White.copy(alpha = 0.72f),
+                        fontSize = 11.sp,
+                        lineHeight = 12.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 state.distanceRemainingMeters?.let { remaining ->
                     Spacer(modifier = Modifier.size(8.dp))
                     Text(
-                        text = "${formatLiveDistanceLabel(remaining, isMetric)} remaining",
+                        text = guidanceRemainingText(remaining, state.estimatedRemainingSeconds, isMetric),
                         color = Color.White.copy(alpha = 0.64f),
                         fontSize = 11.sp,
                         lineHeight = 12.sp,
@@ -407,6 +419,39 @@ private fun ExpandedGuidanceOverlay(
             }
         }
 
+    }
+}
+
+internal fun guidanceFollowingText(
+    state: TurnByTurnGuidanceState,
+    isMetric: Boolean,
+): String? {
+    val following = state.followingInstruction ?: return null
+    val followingDistance = state.distanceToFollowingInstructionMeters ?: return null
+    val currentDistance = state.distanceToInstructionMeters ?: return null
+    val gapMeters = followingDistance - currentDistance
+    if (gapMeters !in 0.0..FOLLOWING_TURN_MAX_GAP_METERS) return null
+    return "Then ${following.message.lowercase()} · ${formatLiveDistanceLabel(gapMeters, isMetric)}"
+}
+
+internal fun guidanceRemainingText(
+    remainingMeters: Double,
+    estimatedRemainingSeconds: Long?,
+    isMetric: Boolean,
+): String {
+    val distance = "${formatLiveDistanceLabel(remainingMeters, isMetric)} remaining"
+    val eta = estimatedRemainingSeconds?.let(::formatGuidanceDuration) ?: return distance
+    return "$distance · $eta"
+}
+
+private fun formatGuidanceDuration(seconds: Long): String {
+    val totalMinutes = (seconds.coerceAtLeast(0L) + 30L) / 60L
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+    return when {
+        hours > 0L && minutes > 0L -> "${hours}h ${minutes}m"
+        hours > 0L -> "${hours}h"
+        else -> "${minutes.coerceAtLeast(1L)}m"
     }
 }
 
@@ -737,3 +782,5 @@ private fun guidanceCompactText(
         GuidanceMode.FINISHED -> "Finished"
         }
     }
+
+private const val FOLLOWING_TURN_MAX_GAP_METERS = 300.0

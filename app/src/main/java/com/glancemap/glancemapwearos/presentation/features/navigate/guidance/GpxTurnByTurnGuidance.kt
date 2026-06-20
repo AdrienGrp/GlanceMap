@@ -70,6 +70,9 @@ data class TurnByTurnGuidanceState(
     val routeProgressFraction: Float?,
     val offRoute: Boolean,
     val distanceFromStartMeters: Double? = null,
+    val followingInstruction: RouteInstruction? = null,
+    val distanceToFollowingInstructionMeters: Double? = null,
+    val estimatedRemainingSeconds: Long? = null,
 )
 
 data class GuidanceProjection(
@@ -231,12 +234,19 @@ fun computeTurnByTurnGuidanceState(
         )
     }
 
-    val nextInstruction =
-        session.instructions.firstOrNull {
+    val nextInstructionIndex =
+        session.instructions.indexOfFirst {
             it.distanceFromStartMeters > distanceFromStart + tuning.finishDistanceMeters
-        } ?: session.instructions.lastOrNull()
+        }
+    val resolvedInstructionIndex =
+        if (nextInstructionIndex >= 0) nextInstructionIndex else session.instructions.lastIndex
+    val nextInstruction = session.instructions.getOrNull(resolvedInstructionIndex)
+    val followingInstruction = session.instructions.getOrNull(resolvedInstructionIndex + 1)
     val distanceToInstruction =
         nextInstruction
+            ?.let { (it.distanceFromStartMeters - distanceFromStart).coerceAtLeast(0.0) }
+    val distanceToFollowingInstruction =
+        followingInstruction
             ?.let { (it.distanceFromStartMeters - distanceFromStart).coerceAtLeast(0.0) }
 
     return TurnByTurnGuidanceState(
@@ -253,6 +263,8 @@ fun computeTurnByTurnGuidanceState(
         routeProgressFraction = routeProgressFraction(distanceFromStart, session.totalDistanceMeters),
         offRoute = (distanceToRoute ?: 0.0) > tuning.offRouteDistanceMeters,
         distanceFromStartMeters = distanceFromStart,
+        followingInstruction = followingInstruction,
+        distanceToFollowingInstructionMeters = distanceToFollowingInstruction,
     )
 }
 

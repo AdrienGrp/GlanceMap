@@ -36,6 +36,9 @@ internal data class NavigateGuidanceRuntime(
 )
 
 private const val OFF_ROUTE_WAKE_GRACE_MS = 5_000L
+private const val ETA_MIN_SPEED_MPS = 0.4f
+private const val ETA_MAX_SPEED_MPS = 12f
+private const val ETA_SPEED_SMOOTHING_ALPHA = 0.2f
 
 @Composable
 internal fun rememberNavigateGuidanceRuntime(
@@ -58,6 +61,7 @@ internal fun rememberNavigateGuidanceRuntime(
     guidanceGpsInAmbient: Boolean,
     brouterGuideBackEnabled: Boolean,
     lastScreenResumeElapsedMs: Long,
+    isMetric: Boolean,
 ): NavigateGuidanceRuntime {
     val guidanceLocation: LatLong? =
         if (offlineMode) {
@@ -91,6 +95,27 @@ internal fun rememberNavigateGuidanceRuntime(
         remember(activeSession?.trackId, activeSession?.reversed) {
             mutableStateOf(GuidanceOffRouteConfirmationState())
         }
+    var smoothedGuidanceSpeedMps by
+        remember(activeSession?.trackId, activeSession?.reversed) {
+            mutableStateOf<Float?>(null)
+        }
+    LaunchedEffect(
+        activeSession?.trackId,
+        activeSession?.reversed,
+        rawCurrentLocation?.elapsedRealtimeNanos,
+        rawCurrentLocation?.time,
+    ) {
+        val location = rawCurrentLocation ?: return@LaunchedEffect
+        val speed = location.speed
+        if (!location.hasSpeed() || !speed.isFinite() || speed !in ETA_MIN_SPEED_MPS..ETA_MAX_SPEED_MPS) {
+            smoothedGuidanceSpeedMps = null
+            return@LaunchedEffect
+        }
+        smoothedGuidanceSpeedMps =
+            smoothedGuidanceSpeedMps?.let { previous ->
+                previous + ETA_SPEED_SMOOTHING_ALPHA * (speed - previous)
+            } ?: speed
+    }
     LaunchedEffect(
         activeSession?.trackId,
         activeSession?.reversed,
@@ -116,7 +141,23 @@ internal fun rememberNavigateGuidanceRuntime(
                         OFF_ROUTE_WAKE_GRACE_MS,
             )
     }
-    val state = rawState.copy(offRoute = offRouteConfirmation.offRoute)
+    val estimatedRemainingSeconds =
+        if (rawState.mode == GuidanceMode.FOLLOW_ROUTE) {
+            val speed = smoothedGuidanceSpeedMps?.takeIf { it >= ETA_MIN_SPEED_MPS }
+            val remaining = rawState.distanceRemainingMeters
+            if (speed != null && remaining != null) {
+                (remaining / speed).toLong().coerceAtLeast(0L)
+            } else {
+                null
+            }
+        } else {
+            null
+        }
+    val state =
+        rawState.copy(
+            offRoute = offRouteConfirmation.offRoute,
+            estimatedRemainingSeconds = estimatedRemainingSeconds,
+        )
     var guideBackToRouteActive by remember { mutableStateOf(false) }
     var brouterGuideBackRoute by remember { mutableStateOf<List<LatLong>>(emptyList()) }
     var dismissedGuideBackPromptTrackId by remember { mutableStateOf<String?>(null) }
@@ -288,6 +329,7 @@ internal fun rememberNavigateGuidanceRuntime(
         voiceEnabled = voiceGuidanceEnabled,
         turnAlertsMode = turnAlertsMode,
         paused = paused,
+        isMetric = isMetric,
     )
 
     LaunchedEffect(

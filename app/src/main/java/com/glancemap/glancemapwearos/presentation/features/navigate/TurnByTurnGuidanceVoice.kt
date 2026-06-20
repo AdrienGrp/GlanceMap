@@ -25,6 +25,7 @@ internal fun TurnByTurnGuidanceVoiceEffect(
     voiceEnabled: Boolean,
     turnAlertsMode: String,
     paused: Boolean,
+    isMetric: Boolean,
 ) {
     if (!voiceEnabled) return
 
@@ -85,7 +86,14 @@ internal fun TurnByTurnGuidanceVoiceEffect(
         val instructionKey = "${state.trackTitle}:${instruction.trackPointIndex}:${instruction.command}"
         if (alertedInstructionKey == instructionKey) return@LaunchedEffect
         alertedInstructionKey = instructionKey
-        val spokenText = spokenInstructionText(instruction, distanceMeters)
+        val spokenText =
+            spokenInstructionText(
+                instruction = instruction,
+                distanceMeters = distanceMeters,
+                followingInstruction = state.followingInstruction,
+                distanceToFollowingInstructionMeters = state.distanceToFollowingInstructionMeters,
+                isMetric = isMetric,
+            )
         DebugTelemetry.log(
             "TurnByTurn",
             "voice=turn command=${instruction.command} index=${instruction.trackPointIndex} " +
@@ -109,29 +117,61 @@ internal fun TurnByTurnGuidanceVoiceEffect(
 private fun spokenInstructionText(
     instruction: RouteInstruction,
     distanceMeters: Double,
+    followingInstruction: RouteInstruction?,
+    distanceToFollowingInstructionMeters: Double?,
+    isMetric: Boolean,
 ): String {
-    val action =
-        when (instruction.command) {
-            RouteInstructionCommand.SLIGHT_LEFT -> "slight left"
-            RouteInstructionCommand.LEFT -> "turn left"
-            RouteInstructionCommand.SHARP_LEFT -> "sharp left"
-            RouteInstructionCommand.SLIGHT_RIGHT -> "slight right"
-            RouteInstructionCommand.RIGHT -> "turn right"
-            RouteInstructionCommand.SHARP_RIGHT -> "sharp right"
-            RouteInstructionCommand.CONTINUE -> "continue"
-            RouteInstructionCommand.FINISH -> "finish"
+    val action = spokenTurnAction(instruction.command)
+    val distance = spokenDistancePrefix(distanceMeters, isMetric)
+    val primary = if (distance == null) action else "$distance, $action"
+    val followingGapMeters =
+        distanceToFollowingInstructionMeters
+            ?.let { it - distanceMeters }
+            ?.takeIf { it in 0.0..VOICE_FOLLOWING_TURN_MAX_GAP_METERS }
+    val followingAction =
+        if (followingGapMeters != null && followingInstruction != null) {
+            spokenTurnAction(followingInstruction.command)
+        } else {
+            null
         }
-    val distance = spokenDistancePrefix(distanceMeters)
-    return if (distance == null) {
-        action
-    } else {
-        "$distance, $action"
-    }
+    return if (followingAction != null) "$primary, then $followingAction" else primary
 }
 
-private fun spokenDistancePrefix(distanceMeters: Double): String? {
+private fun spokenTurnAction(command: RouteInstructionCommand): String =
+    when (command) {
+        RouteInstructionCommand.SLIGHT_LEFT -> "slight left"
+        RouteInstructionCommand.LEFT -> "turn left"
+        RouteInstructionCommand.SHARP_LEFT -> "sharp left"
+        RouteInstructionCommand.SLIGHT_RIGHT -> "slight right"
+        RouteInstructionCommand.RIGHT -> "turn right"
+        RouteInstructionCommand.SHARP_RIGHT -> "sharp right"
+        RouteInstructionCommand.CONTINUE -> "continue"
+        RouteInstructionCommand.FINISH -> "finish"
+    }
+
+private fun spokenDistancePrefix(
+    distanceMeters: Double,
+    isMetric: Boolean,
+): String? {
     if (!distanceMeters.isFinite()) return null
     if (distanceMeters < 15.0) return "now"
+    if (!isMetric) {
+        val feet = distanceMeters * METERS_TO_FEET
+        return if (feet < FEET_PER_HALF_MILE) {
+            val roundedFeet = ((feet / 25.0).roundToInt() * 25).coerceAtLeast(50)
+            "in $roundedFeet feet"
+        } else {
+            val miles = distanceMeters * METERS_TO_MILES
+            val roundedTenths = (miles * 10.0).roundToInt().coerceAtLeast(1)
+            val spokenMiles = String.format(Locale.US, "%.1f", roundedTenths / 10.0)
+            "in $spokenMiles miles"
+        }
+    }
     val roundedMeters = ((distanceMeters / 5.0).roundToInt() * 5).coerceAtLeast(15)
     return "in $roundedMeters meters"
 }
+
+private const val VOICE_FOLLOWING_TURN_MAX_GAP_METERS = 120.0
+private const val METERS_TO_FEET = 3.28084
+private const val METERS_TO_MILES = 0.000621371
+private const val FEET_PER_HALF_MILE = 2_640.0

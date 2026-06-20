@@ -611,10 +611,22 @@ private fun CombinedGuidancePage(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            guidanceFollowingText(state, isMetric)?.let { followingText ->
+                Spacer(modifier = Modifier.size(4.dp))
+                Text(
+                    text = followingText,
+                    color = Color.White.copy(alpha = 0.72f),
+                    fontSize = 11.sp,
+                    lineHeight = 12.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             state.distanceRemainingMeters?.let { remaining ->
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
-                    text = "${formatLiveDistanceLabel(remaining, isMetric)} remaining",
+                    text = guidanceRemainingText(remaining, state.estimatedRemainingSeconds, isMetric),
                     color = Color.White.copy(alpha = 0.64f),
                     fontSize = 11.sp,
                     lineHeight = 12.sp,
