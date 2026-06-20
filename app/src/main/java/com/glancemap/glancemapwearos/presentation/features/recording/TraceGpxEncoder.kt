@@ -25,22 +25,39 @@ internal fun encodeRecordedTraceAsGpx(
     }
     writer.textTag("trk") {
         textTag("name", title)
-        textTag("trkseg") {
-            points.forEach { point ->
-                writer.append("""<trkpt lat="${formatCoordinate(point.latLong.latitude)}" """)
-                writer.append("""lon="${formatCoordinate(point.latLong.longitude)}">""")
-                point.elevationMeters?.let { elevation ->
-                    writer.textTag("ele", formatElevation(elevation))
+        recordedTraceSegments(points).forEach { segment ->
+            textTag("trkseg") {
+                segment.forEach { point ->
+                    writer.append("""<trkpt lat="${formatCoordinate(point.latLong.latitude)}" """)
+                    writer.append("""lon="${formatCoordinate(point.latLong.longitude)}">""")
+                    point.elevationMeters?.let { elevation ->
+                        writer.textTag("ele", formatElevation(elevation))
+                    }
+                    writer.textTag("time", DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochMilli(point.timeMillis)))
+                    writer.writePointExtensions(point)
+                    writer.append("</trkpt>")
                 }
-                writer.textTag("time", DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochMilli(point.timeMillis)))
-                writer.writePointExtensions(point)
-                writer.append("</trkpt>")
             }
         }
     }
     writer.append("</gpx>")
     return writer.toString().toByteArray(Charsets.UTF_8)
 }
+
+internal fun recordedTraceSegments(points: List<RecordedTracePoint>): List<List<RecordedTracePoint>> =
+    buildList {
+        var currentSegment = mutableListOf<RecordedTracePoint>()
+        points.forEach { point ->
+            if (point.startsNewSegment && currentSegment.isNotEmpty()) {
+                add(currentSegment)
+                currentSegment = mutableListOf()
+            }
+            currentSegment += point
+        }
+        if (currentSegment.isNotEmpty()) {
+            add(currentSegment)
+        }
+    }
 
 data class RecordedTraceSummary(
     val durationSeconds: Double,

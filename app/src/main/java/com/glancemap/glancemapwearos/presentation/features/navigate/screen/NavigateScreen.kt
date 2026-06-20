@@ -41,6 +41,7 @@ import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingViewModel
+import com.glancemap.glancemapwearos.presentation.features.recording.recordedTraceSegments
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
@@ -182,9 +183,10 @@ fun NavigateScreen(
     val recordingSampleIntervalSeconds by settingsViewModel.recordingSampleIntervalSeconds.collectAsState()
     val recordingGpsEnabled =
         recordingSampleIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
-    val recordingTracePoints =
+    val recordingTraceSegments =
         remember(traceRecordingState.points) {
-            traceRecordingState.points.map { it.latLong }
+            recordedTraceSegments(traceRecordingState.points)
+                .map { segment -> segment.map { it.latLong } }
         }
     val recordingStatusMessage =
         rememberRecordingStatusMessage(
@@ -510,7 +512,7 @@ fun NavigateScreen(
             routeToolPreview?.previewPoints
                 ?: displayedRouteToolCreatePreview?.previewPoints
                 ?: emptyList(),
-        recordingTracePoints = recordingTracePoints,
+        recordingTraceSegments = recordingTraceSegments,
         routeToolCreatePreviewActive = displayedRouteToolCreatePreview != null,
         routeToolDraftPoints = routeToolDraftConnectorPoints,
         poiViewModel = poiViewModel,

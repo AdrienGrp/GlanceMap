@@ -16,7 +16,7 @@ import org.mapsforge.map.layer.overlay.Polyline
 @Composable
 internal fun RecordingTraceOverlayEffect(
     mapView: MapView,
-    points: List<LatLong>,
+    segments: List<List<LatLong>>,
 ) {
     val paint =
         remember {
@@ -26,17 +26,18 @@ internal fun RecordingTraceOverlayEffect(
                 strokeWidth = 5f
             }
         }
-    val polyline =
-        remember(mapView) {
-            Polyline(paint, AndroidGraphicFactory.INSTANCE)
-        }
+    val polylines = remember(mapView) { mutableListOf<Polyline>() }
 
-    LaunchedEffect(mapView, points) {
+    LaunchedEffect(mapView, segments) {
         mapView.mutateLayers { layers ->
             var changed = false
-            val attached = layers.contains(polyline)
-            if (points.size >= MIN_RECORDING_TRACE_POINTS) {
-                if (!attached) {
+            val visibleSegments = segments.filter { it.size >= MIN_RECORDING_TRACE_POINTS }
+            while (polylines.size < visibleSegments.size) {
+                polylines += Polyline(paint, AndroidGraphicFactory.INSTANCE)
+            }
+            visibleSegments.forEachIndexed { index, points ->
+                val polyline = polylines[index]
+                if (!layers.contains(polyline)) {
                     layers.add(polyline)
                     changed = true
                 }
@@ -45,10 +46,13 @@ internal fun RecordingTraceOverlayEffect(
                     polyline.latLongs.addAll(points)
                     changed = true
                 }
-            } else if (attached) {
-                layers.remove(polyline)
+            }
+            for (index in polylines.lastIndex downTo visibleSegments.size) {
+                val polyline = polylines.removeAt(index)
+                if (layers.remove(polyline)) {
+                    changed = true
+                }
                 polyline.latLongs.clear()
-                changed = true
             }
             if (changed) {
                 mapView.requestLayerRedrawSafely()
@@ -59,8 +63,15 @@ internal fun RecordingTraceOverlayEffect(
     DisposableEffect(mapView) {
         onDispose {
             mapView.mutateLayers { layers ->
-                if (layers.remove(polyline)) {
+                var changed = false
+                polylines.forEach { polyline ->
+                    if (layers.remove(polyline)) {
+                        changed = true
+                    }
                     polyline.latLongs.clear()
+                }
+                polylines.clear()
+                if (changed) {
                     mapView.requestLayerRedrawSafely()
                 }
             }

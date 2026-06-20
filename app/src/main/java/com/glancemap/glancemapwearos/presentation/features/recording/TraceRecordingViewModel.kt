@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
 import org.mapsforge.core.model.LatLong
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -83,6 +84,9 @@ class TraceRecordingViewModel(
     private var lastLiveFixProvider: String? = null
     private var lastLiveFixAccuracyMeters: Float? = null
     private var lastLiveFixTimeMillis: Long? = null
+    private var startNewSegmentOnNextPoint = false
+    private var suppressedJitterPointCount = 0
+    private var suppressedJitterDistanceMeters = 0.0
     private var latestSensorMetrics = RecordingSensorMetrics()
     private var heartRateSensorEventCount = 0
     private var stepSensorEventCount = 0
@@ -318,6 +322,33 @@ class TraceRecordingViewModel(
                 return
             }
         }
+        val previousRecordedPoint = _uiState.value.points.lastOrNull()
+        val suppressedJitterDistance =
+            previousRecordedPoint
+                ?.takeIf { forceAcceptReason == null && !startNewSegmentOnNextPoint }
+                ?.let { previous ->
+                    recordingJitterDistanceToSuppress(
+                        previous = previous,
+                        candidate = livePoint,
+                    )
+                }
+        if (suppressedJitterDistance != null) {
+            suppressedJitterPointCount += 1
+            suppressedJitterDistanceMeters += suppressedJitterDistance
+            if (suppressedJitterPointCount == 1 ||
+                suppressedJitterPointCount % RECORDING_JITTER_TELEMETRY_INTERVAL == 0
+            ) {
+                DebugTelemetry.log(
+                    "TraceRecording",
+                    "event=jitter_suppressed count=$suppressedJitterPointCount " +
+                        "distanceMeters=${suppressedJitterDistance.formatTelemetry(1)} " +
+                        "totalDistanceMeters=${suppressedJitterDistanceMeters.formatTelemetry(1)} " +
+                        "speedMps=${livePoint.speedMps?.formatTelemetry(2) ?: "na"} " +
+                        "accuracyMeters=${livePoint.accuracyMeters?.formatTelemetry(1) ?: "na"}",
+                )
+            }
+            return
+        }
         if (forceAcceptReason == null && elapsedSinceAcceptedMs >= recordingGapThresholdMillis()) {
             gapRecoveryAcceptCount += 1
             DebugTelemetry.log(
@@ -377,6 +408,7 @@ class TraceRecordingViewModel(
                     gpsElevationUsedCount += 1
                 }
                 val sensorMetrics = latestFreshSensorMetrics(nowMillis = System.currentTimeMillis())
+                val startsNewSegment = startNewSegmentOnNextPoint
                 val point =
                     RecordedTracePoint(
                         latLong = LatLong(latitude, longitude),
@@ -390,11 +422,17 @@ class TraceRecordingViewModel(
                         cadenceSpm = sensorMetrics?.cadenceSpm,
                         powerWatts = sensorMetrics?.externalPowerWatts,
                         barometricPressureHpa = sensorMetrics?.barometricPressureHpa,
+                        startsNewSegment = startsNewSegment,
                     )
                 val currentState = _uiState.value
                 if (!currentState.active || currentState.saving) return@withLock
                 val previous = currentState.points.lastOrNull()
-                val addedDistance = previous?.let { haversineMeters(it.latLong, point.latLong) } ?: 0.0
+                val addedDistance =
+                    if (startsNewSegment) {
+                        0.0
+                    } else {
+                        previous?.let { haversineMeters(it.latLong, point.latLong) } ?: 0.0
+                    }
                 val pointCount = currentState.points.size + 1
                 updateGapTelemetry(
                     pointTimeMillis = point.timeMillis,
@@ -415,6 +453,7 @@ class TraceRecordingViewModel(
                     )
                 _uiState.value =
                     updatedState
+                startNewSegmentOnNextPoint = false
                 if (pointCount == 1 || pointCount % RECORDING_TELEMETRY_POINT_INTERVAL == 0) {
                     DebugTelemetry.log(
                         "TraceRecording",
@@ -528,6 +567,8 @@ class TraceRecordingViewModel(
         val now = System.currentTimeMillis()
         val addedPausedMillis = state.pausedAtMillis?.let { now - it }?.coerceAtLeast(0L) ?: 0L
         lastAcceptedElapsedMs = Long.MIN_VALUE
+        lastAcceptedPointTimeMillis = null
+        startNewSegmentOnNextPoint = state.points.isNotEmpty()
         lastUiAction = "resume"
         _uiState.value =
             state.copy(
@@ -792,6 +833,9 @@ class TraceRecordingViewModel(
         lastLiveFixProvider = null
         lastLiveFixAccuracyMeters = null
         lastLiveFixTimeMillis = null
+        startNewSegmentOnNextPoint = false
+        suppressedJitterPointCount = 0
+        suppressedJitterDistanceMeters = 0.0
         latestSensorMetrics = RecordingSensorMetrics()
         externalDistanceBaseMeters = null
         externalSessionDistanceMeters = null
@@ -992,6 +1036,8 @@ class TraceRecordingViewModel(
             "recordingGapCount=${state.recordingGapCount} recordingMaxGapMs=${state.recordingMaxGapMillis} " +
             "forcedAcceptCount=$forcedAcceptCount " +
             "gapRecoveryAcceptCount=$gapRecoveryAcceptCount " +
+            "suppressedJitterPointCount=$suppressedJitterPointCount " +
+            "suppressedJitterDistanceMeters=${suppressedJitterDistanceMeters.formatTelemetry(1)} " +
             "lastSkippedIntervalElapsedMs=$lastSkippedIntervalElapsedMs " +
             "maxSkippedIntervalElapsedMs=$maxSkippedIntervalElapsedMs " +
             "lastLiveProvider=${sanitizeTelemetryValue(lastLiveFixProvider ?: "na")} " +
@@ -1164,12 +1210,37 @@ private fun haversineMeters(
     return 2.0 * EARTH_RADIUS_METERS * atan2(sqrt(h), sqrt(1.0 - h))
 }
 
+internal fun recordingJitterDistanceToSuppress(
+    previous: RecordedTracePoint,
+    candidate: RecordedTracePoint,
+): Double? {
+    val elapsedMs = candidate.timeMillis - previous.timeMillis
+    if (elapsedMs <= 0L || elapsedMs >= RECORDING_JITTER_KEEPALIVE_MS) return null
+    val speedMps = candidate.speedMps?.takeIf { it.isFinite() && it >= 0f } ?: return null
+    if (speedMps > RECORDING_JITTER_MAX_SPEED_MPS) return null
+    val accuracyMeters =
+        listOfNotNull(previous.accuracyMeters, candidate.accuracyMeters)
+            .filter { it.isFinite() && it >= 0f }
+            .maxOrNull()
+            ?: return null
+    val deadbandMeters =
+        (accuracyMeters * RECORDING_JITTER_ACCURACY_FACTOR)
+            .coerceIn(RECORDING_JITTER_MIN_DEADBAND_M, RECORDING_JITTER_MAX_DEADBAND_M)
+            .toDouble()
+    val distanceMeters = haversineMeters(previous.latLong, candidate.latLong)
+    return distanceMeters.takeIf { it <= deadbandMeters }
+}
+
 private fun elevationGainLossMeters(points: List<RecordedTracePoint>): Pair<Double, Double> {
     var gain = 0.0
     var loss = 0.0
     var previous = points.firstOrNull()?.elevationMeters ?: return 0.0 to 0.0
     points.drop(1).forEach { point ->
         val elevation = point.elevationMeters ?: return@forEach
+        if (point.startsNewSegment) {
+            previous = elevation
+            return@forEach
+        }
         val delta = elevation - previous
         if (delta > 0.0) {
             gain += delta
@@ -1186,6 +1257,18 @@ private fun sanitizeTelemetryValue(value: String): String =
         .replace(Regex("\\s+"), "_")
         .take(80)
 
+private fun Double.formatTelemetry(decimalPlaces: Int): String =
+    String.format(Locale.US, "%.${decimalPlaces}f", this)
+
+private fun Float.formatTelemetry(decimalPlaces: Int): String =
+    toDouble().formatTelemetry(decimalPlaces)
+
 private const val EARTH_RADIUS_METERS = 6_371_000.0
 private const val RECORDING_TELEMETRY_POINT_INTERVAL = 10
 private const val RECORDING_LIVE_TELEMETRY_SKIP_INTERVAL = 20
+private const val RECORDING_JITTER_TELEMETRY_INTERVAL = 10
+private const val RECORDING_JITTER_KEEPALIVE_MS = 30_000L
+private const val RECORDING_JITTER_MAX_SPEED_MPS = 0.5f
+private const val RECORDING_JITTER_ACCURACY_FACTOR = 0.2f
+private const val RECORDING_JITTER_MIN_DEADBAND_M = 2f
+private const val RECORDING_JITTER_MAX_DEADBAND_M = 4f

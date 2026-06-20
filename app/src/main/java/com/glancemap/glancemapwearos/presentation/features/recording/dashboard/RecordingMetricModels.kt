@@ -165,8 +165,8 @@ internal fun buildRecordingDashboardSnapshot(
     val displayDistanceMeters =
         when (state.distanceSource) {
             SettingsRepository.RECORDING_SENSOR_SOURCE_POD ->
-                state.externalDistanceMeters ?: canonicalProfile?.totalDistance ?: state.distanceMeters
-            else -> canonicalProfile?.totalDistance ?: state.distanceMeters
+                state.externalDistanceMeters ?: state.distanceMeters
+            else -> state.distanceMeters
         }
     val displayCurrentSpeedMps =
         when (state.speedSource) {
@@ -474,6 +474,7 @@ internal fun estimateRecordingCalories(
     var modeledDurationSeconds = 0.0
     val calorieElevations = smoothedCalorieElevations(points)
     points.zipWithNext().forEachIndexed { index, (start, end) ->
+        if (end.startsNewSegment) return@forEachIndexed
         val segmentDurationSeconds =
             ((end.timeMillis - start.timeMillis) / 1000.0)
                 .takeIf { it.isFinite() && it > 0.0 }

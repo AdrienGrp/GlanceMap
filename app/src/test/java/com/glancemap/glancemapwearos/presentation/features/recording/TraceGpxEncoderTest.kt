@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.recording
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -7,6 +8,30 @@ import org.mapsforge.core.model.LatLong
 import java.time.Instant
 
 class TraceGpxEncoderTest {
+    @Test
+    fun encodeRecordedTraceAsGpxStartsNewTrackSegmentAfterResume() {
+        val points =
+            listOf(
+                recordedPoint(latitude = 45.0, longitude = 6.0, timeMillis = 1_000L),
+                recordedPoint(latitude = 45.0001, longitude = 6.0001, timeMillis = 2_000L),
+                recordedPoint(
+                    latitude = 45.001,
+                    longitude = 6.001,
+                    timeMillis = 60_000L,
+                    startsNewSegment = true,
+                ),
+            )
+
+        val xml =
+            encodeRecordedTraceAsGpx(
+                title = "Paused recording",
+                points = points,
+            ).toString(Charsets.UTF_8)
+
+        assertEquals(2, "<trkseg>".toRegex().findAll(xml).count())
+        assertEquals(listOf(2, 1), recordedTraceSegments(points).map(List<RecordedTracePoint>::size))
+    }
+
     @Test
     fun encodeRecordedTraceAsGpxWritesCoreTrackPointAndExtensions() {
         val bytes =
@@ -93,7 +118,23 @@ class TraceGpxEncoderTest {
         val xml = bytes.toString(Charsets.UTF_8)
 
         assertTrue(xml.contains("<trkpt"))
-        assertFalse(xml.contains("<extensions>"))
+        assertEquals(1, "<extensions>".toRegex().findAll(xml).count())
+        assertFalse(xml.substringAfter("<trkpt").substringBefore("</trkpt>").contains("<extensions>"))
         assertFalse(xml.contains("gmap:accuracyMeters"))
     }
+
+    private fun recordedPoint(
+        latitude: Double,
+        longitude: Double,
+        timeMillis: Long,
+        startsNewSegment: Boolean = false,
+    ): RecordedTracePoint =
+        RecordedTracePoint(
+            latLong = LatLong(latitude, longitude),
+            elevationMeters = null,
+            timeMillis = timeMillis,
+            accuracyMeters = 8f,
+            speedMps = 1f,
+            startsNewSegment = startsNewSegment,
+        )
 }

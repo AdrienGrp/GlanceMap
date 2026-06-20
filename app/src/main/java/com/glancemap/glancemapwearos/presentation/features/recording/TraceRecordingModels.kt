@@ -15,6 +15,7 @@ data class RecordedTracePoint(
     val cadenceSpm: Int? = null,
     val powerWatts: Int? = null,
     val barometricPressureHpa: Double? = null,
+    val startsNewSegment: Boolean = false,
 )
 
 data class TraceRecordingUiState(
