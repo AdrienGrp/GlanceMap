@@ -706,6 +706,7 @@ class MainActivity : ComponentActivity() {
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
                                 TurnByTurnSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
                                     onOpenGeneralSettings = {
                                         navController.navigate(WatchRoutes.SETTINGS) {
                                             popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
@@ -718,12 +719,6 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onOpenAlertsSettings = {
                                         navController.navigate(WatchRoutes.TURN_BY_TURN_ALERTS_SETTINGS)
-                                    },
-                                    onOpenFeedbackSettings = {
-                                        navController.navigate(WatchRoutes.TURN_BY_TURN_FEEDBACK_SETTINGS)
-                                    },
-                                    onOpenBackgroundSettings = {
-                                        navController.navigate(WatchRoutes.TURN_BY_TURN_BACKGROUND_SETTINGS)
                                     },
                                 )
                             }

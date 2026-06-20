@@ -11,7 +11,6 @@ fun TurnByTurnAlertsSettingsScreen(
     onOpenTurnByTurnSettings: () -> Unit,
 ) {
     val turnAlertsMode by viewModel.turnByTurnTurnAlertsMode.collectAsState()
-    val offRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
     val offRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
     val offRouteRepeatSeconds by viewModel.turnByTurnOffRouteRepeatSeconds.collectAsState()
 
@@ -26,14 +25,6 @@ fun TurnByTurnAlertsSettingsScreen(
                 options = TurnByTurnAlertsOptions,
                 secondaryLabel = turnAlertsLabel(turnAlertsMode),
                 onSelect = viewModel::setTurnByTurnTurnAlertsMode,
-            )
-        }
-        item {
-            SettingsToggleChip(
-                checked = offRouteAlertsEnabled,
-                onCheckedChanged = viewModel::setTurnByTurnOffRouteAlertsEnabled,
-                label = "Off-route alerts",
-                secondaryLabel = if (offRouteAlertsEnabled) "Warn when leaving the GPX" else "Show only on screen",
             )
         }
         item {

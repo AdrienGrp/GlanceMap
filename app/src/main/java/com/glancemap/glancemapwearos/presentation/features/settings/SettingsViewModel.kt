@@ -339,7 +339,11 @@ class SettingsViewModel(
 
     val turnByTurnGpsInAmbientMode: StateFlow<Boolean> =
         settingsRepository.turnByTurnGpsInAmbientMode
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE,
+            )
 
     fun setTurnByTurnGpsInAmbientMode(enabled: Boolean) =
         viewModelScope.launch {
