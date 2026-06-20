@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 
 @Composable
 fun RecordingSettingsScreen(
@@ -23,11 +24,21 @@ fun RecordingSettingsScreen(
     val showSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
     val startWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
     var showGpsDisabledWarning by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
     val intervalOptions = RECORDING_INTERVAL_OPTIONS_SECONDS.map { it to recordingIntervalLabel(it) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
-            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            SettingsInfoButton(
+                contentDescription = "Recording info",
+                onClick = { showInfoDialog = true },
+            )
+        }
+        item {
+            GeneralSettingsShortcutChip(
+                onClick = onOpenGeneralSettings,
+                applyTopPadding = false,
+            )
         }
         item {
             SettingsOptionPickerRow(
@@ -77,6 +88,21 @@ fun RecordingSettingsScreen(
         confirmText = "OK",
         onConfirm = { showGpsDisabledWarning = false },
         onDismissRequest = { showGpsDisabledWarning = false },
+    )
+    WearHelpDialog(
+        visible = showInfoDialog,
+        title = "Recording",
+        lines =
+            listOf(
+                "Tap REC to start recording.",
+                "While recording, tap the time or REC popup to open the dashboard.",
+                "Long press the time or REC popup for pause, stop and discard controls.",
+                "Use the crown or swipe vertically to change dashboard pages.",
+                "Long press a dashboard measure to replace it.",
+                "A shorter GPS frequency gives a more detailed track but uses more battery.",
+                "Pausing creates a break in the saved track, so stopped time is not joined by a straight line.",
+            ),
+        onDismiss = { showInfoDialog = false },
     )
 }
 

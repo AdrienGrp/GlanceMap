@@ -3,7 +3,11 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 
 @Composable
 fun TurnByTurnSettingsScreen(
@@ -17,10 +21,20 @@ fun TurnByTurnSettingsScreen(
     val voiceGuidanceEnabled by viewModel.turnByTurnVoiceGuidanceEnabled.collectAsState()
     val offRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
     val guidanceGpsInAmbient by viewModel.turnByTurnGpsInAmbientMode.collectAsState()
+    var showInfoDialog by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
-            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            SettingsInfoButton(
+                contentDescription = "Turn-by-turn info",
+                onClick = { showInfoDialog = true },
+            )
+        }
+        item {
+            GeneralSettingsShortcutChip(
+                onClick = onOpenGeneralSettings,
+                applyTopPadding = false,
+            )
         }
         item {
             SettingsToggleChip(
@@ -79,4 +93,19 @@ fun TurnByTurnSettingsScreen(
             )
         }
     }
+    WearHelpDialog(
+        visible = showInfoDialog,
+        title = "Turn-by-turn",
+        lines =
+            listOf(
+                "Tap the small guidance popup to open the full turn view.",
+                "Long press the popup to pause or stop guidance.",
+                "When recording and guidance run together, use the crown or swipe vertically to move between guidance and REC pages.",
+                "Tap the speaker icon in the full turn view to switch voice guidance on or off.",
+                "Amber guidance means you are off route. The distance shows how far you are from the GPX.",
+                "Screen-off guidance keeps dedicated GPS updates active for reliable alerts, but uses more battery.",
+                "Turn instructions depend on the GPX geometry or routing hints available in the file.",
+            ),
+        onDismiss = { showInfoDialog = false },
+    )
 }
