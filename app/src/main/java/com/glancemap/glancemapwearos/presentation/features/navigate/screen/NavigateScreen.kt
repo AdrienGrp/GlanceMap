@@ -793,6 +793,14 @@ fun NavigateScreen(
         onSetRouteToolResult = { routeToolResult = it },
         onSetRouteToolRenameInProgress = { routeToolRenameInProgress = it },
         onSetRouteToolRenameError = { routeToolRenameError = it },
+        onRouteToolGuidanceStarted = {
+            navigateViewModel.onRecenterRequested()
+            locationViewModel.requestImmediateLocation(source = "ui_route_tool_guidance_start")
+            DebugTelemetry.log(
+                "NavigationTelemetry",
+                "event=recenter reason=route_tool_guidance_start",
+            )
+        },
         onDismissRouteToolsPanel = {
             showRouteToolsPanel = false
             routeToolPreflightMessage = null

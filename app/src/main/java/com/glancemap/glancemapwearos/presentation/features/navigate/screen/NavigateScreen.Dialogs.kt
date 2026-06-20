@@ -82,6 +82,7 @@ internal fun NavigateScreenDialogsHost(
     onSetRouteToolRenameInProgress: (Boolean) -> Unit,
     onSetRouteToolRenameError: (String?) -> Unit,
     onDismissRouteToolsPanel: () -> Unit,
+    onRouteToolGuidanceStarted: () -> Unit,
 ) {
     NavigateKeepAppOpenDialog(
         visible = showKeepAppOpenInfoDialog,
@@ -217,6 +218,7 @@ internal fun NavigateScreenDialogsHost(
                     .onSuccess {
                         onSetRouteToolResult(null)
                         onSetRouteToolRenameError(null)
+                        onRouteToolGuidanceStarted()
                     }.onFailure { error ->
                         onSetRouteToolRenameError(
                             error.localizedMessage?.takeIf { it.isNotBlank() }
