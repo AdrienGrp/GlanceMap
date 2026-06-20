@@ -2,6 +2,7 @@ package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import android.content.Context
 import android.location.Location
+import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -13,11 +14,14 @@ import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceSession
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceTuning
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceOffRouteConfirmationState
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.computeTurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.isGuidanceStartReached
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.projectLocationToRoute
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.updateGuidanceOffRouteConfirmation
 import org.mapsforge.core.model.LatLong
 
 internal data class NavigateGuidanceRuntime(
@@ -30,6 +34,8 @@ internal data class NavigateGuidanceRuntime(
     val onAcceptStartDecisionPrompt: () -> Unit,
     val onDismissStartDecisionPrompt: () -> Unit,
 )
+
+private const val OFF_ROUTE_WAKE_GRACE_MS = 5_000L
 
 @Composable
 internal fun rememberNavigateGuidanceRuntime(
@@ -51,6 +57,7 @@ internal fun rememberNavigateGuidanceRuntime(
     offRouteRepeatSeconds: Int,
     guidanceGpsInAmbient: Boolean,
     brouterGuideBackEnabled: Boolean,
+    lastScreenResumeElapsedMs: Long,
 ): NavigateGuidanceRuntime {
     val guidanceLocation: LatLong? =
         if (offlineMode) {
@@ -70,16 +77,46 @@ internal fun rememberNavigateGuidanceRuntime(
         remember(activeSession?.trackId, activeSession?.reversed) {
             mutableStateOf<Double?>(null)
         }
-    val state =
+    val rawState =
         computeTurnByTurnGuidanceState(
             session = activeSession,
             currentLocation = guidanceLocation,
             tuning = tuning,
             previousDistanceFromStartMeters = previousGuidanceProgressMeters,
         )
-    LaunchedEffect(activeSession?.trackId, activeSession?.reversed, state.distanceFromStartMeters) {
-        state.distanceFromStartMeters?.let { previousGuidanceProgressMeters = it }
+    LaunchedEffect(activeSession?.trackId, activeSession?.reversed, rawState.distanceFromStartMeters) {
+        rawState.distanceFromStartMeters?.let { previousGuidanceProgressMeters = it }
     }
+    var offRouteConfirmation by
+        remember(activeSession?.trackId, activeSession?.reversed) {
+            mutableStateOf(GuidanceOffRouteConfirmationState())
+        }
+    LaunchedEffect(
+        activeSession?.trackId,
+        activeSession?.reversed,
+        rawCurrentLocation?.elapsedRealtimeNanos,
+        rawCurrentLocation?.time,
+        rawState.distanceToRouteMeters,
+        offRouteThresholdMeters,
+        lastScreenResumeElapsedMs,
+    ) {
+        if (activeSession == null || rawState.mode != GuidanceMode.FOLLOW_ROUTE) {
+            offRouteConfirmation = GuidanceOffRouteConfirmationState()
+            return@LaunchedEffect
+        }
+        if (rawCurrentLocation == null) return@LaunchedEffect
+        offRouteConfirmation =
+            updateGuidanceOffRouteConfirmation(
+                previous = offRouteConfirmation,
+                distanceToRouteMeters = rawState.distanceToRouteMeters,
+                locationAccuracyMeters = rawCurrentLocation.accuracy,
+                thresholdMeters = offRouteThresholdMeters.toDouble(),
+                allowOffRouteEntry =
+                    SystemClock.elapsedRealtime() - lastScreenResumeElapsedMs >=
+                        OFF_ROUTE_WAKE_GRACE_MS,
+            )
+    }
+    val state = rawState.copy(offRoute = offRouteConfirmation.offRoute)
     var guideBackToRouteActive by remember { mutableStateOf(false) }
     var brouterGuideBackRoute by remember { mutableStateOf<List<LatLong>>(emptyList()) }
     var dismissedGuideBackPromptTrackId by remember { mutableStateOf<String?>(null) }

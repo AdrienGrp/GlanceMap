@@ -638,6 +638,7 @@ fun NavigateScreen(
             offRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
             guidanceGpsInAmbient = turnByTurnGpsInAmbient,
             brouterGuideBackEnabled = turnByTurnBrouterGuideBackEnabled,
+            lastScreenResumeElapsedMs = lastScreenResumeElapsedMs,
         )
 
     LaunchedEffect(

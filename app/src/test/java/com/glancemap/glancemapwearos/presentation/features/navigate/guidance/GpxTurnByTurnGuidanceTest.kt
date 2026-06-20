@@ -285,6 +285,69 @@ class GpxTurnByTurnGuidanceTest {
         assertTrue((projection?.distanceFromStartMeters ?: 0.0) > cumulative[1])
     }
 
+    @Test
+    fun offRouteRequiresThreeAccurateOutsideSamples() {
+        var state = GuidanceOffRouteConfirmationState()
+
+        repeat(2) {
+            state =
+                updateGuidanceOffRouteConfirmation(
+                    previous = state,
+                    distanceToRouteMeters = 80.0,
+                    locationAccuracyMeters = 10f,
+                    thresholdMeters = 60.0,
+                    allowOffRouteEntry = true,
+                )
+            assertTrue(!state.offRoute)
+        }
+        state =
+            updateGuidanceOffRouteConfirmation(
+                previous = state,
+                distanceToRouteMeters = 80.0,
+                locationAccuracyMeters = 10f,
+                thresholdMeters = 60.0,
+                allowOffRouteEntry = true,
+            )
+
+        assertTrue(state.offRoute)
+    }
+
+    @Test
+    fun offRouteIgnoresPoorAccuracyAndNeedsTwoRecoverySamples() {
+        var state = GuidanceOffRouteConfirmationState()
+        repeat(3) {
+            state =
+                updateGuidanceOffRouteConfirmation(
+                    previous = state,
+                    distanceToRouteMeters = 150.0,
+                    locationAccuracyMeters = 90f,
+                    thresholdMeters = 60.0,
+                    allowOffRouteEntry = true,
+                )
+        }
+        assertTrue(!state.offRoute)
+
+        state = GuidanceOffRouteConfirmationState(offRoute = true)
+        state =
+            updateGuidanceOffRouteConfirmation(
+                previous = state,
+                distanceToRouteMeters = 25.0,
+                locationAccuracyMeters = 10f,
+                thresholdMeters = 60.0,
+                allowOffRouteEntry = true,
+            )
+        assertTrue(state.offRoute)
+        state =
+            updateGuidanceOffRouteConfirmation(
+                previous = state,
+                distanceToRouteMeters = 25.0,
+                locationAccuracyMeters = 10f,
+                thresholdMeters = 60.0,
+                allowOffRouteEntry = true,
+            )
+        assertTrue(!state.offRoute)
+    }
+
     private fun point(
         lat: Double,
         lon: Double,
