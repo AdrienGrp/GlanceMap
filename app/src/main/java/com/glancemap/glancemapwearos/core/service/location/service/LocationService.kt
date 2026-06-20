@@ -52,6 +52,7 @@ import com.glancemap.glancemapwearos.core.service.location.notifications.Locatio
 import com.glancemap.glancemapwearos.core.service.location.policy.FixAcceptancePolicy
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationFixPolicy
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntimeMode
+import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
 import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
@@ -170,6 +171,7 @@ class LocationService : Service() {
     private var energySampleJob: Job? = null
     private var pendingDebouncedImmediateLocationJob: Job? = null
     private var keepAliveNotificationMode: KeepAliveNotificationMode = KeepAliveNotificationMode.OFF
+    private var keepAliveNotificationRuntimeReason: String? = null
 
     private val selfHealFailoverCoordinator by lazy {
         SelfHealFailoverCoordinator(
@@ -1039,18 +1041,27 @@ class LocationService : Service() {
     }
 
     private fun refreshKeepAliveNotificationState() {
+        val guidanceActive = isGuidanceRuntimeReason(latestRuntimeReason)
         val desiredMode =
             when {
+                guidanceActive && shouldUseLocationForegroundMode() ->
+                    KeepAliveNotificationMode.LOCATION_FOREGROUND
                 !keepAppOpen.value -> KeepAliveNotificationMode.OFF
                 shouldUseLocationForegroundMode() -> KeepAliveNotificationMode.LOCATION_FOREGROUND
                 else -> KeepAliveNotificationMode.PINNED_NOTIFICATION
             }
-        if (desiredMode == keepAliveNotificationMode) return
+        if (
+            desiredMode == keepAliveNotificationMode &&
+            keepAliveNotificationRuntimeReason == latestRuntimeReason
+        ) {
+            return
+        }
 
         when (desiredMode) {
             KeepAliveNotificationMode.OFF -> {
                 runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
                 notificationFactory.cancel(NOTIFICATION_ID)
+                keepAliveNotificationRuntimeReason = null
             }
             KeepAliveNotificationMode.PINNED_NOTIFICATION -> {
                 if (keepAliveNotificationMode == KeepAliveNotificationMode.LOCATION_FOREGROUND) {
@@ -1060,6 +1071,7 @@ class LocationService : Service() {
                     notificationFactory.buildNotification(
                         isForegroundPinned = true,
                         notificationId = NOTIFICATION_ID,
+                        runtimeReason = latestRuntimeReason,
                     )
                 notificationFactory.show(NOTIFICATION_ID, notification)
             }
@@ -1068,6 +1080,7 @@ class LocationService : Service() {
                     notificationFactory.buildNotification(
                         isForegroundPinned = true,
                         notificationId = NOTIFICATION_ID,
+                        runtimeReason = latestRuntimeReason,
                     )
                 val foregroundStarted =
                     runCatching { startForeground(NOTIFICATION_ID, notification) }
@@ -1082,13 +1095,20 @@ class LocationService : Service() {
                 if (!foregroundStarted) {
                     notificationFactory.show(NOTIFICATION_ID, notification)
                     keepAliveNotificationMode = KeepAliveNotificationMode.PINNED_NOTIFICATION
+                    keepAliveNotificationRuntimeReason = latestRuntimeReason
                     return
                 }
             }
         }
 
         keepAliveNotificationMode = desiredMode
+        keepAliveNotificationRuntimeReason = latestRuntimeReason
     }
+
+    private fun isGuidanceRuntimeReason(reason: String): Boolean =
+        reason == NavigationRuntimeDemandReason.GUIDANCE_VISIBLE ||
+            reason == NavigationRuntimeDemandReason.GUIDANCE_AMBIENT ||
+            reason == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND
 
     private fun currentLocationSourceMode(): LocationSourceMode =
         when {

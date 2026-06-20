@@ -12,6 +12,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeDemDow
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeEnergyByModeSummarySection
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeGnssSections
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeLineDumpSection
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import java.io.File
@@ -69,7 +70,7 @@ data class DiagnosticsSettingsSnapshot(
     val turnByTurnOffRouteAlertsEnabled: Boolean = true,
     val turnByTurnOffRouteAlertThresholdMeters: Int = 0,
     val turnByTurnOffRouteRepeatSeconds: Int = 0,
-    val turnByTurnGpsInAmbientMode: Boolean = false,
+    val turnByTurnGpsInAmbientMode: Boolean = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE,
     val turnByTurnBrouterGuideBackEnabled: Boolean = false,
     val turnByTurnRouteStartBehavior: String = "na",
     val turnByTurnReverseSuggestionMode: String = "na",

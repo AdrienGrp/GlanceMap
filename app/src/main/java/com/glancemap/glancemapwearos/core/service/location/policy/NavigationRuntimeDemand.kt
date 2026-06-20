@@ -49,6 +49,7 @@ fun navigationRuntimeDemand(
             guidanceOutsideNavigateDemand -> NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND
             backgroundGpsModeActive && guidanceBackgroundDemand -> NavigationRuntimeDemandReason.GUIDANCE_AMBIENT
             backgroundGpsModeActive && generalBackgroundDemand -> NavigationRuntimeDemandReason.GENERAL_AMBIENT
+            guidanceDemand && navigateVisibleDemand -> NavigationRuntimeDemandReason.GUIDANCE_VISIBLE
             navigateVisibleDemand -> NavigationRuntimeDemandReason.NAVIGATE_VISIBLE
             else -> NavigationRuntimeDemandReason.IDLE
         }
@@ -68,5 +69,6 @@ object NavigationRuntimeDemandReason {
     const val GENERAL_AMBIENT = "general_ambient"
     const val GUIDANCE_AMBIENT = "guidance_ambient"
     const val GUIDANCE_BACKGROUND = "guidance_background"
+    const val GUIDANCE_VISIBLE = "guidance_visible"
     const val RECORDING = "recording"
 }

@@ -95,7 +95,7 @@ class NavigationRuntimeDemandTest {
 
         assertTrue(demand.trackingEnabled)
         assertFalse(demand.backgroundGpsEnabled)
-        assertEquals(NavigationRuntimeDemandReason.NAVIGATE_VISIBLE, demand.reason)
+        assertEquals(NavigationRuntimeDemandReason.GUIDANCE_VISIBLE, demand.reason)
     }
 
     @Test
@@ -171,6 +171,7 @@ class NavigationRuntimeDemandTest {
         generalGpsInAmbient: Boolean = false,
         recordingActive: Boolean = false,
         recordingPaused: Boolean = false,
+        recordingGpsEnabled: Boolean = true,
         turnByTurnActive: Boolean = false,
         turnByTurnPaused: Boolean = false,
         turnByTurnGpsInAmbient: Boolean = false,
@@ -184,6 +185,7 @@ class NavigationRuntimeDemandTest {
             generalGpsInAmbient = generalGpsInAmbient,
             recordingActive = recordingActive,
             recordingPaused = recordingPaused,
+            recordingGpsEnabled = recordingGpsEnabled,
             turnByTurnActive = turnByTurnActive,
             turnByTurnPaused = turnByTurnPaused,
             turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,

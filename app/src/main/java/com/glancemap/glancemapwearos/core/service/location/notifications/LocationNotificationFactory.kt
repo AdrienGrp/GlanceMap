@@ -9,6 +9,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.wear.ongoing.OngoingActivity
 import com.glancemap.glancemapwearos.R
+import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
 import com.glancemap.glancemapwearos.presentation.MainActivity
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 
@@ -19,6 +20,7 @@ internal class LocationNotificationFactory(
     fun buildNotification(
         isForegroundPinned: Boolean,
         notificationId: Int,
+        runtimeReason: String,
     ): Notification {
         ensureNotificationChannel()
 
@@ -42,9 +44,19 @@ internal class LocationNotificationFactory(
                 .setOnlyAlertOnce(true)
 
         if (isForegroundPinned) {
+            val guidanceActive =
+                runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_VISIBLE ||
+                    runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_AMBIENT ||
+                    runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND
             builder
-                .setContentTitle("App kept open")
-                .setContentText("Tap to return to navigation")
+                .setContentTitle(if (guidanceActive) "Turn-by-turn guidance" else "App kept open")
+                .setContentText(
+                    if (guidanceActive) {
+                        "Guidance active · Tap to return"
+                    } else {
+                        "Tap to return to navigation"
+                    },
+                )
                 .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
                 .setOngoing(true)
 

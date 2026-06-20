@@ -550,7 +550,10 @@ class SettingsRepositoryImpl private constructor(
     }
 
     override val turnByTurnGpsInAmbientMode: Flow<Boolean> =
-        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE] ?: false }
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE]
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE
+        }
 
     override suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE] = enabled }

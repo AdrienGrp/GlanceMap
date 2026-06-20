@@ -98,7 +98,9 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
     val turnByTurnOffRouteRepeatSeconds by settingsViewModel.turnByTurnOffRouteRepeatSeconds.collectAsState(
         initial = SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS,
     )
-    val turnByTurnGpsInAmbient by settingsViewModel.turnByTurnGpsInAmbientMode.collectAsState(initial = false)
+    val turnByTurnGpsInAmbient by settingsViewModel.turnByTurnGpsInAmbientMode.collectAsState(
+        initial = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE,
+    )
     val turnByTurnBrouterGuideBackEnabled by settingsViewModel.turnByTurnBrouterGuideBackEnabled.collectAsState(
         initial = false,
     )
