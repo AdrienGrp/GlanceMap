@@ -1059,7 +1059,7 @@ private fun combinedGuidancePrimaryText(
         when (state.mode) {
             GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
             GuidanceMode.TO_START -> "To start"
-            GuidanceMode.FOLLOW_ROUTE -> state.nextInstruction?.message ?: "Continue"
+            GuidanceMode.FOLLOW_ROUTE -> guidanceInstructionPrimaryText(state)
             GuidanceMode.FINISHED -> "Finished"
         }
     }
@@ -1079,7 +1079,7 @@ private fun combinedGuidanceSecondaryText(
             GuidanceMode.TO_START ->
                 state.distanceToStartMeters?.let { formatLiveDistanceLabel(it, isMetric) } ?: "Find the start"
             GuidanceMode.FOLLOW_ROUTE ->
-                state.distanceToInstructionMeters?.let { formatLiveDistanceLabel(it, isMetric) } ?: "On route"
+                guidanceInstructionDistanceText(state, isMetric) ?: "On route"
             GuidanceMode.FINISHED -> state.trackTitle ?: "Route complete"
         }
     }
@@ -1098,7 +1098,7 @@ private fun combinedGuidanceCompactText(
             GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
             GuidanceMode.TO_START ->
                 state.distanceToStartMeters?.let { "Start ${formatLiveDistanceLabel(it, isMetric)}" } ?: "To start"
-            GuidanceMode.FOLLOW_ROUTE -> combinedGuidancePrimaryText(state, guideBackToRouteActive)
+            GuidanceMode.FOLLOW_ROUTE -> guidanceCompactInstructionText(state, isMetric)
             GuidanceMode.FINISHED -> "Finished"
         }
     }

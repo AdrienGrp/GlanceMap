@@ -53,7 +53,12 @@ internal fun GuidanceManeuverIcon(
             )
         else ->
             ManeuverArrow(
-                command = state.nextInstruction?.command,
+                command =
+                    if (guidanceShowsCurrentStraight(state)) {
+                        RouteInstructionCommand.CONTINUE
+                    } else {
+                        state.nextInstruction?.command
+                    },
                 tint = tint,
                 modifier = modifier,
             )

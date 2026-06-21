@@ -512,6 +512,9 @@ internal fun guidanceFollowingText(
     state: TurnByTurnGuidanceState,
     isMetric: Boolean,
 ): String? {
+    if (guidanceShowsCurrentStraight(state)) {
+        return state.nextInstruction?.let { "Then ${it.message.lowercase()}" }
+    }
     val following = state.followingInstruction ?: return null
     val followingDistance = state.distanceToFollowingInstructionMeters ?: return null
     val currentDistance = state.distanceToInstructionMeters ?: return null
@@ -821,7 +824,7 @@ private fun guidancePrimaryText(
         when (state.mode) {
         GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
         GuidanceMode.TO_START -> "To start"
-        GuidanceMode.FOLLOW_ROUTE -> state.nextInstruction?.message ?: "Continue"
+        GuidanceMode.FOLLOW_ROUTE -> guidanceInstructionPrimaryText(state)
         GuidanceMode.FINISHED -> "Finished"
         }
     }
@@ -842,7 +845,7 @@ private fun guidanceSecondaryText(
             state.distanceToStartMeters?.let { formatLiveDistanceLabel(it, isMetric) }
                 ?: "Find the start"
         GuidanceMode.FOLLOW_ROUTE ->
-            state.distanceToInstructionMeters?.let { formatLiveDistanceLabel(it, isMetric) }
+            guidanceInstructionDistanceText(state, isMetric)
                 ?: "On route"
         GuidanceMode.FINISHED -> state.trackTitle ?: "Route complete"
         }
@@ -863,7 +866,7 @@ private fun guidanceCompactText(
         GuidanceMode.TO_START ->
             state.distanceToStartMeters?.let { "Start ${formatLiveDistanceLabel(it, isMetric)}" }
                 ?: "To start"
-        GuidanceMode.FOLLOW_ROUTE -> guidancePrimaryText(state)
+        GuidanceMode.FOLLOW_ROUTE -> guidanceCompactInstructionText(state, isMetric)
         GuidanceMode.FINISHED -> "Finished"
         }
     }
