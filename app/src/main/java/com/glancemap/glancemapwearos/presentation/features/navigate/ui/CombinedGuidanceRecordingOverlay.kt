@@ -445,9 +445,7 @@ private fun CombinedCompactPopup(
             modifier
                 .padding(top = topPadding)
                 .width(compactWidth)
-                .heightIn(min = 48.dp)
-                .background(compactBackground, RoundedCornerShape(8.dp))
-                .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
+                .height(48.dp)
                 .combinedClickable(
                     onClick = onExpand,
                     onLongClick = onShowActions,
@@ -463,35 +461,46 @@ private fun CombinedCompactPopup(
                     ) { _, dragAmount ->
                         totalDrag += dragAmount
                     }
-                }
-                .padding(horizontal = 6.dp, vertical = 3.dp),
+                },
+        contentAlignment = Alignment.TopCenter,
     ) {
-        cappedFontScale(maxFontScale = 1.2f) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                CombinedGuidanceIcon(
-                    state = guidanceState,
-                    compassHeadingDeg = compassHeadingDeg,
-                    guideBackToRouteActive = guideBackToRouteActive,
-                    modifier = Modifier.size(compactIconSize),
-                )
-                Text(
-                    text =
-                        if (guidancePaused) {
-                            "Paused"
-                        } else {
-                            combinedGuidanceCompactText(guidanceState, isMetric, guideBackToRouteActive)
-                        },
-                    modifier = Modifier.weight(1f),
-                    color = if (guidanceState.offRoute) COMBINED_OFF_ROUTE_AMBER else Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = titleFont,
-                    lineHeight = titleFont,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 30.dp)
+                    .background(compactBackground, RoundedCornerShape(8.dp))
+                    .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            cappedFontScale(maxFontScale = 1.2f) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    CombinedGuidanceIcon(
+                        state = guidanceState,
+                        compassHeadingDeg = compassHeadingDeg,
+                        guideBackToRouteActive = guideBackToRouteActive,
+                        modifier = Modifier.size(compactIconSize),
+                    )
+                    Text(
+                        text =
+                            if (guidancePaused) {
+                                "Paused"
+                            } else {
+                                combinedGuidanceCompactText(guidanceState, isMetric, guideBackToRouteActive)
+                            },
+                        modifier = Modifier.weight(1f),
+                        color = if (guidanceState.offRoute) COMBINED_OFF_ROUTE_AMBER else Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = titleFont,
+                        lineHeight = titleFont,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

@@ -176,9 +176,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     .align(Alignment.TopCenter)
                     .padding(top = topPadding)
                     .width(compactWidth)
-                    .heightIn(min = 48.dp)
-                    .background(compactBackground, RoundedCornerShape(8.dp))
-                    .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
+                    .height(48.dp)
                     .combinedClickable(
                         onClick = {
                             DebugTelemetry.log("TurnByTurn", "event=compact_popup_tap mode=guidance")
@@ -189,35 +187,46 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                             DebugTelemetry.log("TurnByTurn", "event=compact_popup_long_press mode=guidance")
                             showActionPrompt = true
                         },
-                    )
-                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                    ),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            cappedFontScale(maxFontScale = 1.2f) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    GuidanceManeuverIcon(
-                        state = state,
-                        compassHeadingDeg = compassHeadingDeg,
-                        guideBackToRouteActive = guideBackToRouteActive,
-                        modifier = Modifier.size(compactIconSize),
-                    )
-                    Text(
-                        text =
-                            if (paused) {
-                                "Paused"
-                            } else {
-                                guidanceCompactText(state, isMetric, guideBackToRouteActive)
-                            },
-                        modifier = Modifier.weight(1f),
-                        color = if (state.offRoute) OFF_ROUTE_AMBER else Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = titleFont,
-                        lineHeight = titleFont,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 30.dp)
+                        .background(compactBackground, RoundedCornerShape(8.dp))
+                        .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                cappedFontScale(maxFontScale = 1.2f) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        GuidanceManeuverIcon(
+                            state = state,
+                            compassHeadingDeg = compassHeadingDeg,
+                            guideBackToRouteActive = guideBackToRouteActive,
+                            modifier = Modifier.size(compactIconSize),
+                        )
+                        Text(
+                            text =
+                                if (paused) {
+                                    "Paused"
+                                } else {
+                                    guidanceCompactText(state, isMetric, guideBackToRouteActive)
+                                },
+                            modifier = Modifier.weight(1f),
+                            color = if (state.offRoute) OFF_ROUTE_AMBER else Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = titleFont,
+                            lineHeight = titleFont,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
