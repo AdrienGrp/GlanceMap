@@ -96,6 +96,7 @@ data class GpxGuidanceTuning(
     val offRouteDistanceMeters: Double = 70.0,
     val finishDistanceMeters: Double = 25.0,
     val finishArrivalDistanceMeters: Double = 60.0,
+    val instructionConfirmationDistanceMeters: Double = 12.0,
     val instructionLookAheadMeters: Double = 18.0,
     val instructionLookBehindMeters: Double = 18.0,
     val minInstructionSpacingMeters: Double = 40.0,
@@ -206,7 +207,9 @@ fun computeTurnByTurnGuidanceState(
             points = points,
             cumulativeDistancesMeters = session.cumulativeDistancesMeters,
             location = currentLocation,
-            previousDistanceFromStartMeters = previousDistanceFromStartMeters,
+            previousDistanceFromStartMeters =
+                previousDistanceFromStartMeters
+                    ?: 0.0.takeIf { distanceToStart <= tuning.startReachedDistanceMeters },
         )
     val nearestRoutePoint =
         projection?.let {
@@ -247,7 +250,8 @@ fun computeTurnByTurnGuidanceState(
 
     val nextInstructionIndex =
         session.instructions.indexOfFirst {
-            it.distanceFromStartMeters > distanceFromStart + tuning.finishDistanceMeters
+            distanceFromStart <=
+                it.distanceFromStartMeters + tuning.instructionConfirmationDistanceMeters
         }
     val resolvedInstructionIndex =
         if (nextInstructionIndex >= 0) nextInstructionIndex else session.instructions.lastIndex

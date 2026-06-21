@@ -169,6 +169,84 @@ class GpxTurnByTurnGuidanceTest {
     }
 
     @Test
+    fun guidanceKeepsTurnUntilProgressConfirmsOutgoingLeg() {
+        val session =
+            buildGpxGuidanceSession(
+                trackId = "retained-turn.gpx",
+                trackTitle = "Retained turn",
+                trackPoints =
+                    listOf(
+                        point(45.0, 6.0),
+                        point(45.0, 6.001),
+                        point(45.001, 6.001),
+                    ),
+                startReached = true,
+            )
+
+        val state =
+            computeTurnByTurnGuidanceState(
+                session = session,
+                currentLocation = LatLong(45.00007, 6.001),
+                previousDistanceFromStartMeters = session.instructions.first().distanceFromStartMeters,
+            )
+
+        assertEquals(RouteInstructionCommand.LEFT, state.nextInstruction?.command)
+        assertEquals(0.0, state.distanceToInstructionMeters ?: -1.0, 0.01)
+    }
+
+    @Test
+    fun guidanceAdvancesAfterOutgoingLegConfirmsTurn() {
+        val session =
+            buildGpxGuidanceSession(
+                trackId = "confirmed-turn.gpx",
+                trackTitle = "Confirmed turn",
+                trackPoints =
+                    listOf(
+                        point(45.0, 6.0),
+                        point(45.0, 6.001),
+                        point(45.001, 6.001),
+                    ),
+                startReached = true,
+            )
+
+        val state =
+            computeTurnByTurnGuidanceState(
+                session = session,
+                currentLocation = LatLong(45.00014, 6.001),
+                previousDistanceFromStartMeters = session.instructions.first().distanceFromStartMeters,
+            )
+
+        assertEquals(RouteInstructionCommand.FINISH, state.nextInstruction?.command)
+    }
+
+    @Test
+    fun loopRouteDoesNotFinishAtItsStart() {
+        val session =
+            buildGpxGuidanceSession(
+                trackId = "loop.gpx",
+                trackTitle = "Loop",
+                trackPoints =
+                    listOf(
+                        point(45.0, 6.0),
+                        point(45.0, 6.001),
+                        point(45.001, 6.001),
+                        point(45.001, 6.0),
+                        point(45.0, 6.0),
+                    ),
+                startReached = true,
+            )
+
+        val state =
+            computeTurnByTurnGuidanceState(
+                session = session,
+                currentLocation = LatLong(45.0, 6.0),
+            )
+
+        assertEquals(GuidanceMode.FOLLOW_ROUTE, state.mode)
+        assertTrue((state.routeProgressFraction ?: 1f) < 0.1f)
+    }
+
+    @Test
     fun guidanceReportsRemainingAscentAndDescent() {
         val session =
             buildGpxGuidanceSession(
