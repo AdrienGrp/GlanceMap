@@ -51,6 +51,33 @@ class OamBundleRefreshSummaryTest {
     }
 
     @Test
+    fun repairChecksAreIncludedAndForceOnlyDamagedFiles() {
+        val bundle =
+            installedBundle(
+                areaId = "area",
+                routingFileNames = listOf("E5_N45.rd5", "E5_N46.rd5"),
+                demTileIds = listOf("N45E006", "N45E007"),
+            )
+        val check =
+            OamBundleUpdateCheck(
+                bundle = bundle,
+                status = OamBundleUpdateStatus.REPAIR_NEEDED,
+                checkedFileCount = 4,
+                repairFileNames = listOf("Area.zip", "E5_N45.rd5", "N45E006.hgt.zip"),
+            )
+        val summary = OamBundleRefreshSummary(listOf(check))
+
+        val forces = check.refreshForces(area())
+
+        assertEquals(listOf(bundle), summary.bundlesToRefresh)
+        assertEquals(1, summary.repairNeededCount)
+        assertEquals(true, forces.forceMap)
+        assertEquals(false, forces.forcePoi)
+        assertEquals(setOf("E5_N45.rd5"), forces.forceRoutingFileNames)
+        assertEquals(setOf("N45E006"), forces.forceDemTileIds)
+    }
+
+    @Test
     fun remoteMetadataUsesEtagBeforeMatchingContentLength() {
         val previous = remoteMetadata(entityTag = "\"old\"", lastModifiedMillis = 1L, contentLengthBytes = 100L)
         val current = remoteMetadata(entityTag = "\"new\"", lastModifiedMillis = 2L, contentLengthBytes = 100L)

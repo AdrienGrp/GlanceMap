@@ -11,6 +11,7 @@
 package com.glancemap.glancemapwearos.presentation.features.download
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
 import com.glancemap.glancemapwearos.core.maps.DemSource
@@ -30,6 +31,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.mapsforge.map.reader.MapFile
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -123,8 +125,80 @@ class OamBundleDownloader(
 
     suspend fun installedBundles(): List<OamInstalledBundle> = bundleStore.listInstalledBundles()
 
+    suspend fun checkInstalledBundleHealth(
+        bundle: OamInstalledBundle,
+        thorough: Boolean = false,
+    ): OamBundleLocalHealth =
+        withContext(Dispatchers.IO) {
+            val area = OamDownloadCatalog.areas.firstOrNull { it.id == bundle.areaId }
+            val repairFileNames = mutableListOf<String>()
+            val mapFiles = mapRepository.listMapFiles()
+            val poiFiles = poiRepository.listPoiFiles()
+
+            bundle.mapFileName?.let { fileName ->
+                val file = mapFiles.firstOrNull { it.name.equals(fileName, ignoreCase = true) }
+                val healthy =
+                    file.isHealthyLocalFile() &&
+                        (!thorough || runCatching { validateMapFile(file!!) }.isSuccess)
+                if (!healthy) {
+                    repairFileNames += area?.let { oamRemoteFileName(it.mapZipUrl) } ?: File(fileName).name
+                }
+            }
+            bundle.poiFileName?.let { fileName ->
+                val file = poiFiles.firstOrNull { it.name.equals(fileName, ignoreCase = true) }
+                val healthy =
+                    file.isHealthyLocalFile() &&
+                        (!thorough || runCatching { validatePoiFile(file!!) }.isSuccess)
+                if (!healthy) {
+                    repairFileNames += area?.let { oamRemoteFileName(it.poiZipUrl) } ?: File(fileName).name
+                }
+            }
+            bundle.refugesInfoFileName?.let { fileName ->
+                val file = poiFiles.firstOrNull { it.name.equals(fileName, ignoreCase = true) }
+                val healthy =
+                    file.isHealthyLocalFile() &&
+                        (!thorough || runCatching { validatePoiFile(file!!) }.isSuccess)
+                if (!healthy) repairFileNames += File(fileName).name
+            }
+            bundle.routingFileNames.forEach { fileName ->
+                val file = routingSegmentTargetFile(context, fileName)
+                val healthy =
+                    file.isHealthyLocalFile() &&
+                        (!thorough || runCatching { validateRoutingSegmentIndex(file) }.isSuccess)
+                if (!healthy) repairFileNames += File(fileName).name
+            }
+            bundle.demTileIds.forEach { tileId ->
+                if (isKnownMissingDemTile(tileId, bundle.demSource)) return@forEach
+                val file = demTileTargetFile(tileId, bundle.demSource)
+                val healthy =
+                    file.isHealthyLocalFile() &&
+                        (
+                            !thorough ||
+                                runCatching {
+                                    if (file.name.endsWith(".gz", ignoreCase = true)) {
+                                        validateGzipDemStructure(file)
+                                    } else {
+                                        validateDemTileFile(file)
+                                    }
+                                }.isSuccess
+                        )
+                if (!healthy) repairFileNames += bundle.demSource.remoteFileName(tileId)
+            }
+
+            OamBundleLocalHealth(repairFileNames.distinct()).also { health ->
+                if (health.needsRepair) {
+                    DebugTelemetry.log(
+                        OAM_DOWNLOAD_TELEMETRY_TAG,
+                        "event=local_integrity_failed area=${bundle.areaId} thorough=$thorough " +
+                            "files=${health.repairFileNames.joinToString(limit = 5)}",
+                    )
+                }
+            }
+        }
+
     suspend fun checkBundleUpdates(bundle: OamInstalledBundle): OamBundleUpdateCheck =
         withContext(Dispatchers.IO) {
+            val localHealth = checkInstalledBundleHealth(bundle = bundle, thorough = true)
             val area =
                 OamDownloadCatalog.areas.firstOrNull { it.id == bundle.areaId }
                     ?: return@withContext OamBundleUpdateCheck(
@@ -172,6 +246,7 @@ class OamBundleDownloader(
             val distinctUnknownFileNames = unknownFileNames.distinct()
             val status =
                 when {
+                    localHealth.needsRepair -> OamBundleUpdateStatus.REPAIR_NEEDED
                     distinctChangedFileNames.isNotEmpty() -> OamBundleUpdateStatus.UPDATE_AVAILABLE
                     requests.isEmpty() -> OamBundleUpdateStatus.UP_TO_DATE
                     distinctUnknownFileNames.isNotEmpty() || checkedFileCount == 0 -> OamBundleUpdateStatus.UNKNOWN
@@ -180,6 +255,7 @@ class OamBundleDownloader(
             DebugTelemetry.log(
                 OAM_DOWNLOAD_TELEMETRY_TAG,
                 "event=update_check_result area=${bundle.areaId} status=$status checked=$checkedFileCount " +
+                    "repair=${localHealth.repairFileNames.joinToString(limit = 5)} " +
                     "changed=${distinctChangedFileNames.joinToString(limit = 5)} " +
                     "unknown=${distinctUnknownFileNames.joinToString(limit = 5)}",
             )
@@ -188,6 +264,7 @@ class OamBundleDownloader(
                 status = status,
                 checkedFileCount = checkedFileCount,
                 changedFileNames = distinctChangedFileNames,
+                repairFileNames = localHealth.repairFileNames,
                 unknownFileNames = distinctUnknownFileNames,
             )
         }
@@ -266,6 +343,7 @@ class OamBundleDownloader(
                 .toMutableMap()
         var mapFileName: String? = existingBundle?.mapFileName
         if (selection.includeMap) {
+            if (forceMap) deleteZipAndPartial("${area.id}.map.zip")
             val existingMapFile =
                 if (forceMap) {
                     null
@@ -330,6 +408,7 @@ class OamBundleDownloader(
 
         var poiFileName: String? = existingBundle?.poiFileName
         if (selection.includePoi) {
+            if (forcePoi) deleteZipAndPartial("${area.id}.poi.zip")
             val existingPoiFile =
                 if (forcePoi) {
                     null
@@ -767,6 +846,9 @@ class OamBundleDownloader(
     ): RoutingSegmentDownloadResult {
         val safeName = File(fileName).name
         val targetFile = routingSegmentTargetFile(context, safeName)
+        if (forceDownload) {
+            routingSegmentPartFile(context, safeName).delete()
+        }
         if (!forceDownload && targetFile.exists() && targetFile.length() > 0L) {
             onProgress(
                 OamDownloadProgress(
@@ -792,7 +874,18 @@ class OamBundleDownloader(
                     fsync = true,
                     onResponseMetadata = onResponseMetadata,
                     onProgress = onProgress,
-                )
+                ).let { downloadedFile ->
+                    runCatching { validateRoutingSegmentIndex(downloadedFile) }
+                        .onFailure { error ->
+                            DebugTelemetry.log(
+                                OAM_DOWNLOAD_TELEMETRY_TAG,
+                                "event=routing_integrity_failed file=$safeName " +
+                                    "error=${error.message.orEmpty().replace(' ', '_')}",
+                            )
+                            downloadedFile.delete()
+                            routingSegmentPartFile(context, safeName).delete()
+                        }.getOrThrow()
+                }
                 RoutingSegmentDownloadResult(fileName = safeName, downloaded = true)
             }.getOrElse { error ->
                 if (error.isHttpNotFound()) {
@@ -827,6 +920,9 @@ class OamBundleDownloader(
     ): DemTileDownloadResult {
         val safeTileId = tileId.uppercase(Locale.ROOT)
         val targetFile = demTileTargetFile(safeTileId, source)
+        if (forceDownload) {
+            deleteDemPartial(safeTileId, source)
+        }
         if (!forceDownload && isDemTileStored(safeTileId, targetFile)) {
             onProgress(
                 OamDownloadProgress(
@@ -1420,6 +1516,27 @@ class OamBundleDownloader(
         private const val BROUTER_SEGMENTS_BASE_URL = "https://brouter.de/brouter/segments4"
         private const val USER_AGENT = "GlanceMap-WearOS-OAM-Downloader/1.0 https://www.openandromaps.org"
         private const val OAM_DOWNLOAD_TELEMETRY_TAG = "OamDownload"
+    }
+}
+
+private fun File?.isHealthyLocalFile(): Boolean = this != null && exists() && isFile && length() > 0L
+
+private fun validateMapFile(file: File) {
+    val map = MapFile(file)
+    try {
+        map.boundingBox()
+    } finally {
+        map.close()
+    }
+}
+
+private fun validatePoiFile(file: File) {
+    SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { database ->
+        database.rawQuery("PRAGMA quick_check(1)", emptyArray()).use { cursor ->
+            check(cursor.moveToFirst() && cursor.getString(0).equals("ok", ignoreCase = true)) {
+                "POI database integrity check failed."
+            }
+        }
     }
 }
 

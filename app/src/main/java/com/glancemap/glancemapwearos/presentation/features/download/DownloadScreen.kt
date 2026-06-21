@@ -255,6 +255,9 @@ fun DownloadScreen(
             onLibraryChanged()
         }
     }
+    LaunchedEffect(Unit) {
+        viewModel.refreshInstalledBundles()
+    }
     LaunchedEffect(infoPrefs) {
         if (!infoPrefs.getBoolean(DOWNLOAD_INFO_SHOWN_KEY, false)) {
             showOamInfoDialog = true
@@ -521,6 +524,7 @@ fun DownloadScreen(
                             item {
                                 InstalledBundleRow(
                                     bundle = bundle,
+                                    needsRepair = uiState.bundleHealthByAreaId[bundle.areaId]?.needsRepair == true,
                                     refreshMode = effectiveRefreshMode,
                                     refreshSelected = bundle.areaId in uiState.selectedRefreshBundleIds,
                                     deleteMode = deleteMode,
@@ -914,6 +918,7 @@ private fun DownloadProgress(uiState: DownloadUiState) {
 @Composable
 private fun InstalledBundleRow(
     bundle: OamInstalledBundle,
+    needsRepair: Boolean,
     refreshMode: Boolean,
     refreshSelected: Boolean,
     deleteMode: Boolean,
@@ -922,7 +927,12 @@ private fun InstalledBundleRow(
 ) {
     DownloadChip(
         label = bundle.areaLabel,
-        secondaryLabel = installedBundleSubtitle(bundle),
+        secondaryLabel =
+            if (needsRepair) {
+                "Repair needed · ${installedBundleSubtitle(bundle)}"
+            } else {
+                installedBundleSubtitle(bundle)
+            },
         secondaryMarquee = true,
         icon =
             when {
@@ -932,6 +942,7 @@ private fun InstalledBundleRow(
                 else -> Icons.Filled.Check
             },
         selected = (refreshMode && refreshSelected) || (!deleteMode && !refreshMode),
+        warning = needsRepair,
         onClick =
             when {
                 refreshMode -> onRefresh
@@ -1053,6 +1064,7 @@ internal fun DownloadChip(
     icon: ImageVector,
     onClick: () -> Unit,
     selected: Boolean = false,
+    warning: Boolean = false,
     secondaryMarquee: Boolean = false,
 ) {
     Chip(
@@ -1081,10 +1093,20 @@ internal fun DownloadChip(
         },
         colors =
             ChipDefaults.secondaryChipColors(
-                backgroundColor = if (selected) SelectedChipBackground else ChipBackground,
+                backgroundColor =
+                    when {
+                        warning -> WarningChipBackground
+                        selected -> SelectedChipBackground
+                        else -> ChipBackground
+                    },
                 contentColor = ChipContent,
                 secondaryContentColor = ChipSecondaryContent,
-                iconColor = if (selected) SelectedChipIcon else ChipIcon,
+                iconColor =
+                    when {
+                        warning -> WarningChipIcon
+                        selected -> SelectedChipIcon
+                        else -> ChipIcon
+                    },
             ),
         onClick = onClick,
     )
@@ -1108,6 +1130,8 @@ private val ChipContent = Color(0xFFF4F7FB)
 private val ChipSecondaryContent = Color(0xFFC7D2DE)
 private val ChipIcon = Color(0xFF9DB1C7)
 private val SelectedChipIcon = Color(0xFF7FE4C8)
+private val WarningChipBackground = Color(0xFF5A3B16)
+private val WarningChipIcon = Color(0xFFFFB95C)
 
 private const val DOWNLOAD_INFO_PREFS = "download_screen_info_prefs"
 private const val DOWNLOAD_INFO_SHOWN_KEY = "oam_info_shown"

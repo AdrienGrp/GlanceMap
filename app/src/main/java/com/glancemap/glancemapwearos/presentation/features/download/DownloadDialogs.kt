@@ -205,12 +205,14 @@ internal fun RefreshBundleDialog(
 ) {
     if (check == null) return
 
+    val repairNeeded = check.status == OamBundleUpdateStatus.REPAIR_NEEDED
     val updateAvailable = check.status == OamBundleUpdateStatus.UPDATE_AVAILABLE
     val upToDate = check.status == OamBundleUpdateStatus.UP_TO_DATE
     WearActionDialog(
         visible = true,
         title =
             when {
+                repairNeeded -> "Repair needed"
                 updateAvailable -> "Update available"
                 upToDate -> "Already up to date"
                 check.checkedFileCount == 0 -> "Update info missing"
@@ -238,6 +240,7 @@ internal fun RefreshBundleSummaryDialog(
         visible = true,
         title =
             when {
+                summary.repairNeededCount > 0 -> "Repair bundles?"
                 hasUpdates -> "Refresh bundles?"
                 summary.unknownCount > 0 -> "Check incomplete"
                 else -> "All up to date"
@@ -252,6 +255,19 @@ internal fun RefreshBundleSummaryDialog(
 
 private fun refreshBundleDialogText(check: OamBundleUpdateCheck): String =
     when (check.status) {
+        OamBundleUpdateStatus.REPAIR_NEEDED ->
+            buildString {
+                append("Some files in ${check.bundle.areaLabel} are missing or damaged.")
+                if (check.repairFileNames.isNotEmpty()) {
+                    append("\n\nRepair: ")
+                    append(check.repairFileNames.take(MAX_DIALOG_FILE_NAMES).joinToString(", "))
+                    if (check.repairFileNames.size > MAX_DIALOG_FILE_NAMES) {
+                        append(" +")
+                        append(check.repairFileNames.size - MAX_DIALOG_FILE_NAMES)
+                    }
+                }
+                append("\n\nRefresh will download only the affected parts.")
+            }
         OamBundleUpdateStatus.UPDATE_AVAILABLE ->
             buildString {
                 append(check.bundle.areaLabel)
@@ -282,6 +298,9 @@ private fun refreshSummaryDialogText(summary: OamBundleRefreshSummary): String =
         summary.bundlesToRefresh.isNotEmpty() ->
             buildString {
                 append("${summary.totalCount} checked")
+                if (summary.repairNeededCount > 0) {
+                    append("\n${summary.repairNeededCount} repair needed")
+                }
                 if (summary.updateAvailableCount > 0) {
                     append("\n${summary.updateAvailableCount} update available")
                 }

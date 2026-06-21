@@ -30,6 +30,7 @@ data class DownloadUiState(
     val selectedAreaIds: Set<String> = emptySet(),
     val selection: OamDownloadSelection = OamDownloadSelection(),
     val installedBundles: List<OamInstalledBundle> = emptyList(),
+    val bundleHealthByAreaId: Map<String, OamBundleLocalHealth> = emptyMap(),
     val isDownloading: Boolean = false,
     val phase: String? = null,
     val detail: String? = null,
@@ -334,10 +335,11 @@ class DownloadViewModel(
                             }
                         }
                     }
-                    val installed = downloader.installedBundles()
+                    val (installed, healthByAreaId) = loadInstalledBundlesAndHealth()
                     _uiState.update {
                         it.copy(
                             installedBundles = installed,
+                            bundleHealthByAreaId = healthByAreaId,
                             selectedAreaIds = emptySet(),
                             isDownloading = false,
                             phase = "READY",
@@ -484,9 +486,22 @@ class DownloadViewModel(
                         )
                     }
             _uiState.update {
+                val updatedHealth =
+                    it.bundleHealthByAreaId +
+                        (bundle.areaId to OamBundleLocalHealth(check.repairFileNames))
                 when (check.status) {
+                    OamBundleUpdateStatus.REPAIR_NEEDED ->
+                        it.copy(
+                            bundleHealthByAreaId = updatedHealth,
+                            isCheckingUpdates = false,
+                            statusMessage = "Repair needed",
+                            errorMessage = null,
+                            refreshPrompt = check,
+                            networkWarningMessage = null,
+                        )
                     OamBundleUpdateStatus.UP_TO_DATE ->
                         it.copy(
+                            bundleHealthByAreaId = updatedHealth,
                             isCheckingUpdates = false,
                             statusMessage = "${bundle.areaLabel} is up to date",
                             errorMessage = null,
@@ -497,6 +512,7 @@ class DownloadViewModel(
                     OamBundleUpdateStatus.UNKNOWN,
                     ->
                         it.copy(
+                            bundleHealthByAreaId = updatedHealth,
                             isCheckingUpdates = false,
                             statusMessage =
                                 if (check.status == OamBundleUpdateStatus.UPDATE_AVAILABLE) {
@@ -594,11 +610,19 @@ class DownloadViewModel(
                 }
             val summary = OamBundleRefreshSummary(checks)
             _uiState.update {
+                val updatedHealth =
+                    it.bundleHealthByAreaId +
+                        checks.associate { check ->
+                            check.bundle.areaId to OamBundleLocalHealth(check.repairFileNames)
+                        }
                 it.copy(
+                    bundleHealthByAreaId = updatedHealth,
                     isCheckingUpdates = false,
                     refreshSummaryPrompt = summary,
                     statusMessage =
                         when {
+                            summary.repairNeededCount > 0 ->
+                                "${summary.repairNeededCount} bundle(s) need repair"
                             summary.bundlesToRefresh.isNotEmpty() ->
                                 "${summary.bundlesToRefresh.size} bundle(s) need refresh"
                             summary.unknownCount > 0 -> "Update check incomplete"
@@ -638,10 +662,11 @@ class DownloadViewModel(
         viewModelScope.launch {
             try {
                 downloader.deleteBundle(bundle)
-                val installed = downloader.installedBundles()
+                val (installed, healthByAreaId) = loadInstalledBundlesAndHealth()
                 _uiState.update {
                     it.copy(
                         installedBundles = installed,
+                        bundleHealthByAreaId = healthByAreaId,
                         statusMessage = "Bundle deleted",
                         errorMessage = null,
                         networkWarningMessage = null,
@@ -662,10 +687,24 @@ class DownloadViewModel(
 
     fun refreshInstalledBundles() {
         viewModelScope.launch {
+            val (installed, healthByAreaId) = loadInstalledBundlesAndHealth()
             _uiState.update {
-                it.copy(installedBundles = downloader.installedBundles())
+                it.copy(
+                    installedBundles = installed,
+                    bundleHealthByAreaId = healthByAreaId,
+                )
             }
         }
+    }
+
+    private suspend fun loadInstalledBundlesAndHealth():
+        Pair<List<OamInstalledBundle>, Map<String, OamBundleLocalHealth>> {
+        val installed = downloader.installedBundles()
+        val healthByAreaId =
+            installed.associate { bundle ->
+                bundle.areaId to downloader.checkInstalledBundleHealth(bundle)
+            }
+        return installed to healthByAreaId
     }
 
     private fun refreshBundlesInternal(
@@ -751,6 +790,7 @@ class DownloadViewModel(
                             selection = target.selection,
                             forceMap = target.forces.forceMap,
                             forcePoi = target.forces.forcePoi,
+                            forceRefugesInfo = target.forces.forceRefugesInfo,
                             forceRoutingFileNames = target.forces.forceRoutingFileNames,
                             forceDemTileIds = target.forces.forceDemTileIds,
                         ) { progress ->
@@ -777,10 +817,11 @@ class DownloadViewModel(
                             }
                         }
                     }
-                    val installed = downloader.installedBundles()
+                    val (installed, healthByAreaId) = loadInstalledBundlesAndHealth()
                     _uiState.update {
                         it.copy(
                             installedBundles = installed,
+                            bundleHealthByAreaId = healthByAreaId,
                             selectedAreaIds = emptySet(),
                             selectedRefreshBundleIds = emptySet(),
                             isDownloading = false,
@@ -910,6 +951,7 @@ private data class RefreshTarget(
 private data class BundleRefreshRequest(
     val bundle: OamInstalledBundle,
     val changedFileNames: Set<String>,
+    val repairFileNames: Set<String>,
 ) {
     fun forces(area: OamDownloadArea): OamBundleRefreshForces =
         OamBundleUpdateCheck(
@@ -917,18 +959,15 @@ private data class BundleRefreshRequest(
             status = OamBundleUpdateStatus.UPDATE_AVAILABLE,
             checkedFileCount = 0,
             changedFileNames = changedFileNames.toList(),
+            repairFileNames = repairFileNames.toList(),
         ).refreshForces(area)
 }
 
 private fun OamBundleUpdateCheck.toRefreshRequest(): BundleRefreshRequest =
     BundleRefreshRequest(
         bundle = bundle,
-        changedFileNames =
-            if (status == OamBundleUpdateStatus.UPDATE_AVAILABLE) {
-                changedFileNames.toSet()
-            } else {
-                emptySet()
-            },
+        changedFileNames = changedFileNames.toSet(),
+        repairFileNames = repairFileNames.toSet(),
     )
 
 private fun OamInstalledBundle.toDownloadSelection(): OamDownloadSelection =

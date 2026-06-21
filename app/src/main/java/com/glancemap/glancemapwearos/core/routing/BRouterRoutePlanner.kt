@@ -207,6 +207,11 @@ internal fun normalizeRoutingErrorMessage(message: String): String =
             normalizeLookupVersionMismatch(message)
         }
 
+        message.contains("checksum error", ignoreCase = true) ||
+            message.contains("checksum failed", ignoreCase = true) -> {
+            "Routing data is damaged. Open Downloads, check the bundle for updates, then choose Refresh to repair it."
+        }
+
         message.contains("dummy.brf", ignoreCase = true) -> {
             "Routing profiles missing. Reopen route tools and try again."
         }
