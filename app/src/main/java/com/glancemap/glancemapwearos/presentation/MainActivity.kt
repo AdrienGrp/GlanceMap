@@ -89,6 +89,7 @@ import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.google.android.horologist.compose.layout.AppScaffold
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
 class MainActivity : ComponentActivity() {
@@ -193,6 +194,7 @@ class MainActivity : ComponentActivity() {
 
             GlanceMapTheme {
                 val navController = rememberNavController()
+                val appScope = rememberCoroutineScope()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val route = backStackEntry?.destination?.route
                 val routeLabel = route ?: WatchRoutes.NAVIGATE
@@ -558,12 +560,14 @@ class MainActivity : ComponentActivity() {
                                 ResetDefaultsConfirmScreen(
                                     onCancel = { navController.popBackStack() },
                                     onConfirmReset = {
-                                        appContainer.settingsViewModel.resetToDefaults()
-                                        appContainer.themeViewModel.resetToDefaults()
-                                        navController.navigate(WatchRoutes.SETTINGS) {
-                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
-                                            launchSingleTop = true
-                                            restoreState = true
+                                        appScope.launch {
+                                            appContainer.settingsViewModel.resetToDefaultsAndWait()
+                                            appContainer.themeViewModel.resetToDefaultsAndWait()
+                                            navController.navigate(WatchRoutes.SETTINGS) {
+                                                popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
                                         }
                                     },
                                 )

@@ -265,9 +265,13 @@ class ThemeViewModel(
 
     fun resetToDefaults() {
         viewModelScope.launch {
-            Log.d("Theme", "resetToDefaults called")
-            themeRepository.resetToDefaults()
+            resetToDefaultsAndWait()
         }
+    }
+
+    suspend fun resetToDefaultsAndWait() {
+        Log.d("Theme", "resetToDefaults called")
+        themeRepository.resetToDefaults()
     }
 
     fun downloadDemForSelectedMap(selectedMapPath: String?) {

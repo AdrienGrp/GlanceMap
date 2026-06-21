@@ -991,6 +991,10 @@ class SettingsViewModel(
 
     fun resetToDefaults() =
         viewModelScope.launch {
-            settingsRepository.resetToDefaults()
+            resetToDefaultsAndWait()
         }
+
+    suspend fun resetToDefaultsAndWait() {
+        settingsRepository.resetToDefaults()
+    }
 }

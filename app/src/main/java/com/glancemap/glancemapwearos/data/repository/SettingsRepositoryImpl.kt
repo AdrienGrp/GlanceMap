@@ -38,6 +38,15 @@ class SettingsRepositoryImpl private constructor(
     private val debugHelpPrefs by lazy {
         context.getSharedPreferences(DEBUG_HELP_PREFS_NAME, Context.MODE_PRIVATE)
     }
+    private val gpxHelpPrefs by lazy {
+        context.getSharedPreferences(GPX_HELP_PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    private val poiHelpPrefs by lazy {
+        context.getSharedPreferences(POI_HELP_PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    private val downloadInfoPrefs by lazy {
+        context.getSharedPreferences(DOWNLOAD_INFO_PREFS_NAME, Context.MODE_PRIVATE)
+    }
 
     private object PrefKeys {
         val GPS_INTERVAL = longPreferencesKey("gps_interval")
@@ -1288,6 +1297,9 @@ class SettingsRepositoryImpl private constructor(
         markerStyleCachePrefs.edit().remove(CACHE_KEY_NAVIGATION_MARKER_STYLE).apply()
         mapsHelpPrefs.edit().clear().apply()
         debugHelpPrefs.edit().clear().apply()
+        gpxHelpPrefs.edit().clear().apply()
+        poiHelpPrefs.edit().clear().apply()
+        downloadInfoPrefs.edit().clear().apply()
     }
 
     private fun Preferences.mapZoomScaleMeters(
@@ -1458,6 +1470,9 @@ class SettingsRepositoryImpl private constructor(
         private const val CACHE_KEY_NAVIGATION_MARKER_STYLE = "navigation_marker_style"
         private const val MAPS_HELP_PREFS_NAME = "maps_screen_help_prefs"
         private const val DEBUG_HELP_PREFS_NAME = "debug_settings_help_prefs"
+        private const val GPX_HELP_PREFS_NAME = "gpx_screen_help_prefs"
+        private const val POI_HELP_PREFS_NAME = "poi_screen_help_prefs"
+        private const val DOWNLOAD_INFO_PREFS_NAME = "download_screen_info_prefs"
 
         @Volatile
         private var INSTANCE: SettingsRepository? = null
