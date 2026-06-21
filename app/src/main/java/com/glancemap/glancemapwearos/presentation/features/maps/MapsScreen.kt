@@ -467,16 +467,7 @@ fun MapsScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            if (routingPackFiles.isEmpty()) {
-                item {
-                    Text(
-                        text = "No routing packs installed on the watch.",
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            } else {
+            if (routingPackFiles.isNotEmpty()) {
                 foundationItems(routingPackFiles) { pack ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
