@@ -236,6 +236,14 @@ internal fun deriveTelemetryInsights(
     var externalSensorScanStopCount = 0
     var externalSensorScanFailedCount = 0
     var externalSensorLastScanDeviceCount: Int? = null
+    var externalSensorLastScanResultCount: Int? = null
+    var externalSensorLastScanDurationMs: Long? = null
+    var externalSensorLastSupportedDeviceCount: Int? = null
+    var externalSensorLastUnknownDeviceCount: Int? = null
+    var externalSensorLastHeartRateDeviceCount: Int? = null
+    var externalSensorLastRunPodDeviceCount: Int? = null
+    var externalSensorLastCyclingSpeedCadenceDeviceCount: Int? = null
+    var externalSensorLastScanFailureReason: String? = null
     var externalHeartRateBridgeStartCount = 0
     var externalHeartRateBridgeStopCount = 0
     var externalHeartRateConnectRequestedCount = 0
@@ -708,12 +716,49 @@ internal fun deriveTelemetryInsights(
         if ("[ExternalSensors]" in line) {
             when (extractTokenValue(line, "event=")) {
                 "scan_started" -> externalSensorScanStartCount += 1
-                "scan_stopped" -> externalSensorScanStopCount += 1
+                "scan_summary" -> {
+                    if (extractTokenValue(line, "outcome=") == "stopped") {
+                        externalSensorScanStopCount += 1
+                    }
+                    parseLongToken(line, "durationMs=")?.takeIf { it >= 0L }?.let {
+                        externalSensorLastScanDurationMs = it
+                    }
+                    parseIntToken(line, "resultCount=")?.takeIf { it >= 0 }?.let {
+                        externalSensorLastScanResultCount = it
+                    }
+                    parseIntToken(line, "supported=")?.takeIf { it >= 0 }?.let {
+                        externalSensorLastSupportedDeviceCount = it
+                    }
+                    parseIntToken(line, "unknown=")?.takeIf { it >= 0 }?.let {
+                        externalSensorLastUnknownDeviceCount = it
+                    }
+                    parseIntToken(line, "heartRate=")?.takeIf { it >= 0 }?.let {
+                        externalSensorLastHeartRateDeviceCount = it
+                    }
+                    parseIntToken(line, "runPod=")?.takeIf { it >= 0 }?.let {
+                        externalSensorLastRunPodDeviceCount = it
+                    }
+                    parseIntToken(line, "cyclingSpeedCadence=")?.takeIf { it >= 0 }?.let {
+                        externalSensorLastCyclingSpeedCadenceDeviceCount = it
+                    }
+                }
                 "scan_failed",
                 "scan_start_failed" -> externalSensorScanFailedCount += 1
+                "scan_unavailable" -> {
+                    externalSensorScanFailedCount += 1
+                    extractTokenValue(line, "reason=")?.takeIf { it.isNotBlank() }?.let {
+                        externalSensorLastScanFailureReason = it
+                    }
+                }
             }
             parseIntToken(line, "devices=")?.takeIf { it >= 0 }?.let {
                 externalSensorLastScanDeviceCount = it
+            }
+            extractTokenValue(line, "error=")?.takeIf { it.isNotBlank() }?.let {
+                externalSensorLastScanFailureReason = it
+            }
+            parseIntToken(line, "code=")?.let {
+                externalSensorLastScanFailureReason = "code_$it"
             }
         }
 
@@ -1074,6 +1119,15 @@ internal fun deriveTelemetryInsights(
         externalSensorScanStopCount = externalSensorScanStopCount,
         externalSensorScanFailedCount = externalSensorScanFailedCount,
         externalSensorLastScanDeviceCount = externalSensorLastScanDeviceCount,
+        externalSensorLastScanResultCount = externalSensorLastScanResultCount,
+        externalSensorLastScanDurationMs = externalSensorLastScanDurationMs,
+        externalSensorLastSupportedDeviceCount = externalSensorLastSupportedDeviceCount,
+        externalSensorLastUnknownDeviceCount = externalSensorLastUnknownDeviceCount,
+        externalSensorLastHeartRateDeviceCount = externalSensorLastHeartRateDeviceCount,
+        externalSensorLastRunPodDeviceCount = externalSensorLastRunPodDeviceCount,
+        externalSensorLastCyclingSpeedCadenceDeviceCount =
+            externalSensorLastCyclingSpeedCadenceDeviceCount,
+        externalSensorLastScanFailureReason = externalSensorLastScanFailureReason,
         externalHeartRateBridgeStartCount = externalHeartRateBridgeStartCount,
         externalHeartRateBridgeStopCount = externalHeartRateBridgeStopCount,
         externalHeartRateConnectRequestedCount = externalHeartRateConnectRequestedCount,

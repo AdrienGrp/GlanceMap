@@ -9,6 +9,7 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,8 @@ class ExternalSensorScanner(
     private val loggedDeviceAddresses = mutableSetOf<String>()
     private val _devices = MutableStateFlow<List<ExternalSensorDevice>>(emptyList())
     private val _status = MutableStateFlow(ExternalSensorScanStatus.IDLE)
+    private var scanStartedAtElapsedMs = 0L
+    private var scanResultCount = 0
 
     val devices: StateFlow<List<ExternalSensorDevice>> = _devices.asStateFlow()
     val status: StateFlow<ExternalSensorScanStatus> = _status.asStateFlow()
@@ -32,16 +35,19 @@ class ExternalSensorScanner(
                 callbackType: Int,
                 result: ScanResult,
             ) {
+                scanResultCount += 1
                 mergeResult(result)
             }
 
             override fun onBatchScanResults(results: MutableList<ScanResult>) {
+                scanResultCount += results.size
                 results.forEach(::mergeResult)
             }
 
             override fun onScanFailed(errorCode: Int) {
                 _status.value = ExternalSensorScanStatus.SCAN_FAILED
                 DebugTelemetry.log("ExternalSensors", "event=scan_failed code=$errorCode")
+                logScanSummary(outcome = "failed")
             }
         }
 
@@ -49,6 +55,7 @@ class ExternalSensorScanner(
     fun startScan() {
         if (!hasRequiredPermissions(context)) {
             _status.value = ExternalSensorScanStatus.PERMISSION_MISSING
+            DebugTelemetry.log("ExternalSensors", "event=scan_unavailable reason=permission_missing")
             return
         }
         val adapter =
@@ -56,19 +63,24 @@ class ExternalSensorScanner(
                 ?.adapter
         if (adapter == null) {
             _status.value = ExternalSensorScanStatus.BLUETOOTH_UNAVAILABLE
+            DebugTelemetry.log("ExternalSensors", "event=scan_unavailable reason=adapter_unavailable")
             return
         }
         if (!adapter.isEnabled) {
             _status.value = ExternalSensorScanStatus.BLUETOOTH_OFF
+            DebugTelemetry.log("ExternalSensors", "event=scan_unavailable reason=bluetooth_off")
             return
         }
 
         val scanner = adapter.bluetoothLeScanner
         if (scanner == null) {
             _status.value = ExternalSensorScanStatus.BLUETOOTH_UNAVAILABLE
+            DebugTelemetry.log("ExternalSensors", "event=scan_unavailable reason=scanner_unavailable")
             return
         }
 
+        scanStartedAtElapsedMs = SystemClock.elapsedRealtime()
+        scanResultCount = 0
         runCatching {
             scanner.startScan(
                 null,
@@ -83,6 +95,7 @@ class ExternalSensorScanner(
         }.onFailure { error ->
             _status.value = ExternalSensorScanStatus.SCAN_FAILED
             DebugTelemetry.log("ExternalSensors", "event=scan_start_failed error=${error.javaClass.simpleName}")
+            logScanSummary(outcome = "start_failed")
         }
     }
 
@@ -96,7 +109,7 @@ class ExternalSensorScanner(
         if (_status.value == ExternalSensorScanStatus.SCANNING) {
             _status.value = ExternalSensorScanStatus.IDLE
         }
-        DebugTelemetry.log("ExternalSensors", "event=scan_stopped devices=${devicesByAddress.size}")
+        logScanSummary(outcome = "stopped")
     }
 
     private fun mergeResult(result: ScanResult) {
@@ -105,12 +118,22 @@ class ExternalSensorScanner(
         val kinds = ExternalSensorKind.entries.filter { it.serviceUuid in serviceUuids }.toSet()
         val name = safeName(result).ifBlank { "BLE ${address.takeLast(5)}" }
         if (loggedDeviceAddresses.add(address)) {
+            val scanRecord = result.scanRecord
+            val manufacturerIds =
+                scanRecord
+                    ?.manufacturerSpecificData
+                    ?.let { data -> (0 until data.size()).map(data::keyAt) }
+                    .orEmpty()
+            val serviceDataUuids = scanRecord?.serviceData?.keys.orEmpty()
             DebugTelemetry.log(
                 "ExternalSensors",
                 "event=device_seen name=${name.sanitizeTelemetryToken()} " +
                     "addressSuffix=${address.takeLast(5)} " +
+                    "rssi=${result.rssi} txPower=${scanRecord?.txPowerLevel ?: Int.MIN_VALUE} " +
                     "kinds=${kinds.joinToString("|") { it.label.sanitizeTelemetryToken() }.ifBlank { "unknown" }} " +
-                    "services=${serviceUuids.joinToString("|") { it.toString() }.ifBlank { "none" }}",
+                    "services=${serviceUuids.joinToString("|") { it.toString() }.ifBlank { "none" }} " +
+                    "serviceData=${serviceDataUuids.joinToString("|") { it.toString() }.ifBlank { "none" }} " +
+                    "manufacturerIds=${manufacturerIds.joinToString("|").ifBlank { "none" }}",
             )
         }
         devicesByAddress[address] =
@@ -127,6 +150,26 @@ class ExternalSensorScanner(
                     compareByDescending<ExternalSensorDevice> { it.kinds.isNotEmpty() }
                         .thenByDescending { it.rssi ?: Int.MIN_VALUE },
                 )
+    }
+
+    private fun logScanSummary(outcome: String) {
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        val durationMs =
+            scanStartedAtElapsedMs
+                .takeIf { it > 0L }
+                ?.let { startedAt -> (nowElapsedMs - startedAt).coerceAtLeast(0L) }
+                ?: 0L
+        val devices = devicesByAddress.values
+        val supportedCount = devices.count { it.kinds.isNotEmpty() }
+        val heartRateCount = devices.count { ExternalSensorKind.HEART_RATE in it.kinds }
+        val runPodCount = devices.count { ExternalSensorKind.RUNNING_SPEED_CADENCE in it.kinds }
+        val cyclingCount = devices.count { ExternalSensorKind.CYCLING_SPEED_CADENCE in it.kinds }
+        DebugTelemetry.log(
+            "ExternalSensors",
+            "event=scan_summary outcome=$outcome durationMs=$durationMs resultCount=$scanResultCount " +
+                "devices=${devices.size} supported=$supportedCount unknown=${devices.size - supportedCount} " +
+                "heartRate=$heartRateCount runPod=$runPodCount cyclingSpeedCadence=$cyclingCount",
+        )
     }
 
     private fun safeName(result: ScanResult): String =

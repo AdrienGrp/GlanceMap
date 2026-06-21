@@ -261,6 +261,14 @@ object DiagnosticsExporter {
         val externalSensorScanStopCount: Int = 0,
         val externalSensorScanFailedCount: Int = 0,
         val externalSensorLastScanDeviceCount: Int? = null,
+        val externalSensorLastScanResultCount: Int? = null,
+        val externalSensorLastScanDurationMs: Long? = null,
+        val externalSensorLastSupportedDeviceCount: Int? = null,
+        val externalSensorLastUnknownDeviceCount: Int? = null,
+        val externalSensorLastHeartRateDeviceCount: Int? = null,
+        val externalSensorLastRunPodDeviceCount: Int? = null,
+        val externalSensorLastCyclingSpeedCadenceDeviceCount: Int? = null,
+        val externalSensorLastScanFailureReason: String? = null,
         val externalHeartRateBridgeStartCount: Int = 0,
         val externalHeartRateBridgeStopCount: Int = 0,
         val externalHeartRateConnectRequestedCount: Int = 0,
@@ -1292,6 +1300,46 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "externalSensorLastScanDeviceCount=${
                     telemetryInsights.externalSensorLastScanDeviceCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "externalSensorLastScanResultCount=${
+                    telemetryInsights.externalSensorLastScanResultCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "externalSensorLastScanDurationMs=${
+                    telemetryInsights.externalSensorLastScanDurationMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "externalSensorLastSupportedDeviceCount=${
+                    telemetryInsights.externalSensorLastSupportedDeviceCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "externalSensorLastUnknownDeviceCount=${
+                    telemetryInsights.externalSensorLastUnknownDeviceCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "externalSensorLastHeartRateDeviceCount=${
+                    telemetryInsights.externalSensorLastHeartRateDeviceCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "externalSensorLastRunPodDeviceCount=${
+                    telemetryInsights.externalSensorLastRunPodDeviceCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "externalSensorLastCyclingSpeedCadenceDeviceCount=${
+                    telemetryInsights.externalSensorLastCyclingSpeedCadenceDeviceCount?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "externalSensorLastScanFailureReason=${
+                    telemetryInsights.externalSensorLastScanFailureReason ?: "na"
                 }",
             )
             writer.appendLine("externalHeartRateStatus=${formatExternalHeartRateStatus(settings, telemetryInsights)}")
