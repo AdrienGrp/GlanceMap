@@ -9,6 +9,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -77,6 +81,7 @@ internal fun NavigateScreenDialogsHost(
     routeToolRenameInProgress: Boolean,
     routeToolRenameError: String?,
     isMetric: Boolean,
+    recordingGpsEnabled: Boolean,
     gpxViewModel: GpxViewModel,
     onSetRouteToolResult: (RouteToolSaveResult?) -> Unit,
     onSetRouteToolRenameInProgress: (Boolean) -> Unit,
@@ -84,6 +89,8 @@ internal fun NavigateScreenDialogsHost(
     onDismissRouteToolsPanel: () -> Unit,
     onRouteToolGuidanceStarted: () -> Unit,
 ) {
+    var showGpsDeactivatedInfo by rememberSaveable { mutableStateOf(false) }
+
     NavigateKeepAppOpenDialog(
         visible = showKeepAppOpenInfoDialog,
         helpDialogMaxHeight = helpDialogMaxHeight,
@@ -212,6 +219,10 @@ internal fun NavigateScreenDialogsHost(
         onStartRouteToolGuidance = {
             val currentResult = routeToolResult ?: return@NavigateRouteToolDialogs
             if (routeToolRenameInProgress) return@NavigateRouteToolDialogs
+            if (!recordingGpsEnabled) {
+                showGpsDeactivatedInfo = true
+                return@NavigateRouteToolDialogs
+            }
             onSetRouteToolRenameError(null)
             gpxViewModel.startTurnByTurnGuidance(currentResult.filePath) { result ->
                 result
@@ -227,6 +238,15 @@ internal fun NavigateScreenDialogsHost(
                     }
             }
         },
+    )
+
+    WearActionDialog(
+        visible = showGpsDeactivatedInfo,
+        title = "GPS deactivated",
+        message = "Activate GPS in Recording settings before starting guidance.",
+        confirmText = "OK",
+        onConfirm = { showGpsDeactivatedInfo = false },
+        onDismissRequest = { showGpsDeactivatedInfo = false },
     )
 }
 

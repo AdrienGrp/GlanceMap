@@ -791,6 +791,7 @@ fun NavigateScreen(
         routeToolRenameInProgress = routeToolRenameInProgress,
         routeToolRenameError = routeToolRenameError,
         isMetric = isMetric,
+        recordingGpsEnabled = recordingGpsEnabled,
         gpxViewModel = gpxViewModel,
         onSetRouteToolResult = { routeToolResult = it },
         onSetRouteToolRenameInProgress = { routeToolRenameInProgress = it },
