@@ -232,7 +232,7 @@ class ExternalRunPodClient(
             }
             val rawTotalDistanceUnits =
                 if (totalDistancePresent) {
-                    value.readUInt32Le(offset)
+                    value.readUInt32Le(offset) ?: return null
                 } else {
                     null
                 }
