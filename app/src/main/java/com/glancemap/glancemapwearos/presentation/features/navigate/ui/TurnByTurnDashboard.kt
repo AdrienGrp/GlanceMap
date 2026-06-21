@@ -8,8 +8,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardMetricTile
@@ -28,10 +32,12 @@ internal data class TurnByTurnMetricDefinition(
 
 internal val turnByTurnMetricDefinitions =
     listOf(
-        TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_ETA, "Arrival"),
+        TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_CURRENT_ALTITUDE, "Current altitude"),
+        TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_DISTANCE_COVERED, "Distance covered"),
+        TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_ETA, "ETA"),
         TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_PROGRESS, "Progress"),
-        TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_ASCENT, "Remaining +"),
-        TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DESCENT, "Remaining -"),
+        TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_ASCENT, "Remaining ascent"),
+        TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DESCENT, "Remaining descent"),
         TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DISTANCE, "Remaining distance"),
         TurnByTurnMetricDefinition(SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_TIME, "Remaining time"),
     )
@@ -56,8 +62,15 @@ internal fun TurnByTurnMetricDashboardPage(
         Column(
             modifier = Modifier.fillMaxWidth(0.70f),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
         ) {
+            Text(
+                text = "REMAINING",
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 10.sp,
+                lineHeight = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
             RecordingDashboardMetricTile(
                 metric = formattedTurnByTurnMetric(slots[0], state, isMetric, context),
                 height = tileHeight,
@@ -99,30 +112,40 @@ private fun formattedTurnByTurnMetric(
 ): RecordingMetricValue =
     when (metricId) {
         SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_ASCENT ->
-            elevationMetric("Remaining +", state.remainingAscentMeters, isMetric)
+            elevationMetric("Ascent ↑", state.remainingAscentMeters, isMetric)
         SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DESCENT ->
-            elevationMetric("Remaining -", state.remainingDescentMeters, isMetric)
+            elevationMetric("Descent ↓", state.remainingDescentMeters, isMetric)
         SettingsRepository.TURN_BY_TURN_METRIC_ETA -> {
             val eta =
                 state.estimatedRemainingSeconds?.let { seconds ->
                     DateFormat.getTimeFormat(context).format(Date(System.currentTimeMillis() + seconds * 1_000L))
                 } ?: "--"
-            RecordingMetricValue("Arrival", eta)
+            RecordingMetricValue("ETA", eta)
         }
         SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_TIME ->
-            RecordingMetricValue("Remaining time", formatRemainingDuration(state.estimatedRemainingSeconds))
+            RecordingMetricValue("Time", formatRemainingDuration(state.estimatedRemainingSeconds))
         SettingsRepository.TURN_BY_TURN_METRIC_PROGRESS ->
             RecordingMetricValue(
                 "Progress",
                 state.routeProgressFraction?.let { "${(it * 100).roundToInt()}%" } ?: "--",
             )
+        SettingsRepository.TURN_BY_TURN_METRIC_DISTANCE_COVERED ->
+            distanceMetric("Covered", state.distanceFromStartMeters, isMetric)
+        SettingsRepository.TURN_BY_TURN_METRIC_CURRENT_ALTITUDE ->
+            elevationMetric("Altitude", state.currentAltitudeMeters, isMetric)
         else -> {
-            val (value, unit) =
-                state.distanceRemainingMeters?.let { UnitFormatter.formatDistance(it, isMetric) }
-                    ?: ("--" to null)
-            RecordingMetricValue("Remaining distance", value, unit)
+            distanceMetric("Distance", state.distanceRemainingMeters, isMetric)
         }
     }
+
+private fun distanceMetric(
+    label: String,
+    meters: Double?,
+    isMetric: Boolean,
+): RecordingMetricValue {
+    val (value, unit) = meters?.let { UnitFormatter.formatDistance(it, isMetric) } ?: ("--" to null)
+    return RecordingMetricValue(label, value, unit)
+}
 
 private fun elevationMetric(
     label: String,

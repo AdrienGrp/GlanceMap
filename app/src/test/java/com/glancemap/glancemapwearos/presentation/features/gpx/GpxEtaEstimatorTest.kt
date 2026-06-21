@@ -156,6 +156,27 @@ class GpxEtaEstimatorTest {
         assertEquals(60.0, projection.totalSeconds!!, 0.02)
     }
 
+    @Test
+    fun routeProjectionReturnsConfiguredRemainingTimeAtCurrentDistance() {
+        val points =
+            listOf(
+                TrackPoint(LatLong(0.0, 0.0), elevation = 100.0),
+                TrackPoint(LatLong(0.0, 0.001), elevation = 100.0),
+                TrackPoint(LatLong(0.0, 0.002), elevation = 100.0),
+            )
+        val routeProjection =
+            buildRouteEtaProjection(
+                trackPoints = points,
+                config = GpxEtaModelConfig(flatSpeedMps = 1.0),
+            )
+
+        checkNotNull(routeProjection)
+        val halfwayDistance = routeProjection.cumulativeDistancesMeters.last() / 2.0
+        val totalSeconds = routeProjection.etaProjection.totalSeconds!!
+
+        assertEquals((totalSeconds / 2.0).toLong(), routeProjection.remainingSecondsAtDistance(halfwayDistance))
+    }
+
     private fun testProfile(
         segmentLengths: DoubleArray,
         elevations: List<Double>,

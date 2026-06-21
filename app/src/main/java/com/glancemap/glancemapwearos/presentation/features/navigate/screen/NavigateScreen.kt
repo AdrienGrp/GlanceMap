@@ -644,6 +644,10 @@ fun NavigateScreen(
             brouterGuideBackEnabled = turnByTurnBrouterGuideBackEnabled,
             lastScreenResumeElapsedMs = lastScreenResumeElapsedMs,
             isMetric = isMetric,
+            gpxFlatSpeedMps = gpxFlatSpeedMps,
+            gpxAdvancedEtaEnabled = gpxAdvancedEtaEnabled,
+            gpxUphillVerticalMetersPerHour = gpxUphillVerticalMetersPerHour,
+            gpxDownhillVerticalMetersPerHour = gpxDownhillVerticalMetersPerHour,
         )
 
     LaunchedEffect(

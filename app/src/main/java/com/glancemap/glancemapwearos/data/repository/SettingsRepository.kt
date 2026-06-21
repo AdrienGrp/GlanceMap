@@ -115,6 +115,8 @@ interface SettingsRepository {
         const val TURN_BY_TURN_METRIC_ETA = "eta"
         const val TURN_BY_TURN_METRIC_REMAINING_TIME = "remaining_time"
         const val TURN_BY_TURN_METRIC_PROGRESS = "progress"
+        const val TURN_BY_TURN_METRIC_DISTANCE_COVERED = "distance_covered"
+        const val TURN_BY_TURN_METRIC_CURRENT_ALTITUDE = "current_altitude"
         val DEFAULT_TURN_BY_TURN_DASHBOARD_METRICS =
             listOf(
                 TURN_BY_TURN_METRIC_REMAINING_DISTANCE,

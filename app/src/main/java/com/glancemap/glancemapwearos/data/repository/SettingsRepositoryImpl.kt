@@ -1407,6 +1407,8 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.TURN_BY_TURN_METRIC_ETA,
                 SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_TIME,
                 SettingsRepository.TURN_BY_TURN_METRIC_PROGRESS,
+                SettingsRepository.TURN_BY_TURN_METRIC_DISTANCE_COVERED,
+                SettingsRepository.TURN_BY_TURN_METRIC_CURRENT_ALTITUDE,
             )
         private val allowedRecordingElevationSources =
             setOf(

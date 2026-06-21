@@ -75,6 +75,7 @@ data class TurnByTurnGuidanceState(
     val estimatedRemainingSeconds: Long? = null,
     val remainingAscentMeters: Double? = null,
     val remainingDescentMeters: Double? = null,
+    val currentAltitudeMeters: Double? = null,
 )
 
 data class GuidanceProjection(

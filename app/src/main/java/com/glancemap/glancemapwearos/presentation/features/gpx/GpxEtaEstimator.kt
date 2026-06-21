@@ -110,6 +110,69 @@ internal fun buildEtaProjection(
     return GpxEtaProjection(cumulativeSeconds = cumulative)
 }
 
+internal fun estimateRemainingRouteSeconds(
+    trackPoints: List<TrackPoint>,
+    distanceFromStartMeters: Double?,
+    config: GpxEtaModelConfig,
+): Long? =
+    buildRouteEtaProjection(trackPoints, config)
+        ?.remainingSecondsAtDistance(distanceFromStartMeters)
+
+internal data class GpxRouteEtaProjection(
+    val cumulativeDistancesMeters: DoubleArray,
+    val etaProjection: GpxEtaProjection,
+) {
+    fun remainingSecondsAtDistance(distanceFromStartMeters: Double?): Long? {
+        if (distanceFromStartMeters == null || cumulativeDistancesMeters.size < 2) return null
+        val totalSeconds = etaProjection.totalSeconds ?: return null
+        val distance = distanceFromStartMeters.coerceIn(0.0, cumulativeDistancesMeters.last())
+        val segmentIndex =
+            cumulativeDistancesMeters
+                .binarySearch(distance)
+                .let { index ->
+                    if (index >= 0) {
+                        index.coerceAtMost(cumulativeDistancesMeters.lastIndex - 1)
+                    } else {
+                        (-index - 2).coerceIn(0, cumulativeDistancesMeters.lastIndex - 1)
+                    }
+                }
+        val segmentStartDistance = cumulativeDistancesMeters[segmentIndex]
+        val segmentEndDistance = cumulativeDistancesMeters[segmentIndex + 1]
+        val segmentFraction =
+            if (segmentEndDistance > segmentStartDistance) {
+                ((distance - segmentStartDistance) / (segmentEndDistance - segmentStartDistance)).coerceIn(0.0, 1.0)
+            } else {
+                0.0
+            }
+        val elapsedSeconds =
+            etaProjection.secondsAtTrackPosition(
+                TrackPosition(
+                    trackId = "",
+                    segmentIndex = segmentIndex,
+                    t = segmentFraction,
+                ),
+            ) ?: return null
+        return (totalSeconds - elapsedSeconds).toLong().coerceAtLeast(0L)
+    }
+}
+
+internal fun buildRouteEtaProjection(
+    trackPoints: List<TrackPoint>,
+    config: GpxEtaModelConfig,
+): GpxRouteEtaProjection? {
+    if (trackPoints.size < 2) return null
+    val profile =
+        buildProfile(
+            sig = FileSig(lastModified = 0L, length = trackPoints.size.toLong()),
+            pts = trackPoints,
+        )
+    val projection = buildEtaProjection(profile, config) ?: return null
+    return GpxRouteEtaProjection(
+        cumulativeDistancesMeters = profile.cumDist,
+        etaProjection = projection,
+    )
+}
+
 private fun applyAdvancedVerticalRateAdjustment(
     candidateSpeedMps: Double,
     elevationDeltaMeters: Double?,

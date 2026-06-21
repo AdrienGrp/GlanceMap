@@ -54,6 +54,10 @@ internal data class NavigateSettingsState(
     val poiPopupManualCloseOnly: Boolean,
     val recordingDashboardMetricSlots: List<String>,
     val turnByTurnDashboardMetricSlots: List<String>,
+    val gpxFlatSpeedMps: Float,
+    val gpxAdvancedEtaEnabled: Boolean,
+    val gpxUphillVerticalMetersPerHour: Float,
+    val gpxDownhillVerticalMetersPerHour: Float,
     val compassConeAccuracyColorsEnabled: Boolean,
     val userWeightKg: Float,
     val backpackWeightKg: Float,
@@ -134,6 +138,10 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
     val poiPopupManualCloseOnly by settingsViewModel.poiPopupManualCloseOnly.collectAsState(initial = false)
     val recordingDashboardMetricSlots by settingsViewModel.recordingDashboardMetricSlots.collectAsState()
     val turnByTurnDashboardMetricSlots by settingsViewModel.turnByTurnDashboardMetricSlots.collectAsState()
+    val gpxFlatSpeedMps by settingsViewModel.gpxFlatSpeedMps.collectAsState()
+    val gpxAdvancedEtaEnabled by settingsViewModel.gpxAdvancedEtaEnabled.collectAsState()
+    val gpxUphillVerticalMetersPerHour by settingsViewModel.gpxUphillVerticalMetersPerHour.collectAsState()
+    val gpxDownhillVerticalMetersPerHour by settingsViewModel.gpxDownhillVerticalMetersPerHour.collectAsState()
     val compassConeAccuracyColorsEnabled by settingsViewModel.compassConeAccuracyColorsEnabled.collectAsState(
         initial = true,
     )
@@ -188,6 +196,10 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
         poiPopupManualCloseOnly = poiPopupManualCloseOnly,
         recordingDashboardMetricSlots = recordingDashboardMetricSlots,
         turnByTurnDashboardMetricSlots = turnByTurnDashboardMetricSlots,
+        gpxFlatSpeedMps = gpxFlatSpeedMps,
+        gpxAdvancedEtaEnabled = gpxAdvancedEtaEnabled,
+        gpxUphillVerticalMetersPerHour = gpxUphillVerticalMetersPerHour,
+        gpxDownhillVerticalMetersPerHour = gpxDownhillVerticalMetersPerHour,
         compassConeAccuracyColorsEnabled = compassConeAccuracyColorsEnabled,
         userWeightKg = userWeightKg,
         backpackWeightKg = backpackWeightKg,
