@@ -106,24 +106,20 @@ internal fun ScalingLazyListScope.downloadAreaPickerItems(
             }
         }
         selectedAreaFolder == null -> {
-            areaFolders.forEach { (folder, folderAreas) ->
-                val selectedCount = folderAreas.count { it.id in selectedAreaIds }
-                item {
-                    DownloadChip(
-                        label = folder,
-                        secondaryLabel =
-                            buildString {
-                                append(folderAreas.size).append(" area(s)")
-                                if (selectedCount > 0) {
-                                    append(" - ").append(selectedCount).append(" selected")
-                                }
-                            },
-                        icon = Icons.Filled.Folder,
-                        selected = selectedCount > 0,
-                        onClick = { onSelectedAreaFolderChange(folder) },
-                    )
-                }
-            }
+            val (countryFolders, regionFolders) =
+                areaFolders.partition { (folder, _) -> folder in AREA_PICKER_COUNTRY_FOLDERS }
+            downloadAreaFolderGroup(
+                label = "Countries",
+                folders = countryFolders.sortedBy { it.first },
+                selectedAreaIds = selectedAreaIds,
+                onSelectedAreaFolderChange = onSelectedAreaFolderChange,
+            )
+            downloadAreaFolderGroup(
+                label = "Regions",
+                folders = regionFolders.sortedBy { it.first },
+                selectedAreaIds = selectedAreaIds,
+                onSelectedAreaFolderChange = onSelectedAreaFolderChange,
+            )
         }
         else -> {
             item {
@@ -144,6 +140,42 @@ internal fun ScalingLazyListScope.downloadAreaPickerItems(
             selection = selection,
             onToggleArea = onToggleArea,
         )
+    }
+}
+
+private fun ScalingLazyListScope.downloadAreaFolderGroup(
+    label: String,
+    folders: List<Pair<String, List<OamDownloadArea>>>,
+    selectedAreaIds: Set<String>,
+    onSelectedAreaFolderChange: (String?) -> Unit,
+) {
+    if (folders.isEmpty()) return
+    item {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    folders.forEach { (folder, folderAreas) ->
+        val selectedCount = folderAreas.count { it.id in selectedAreaIds }
+        item {
+            DownloadChip(
+                label = folder,
+                secondaryLabel =
+                    buildString {
+                        append(folderAreas.size).append(" area(s)")
+                        if (selectedCount > 0) {
+                            append(" - ").append(selectedCount).append(" selected")
+                        }
+                    },
+                icon = Icons.Filled.Folder,
+                selected = selectedCount > 0,
+                onClick = { onSelectedAreaFolderChange(folder) },
+            )
+        }
     }
 }
 
@@ -173,6 +205,8 @@ private fun ScalingLazyListScope.downloadAreaResultItems(
         }
     }
 }
+
+private val AREA_PICKER_COUNTRY_FOLDERS = setOf("Canada", "Germany", "Russia", "USA")
 
 @Composable
 private fun NoAreaFoundText() {
