@@ -6,6 +6,7 @@ import android.os.Process
 import android.util.Log
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -114,18 +115,17 @@ class MapRenderer(
     private var currentBundledThemeId: String = MapsforgeThemeCatalog.ELEVATE_THEME_ID
     private var currentHillShadingEnabled: Boolean = true
     private var currentReliefOverlayEnabled: Boolean = false
+    private var currentDemSource: DemSource = DemSource.DEFAULT
     private var currentElevationLabelsMetric: Boolean = true
 
     // Signature to detect changes even if same File path is reused
     private var currentThemeSignature: String = ""
     private var currentDemSignature: String? = null
 
-    private val demRootDir: File by lazy {
-        Dem3CoverageUtils.demRootDir(context)
-    }
-    private val demRootDirs: List<File> by lazy {
-        Dem3CoverageUtils.demRootDirs(context)
-    }
+    private val demRootDir: File
+        get() = Dem3CoverageUtils.demRootDir(context, currentDemSource)
+    private val demRootDirs: List<File>
+        get() = listOf(demRootDir)
     private val reliefOverlayCacheRootDir: File by lazy {
         val root = context.externalCacheDir ?: context.cacheDir
         File(root, RELIEF_OVERLAY_CACHE_DIR_NAME)
@@ -284,6 +284,7 @@ class MapRenderer(
         bundledThemeId: String,
         hillShadingEnabled: Boolean,
         reliefOverlayEnabled: Boolean,
+        demSource: DemSource = DemSource.DEFAULT,
     ): ThemeApplyResult {
         val timingMarker = MapHotPathDiagnostics.begin("mapRenderer.setThemeConfig")
         var timingStatus = "ok"
@@ -302,13 +303,14 @@ class MapRenderer(
                 MapsforgeThemeCatalog.ELEVATE_THEME_ID
             }
         val reliefOverlayChanged = currentReliefOverlayEnabled != reliefOverlayEnabled
+        val demSourceChanged = currentDemSource != demSource
         val newSignature =
             computeMapRendererThemeSignature(
                 file = themeFile,
                 mapsforgeThemeName = normalizedMapsforge,
                 bundledThemeId = normalizedBundledThemeId,
                 hillShadingEnabled = hillShadingEnabled,
-            )
+            ) + "|DEM:${demSource.id}"
         // Avoid unnecessary work
         if (currentThemeSignature == newSignature) {
             timingStatus = if (reliefOverlayChanged) "relief_overlay_only" else "no_change"
@@ -349,8 +351,9 @@ class MapRenderer(
             currentBundledThemeId = normalizedBundledThemeId
             currentHillShadingEnabled = hillShadingEnabled
             currentReliefOverlayEnabled = reliefOverlayEnabled
+            currentDemSource = demSource
             currentThemeSignature = newSignature
-            if (!currentHillShadingEnabled) {
+            if (!currentHillShadingEnabled || demSourceChanged) {
                 destroyHillsRenderConfig()
             }
 
@@ -391,6 +394,8 @@ class MapRenderer(
                         append("mapsforge=").append(normalizedMapsforge != null)
                         append(" hill=").append(hillShadingEnabled)
                         append(" relief=").append(reliefOverlayEnabled)
+                        append(" demSource=").append(demSource.id)
+                        append(" demSourceChanged=").append(demSourceChanged)
                         append(" demChanged=").append(demChanged)
                         append(" lightweight=").append(usedLightweightReload)
                     },

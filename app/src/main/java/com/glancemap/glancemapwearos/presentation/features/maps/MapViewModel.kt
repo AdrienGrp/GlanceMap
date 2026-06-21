@@ -167,6 +167,7 @@ class MapViewModel(
     private var latestBundledThemeId: String = MapsforgeThemeCatalog.ELEVATE_THEME_ID
     private var latestHillShadingEnabled: Boolean = false
     private var latestReliefOverlayEnabled: Boolean = false
+    private var latestDemSource: DemSource = DemSource.DEFAULT
     private var latestIsMetric: Boolean = true
     private var themeRenderingDeferred: Boolean = false
     private var pendingThemeSelection: ThemeSelection? = null
@@ -225,7 +226,13 @@ class MapViewModel(
             .distinctUntilChanged()
             .onEach { source ->
                 selectedDemSourceForCoverage = source
+                latestDemSource = source
                 loadMapFiles()
+                if (isMapViewRenderReady()) {
+                    applyRendererConfigIfReady()
+                } else {
+                    rendererConfigApplyPending = true
+                }
             }.launchIn(viewModelScope)
 
         syncManager.mapSyncRequest
@@ -1044,6 +1051,7 @@ class MapViewModel(
             bundledThemeId = latestBundledThemeId,
             hillShadingEnabled = latestHillShadingEnabled,
             reliefOverlayEnabled = latestReliefOverlayEnabled,
+            demSource = latestDemSource,
         )
     }
 
