@@ -84,6 +84,7 @@ fun RecordingExternalSensorsScreen(
     val externalSensorBatteryLevels by ExternalSensorConnectionStatus.batteryLevels.collectAsState()
     var permissionRefresh by remember { mutableIntStateOf(0) }
     var unsupportedSensorMessage by remember { mutableStateOf<String?>(null) }
+    var unsupportedSensorDetail by remember { mutableStateOf<String?>(null) }
     val hasPermissions =
         remember(context, permissionRefresh) {
             ExternalSensorScanner.hasRequiredPermissions(context)
@@ -145,7 +146,7 @@ fun RecordingExternalSensorsScreen(
             item {
                 ExternalSensorInfo(
                     primaryText = message,
-                    secondaryText = "We can see this sensor, but REC does not use pods yet.",
+                    secondaryText = unsupportedSensorDetail,
                 )
             }
         }
@@ -162,6 +163,7 @@ fun RecordingExternalSensorsScreen(
                         batteryLevelPercent = externalSensorBatteryLevels[address.normalizedBluetoothAddress()],
                         onForget = {
                             unsupportedSensorMessage = null
+                            unsupportedSensorDetail = null
                             viewModel.setRecordingExternalHeartRateDevice(null, null)
                         },
                     )
@@ -181,6 +183,7 @@ fun RecordingExternalSensorsScreen(
                                 ?: externalSensorBatteryLevels[address.normalizedBluetoothAddress()],
                         onForget = {
                             unsupportedSensorMessage = null
+                            unsupportedSensorDetail = null
                             viewModel.setRecordingExternalRunPodDevice(null, null)
                         },
                     )
@@ -227,6 +230,7 @@ fun RecordingExternalSensorsScreen(
                                 },
                             onForget = {
                                 unsupportedSensorMessage = null
+                                unsupportedSensorDetail = null
                                 if (heartRateSelected) {
                                     viewModel.setRecordingExternalHeartRateDevice(null, null)
                                 } else {
@@ -240,12 +244,20 @@ fun RecordingExternalSensorsScreen(
                             onClick = {
                                 if (device.canLinkHeartRate()) {
                                     unsupportedSensorMessage = null
+                                    unsupportedSensorDetail = null
                                     viewModel.setRecordingExternalHeartRateDevice(device.address, device.name)
                                 } else if (device.canLinkRunPod()) {
                                     unsupportedSensorMessage = null
+                                    unsupportedSensorDetail = null
                                     viewModel.setRecordingExternalRunPodDevice(device.address, device.name)
                                 } else {
                                     unsupportedSensorMessage = "${device.name} is not supported yet"
+                                    unsupportedSensorDetail =
+                                        if (ExternalSensorKind.CYCLING_SPEED_CADENCE in device.kinds) {
+                                            "Cycling speed needs wheel size, and cycling cadence is not running cadence."
+                                        } else {
+                                            "The sensor does not advertise a supported heart-rate or run-pod service."
+                                        }
                                     DebugTelemetry.log(
                                         "ExternalSensors",
                                         "event=device_tap_unsupported name=${device.name.sanitizeTelemetryToken()} " +
