@@ -593,8 +593,8 @@ private fun CombinedGuidancePage(
             },
             modifier =
                 Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 26.dp, end = 10.dp),
+                    .align(Alignment.CenterStart)
+                    .padding(start = 16.dp),
         )
         cappedFontScale(maxFontScale = 1.15f) {
             Column(
