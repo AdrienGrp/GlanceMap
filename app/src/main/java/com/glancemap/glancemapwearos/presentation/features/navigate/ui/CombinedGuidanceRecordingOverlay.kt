@@ -440,6 +440,10 @@ private fun CombinedCompactPopup(
         if (guidanceState.offRoute) COMBINED_OFF_ROUTE_AMBER.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.9f)
     val compactBorder =
         if (guidanceState.offRoute) COMBINED_OFF_ROUTE_AMBER.copy(alpha = 0.95f) else Color.Transparent
+    val showTwoLineInstruction =
+        !guidancePaused &&
+            !guidanceState.offRoute &&
+            guidanceState.mode == GuidanceMode.FOLLOW_ROUTE
     Box(
         modifier =
             modifier
@@ -468,7 +472,7 @@ private fun CombinedCompactPopup(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 30.dp)
+                    .heightIn(min = if (showTwoLineInstruction) 38.dp else 30.dp)
                     .background(compactBackground, RoundedCornerShape(8.dp))
                     .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
                     .padding(horizontal = 6.dp, vertical = 3.dp),
@@ -496,8 +500,8 @@ private fun CombinedCompactPopup(
                         color = if (guidanceState.offRoute) COMBINED_OFF_ROUTE_AMBER else Color.White,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = titleFont,
-                        lineHeight = titleFont,
-                        maxLines = 1,
+                        lineHeight = titleFont * 1.1f,
+                        maxLines = if (showTwoLineInstruction) 2 else 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -1048,10 +1052,7 @@ private fun combinedGuidanceCompactText(
             GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
             GuidanceMode.TO_START ->
                 state.distanceToStartMeters?.let { "Start ${formatLiveDistanceLabel(it, isMetric)}" } ?: "To start"
-            GuidanceMode.FOLLOW_ROUTE ->
-                state.distanceToInstructionMeters?.let {
-                    "${combinedGuidancePrimaryText(state, guideBackToRouteActive)} ${formatLiveDistanceLabel(it, isMetric)}"
-                } ?: combinedGuidancePrimaryText(state, guideBackToRouteActive)
+            GuidanceMode.FOLLOW_ROUTE -> combinedGuidancePrimaryText(state, guideBackToRouteActive)
             GuidanceMode.FINISHED -> "Finished"
         }
     }

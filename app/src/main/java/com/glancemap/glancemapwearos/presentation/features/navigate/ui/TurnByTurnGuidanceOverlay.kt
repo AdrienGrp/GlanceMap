@@ -166,6 +166,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     }
 
     if (!expanded) {
+        val showTwoLineInstruction = !paused && !state.offRoute && state.mode == GuidanceMode.FOLLOW_ROUTE
         val compactBackground =
             if (state.offRoute) OFF_ROUTE_AMBER.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.9f)
         val compactBorder =
@@ -194,7 +195,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 30.dp)
+                        .heightIn(min = if (showTwoLineInstruction) 38.dp else 30.dp)
                         .background(compactBackground, RoundedCornerShape(8.dp))
                         .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
                         .padding(horizontal = 6.dp, vertical = 3.dp),
@@ -222,8 +223,8 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                             color = if (state.offRoute) OFF_ROUTE_AMBER else Color.White,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = titleFont,
-                            lineHeight = titleFont,
-                            maxLines = 1,
+                            lineHeight = titleFont * 1.1f,
+                            maxLines = if (showTwoLineInstruction) 2 else 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -819,10 +820,7 @@ private fun guidanceCompactText(
         GuidanceMode.TO_START ->
             state.distanceToStartMeters?.let { "Start ${formatLiveDistanceLabel(it, isMetric)}" }
                 ?: "To start"
-        GuidanceMode.FOLLOW_ROUTE ->
-            state.distanceToInstructionMeters?.let {
-                "${guidancePrimaryText(state)} ${formatLiveDistanceLabel(it, isMetric)}"
-            } ?: guidancePrimaryText(state)
+        GuidanceMode.FOLLOW_ROUTE -> guidancePrimaryText(state)
         GuidanceMode.FINISHED -> "Finished"
         }
     }
