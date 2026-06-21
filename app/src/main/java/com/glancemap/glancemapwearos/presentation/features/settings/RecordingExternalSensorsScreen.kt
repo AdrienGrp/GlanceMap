@@ -48,6 +48,7 @@ import com.glancemap.glancemapwearos.presentation.features.recording.external.Ex
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorKind
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanner
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorSimulation
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalHeartRateSensorBridge
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodRuntimeStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodSensorBridge
@@ -65,7 +66,13 @@ fun RecordingExternalSensorsScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scanner = remember(context) { ExternalSensorScanner(context.applicationContext) }
-    val devices by scanner.devices.collectAsState()
+    val scannedDevices by scanner.devices.collectAsState()
+    val simulationEnabled by ExternalSensorSimulation.enabled.collectAsState()
+    val devices =
+        remember(scannedDevices, simulationEnabled) {
+            (ExternalSensorSimulation.devices + scannedDevices)
+                .distinctBy(ExternalSensorDevice::address)
+        }
     val status by scanner.status.collectAsState()
     val linkedHeartRateAddress by viewModel.recordingExternalHeartRateAddress.collectAsState()
     val linkedHeartRateName by viewModel.recordingExternalHeartRateName.collectAsState()

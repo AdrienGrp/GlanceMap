@@ -45,6 +45,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.GnssDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorSimulation
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
@@ -117,6 +118,7 @@ fun DebuggingSettingsScreen(
     val recordingExternalHeartRateName by viewModel.recordingExternalHeartRateName.collectAsState()
     val recordingExternalRunPodAddress by viewModel.recordingExternalRunPodAddress.collectAsState()
     val recordingExternalRunPodName by viewModel.recordingExternalRunPodName.collectAsState()
+    val externalSensorSimulationEnabled by ExternalSensorSimulation.enabled.collectAsState()
     val userWeightKg by viewModel.userWeightKg.collectAsState()
     val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
     var diagnosticsExportStatus by remember {
@@ -318,6 +320,37 @@ fun DebuggingSettingsScreen(
                             "On while capturing"
                         } else {
                             "Off while capturing"
+                        },
+                    toggleControl = ToggleChipToggleControl.Switch,
+                )
+            }
+        }
+
+        if (BuildConfig.DEBUG) {
+            item {
+                ToggleChip(
+                    checked = externalSensorSimulationEnabled,
+                    onCheckedChanged = { enabled ->
+                        ExternalSensorSimulation.setEnabled(enabled)
+                        if (!enabled) {
+                            if (recordingExternalHeartRateAddress == ExternalSensorSimulation.HEART_RATE_ADDRESS) {
+                                viewModel.setRecordingExternalHeartRateDevice(null, null)
+                            }
+                            if (recordingExternalRunPodAddress == ExternalSensorSimulation.RUN_POD_ADDRESS) {
+                                viewModel.setRecordingExternalRunPodDevice(null, null)
+                            }
+                        }
+                        DebugTelemetry.log(
+                            "ExternalSensors",
+                            "event=simulation_toggle enabled=$enabled",
+                        )
+                    },
+                    label = "Simulated BLE sensors",
+                    secondaryLabel =
+                        if (externalSensorSimulationEnabled) {
+                            "HR strap and run pod available"
+                        } else {
+                            "Debug testing only"
                         },
                     toggleControl = ToggleChipToggleControl.Switch,
                 )
