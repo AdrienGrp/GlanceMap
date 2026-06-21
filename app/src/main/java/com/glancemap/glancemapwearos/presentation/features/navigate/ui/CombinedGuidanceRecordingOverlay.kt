@@ -691,7 +691,7 @@ private fun CombinedGuidancePage(
                 state.routeProgressFraction?.let { progress ->
                     Spacer(modifier = Modifier.size(3.dp))
                     Text(
-                        text = "${(progress * 100f).roundToInt()}% complete",
+                        text = "${(progress * 100f).roundToInt()}%",
                         color = Color.White.copy(alpha = 0.46f),
                         fontSize = 9.sp,
                         lineHeight = 10.sp,
