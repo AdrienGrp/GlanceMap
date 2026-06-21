@@ -155,7 +155,14 @@ class OamBundleDownloader(
                 }
                 checkedFileCount += 1
                 when (previous.compareWith(current)) {
-                    RemoteMetadataComparison.CHANGED -> changedFileNames += request.fileName
+                    RemoteMetadataComparison.CHANGED -> {
+                        changedFileNames += request.fileName
+                        DebugTelemetry.log(
+                            OAM_DOWNLOAD_TELEMETRY_TAG,
+                            "event=remote_metadata_changed file=${request.fileName} " +
+                                "previous=${previous.telemetrySummary()} current=${current.telemetrySummary()}",
+                        )
+                    }
                     RemoteMetadataComparison.UNKNOWN -> unknownFileNames += request.fileName
                     RemoteMetadataComparison.SAME -> Unit
                 }
@@ -289,6 +296,7 @@ class OamBundleDownloader(
                         bufferSize = OAM_ZIP_DOWNLOAD_BUFFER_SIZE,
                         progressStepBytes = 2L * 1024 * 1024,
                         fsync = false,
+                        onResponseMetadata = { metadata -> remoteFilesByUrl[metadata.url] = metadata },
                         onProgress = onProgress,
                     )
                 mapFileName =
@@ -352,6 +360,7 @@ class OamBundleDownloader(
                         bufferSize = OAM_ZIP_DOWNLOAD_BUFFER_SIZE,
                         progressStepBytes = 2L * 1024 * 1024,
                         fsync = false,
+                        onResponseMetadata = { metadata -> remoteFilesByUrl[metadata.url] = metadata },
                         onProgress = onProgress,
                     )
                 poiFileName =
@@ -441,6 +450,7 @@ class OamBundleDownloader(
                         downloadRoutingSegment(
                             fileName = fileName,
                             forceDownload = forceRoutingSegments || File(fileName).name in forceRoutingFileNames,
+                            onResponseMetadata = { metadata -> remoteFilesByUrl[metadata.url] = metadata },
                             onProgress = onProgress,
                         )
                     }
@@ -466,6 +476,7 @@ class OamBundleDownloader(
                             tileId = tileId,
                             source = selection.demSource,
                             forceDownload = forceDemTiles || tileId.uppercase(Locale.ROOT) in forceDemTileIds,
+                            onResponseMetadata = { metadata -> remoteFilesByUrl[metadata.url] = metadata },
                             onProgress = onProgress,
                         )
                     }
@@ -751,6 +762,7 @@ class OamBundleDownloader(
     private suspend fun downloadRoutingSegment(
         fileName: String,
         forceDownload: Boolean,
+        onResponseMetadata: (OamRemoteFileMetadata) -> Unit,
         onProgress: (OamDownloadProgress) -> Unit,
     ): RoutingSegmentDownloadResult {
         val safeName = File(fileName).name
@@ -778,6 +790,7 @@ class OamBundleDownloader(
                     bufferSize = 512 * 1024,
                     progressStepBytes = 1L * 1024 * 1024,
                     fsync = true,
+                    onResponseMetadata = onResponseMetadata,
                     onProgress = onProgress,
                 )
                 RoutingSegmentDownloadResult(fileName = safeName, downloaded = true)
@@ -809,6 +822,7 @@ class OamBundleDownloader(
         tileId: String,
         source: DemSource,
         forceDownload: Boolean,
+        onResponseMetadata: (OamRemoteFileMetadata) -> Unit,
         onProgress: (OamDownloadProgress) -> Unit,
     ): DemTileDownloadResult {
         val safeTileId = tileId.uppercase(Locale.ROOT)
@@ -838,6 +852,7 @@ class OamBundleDownloader(
                         bufferSize = 512 * 1024,
                         progressStepBytes = 512L * 1024,
                         fsync = true,
+                        onResponseMetadata = onResponseMetadata,
                         onProgress = onProgress,
                     )
                 runCatching { validateDemTileFile(file) }
@@ -1009,6 +1024,7 @@ class OamBundleDownloader(
         bufferSize: Int,
         progressStepBytes: Long,
         fsync: Boolean,
+        onResponseMetadata: (OamRemoteFileMetadata) -> Unit = {},
         onProgress: (OamDownloadProgress) -> Unit,
     ): File =
         withContext(Dispatchers.IO) {
@@ -1064,6 +1080,18 @@ class OamBundleDownloader(
                         connection.contentLengthLong
                             .takeIf { it > 0L }
                             ?.let { contentLength -> (if (append) resumeOffset else 0L) + contentLength }
+                    onResponseMetadata(
+                        OamRemoteFileMetadata(
+                            url = url,
+                            fileName = remoteFileName(url),
+                            entityTag = connection.getHeaderField("ETag")?.takeIf { it.isNotBlank() },
+                            lastModifiedMillis =
+                                connection
+                                    .getHeaderFieldDate("Last-Modified", -1L)
+                                    .takeIf { it >= 0L },
+                            contentLengthBytes = expectedTotalBytes,
+                        ),
+                    )
 
                     onProgress(
                         OamDownloadProgress(
@@ -1190,7 +1218,7 @@ class OamBundleDownloader(
                     return@withContext finalFile
                 } catch (error: IOException) {
                     resumeOffset = partFile.takeIf { it.exists() }?.length()?.coerceAtLeast(0L) ?: 0L
-                    if (resumeOffset <= 0L || ioRetryCount >= MAX_IO_RETRIES) {
+                    if (error.isHttpResponseError() || ioRetryCount >= MAX_IO_RETRIES) {
                         throw error
                     }
                     ioRetryCount += 1
@@ -1409,19 +1437,24 @@ private fun OamRemoteFileMetadata.isComparable(): Boolean = metadataValues.any {
 internal fun OamRemoteFileMetadata.compareWith(other: OamRemoteFileMetadata): RemoteMetadataComparison =
     when {
         url != other.url -> RemoteMetadataComparison.CHANGED
+        entityTag != null && other.entityTag != null && entityTag == other.entityTag -> RemoteMetadataComparison.SAME
+        entityTag != null && other.entityTag != null -> RemoteMetadataComparison.CHANGED
+        lastModifiedMillis != null && other.lastModifiedMillis != null ->
+            compareNullableValues(lastModifiedMillis, other.lastModifiedMillis)
         contentLengthBytes != null &&
             other.contentLengthBytes != null &&
             contentLengthBytes == other.contentLengthBytes -> RemoteMetadataComparison.SAME
         contentLengthBytes != null &&
             other.contentLengthBytes != null -> RemoteMetadataComparison.CHANGED
-        entityTag != null && other.entityTag != null && entityTag == other.entityTag -> RemoteMetadataComparison.SAME
-        entityTag != null && other.entityTag != null -> RemoteMetadataComparison.CHANGED
-        lastModifiedMillis != null && other.lastModifiedMillis != null ->
-            compareNullableValues(lastModifiedMillis, other.lastModifiedMillis)
         else -> RemoteMetadataComparison.UNKNOWN
     }
 
 private fun Throwable.isHttpNotFound(): Boolean = message?.contains("HTTP 404", ignoreCase = true) == true
+
+private fun Throwable.isHttpResponseError(): Boolean = message?.startsWith("HTTP ", ignoreCase = true) == true
+
+private fun OamRemoteFileMetadata.telemetrySummary(): String =
+    "etag=${entityTag ?: "na"},modified=${lastModifiedMillis ?: "na"},bytes=${contentLengthBytes ?: "na"}"
 
 private fun <T> compareNullableValues(
     previous: T,

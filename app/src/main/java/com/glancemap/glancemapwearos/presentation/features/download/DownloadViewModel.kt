@@ -36,6 +36,7 @@ data class DownloadUiState(
     val bytesDone: Long = 0L,
     val totalBytes: Long? = null,
     val isPausedDownload: Boolean = false,
+    val pausedOperation: DownloadOperation? = null,
     val isCheckingUpdates: Boolean = false,
     val selectedRefreshBundleIds: Set<String> = emptySet(),
     val refreshPrompt: OamBundleUpdateCheck? = null,
@@ -50,6 +51,18 @@ data class DownloadUiState(
 
     val selectedBundle: OamBundleChoice
         get() = selection.toBundleChoice()
+
+    val canStartOrResumeDownload: Boolean
+        get() =
+            when (pausedOperation) {
+                DownloadOperation.REFRESH -> true
+                DownloadOperation.DOWNLOAD, null -> selection.canDownload && selectedAreas.isNotEmpty()
+            }
+}
+
+enum class DownloadOperation {
+    DOWNLOAD,
+    REFRESH,
 }
 
 class DownloadViewModel(
@@ -64,6 +77,7 @@ class DownloadViewModel(
     private var downloadJob: Job? = null
     private var stopRequest: DownloadStopRequest? = null
     private var pendingNonWifiRefreshRequests: List<BundleRefreshRequest> = emptyList()
+    private var pausedRefreshRequests: List<BundleRefreshRequest> = emptyList()
 
     init {
         refreshInstalledBundles()
@@ -87,6 +101,7 @@ class DownloadViewModel(
             state.copy(
                 selectedAreaIds = nextIds,
                 isPausedDownload = false,
+                pausedOperation = null,
                 statusMessage = null,
                 errorMessage = null,
                 networkWarningMessage = null,
@@ -100,6 +115,7 @@ class DownloadViewModel(
             it.copy(
                 selectedAreaIds = emptySet(),
                 isPausedDownload = false,
+                pausedOperation = null,
                 statusMessage = null,
                 errorMessage = null,
                 networkWarningMessage = null,
@@ -113,6 +129,7 @@ class DownloadViewModel(
             state.copy(
                 selection = state.selection.copy(includeMap = includeMap),
                 isPausedDownload = false,
+                pausedOperation = null,
                 statusMessage = null,
                 errorMessage = null,
                 networkWarningMessage = null,
@@ -126,6 +143,7 @@ class DownloadViewModel(
             state.copy(
                 selection = state.selection.copy(includePoi = includePoi),
                 isPausedDownload = false,
+                pausedOperation = null,
                 statusMessage = null,
                 errorMessage = null,
                 networkWarningMessage = null,
@@ -139,6 +157,7 @@ class DownloadViewModel(
             state.copy(
                 selection = state.selection.copy(includeRouting = includeRouting),
                 isPausedDownload = false,
+                pausedOperation = null,
                 statusMessage = null,
                 errorMessage = null,
                 networkWarningMessage = null,
@@ -152,6 +171,7 @@ class DownloadViewModel(
             state.copy(
                 selection = state.selection.copy(includeDem = includeDem),
                 isPausedDownload = false,
+                pausedOperation = null,
                 statusMessage = null,
                 errorMessage = null,
                 networkWarningMessage = null,
@@ -172,6 +192,7 @@ class DownloadViewModel(
             state.copy(
                 selection = state.selection.copy(includeRefugesInfo = includeRefugesInfo),
                 isPausedDownload = false,
+                pausedOperation = null,
                 statusMessage = null,
                 errorMessage = null,
                 networkWarningMessage = null,
@@ -186,7 +207,11 @@ class DownloadViewModel(
             "event=${if (state.isPausedDownload) "user_resume_request" else "user_download_request"} " +
                 networkMonitor.currentState().telemetryFields,
         )
-        downloadSelectedBundleInternal(allowNonWifi = false)
+        if (state.pausedOperation == DownloadOperation.REFRESH && pausedRefreshRequests.isNotEmpty()) {
+            refreshBundlesInternal(pausedRefreshRequests, allowNonWifi = false)
+        } else {
+            downloadSelectedBundleInternal(allowNonWifi = false)
+        }
     }
 
     fun continueDownloadWithoutWifi() {
@@ -257,24 +282,10 @@ class DownloadViewModel(
             return
         }
         stopRequest = null
+        pausedRefreshRequests = emptyList()
         downloadJob =
             viewModelScope.launch {
-                var wifiReconnectHandle: AutoCloseable? = null
-                var didReconnectOnWifi = false
-                if (!networkState.isValidatedWifi) {
-                    wifiReconnectHandle =
-                        networkMonitor.watchForValidatedWifi {
-                            if (!didReconnectOnWifi) {
-                                didReconnectOnWifi = true
-                                DebugTelemetry.log(
-                                    OAM_DOWNLOAD_TELEMETRY_TAG,
-                                    "event=auto_reconnect_request reason=wifi_available " +
-                                        networkMonitor.currentState().telemetryFields,
-                                )
-                                downloader.abortActiveDownloads(reason = "wifi_available")
-                            }
-                        }
-                }
+                val wifiReconnectHandle = watchForWifiRecovery(networkState)
                 notificationController.showProgress(
                     title = "Downloading maps",
                     detail = "${areas.size} area(s)",
@@ -291,6 +302,7 @@ class DownloadViewModel(
                         bytesDone = 0L,
                         totalBytes = null,
                         isPausedDownload = false,
+                        pausedOperation = null,
                         statusMessage = "Starting download",
                         errorMessage = null,
                         networkWarningMessage = null,
@@ -333,6 +345,7 @@ class DownloadViewModel(
                             bytesDone = 0L,
                             totalBytes = null,
                             isPausedDownload = false,
+                            pausedOperation = null,
                             statusMessage = if (areas.size == 1) "Bundle installed" else "Bundles installed",
                             errorMessage = null,
                             networkWarningMessage = null,
@@ -362,6 +375,7 @@ class DownloadViewModel(
                                 bytesDone = 0L,
                                 totalBytes = null,
                                 isPausedDownload = false,
+                                pausedOperation = null,
                                 statusMessage = "Download canceled",
                                 errorMessage = null,
                                 networkWarningMessage = null,
@@ -371,6 +385,7 @@ class DownloadViewModel(
                                 isDownloading = false,
                                 phase = "PAUSED",
                                 isPausedDownload = true,
+                                pausedOperation = DownloadOperation.DOWNLOAD,
                                 statusMessage = "Download paused",
                                 errorMessage = null,
                                 networkWarningMessage = null,
@@ -385,13 +400,14 @@ class DownloadViewModel(
                             phase = "FAILED",
                             statusMessage = "Download failed",
                             isPausedDownload = false,
+                            pausedOperation = null,
                             errorMessage = error.message ?: "Download failed",
                             networkWarningMessage = null,
                         )
                     }
                     notificationController.showError(error.message ?: "Download failed")
                 } finally {
-                    wifiReconnectHandle?.close()
+                    wifiReconnectHandle.close()
                     downloadJob = null
                     stopRequest = null
                 }
@@ -703,6 +719,7 @@ class DownloadViewModel(
             return
         }
         stopRequest = null
+        pausedRefreshRequests = emptyList()
         _uiState.update {
             it.copy(
                 isDownloading = true,
@@ -711,6 +728,7 @@ class DownloadViewModel(
                 bytesDone = 0L,
                 totalBytes = null,
                 isPausedDownload = false,
+                pausedOperation = null,
                 selectedRefreshBundleIds = emptySet(),
                 statusMessage = "Refreshing bundles",
                 errorMessage = null,
@@ -719,6 +737,7 @@ class DownloadViewModel(
         }
         downloadJob =
             viewModelScope.launch {
+                val wifiReconnectHandle = watchForWifiRecovery(networkState)
                 try {
                     notificationController.showProgress(
                         title = "Refreshing bundles",
@@ -770,6 +789,7 @@ class DownloadViewModel(
                             bytesDone = 0L,
                             totalBytes = null,
                             isPausedDownload = false,
+                            pausedOperation = null,
                             statusMessage = if (targets.size == 1) "Bundle refreshed" else "Bundles refreshed",
                             errorMessage = null,
                             networkWarningMessage = null,
@@ -785,6 +805,12 @@ class DownloadViewModel(
                     )
                 } catch (cancelled: CancellationException) {
                     val request = stopRequest ?: DownloadStopRequest.PAUSE
+                    pausedRefreshRequests =
+                        if (request == DownloadStopRequest.PAUSE) {
+                            requests
+                        } else {
+                            emptyList()
+                        }
                     if (request == DownloadStopRequest.CANCEL) {
                         notificationController.clear()
                     } else {
@@ -799,6 +825,7 @@ class DownloadViewModel(
                                 bytesDone = 0L,
                                 totalBytes = null,
                                 isPausedDownload = false,
+                                pausedOperation = null,
                                 statusMessage = "Refresh canceled",
                                 errorMessage = null,
                                 networkWarningMessage = null,
@@ -808,6 +835,7 @@ class DownloadViewModel(
                                 isDownloading = false,
                                 phase = "PAUSED",
                                 isPausedDownload = true,
+                                pausedOperation = DownloadOperation.REFRESH,
                                 statusMessage = "Refresh paused",
                                 errorMessage = null,
                                 networkWarningMessage = null,
@@ -822,16 +850,40 @@ class DownloadViewModel(
                             phase = "FAILED",
                             statusMessage = "Refresh failed",
                             isPausedDownload = false,
+                            pausedOperation = null,
                             errorMessage = error.message ?: "Refresh failed",
                             networkWarningMessage = null,
                         )
                     }
                     notificationController.showError(error.message ?: "Refresh failed")
                 } finally {
+                    wifiReconnectHandle.close()
                     downloadJob = null
                     stopRequest = null
                 }
             }
+    }
+
+    private fun watchForWifiRecovery(initialState: OamDownloadNetworkState): AutoCloseable {
+        var observedWithoutValidatedWifi = !initialState.isValidatedWifi
+        var reconnectRequested = false
+        return networkMonitor.watchNetworkState { state ->
+            when {
+                !state.isValidatedWifi -> {
+                    observedWithoutValidatedWifi = true
+                    reconnectRequested = false
+                }
+                observedWithoutValidatedWifi && !reconnectRequested -> {
+                    reconnectRequested = true
+                    observedWithoutValidatedWifi = false
+                    DebugTelemetry.log(
+                        OAM_DOWNLOAD_TELEMETRY_TAG,
+                        "event=auto_reconnect_request reason=wifi_recovered ${state.telemetryFields}",
+                    )
+                    downloader.abortActiveDownloads(reason = "wifi_recovered")
+                }
+            }
+        }
     }
 
     private companion object {

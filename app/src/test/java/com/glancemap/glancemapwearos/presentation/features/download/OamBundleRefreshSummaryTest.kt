@@ -50,6 +50,33 @@ class OamBundleRefreshSummaryTest {
         assertEquals(setOf("N45E007"), forces.forceDemTileIds)
     }
 
+    @Test
+    fun remoteMetadataUsesEtagBeforeMatchingContentLength() {
+        val previous = remoteMetadata(entityTag = "\"old\"", lastModifiedMillis = 1L, contentLengthBytes = 100L)
+        val current = remoteMetadata(entityTag = "\"new\"", lastModifiedMillis = 2L, contentLengthBytes = 100L)
+
+        assertEquals(RemoteMetadataComparison.CHANGED, previous.compareWith(current))
+    }
+
+    @Test
+    fun remoteMetadataUsesLastModifiedBeforeMatchingContentLength() {
+        val previous = remoteMetadata(entityTag = null, lastModifiedMillis = 1L, contentLengthBytes = 100L)
+        val current = remoteMetadata(entityTag = null, lastModifiedMillis = 2L, contentLengthBytes = 100L)
+
+        assertEquals(RemoteMetadataComparison.CHANGED, previous.compareWith(current))
+    }
+
+    @Test
+    fun pausedRefreshCanResumeWithoutASelectedDownloadArea() {
+        val state =
+            DownloadUiState(
+                isPausedDownload = true,
+                pausedOperation = DownloadOperation.REFRESH,
+            )
+
+        assertEquals(true, state.canStartOrResumeDownload)
+    }
+
     private fun updateCheck(
         bundle: OamInstalledBundle,
         status: OamBundleUpdateStatus,
@@ -89,5 +116,18 @@ class OamBundleRefreshSummaryTest {
             routingFileNames = routingFileNames,
             demTileIds = demTileIds,
             installedAtMillis = 1L,
+        )
+
+    private fun remoteMetadata(
+        entityTag: String?,
+        lastModifiedMillis: Long?,
+        contentLengthBytes: Long?,
+    ): OamRemoteFileMetadata =
+        OamRemoteFileMetadata(
+            url = "https://example.test/file",
+            fileName = "file",
+            entityTag = entityTag,
+            lastModifiedMillis = lastModifiedMillis,
+            contentLengthBytes = contentLengthBytes,
         )
 }

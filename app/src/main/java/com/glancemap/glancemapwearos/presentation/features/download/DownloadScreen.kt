@@ -102,7 +102,10 @@ fun DownloadScreen(
     var showOamInfoDialog by remember { mutableStateOf(false) }
     var deleteMode by remember { mutableStateOf(false) }
     var refreshMode by remember { mutableStateOf(false) }
-    val effectiveRefreshMode = refreshMode && !uiState.isDownloading
+    val effectiveRefreshMode =
+        refreshMode &&
+            !uiState.isDownloading &&
+            uiState.pausedOperation != DownloadOperation.REFRESH
     var showAreaSearchDialog by remember { mutableStateOf(false) }
     val infoPrefs =
         remember(context) {
@@ -458,7 +461,7 @@ fun DownloadScreen(
                                 DownloadActionButton(
                                     label = if (uiState.isPausedDownload) "Resume" else "Download",
                                     icon = Icons.Filled.Download,
-                                    enabled = uiState.selection.canDownload && selectedAreas.isNotEmpty(),
+                                    enabled = uiState.canStartOrResumeDownload,
                                     height = actionButtonHeight,
                                     iconSize = actionButtonIconSize,
                                     onClick = viewModel::downloadSelectedBundle,
