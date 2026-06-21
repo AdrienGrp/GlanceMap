@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,6 +85,8 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     guideBackToRouteActive: Boolean,
     showGuideBackPrompt: Boolean,
     startDecisionPrompt: GuidanceDecisionPrompt?,
+    expandRequestToken: Long,
+    actionPromptRequestToken: Long,
     suppressed: Boolean = false,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -108,6 +111,12 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     var arrivalPromptDismissed by remember(state.trackTitle) { mutableStateOf(false) }
     var expandedPageIndex by remember(state.trackTitle) { mutableIntStateOf(0) }
     var selectedDashboardSlot by remember(state.trackTitle) { mutableStateOf<Int?>(null) }
+    var lastHandledExpandRequestToken by remember {
+        mutableLongStateOf(expandRequestToken)
+    }
+    var lastHandledActionPromptRequestToken by remember {
+        mutableLongStateOf(actionPromptRequestToken)
+    }
     val dashboardSlots = normalizeTurnByTurnDashboardMetricSlots(dashboardMetricSlots)
     val dashboardPageCount = dashboardSlots.size / TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
     val expandedPageCount = dashboardPageCount + 1
@@ -123,6 +132,28 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     }
     LaunchedEffect(expanded) {
         onExpandedChange(expanded)
+    }
+    LaunchedEffect(expandRequestToken) {
+        val shouldHandle =
+            expandRequestToken != 0L &&
+                expandRequestToken != lastHandledExpandRequestToken
+        lastHandledExpandRequestToken = expandRequestToken
+        if (shouldHandle && !suppressed && (state.active || paused)) {
+            DebugTelemetry.log("TurnByTurn", "event=time_chip_expand handled=true")
+            showActionPrompt = false
+            expanded = true
+        }
+    }
+    LaunchedEffect(actionPromptRequestToken) {
+        val shouldHandle =
+            actionPromptRequestToken != 0L &&
+                actionPromptRequestToken != lastHandledActionPromptRequestToken
+        lastHandledActionPromptRequestToken = actionPromptRequestToken
+        if (shouldHandle && !suppressed && (state.active || paused)) {
+            DebugTelemetry.log("TurnByTurn", "event=time_chip_long_press handled=true")
+            expanded = false
+            showActionPrompt = true
+        }
     }
     DisposableEffect(Unit) {
         onDispose { onExpandedChange(false) }

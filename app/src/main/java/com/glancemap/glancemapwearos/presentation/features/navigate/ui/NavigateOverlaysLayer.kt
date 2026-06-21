@@ -495,6 +495,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
         guideBackToRouteActive = guideBackToRouteActive,
         showGuideBackPrompt = showGuideBackPrompt,
         startDecisionPrompt = startDecisionPrompt,
+        expandRequestToken = recordingDashboardExpandRequestToken,
+        actionPromptRequestToken = recordingActionPromptRequestToken,
         suppressed =
             poiTapMessage != null ||
                 suppressGuidanceForPanning ||

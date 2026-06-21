@@ -298,10 +298,13 @@ class MainActivity : ComponentActivity() {
                 AppScaffold(
                     timeText = {
                         val recordingChipActive = traceRecordingState.active || traceRecordingState.saving
+                        val guidanceChipActive = turnByTurnGuidanceSession != null
+                        val interactiveStatusChipActive = recordingChipActive || guidanceChipActive
                         val canShowNavigateTime = showTimeInNavigate && isNavigateScreen && !isAmbient
-                        val canShowRecordingChip = recordingChipActive && isNavigateScreen && !isAmbient
+                        val canShowInteractiveStatusChip =
+                            interactiveStatusChipActive && isNavigateScreen && !isAmbient
                         val shouldShowStatusChip =
-                            (canShowNavigateTime || canShowRecordingChip) && !suppressNavigateTime
+                            (canShowNavigateTime || canShowInteractiveStatusChip) && !suppressNavigateTime
                         if (shouldShowStatusChip) {
                             cappedFontScale(maxFontScale = 1f) {
                                 val context = LocalContext.current
@@ -310,6 +313,7 @@ class MainActivity : ComponentActivity() {
                                         traceRecordingState.saving -> Color(0xFFFFB74D)
                                         traceRecordingState.paused -> Color(0xFFFFB74D)
                                         recordingChipActive -> Color(0xFFFF1744)
+                                        guidanceChipActive -> MaterialTheme.colorScheme.primary
                                         else -> Color.White
                                     }
                                 val onRecordingTimeTap = {
@@ -317,21 +321,19 @@ class MainActivity : ComponentActivity() {
                                         "TraceRecording",
                                         "event=time_chip_tap debugCapture=${DebugTelemetry.isEnabled()}",
                                     )
-                                    recordingDashboardExpandRequestToken =
-                                        System.currentTimeMillis()
+                                    recordingDashboardExpandRequestToken += 1L
                                 }
                                 val onRecordingTimeLongPress = {
                                     DebugTelemetry.log(
                                         "TraceRecording",
                                         "event=time_chip_long_press debugCapture=${DebugTelemetry.isEnabled()}",
                                     )
-                                    recordingActionPromptRequestToken =
-                                        System.currentTimeMillis()
+                                    recordingActionPromptRequestToken += 1L
                                 }
                                 val statusChipModifier =
                                     Modifier
-                                        .padding(top = if (recordingChipActive) 4.dp else 2.dp)
-                                if (recordingChipActive) {
+                                        .padding(top = if (interactiveStatusChipActive) 4.dp else 2.dp)
+                                if (interactiveStatusChipActive) {
                                     RecordingTimeChip(
                                         showTime = canShowNavigateTime,
                                         timeFormat = navigateTimeFormat,

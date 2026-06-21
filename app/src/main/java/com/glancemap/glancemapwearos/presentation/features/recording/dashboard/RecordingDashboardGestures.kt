@@ -45,11 +45,17 @@ internal fun RecordingFullscreenPageShell(
     var rotaryAccumulator by remember(pageCount) { mutableFloatStateOf(0f) }
 
     LaunchedEffect(pageCount, pageIndex) {
-        withFrameNanos { }
-        focusRequester.requestFocus()
+        var focusAcquired = false
+        var attempt = 0
+        while (!focusAcquired && attempt < 3) {
+            withFrameNanos { }
+            focusAcquired = focusRequester.requestFocus()
+            attempt += 1
+        }
         DebugTelemetry.log(
             telemetryTag,
-            "event=dashboard_rotary_focus_requested page=${pageIndex + 1} pageCount=$pageCount",
+            "event=dashboard_rotary_focus_requested acquired=$focusAcquired " +
+                "page=${pageIndex + 1} pageCount=$pageCount",
         )
     }
 
