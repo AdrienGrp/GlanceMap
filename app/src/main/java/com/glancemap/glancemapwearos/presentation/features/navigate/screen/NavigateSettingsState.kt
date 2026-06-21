@@ -53,6 +53,7 @@ internal data class NavigateSettingsState(
     val poiPopupTimeoutSeconds: Int,
     val poiPopupManualCloseOnly: Boolean,
     val recordingDashboardMetricSlots: List<String>,
+    val turnByTurnDashboardMetricSlots: List<String>,
     val compassConeAccuracyColorsEnabled: Boolean,
     val userWeightKg: Float,
     val backpackWeightKg: Float,
@@ -132,6 +133,7 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
     )
     val poiPopupManualCloseOnly by settingsViewModel.poiPopupManualCloseOnly.collectAsState(initial = false)
     val recordingDashboardMetricSlots by settingsViewModel.recordingDashboardMetricSlots.collectAsState()
+    val turnByTurnDashboardMetricSlots by settingsViewModel.turnByTurnDashboardMetricSlots.collectAsState()
     val compassConeAccuracyColorsEnabled by settingsViewModel.compassConeAccuracyColorsEnabled.collectAsState(
         initial = true,
     )
@@ -185,6 +187,7 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
         poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
         poiPopupManualCloseOnly = poiPopupManualCloseOnly,
         recordingDashboardMetricSlots = recordingDashboardMetricSlots,
+        turnByTurnDashboardMetricSlots = turnByTurnDashboardMetricSlots,
         compassConeAccuracyColorsEnabled = compassConeAccuracyColorsEnabled,
         userWeightKg = userWeightKg,
         backpackWeightKg = backpackWeightKg,

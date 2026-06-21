@@ -63,6 +63,8 @@ import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+import com.glancemap.glancemapwearos.data.repository.TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
+import com.glancemap.glancemapwearos.data.repository.normalizeTurnByTurnDashboardMetricSlots
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
@@ -92,6 +94,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     voiceGuidanceEnabled: Boolean,
     recordingState: TraceRecordingUiState,
     metricSlots: List<String>,
+    guidanceMetricSlots: List<String>,
     userWeightKg: Float,
     backpackWeightKg: Float,
     screenSize: WearScreenSize,
@@ -110,6 +113,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     onFinishRecording: (String?) -> Unit,
     onDiscardRecording: () -> Unit,
     onMetricSelected: (Int, String) -> Unit,
+    onGuidanceMetricSelected: (Int, String) -> Unit,
     onExpandedChange: (Boolean) -> Unit,
 ) {
     if ((!guidanceState.active && !guidancePaused) || (!recordingState.active && !recordingState.saving)) return
@@ -121,6 +125,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     var stopGuidanceAfterRecordingPrompt by remember { mutableStateOf(false) }
     var arrivalPromptDismissed by remember(guidanceState.trackTitle) { mutableStateOf(false) }
     var metricPickerSlot by remember { mutableIntStateOf(NO_SELECTED_SLOT) }
+    var guidanceMetricPickerSlot by remember { mutableIntStateOf(NO_SELECTED_SLOT) }
     var pageIndex by remember { mutableIntStateOf(0) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var lastHandledActionPromptRequestToken by remember {
@@ -144,6 +149,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             stopPromptPausedRecording = false
             stopGuidanceAfterRecordingPrompt = false
             metricPickerSlot = NO_SELECTED_SLOT
+            guidanceMetricPickerSlot = NO_SELECTED_SLOT
             onExpandedChange(false)
         }
     }
@@ -188,12 +194,16 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     if (suppressed) return
 
     val slots = normalizedRecordingDashboardSlots(metricSlots)
+    val guidanceSlots = normalizeTurnByTurnDashboardMetricSlots(guidanceMetricSlots)
     val recordingPageCount = (slots.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT).coerceAtLeast(1)
-    val pageCount = recordingPageCount + 1
+    val guidanceMetricPageCount =
+        (guidanceSlots.size / TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT).coerceAtLeast(1)
+    val pageCount = recordingPageCount + guidanceMetricPageCount + 1
     LaunchedEffect(pageCount) {
         if (pageIndex >= pageCount) pageIndex = pageCount - 1
     }
-    val recordingPageIndex = (pageIndex - 1).coerceIn(0, recordingPageCount - 1)
+    val recordingPageIndex =
+        (pageIndex - guidanceMetricPageCount - 1).coerceIn(0, recordingPageCount - 1)
     val visibleSlots =
         slots
             .drop(recordingPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
@@ -223,6 +233,8 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                     voiceGuidanceEnabled = voiceGuidanceEnabled,
                     recordingState = recordingState,
                     slots = visibleSlots,
+                    guidanceMetricSlots = guidanceSlots,
+                    guidanceMetricPageCount = guidanceMetricPageCount,
                     pageIndex = pageIndex,
                     pageCount = pageCount,
                     recordingPageIndex = recordingPageIndex,
@@ -232,9 +244,13 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                     compassHeadingDeg = compassHeadingDeg,
                     guideBackToRouteActive = guideBackToRouteActive,
                     onSlotLongPress = { slotIndex ->
-                        if (pageIndex > 0) {
+                        if (pageIndex > guidanceMetricPageCount) {
                             metricPickerSlot = recordingPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
                         }
+                    },
+                    onGuidanceSlotLongPress = { metricPageIndex, slotIndex ->
+                        guidanceMetricPickerSlot =
+                            metricPageIndex * TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
                     },
                     onPreviousPage = {
                         val nextPageIndex = (pageIndex - 1).coerceAtLeast(0)
@@ -398,6 +414,20 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             },
         )
     }
+    if (guidanceMetricPickerSlot != NO_SELECTED_SLOT) {
+        val slotIndex = guidanceMetricPickerSlot
+        OptionPickerDialog(
+            visible = true,
+            title = "Dashboard measure",
+            selectedValue = guidanceSlots[slotIndex],
+            options = turnByTurnMetricPickerOptions,
+            onDismiss = { guidanceMetricPickerSlot = NO_SELECTED_SLOT },
+            onSelect = { metricId ->
+                onGuidanceMetricSelected(slotIndex, metricId)
+                guidanceMetricPickerSlot = NO_SELECTED_SLOT
+            },
+        )
+    }
 }
 
 @Composable
@@ -517,6 +547,8 @@ private fun CombinedFullscreenDashboard(
     voiceGuidanceEnabled: Boolean,
     recordingState: TraceRecordingUiState,
     slots: List<String>,
+    guidanceMetricSlots: List<String>,
+    guidanceMetricPageCount: Int,
     pageIndex: Int,
     pageCount: Int,
     recordingPageIndex: Int,
@@ -526,6 +558,7 @@ private fun CombinedFullscreenDashboard(
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     onSlotLongPress: (Int) -> Unit,
+    onGuidanceSlotLongPress: (Int, Int) -> Unit,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
@@ -538,6 +571,7 @@ private fun CombinedFullscreenDashboard(
         onPreviousPage = onPreviousPage,
         onNextPage = onNextPage,
         onShowActions = onShowActions,
+        telemetryTag = "TurnByTurn",
     ) {
         if (pageIndex == 0) {
             CombinedGuidancePage(
@@ -549,6 +583,18 @@ private fun CombinedFullscreenDashboard(
                 guideBackToRouteActive = guideBackToRouteActive,
                 voiceGuidanceEnabled = voiceGuidanceEnabled,
                 onVoiceGuidanceChange = onVoiceGuidanceChange,
+            )
+        } else if (pageIndex <= guidanceMetricPageCount) {
+            val metricPageIndex = pageIndex - 1
+            TurnByTurnMetricDashboardPage(
+                state = guidanceState,
+                slots =
+                    guidanceMetricSlots
+                        .drop(metricPageIndex * TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT)
+                        .take(TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT),
+                screenSize = screenSize,
+                isMetric = isMetric,
+                onSlotLongPress = { slotIndex -> onGuidanceSlotLongPress(metricPageIndex, slotIndex) },
             )
         } else {
             CombinedRecordingPage(

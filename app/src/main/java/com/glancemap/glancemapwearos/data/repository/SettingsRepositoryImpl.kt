@@ -79,6 +79,7 @@ class SettingsRepositoryImpl private constructor(
             booleanPreferencesKey("turn_by_turn_brouter_guide_back_enabled")
         val TURN_BY_TURN_ROUTE_START_BEHAVIOR = stringPreferencesKey("turn_by_turn_route_start_behavior")
         val TURN_BY_TURN_REVERSE_SUGGESTION_MODE = stringPreferencesKey("turn_by_turn_reverse_suggestion_mode")
+        val TURN_BY_TURN_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("turn_by_turn_dashboard_metric_slots")
         val TURN_BY_TURN_ACTIVE_TRACK_PATH = stringPreferencesKey("turn_by_turn_active_track_path")
         val TURN_BY_TURN_ACTIVE_TRACK_REVERSED = booleanPreferencesKey("turn_by_turn_active_track_reversed")
         val TURN_BY_TURN_START_REACHED = booleanPreferencesKey("turn_by_turn_start_reached")
@@ -599,6 +600,51 @@ class SettingsRepositoryImpl private constructor(
                 } else {
                     SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK
                 }
+        }
+    }
+
+    override val turnByTurnDashboardMetricSlots: Flow<List<String>> =
+        context.dataStore.data.map {
+            sanitizeTurnByTurnDashboardMetricSlots(it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
+        }
+
+    override suspend fun setTurnByTurnDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    ) {
+        context.dataStore.edit {
+            val current = sanitizeTurnByTurnDashboardMetricSlots(it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
+            if (slotIndex !in current.indices) return@edit
+            val sanitizedMetric =
+                metricId.takeIf { candidate -> candidate in allowedTurnByTurnDashboardMetricIds }
+                    ?: SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DISTANCE
+            val next = current.toMutableList().also { slots -> slots[slotIndex] = sanitizedMetric }
+            it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS] =
+                next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override suspend fun addTurnByTurnDashboardPage() {
+        context.dataStore.edit {
+            val current = sanitizeTurnByTurnDashboardMetricSlots(it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
+            if (current.size >= TURN_BY_TURN_DASHBOARD_MAX_SLOT_COUNT) return@edit
+            it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS] =
+                (current + SettingsRepository.DEFAULT_TURN_BY_TURN_DASHBOARD_NEW_PAGE_METRICS)
+                    .joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override suspend fun deleteTurnByTurnDashboardPage(pageIndex: Int) {
+        context.dataStore.edit {
+            val current = sanitizeTurnByTurnDashboardMetricSlots(it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
+            val pageCount = current.size / TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
+            if (pageCount <= TURN_BY_TURN_DASHBOARD_MIN_PAGE_COUNT || pageIndex !in 0 until pageCount) return@edit
+            val startIndex = pageIndex * TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
+            it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS] =
+                current
+                    .filterIndexed { index, _ ->
+                        index !in startIndex until startIndex + TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
+                    }.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
         }
     }
 
@@ -1353,6 +1399,15 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,
                 SettingsRepository.RECORDING_METRIC_RESTING_CALORIES,
             )
+        private val allowedTurnByTurnDashboardMetricIds =
+            setOf(
+                SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DISTANCE,
+                SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_ASCENT,
+                SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DESCENT,
+                SettingsRepository.TURN_BY_TURN_METRIC_ETA,
+                SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_TIME,
+                SettingsRepository.TURN_BY_TURN_METRIC_PROGRESS,
+            )
         private val allowedRecordingElevationSources =
             setOf(
                 SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
@@ -1471,6 +1526,16 @@ class SettingsRepositoryImpl private constructor(
                         value.trim().takeIf { it in allowedRecordingDashboardMetricIds }
                     }.orEmpty()
             return normalizeRecordingDashboardMetricSlots(parsed)
+        }
+
+        private fun sanitizeTurnByTurnDashboardMetricSlots(raw: String?): List<String> {
+            val parsed =
+                raw
+                    ?.split(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+                    ?.mapNotNull { value ->
+                        value.trim().takeIf { it in allowedTurnByTurnDashboardMetricIds }
+                    }.orEmpty()
+            return normalizeTurnByTurnDashboardMetricSlots(parsed)
         }
 
         private fun sanitizeUserWeightKg(weightKg: Float?): Float =

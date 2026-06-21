@@ -38,6 +38,7 @@ internal fun RecordingFullscreenPageShell(
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
+    telemetryTag: String = "TraceRecording",
     content: @Composable BoxScope.() -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -47,7 +48,7 @@ internal fun RecordingFullscreenPageShell(
         withFrameNanos { }
         focusRequester.requestFocus()
         DebugTelemetry.log(
-            "TraceRecording",
+            telemetryTag,
             "event=dashboard_rotary_focus_requested page=${pageIndex + 1} pageCount=$pageCount",
         )
     }

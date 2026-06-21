@@ -198,6 +198,31 @@ class SettingsViewModel(
             settingsRepository.deleteRecordingDashboardPage(pageIndex)
         }
 
+    val turnByTurnDashboardMetricSlots: StateFlow<List<String>> =
+        settingsRepository.turnByTurnDashboardMetricSlots
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_TURN_BY_TURN_DASHBOARD_METRICS,
+            )
+
+    fun setTurnByTurnDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    ) = viewModelScope.launch {
+        settingsRepository.setTurnByTurnDashboardMetricSlot(slotIndex, metricId)
+    }
+
+    fun addTurnByTurnDashboardPage() =
+        viewModelScope.launch {
+            settingsRepository.addTurnByTurnDashboardPage()
+        }
+
+    fun deleteTurnByTurnDashboardPage(pageIndex: Int) =
+        viewModelScope.launch {
+            settingsRepository.deleteTurnByTurnDashboardPage(pageIndex)
+        }
+
     val recordingShowSavedGpxOnMap: StateFlow<Boolean> =
         settingsRepository.recordingShowSavedGpxOnMap
             .stateIn(

@@ -21,6 +21,7 @@ object WatchRoutes {
     const val TURN_BY_TURN_ALERTS_SETTINGS = "turn_by_turn_alerts_settings_screen"
     const val TURN_BY_TURN_FEEDBACK_SETTINGS = "turn_by_turn_feedback_settings_screen"
     const val TURN_BY_TURN_BACKGROUND_SETTINGS = "turn_by_turn_background_settings_screen"
+    const val TURN_BY_TURN_DASHBOARD_SETTINGS = "turn_by_turn_dashboard_settings_screen"
     const val DEBUG_SETTINGS = "debug_settings_screen"
     const val GPX_SETTINGS = "gpx_settings_screen"
     const val MAP_SETTINGS = "map_settings_screen"

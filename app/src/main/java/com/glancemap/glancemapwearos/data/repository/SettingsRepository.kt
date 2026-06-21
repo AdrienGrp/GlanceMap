@@ -109,6 +109,26 @@ interface SettingsRepository {
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS = 60
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS = 60
         const val DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE = true
+        const val TURN_BY_TURN_METRIC_REMAINING_DISTANCE = "remaining_distance"
+        const val TURN_BY_TURN_METRIC_REMAINING_ASCENT = "remaining_ascent"
+        const val TURN_BY_TURN_METRIC_REMAINING_DESCENT = "remaining_descent"
+        const val TURN_BY_TURN_METRIC_ETA = "eta"
+        const val TURN_BY_TURN_METRIC_REMAINING_TIME = "remaining_time"
+        const val TURN_BY_TURN_METRIC_PROGRESS = "progress"
+        val DEFAULT_TURN_BY_TURN_DASHBOARD_METRICS =
+            listOf(
+                TURN_BY_TURN_METRIC_REMAINING_DISTANCE,
+                TURN_BY_TURN_METRIC_REMAINING_ASCENT,
+                TURN_BY_TURN_METRIC_REMAINING_DESCENT,
+                TURN_BY_TURN_METRIC_ETA,
+            )
+        val DEFAULT_TURN_BY_TURN_DASHBOARD_NEW_PAGE_METRICS =
+            listOf(
+                TURN_BY_TURN_METRIC_REMAINING_DISTANCE,
+                TURN_BY_TURN_METRIC_REMAINING_TIME,
+                TURN_BY_TURN_METRIC_PROGRESS,
+                TURN_BY_TURN_METRIC_ETA,
+            )
         const val TURN_BY_TURN_ROUTE_START_GO_TO_START = "GO_TO_START"
         const val TURN_BY_TURN_ROUTE_START_NEAREST_POINT = "NEAREST_POINT"
         const val TURN_BY_TURN_ROUTE_START_ASK = "ASK"
@@ -300,6 +320,17 @@ interface SettingsRepository {
     val turnByTurnReverseSuggestionMode: Flow<String>
 
     suspend fun setTurnByTurnReverseSuggestionMode(mode: String)
+
+    val turnByTurnDashboardMetricSlots: Flow<List<String>>
+
+    suspend fun setTurnByTurnDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    )
+
+    suspend fun addTurnByTurnDashboardPage()
+
+    suspend fun deleteTurnByTurnDashboardPage(pageIndex: Int)
 
     val turnByTurnActiveTrackPath: Flow<String?>
 

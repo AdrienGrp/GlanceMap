@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 @Composable
 internal fun TurnByTurnSettingsShortcutChip(
     onClick: () -> Unit,
+    applyTopPadding: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     AdaptiveSettingsShortcutChip(
@@ -16,7 +17,7 @@ internal fun TurnByTurnSettingsShortcutChip(
         standardSecondaryLabel = "Back to turn-by-turn",
         compactSecondaryLabel = "Back",
         iconImageVector = Icons.Filled.Folder,
-        applyTopPadding = true,
+        applyTopPadding = applyTopPadding,
         compactRoundWidthFraction = 0.78f,
         modifier = modifier,
         onClick = onClick,

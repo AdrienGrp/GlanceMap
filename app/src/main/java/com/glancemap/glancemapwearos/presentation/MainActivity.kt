@@ -79,6 +79,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScre
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnAlertsSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnBackgroundSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnDashboardSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnFeedbackSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnGuidanceSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnSettingsScreen
@@ -708,6 +709,9 @@ class MainActivity : ComponentActivity() {
                                     onOpenAlertsSettings = {
                                         navController.navigate(WatchRoutes.TURN_BY_TURN_ALERTS_SETTINGS)
                                     },
+                                    onOpenDashboardSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_DASHBOARD_SETTINGS)
+                                    },
                                 )
                             }
                         }
@@ -741,6 +745,12 @@ class MainActivity : ComponentActivity() {
                                 },
                                 WatchRoutes.TURN_BY_TURN_BACKGROUND_SETTINGS to {
                                     TurnByTurnBackgroundSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                                WatchRoutes.TURN_BY_TURN_DASHBOARD_SETTINGS to {
+                                    TurnByTurnDashboardSettingsScreen(
                                         viewModel = appContainer.settingsViewModel,
                                         onOpenTurnByTurnSettings = openTurnByTurnSettings,
                                     )

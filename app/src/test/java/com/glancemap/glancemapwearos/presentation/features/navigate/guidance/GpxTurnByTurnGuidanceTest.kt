@@ -169,6 +169,31 @@ class GpxTurnByTurnGuidanceTest {
     }
 
     @Test
+    fun guidanceReportsRemainingAscentAndDescent() {
+        val session =
+            buildGpxGuidanceSession(
+                trackId = "elevation.gpx",
+                trackTitle = "Elevation route",
+                trackPoints =
+                    listOf(
+                        point(45.0, 6.0, elevation = 100.0),
+                        point(45.0, 6.001, elevation = 200.0),
+                        point(45.0, 6.002, elevation = 150.0),
+                    ),
+                startReached = true,
+            )
+
+        val state =
+            computeTurnByTurnGuidanceState(
+                session = session,
+                currentLocation = LatLong(45.0, 6.0001),
+            )
+
+        assertTrue((state.remainingAscentMeters ?: 0.0) > 80.0)
+        assertTrue((state.remainingDescentMeters ?: 0.0) > 40.0)
+    }
+
+    @Test
     fun guidanceFinishesWhenNearRouteEnd() {
         val session =
             buildGpxGuidanceSession(
@@ -352,10 +377,11 @@ class GpxTurnByTurnGuidanceTest {
         lat: Double,
         lon: Double,
         guidanceHint: GpxGuidanceHint? = null,
+        elevation: Double? = null,
     ): TrackPoint =
         TrackPoint(
             latLong = LatLong(lat, lon),
-            elevation = null,
+            elevation = elevation,
             guidanceHint = guidanceHint,
         )
 }

@@ -15,6 +15,7 @@ fun TurnByTurnSettingsScreen(
     onOpenGeneralSettings: () -> Unit,
     onOpenGuidanceSettings: () -> Unit,
     onOpenAlertsSettings: () -> Unit,
+    onOpenDashboardSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
     val hapticsEnabled by viewModel.turnByTurnHapticsEnabled.collectAsState()
@@ -80,6 +81,13 @@ fun TurnByTurnSettingsScreen(
         }
         item {
             SettingsSectionChip(
+                label = "Dashboard",
+                secondaryLabel = "Route metrics and pages",
+                onClick = onOpenDashboardSettings,
+            )
+        }
+        item {
+            SettingsSectionChip(
                 label = "Advanced guidance",
                 secondaryLabel = "Route source, start and guide back",
                 onClick = onOpenGuidanceSettings,
@@ -100,7 +108,7 @@ fun TurnByTurnSettingsScreen(
             listOf(
                 "Tap the small guidance popup to open the full turn view.",
                 "Long press the popup to pause or stop guidance.",
-                "When recording and guidance run together, use the crown or swipe vertically to move between guidance and REC pages.",
+                "Use the crown or swipe vertically to move between guidance, route metrics and REC pages.",
                 "Tap the speaker icon in the full turn view to switch voice guidance on or off.",
                 "Amber guidance means you are off route. The distance shows how far you are from the GPX.",
                 "Screen-off guidance keeps dedicated GPS updates active for reliable alerts, but uses more battery.",

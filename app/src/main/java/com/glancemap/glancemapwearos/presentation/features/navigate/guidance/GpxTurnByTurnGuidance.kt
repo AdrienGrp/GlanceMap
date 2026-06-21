@@ -73,6 +73,8 @@ data class TurnByTurnGuidanceState(
     val followingInstruction: RouteInstruction? = null,
     val distanceToFollowingInstructionMeters: Double? = null,
     val estimatedRemainingSeconds: Long? = null,
+    val remainingAscentMeters: Double? = null,
+    val remainingDescentMeters: Double? = null,
 )
 
 data class GuidanceProjection(
@@ -155,6 +157,7 @@ fun computeTurnByTurnGuidanceState(
             offRoute = false,
         )
     }
+    val fullRouteElevation = remainingElevationMeters(session, 0.0)
 
     if (currentLocation == null) {
         return TurnByTurnGuidanceState(
@@ -170,6 +173,8 @@ fun computeTurnByTurnGuidanceState(
             distanceRemainingMeters = session.totalDistanceMeters,
             routeProgressFraction = 0f,
             offRoute = false,
+            remainingAscentMeters = fullRouteElevation.first,
+            remainingDescentMeters = fullRouteElevation.second,
         )
     }
 
@@ -189,6 +194,8 @@ fun computeTurnByTurnGuidanceState(
             distanceRemainingMeters = session.totalDistanceMeters,
             routeProgressFraction = 0f,
             offRoute = false,
+            remainingAscentMeters = fullRouteElevation.first,
+            remainingDescentMeters = fullRouteElevation.second,
         )
     }
 
@@ -211,6 +218,7 @@ fun computeTurnByTurnGuidanceState(
     val bearingToRoute = nearestRoutePoint?.let { bearingDegrees(currentLocation, it).toFloat() }
     val distanceFromStart = projection?.distanceFromStartMeters ?: 0.0
     val remaining = (session.totalDistanceMeters - distanceFromStart).coerceAtLeast(0.0)
+    val remainingElevation = remainingElevationMeters(session, distanceFromStart)
     val finish = points.last()
     val distanceToFinish = haversineMeters(currentLocation, finish)
     val closeEnoughToFinish =
@@ -231,6 +239,8 @@ fun computeTurnByTurnGuidanceState(
             routeProgressFraction = 1f,
             offRoute = false,
             distanceFromStartMeters = session.totalDistanceMeters,
+            remainingAscentMeters = 0.0,
+            remainingDescentMeters = 0.0,
         )
     }
 
@@ -265,7 +275,35 @@ fun computeTurnByTurnGuidanceState(
         distanceFromStartMeters = distanceFromStart,
         followingInstruction = followingInstruction,
         distanceToFollowingInstructionMeters = distanceToFollowingInstruction,
+        remainingAscentMeters = remainingElevation.first,
+        remainingDescentMeters = remainingElevation.second,
     )
+}
+
+private fun remainingElevationMeters(
+    session: GpxGuidanceSession,
+    distanceFromStartMeters: Double,
+): Pair<Double?, Double?> {
+    val points = session.trackPoints
+    if (points.count { it.elevation?.isFinite() == true } < 2) return null to null
+    var ascent = 0.0
+    var descent = 0.0
+    for (index in 0 until points.lastIndex) {
+        val segmentStart = session.cumulativeDistancesMeters.getOrNull(index) ?: continue
+        val segmentEnd = session.cumulativeDistancesMeters.getOrNull(index + 1) ?: continue
+        if (segmentEnd <= distanceFromStartMeters) continue
+        val from = points[index].elevation?.takeIf(Double::isFinite) ?: continue
+        val to = points[index + 1].elevation?.takeIf(Double::isFinite) ?: continue
+        val segmentFraction =
+            if (distanceFromStartMeters > segmentStart && segmentEnd > segmentStart) {
+                ((segmentEnd - distanceFromStartMeters) / (segmentEnd - segmentStart)).coerceIn(0.0, 1.0)
+            } else {
+                1.0
+            }
+        val delta = (to - from) * segmentFraction
+        if (delta > 0.0) ascent += delta else descent += -delta
+    }
+    return ascent to descent
 }
 
 private fun projectedRoutePoint(

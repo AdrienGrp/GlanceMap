@@ -115,6 +115,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onKeepAppOpenToggle: () -> Unit,
     traceRecordingState: TraceRecordingUiState,
     recordingDashboardMetricSlots: List<String>,
+    turnByTurnDashboardMetricSlots: List<String>,
     userWeightKg: Float,
     backpackWeightKg: Float,
     recordingDashboardExpandRequestToken: Long,
@@ -125,6 +126,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onFinishRecording: (String?) -> Unit,
     onDiscardRecording: () -> Unit,
     onRecordingMetricSelected: (Int, String) -> Unit,
+    onTurnByTurnMetricSelected: (Int, String) -> Unit,
     gpsIndicatorState: GpsFixIndicatorState,
     watchGpsDegradedWarning: Boolean,
     navButtonBottomPadding: Dp,
@@ -485,6 +487,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         state = turnByTurnGuidanceState,
         paused = turnByTurnGuidancePaused,
         pausedTrackTitle = turnByTurnPausedTrackTitle,
+        dashboardMetricSlots = turnByTurnDashboardMetricSlots,
         voiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
         screenSize = screenSize,
         isMetric = isMetric,
@@ -501,6 +504,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onResume = onResumeTurnByTurnGuidance,
         onStop = onStopTurnByTurnGuidance,
         onVoiceGuidanceChange = onTurnByTurnVoiceGuidanceChange,
+        onDashboardMetricSelected = onTurnByTurnMetricSelected,
         onExpandedChange = onTurnByTurnExpandedChange,
         onGuideBackToRoute = onGuideBackToRoute,
         onDismissGuideBackPrompt = onDismissGuideBackPrompt,
@@ -535,6 +539,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         voiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
         recordingState = traceRecordingState,
         metricSlots = recordingDashboardMetricSlots,
+        guidanceMetricSlots = turnByTurnDashboardMetricSlots,
         userWeightKg = userWeightKg,
         backpackWeightKg = backpackWeightKg,
         screenSize = screenSize,
@@ -556,6 +561,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onFinishRecording = onFinishRecording,
         onDiscardRecording = onDiscardRecording,
         onMetricSelected = onRecordingMetricSelected,
+        onGuidanceMetricSelected = onTurnByTurnMetricSelected,
         onExpandedChange = { expanded ->
             combinedGuidanceRecordingFullScreenExpanded = expanded
             onTurnByTurnExpandedChange(expanded)

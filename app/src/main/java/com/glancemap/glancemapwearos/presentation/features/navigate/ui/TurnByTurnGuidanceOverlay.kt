@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -40,18 +39,16 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,8 +60,12 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.data.repository.TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
+import com.glancemap.glancemapwearos.data.repository.normalizeTurnByTurnDashboardMetricSlots
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingFullscreenPageShell
+import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import kotlin.math.min
@@ -75,6 +76,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     state: TurnByTurnGuidanceState,
     paused: Boolean,
     pausedTrackTitle: String?,
+    dashboardMetricSlots: List<String>,
     voiceGuidanceEnabled: Boolean,
     screenSize: WearScreenSize,
     isMetric: Boolean,
@@ -87,6 +89,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     onResume: () -> Unit,
     onStop: () -> Unit,
     onVoiceGuidanceChange: (Boolean) -> Unit,
+    onDashboardMetricSelected: (Int, String) -> Unit,
     onExpandedChange: (Boolean) -> Unit,
     onGuideBackToRoute: () -> Unit,
     onDismissGuideBackPrompt: () -> Unit,
@@ -103,6 +106,14 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     var expanded by remember(state.trackTitle) { mutableStateOf(false) }
     var showActionPrompt by remember(state.trackTitle, paused) { mutableStateOf(false) }
     var arrivalPromptDismissed by remember(state.trackTitle) { mutableStateOf(false) }
+    var expandedPageIndex by remember(state.trackTitle) { mutableIntStateOf(0) }
+    var selectedDashboardSlot by remember(state.trackTitle) { mutableStateOf<Int?>(null) }
+    val dashboardSlots = normalizeTurnByTurnDashboardMetricSlots(dashboardMetricSlots)
+    val dashboardPageCount = dashboardSlots.size / TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
+    val expandedPageCount = dashboardPageCount + 1
+    LaunchedEffect(expandedPageCount) {
+        expandedPageIndex = expandedPageIndex.coerceIn(0, expandedPageCount - 1)
+    }
     LaunchedEffect(suppressed) {
         if (suppressed) {
             expanded = false
@@ -151,16 +162,44 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     ) {
         SwipeToDismissBox(onDismissed = { expanded = false }) { isBackground ->
             if (!isBackground) {
-                ExpandedGuidanceOverlay(
-                    state = state,
-                    screenSize = screenSize,
-                    isMetric = isMetric,
-                    compassHeadingDeg = compassHeadingDeg,
-                    guideBackToRouteActive = guideBackToRouteActive,
-                    voiceGuidanceEnabled = voiceGuidanceEnabled,
-                    onVoiceGuidanceChange = onVoiceGuidanceChange,
-                    onLongPress = { showActionPrompt = true },
-                )
+                RecordingFullscreenPageShell(
+                    pageIndex = expandedPageIndex,
+                    pageCount = expandedPageCount,
+                    dragKey = state.mode to paused,
+                    onPreviousPage = { expandedPageIndex = (expandedPageIndex - 1).coerceAtLeast(0) },
+                    onNextPage = { expandedPageIndex = (expandedPageIndex + 1).coerceAtMost(expandedPageCount - 1) },
+                    onShowActions = { showActionPrompt = true },
+                    telemetryTag = "TurnByTurn",
+                ) {
+                    if (expandedPageIndex == 0) {
+                        ExpandedGuidanceOverlay(
+                            state = state,
+                            screenSize = screenSize,
+                            isMetric = isMetric,
+                            compassHeadingDeg = compassHeadingDeg,
+                            guideBackToRouteActive = guideBackToRouteActive,
+                            voiceGuidanceEnabled = voiceGuidanceEnabled,
+                            onVoiceGuidanceChange = onVoiceGuidanceChange,
+                            onLongPress = { showActionPrompt = true },
+                        )
+                    } else {
+                        val metricPageIndex = expandedPageIndex - 1
+                        val pageSlots =
+                            dashboardSlots
+                                .drop(metricPageIndex * TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT)
+                                .take(TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT)
+                        TurnByTurnMetricDashboardPage(
+                            state = state,
+                            slots = pageSlots,
+                            screenSize = screenSize,
+                            isMetric = isMetric,
+                            onSlotLongPress = { pageSlot ->
+                                selectedDashboardSlot =
+                                    metricPageIndex * TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT + pageSlot
+                            },
+                        )
+                    }
+                }
             }
         }
     }
@@ -231,6 +270,19 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                 }
             }
         }
+    }
+    selectedDashboardSlot?.let { slotIndex ->
+        OptionPickerDialog(
+            visible = true,
+            title = "Dashboard measure",
+            selectedValue = dashboardSlots[slotIndex],
+            options = turnByTurnMetricPickerOptions,
+            onDismiss = { selectedDashboardSlot = null },
+            onSelect = { metricId ->
+                onDashboardMetricSelected(slotIndex, metricId)
+                selectedDashboardSlot = null
+            },
+        )
     }
 
     if (showActionPrompt) {
@@ -325,10 +377,6 @@ private fun ExpandedGuidanceOverlay(
     onVoiceGuidanceChange: (Boolean) -> Unit,
     onLongPress: () -> Unit,
 ) {
-    val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
     val contentWidthFraction =
         when (screenSize) {
             WearScreenSize.LARGE -> 0.70f
@@ -356,12 +404,7 @@ private fun ExpandedGuidanceOverlay(
                 .combinedClickable(
                     onClick = {},
                     onLongClick = onLongPress,
-                )
-                .onPreRotaryScrollEvent { event ->
-                    event.verticalScrollPixels.isFinite() && event.verticalScrollPixels != 0f
-                }
-                .focusRequester(focusRequester)
-                .focusable(),
+                ),
         contentAlignment = Alignment.Center,
     ) {
         RouteProgressRing(
