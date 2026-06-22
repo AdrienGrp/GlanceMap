@@ -39,7 +39,7 @@ fun TurnByTurnGuidanceSettingsScreen(
         }
         item {
             SettingsOptionPickerRow(
-                label = "Reverse suggestion",
+                label = "Suggest reverse route",
                 selectedValue = reverseSuggestionMode,
                 options = TurnByTurnReverseSuggestionOptions,
                 secondaryLabel = reverseSuggestionLabel(reverseSuggestionMode),

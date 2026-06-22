@@ -18,7 +18,7 @@ internal val TurnByTurnRouteStartOptions =
 
 internal val TurnByTurnReverseSuggestionOptions =
     listOf(
-        SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK to "Ask",
+        SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK to "When near the end",
         SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_NEVER to "Never",
     )
 
@@ -49,7 +49,7 @@ internal fun routeStartBehaviorLabel(behavior: String): String =
 internal fun reverseSuggestionLabel(mode: String): String =
     when (mode) {
         SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_NEVER -> "Never"
-        else -> "Ask"
+        else -> "When near the end"
     }
 
 internal fun turnAlertsLabel(mode: String): String =
