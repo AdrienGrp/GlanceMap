@@ -1058,6 +1058,6 @@ private fun combinedGuidanceCompactText(
 
 private const val NO_SELECTED_SLOT = -1
 private const val COMBINED_POPUP_DRAG_THRESHOLD_PX = 24f
-private const val COMBINED_PROGRESS_ARC_START_DEGREES = -72f
-private const val COMBINED_PROGRESS_ARC_SWEEP_DEGREES = 324f
+private const val COMBINED_PROGRESS_ARC_START_DEGREES = -66f
+private const val COMBINED_PROGRESS_ARC_SWEEP_DEGREES = 312f
 private val COMBINED_OFF_ROUTE_AMBER = Color(0xFFFFC107)

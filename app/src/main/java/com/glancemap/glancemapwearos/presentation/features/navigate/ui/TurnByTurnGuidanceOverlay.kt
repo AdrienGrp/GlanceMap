@@ -901,6 +901,6 @@ private fun guidanceCompactText(
     }
 
 private const val FOLLOWING_TURN_MAX_GAP_METERS = 300.0
-private const val PROGRESS_ARC_START_DEGREES = -72f
-private const val PROGRESS_ARC_SWEEP_DEGREES = 324f
+private const val PROGRESS_ARC_START_DEGREES = -66f
+private const val PROGRESS_ARC_SWEEP_DEGREES = 312f
 private val OFF_ROUTE_AMBER = Color(0xFFFFC107)
