@@ -26,6 +26,9 @@ import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.normalizeRecordingDashboardMetricSlots
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -38,6 +41,8 @@ internal fun BoxScope.RecordingDashboardOverlay(
     backpackWeightKg: Float,
     screenSize: WearScreenSize,
     isMetric: Boolean,
+    showRouteCompletePrompt: Boolean = false,
+    onRouteCompletePromptDismiss: () -> Unit = {},
     suppressed: Boolean,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -209,6 +214,43 @@ internal fun BoxScope.RecordingDashboardOverlay(
                 onDismiss = {
                     showCompactControls = false
                 },
+            )
+        }
+    }
+
+    if (showRouteCompletePrompt && !showStopPrompt) {
+        WearActionDialog(
+            visible = true,
+            title = "Route complete",
+            onDismissRequest = onRouteCompletePromptDismiss,
+            buttons =
+                listOf(
+                    WearActionDialogButton(
+                        text = "Finish recording",
+                        role = WearActionButtonRole.Primary,
+                        onClick = {
+                            onRouteCompletePromptDismiss()
+                            stopPromptPausedRecording =
+                                state.active && !state.paused && !state.saving
+                            if (stopPromptPausedRecording) {
+                                onPause()
+                            }
+                            showCompactControls = false
+                            expanded = false
+                            showStopPrompt = true
+                        },
+                    ),
+                    WearActionDialogButton(
+                        text = "Continue recording",
+                        role = WearActionButtonRole.Secondary,
+                        onClick = onRouteCompletePromptDismiss,
+                    ),
+                ),
+        ) {
+            androidx.wear.compose.material3.Text(
+                text = "Guidance ended. Recording is still active.",
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                style = androidx.wear.compose.material3.MaterialTheme.typography.bodyMedium,
             )
         }
     }

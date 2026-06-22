@@ -122,8 +122,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     var showActions by remember { mutableStateOf(false) }
     var showStopPrompt by remember { mutableStateOf(false) }
     var stopPromptPausedRecording by remember { mutableStateOf(false) }
-    var stopGuidanceAfterRecordingPrompt by remember { mutableStateOf(false) }
-    var arrivalPromptDismissed by remember(guidanceState.trackTitle) { mutableStateOf(false) }
     var metricPickerSlot by remember { mutableIntStateOf(NO_SELECTED_SLOT) }
     var guidanceMetricPickerSlot by remember { mutableIntStateOf(NO_SELECTED_SLOT) }
     var pageIndex by remember { mutableIntStateOf(0) }
@@ -147,7 +145,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             showActions = false
             showStopPrompt = false
             stopPromptPausedRecording = false
-            stopGuidanceAfterRecordingPrompt = false
             metricPickerSlot = NO_SELECTED_SLOT
             guidanceMetricPickerSlot = NO_SELECTED_SLOT
             onExpandedChange(false)
@@ -325,39 +322,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
         )
     }
 
-    if (
-        !showActions &&
-        !showStopPrompt &&
-        guidanceState.mode == GuidanceMode.FINISHED &&
-        !arrivalPromptDismissed
-    ) {
-        GuidanceDecisionPromptCard(
-            title = "Route complete",
-            detail = "Finish recording or end guidance?",
-            acceptText = "Finish REC",
-            dismissText = "Keep",
-            tertiaryText = "End guide",
-            onAccept = {
-                stopPromptPausedRecording =
-                    recordingState.active && !recordingState.paused && !recordingState.saving
-                if (stopPromptPausedRecording) {
-                    onPauseRecording()
-                }
-                stopGuidanceAfterRecordingPrompt = true
-                showStopPrompt = true
-            },
-            onDismiss = { arrivalPromptDismissed = true },
-            onTertiary = {
-                arrivalPromptDismissed = true
-                onStopGuidance()
-            },
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 36.dp),
-        )
-    }
-
     if (showStopPrompt) {
         RecordingStopPromptCard(
             state = recordingState,
@@ -369,10 +333,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                 expanded = false
                 stopPromptPausedRecording = false
                 onDiscardRecording()
-                if (stopGuidanceAfterRecordingPrompt) {
-                    stopGuidanceAfterRecordingPrompt = false
-                    onStopGuidance()
-                }
             },
             onSave = { title ->
                 showStopPrompt = false
@@ -380,10 +340,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                 expanded = false
                 stopPromptPausedRecording = false
                 onFinishRecording(title)
-                if (stopGuidanceAfterRecordingPrompt) {
-                    stopGuidanceAfterRecordingPrompt = false
-                    onStopGuidance()
-                }
             },
             onCancel = {
                 showStopPrompt = false
@@ -391,7 +347,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                     onResumeRecording()
                 }
                 stopPromptPausedRecording = false
-                stopGuidanceAfterRecordingPrompt = false
             },
         )
     }

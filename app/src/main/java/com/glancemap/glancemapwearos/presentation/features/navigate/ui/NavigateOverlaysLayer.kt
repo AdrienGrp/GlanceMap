@@ -41,7 +41,9 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardOverlay
@@ -165,6 +167,9 @@ internal fun BoxScope.NavigateOverlaysLayer(
             mutableStateOf<Offset?>(null)
         }
     var combinedGuidanceRecordingFullScreenExpanded by remember { mutableStateOf(false) }
+    var showRouteCompleteRecordingPrompt by remember(traceRecordingState.startedAtMillis) {
+        mutableStateOf(false)
+    }
     val slopeIndicatorButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 28.dp
@@ -195,6 +200,24 @@ internal fun BoxScope.NavigateOverlaysLayer(
         (turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded) ||
             (traceRecordingState.active && recordingDashboardFullScreenExpanded) ||
             combinedGuidanceRecordingFullScreenExpanded
+
+    LaunchedEffect(
+        turnByTurnGuidanceState.mode,
+        turnByTurnGuidanceState.trackTitle,
+        traceRecordingState.active,
+    ) {
+        if (
+            turnByTurnGuidanceState.mode == GuidanceMode.FINISHED &&
+            traceRecordingState.active
+        ) {
+            showRouteCompleteRecordingPrompt = true
+            DebugTelemetry.log(
+                "TurnByTurn",
+                "event=route_complete guidanceAction=auto_stop recordingAction=keep_active",
+            )
+            onStopTurnByTurnGuidance()
+        }
+    }
 
     LaunchedEffect(shortcutTrayExpanded, routeToolModeActive) {
         if (!shortcutTrayExpanded || routeToolModeActive) return@LaunchedEffect
@@ -521,6 +544,10 @@ internal fun BoxScope.NavigateOverlaysLayer(
         backpackWeightKg = backpackWeightKg,
         screenSize = screenSize,
         isMetric = isMetric,
+        showRouteCompletePrompt = showRouteCompleteRecordingPrompt,
+        onRouteCompletePromptDismiss = {
+            showRouteCompleteRecordingPrompt = false
+        },
         suppressed =
             poiTapMessage != null ||
                 turnByTurnFullScreenExpanded ||
