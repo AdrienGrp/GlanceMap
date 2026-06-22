@@ -15,13 +15,14 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -29,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1102,12 +1104,27 @@ private fun RecordingTimeChip(
     Box(
         modifier =
             Modifier
-                .fillMaxWidth()
+                .width(128.dp)
                 .height(48.dp)
-                .combinedClickable(
-                    onClick = onTap,
-                    onLongClick = onLongPress,
-                )
+                .pointerInput(onTap, onLongPress) {
+                    detectTapGestures(
+                        onPress = {
+                            DebugTelemetry.log(
+                                "TraceRecording",
+                                "event=time_chip_touch_down x=${it.x.toInt()} y=${it.y.toInt()}",
+                            )
+                            tryAwaitRelease()
+                        },
+                        onTap = {
+                            DebugTelemetry.log("TraceRecording", "event=time_chip_touch_up action=tap")
+                            onTap()
+                        },
+                        onLongPress = {
+                            DebugTelemetry.log("TraceRecording", "event=time_chip_touch_up action=long_press")
+                            onLongPress()
+                        },
+                    )
+                }
                 .then(modifier),
         contentAlignment = Alignment.TopCenter,
     ) {
