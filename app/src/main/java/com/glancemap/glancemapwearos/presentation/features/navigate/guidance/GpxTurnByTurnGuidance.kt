@@ -574,13 +574,16 @@ fun updateGuidanceOffRouteConfirmation(
     val accuracyReliable = accuracy == null || accuracy <= OFF_ROUTE_MAX_ENTRY_ACCURACY_METERS
     val accuracyAllowance = accuracy?.coerceAtMost(OFF_ROUTE_MAX_ACCURACY_ALLOWANCE_METERS) ?: 0.0
     val entryThreshold = thresholdMeters + accuracyAllowance * OFF_ROUTE_ENTRY_ACCURACY_WEIGHT
-    val recoveryThreshold =
-        thresholdMeters * OFF_ROUTE_RECOVERY_THRESHOLD_FRACTION +
-            accuracyAllowance * OFF_ROUTE_RECOVERY_ACCURACY_WEIGHT
 
     if (previous.offRoute) {
+        val strongRecovery =
+            distance <= thresholdMeters * OFF_ROUTE_STRONG_RECOVERY_THRESHOLD_FRACTION &&
+                (accuracy == null || accuracy <= OFF_ROUTE_STRONG_RECOVERY_MAX_ACCURACY_METERS)
+        if (strongRecovery) {
+            return GuidanceOffRouteConfirmationState()
+        }
         val nextRecoveryCount =
-            if (distance <= recoveryThreshold) {
+            if (distance <= thresholdMeters) {
                 previous.recoverySampleCount + 1
             } else {
                 0
@@ -696,11 +699,11 @@ private const val ROUTE_MATCH_PROGRESS_PENALTY = 0.015
 private const val ROUTE_MATCH_RELOCK_ADVANTAGE_METERS = 35.0
 private const val OFF_ROUTE_ENTRY_SAMPLE_COUNT = 3
 private const val OFF_ROUTE_RECOVERY_SAMPLE_COUNT = 2
-private const val OFF_ROUTE_MAX_ENTRY_ACCURACY_METERS = 60.0
+private const val OFF_ROUTE_MAX_ENTRY_ACCURACY_METERS = 45.0
 private const val OFF_ROUTE_MAX_ACCURACY_ALLOWANCE_METERS = 40.0
-private const val OFF_ROUTE_ENTRY_ACCURACY_WEIGHT = 0.5
-private const val OFF_ROUTE_RECOVERY_ACCURACY_WEIGHT = 0.2
-private const val OFF_ROUTE_RECOVERY_THRESHOLD_FRACTION = 0.65
+private const val OFF_ROUTE_ENTRY_ACCURACY_WEIGHT = 1.0
+private const val OFF_ROUTE_STRONG_RECOVERY_THRESHOLD_FRACTION = 0.5
+private const val OFF_ROUTE_STRONG_RECOVERY_MAX_ACCURACY_METERS = 30.0
 
 val RouteInstructionCommand.message: String
     get() =
