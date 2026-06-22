@@ -421,10 +421,8 @@ private fun CombinedCompactPopup(
             WearScreenSize.MEDIUM -> 10.sp
             WearScreenSize.SMALL -> 10.sp
         }
-    val compactBackground =
-        if (guidanceState.offRoute) COMBINED_OFF_ROUTE_AMBER.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.9f)
-    val compactBorder =
-        if (guidanceState.offRoute) COMBINED_OFF_ROUTE_AMBER.copy(alpha = 0.95f) else Color.Transparent
+    val compactBackground = Color.Black.copy(alpha = 0.9f)
+    val compactBorder = Color.Transparent
     val showTwoLineInstruction =
         !guidancePaused &&
             !guidanceState.offRoute &&

@@ -237,10 +237,8 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
 
     if (!expanded) {
         val showTwoLineInstruction = !paused && !state.offRoute && state.mode == GuidanceMode.FOLLOW_ROUTE
-        val compactBackground =
-            if (state.offRoute) OFF_ROUTE_AMBER.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.9f)
-        val compactBorder =
-            if (state.offRoute) OFF_ROUTE_AMBER.copy(alpha = 0.95f) else Color.Transparent
+        val compactBackground = Color.Black.copy(alpha = 0.9f)
+        val compactBorder = Color.Transparent
         Box(
             modifier =
                 Modifier
