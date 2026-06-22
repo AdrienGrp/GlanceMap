@@ -52,6 +52,8 @@ import com.glancemap.glancemapwearos.presentation.features.recording.external.Ex
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalHeartRateSensorBridge
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodRuntimeStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodSensorBridge
+import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.Chip
@@ -85,6 +87,7 @@ fun RecordingExternalSensorsScreen(
     var permissionRefresh by remember { mutableIntStateOf(0) }
     var unsupportedSensorMessage by remember { mutableStateOf<String?>(null) }
     var unsupportedSensorDetail by remember { mutableStateOf<String?>(null) }
+    var pendingSensorRemoval by remember { mutableStateOf<PendingExternalSensorRemoval?>(null) }
     val hasPermissions =
         remember(context, permissionRefresh) {
             ExternalSensorScanner.hasRequiredPermissions(context)
@@ -162,9 +165,12 @@ fun RecordingExternalSensorsScreen(
                         reconnecting = address.isConnectedIn(connectingAddresses),
                         batteryLevelPercent = externalSensorBatteryLevels[address.normalizedBluetoothAddress()],
                         onForget = {
-                            unsupportedSensorMessage = null
-                            unsupportedSensorDetail = null
-                            viewModel.setRecordingExternalHeartRateDevice(null, null)
+                            pendingSensorRemoval =
+                                PendingExternalSensorRemoval(
+                                    type = LinkedExternalSensorType.HEART_RATE,
+                                    name = linkedHeartRateName.orLinkedSensorFallback("Heart strap"),
+                                    address = address,
+                                )
                         },
                     )
                 }
@@ -182,9 +188,12 @@ fun RecordingExternalSensorsScreen(
                             runPodRuntimeInfos[address]?.batteryLevelPercent
                                 ?: externalSensorBatteryLevels[address.normalizedBluetoothAddress()],
                         onForget = {
-                            unsupportedSensorMessage = null
-                            unsupportedSensorDetail = null
-                            viewModel.setRecordingExternalRunPodDevice(null, null)
+                            pendingSensorRemoval =
+                                PendingExternalSensorRemoval(
+                                    type = LinkedExternalSensorType.RUN_POD,
+                                    name = linkedRunPodName.orLinkedSensorFallback("Run pod"),
+                                    address = address,
+                                )
                         },
                     )
                 }
@@ -229,13 +238,22 @@ fun RecordingExternalSensorsScreen(
                                         ]
                                 },
                             onForget = {
-                                unsupportedSensorMessage = null
-                                unsupportedSensorDetail = null
-                                if (heartRateSelected) {
-                                    viewModel.setRecordingExternalHeartRateDevice(null, null)
-                                } else {
-                                    viewModel.setRecordingExternalRunPodDevice(null, null)
-                                }
+                                pendingSensorRemoval =
+                                    PendingExternalSensorRemoval(
+                                        type =
+                                            if (heartRateSelected) {
+                                                LinkedExternalSensorType.HEART_RATE
+                                            } else {
+                                                LinkedExternalSensorType.RUN_POD
+                                            },
+                                        name =
+                                            if (heartRateSelected) {
+                                                linkedHeartRateName.orLinkedSensorFallback(device.name)
+                                            } else {
+                                                linkedRunPodName.orLinkedSensorFallback(device.name)
+                                            },
+                                        address = device.address,
+                                    )
                             },
                         )
                     } else {
@@ -271,7 +289,46 @@ fun RecordingExternalSensorsScreen(
             }
         }
     }
+
+    pendingSensorRemoval?.let { pending ->
+        WearActionDialog(
+            visible = true,
+            title = "Remove device?",
+            message = pending.name,
+            confirmText = "Yes",
+            onConfirm = {
+                pendingSensorRemoval = null
+                unsupportedSensorMessage = null
+                unsupportedSensorDetail = null
+                when (pending.type) {
+                    LinkedExternalSensorType.HEART_RATE ->
+                        if (linkedHeartRateAddress == pending.address) {
+                            viewModel.setRecordingExternalHeartRateDevice(null, null)
+                        }
+                    LinkedExternalSensorType.RUN_POD ->
+                        if (linkedRunPodAddress == pending.address) {
+                            viewModel.setRecordingExternalRunPodDevice(null, null)
+                        }
+                }
+            },
+            onDismissRequest = { pendingSensorRemoval = null },
+            dismissText = "No",
+            onDismiss = { pendingSensorRemoval = null },
+            confirmRole = WearActionButtonRole.Destructive,
+        )
+    }
 }
+
+private enum class LinkedExternalSensorType {
+    HEART_RATE,
+    RUN_POD,
+}
+
+private data class PendingExternalSensorRemoval(
+    val type: LinkedExternalSensorType,
+    val name: String,
+    val address: String,
+)
 
 @Composable
 private fun LinkedExternalSensorChip(
