@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class LiveTrackingUiState(
     val isTracking: Boolean = false,
+    val isPaused: Boolean = false,
     val status: String = "Not started",
     val lastSuccessfulUpdateEpochMs: Long? = null,
     val lastError: String? = null,
@@ -18,6 +19,7 @@ object LiveTrackingSessionStore {
         _state.value =
             _state.value.copy(
                 isTracking = true,
+                isPaused = false,
                 status = "Starting",
                 lastError = null,
             )
@@ -42,6 +44,39 @@ object LiveTrackingSessionStore {
             )
     }
 
+    fun setPaused(serverSyncPending: Boolean = false) {
+        _state.value =
+            _state.value.copy(
+                isTracking = true,
+                isPaused = true,
+                status =
+                    if (serverSyncPending) {
+                        "Paused on phone — Arkluz notification pending"
+                    } else {
+                        "Paused"
+                    },
+                lastError = null,
+            )
+    }
+
+    fun setActive(
+        status: String,
+        serverSyncPending: Boolean = false,
+    ) {
+        _state.value =
+            _state.value.copy(
+                isTracking = true,
+                isPaused = false,
+                status =
+                    if (serverSyncPending) {
+                        "Tracking resumed — Arkluz notification pending"
+                    } else {
+                        status
+                    },
+                lastError = null,
+            )
+    }
+
     fun setError(message: String) {
         _state.value =
             _state.value.copy(
@@ -54,6 +89,7 @@ object LiveTrackingSessionStore {
         _state.value =
             _state.value.copy(
                 isTracking = false,
+                isPaused = false,
                 status = status,
                 lastError = null,
             )
@@ -66,6 +102,7 @@ object LiveTrackingSessionStore {
         _state.value =
             _state.value.copy(
                 isTracking = false,
+                isPaused = false,
                 status = status,
                 lastError = message,
             )
@@ -75,6 +112,7 @@ object LiveTrackingSessionStore {
         _state.value =
             _state.value.copy(
                 isTracking = false,
+                isPaused = false,
                 status = status,
             )
     }

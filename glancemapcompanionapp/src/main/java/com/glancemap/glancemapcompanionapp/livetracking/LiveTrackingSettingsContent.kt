@@ -228,11 +228,13 @@ internal fun PasswordField(
 }
 
 @Composable
+@Suppress("FunctionNaming", "LongMethod")
 private fun NoMovementAlertInput(
     minutes: String,
     onMinutesChange: (String) -> Unit,
 ) {
     val isDisabled = minutes == "-1"
+    val validationMessage = validateNoMovementAlertMinutes(minutes)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -245,7 +247,7 @@ private fun NoMovementAlertInput(
             Checkbox(
                 checked = isDisabled,
                 onCheckedChange = { disabled ->
-                    onMinutesChange(if (disabled) "-1" else "")
+                    onMinutesChange(if (disabled) "-1" else "15")
                 },
             )
             Text(
@@ -272,9 +274,18 @@ private fun NoMovementAlertInput(
                 value = if (isDisabled) "" else minutes,
                 onValueChange = onMinutesChange,
                 enabled = !isDisabled,
-                placeholder = { Text("default") },
+                placeholder = { Text("15") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = !isDisabled && validationMessage != null,
+                supportingText =
+                    if (!isDisabled) {
+                        {
+                            Text(validationMessage ?: "Minimum 10 minutes")
+                        }
+                    } else {
+                        null
+                    },
                 modifier = Modifier.weight(1f),
             )
             Text(

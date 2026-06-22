@@ -4,10 +4,9 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal object LiveTrackingPositionQueue {
-    private const val PREFS_NAME = "arkluz_live_tracking_position_queue"
+internal object LiveTrackingControlQueue {
+    private const val PREFS_NAME = "arkluz_live_tracking_control_queue"
     private const val KEY_QUEUE = "queue"
-    private const val MAX_QUEUE_SIZE = 500
     private val lock = Any()
 
     fun enqueue(
@@ -15,23 +14,26 @@ internal object LiveTrackingPositionQueue {
         update: ArkluzLocationUpdate,
     ): Int =
         synchronized(lock) {
-            val updates = loadLocked(context) + update.asStoredGpsPoint()
-            val cappedUpdates = updates.takeLast(MAX_QUEUE_SIZE)
-            saveLocked(context, cappedUpdates)
-            cappedUpdates.size
+            val updates = loadLocked(context) + update
+            saveLocked(context, updates)
+            updates.size
         }
 
     fun load(context: Context): List<ArkluzLocationUpdate> =
         synchronized(lock) {
-            loadLocked(context).sortedBy { it.epochSeconds }
+            loadLocked(context)
         }
 
-    fun replaceAll(
-        context: Context,
-        updates: List<ArkluzLocationUpdate>,
-    ) {
+    fun removeFirst(context: Context) {
         synchronized(lock) {
-            saveLocked(context, updates.sortedBy { it.epochSeconds }.takeLast(MAX_QUEUE_SIZE))
+            val remaining = loadLocked(context).drop(1)
+            saveLocked(context, remaining)
+        }
+    }
+
+    fun clear(context: Context) {
+        synchronized(lock) {
+            saveLocked(context, emptyList())
         }
     }
 
@@ -44,7 +46,7 @@ internal object LiveTrackingPositionQueue {
         val jsonArray = runCatching { JSONArray(raw) }.getOrElse { JSONArray() }
         return buildList {
             for (index in 0 until jsonArray.length()) {
-                jsonArray.optJSONObject(index)?.toLocationUpdateOrNull()?.let(::add)
+                jsonArray.optJSONObject(index)?.toControlUpdateOrNull()?.let(::add)
             }
         }
     }
@@ -54,9 +56,7 @@ internal object LiveTrackingPositionQueue {
         updates: List<ArkluzLocationUpdate>,
     ) {
         val jsonArray = JSONArray()
-        updates.forEach { update ->
-            jsonArray.put(update.toJson())
-        }
+        updates.forEach { jsonArray.put(it.toJson()) }
         context
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
@@ -81,13 +81,11 @@ internal object LiveTrackingPositionQueue {
             .put("notificationEmails", notificationEmails)
             .put("alertEmails", alertEmails)
             .put("stuckAlarmMinutes", stuckAlarmMinutes)
-            .put("start", start)
-            .put("stop", stop)
             .put("pause", pause)
             .put("resume", resume)
             .put("dateId", dateId)
 
-    private fun JSONObject.toLocationUpdateOrNull(): ArkluzLocationUpdate? =
+    private fun JSONObject.toControlUpdateOrNull(): ArkluzLocationUpdate? =
         runCatching {
             ArkluzLocationUpdate(
                 trackingUrl = getString("trackingUrl"),
@@ -105,8 +103,8 @@ internal object LiveTrackingPositionQueue {
                 notificationEmails = optString("notificationEmails"),
                 alertEmails = optString("alertEmails"),
                 stuckAlarmMinutes = optString("stuckAlarmMinutes"),
-                start = optBoolean("start"),
-                stop = optBoolean("stop"),
+                start = false,
+                stop = false,
                 pause = optBoolean("pause"),
                 resume = optBoolean("resume"),
                 dateId = optString("dateId").takeIf(String::isNotBlank),
@@ -114,9 +112,5 @@ internal object LiveTrackingPositionQueue {
         }.getOrNull()
 
     private fun JSONObject.nullableDouble(key: String): Double? =
-        if (isNull(key)) {
-            null
-        } else {
-            optDouble(key)
-        }
+        if (isNull(key)) null else optDouble(key)
 }

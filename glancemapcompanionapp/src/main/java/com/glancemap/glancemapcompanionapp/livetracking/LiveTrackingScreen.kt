@@ -34,6 +34,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -122,7 +123,7 @@ fun LiveTrackingScreen(
     var isDeletingTracks by remember { mutableStateOf(false) }
     var recordedTrackDownloadStatusMessage by remember { mutableStateOf<String?>(null) }
     var isDownloadingRecordedTrack by remember { mutableStateOf(false) }
-    var pendingRecordedTrackDownloadTarget by remember { mutableStateOf<RecordedTrackDownloadTarget?>(null) }
+    var pendingRecordedTrackDownload by remember { mutableStateOf<ArkluzRecordedGpxDownload?>(null) }
     var planSent by remember { mutableStateOf(false) }
     var emailPickerTarget by remember { mutableStateOf<EmailPickerTarget?>(null) }
     var showUseLastTransferGpxDialog by remember { mutableStateOf(false) }
@@ -189,32 +190,20 @@ fun LiveTrackingScreen(
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.CreateDocument("application/gpx+xml"),
         ) { uri ->
-            val target = pendingRecordedTrackDownloadTarget
-            pendingRecordedTrackDownloadTarget = null
-            if (uri == null || target == null) return@rememberLauncherForActivityResult
+            val download = pendingRecordedTrackDownload
+            pendingRecordedTrackDownload = null
+            if (uri == null || download == null) {
+                download?.delete()
+                isDownloadingRecordedTrack = false
+                if (download != null) recordedTrackDownloadStatusMessage = "Download cancelled"
+                return@rememberLauncherForActivityResult
+            }
 
-            isDownloadingRecordedTrack = true
-            recordedTrackDownloadStatusMessage = "Downloading recorded GPX"
-            val downloadSettings =
-                LiveTrackingSettings(
-                    trackingUrl = trackingEndpoint.url,
-                    updateIntervalSeconds = updateIntervalSeconds,
-                    group = group,
-                    participantPassword = participantPassword,
-                    followerPassword = followerPassword,
-                    userName = userName,
-                    notificationEmails = "",
-                    alertEmails = "",
-                    stuckAlarmMinutes = stuckAlarmMinutes,
-                    comments = "",
-                    gpxUri = null,
-                    gpxName = "",
-                )
+            recordedTrackDownloadStatusMessage = "Saving recorded GPX"
             coroutineScope.launch {
                 runCatching {
-                    ArkluzLiveTrackingClient(context).downloadRecordedGpx(
-                        settings = downloadSettings,
-                        userOnly = target == RecordedTrackDownloadTarget.USER,
+                    ArkluzLiveTrackingClient(context).saveRecordedGpx(
+                        download = download,
                         outputUri = uri,
                     )
                 }.onSuccess { result ->
@@ -226,6 +215,56 @@ fun LiveTrackingScreen(
                 isDownloadingRecordedTrack = false
             }
         }
+
+    fun downloadRecordedTrack(target: RecordedTrackDownloadTarget) {
+        isDownloadingRecordedTrack = true
+        recordedTrackDownloadStatusMessage = "Downloading recorded GPX"
+        val downloadSettings =
+            LiveTrackingSettings(
+                trackingUrl = trackingEndpoint.url,
+                updateIntervalSeconds = updateIntervalSeconds,
+                group = group,
+                participantPassword = participantPassword,
+                followerPassword = followerPassword,
+                userName = userName,
+                notificationEmails = "",
+                alertEmails = "",
+                stuckAlarmMinutes = stuckAlarmMinutes,
+                comments = "",
+                gpxUri = null,
+                gpxName = "",
+            )
+        coroutineScope.launch {
+            runCatching {
+                ArkluzLiveTrackingClient(context).downloadRecordedGpx(
+                    settings = downloadSettings,
+                    userOnly = target == RecordedTrackDownloadTarget.USER,
+                    fallbackFileName =
+                        recordedTrackDownloadFilename(
+                            group = group,
+                            userName = userName,
+                            target = target,
+                        ),
+                )
+            }.onSuccess { download ->
+                pendingRecordedTrackDownload?.delete()
+                pendingRecordedTrackDownload = download
+                recordedTrackDownloadStatusMessage = "Choose where to save the recorded GPX"
+                recordedTrackSavePicker.launch(download.suggestedFileName)
+            }.onFailure { error ->
+                recordedTrackDownloadStatusMessage =
+                    "Download failed: ${error.toArkluzFailureDetail()}"
+                isDownloadingRecordedTrack = false
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            pendingRecordedTrackDownload?.delete()
+        }
+    }
+
     val contactEmailPicker =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
@@ -423,6 +462,17 @@ fun LiveTrackingScreen(
             saveSettingsStatusMessage = null
         }
 
+        fun restoreGroupProfileOrOpenInitialSettings(groupName: String) {
+            val profile = LiveTrackingPreferences.loadGroupSettings(context, groupName)
+            if (profile == null) {
+                settingsSnapshot = currentSettingsSnapshot()
+                saveSettingsStatusMessage = null
+                page = LiveTrackingPage.SETTINGS
+            } else {
+                applySettingsSnapshot(profile)
+            }
+        }
+
         fun saveSettings(exitAfterSave: Boolean = false) {
             saveSettingsStatusMessage =
                 validateStartSettings(
@@ -430,6 +480,7 @@ fun LiveTrackingScreen(
                     participantPassword = participantPassword,
                     followerPassword = followerPassword,
                     userName = userName,
+                    stuckAlarmMinutes = stuckAlarmMinutes,
                 )
                     ?: validatePendingEmailInputs(
                         notificationEmailInput = notificationEmailInput,
@@ -501,6 +552,7 @@ fun LiveTrackingScreen(
                     participantPassword = participantPassword,
                     followerPassword = followerPassword,
                     userName = userName,
+                    stuckAlarmMinutes = stuckAlarmMinutes,
                 )
                     ?: validatePendingEmailInputs(
                         notificationEmailInput = notificationEmailInput,
@@ -646,6 +698,8 @@ fun LiveTrackingScreen(
                         validationMessage = validationMessage,
                         sendStatusMessage = sendStatusMessage,
                         onStart = { startLiveTracking(requestMissingPermissions = true) },
+                        onPause = { LiveTrackingService.pause(context) },
+                        onResume = { LiveTrackingService.resume(context) },
                         onStop = { LiveTrackingService.stop(context) },
                         userName = userName,
                         groupTrackUrl = groupTrackUrl,
@@ -683,14 +737,7 @@ fun LiveTrackingScreen(
                                     userOnly = true,
                                 )
                             if (recordedTrackDownloadStatusMessage == null) {
-                                pendingRecordedTrackDownloadTarget = RecordedTrackDownloadTarget.USER
-                                recordedTrackSavePicker.launch(
-                                    recordedTrackDownloadFilename(
-                                        group = group,
-                                        userName = userName,
-                                        target = RecordedTrackDownloadTarget.USER,
-                                    ),
-                                )
+                                downloadRecordedTrack(RecordedTrackDownloadTarget.USER)
                             }
                         },
                         scrollState = scrollState,
@@ -752,13 +799,7 @@ fun LiveTrackingScreen(
                                             createGroupPasswordConfirmation = ""
                                             showCreateGroupDialog = true
                                         } else {
-                                            LiveTrackingPreferences.loadGroupSettings(context, cleanGroup)?.let { profile ->
-                                                userName = profile.userName
-                                                notificationEmailAddresses = profile.notificationEmailAddresses
-                                                alertEmailAddresses = profile.alertEmailAddresses
-                                                stuckAlarmMinutes = profile.stuckAlarmMinutes
-                                                updateIntervalSeconds = profile.updateIntervalSeconds
-                                            }
+                                            restoreGroupProfileOrOpenInitialSettings(cleanGroup)
                                             loginJoinStatusMessage = "Connected to $cleanGroup"
                                             headerMessage = null
                                         }
@@ -801,14 +842,9 @@ fun LiveTrackingScreen(
                                         createGroupPasswordConfirmation = ""
                                         "Created + connected"
                                     }.onSuccess { status ->
-                                        LiveTrackingPreferences.loadGroupSettings(context, group.trim())?.let { profile ->
-                                            userName = profile.userName
-                                            notificationEmailAddresses = profile.notificationEmailAddresses
-                                            alertEmailAddresses = profile.alertEmailAddresses
-                                            stuckAlarmMinutes = profile.stuckAlarmMinutes
-                                            updateIntervalSeconds = profile.updateIntervalSeconds
-                                        }
-                                        loginJoinStatusMessage = "$status to ${group.trim()}"
+                                        val cleanGroup = group.trim()
+                                        restoreGroupProfileOrOpenInitialSettings(cleanGroup)
+                                        loginJoinStatusMessage = "$status to $cleanGroup"
                                         headerMessage = null
                                     }.onFailure { error ->
                                         loginJoinStatusMessage =
