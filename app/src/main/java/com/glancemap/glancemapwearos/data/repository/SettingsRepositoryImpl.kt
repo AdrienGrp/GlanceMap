@@ -1232,18 +1232,13 @@ class SettingsRepositoryImpl private constructor(
 
     override val poiIconSizePx: Flow<Int> =
         context.dataStore.data.map {
-            val stored = it[PrefKeys.POI_ICON_SIZE_PX]
-            if (stored != null && stored in allowedPoiIconSizesPx) {
-                stored
-            } else {
-                SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
-            }
+            sanitizePoiIconSizePx(it[PrefKeys.POI_ICON_SIZE_PX])
         }
 
     override suspend fun setPoiIconSizePx(sizePx: Int) {
         context.dataStore.edit {
             it[PrefKeys.POI_ICON_SIZE_PX] =
-                if (sizePx in allowedPoiIconSizesPx) sizePx else SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
+                sanitizePoiIconSizePx(sizePx)
         }
     }
 
@@ -1452,6 +1447,14 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.POI_ICON_SIZE_MEDIUM_PX,
                 SettingsRepository.POI_ICON_SIZE_LARGE_PX,
             )
+        private fun sanitizePoiIconSizePx(sizePx: Int?): Int =
+            when (sizePx) {
+                18 -> SettingsRepository.POI_ICON_SIZE_SMALL_PX
+                22, 24 -> SettingsRepository.POI_ICON_SIZE_MEDIUM_PX
+                26 -> SettingsRepository.POI_ICON_SIZE_LARGE_PX
+                in allowedPoiIconSizesPx -> sizePx ?: SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
+                else -> SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
+            }
         private val allowedPoiMarkerStyles =
             setOf(
                 SettingsRepository.POI_MARKER_STYLE_BADGE,
