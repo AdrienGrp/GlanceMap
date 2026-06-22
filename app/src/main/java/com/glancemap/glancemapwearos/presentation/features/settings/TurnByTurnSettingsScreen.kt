@@ -89,7 +89,7 @@ fun TurnByTurnSettingsScreen(
         item {
             SettingsSectionChip(
                 label = "Advanced guidance",
-                secondaryLabel = "Route source, start and guide back",
+                secondaryLabel = "Start, reverse and route back",
                 onClick = onOpenGuidanceSettings,
             )
         }

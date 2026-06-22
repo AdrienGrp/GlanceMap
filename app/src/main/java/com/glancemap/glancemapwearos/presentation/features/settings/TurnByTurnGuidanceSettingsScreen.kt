@@ -40,12 +40,12 @@ fun TurnByTurnGuidanceSettingsScreen(
             SettingsToggleChip(
                 checked = brouterGuideBackEnabled,
                 onCheckedChanged = viewModel::setTurnByTurnBrouterGuideBackEnabled,
-                label = "BRouter guide back",
+                label = "Route back to GPX",
                 secondaryLabel =
                     if (brouterGuideBackEnabled) {
-                        "Route back when tiles are available"
+                        "Create return route"
                     } else {
-                        "Use direct arrow back to GPX"
+                        "Direction arrow only"
                     },
             )
         }
