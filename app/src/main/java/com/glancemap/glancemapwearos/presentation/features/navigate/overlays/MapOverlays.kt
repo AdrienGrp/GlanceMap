@@ -44,9 +44,9 @@ private const val ELEVATION_TRACK_OUTLINE_WIDTH_EXTRA_PX = 3f
 private const val ROUTE_TOOL_PREVIEW_ALPHA = 228
 private const val ROUTE_TOOL_CREATE_PREVIEW_ALPHA = 238
 private const val ROUTE_TOOL_DRAFT_ALPHA = 170
-private const val ROUTE_TOOL_AMBER_RED = 247
-private const val ROUTE_TOOL_AMBER_GREEN = 201
-private const val ROUTE_TOOL_AMBER_BLUE = 72
+private const val ROUTE_TOOL_PREVIEW_RED = 0
+private const val ROUTE_TOOL_PREVIEW_GREEN = 217
+private const val ROUTE_TOOL_PREVIEW_BLUE = 232
 
 @Composable
 @OptIn(FlowPreview::class)
@@ -717,25 +717,25 @@ private fun GpxAndInspectionOverlayEffect(
             if (routeToolCreatePreviewActive) {
                 Color.argb(
                     ROUTE_TOOL_CREATE_PREVIEW_ALPHA,
-                    ROUTE_TOOL_AMBER_RED,
-                    ROUTE_TOOL_AMBER_GREEN,
-                    ROUTE_TOOL_AMBER_BLUE,
+                    ROUTE_TOOL_PREVIEW_RED,
+                    ROUTE_TOOL_PREVIEW_GREEN,
+                    ROUTE_TOOL_PREVIEW_BLUE,
                 )
             } else {
                 Color.argb(
                     ROUTE_TOOL_PREVIEW_ALPHA,
-                    ROUTE_TOOL_AMBER_RED,
-                    ROUTE_TOOL_AMBER_GREEN,
-                    ROUTE_TOOL_AMBER_BLUE,
+                    ROUTE_TOOL_PREVIEW_RED,
+                    ROUTE_TOOL_PREVIEW_GREEN,
+                    ROUTE_TOOL_PREVIEW_BLUE,
                 )
             }
         previewPaint.strokeWidth = maxOf(gpxTrackWidth + 2f, 6f)
         draftPaint.color =
             Color.argb(
                 ROUTE_TOOL_DRAFT_ALPHA,
-                ROUTE_TOOL_AMBER_RED,
-                ROUTE_TOOL_AMBER_GREEN,
-                ROUTE_TOOL_AMBER_BLUE,
+                ROUTE_TOOL_PREVIEW_RED,
+                ROUTE_TOOL_PREVIEW_GREEN,
+                ROUTE_TOOL_PREVIEW_BLUE,
             )
         draftPaint.strokeWidth = maxOf(gpxTrackWidth, 4f)
         requestMapRedraw()
