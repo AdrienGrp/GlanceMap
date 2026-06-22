@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -88,6 +89,18 @@ fun RecordingExternalSensorsScreen(
     var unsupportedSensorMessage by remember { mutableStateOf<String?>(null) }
     var unsupportedSensorDetail by remember { mutableStateOf<String?>(null) }
     var pendingSensorRemoval by remember { mutableStateOf<PendingExternalSensorRemoval?>(null) }
+    var pendingSensorLink by remember { mutableStateOf<PendingExternalSensorLink?>(null) }
+    LaunchedEffect(linkedHeartRateAddress, linkedRunPodAddress, pendingSensorLink) {
+        val pending = pendingSensorLink ?: return@LaunchedEffect
+        val persistedAddress =
+            when (pending.type) {
+                LinkedExternalSensorType.HEART_RATE -> linkedHeartRateAddress
+                LinkedExternalSensorType.RUN_POD -> linkedRunPodAddress
+            }
+        if (persistedAddress == pending.address) {
+            pendingSensorLink = null
+        }
+    }
     val hasPermissions =
         remember(context, permissionRefresh) {
             ExternalSensorScanner.hasRequiredPermissions(context)
@@ -213,19 +226,35 @@ fun RecordingExternalSensorsScreen(
         } else {
             devices.forEach { device ->
                 item {
-                    val heartRateSelected = linkedHeartRateAddress == device.address
-                    val runPodSelected = linkedRunPodAddress == device.address
+                    val heartRateSelected =
+                        linkedHeartRateAddress == device.address ||
+                            pendingSensorLink.matches(device.address, LinkedExternalSensorType.HEART_RATE)
+                    val runPodSelected =
+                        linkedRunPodAddress == device.address ||
+                            pendingSensorLink.matches(device.address, LinkedExternalSensorType.RUN_POD)
                     if (heartRateSelected || runPodSelected) {
                         LinkedExternalSensorChip(
                             name =
                                 if (heartRateSelected) {
-                                    linkedHeartRateName.orLinkedSensorFallback(device.name)
+                                    pendingSensorLink
+                                        .takeIf {
+                                            it.matches(device.address, LinkedExternalSensorType.HEART_RATE)
+                                        }
+                                        ?.name
+                                        ?: linkedHeartRateName.orLinkedSensorFallback(device.name)
                                 } else {
-                                    linkedRunPodName.orLinkedSensorFallback(device.name)
+                                    pendingSensorLink
+                                        .takeIf {
+                                            it.matches(device.address, LinkedExternalSensorType.RUN_POD)
+                                        }
+                                        ?.name
+                                        ?: linkedRunPodName.orLinkedSensorFallback(device.name)
                                 },
                             address = device.address,
                             connected = device.address.isConnectedIn(connectedAddresses),
-                            reconnecting = device.address.isConnectedIn(connectingAddresses),
+                            reconnecting =
+                                pendingSensorLink?.address == device.address ||
+                                    device.address.isConnectedIn(connectingAddresses),
                             batteryLevelPercent =
                                 if (heartRateSelected) {
                                     externalSensorBatteryLevels[
@@ -263,10 +292,24 @@ fun RecordingExternalSensorsScreen(
                                 if (device.canLinkHeartRate()) {
                                     unsupportedSensorMessage = null
                                     unsupportedSensorDetail = null
+                                    pendingSensorLink =
+                                        PendingExternalSensorLink(
+                                            type = LinkedExternalSensorType.HEART_RATE,
+                                            name = device.name,
+                                            address = device.address,
+                                        )
+                                    ExternalSensorConnectionStatus.markConnecting(device.address)
                                     viewModel.setRecordingExternalHeartRateDevice(device.address, device.name)
                                 } else if (device.canLinkRunPod()) {
                                     unsupportedSensorMessage = null
                                     unsupportedSensorDetail = null
+                                    pendingSensorLink =
+                                        PendingExternalSensorLink(
+                                            type = LinkedExternalSensorType.RUN_POD,
+                                            name = device.name,
+                                            address = device.address,
+                                        )
+                                    ExternalSensorConnectionStatus.markConnecting(device.address)
                                     viewModel.setRecordingExternalRunPodDevice(device.address, device.name)
                                 } else {
                                     unsupportedSensorMessage = "${device.name} is not supported yet"
@@ -329,6 +372,17 @@ private data class PendingExternalSensorRemoval(
     val name: String,
     val address: String,
 )
+
+private data class PendingExternalSensorLink(
+    val type: LinkedExternalSensorType,
+    val name: String,
+    val address: String,
+)
+
+private fun PendingExternalSensorLink?.matches(
+    address: String,
+    type: LinkedExternalSensorType,
+): Boolean = this?.address == address && this.type == type
 
 @Composable
 private fun LinkedExternalSensorChip(
