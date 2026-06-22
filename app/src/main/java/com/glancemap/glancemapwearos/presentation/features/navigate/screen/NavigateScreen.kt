@@ -22,6 +22,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.data.repository.PoiType
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
 import com.glancemap.glancemapwearos.domain.sensors.CompassHeadingSourceMode
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
@@ -734,6 +735,16 @@ fun NavigateScreen(
         createdPoiRenameError = createdPoiRenameError,
         onDismissCreatedPoiRename = {
             if (!createdPoiRenameInProgress) {
+                createdPoiPendingRename?.let { createdPoi ->
+                    pendingPoiFocusTarget =
+                        PoiNavigateTarget(
+                            lat = createdPoi.lat,
+                            lon = createdPoi.lon,
+                            label = createdPoi.name,
+                            type = PoiType.CUSTOM,
+                            details = createdPoi.details,
+                        )
+                }
                 showCreatedPoiRenameDialog = false
                 createdPoiPendingRename = null
                 createdPoiRenameError = null
@@ -749,6 +760,14 @@ fun NavigateScreen(
                 runCatching {
                     poiViewModel.renameMyCreationPoi(target.id, newName)
                 }.onSuccess {
+                    pendingPoiFocusTarget =
+                        PoiNavigateTarget(
+                            lat = target.lat,
+                            lon = target.lon,
+                            label = newName.trim().ifBlank { target.name },
+                            type = PoiType.CUSTOM,
+                            details = target.details,
+                        )
                     createdPoiRenameInProgress = false
                     showCreatedPoiRenameDialog = false
                     createdPoiPendingRename = null
