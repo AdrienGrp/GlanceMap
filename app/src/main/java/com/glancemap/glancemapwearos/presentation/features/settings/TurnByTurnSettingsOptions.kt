@@ -2,13 +2,6 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 
-internal val TurnByTurnGuidanceSourceOptions =
-    listOf(
-        SettingsRepository.TURN_BY_TURN_SOURCE_AUTO to "Auto",
-        SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT to "GPX route",
-        SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED to "BRouter enhanced",
-    )
-
 internal val TurnByTurnRouteStartOptions =
     listOf(
         SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START to "Go to GPX start",
@@ -31,13 +24,6 @@ internal val TurnByTurnAlertsOptions =
 
 internal val TurnByTurnOffRouteThresholdOptions = listOf(20, 40, 60, 80, 100).map { it to "$it m" }
 internal val TurnByTurnOffRouteRepeatOptions = listOf(30, 60, 120).map { it to "${it}s" }
-
-internal fun guidanceSourceLabel(source: String): String =
-    when (source) {
-        SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT -> "GPX route"
-        SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED -> "BRouter enhanced"
-        else -> "Auto"
-    }
 
 internal fun routeStartBehaviorLabel(behavior: String): String =
     when (behavior) {

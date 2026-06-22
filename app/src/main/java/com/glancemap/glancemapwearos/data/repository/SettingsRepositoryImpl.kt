@@ -464,20 +464,11 @@ class SettingsRepositoryImpl private constructor(
     }
 
     override val turnByTurnGuidanceSource: Flow<String> =
-        context.dataStore.data.map {
-            it[PrefKeys.TURN_BY_TURN_GUIDANCE_SOURCE]
-                .takeIf { source -> source in allowedTurnByTurnGuidanceSources }
-                ?: SettingsRepository.TURN_BY_TURN_SOURCE_AUTO
-        }
+        context.dataStore.data.map { SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT }
 
     override suspend fun setTurnByTurnGuidanceSource(source: String) {
         context.dataStore.edit {
-            it[PrefKeys.TURN_BY_TURN_GUIDANCE_SOURCE] =
-                if (source in allowedTurnByTurnGuidanceSources) {
-                    source
-                } else {
-                    SettingsRepository.TURN_BY_TURN_SOURCE_AUTO
-                }
+            it[PrefKeys.TURN_BY_TURN_GUIDANCE_SOURCE] = SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT
         }
     }
 
@@ -1357,12 +1348,6 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.COMPASS_HEADING_SOURCE_TYPE_HEADING,
                 SettingsRepository.COMPASS_HEADING_SOURCE_ROTATION_VECTOR,
                 SettingsRepository.COMPASS_HEADING_SOURCE_MAGNETOMETER,
-            )
-        private val allowedTurnByTurnGuidanceSources =
-            setOf(
-                SettingsRepository.TURN_BY_TURN_SOURCE_AUTO,
-                SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT,
-                SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED,
             )
         private val allowedTurnByTurnTurnAlertModes =
             setOf(

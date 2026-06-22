@@ -14,6 +14,7 @@ import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.SyncManager
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceSession
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceTuning
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstructionSource
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.buildGpxGuidanceSession
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.features.recording.RecordedTracePoint
@@ -53,6 +54,7 @@ private fun String.telemetryToken(): String =
 private data class GpxGuidanceBuildResult(
     val session: GpxGuidanceSession,
     val warningMessage: String? = null,
+    val guidanceMode: String = "exact_gpx",
 )
 
 class GpxViewModel(
@@ -635,6 +637,9 @@ class GpxViewModel(
                         "event=build_success elapsedMs=${(SystemClock.elapsedRealtime() - buildStartElapsedMs).coerceAtLeast(0L)} " +
                             "file=${File(path).name.telemetryToken()} points=${session.trackPoints.size} " +
                             "instructions=${session.instructions.size} distanceMeters=${session.totalDistanceMeters.toInt()} " +
+                            "guidanceMode=${buildResult.guidanceMode} geometry=original_gpx " +
+                            "embeddedHints=${session.instructions.count { it.source == RouteInstructionSource.BROUTER_HINT }} " +
+                            "generatedTurns=${session.instructions.count { it.source == RouteInstructionSource.GPX_GEOMETRY }} " +
                             "warning=${buildResult.warningMessage?.telemetryToken() ?: "none"}",
                     )
                 }
@@ -774,37 +779,11 @@ class GpxViewModel(
             _gpxFiles.value.firstOrNull { it.path == absolutePath }?.displayTitle
                 ?: readBestGpxTitle(file)
                 ?: file.nameWithoutExtension
-        val guidanceSource = settingsRepository.turnByTurnGuidanceSource.first()
         val basePoints =
             if (reversed) {
                 profile.points.asReversed()
             } else {
                 profile.points
-            }
-        val brouterEnhanced =
-            guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_BROUTER_ENHANCED ||
-                (
-                    guidanceSource == SettingsRepository.TURN_BY_TURN_SOURCE_AUTO &&
-                        looksLikeBrouterRoute(displayTitle, file.name)
-                )
-        var warningMessage: String? = null
-        val guidancePoints =
-            if (brouterEnhanced) {
-                runCatching {
-                    buildBrouterEnhancedGuidancePoints(basePoints)
-                }.getOrElse {
-                    warningMessage = BROUTER_GUIDANCE_FALLBACK_MESSAGE
-                    basePoints
-                }
-            } else {
-                basePoints
-            }
-        val usedBrouterEnhanced = brouterEnhanced && warningMessage == null
-        val guidanceTuning =
-            if (usedBrouterEnhanced) {
-                BROUTER_GUIDANCE_TUNING
-            } else {
-                GpxGuidanceTuning()
             }
 
         return GpxGuidanceBuildResult(
@@ -812,12 +791,11 @@ class GpxViewModel(
                 buildGpxGuidanceSession(
                     trackId = absolutePath,
                     trackTitle = if (reversed) "$displayTitle reverse" else displayTitle,
-                    trackPoints = guidancePoints,
+                    trackPoints = basePoints,
                     startReached = startReached,
                     reversed = reversed,
-                    tuning = guidanceTuning,
+                    tuning = GpxGuidanceTuning(),
                 ),
-            warningMessage = warningMessage,
         )
     }
 
@@ -1416,61 +1394,6 @@ class GpxViewModel(
             )
     }
 
-    private suspend fun buildBrouterEnhancedGuidancePoints(trackPoints: List<TrackPoint>): List<TrackPoint> {
-        require(trackPoints.size >= 2) { "The GPX does not contain enough points for BRouter guidance." }
-        val routed =
-            routePlanner.createRoute(
-                RoutePlannerRequest(
-                    origin = trackPoints.first().latLong,
-                    destination = trackPoints.last().latLong,
-                    viaPoints = sampledBrouterViaPoints(trackPoints),
-                ),
-            )
-        val routedPoints =
-            routed.points.map { point ->
-                TrackPoint(
-                    latLong = point.latLong,
-                    elevation = point.elevation,
-                )
-            }
-        require(routedPoints.size >= 2) { "BRouter did not return enough points for guidance." }
-        return routedPoints.withProjectedGuidanceHints(trackPoints)
-    }
-
-    private fun List<TrackPoint>.withProjectedGuidanceHints(sourcePoints: List<TrackPoint>): List<TrackPoint> {
-        val hints = sourcePoints.filter { it.guidanceHint != null }
-        if (isEmpty() || hints.isEmpty()) return this
-
-        val projected = toMutableList()
-        var searchStart = 0
-        hints.forEach { sourcePoint ->
-            val nearestIndex =
-                (searchStart..projected.lastIndex).minByOrNull { index ->
-                    haversineMeters(projected[index].latLong, sourcePoint.latLong)
-                } ?: return@forEach
-            projected[nearestIndex] = projected[nearestIndex].copy(guidanceHint = sourcePoint.guidanceHint)
-            searchStart = (nearestIndex + 1).coerceAtMost(projected.lastIndex)
-        }
-        return projected
-    }
-
-    private fun sampledBrouterViaPoints(trackPoints: List<TrackPoint>): List<LatLong> {
-        if (trackPoints.size <= 2) return emptyList()
-        val maxViaPoints = BROUTER_GUIDANCE_MAX_VIA_POINTS.coerceAtMost(trackPoints.size - 2)
-        if (maxViaPoints <= 0) return emptyList()
-        val result = mutableListOf<LatLong>()
-        var last: LatLong? = null
-        for (step in 1..maxViaPoints) {
-            val index = ((trackPoints.lastIndex * step).toDouble() / (maxViaPoints + 1)).toInt()
-                .coerceIn(1, trackPoints.lastIndex - 1)
-            val point = trackPoints[index].latLong
-            if (last == null || last.latitude != point.latitude || last.longitude != point.longitude) {
-                result += point
-                last = point
-            }
-        }
-        return result
-    }
 }
 
 private fun List<TrackPoint>.durationFromTimestampsSeconds(): Double? {
@@ -1527,29 +1450,6 @@ private fun List<TrackPoint>.toRecordedTracePoints(): List<RecordedTracePoint> =
             barometricPressureHpa = point.barometricPressureHpa,
         )
     }
-
-private val BROUTER_GUIDANCE_TUNING =
-    GpxGuidanceTuning(
-        offRouteDistanceMeters = 45.0,
-        instructionLookAheadMeters = 24.0,
-        instructionLookBehindMeters = 24.0,
-        minInstructionSpacingMeters = 55.0,
-        minInstructionAngleDegrees = 32.0,
-    )
-
-private const val BROUTER_GUIDANCE_MAX_VIA_POINTS = 8
-private const val BROUTER_GUIDANCE_FALLBACK_MESSAGE =
-    "BRouter routing tiles are not available for this GPX. Guidance started on the GPX route instead."
-
-private fun looksLikeBrouterRoute(
-    title: String,
-    fileName: String,
-): Boolean {
-    val haystack = "$title $fileName"
-    return haystack.contains("brouter", ignoreCase = true) ||
-        haystack.contains("route-", ignoreCase = true) ||
-        haystack.contains("loop", ignoreCase = true)
-}
 
 private fun batchSendSummary(
     sentCount: Int,

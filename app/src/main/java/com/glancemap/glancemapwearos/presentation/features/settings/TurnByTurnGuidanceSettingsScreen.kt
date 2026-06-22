@@ -10,7 +10,6 @@ fun TurnByTurnGuidanceSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenTurnByTurnSettings: () -> Unit,
 ) {
-    val guidanceSource by viewModel.turnByTurnGuidanceSource.collectAsState()
     val routeStartBehavior by viewModel.turnByTurnRouteStartBehavior.collectAsState()
     val reverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
     val brouterGuideBackEnabled by viewModel.turnByTurnBrouterGuideBackEnabled.collectAsState()
@@ -18,15 +17,6 @@ fun TurnByTurnGuidanceSettingsScreen(
     WearSettingsListScreen(horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             TurnByTurnSettingsShortcutChip(onClick = onOpenTurnByTurnSettings)
-        }
-        item {
-            SettingsOptionPickerRow(
-                label = "Guidance source",
-                selectedValue = guidanceSource,
-                options = TurnByTurnGuidanceSourceOptions,
-                secondaryLabel = guidanceSourceLabel(guidanceSource),
-                onSelect = viewModel::setTurnByTurnGuidanceSource,
-            )
         }
         item {
             SettingsOptionPickerRow(
