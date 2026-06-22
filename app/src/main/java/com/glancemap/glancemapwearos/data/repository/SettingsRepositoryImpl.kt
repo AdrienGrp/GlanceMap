@@ -1449,7 +1449,6 @@ class SettingsRepositoryImpl private constructor(
         private val allowedPoiIconSizesPx =
             setOf(
                 SettingsRepository.POI_ICON_SIZE_SMALL_PX,
-                SettingsRepository.POI_ICON_SIZE_DEFAULT_PX,
                 SettingsRepository.POI_ICON_SIZE_MEDIUM_PX,
                 SettingsRepository.POI_ICON_SIZE_LARGE_PX,
             )

@@ -163,9 +163,9 @@ interface SettingsRepository {
         const val DEFAULT_GPX_TRACK_DIRECTION_ARROWS_ENABLED = false
 
         const val POI_ICON_SIZE_SMALL_PX = 18
-        const val POI_ICON_SIZE_DEFAULT_PX = 22
         const val POI_ICON_SIZE_MEDIUM_PX = 24
         const val POI_ICON_SIZE_LARGE_PX = 26
+        const val POI_ICON_SIZE_DEFAULT_PX = POI_ICON_SIZE_MEDIUM_PX
         const val POI_MARKER_STYLE_BADGE = "BADGE"
         const val POI_MARKER_STYLE_THEME_ICON = "THEME_ICON"
 

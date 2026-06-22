@@ -38,7 +38,6 @@ fun PoiSettingsScreen(
     val iconSizeOptions =
         remember {
             listOf(
-                SettingsRepository.POI_ICON_SIZE_DEFAULT_PX to "Default",
                 SettingsRepository.POI_ICON_SIZE_SMALL_PX to "Small",
                 SettingsRepository.POI_ICON_SIZE_MEDIUM_PX to "Medium",
                 SettingsRepository.POI_ICON_SIZE_LARGE_PX to "Big",
@@ -122,7 +121,7 @@ private fun poiIconSizeLabel(sizePx: Int): String =
         SettingsRepository.POI_ICON_SIZE_SMALL_PX -> "Small"
         SettingsRepository.POI_ICON_SIZE_MEDIUM_PX -> "Medium"
         SettingsRepository.POI_ICON_SIZE_LARGE_PX -> "Big"
-        else -> "Default"
+        else -> "Medium"
     }
 
 private fun poiMarkerStyleLabel(style: String): String =
