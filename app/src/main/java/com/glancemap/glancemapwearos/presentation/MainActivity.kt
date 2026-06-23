@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -334,7 +336,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 val statusChipModifier =
                                     Modifier
-                                        .padding(top = if (interactiveStatusChipActive) 4.dp else 2.dp)
+                                        .padding(top = if (interactiveStatusChipActive) 6.dp else 2.dp)
                                 if (interactiveStatusChipActive) {
                                     RecordingTimeChip(
                                         showTime = canShowNavigateTime,
@@ -1103,7 +1105,7 @@ private fun RecordingTimeChip(
         }
     Box(
         modifier =
-            Modifier
+            modifier
                 .width(128.dp)
                 .height(48.dp)
                 .pointerInput(onTap, onLongPress) {
@@ -1124,8 +1126,7 @@ private fun RecordingTimeChip(
                             onLongPress()
                         },
                     )
-                }
-                .then(modifier),
+                },
         contentAlignment = Alignment.TopCenter,
     ) {
         if (label.isBlank()) {
@@ -1153,6 +1154,7 @@ private fun RecordingTimeChip(
                     modifier =
                         Modifier
                         .height(20.dp)
+                        .widthIn(min = 66.dp)
                         .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
                         .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
                         .padding(start = 7.dp, end = 8.dp),
@@ -1164,12 +1166,16 @@ private fun RecordingTimeChip(
                         RecordingStatusDot(accentColor)
                         Text(
                             text = label,
-                            modifier = Modifier.padding(start = 5.dp),
+                            modifier =
+                                Modifier
+                                    .padding(start = 5.dp)
+                                    .weight(1f),
                             style =
                                 MaterialTheme.typography.titleMedium.copy(
                                     fontSize = 15.sp,
                                 ),
                             color = Color.White,
+                            textAlign = TextAlign.Center,
                             maxLines = 1,
                         )
                     }

@@ -423,10 +423,6 @@ private fun CombinedCompactPopup(
         }
     val compactBackground = Color.Black.copy(alpha = 0.9f)
     val compactBorder = Color.Transparent
-    val showTwoLineInstruction =
-        !guidancePaused &&
-            !guidanceState.offRoute &&
-            guidanceState.mode == GuidanceMode.FOLLOW_ROUTE
     Box(
         modifier =
             modifier
@@ -455,7 +451,7 @@ private fun CombinedCompactPopup(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = if (showTwoLineInstruction) 38.dp else 30.dp)
+                    .heightIn(min = 30.dp)
                     .background(compactBackground, RoundedCornerShape(8.dp))
                     .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
                     .padding(horizontal = 6.dp, vertical = 3.dp),
@@ -484,7 +480,7 @@ private fun CombinedCompactPopup(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = titleFont,
                         lineHeight = titleFont * 1.1f,
-                        maxLines = if (showTwoLineInstruction) 2 else 1,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

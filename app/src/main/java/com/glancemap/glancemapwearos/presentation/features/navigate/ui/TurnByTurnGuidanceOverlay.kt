@@ -236,7 +236,6 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     }
 
     if (!expanded) {
-        val showTwoLineInstruction = !paused && !state.offRoute && state.mode == GuidanceMode.FOLLOW_ROUTE
         val compactBackground = Color.Black.copy(alpha = 0.9f)
         val compactBorder = Color.Transparent
         Box(
@@ -263,7 +262,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = if (showTwoLineInstruction) 38.dp else 30.dp)
+                        .heightIn(min = 30.dp)
                         .background(compactBackground, RoundedCornerShape(8.dp))
                         .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
                         .padding(horizontal = 6.dp, vertical = 3.dp),
@@ -292,7 +291,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = titleFont,
                             lineHeight = titleFont * 1.1f,
-                            maxLines = if (showTwoLineInstruction) 2 else 1,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }

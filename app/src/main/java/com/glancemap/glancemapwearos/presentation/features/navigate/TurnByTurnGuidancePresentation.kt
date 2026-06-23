@@ -35,16 +35,9 @@ internal fun guidanceInstructionDistanceText(
 internal fun guidanceCompactInstructionText(
     state: TurnByTurnGuidanceState,
     isMetric: Boolean,
-): String {
-    val distance = guidanceInstructionDistanceText(state, isMetric)
-    return if (guidanceShowsCurrentStraight(state)) {
-        val current = listOfNotNull("Continue", distance).joinToString(" ")
-        val next = state.nextInstruction?.message?.lowercase()
-        if (next == null) current else "$current\nThen $next"
-    } else {
-        listOfNotNull(guidanceInstructionPrimaryText(state), distance).joinToString("\n")
-    }
-}
+): String =
+    guidanceInstructionDistanceText(state, isMetric)
+        ?: guidanceInstructionPrimaryText(state)
 
 internal const val MANEUVER_PREPARATION_DISTANCE_METERS = 60.0
 private const val MANEUVER_NOW_DISTANCE_METERS = 5.0
