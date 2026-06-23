@@ -7,16 +7,25 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -26,15 +35,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails
@@ -68,6 +82,8 @@ internal fun NavigateContent(
     onMapHolderChange: (MapHolder?) -> Unit,
     onMapViewReadyForRendering: () -> Unit,
     onNavigateTimeSuppressedChange: (Boolean) -> Unit,
+    showNavigateTime: Boolean,
+    navigateTimeFormat: String,
     mapAppearanceApplyInProgress: Boolean,
     slopeOverlayToggleEnabled: Boolean,
     slopeOverlayEnabled: Boolean,
@@ -110,6 +126,8 @@ internal fun NavigateContent(
     backpackWeightKg: Float,
     recordingDashboardExpandRequestToken: Long,
     recordingActionPromptRequestToken: Long,
+    onRecordingTimeTap: () -> Unit,
+    onRecordingTimeLongPress: () -> Unit,
     onStartRecording: () -> Unit,
     onPauseRecording: () -> Unit,
     onResumeRecording: () -> Unit,
@@ -901,6 +919,22 @@ internal fun NavigateContent(
                 onDismissStartDecisionPrompt = onDismissStartDecisionPrompt,
             )
 
+            CenteredNavigateTimeChip(
+                visible =
+                    !fullScreenPopupExpanded &&
+                        !shouldSuppressNavigateTime &&
+                        (showNavigateTime || traceRecordingState.active || traceRecordingState.saving),
+                showTime = showNavigateTime,
+                timeFormat = navigateTimeFormat,
+                recordingActive = traceRecordingState.active || traceRecordingState.saving,
+                recordingPaused = traceRecordingState.paused,
+                recordingSaving = traceRecordingState.saving,
+                guidanceActive = turnByTurnGuidanceState.active,
+                onTap = onRecordingTimeTap,
+                onLongPress = onRecordingTimeLongPress,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+
             MarkerMotionDebugOverlay(
                 label = markerMotionDebugOverlayLabel,
                 screenSize = screenSize,
@@ -957,6 +991,111 @@ internal fun NavigateContent(
                 sizing = sizing,
                 onPermissionLaunch = onPermissionLaunch,
             )
+        }
+    }
+}
+
+@Composable
+private fun CenteredNavigateTimeChip(
+    visible: Boolean,
+    showTime: Boolean,
+    timeFormat: String,
+    recordingActive: Boolean,
+    recordingPaused: Boolean,
+    recordingSaving: Boolean,
+    guidanceActive: Boolean,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (!visible) return
+    val context = LocalContext.current
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            nowMillis = System.currentTimeMillis()
+            delay(1_000L)
+        }
+    }
+    val label = if (showTime) formatNavigateClockTime(context, nowMillis, timeFormat) else ""
+    val accentColor =
+        when {
+            recordingSaving || recordingPaused -> Color(0xFFFFB74D)
+            recordingActive -> Color(0xFFFF1744)
+            guidanceActive -> MaterialTheme.colorScheme.primary
+            else -> Color.White.copy(alpha = 0.82f)
+        }
+    val baseModifier =
+        modifier
+            .padding(top = 4.dp)
+            .width(128.dp)
+            .height(48.dp)
+    Box(
+        modifier =
+            if (recordingActive) {
+                baseModifier.pointerInput(onTap, onLongPress) {
+                    detectTapGestures(
+                        onPress = {
+                            DebugTelemetry.log(
+                                "TraceRecording",
+                                "event=time_chip_touch_down x=${it.x.toInt()} y=${it.y.toInt()}",
+                            )
+                            tryAwaitRelease()
+                        },
+                        onTap = {
+                            DebugTelemetry.log("TraceRecording", "event=time_chip_touch_up action=tap")
+                            onTap()
+                        },
+                        onLongPress = {
+                            DebugTelemetry.log("TraceRecording", "event=time_chip_touch_up action=long_press")
+                            onLongPress()
+                        },
+                    )
+                }
+            } else {
+                baseModifier
+            },
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        if (label.isBlank()) {
+            Box(
+                modifier =
+                    Modifier
+                        .padding(top = 12.dp)
+                        .size(4.dp)
+                        .background(accentColor, CircleShape),
+            )
+        } else {
+            Box(
+                modifier =
+                    Modifier
+                        .height(20.dp)
+                        .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
+                        .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
+                        .padding(start = if (recordingActive) 7.dp else 9.dp, end = 9.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (recordingActive) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(4.dp)
+                                    .background(accentColor, CircleShape),
+                        )
+                    }
+                    Text(
+                        text = label,
+                        modifier = Modifier.padding(start = if (recordingActive) 5.dp else 0.dp),
+                        style =
+                            MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 15.sp,
+                            ),
+                        color = Color.White,
+                        maxLines = 1,
+                    )
+                }
+            }
         }
     }
 }

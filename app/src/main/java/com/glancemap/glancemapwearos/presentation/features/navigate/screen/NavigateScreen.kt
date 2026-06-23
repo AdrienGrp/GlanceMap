@@ -77,8 +77,12 @@ fun NavigateScreen(
     isDeviceInteractive: Boolean,
     ambientTickMs: Long,
     onNavigateTimeSuppressedChange: (Boolean) -> Unit = {},
+    showNavigateTime: Boolean = true,
+    navigateTimeFormat: String = SettingsRepository.TIME_FORMAT_24_HOUR,
     recordingDashboardExpandRequestToken: Long = 0L,
     recordingActionPromptRequestToken: Long = 0L,
+    onRecordingTimeTap: () -> Unit = {},
+    onRecordingTimeLongPress: () -> Unit = {},
     onMenuClick: () -> Unit,
     compassViewModel: CompassViewModel = viewModel(),
     navigateViewModel: NavigateViewModel =
@@ -841,6 +845,8 @@ fun NavigateScreen(
         onMapHolderChange = { /* no-op */ },
         onMapViewReadyForRendering = { mapViewModel.onMapViewReadyForRendering() },
         onNavigateTimeSuppressedChange = onNavigateTimeSuppressedChange,
+        showNavigateTime = showNavigateTime,
+        navigateTimeFormat = navigateTimeFormat,
         mapAppearanceApplyInProgress = mapAppearanceApplyInProgress,
         slopeOverlayToggleEnabled = slopeOverlayToggleEnabled,
         slopeOverlayEnabled = slopeOverlayState.enabled,
@@ -913,6 +919,8 @@ fun NavigateScreen(
         backpackWeightKg = backpackWeightKg,
         recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
         recordingActionPromptRequestToken = recordingActionPromptRequestToken,
+        onRecordingTimeTap = onRecordingTimeTap,
+        onRecordingTimeLongPress = onRecordingTimeLongPress,
         onStartRecording = {
             shortcutTrayExpanded = false
             startRecordingWithActivityPermission()

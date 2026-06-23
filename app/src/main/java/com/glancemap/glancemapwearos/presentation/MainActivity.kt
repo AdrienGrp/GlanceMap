@@ -12,40 +12,23 @@ import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.wear.ambient.AmbientLifecycleObserver
-import androidx.wear.compose.foundation.CurvedTextStyle
-import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.Text
-import androidx.wear.compose.material3.TimeText
-import androidx.wear.compose.material3.TimeTextDefaults
-import androidx.wear.compose.material3.timeTextCurvedText
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
@@ -56,8 +39,6 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxScreen
 import com.glancemap.glancemapwearos.presentation.features.home.MainScreen
 import com.glancemap.glancemapwearos.presentation.features.maps.MapsScreen
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateScreen
-import com.glancemap.glancemapwearos.presentation.features.navigate.formatNavigateClockTime
-import com.glancemap.glancemapwearos.presentation.features.navigate.navigateTimePattern
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.policy.navigationRuntimeDemand
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
@@ -296,72 +277,23 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                val onRecordingTimeTap = {
+                    DebugTelemetry.log(
+                        "TraceRecording",
+                        "event=time_chip_tap debugCapture=${DebugTelemetry.isEnabled()}",
+                    )
+                    recordingDashboardExpandRequestToken += 1L
+                }
+                val onRecordingTimeLongPress = {
+                    DebugTelemetry.log(
+                        "TraceRecording",
+                        "event=time_chip_long_press debugCapture=${DebugTelemetry.isEnabled()}",
+                    )
+                    recordingActionPromptRequestToken += 1L
+                }
 
                 AppScaffold(
-                    timeText = {
-                        val recordingChipActive = traceRecordingState.active || traceRecordingState.saving
-                        val interactiveStatusChipActive = recordingChipActive
-                        val canShowNavigateTime = showTimeInNavigate && isNavigateScreen && !isAmbient
-                        val canShowInteractiveStatusChip =
-                            interactiveStatusChipActive && isNavigateScreen && !isAmbient
-                        val shouldShowStatusChip =
-                            (canShowNavigateTime || canShowInteractiveStatusChip) && !suppressNavigateTime
-                        if (shouldShowStatusChip) {
-                            cappedFontScale(maxFontScale = 1f) {
-                                val context = LocalContext.current
-                                val recordingStatusColor =
-                                    when {
-                                        traceRecordingState.saving -> Color(0xFFFFB74D)
-                                        traceRecordingState.paused -> Color(0xFFFFB74D)
-                                        recordingChipActive -> Color(0xFFFF1744)
-                                        else -> Color.White
-                                    }
-                                val onRecordingTimeTap = {
-                                    DebugTelemetry.log(
-                                        "TraceRecording",
-                                        "event=time_chip_tap debugCapture=${DebugTelemetry.isEnabled()}",
-                                    )
-                                    recordingDashboardExpandRequestToken += 1L
-                                }
-                                val onRecordingTimeLongPress = {
-                                    DebugTelemetry.log(
-                                        "TraceRecording",
-                                        "event=time_chip_long_press debugCapture=${DebugTelemetry.isEnabled()}",
-                                    )
-                                    recordingActionPromptRequestToken += 1L
-                                }
-                                val statusChipModifier =
-                                    Modifier
-                                        .padding(top = if (interactiveStatusChipActive) 4.dp else 2.dp)
-                                if (interactiveStatusChipActive) {
-                                    RecordingTimeChip(
-                                        showTime = canShowNavigateTime,
-                                        timeFormat = navigateTimeFormat,
-                                        accentColor = recordingStatusColor,
-                                        modifier = statusChipModifier,
-                                        onTap = onRecordingTimeTap,
-                                        onLongPress = onRecordingTimeLongPress,
-                                    )
-                                } else {
-                                    TimeText(
-                                        modifier = statusChipModifier,
-                                        timeSource =
-                                            TimeTextDefaults.rememberTimeSource(
-                                                navigateTimePattern(context, navigateTimeFormat),
-                                            ),
-                                    ) { time ->
-                                        timeTextCurvedText(
-                                            time = time,
-                                            style =
-                                                CurvedTextStyle(
-                                                    color = Color.White,
-                                                ),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    },
+                    timeText = {},
                 ) {
                     NavHost(
                         navController = navController,
@@ -394,8 +326,12 @@ class MainActivity : ComponentActivity() {
                                 isDeviceInteractive = isDeviceInteractive,
                                 ambientTickMs = ambientTickMs,
                                 onNavigateTimeSuppressedChange = { suppressNavigateTime = it },
+                                showNavigateTime = showTimeInNavigate && !suppressNavigateTime,
+                                navigateTimeFormat = navigateTimeFormat,
                                 recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
                                 recordingActionPromptRequestToken = recordingActionPromptRequestToken,
+                                onRecordingTimeTap = onRecordingTimeTap,
+                                onRecordingTimeLongPress = onRecordingTimeLongPress,
                                 onMenuClick = {
                                     logNavigationTelemetry(
                                         event = "menu_click",
@@ -1073,119 +1009,4 @@ class MainActivity : ComponentActivity() {
         DebugTelemetry.log("NavigationTelemetry", message)
         FieldMarkerDiagnostics.recordMarker(type = event, note = route ?: "unknown")
     }
-}
-
-@Composable
-@OptIn(ExperimentalFoundationApi::class)
-private fun RecordingTimeChip(
-    showTime: Boolean,
-    timeFormat: String,
-    accentColor: Color,
-    modifier: Modifier = Modifier,
-    onTap: () -> Unit,
-    onLongPress: () -> Unit,
-) {
-    val context = LocalContext.current
-    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            nowMillis = System.currentTimeMillis()
-            kotlinx.coroutines.delay(1_000L)
-        }
-    }
-    val label =
-        if (showTime) {
-            formatNavigateClockTime(context, nowMillis, timeFormat)
-        } else {
-            ""
-        }
-    Box(
-        modifier =
-            Modifier
-                .width(128.dp)
-                .height(48.dp)
-                .pointerInput(onTap, onLongPress) {
-                    detectTapGestures(
-                        onPress = {
-                            DebugTelemetry.log(
-                                "TraceRecording",
-                                "event=time_chip_touch_down x=${it.x.toInt()} y=${it.y.toInt()}",
-                            )
-                            tryAwaitRelease()
-                        },
-                        onTap = {
-                            DebugTelemetry.log("TraceRecording", "event=time_chip_touch_up action=tap")
-                            onTap()
-                        },
-                        onLongPress = {
-                            DebugTelemetry.log("TraceRecording", "event=time_chip_touch_up action=long_press")
-                            onLongPress()
-                        },
-                    )
-                }
-                .then(modifier),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        if (label.isBlank()) {
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .size(48.dp),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                RecordingStatusDot(
-                    color = accentColor,
-                    modifier = Modifier.padding(top = 12.dp),
-                )
-            }
-        } else {
-            Box(
-                modifier =
-                    Modifier
-                        .height(48.dp)
-                        .padding(top = 0.dp),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                        .height(20.dp)
-                        .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
-                        .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
-                        .padding(start = 7.dp, end = 8.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RecordingStatusDot(accentColor)
-                        Text(
-                            text = label,
-                            modifier = Modifier.padding(start = 5.dp),
-                            style =
-                                MaterialTheme.typography.titleMedium.copy(
-                                    fontSize = 15.sp,
-                                ),
-                            color = Color.White,
-                            maxLines = 1,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecordingStatusDot(
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier =
-            modifier
-                .size(4.dp)
-                .background(color, CircleShape),
-    )
 }
