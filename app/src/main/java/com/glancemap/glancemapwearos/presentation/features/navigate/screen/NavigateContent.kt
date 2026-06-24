@@ -804,6 +804,7 @@ internal fun NavigateContent(
                 navMode = navMode,
                 screenSize = screenSize,
                 isMetric = isMetric,
+                timeFormat = navigateTimeFormat,
                 liveElevationEnabled = liveElevationEnabled,
                 liveElevationLabel = liveElevationLabel,
                 liveDistanceEnabled = liveDistanceEnabled,

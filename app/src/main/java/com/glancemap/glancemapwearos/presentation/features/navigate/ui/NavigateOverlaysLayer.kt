@@ -72,6 +72,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     navMode: NavMode,
     screenSize: WearScreenSize,
     isMetric: Boolean,
+    timeFormat: String,
     liveElevationEnabled: Boolean,
     liveElevationLabel: String?,
     liveDistanceEnabled: Boolean,
@@ -514,6 +515,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         voiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
         screenSize = screenSize,
         isMetric = isMetric,
+        timeFormat = timeFormat,
         compassHeadingDeg = compassHeadingDeg,
         guideBackToRouteActive = guideBackToRouteActive,
         showGuideBackPrompt = showGuideBackPrompt,
@@ -544,6 +546,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         backpackWeightKg = backpackWeightKg,
         screenSize = screenSize,
         isMetric = isMetric,
+        timeFormat = timeFormat,
         showRouteCompletePrompt = showRouteCompleteRecordingPrompt,
         onRouteCompletePromptDismiss = {
             showRouteCompleteRecordingPrompt = false
@@ -573,6 +576,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         backpackWeightKg = backpackWeightKg,
         screenSize = screenSize,
         isMetric = isMetric,
+        timeFormat = timeFormat,
         compassHeadingDeg = compassHeadingDeg,
         guideBackToRouteActive = guideBackToRouteActive,
         expandRequestToken = recordingDashboardExpandRequestToken,

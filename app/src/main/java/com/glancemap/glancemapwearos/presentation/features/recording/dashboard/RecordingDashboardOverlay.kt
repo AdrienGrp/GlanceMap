@@ -41,6 +41,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
     backpackWeightKg: Float,
     screenSize: WearScreenSize,
     isMetric: Boolean,
+    timeFormat: String,
     showRouteCompletePrompt: Boolean = false,
     onRouteCompletePromptDismiss: () -> Unit = {},
     suppressed: Boolean,
@@ -162,6 +163,7 @@ internal fun BoxScope.RecordingDashboardOverlay(
                     snapshot = snapshot,
                     screenSize = screenSize,
                     isMetric = isMetric,
+                    timeFormat = timeFormat,
                     onSlotLongPress = { slotIndex ->
                         metricPickerSlot = dashboardPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
                     },

@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.recording.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -27,8 +29,15 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.presentation.features.navigate.formatNavigateClockTime
+import kotlinx.coroutines.delay
 
 @Composable
 internal fun RecordingFullscreenPageShell(
@@ -39,6 +48,7 @@ internal fun RecordingFullscreenPageShell(
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
     telemetryTag: String = "TraceRecording",
+    timeFormat: String = SettingsRepository.TIME_FORMAT_24_HOUR,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -100,6 +110,13 @@ internal fun RecordingFullscreenPageShell(
         contentAlignment = Alignment.Center,
     ) {
         content()
+        FullscreenPopupTimeChip(
+            timeFormat = timeFormat,
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 4.dp),
+        )
         RecordingDashboardPageIndicator(
             pageIndex = pageIndex,
             pageCount = pageCount,
@@ -107,6 +124,40 @@ internal fun RecordingFullscreenPageShell(
                 Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = 14.dp),
+        )
+    }
+}
+
+@Composable
+private fun FullscreenPopupTimeChip(
+    timeFormat: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            nowMillis = System.currentTimeMillis()
+            delay(1_000L)
+        }
+    }
+    Box(
+        modifier =
+            modifier
+                .height(20.dp)
+                .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
+                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
+                .padding(horizontal = 9.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = formatNavigateClockTime(context, nowMillis, timeFormat),
+            style =
+                MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 15.sp,
+                ),
+            color = Color.White,
+            maxLines = 1,
         )
     }
 }

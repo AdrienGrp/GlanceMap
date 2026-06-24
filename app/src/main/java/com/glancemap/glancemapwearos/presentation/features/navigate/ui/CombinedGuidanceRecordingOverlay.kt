@@ -99,6 +99,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     backpackWeightKg: Float,
     screenSize: WearScreenSize,
     isMetric: Boolean,
+    timeFormat: String,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     expandRequestToken: Long,
@@ -238,6 +239,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                     snapshot = snapshot,
                     screenSize = screenSize,
                     isMetric = isMetric,
+                    timeFormat = timeFormat,
                     compassHeadingDeg = compassHeadingDeg,
                     guideBackToRouteActive = guideBackToRouteActive,
                     onSlotLongPress = { slotIndex ->
@@ -504,6 +506,7 @@ private fun CombinedFullscreenDashboard(
     snapshot: RecordingDashboardSnapshot,
     screenSize: WearScreenSize,
     isMetric: Boolean,
+    timeFormat: String,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     onSlotLongPress: (Int) -> Unit,
@@ -521,6 +524,7 @@ private fun CombinedFullscreenDashboard(
         onNextPage = onNextPage,
         onShowActions = onShowActions,
         telemetryTag = "TurnByTurn",
+        timeFormat = timeFormat,
     ) {
         if (pageIndex == 0) {
             CombinedGuidancePage(

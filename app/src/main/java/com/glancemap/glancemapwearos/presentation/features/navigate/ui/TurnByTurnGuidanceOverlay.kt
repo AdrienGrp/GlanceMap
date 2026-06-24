@@ -81,6 +81,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     voiceGuidanceEnabled: Boolean,
     screenSize: WearScreenSize,
     isMetric: Boolean,
+    timeFormat: String,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     showGuideBackPrompt: Boolean,
@@ -201,6 +202,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     onNextPage = { expandedPageIndex = (expandedPageIndex + 1).coerceAtMost(expandedPageCount - 1) },
                     onShowActions = { showActionPrompt = true },
                     telemetryTag = "TurnByTurn",
+                    timeFormat = timeFormat,
                 ) {
                     if (expandedPageIndex == 0) {
                         ExpandedGuidanceOverlay(

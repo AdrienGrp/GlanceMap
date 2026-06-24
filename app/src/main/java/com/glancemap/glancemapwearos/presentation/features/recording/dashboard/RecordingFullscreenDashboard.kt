@@ -29,6 +29,7 @@ internal fun ExpandedRecordingDashboard(
     snapshot: RecordingDashboardSnapshot,
     screenSize: WearScreenSize,
     isMetric: Boolean,
+    timeFormat: String,
     onSlotLongPress: (Int) -> Unit,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
@@ -55,6 +56,7 @@ internal fun ExpandedRecordingDashboard(
         onPreviousPage = onPreviousPage,
         onNextPage = onNextPage,
         onShowActions = onShowActions,
+        timeFormat = timeFormat,
     ) {
         cappedFontScale(maxFontScale = 1f) {
             Column(
