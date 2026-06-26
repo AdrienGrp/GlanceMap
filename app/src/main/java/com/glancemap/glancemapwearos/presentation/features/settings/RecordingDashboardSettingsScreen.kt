@@ -16,8 +16,8 @@ import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_MAX_PAG
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_MIN_PAGE_COUNT
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.data.repository.normalizeRecordingDashboardMetricSlots
-import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricPickerOptions
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricDefinitions
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingMetricPickerOptions
 import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 
 @Composable
@@ -158,5 +158,4 @@ private val RECORDING_DASHBOARD_SLOT_LABELS = listOf("Top measure", "Left measur
 
 private fun recordingDashboardPageLabel(pageIndex: Int): String = "Page ${pageIndex + 1}"
 
-private fun recordingMetricLabel(metricId: String): String =
-    recordingMetricDefinitions.firstOrNull { it.id == metricId }?.label ?: "Distance"
+private fun recordingMetricLabel(metricId: String): String = recordingMetricDefinitions.firstOrNull { it.id == metricId }?.label ?: "Distance"

@@ -4,7 +4,6 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Gpx
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.bearingDegrees
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.buildCumulativeDistances
-import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.projectLocationToRoute
 import org.mapsforge.core.model.LatLong
 import java.util.Locale
@@ -133,11 +132,9 @@ internal fun String?.telemetryTrackName(): String =
         ?.take(MAX_TELEMETRY_TRACK_NAME_CHARS)
         ?: "none"
 
-internal fun Double?.telemetryDistance(): String =
-    this?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
+internal fun Double?.telemetryDistance(): String = this?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
 
-internal fun Float?.telemetryPercent(): String =
-    this?.let { String.format(Locale.US, "%.1f", it.coerceIn(0f, 1f) * 100f) } ?: "na"
+internal fun Float?.telemetryPercent(): String = this?.let { String.format(Locale.US, "%.1f", it.coerceIn(0f, 1f) * 100f) } ?: "na"
 
 internal fun Double.roundTelemetryMeters(): Int? = if (isFinite()) toInt() else null
 

@@ -14,8 +14,8 @@ import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenS
 import com.glancemap.glancemapwearos.domain.sensors.COMPASS_TELEMETRY_TAG
 import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
-import java.util.Locale
 import kotlinx.coroutines.delay
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -344,8 +344,7 @@ private class CompassStartupMetrics {
         )
     }
 
-    private fun stableLatency(atMs: Long?): String =
-        atMs?.let { (it - startedAtMs).coerceAtLeast(0L).toString() } ?: "na"
+    private fun stableLatency(atMs: Long?): String = atMs?.let { (it - startedAtMs).coerceAtLeast(0L).toString() } ?: "na"
 }
 
 private object CompassSessionHistory {
@@ -393,8 +392,7 @@ private fun signedHeadingDeltaDeg(
     currentDeg: Float,
 ): Float = ((targetDeg - currentDeg + 540f) % 360f) - 180f
 
-private fun Float?.formatOrNa(decimals: Int): String =
-    this?.takeIf(Float::isFinite)?.format(decimals) ?: "na"
+private fun Float?.formatOrNa(decimals: Int): String = this?.takeIf(Float::isFinite)?.format(decimals) ?: "na"
 
 private fun Float.format(decimals: Int): String = "%.${decimals}f".format(Locale.US, this)
 

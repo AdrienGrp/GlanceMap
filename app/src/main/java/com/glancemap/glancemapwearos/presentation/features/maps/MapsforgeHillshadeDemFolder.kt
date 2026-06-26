@@ -86,8 +86,7 @@ private class GzipHgtDemFile(
         return readGzipUncompressedSize(file).also { cachedSize = it }
     }
 
-    override fun openInputStream(bufferSize: Int): InputStream =
-        GZIPInputStream(BufferedInputStream(FileInputStream(file), bufferSize))
+    override fun openInputStream(bufferSize: Int): InputStream = GZIPInputStream(BufferedInputStream(FileInputStream(file), bufferSize))
 
     override fun asStream(): InputStream = openInputStream(DemFile.BufferSizeDefault)
 

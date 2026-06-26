@@ -451,7 +451,6 @@ fun GpxSettingsScreen(
             }
         }
     }
-
 }
 
 @Composable

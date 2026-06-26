@@ -45,8 +45,7 @@ internal val turnByTurnMetricDefinitions =
 internal val turnByTurnMetricPickerOptions =
     turnByTurnMetricDefinitions.sortedBy { it.label.lowercase() }.map { it.id to it.label }
 
-internal fun turnByTurnMetricLabel(metricId: String): String =
-    turnByTurnMetricDefinitions.firstOrNull { it.id == metricId }?.label ?: "Remaining distance"
+internal fun turnByTurnMetricLabel(metricId: String): String = turnByTurnMetricDefinitions.firstOrNull { it.id == metricId }?.label ?: "Remaining distance"
 
 @Composable
 internal fun TurnByTurnMetricDashboardPage(

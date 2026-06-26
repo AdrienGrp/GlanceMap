@@ -7,7 +7,6 @@ package com.glancemap.glancemapwearos.presentation.features.poi
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -640,22 +639,22 @@ fun PoiScreen(
                         MaterialTheme.colorScheme.primary
                     },
             ) {
-                        CompactIconHitTargetButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showHelpDialog = true
-                            },
-                            visualSize = headerActionButtonSize,
-                            visualOffsetY = headerActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = Color.White,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "POI actions help",
-                                modifier = Modifier.size(headerActionIconSize),
-                            )
-                        }
+                CompactIconHitTargetButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showHelpDialog = true
+                    },
+                    visualSize = headerActionButtonSize,
+                    visualOffsetY = headerActionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "POI actions help",
+                        modifier = Modifier.size(headerActionIconSize),
+                    )
+                }
             }
 
             Box(

@@ -35,8 +35,9 @@ class TraceRecordingDraftStore(
                                             pointJson.getDouble("lon"),
                                         ),
                                     elevationMeters = pointJson.optionalDouble("elevationMeters"),
-                                    timeMillis = pointJson.optLong("timeMillis", 0L).takeIf { it > 0L }
-                                        ?: continue,
+                                    timeMillis =
+                                        pointJson.optLong("timeMillis", 0L).takeIf { it > 0L }
+                                            ?: continue,
                                     accuracyMeters = pointJson.optionalFloat("accuracyMeters"),
                                     speedMps = pointJson.optionalFloat("speedMps"),
                                     elevationSource = pointJson.optionalString("elevationSource"),
@@ -149,8 +150,7 @@ private fun JSONObject.optionalDouble(key: String): Double? =
         optDouble(key).takeIf { it.isFinite() }
     }
 
-private fun JSONObject.optionalFloat(key: String): Float? =
-    optionalDouble(key)?.toFloat()
+private fun JSONObject.optionalFloat(key: String): Float? = optionalDouble(key)?.toFloat()
 
 private fun JSONObject.optionalInt(key: String): Int? =
     if (isNull(key)) {

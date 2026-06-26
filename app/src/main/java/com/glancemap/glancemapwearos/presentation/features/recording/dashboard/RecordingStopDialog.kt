@@ -223,8 +223,7 @@ internal fun recordingRecapMetric(
         valueText = "$value${unit?.let { " $it" }.orEmpty()}".trim(),
     )
 
-private fun RecordingMetricValue.toRecordingRecapMetric(): RecordingRecapMetric =
-    recordingRecapMetric(label = label, value = value, unit = unit)
+private fun RecordingMetricValue.toRecordingRecapMetric(): RecordingRecapMetric = recordingRecapMetric(label = label, value = value, unit = unit)
 
 internal fun recordingRecapMetricsForSnapshot(
     snapshot: RecordingDashboardSnapshot,

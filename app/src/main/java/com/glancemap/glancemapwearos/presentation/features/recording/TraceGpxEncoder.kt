@@ -199,14 +199,11 @@ private fun StringWriter.textTag(
     append(">")
 }
 
-internal fun buildRecordingFileName(nowMillis: Long): String =
-    "Recording-${RECORDING_FILE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}.gpx"
+internal fun buildRecordingFileName(nowMillis: Long): String = "Recording-${RECORDING_FILE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}.gpx"
 
-internal fun buildRecordingFileNameFromTitle(title: String): String =
-    "${sanitizeRecordingFileStem(title)}.gpx"
+internal fun buildRecordingFileNameFromTitle(title: String): String = "${sanitizeRecordingFileStem(title)}.gpx"
 
-internal fun buildRecordingTitle(nowMillis: Long): String =
-    "Recording ${RECORDING_TITLE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}"
+internal fun buildRecordingTitle(nowMillis: Long): String = "Recording ${RECORDING_TITLE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}"
 
 private fun formatCoordinate(value: Double): String = String.format(Locale.US, "%.8f", value)
 

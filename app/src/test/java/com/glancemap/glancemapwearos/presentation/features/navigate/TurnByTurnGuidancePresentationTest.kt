@@ -14,7 +14,7 @@ class TurnByTurnGuidancePresentationTest {
     fun longStraightShowsCurrentActionAndPreparesTurn() {
         val text = guidanceCompactInstructionText(state(distanceMeters = 180.0), isMetric = true)
 
-        assertEquals("Continue 180 m\nThen right", text)
+        assertEquals("180 m", text)
         assertTrue(guidanceShowsCurrentStraight(state(distanceMeters = 180.0)))
     }
 
@@ -22,14 +22,14 @@ class TurnByTurnGuidancePresentationTest {
     fun maneuverZoneShowsTurnAndDistance() {
         val text = guidanceCompactInstructionText(state(distanceMeters = 35.0), isMetric = true)
 
-        assertEquals("Right\n35 m", text)
+        assertEquals("35 m", text)
     }
 
     @Test
     fun retainedTurnShowsNowUntilConfirmed() {
         val text = guidanceCompactInstructionText(state(distanceMeters = 0.0), isMetric = true)
 
-        assertEquals("Right\nNow", text)
+        assertEquals("Now", text)
     }
 
     private fun state(distanceMeters: Double): TurnByTurnGuidanceState =

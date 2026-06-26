@@ -7,7 +7,9 @@ import com.glancemap.glancemapwearos.presentation.features.maps.ReliefDemReposit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class RecordingElevationProvider(context: Context) {
+class RecordingElevationProvider(
+    context: Context,
+) {
     private val demRepository =
         ReliefDemRepository(
             demRootDirs = Dem3CoverageUtils.demRootDirs(context.applicationContext),

@@ -642,8 +642,7 @@ class GpxViewModel(
                             "generatedTurns=${session.instructions.count { it.source == RouteInstructionSource.GPX_GEOMETRY }} " +
                             "warning=${buildResult.warningMessage?.telemetryToken() ?: "none"}",
                     )
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     DebugTelemetry.log(
                         "TurnByTurnStart",
                         "event=build_failure elapsedMs=${(SystemClock.elapsedRealtime() - buildStartElapsedMs).coerceAtLeast(0L)} " +
@@ -1393,7 +1392,6 @@ class GpxViewModel(
                 etaProjection = etaProjection,
             )
     }
-
 }
 
 private fun List<TrackPoint>.durationFromTimestampsSeconds(): Double? {
@@ -1425,8 +1423,7 @@ private fun List<TrackPoint>.averageHeartRateBpm(): Int? {
     return values.average().roundToInt()
 }
 
-private fun List<TrackPoint>.hasElevationData(): Boolean =
-    any { point -> point.elevation?.isFinite() == true }
+private fun List<TrackPoint>.hasElevationData(): Boolean = any { point -> point.elevation?.isFinite() == true }
 
 private fun List<TrackPoint>.averagePowerWatts(): Int? {
     val values = mapNotNull { point -> point.powerWatts?.takeIf { it >= 0 } }

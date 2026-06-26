@@ -5,8 +5,8 @@ package com.glancemap.glancemapwearos.presentation.features.navigate
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,8 +48,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -63,14 +63,14 @@ import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
 import com.glancemap.glancemapwearos.data.repository.normalizeTurnByTurnDashboardMetricSlots
-import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
-import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardMetricTile
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingFullscreenPageShell
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingStopPromptCard
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.buildRecordingDashboardSnapshot
@@ -99,7 +99,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     backpackWeightKg: Float,
     screenSize: WearScreenSize,
     isMetric: Boolean,
-    timeFormat: String,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     expandRequestToken: Long,
@@ -239,7 +238,6 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                     snapshot = snapshot,
                     screenSize = screenSize,
                     isMetric = isMetric,
-                    timeFormat = timeFormat,
                     compassHeadingDeg = compassHeadingDeg,
                     guideBackToRouteActive = guideBackToRouteActive,
                     onSlotLongPress = { slotIndex ->
@@ -434,8 +432,7 @@ private fun CombinedCompactPopup(
                 .combinedClickable(
                     onClick = onExpand,
                     onLongClick = onShowActions,
-                )
-                .pointerInput(guidanceState.mode, guidanceState.nextInstruction, guidancePaused) {
+                ).pointerInput(guidanceState.mode, guidanceState.nextInstruction, guidancePaused) {
                     var totalDrag = 0f
                     detectVerticalDragGestures(
                         onDragEnd = {
@@ -506,7 +503,6 @@ private fun CombinedFullscreenDashboard(
     snapshot: RecordingDashboardSnapshot,
     screenSize: WearScreenSize,
     isMetric: Boolean,
-    timeFormat: String,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     onSlotLongPress: (Int) -> Unit,
@@ -524,7 +520,6 @@ private fun CombinedFullscreenDashboard(
         onNextPage = onNextPage,
         onShowActions = onShowActions,
         telemetryTag = "TurnByTurn",
-        timeFormat = timeFormat,
     ) {
         if (pageIndex == 0) {
             CombinedGuidancePage(

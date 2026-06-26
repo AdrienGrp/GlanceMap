@@ -72,7 +72,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
     navMode: NavMode,
     screenSize: WearScreenSize,
     isMetric: Boolean,
-    timeFormat: String,
     liveElevationEnabled: Boolean,
     liveElevationLabel: String?,
     liveDistanceEnabled: Boolean,
@@ -395,36 +394,38 @@ internal fun BoxScope.NavigateOverlaysLayer(
         }
     }
 
-    if (!suppressMapControlsForGuidance) scaleIndicator?.let { indicator ->
-        val scaleFontScale = LocalDensity.current.fontScale
-        val scaleTopPadding = zoomLabelTopPadding + if (scaleFontScale > 1f) 4.dp else 0.dp
-        AnimatedVisibility(
-            visible = showScaleBar,
-            enter = fadeIn(tween(180)),
-            exit = fadeOut(tween(220)),
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = scaleTopPadding),
-        ) {
-            cappedFontScale(maxFontScale = 1f) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = indicator.label,
-                        modifier =
-                            Modifier
-                                .padding(top = 2.dp)
-                                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(5.dp))
-                                .padding(horizontal = 5.dp, vertical = 1.dp),
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 10.sp,
-                        lineHeight = 10.sp,
-                    )
-                    StandardScaleBar(
-                        width = zoomScaleBarWidth,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
+    if (!suppressMapControlsForGuidance) {
+        scaleIndicator?.let { indicator ->
+            val scaleFontScale = LocalDensity.current.fontScale
+            val scaleTopPadding = zoomLabelTopPadding + if (scaleFontScale > 1f) 4.dp else 0.dp
+            AnimatedVisibility(
+                visible = showScaleBar,
+                enter = fadeIn(tween(180)),
+                exit = fadeOut(tween(220)),
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = scaleTopPadding),
+            ) {
+                cappedFontScale(maxFontScale = 1f) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = indicator.label,
+                            modifier =
+                                Modifier
+                                    .padding(top = 2.dp)
+                                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(5.dp))
+                                    .padding(horizontal = 5.dp, vertical = 1.dp),
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 10.sp,
+                            lineHeight = 10.sp,
+                        )
+                        StandardScaleBar(
+                            width = zoomScaleBarWidth,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
                 }
             }
         }
@@ -515,7 +516,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
         voiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
         screenSize = screenSize,
         isMetric = isMetric,
-        timeFormat = timeFormat,
         compassHeadingDeg = compassHeadingDeg,
         guideBackToRouteActive = guideBackToRouteActive,
         showGuideBackPrompt = showGuideBackPrompt,
@@ -546,7 +546,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
         backpackWeightKg = backpackWeightKg,
         screenSize = screenSize,
         isMetric = isMetric,
-        timeFormat = timeFormat,
         showRouteCompletePrompt = showRouteCompleteRecordingPrompt,
         onRouteCompletePromptDismiss = {
             showRouteCompleteRecordingPrompt = false
@@ -576,7 +575,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
         backpackWeightKg = backpackWeightKg,
         screenSize = screenSize,
         isMetric = isMetric,
-        timeFormat = timeFormat,
         compassHeadingDeg = compassHeadingDeg,
         guideBackToRouteActive = guideBackToRouteActive,
         expandRequestToken = recordingDashboardExpandRequestToken,

@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +49,6 @@ internal fun RecordingFullscreenPageShell(
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
     telemetryTag: String = "TraceRecording",
-    timeFormat: String = SettingsRepository.TIME_FORMAT_24_HOUR,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -77,8 +77,7 @@ internal fun RecordingFullscreenPageShell(
                 .combinedClickable(
                     onClick = {},
                     onLongClick = onShowActions,
-                )
-                .pointerInput(dragKey, pageIndex, pageCount) {
+                ).pointerInput(dragKey, pageIndex, pageCount) {
                     var totalDragY = 0f
                     detectVerticalDragGestures(
                         onDragEnd = {
@@ -94,8 +93,7 @@ internal fun RecordingFullscreenPageShell(
                     ) { _, dragAmount ->
                         totalDragY += dragAmount
                     }
-                }
-                .onPreRotaryScrollEvent { event ->
+                }.onPreRotaryScrollEvent { event ->
                     handleRecordingRotaryPageEvent(
                         delta = event.verticalScrollPixels,
                         pageCount = pageCount,
@@ -104,14 +102,12 @@ internal fun RecordingFullscreenPageShell(
                         onPreviousPage = onPreviousPage,
                         onNextPage = onNextPage,
                     )
-                }
-                .focusRequester(focusRequester)
+                }.focusRequester(focusRequester)
                 .focusable(),
         contentAlignment = Alignment.Center,
     ) {
         content()
         FullscreenPopupTimeChip(
-            timeFormat = timeFormat,
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
@@ -128,9 +124,11 @@ internal fun RecordingFullscreenPageShell(
     }
 }
 
+internal val LocalFullscreenPopupTimeFormat =
+    staticCompositionLocalOf { SettingsRepository.TIME_FORMAT_24_HOUR }
+
 @Composable
 private fun FullscreenPopupTimeChip(
-    timeFormat: String,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -151,7 +149,7 @@ private fun FullscreenPopupTimeChip(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = formatNavigateClockTime(context, nowMillis, timeFormat),
+            text = formatNavigateClockTime(context, nowMillis, LocalFullscreenPopupTimeFormat.current),
             style =
                 MaterialTheme.typography.titleMedium.copy(
                     fontSize = 15.sp,

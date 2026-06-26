@@ -1554,15 +1554,15 @@ private fun OamRemoteFileMetadata.isComparable(): Boolean = metadataValues.any {
 internal fun OamRemoteFileMetadata.compareWith(other: OamRemoteFileMetadata): RemoteMetadataComparison =
     when {
         url != other.url -> RemoteMetadataComparison.CHANGED
-        entityTag != null && other.entityTag != null && entityTag == other.entityTag -> RemoteMetadataComparison.SAME
-        entityTag != null && other.entityTag != null -> RemoteMetadataComparison.CHANGED
-        lastModifiedMillis != null && other.lastModifiedMillis != null ->
-            compareNullableValues(lastModifiedMillis, other.lastModifiedMillis)
         contentLengthBytes != null &&
             other.contentLengthBytes != null &&
             contentLengthBytes == other.contentLengthBytes -> RemoteMetadataComparison.SAME
         contentLengthBytes != null &&
             other.contentLengthBytes != null -> RemoteMetadataComparison.CHANGED
+        lastModifiedMillis != null && other.lastModifiedMillis != null ->
+            compareNullableValues(lastModifiedMillis, other.lastModifiedMillis)
+        entityTag != null && other.entityTag != null && entityTag == other.entityTag -> RemoteMetadataComparison.SAME
+        entityTag != null && other.entityTag != null -> RemoteMetadataComparison.CHANGED
         else -> RemoteMetadataComparison.UNKNOWN
     }
 
@@ -1570,8 +1570,7 @@ private fun Throwable.isHttpNotFound(): Boolean = message?.contains("HTTP 404", 
 
 private fun Throwable.isHttpResponseError(): Boolean = message?.startsWith("HTTP ", ignoreCase = true) == true
 
-private fun OamRemoteFileMetadata.telemetrySummary(): String =
-    "etag=${entityTag ?: "na"},modified=${lastModifiedMillis ?: "na"},bytes=${contentLengthBytes ?: "na"}"
+private fun OamRemoteFileMetadata.telemetrySummary(): String = "etag=${entityTag ?: "na"},modified=${lastModifiedMillis ?: "na"},bytes=${contentLengthBytes ?: "na"}"
 
 private fun <T> compareNullableValues(
     previous: T,

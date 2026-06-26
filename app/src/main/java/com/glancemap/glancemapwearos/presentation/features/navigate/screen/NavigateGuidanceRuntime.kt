@@ -16,8 +16,8 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.gpx.buildRouteEtaProjection
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceSession
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceTuning
-import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceOffRouteConfirmationState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceOffRouteConfirmationState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.computeTurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
@@ -38,6 +38,7 @@ internal data class NavigateGuidanceRuntime(
 )
 
 private const val OFF_ROUTE_WAKE_GRACE_MS = 5_000L
+
 @Composable
 internal fun rememberNavigateGuidanceRuntime(
     context: Context,

@@ -616,11 +616,12 @@ internal fun deriveTelemetryInsights(
             parseIntToken(line, "liveCadenceSpm=")?.takeIf { it >= 0 }?.let {
                 recordingLiveCadenceSpm = it
             }
-            extractTokenValue(line, "liveExternalSpeedMps=")?.takeIf { value ->
-                value.isNotBlank() && value != "-1.0" && value != "-1"
-            }?.let {
-                recordingLiveExternalSpeedMps = it
-            }
+            extractTokenValue(line, "liveExternalSpeedMps=")
+                ?.takeIf { value ->
+                    value.isNotBlank() && value != "-1.0" && value != "-1"
+                }?.let {
+                    recordingLiveExternalSpeedMps = it
+                }
             parseLongToken(line, "liveExternalRawDistanceUnits=")?.takeIf { it >= 0 }?.let {
                 recordingLiveExternalRawDistanceUnits = it
             }
@@ -718,7 +719,8 @@ internal fun deriveTelemetryInsights(
                         line.substringAfter("event=scan_summary ", "").takeIf { it.isNotBlank() }
                 }
                 "scan_failed",
-                "scan_start_failed" -> externalSensorScanFailedCount += 1
+                "scan_start_failed",
+                -> externalSensorScanFailedCount += 1
                 "scan_unavailable" -> {
                     externalSensorScanFailedCount += 1
                     extractTokenValue(line, "reason=")?.takeIf { it.isNotBlank() }?.let {

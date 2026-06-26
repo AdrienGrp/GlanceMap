@@ -3,10 +3,10 @@ package com.glancemap.glancemapwearos.presentation.features.recording.dashboard
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.RecordedTracePoint
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
-import org.mapsforge.core.model.LatLong
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mapsforge.core.model.LatLong
 
 class RecordingDashboardModelsTest {
     @Test
@@ -405,7 +405,7 @@ class RecordingDashboardModelsTest {
                     ),
                 userWeightKg = 75f,
                 backpackWeightKg = 0f,
-        )
+            )
 
         assertEquals(286.0, flat.grossKcal, 1.0)
         assertEquals(227.0, downhill.grossKcal, 1.0)
@@ -442,7 +442,10 @@ class RecordingDashboardModelsTest {
     }
 
     private fun oneHourFlatWalkPoints(): List<RecordedTracePoint> =
-        oneHourWalkPoints(startElevationMeters = 0.0, endElevationMeters = 0.0)
+        oneHourWalkPoints(
+            startElevationMeters = 0.0,
+            endElevationMeters = 0.0,
+        )
 
     private fun oneHourWalkPoints(
         startElevationMeters: Double,

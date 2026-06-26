@@ -1,8 +1,8 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxTrackDetails

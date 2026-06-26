@@ -11,8 +11,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -59,9 +60,9 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Tur
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.LocalFullscreenPopupTimeFormat
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
-import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import kotlinx.coroutines.delay
@@ -794,131 +795,132 @@ internal fun NavigateContent(
                 )
             }
 
-            NavigateOverlaysLayer(
-                mapView = mapView,
-                mapAppearanceApplyInProgress = mapAppearanceApplyInProgress,
-                slopeOverlayToggleEnabled = slopeOverlayToggleEnabled,
-                slopeOverlayEnabled = slopeOverlayEnabled,
-                slopeOverlayProcessing = slopeOverlayProcessing,
-                slopeOverlayProgressPercent = slopeOverlayProgressPercent,
-                navMode = navMode,
-                screenSize = screenSize,
-                isMetric = isMetric,
-                timeFormat = navigateTimeFormat,
-                liveElevationEnabled = liveElevationEnabled,
-                liveElevationLabel = liveElevationLabel,
-                liveDistanceEnabled = liveDistanceEnabled,
-                liveDistanceLabel = liveDistanceLabel,
-                zoomLabelTopPadding = zoomLabelTopPadding,
-                liveElevationIconSize = liveElevationIconSize,
-                northIndicatorMode = northIndicatorMode,
-                mapRotationDeg = mapRotationDeg,
-                navigationMarkerAnchorMode = navigationMarkerAnchorMode,
-                compassHeadingDeg = compassHeadingDeg,
-                northIndicatorButtonSize = northIndicatorButtonSize,
-                northIndicatorIconSize = northIndicatorIconSize,
-                showZoomPlusButton = showZoomPlusButton,
-                showZoomMinusButton = showZoomMinusButton,
-                currentZoomLevel = currentZoomLevel,
-                zoomMin = zoomMin,
-                zoomMax = zoomMax,
-                triggerHaptic = triggerHaptic,
-                zoomButtonSize = zoomButtonSize,
-                zoomIconSize = zoomIconSize,
-                scaleIndicator = scaleIndicator,
-                showScaleBar = showScaleBar,
-                zoomScaleBarWidth = zoomScaleBarWidth,
-                poiTapMessage = poiTapMessage,
-                poiTapCanExpand = poiTapPopup?.canExpand == true,
-                poiTapCanCreateGpx = poiTapMarker != null,
-                poiTapExpanded = poiTapPopupExpanded,
-                onPoiTapExpandToggle = {
-                    poiTapPopupExpanded = !poiTapPopupExpanded
-                },
-                onPoiTapCreateGpx = {
-                    poiTapMarker?.let { marker ->
-                        onPoiTapCreateGpx(marker)
+            CompositionLocalProvider(LocalFullscreenPopupTimeFormat provides navigateTimeFormat) {
+                NavigateOverlaysLayer(
+                    mapView = mapView,
+                    mapAppearanceApplyInProgress = mapAppearanceApplyInProgress,
+                    slopeOverlayToggleEnabled = slopeOverlayToggleEnabled,
+                    slopeOverlayEnabled = slopeOverlayEnabled,
+                    slopeOverlayProcessing = slopeOverlayProcessing,
+                    slopeOverlayProgressPercent = slopeOverlayProgressPercent,
+                    navMode = navMode,
+                    screenSize = screenSize,
+                    isMetric = isMetric,
+                    liveElevationEnabled = liveElevationEnabled,
+                    liveElevationLabel = liveElevationLabel,
+                    liveDistanceEnabled = liveDistanceEnabled,
+                    liveDistanceLabel = liveDistanceLabel,
+                    zoomLabelTopPadding = zoomLabelTopPadding,
+                    liveElevationIconSize = liveElevationIconSize,
+                    northIndicatorMode = northIndicatorMode,
+                    mapRotationDeg = mapRotationDeg,
+                    navigationMarkerAnchorMode = navigationMarkerAnchorMode,
+                    compassHeadingDeg = compassHeadingDeg,
+                    northIndicatorButtonSize = northIndicatorButtonSize,
+                    northIndicatorIconSize = northIndicatorIconSize,
+                    showZoomPlusButton = showZoomPlusButton,
+                    showZoomMinusButton = showZoomMinusButton,
+                    currentZoomLevel = currentZoomLevel,
+                    zoomMin = zoomMin,
+                    zoomMax = zoomMax,
+                    triggerHaptic = triggerHaptic,
+                    zoomButtonSize = zoomButtonSize,
+                    zoomIconSize = zoomIconSize,
+                    scaleIndicator = scaleIndicator,
+                    showScaleBar = showScaleBar,
+                    zoomScaleBarWidth = zoomScaleBarWidth,
+                    poiTapMessage = poiTapMessage,
+                    poiTapCanExpand = poiTapPopup?.canExpand == true,
+                    poiTapCanCreateGpx = poiTapMarker != null,
+                    poiTapExpanded = poiTapPopupExpanded,
+                    onPoiTapExpandToggle = {
+                        poiTapPopupExpanded = !poiTapPopupExpanded
+                    },
+                    onPoiTapCreateGpx = {
+                        poiTapMarker?.let { marker ->
+                            onPoiTapCreateGpx(marker)
+                            poiTapMarker = null
+                            poiTapPopup = null
+                            poiTapPopupExpanded = false
+                            poiTapPopupScrollInProgress = false
+                        }
+                    },
+                    onPoiTapDismiss = {
                         poiTapMarker = null
                         poiTapPopup = null
                         poiTapPopupExpanded = false
                         poiTapPopupScrollInProgress = false
-                    }
-                },
-                onPoiTapDismiss = {
-                    poiTapMarker = null
-                    poiTapPopup = null
-                    poiTapPopupExpanded = false
-                    poiTapPopupScrollInProgress = false
-                },
-                onPoiTapScrollInProgressChanged = { isScrolling ->
-                    poiTapPopupScrollInProgress = isScrolling
-                },
-                onMenuClick = onMenuClick,
-                sideButtonEdgePadding = sideButtonEdgePadding,
-                sideButtonSize = sideButtonSize,
-                sideButtonIconSize = sideButtonIconSize,
-                shortcutTrayExpanded = shortcutTrayExpanded,
-                routeToolModeActive = routeToolModeActive,
-                onShortcutTrayToggle = onShortcutTrayToggle,
-                onShortcutTrayDismiss = onShortcutTrayDismiss,
-                onGpxToolsClick = onOpenGpxTools,
-                onCreatePoiClick = onStartPoiCreation,
-                keepAppOpen = keepAppOpen,
-                onKeepAppOpenToggle = onKeepAppOpenToggle,
-                traceRecordingState = traceRecordingState,
-                recordingDashboardMetricSlots = recordingDashboardMetricSlots,
-                turnByTurnDashboardMetricSlots = turnByTurnDashboardMetricSlots,
-                userWeightKg = userWeightKg,
-                backpackWeightKg = backpackWeightKg,
-                recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
-                recordingActionPromptRequestToken = effectiveRecordingActionPromptRequestToken,
-                onRecordingClick = {
-                    onShortcutTrayDismiss()
-                    if (traceRecordingState.active || traceRecordingState.saving) {
-                        expandedOverlayState.requestRecordingActionPrompt()
-                    } else {
-                        onStartRecording()
-                    }
-                },
-                onPauseRecording = onPauseRecording,
-                onResumeRecording = onResumeRecording,
-                onFinishRecording = onFinishRecording,
-                onDiscardRecording = onDiscardRecording,
-                onRecordingMetricSelected = onRecordingMetricSelected,
-                onTurnByTurnMetricSelected = onTurnByTurnMetricSelected,
-                gpsIndicatorState = gpsIndicatorState,
-                watchGpsDegradedWarning = watchGpsDegradedWarning,
-                navButtonBottomPadding = navButtonBottomPadding,
-                navButtonSize = navButtonSize,
-                navButtonIconSize = navButtonIconSize,
-                locationMarker = locationMarker,
-                lastKnownLocation = lastKnownLocation,
-                onRecenter = onRecenter,
-                onRecenterRequested = onRecenterRequested,
-                onToggleOrientation = onToggleOrientation,
-                isOfflineMode = isOfflineMode,
-                selectingGpxPointB = selectingGpxPointB,
-                onCancelSelectingGpxPointB = onCancelSelectingGpxPointB,
-                turnByTurnGuidanceState = turnByTurnGuidanceState,
-                turnByTurnGuidancePaused = turnByTurnGuidancePaused,
-                turnByTurnPausedTrackTitle = turnByTurnPausedTrackTitle,
-                turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
-                onTurnByTurnVoiceGuidanceChange = onTurnByTurnVoiceGuidanceChange,
-                turnByTurnFullScreenExpanded = turnByTurnFullScreenExpanded,
-                recordingDashboardFullScreenExpanded = recordingDashboardFullScreenExpanded,
-                guideBackToRouteActive = guideBackToRouteActive,
-                showGuideBackPrompt = showGuideBackPrompt,
-                startDecisionPrompt = startDecisionPrompt,
-                onPauseTurnByTurnGuidance = onPauseTurnByTurnGuidance,
-                onResumeTurnByTurnGuidance = onResumeTurnByTurnGuidance,
-                onStopTurnByTurnGuidance = onStopTurnByTurnGuidance,
-                onTurnByTurnExpandedChange = expandedOverlayState.onTurnByTurnExpandedChange,
-                onRecordingExpandedChange = expandedOverlayState.onRecordingExpandedChange,
-                onGuideBackToRoute = onGuideBackToRoute,
-                onDismissGuideBackPrompt = onDismissGuideBackPrompt,
-                onAcceptStartDecisionPrompt = onAcceptStartDecisionPrompt,
-                onDismissStartDecisionPrompt = onDismissStartDecisionPrompt,
-            )
+                    },
+                    onPoiTapScrollInProgressChanged = { isScrolling ->
+                        poiTapPopupScrollInProgress = isScrolling
+                    },
+                    onMenuClick = onMenuClick,
+                    sideButtonEdgePadding = sideButtonEdgePadding,
+                    sideButtonSize = sideButtonSize,
+                    sideButtonIconSize = sideButtonIconSize,
+                    shortcutTrayExpanded = shortcutTrayExpanded,
+                    routeToolModeActive = routeToolModeActive,
+                    onShortcutTrayToggle = onShortcutTrayToggle,
+                    onShortcutTrayDismiss = onShortcutTrayDismiss,
+                    onGpxToolsClick = onOpenGpxTools,
+                    onCreatePoiClick = onStartPoiCreation,
+                    keepAppOpen = keepAppOpen,
+                    onKeepAppOpenToggle = onKeepAppOpenToggle,
+                    traceRecordingState = traceRecordingState,
+                    recordingDashboardMetricSlots = recordingDashboardMetricSlots,
+                    turnByTurnDashboardMetricSlots = turnByTurnDashboardMetricSlots,
+                    userWeightKg = userWeightKg,
+                    backpackWeightKg = backpackWeightKg,
+                    recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
+                    recordingActionPromptRequestToken = effectiveRecordingActionPromptRequestToken,
+                    onRecordingClick = {
+                        onShortcutTrayDismiss()
+                        if (traceRecordingState.active || traceRecordingState.saving) {
+                            expandedOverlayState.requestRecordingActionPrompt()
+                        } else {
+                            onStartRecording()
+                        }
+                    },
+                    onPauseRecording = onPauseRecording,
+                    onResumeRecording = onResumeRecording,
+                    onFinishRecording = onFinishRecording,
+                    onDiscardRecording = onDiscardRecording,
+                    onRecordingMetricSelected = onRecordingMetricSelected,
+                    onTurnByTurnMetricSelected = onTurnByTurnMetricSelected,
+                    gpsIndicatorState = gpsIndicatorState,
+                    watchGpsDegradedWarning = watchGpsDegradedWarning,
+                    navButtonBottomPadding = navButtonBottomPadding,
+                    navButtonSize = navButtonSize,
+                    navButtonIconSize = navButtonIconSize,
+                    locationMarker = locationMarker,
+                    lastKnownLocation = lastKnownLocation,
+                    onRecenter = onRecenter,
+                    onRecenterRequested = onRecenterRequested,
+                    onToggleOrientation = onToggleOrientation,
+                    isOfflineMode = isOfflineMode,
+                    selectingGpxPointB = selectingGpxPointB,
+                    onCancelSelectingGpxPointB = onCancelSelectingGpxPointB,
+                    turnByTurnGuidanceState = turnByTurnGuidanceState,
+                    turnByTurnGuidancePaused = turnByTurnGuidancePaused,
+                    turnByTurnPausedTrackTitle = turnByTurnPausedTrackTitle,
+                    turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
+                    onTurnByTurnVoiceGuidanceChange = onTurnByTurnVoiceGuidanceChange,
+                    turnByTurnFullScreenExpanded = turnByTurnFullScreenExpanded,
+                    recordingDashboardFullScreenExpanded = recordingDashboardFullScreenExpanded,
+                    guideBackToRouteActive = guideBackToRouteActive,
+                    showGuideBackPrompt = showGuideBackPrompt,
+                    startDecisionPrompt = startDecisionPrompt,
+                    onPauseTurnByTurnGuidance = onPauseTurnByTurnGuidance,
+                    onResumeTurnByTurnGuidance = onResumeTurnByTurnGuidance,
+                    onStopTurnByTurnGuidance = onStopTurnByTurnGuidance,
+                    onTurnByTurnExpandedChange = expandedOverlayState.onTurnByTurnExpandedChange,
+                    onRecordingExpandedChange = expandedOverlayState.onRecordingExpandedChange,
+                    onGuideBackToRoute = onGuideBackToRoute,
+                    onDismissGuideBackPrompt = onDismissGuideBackPrompt,
+                    onAcceptStartDecisionPrompt = onAcceptStartDecisionPrompt,
+                    onDismissStartDecisionPrompt = onDismissStartDecisionPrompt,
+                )
+            }
 
             CenteredNavigateTimeChip(
                 visible =

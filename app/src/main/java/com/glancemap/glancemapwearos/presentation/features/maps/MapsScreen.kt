@@ -692,56 +692,56 @@ fun MapsScreen(
                         MaterialTheme.colorScheme.primary
                     },
             ) {
-                        CompactIconHitTargetButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showHelpDialog = true
-                            },
-                            visualSize = headerActionButtonSize,
-                            visualOffsetY = headerActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = Color.White,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "Map actions help",
-                                modifier = Modifier.size(headerActionIconSize),
-                            )
-                        }
-                        CompactIconHitTargetButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                mapViewModel.loadDemTileFiles()
-                                showDemDataDialog = true
-                            },
-                            visualSize = headerActionButtonSize,
-                            visualOffsetY = headerActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = Color.White,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Landscape,
-                                contentDescription = "DEM data",
-                                modifier = Modifier.size(headerActionIconSize),
-                            )
-                        }
-                        CompactIconHitTargetButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                mapViewModel.loadRoutingPackFiles()
-                                showRoutingDataDialog = true
-                            },
-                            visualSize = headerActionButtonSize,
-                            visualOffsetY = headerActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = Color.White,
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.CallSplit,
-                                contentDescription = "Routing data",
-                                modifier = Modifier.size(headerActionIconSize),
-                            )
-                        }
+                CompactIconHitTargetButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showHelpDialog = true
+                    },
+                    visualSize = headerActionButtonSize,
+                    visualOffsetY = headerActionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Map actions help",
+                        modifier = Modifier.size(headerActionIconSize),
+                    )
+                }
+                CompactIconHitTargetButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        mapViewModel.loadDemTileFiles()
+                        showDemDataDialog = true
+                    },
+                    visualSize = headerActionButtonSize,
+                    visualOffsetY = headerActionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Landscape,
+                        contentDescription = "DEM data",
+                        modifier = Modifier.size(headerActionIconSize),
+                    )
+                }
+                CompactIconHitTargetButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        mapViewModel.loadRoutingPackFiles()
+                        showRoutingDataDialog = true
+                    },
+                    visualSize = headerActionButtonSize,
+                    visualOffsetY = headerActionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.CallSplit,
+                        contentDescription = "Routing data",
+                        modifier = Modifier.size(headerActionIconSize),
+                    )
+                }
             }
 
             // Middle list

@@ -216,7 +216,8 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             "activityType" -> {
                                 if (inMetadataExtensions) {
                                     isActivity =
-                                        parser.nextText()
+                                        parser
+                                            .nextText()
                                             ?.trim()
                                             ?.equals("recording", ignoreCase = true) == true
                                 }

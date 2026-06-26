@@ -5,8 +5,8 @@ package com.glancemap.glancemapwearos.presentation.features.navigate
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,9 +38,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,7 +81,6 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
     voiceGuidanceEnabled: Boolean,
     screenSize: WearScreenSize,
     isMetric: Boolean,
-    timeFormat: String,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
     showGuideBackPrompt: Boolean,
@@ -202,7 +201,6 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                     onNextPage = { expandedPageIndex = (expandedPageIndex + 1).coerceAtMost(expandedPageCount - 1) },
                     onShowActions = { showActionPrompt = true },
                     telemetryTag = "TurnByTurn",
-                    timeFormat = timeFormat,
                 ) {
                     if (expandedPageIndex == 0) {
                         ExpandedGuidanceOverlay(
@@ -534,7 +532,6 @@ private fun ExpandedGuidanceOverlay(
                 }
             }
         }
-
     }
 }
 
@@ -790,8 +787,7 @@ private fun GuideBackPromptButton(
                 .background(
                     if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f),
                     RoundedCornerShape(6.dp),
-                )
-                .clickable(onClick = onClick)
+                ).clickable(onClick = onClick)
                 .padding(horizontal = 7.dp, vertical = 5.dp),
         color = if (selected) MaterialTheme.colorScheme.onPrimary else Color.White,
         fontWeight = FontWeight.SemiBold,
@@ -852,10 +848,10 @@ private fun guidancePrimaryText(
         "Off route"
     } else {
         when (state.mode) {
-        GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
-        GuidanceMode.TO_START -> "To start"
-        GuidanceMode.FOLLOW_ROUTE -> guidanceInstructionPrimaryText(state)
-        GuidanceMode.FINISHED -> "Finished"
+            GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
+            GuidanceMode.TO_START -> "To start"
+            GuidanceMode.FOLLOW_ROUTE -> guidanceInstructionPrimaryText(state)
+            GuidanceMode.FINISHED -> "Finished"
         }
     }
 
@@ -870,14 +866,14 @@ private fun guidanceSecondaryText(
         state.distanceToRouteMeters?.let { "${formatLiveDistanceLabel(it, isMetric)} from GPX" } ?: "Find route"
     } else {
         when (state.mode) {
-        GuidanceMode.WAITING_FOR_LOCATION -> state.trackTitle ?: "GPX guidance"
-        GuidanceMode.TO_START ->
-            state.distanceToStartMeters?.let { formatLiveDistanceLabel(it, isMetric) }
-                ?: "Find the start"
-        GuidanceMode.FOLLOW_ROUTE ->
-            guidanceInstructionDistanceText(state, isMetric)
-                ?: "On route"
-        GuidanceMode.FINISHED -> state.trackTitle ?: "Route complete"
+            GuidanceMode.WAITING_FOR_LOCATION -> state.trackTitle ?: "GPX guidance"
+            GuidanceMode.TO_START ->
+                state.distanceToStartMeters?.let { formatLiveDistanceLabel(it, isMetric) }
+                    ?: "Find the start"
+            GuidanceMode.FOLLOW_ROUTE ->
+                guidanceInstructionDistanceText(state, isMetric)
+                    ?: "On route"
+            GuidanceMode.FINISHED -> state.trackTitle ?: "Route complete"
         }
     }
 
@@ -892,12 +888,12 @@ private fun guidanceCompactText(
         state.distanceToRouteMeters?.let { "Off ${formatLiveDistanceLabel(it, isMetric)}" } ?: "Off route"
     } else {
         when (state.mode) {
-        GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
-        GuidanceMode.TO_START ->
-            state.distanceToStartMeters?.let { "Start ${formatLiveDistanceLabel(it, isMetric)}" }
-                ?: "To start"
-        GuidanceMode.FOLLOW_ROUTE -> guidanceCompactInstructionText(state, isMetric)
-        GuidanceMode.FINISHED -> "Finished"
+            GuidanceMode.WAITING_FOR_LOCATION -> "Waiting GPS"
+            GuidanceMode.TO_START ->
+                state.distanceToStartMeters?.let { "Start ${formatLiveDistanceLabel(it, isMetric)}" }
+                    ?: "To start"
+            GuidanceMode.FOLLOW_ROUTE -> guidanceCompactInstructionText(state, isMetric)
+            GuidanceMode.FINISHED -> "Finished"
         }
     }
 

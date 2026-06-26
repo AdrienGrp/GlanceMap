@@ -47,8 +47,8 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorSimulation
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
-import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import com.glancemap.shared.transfer.TransferDataLayerContract
@@ -441,11 +441,11 @@ fun DebuggingSettingsScreen(
                                                 turnByTurnTurnAlertsMode = turnByTurnTurnAlertsMode,
                                                 turnByTurnOffRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
                                                 turnByTurnOffRouteAlertThresholdMeters =
-                                                    turnByTurnOffRouteThresholdMeters,
+                                                turnByTurnOffRouteThresholdMeters,
                                                 turnByTurnOffRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
                                                 turnByTurnGpsInAmbientMode = turnByTurnGpsInAmbientMode,
                                                 turnByTurnBrouterGuideBackEnabled =
-                                                    turnByTurnBrouterGuideBackEnabled,
+                                                turnByTurnBrouterGuideBackEnabled,
                                                 turnByTurnRouteStartBehavior = turnByTurnRouteStartBehavior,
                                                 turnByTurnReverseSuggestionMode = turnByTurnReverseSuggestionMode,
                                             ),

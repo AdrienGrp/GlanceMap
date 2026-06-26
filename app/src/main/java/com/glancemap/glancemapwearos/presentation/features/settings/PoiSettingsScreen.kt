@@ -113,7 +113,6 @@ fun PoiSettingsScreen(
             )
         }
     }
-
 }
 
 private fun poiIconSizeLabel(sizePx: Int): String =

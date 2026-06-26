@@ -11,7 +11,6 @@ import com.glancemap.glancemapwearos.presentation.SyncManager
 import com.glancemap.glancemapwearos.presentation.features.gpx.parseGpxData
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.buildRecordingDashboardSnapshot
-import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.estimateRecordingCalories
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorConnectionStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorMetrics
 import kotlinx.coroutines.Dispatchers
@@ -112,26 +111,22 @@ class TraceRecordingViewModel(
             .onEach { source ->
                 recordingCadenceSource = source
                 updateRecordingSourceState()
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
         settingsRepository.recordingSpeedSource
             .onEach { source ->
                 recordingSpeedSource = source
                 updateRecordingSourceState()
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
         settingsRepository.recordingDistanceSource
             .onEach { source ->
                 recordingDistanceSource = source
                 updateRecordingSourceState()
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
         settingsRepository.recordingStepsSource
             .onEach { source ->
                 recordingStepsSource = source
                 updateRecordingSourceState()
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
         settingsRepository.recordingExternalHeartRateAddress
             .onEach { recordingExternalHeartRateAddress = it }
             .launchIn(viewModelScope)
@@ -313,7 +308,11 @@ class TraceRecordingViewModel(
                             "elapsedSinceAcceptedMs=$elapsedMs " +
                             "maxSkippedIntervalElapsedMs=$maxSkippedIntervalElapsedMs " +
                             "liveFixAgeMs=${livePoint.timeMillis.let { nowMillis - it }.coerceAtLeast(0L)} " +
-                            "lastPointAgeMs=${_uiState.value.points.lastOrNull()?.timeMillis?.let { nowMillis - it }?.coerceAtLeast(0L) ?: -1} " +
+                            "lastPointAgeMs=${_uiState.value.points
+                                .lastOrNull()
+                                ?.timeMillis
+                                ?.let { nowMillis - it }
+                                ?.coerceAtLeast(0L) ?: -1} " +
                             "provider=${sanitizeTelemetryValue(location.provider ?: "na")} " +
                             "speedMps=${livePoint.speedMps ?: -1f} " +
                             "accuracyMeters=${livePoint.accuracyMeters?.toInt() ?: -1}",
@@ -538,7 +537,10 @@ class TraceRecordingViewModel(
             "TraceRecording",
             "event=wake_refresh_requested source=${sanitizeTelemetryValue(source)} " +
                 "lastLivePointAgeMs=${state.latestLivePoint?.timeMillis?.let { (nowMillis - it).coerceAtLeast(0L) } ?: -1} " +
-                "lastAcceptedPointAgeMs=${state.points.lastOrNull()?.timeMillis?.let { (nowMillis - it).coerceAtLeast(0L) } ?: -1} " +
+                "lastAcceptedPointAgeMs=${state.points
+                    .lastOrNull()
+                    ?.timeMillis
+                    ?.let { (nowMillis - it).coerceAtLeast(0L) } ?: -1} " +
                 "points=${state.points.size} distanceMeters=${state.distanceMeters.toInt()} " +
                 "sampleIntervalSeconds=$sampleIntervalSeconds",
         )
@@ -630,11 +632,12 @@ class TraceRecordingViewModel(
                             )
                         val summarySnapshot =
                             buildRecordingDashboardSnapshot(
-                                state = state.copy(
-                                    accumulatedPausedMillis = state.accumulatedPausedMillis + finalPausedMillis,
-                                    paused = false,
-                                    pausedAtMillis = null,
-                                ),
+                                state =
+                                    state.copy(
+                                        accumulatedPausedMillis = state.accumulatedPausedMillis + finalPausedMillis,
+                                        paused = false,
+                                        pausedAtMillis = null,
+                                    ),
                                 nowMillis = now,
                                 userWeightKg = userWeightKg,
                                 backpackWeightKg = backpackWeightKg,
@@ -688,7 +691,9 @@ class TraceRecordingViewModel(
                 )
             } else {
                 val errorMessage =
-                    saveResult.exceptionOrNull()?.localizedMessage
+                    saveResult
+                        .exceptionOrNull()
+                        ?.localizedMessage
                         ?.takeIf { it.isNotBlank() }
                         ?: "Recording save failed"
                 _uiState.value =
@@ -951,7 +956,10 @@ class TraceRecordingViewModel(
             .coerceAtMost(RECORDING_GPS_ACTIVE_GAP_CAP_MS)
 
     private fun elapsedSinceFirstPointMillis(pointTimeMillis: Long): Long {
-        val firstPointTimeMillis = _uiState.value.points.firstOrNull()?.timeMillis ?: return 0L
+        val firstPointTimeMillis =
+            _uiState.value.points
+                .firstOrNull()
+                ?.timeMillis ?: return 0L
         return (pointTimeMillis - firstPointTimeMillis).coerceAtLeast(0L)
     }
 
@@ -960,8 +968,7 @@ class TraceRecordingViewModel(
         return (durationMillis / intervalMillis + 1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
-    private fun recordingGapThresholdMillis(): Long =
-        maxOf(effectiveSampleIntervalSeconds() * 2_000L, RECORDING_GAP_MIN_THRESHOLD_MS)
+    private fun recordingGapThresholdMillis(): Long = maxOf(effectiveSampleIntervalSeconds() * 2_000L, RECORDING_GAP_MIN_THRESHOLD_MS)
 
     private fun updateAccuracyTelemetry(accuracyMeters: Float?) {
         val accuracy = accuracyMeters ?: return
@@ -1042,7 +1049,10 @@ class TraceRecordingViewModel(
             "maxSkippedIntervalElapsedMs=$maxSkippedIntervalElapsedMs " +
             "lastLiveProvider=${sanitizeTelemetryValue(lastLiveFixProvider ?: "na")} " +
             "lastLiveAccuracyMeters=${lastLiveFixAccuracyMeters?.toInt() ?: -1} " +
-            "lastLiveFixAgeMs=${state.latestLivePoint?.timeMillis?.let { nowMillis - it }?.coerceAtLeast(0L) ?: -1} " +
+            "lastLiveFixAgeMs=${state.latestLivePoint
+                ?.timeMillis
+                ?.let { nowMillis - it }
+                ?.coerceAtLeast(0L) ?: -1} " +
             "lastPointAgeMs=${lastPoint?.timeMillis?.let { nowMillis - it }?.coerceAtLeast(0L) ?: -1} " +
             "elevationGainMeters=${elevation.first.toInt()} elevationLossMeters=${elevation.second.toInt()} " +
             "elevationSource=$recordingElevationSource demHits=$demElevationHitCount " +
@@ -1123,14 +1133,11 @@ class TraceRecordingViewModel(
         (effectiveSampleIntervalSeconds() * 1_000L - RECORDING_SAMPLE_ACCEPT_TOLERANCE_MS)
             .coerceAtLeast(RECORDING_MIN_SAMPLE_ACCEPT_THRESHOLD_MS)
 
-    private fun lastLiveFixAgeMillis(): Long =
-        lastLiveFixTimeMillis?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) } ?: -1L
+    private fun lastLiveFixAgeMillis(): Long = lastLiveFixTimeMillis?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) } ?: -1L
 
-    private fun isGpsSamplingEnabled(): Boolean =
-        sampleIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+    private fun isGpsSamplingEnabled(): Boolean = sampleIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
 
-    private fun effectiveSampleIntervalSeconds(): Int =
-        sampleIntervalSeconds.takeIf { it > 0 } ?: SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
+    private fun effectiveSampleIntervalSeconds(): Int = sampleIntervalSeconds.takeIf { it > 0 } ?: SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
 }
 
 private fun RecordingDashboardSnapshot.toRecordedTraceSummary(): RecordedTraceSummary =
@@ -1193,8 +1200,7 @@ private fun livePointFromLocation(location: Location): RecordedTracePoint =
         elevationSource = SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
     )
 
-private fun Long.isFreshSensorTime(nowMillis: Long): Boolean =
-    this > 0L && (nowMillis - this).coerceAtLeast(0L) <= SENSOR_SNAPSHOT_MAX_AGE_MS
+private fun Long.isFreshSensorTime(nowMillis: Long): Boolean = this > 0L && (nowMillis - this).coerceAtLeast(0L) <= SENSOR_SNAPSHOT_MAX_AGE_MS
 
 private fun haversineMeters(
     a: LatLong,
@@ -1257,11 +1263,9 @@ private fun sanitizeTelemetryValue(value: String): String =
         .replace(Regex("\\s+"), "_")
         .take(80)
 
-private fun Double.formatTelemetry(decimalPlaces: Int): String =
-    String.format(Locale.US, "%.${decimalPlaces}f", this)
+private fun Double.formatTelemetry(decimalPlaces: Int): String = String.format(Locale.US, "%.${decimalPlaces}f", this)
 
-private fun Float.formatTelemetry(decimalPlaces: Int): String =
-    toDouble().formatTelemetry(decimalPlaces)
+private fun Float.formatTelemetry(decimalPlaces: Int): String = toDouble().formatTelemetry(decimalPlaces)
 
 private const val EARTH_RADIUS_METERS = 6_371_000.0
 private const val RECORDING_TELEMETRY_POINT_INTERVAL = 10

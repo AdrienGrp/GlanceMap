@@ -139,6 +139,7 @@ private fun RecordingDashboardSettingsFolder(
 
 private val RECORDING_INTERVAL_OPTIONS_SECONDS =
     listOf(SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS, 1, 2, 5, 10, 15, 30, 60)
+
 private fun recordingIntervalLabel(seconds: Int): String =
     when {
         seconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> "Deactivated"

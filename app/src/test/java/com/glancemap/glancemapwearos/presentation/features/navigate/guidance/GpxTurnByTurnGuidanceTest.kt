@@ -1,8 +1,8 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate.guidance
 
-import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxGuidanceHint
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxGuidanceHintSource
+import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue

@@ -1,7 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.gpx
 
-import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardSnapshot
+import com.glancemap.glancemapwearos.presentation.formatting.DurationFormatter
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import org.mapsforge.core.model.LatLong
 import kotlin.math.roundToInt

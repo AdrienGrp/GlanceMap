@@ -80,7 +80,8 @@ class ExternalHeartRateClient(
         }
 
         internal fun decodeBatteryLevel(value: ByteArray): Int? =
-            value.firstOrNull()
+            value
+                .firstOrNull()
                 ?.toInt()
                 ?.and(0xFF)
                 ?.takeIf { it in 0..100 }

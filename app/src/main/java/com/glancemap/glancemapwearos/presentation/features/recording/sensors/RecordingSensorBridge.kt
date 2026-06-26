@@ -158,10 +158,10 @@ fun RecordingSensorBridge(
         remember(selectedMetricIds, useWatchHeartRate, useInternalCadence, useInternalSteps, collectBarometricPressure) {
             val filteredMetricIds =
                 selectedMetricIds
-                .filter { it in recordingSensorMetricIds }
-                .filterNot { !useWatchHeartRate && it == SettingsRepository.RECORDING_METRIC_HEART_RATE }
-                .filterNot { !useInternalCadence && it == SettingsRepository.RECORDING_METRIC_CADENCE }
-                .filterNot { !useInternalSteps && it == SettingsRepository.RECORDING_METRIC_STEPS }
+                    .filter { it in recordingSensorMetricIds }
+                    .filterNot { !useWatchHeartRate && it == SettingsRepository.RECORDING_METRIC_HEART_RATE }
+                    .filterNot { !useInternalCadence && it == SettingsRepository.RECORDING_METRIC_CADENCE }
+                    .filterNot { !useInternalSteps && it == SettingsRepository.RECORDING_METRIC_STEPS }
             if (collectBarometricPressure) {
                 (filteredMetricIds + SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE).distinct()
             } else {
@@ -169,9 +169,10 @@ fun RecordingSensorBridge(
             }
         }
     var permissionResultVersion by remember { mutableIntStateOf(0) }
-    val permissionsToRequest = remember(context, sensorMetricIds, permissionResultVersion) {
-        recordingSensorPermissionsToRequest(context, sensorMetricIds)
-    }
+    val permissionsToRequest =
+        remember(context, sensorMetricIds, permissionResultVersion) {
+            recordingSensorPermissionsToRequest(context, sensorMetricIds)
+        }
     val permissionsLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             permissionResultVersion += 1
@@ -361,7 +362,11 @@ fun RecordingSensorBridge(
                 override fun onSensorChanged(event: SensorEvent) {
                     when (event.sensor.type) {
                         Sensor.TYPE_HEART_RATE -> {
-                            val bpm = event.values.firstOrNull()?.roundToInt()?.takeIf { it > 0 }
+                            val bpm =
+                                event.values
+                                    .firstOrNull()
+                                    ?.roundToInt()
+                                    ?.takeIf { it > 0 }
                             val now = System.currentTimeMillis()
                             publishSensorUpdate { current ->
                                 current.copy(
@@ -420,7 +425,10 @@ fun RecordingSensorBridge(
                         }
                         Sensor.TYPE_PRESSURE -> {
                             val pressure =
-                                event.values.firstOrNull()?.toDouble()?.takeIf { it > 0.0 }
+                                event.values
+                                    .firstOrNull()
+                                    ?.toDouble()
+                                    ?.takeIf { it > 0.0 }
                                     ?: return
                             val rawEventCount = pressureSensorEventCount.incrementAndGet()
                             val now = System.currentTimeMillis()
@@ -556,8 +564,7 @@ private fun availableRecordingSensors(sensorManager: SensorManager): List<String
         }
     }
 
-fun recordingSensorMetricsSelected(metricIds: List<String>): Boolean =
-    metricIds.any { it in recordingSensorMetricIds }
+fun recordingSensorMetricsSelected(metricIds: List<String>): Boolean = metricIds.any { it in recordingSensorMetricIds }
 
 private fun registerRecordingSensors(
     sensorManager: SensorManager,
@@ -567,6 +574,7 @@ private fun registerRecordingSensors(
     handler: Handler,
 ): List<String> {
     val registered = mutableListOf<String>()
+
     fun register(
         type: Int,
         token: String,

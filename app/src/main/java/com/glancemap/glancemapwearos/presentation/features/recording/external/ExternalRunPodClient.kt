@@ -125,12 +125,21 @@ class ExternalRunPodClient(
                 DebugTelemetry.log(
                     "ExternalRunPod",
                     "event=sensor_location value=${value.firstOrNull()?.toInt()?.and(0xFF) ?: -1} " +
-                        "label=${value.firstOrNull()?.toInt()?.and(0xFF)?.sensorLocationLabel() ?: "na"}",
+                        "label=${value
+                            .firstOrNull()
+                            ?.toInt()
+                            ?.and(0xFF)
+                            ?.sensorLocationLabel() ?: "na"}",
                 )
             RSC_FEATURE_UUID ->
                 DebugTelemetry.log("ExternalRunPod", "event=rsc_feature raw=${value.toHexSnippet()}")
             BATTERY_LEVEL_UUID -> {
-                val battery = value.firstOrNull()?.toInt()?.and(0xFF)?.coerceIn(0, 100)
+                val battery =
+                    value
+                        .firstOrNull()
+                        ?.toInt()
+                        ?.and(0xFF)
+                        ?.coerceIn(0, 100)
                 val measurement =
                     ExternalRunPodMeasurement(
                         speedMps = null,
@@ -281,15 +290,14 @@ private fun ByteArray.readUInt32Le(offset: Int): Long? {
         ((this[offset + 3].toLong() and 0xFFL) shl 24)
 }
 
-private fun formatTelemetryFloat(value: Float): String =
-    String.format(java.util.Locale.US, "%.2f", value)
+private fun formatTelemetryFloat(value: Float): String = String.format(java.util.Locale.US, "%.2f", value)
 
-private fun formatTelemetryDouble(value: Double): String =
-    String.format(java.util.Locale.US, "%.1f", value)
+private fun formatTelemetryDouble(value: Double): String = String.format(java.util.Locale.US, "%.1f", value)
 
 private fun ByteArray.toHexSnippet(maxBytes: Int = 20): String =
-    take(maxBytes).joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xFF) }
-        .let { hex -> if (size > maxBytes) "${hex}..." else hex }
+    take(maxBytes)
+        .joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xFF) }
+        .let { hex -> if (size > maxBytes) "$hex..." else hex }
 
 private fun ByteArray.toUtf8Text(): String =
     toString(Charsets.UTF_8)

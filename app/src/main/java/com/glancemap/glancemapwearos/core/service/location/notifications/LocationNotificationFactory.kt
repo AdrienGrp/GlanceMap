@@ -56,8 +56,7 @@ internal class LocationNotificationFactory(
                     } else {
                         "Tap to return to navigation"
                     },
-                )
-                .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
+                ).setCategory(NotificationCompat.CATEGORY_NAVIGATION)
                 .setOngoing(true)
 
             val ongoingActivity =

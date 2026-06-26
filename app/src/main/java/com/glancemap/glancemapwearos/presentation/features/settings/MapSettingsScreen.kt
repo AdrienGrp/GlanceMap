@@ -225,7 +225,6 @@ fun MapSettingsScreen(
             )
         }
     }
-
 }
 
 @Composable

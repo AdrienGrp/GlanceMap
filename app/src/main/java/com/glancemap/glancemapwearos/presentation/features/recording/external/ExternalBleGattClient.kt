@@ -45,12 +45,21 @@ internal class ExternalBleGattClient(
                     BluetoothProfile.STATE_CONNECTED -> {
                         DebugTelemetry.log(logTag, "event=connected status=$status")
                         onConnectionChanged(true)
-                        runCatching { gatt.discoverServices() }
+                        discoverServicesIfPermitted(gatt)
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         DebugTelemetry.log(logTag, "event=disconnected status=$status")
                         onConnectionChanged(false)
                     }
+                }
+            }
+
+            @SuppressLint("MissingPermission")
+            private fun discoverServicesIfPermitted(gatt: BluetoothGatt) {
+                if (hasConnectPermission(context)) {
+                    runCatching { gatt.discoverServices() }
+                } else {
+                    DebugTelemetry.log(logTag, "event=services_skipped reason=permission")
                 }
             }
 
@@ -64,7 +73,8 @@ internal class ExternalBleGattClient(
                 }
                 onServicesReady(gatt)
                 val primaryCharacteristic =
-                    gatt.getService(serviceUuid)
+                    gatt
+                        .getService(serviceUuid)
                         ?.getCharacteristic(measurementUuid)
                 if (primaryCharacteristic == null) {
                     DebugTelemetry.log(logTag, "event=measurement_missing")
@@ -214,7 +224,8 @@ internal class ExternalBleGattClient(
             when (val operation = pendingOperations.removeFirst()) {
                 is BleGattOperation.Notify -> {
                     val characteristic =
-                        gatt.getService(operation.serviceUuid)
+                        gatt
+                            .getService(operation.serviceUuid)
                             ?.getCharacteristic(operation.characteristicUuid)
                     if (characteristic == null) {
                         DebugTelemetry.log(logTag, "event=notify_missing uuid=${operation.characteristicUuid}")
@@ -226,7 +237,8 @@ internal class ExternalBleGattClient(
                 }
                 is BleGattOperation.Read -> {
                     val characteristic =
-                        gatt.getService(operation.serviceUuid)
+                        gatt
+                            .getService(operation.serviceUuid)
                             ?.getCharacteristic(operation.characteristicUuid)
                     if (characteristic == null) {
                         DebugTelemetry.log(logTag, "event=read_missing uuid=${operation.characteristicUuid}")
@@ -275,6 +287,5 @@ internal object BluetoothUuid {
 
     fun descriptor16(shortUuid: Int): UUID = bluetoothUuid(shortUuid)
 
-    private fun bluetoothUuid(shortUuid: Int): UUID =
-        UUID.fromString("0000${shortUuid.toString(16).padStart(4, '0')}-0000-1000-8000-00805f9b34fb")
+    private fun bluetoothUuid(shortUuid: Int): UUID = UUID.fromString("0000${shortUuid.toString(16).padStart(4, '0')}-0000-1000-8000-00805f9b34fb")
 }

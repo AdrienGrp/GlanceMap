@@ -697,8 +697,7 @@ class DownloadViewModel(
         }
     }
 
-    private suspend fun loadInstalledBundlesAndHealth():
-        Pair<List<OamInstalledBundle>, Map<String, OamBundleLocalHealth>> {
+    private suspend fun loadInstalledBundlesAndHealth(): Pair<List<OamInstalledBundle>, Map<String, OamBundleLocalHealth>> {
         val installed = downloader.installedBundles()
         val healthByAreaId =
             installed.associate { bundle ->

@@ -1432,6 +1432,7 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.POI_ICON_SIZE_MEDIUM_PX,
                 SettingsRepository.POI_ICON_SIZE_LARGE_PX,
             )
+
         private fun sanitizePoiIconSizePx(sizePx: Int?): Int =
             when (sizePx) {
                 18 -> SettingsRepository.POI_ICON_SIZE_SMALL_PX
@@ -1440,6 +1441,7 @@ class SettingsRepositoryImpl private constructor(
                 in allowedPoiIconSizesPx -> sizePx ?: SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
                 else -> SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
             }
+
         private val allowedPoiMarkerStyles =
             setOf(
                 SettingsRepository.POI_MARKER_STYLE_BADGE,

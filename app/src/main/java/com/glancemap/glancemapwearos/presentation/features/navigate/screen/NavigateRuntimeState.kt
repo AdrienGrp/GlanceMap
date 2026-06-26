@@ -138,5 +138,4 @@ private fun NavigateRuntimeEffects(
             locationViewModel.requestImmediateLocation(source = UI_RECORDING_WAKE_REFRESH_SOURCE)
         }
     }
-
 }

@@ -41,7 +41,6 @@ internal fun BoxScope.RecordingDashboardOverlay(
     backpackWeightKg: Float,
     screenSize: WearScreenSize,
     isMetric: Boolean,
-    timeFormat: String,
     showRouteCompletePrompt: Boolean = false,
     onRouteCompletePromptDismiss: () -> Unit = {},
     suppressed: Boolean,
@@ -163,7 +162,6 @@ internal fun BoxScope.RecordingDashboardOverlay(
                     snapshot = snapshot,
                     screenSize = screenSize,
                     isMetric = isMetric,
-                    timeFormat = timeFormat,
                     onSlotLongPress = { slotIndex ->
                         metricPickerSlot = dashboardPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
                     },
@@ -233,7 +231,9 @@ internal fun BoxScope.RecordingDashboardOverlay(
                         onClick = {
                             onRouteCompletePromptDismiss()
                             stopPromptPausedRecording =
-                                state.active && !state.paused && !state.saving
+                                state.active &&
+                                !state.paused &&
+                                !state.saving
                             if (stopPromptPausedRecording) {
                                 onPause()
                             }
@@ -313,7 +313,6 @@ private fun recordingActionPromptTopPadding(screenSize: WearScreenSize): Dp =
         WearScreenSize.SMALL -> 82.dp
     }
 
-internal fun normalizedRecordingDashboardSlots(metricSlots: List<String>): List<String> =
-    normalizeRecordingDashboardMetricSlots(metricSlots)
+internal fun normalizedRecordingDashboardSlots(metricSlots: List<String>): List<String> = normalizeRecordingDashboardMetricSlots(metricSlots)
 
 private const val NO_SELECTED_SLOT = -1

@@ -78,19 +78,19 @@ class OamBundleRefreshSummaryTest {
     }
 
     @Test
-    fun remoteMetadataUsesEtagBeforeMatchingContentLength() {
+    fun remoteMetadataIgnoresChangedEtagWhenContentLengthMatches() {
         val previous = remoteMetadata(entityTag = "\"old\"", lastModifiedMillis = 1L, contentLengthBytes = 100L)
         val current = remoteMetadata(entityTag = "\"new\"", lastModifiedMillis = 2L, contentLengthBytes = 100L)
 
-        assertEquals(RemoteMetadataComparison.CHANGED, previous.compareWith(current))
+        assertEquals(RemoteMetadataComparison.SAME, previous.compareWith(current))
     }
 
     @Test
-    fun remoteMetadataUsesLastModifiedBeforeMatchingContentLength() {
+    fun remoteMetadataIgnoresChangedLastModifiedWhenContentLengthMatches() {
         val previous = remoteMetadata(entityTag = null, lastModifiedMillis = 1L, contentLengthBytes = 100L)
         val current = remoteMetadata(entityTag = null, lastModifiedMillis = 2L, contentLengthBytes = 100L)
 
-        assertEquals(RemoteMetadataComparison.CHANGED, previous.compareWith(current))
+        assertEquals(RemoteMetadataComparison.SAME, previous.compareWith(current))
     }
 
     @Test

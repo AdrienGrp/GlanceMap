@@ -84,7 +84,8 @@ class ExternalSensorScanner(
         runCatching {
             scanner.startScan(
                 null,
-                ScanSettings.Builder()
+                ScanSettings
+                    .Builder()
                     .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                     .build(),
                 callback,
@@ -114,7 +115,12 @@ class ExternalSensorScanner(
 
     private fun mergeResult(result: ScanResult) {
         val address = safeAddress(result) ?: return
-        val serviceUuids = result.scanRecord?.serviceUuids.orEmpty().map { it.uuid }.toSet()
+        val serviceUuids =
+            result.scanRecord
+                ?.serviceUuids
+                .orEmpty()
+                .map { it.uuid }
+                .toSet()
         val kinds = ExternalSensorKind.entries.filter { it.serviceUuid in serviceUuids }.toSet()
         val name = safeName(result).ifBlank { "BLE ${address.takeLast(5)}" }
         if (loggedDeviceAddresses.add(address)) {
@@ -172,13 +178,17 @@ class ExternalSensorScanner(
         )
     }
 
+    @SuppressLint("MissingPermission")
     private fun safeName(result: ScanResult): String =
         result.scanRecord?.deviceName
-            ?: runCatching { result.device.name }.getOrNull()
+            ?: if (hasConnectPermission(context)) {
+                runCatching { result.device.name }.getOrNull()
+            } else {
+                null
+            }
             ?: ""
 
-    private fun safeAddress(result: ScanResult): String? =
-        runCatching { result.device.address }.getOrNull()
+    private fun safeAddress(result: ScanResult): String? = runCatching { result.device.address }.getOrNull()
 
     companion object {
         fun requiredPermissions(): List<String> =

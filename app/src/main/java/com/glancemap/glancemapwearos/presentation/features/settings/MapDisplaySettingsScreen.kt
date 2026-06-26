@@ -117,7 +117,6 @@ fun MapDisplaySettingsScreen(
             )
         }
     }
-
 }
 
 internal const val TAG_MAP_DISPLAY_SHOW_TIME_CHIP = "map_display_show_time_chip"

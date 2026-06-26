@@ -44,20 +44,19 @@ import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
-import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorDevice
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalHeartRateSensorBridge
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodRuntimeStatus
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodSensorBridge
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorConnectionStatus
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorDevice
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorKind
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanStatus
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorScanner
 import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorSimulation
-import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalHeartRateSensorBridge
-import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodRuntimeStatus
-import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalRunPodSensorBridge
 import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.material.Chip
 
 @Composable
 fun RecordingExternalSensorsScreen(
@@ -239,15 +238,13 @@ fun RecordingExternalSensorsScreen(
                                     pendingSensorLink
                                         .takeIf {
                                             it.matches(device.address, LinkedExternalSensorType.HEART_RATE)
-                                        }
-                                        ?.name
+                                        }?.name
                                         ?: linkedHeartRateName.orLinkedSensorFallback(device.name)
                                 } else {
                                     pendingSensorLink
                                         .takeIf {
                                             it.matches(device.address, LinkedExternalSensorType.RUN_POD)
-                                        }
-                                        ?.name
+                                        }?.name
                                         ?: linkedRunPodName.orLinkedSensorFallback(device.name)
                                 },
                             address = device.address,
@@ -258,12 +255,12 @@ fun RecordingExternalSensorsScreen(
                             batteryLevelPercent =
                                 if (heartRateSelected) {
                                     externalSensorBatteryLevels[
-                                        device.address.normalizedBluetoothAddress()
+                                        device.address.normalizedBluetoothAddress(),
                                     ]
                                 } else {
                                     runPodRuntimeInfos[device.address]?.batteryLevelPercent
                                         ?: externalSensorBatteryLevels[
-                                            device.address.normalizedBluetoothAddress()
+                                            device.address.normalizedBluetoothAddress(),
                                         ]
                                 },
                             onForget = {
@@ -453,8 +450,7 @@ private fun LinkedExternalSensorChipContent(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onForget()
                     },
-                )
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+                ).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -511,8 +507,7 @@ private fun LinkedExternalSensorChipContent(
 
 private fun String.normalizedBluetoothAddress(): String = trim().uppercase()
 
-private fun String.isConnectedIn(connectedAddresses: Set<String>): Boolean =
-    normalizedBluetoothAddress() in connectedAddresses
+private fun String.isConnectedIn(connectedAddresses: Set<String>): Boolean = normalizedBluetoothAddress() in connectedAddresses
 
 @Composable
 private fun ExternalSensorScanChip(
@@ -606,11 +601,9 @@ private fun scanStatusLabel(status: ExternalSensorScanStatus): String =
         ExternalSensorScanStatus.SCAN_FAILED -> "Scan failed, try again"
     }
 
-private fun ExternalSensorDevice.canLinkHeartRate(): Boolean =
-    kinds.isEmpty() || ExternalSensorKind.HEART_RATE in kinds
+private fun ExternalSensorDevice.canLinkHeartRate(): Boolean = kinds.isEmpty() || ExternalSensorKind.HEART_RATE in kinds
 
-private fun ExternalSensorDevice.canLinkRunPod(): Boolean =
-    ExternalSensorKind.RUNNING_SPEED_CADENCE in kinds
+private fun ExternalSensorDevice.canLinkRunPod(): Boolean = ExternalSensorKind.RUNNING_SPEED_CADENCE in kinds
 
 private fun String.sanitizeTelemetryToken(): String =
     replace(' ', '_')

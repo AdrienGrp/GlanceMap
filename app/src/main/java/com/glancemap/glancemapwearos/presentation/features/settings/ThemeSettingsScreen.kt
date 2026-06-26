@@ -369,7 +369,6 @@ fun ThemeSettingsScreen(
             }
         }
     }
-
 }
 
 private sealed interface OverlayRow {

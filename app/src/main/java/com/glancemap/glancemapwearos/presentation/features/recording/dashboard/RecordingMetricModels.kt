@@ -6,10 +6,9 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import com.glancemap.glancemapwearos.presentation.features.gpx.buildProfile
 import com.glancemap.glancemapwearos.presentation.features.gpx.totalAscent
 import com.glancemap.glancemapwearos.presentation.features.gpx.totalDescent
-import com.glancemap.glancemapwearos.presentation.features.gpx.totalDistance
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.features.recording.RecordedTracePoint
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
-import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.haversineMeters
 import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import java.text.DecimalFormat
 import kotlin.math.max
@@ -433,7 +432,7 @@ private fun pressureMetricValue(
             value = (pressureHpa * 10.0).roundToInt().let { (it / 10.0).toString() },
             unit = "hPa",
         )
-}
+    }
 
 private fun caloriesMetricValue(
     label: String,
@@ -740,8 +739,7 @@ private fun List<RecordedTracePoint>.averagePowerWatts(): Int? {
 
 private fun Long.ageMillisAt(nowMillis: Long): Long = (nowMillis - this).coerceAtLeast(0L)
 
-private fun Long.isFreshLivePointTime(nowMillis: Long): Boolean =
-    this > 0L && ageMillisAt(nowMillis) <= LIVE_POINT_MAX_AGE_MS
+private fun Long.isFreshLivePointTime(nowMillis: Long): Boolean = this > 0L && ageMillisAt(nowMillis) <= LIVE_POINT_MAX_AGE_MS
 
 private const val METERS_TO_MILES = 0.000621371
 private const val METERS_PER_MILE = 1_609.344

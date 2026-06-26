@@ -66,7 +66,7 @@ fun SettingsScreen(
             partialSummary.count <= 0 -> "No partial files"
             partialSummary.count == 1 -> "1 file · ${formatStorageSize(partialSummary.totalBytes)}"
             else -> "${partialSummary.count} files · ${formatStorageSize(partialSummary.totalBytes)}"
-    }
+        }
 
     WearSettingsListScreen(listTokens = listTokens) {
         item {
