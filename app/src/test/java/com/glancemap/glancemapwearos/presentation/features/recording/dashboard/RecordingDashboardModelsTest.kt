@@ -265,6 +265,71 @@ class RecordingDashboardModelsTest {
     }
 
     @Test
+    fun recordingRecapMetricsUseActivityDetailOrderAndRemoveLiveOnlyMetrics() {
+        val snapshot =
+            RecordingDashboardSnapshot(
+                durationSeconds = 3_723.0,
+                distanceMeters = 1_234.0,
+                elevationGainMeters = 120.0,
+                elevationLossMeters = 95.0,
+                currentElevationMeters = 1_450.0,
+                currentSpeedMps = 2.5f,
+                averageSpeedMps = 2.0,
+                fastestSpeedMps = 3.0,
+                gpsAccuracyMeters = null,
+                pointCount = 42,
+                gpsActiveDurationSeconds = 3_700.0,
+                recordingGapCount = 0,
+                recordingMaxGapSeconds = 0.0,
+                calorieEstimate =
+                    RecordingCalorieEstimate(
+                        grossKcal = 120.0,
+                        activeKcal = 90.0,
+                        restingKcal = 30.0,
+                    ),
+                heartRateBpm = 130,
+                averageHeartRateBpm = 125,
+                maxHeartRateBpm = 158,
+                stepCount = 1_500,
+                cadenceSpm = 160,
+                averageCadenceSpm = 155,
+                maxCadenceSpm = 172,
+                powerWatts = 190,
+                averagePowerWatts = 175,
+                maxPowerWatts = 260,
+                barometricPressureHpa = 913.0,
+            )
+
+        val labels =
+            recordingRecapMetricsForSnapshot(snapshot, isMetric = true)
+                .map { metric -> metric.label }
+
+        assertEquals(
+            listOf(
+                "Distance",
+                "Active time",
+                "Elev +",
+                "Elev -",
+                "Avg speed",
+                "Max speed",
+                "Avg pace",
+                "Max pace",
+                "Avg HR",
+                "Max HR",
+                "Avg Power",
+                "Max Power",
+                "Avg cad",
+                "Max cad",
+                "Steps",
+                "Calories",
+                "Active cal",
+                "Rest cal",
+            ),
+            labels,
+        )
+    }
+
+    @Test
     fun metricPickerOptionsAreAlphabetical() {
         val labels = recordingMetricPickerOptions.map { it.second }
         assertEquals(labels.sortedBy { it.lowercase() }, labels)

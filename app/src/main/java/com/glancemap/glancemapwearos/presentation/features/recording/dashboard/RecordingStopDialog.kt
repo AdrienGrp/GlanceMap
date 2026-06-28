@@ -229,18 +229,49 @@ internal fun recordingRecapMetricsForSnapshot(
     snapshot: RecordingDashboardSnapshot,
     isMetric: Boolean,
 ): List<RecordingRecapMetric> =
-    RECORDING_RECAP_METRIC_IDS.map { metricId ->
-        if (metricId == SettingsRepository.RECORDING_METRIC_HEART_RATE) {
-            val heartRate = snapshot.averageHeartRateBpm ?: snapshot.heartRateBpm
-            recordingRecapMetric(
-                label = "Avg HR",
-                value = heartRate?.takeIf { it > 0 }?.toString() ?: "--",
-                unit = "bpm",
-            )
-        } else {
-            formattedRecordingMetric(metricId, snapshot, isMetric).toRecordingRecapMetric()
-        }
-    }
+    listOf(
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DISTANCE, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DURATION, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+        speedMetricValue("Max speed", snapshot.fastestSpeedMps, isMetric)
+            .toRecordingRecapMetric(),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_AVERAGE_PACE, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+        paceMetricValue("Max pace", snapshot.fastestSpeedMps, isMetric)
+            .toRecordingRecapMetric(),
+        integerRecapMetric("Avg HR", snapshot.averageHeartRateBpm ?: snapshot.heartRateBpm, "bpm"),
+        integerRecapMetric("Max HR", snapshot.maxHeartRateBpm ?: snapshot.heartRateBpm, "bpm"),
+        integerRecapMetric("Avg Power", snapshot.averagePowerWatts ?: snapshot.powerWatts, "W"),
+        integerRecapMetric("Max Power", snapshot.maxPowerWatts ?: snapshot.powerWatts, "W"),
+        integerRecapMetric("Avg cad", snapshot.averageCadenceSpm ?: snapshot.cadenceSpm, "spm"),
+        integerRecapMetric("Max cad", snapshot.maxCadenceSpm ?: snapshot.cadenceSpm, "spm"),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_STEPS, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_CALORIES, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_RESTING_CALORIES, snapshot, isMetric)
+            .toRecordingRecapMetric(),
+    )
+
+private fun integerRecapMetric(
+    label: String,
+    value: Int?,
+    unit: String,
+): RecordingRecapMetric =
+    recordingRecapMetric(
+        label = label,
+        value = value?.takeIf { it >= 0 }?.toString() ?: "--",
+        unit = unit,
+    )
 
 private fun isShortRecording(
     snapshot: RecordingDashboardSnapshot,
@@ -255,24 +286,3 @@ private const val SHORT_RECORDING_DISTANCE_METERS = 20.0
 private const val SHORT_RECORDING_DURATION_SECONDS = 10.0
 private const val MAX_RECORDING_TITLE_LENGTH = 64
 private const val RECORDING_RECAP_COLUMNS = 2
-private val RECORDING_RECAP_METRIC_IDS =
-    listOf(
-        SettingsRepository.RECORDING_METRIC_DISTANCE,
-        SettingsRepository.RECORDING_METRIC_DURATION,
-        SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
-        SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
-        SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
-        SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
-        SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
-        SettingsRepository.RECORDING_METRIC_CURRENT_PACE,
-        SettingsRepository.RECORDING_METRIC_AVERAGE_PACE,
-        SettingsRepository.RECORDING_METRIC_HEART_RATE,
-        SettingsRepository.RECORDING_METRIC_STEPS,
-        SettingsRepository.RECORDING_METRIC_CADENCE,
-        SettingsRepository.RECORDING_METRIC_POWER,
-        SettingsRepository.RECORDING_METRIC_AVERAGE_POWER,
-        SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
-        SettingsRepository.RECORDING_METRIC_CALORIES,
-        SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,
-        SettingsRepository.RECORDING_METRIC_RESTING_CALORIES,
-    )

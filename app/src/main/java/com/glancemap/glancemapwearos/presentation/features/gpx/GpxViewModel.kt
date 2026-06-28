@@ -476,6 +476,7 @@ class GpxViewModel(
             currentElevationMeters = lastPoint?.elevation,
             currentSpeedMps = lastPoint?.speedMps ?: points.lastSegmentSpeedMps(),
             averageSpeedMps = averageSpeedMps,
+            fastestSpeedMps = points.fastestSpeedMps(),
             gpsAccuracyMeters = points.lastMappedNotNull { it.accuracyMeters },
             pointCount = points.size,
             gpsActiveDurationSeconds = durationSeconds ?: 0.0,
@@ -486,10 +487,14 @@ class GpxViewModel(
             calorieEstimate = calorieEstimate,
             heartRateBpm = points.lastMappedNotNull { it.heartRateBpm },
             averageHeartRateBpm = points.averageHeartRateBpm(),
+            maxHeartRateBpm = points.maxHeartRateBpm(),
             stepCount = points.lastMappedNotNull { it.stepCount },
             cadenceSpm = points.lastMappedNotNull { it.cadenceSpm },
+            averageCadenceSpm = points.averageCadenceSpm(),
+            maxCadenceSpm = points.maxCadenceSpm(),
             powerWatts = points.lastMappedNotNull { it.powerWatts },
             averagePowerWatts = points.averagePowerWatts(),
+            maxPowerWatts = points.maxPowerWatts(),
             powerFromBluetooth = points.lastMappedNotNull { it.powerWatts } != null,
             barometricPressureHpa = points.lastMappedNotNull { it.barometricPressureHpa },
             hasElevationData = hasElevationData,
@@ -543,6 +548,7 @@ class GpxViewModel(
                     ?: duration
                         .takeIf { it > 0.0 }
                         ?.let { distance / it },
+            fastestSpeedMps = fallbackPoints.fastestSpeedMps(),
             gpsAccuracyMeters = gpsAccuracyMeters ?: fallbackPoints.lastMappedNotNull { it.accuracyMeters },
             pointCount = pointCount ?: fallbackPoints.size,
             gpsActiveDurationSeconds = gpsActiveDurationSeconds ?: duration,
@@ -559,10 +565,14 @@ class GpxViewModel(
                     ),
             heartRateBpm = fallbackPoints.lastMappedNotNull { it.heartRateBpm },
             averageHeartRateBpm = heartRateBpm ?: fallbackPoints.averageHeartRateBpm(),
+            maxHeartRateBpm = fallbackPoints.maxHeartRateBpm() ?: heartRateBpm,
             stepCount = stepCount ?: fallbackPoints.lastMappedNotNull { it.stepCount },
             cadenceSpm = cadenceSpm ?: fallbackPoints.lastMappedNotNull { it.cadenceSpm },
+            averageCadenceSpm = fallbackPoints.averageCadenceSpm(),
+            maxCadenceSpm = fallbackPoints.maxCadenceSpm() ?: cadenceSpm,
             powerWatts = powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts },
             averagePowerWatts = fallbackPoints.averagePowerWatts(),
+            maxPowerWatts = fallbackPoints.maxPowerWatts() ?: powerWatts,
             powerFromBluetooth = (powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts }) != null,
             barometricPressureHpa = barometricPressureHpa ?: fallbackPoints.lastMappedNotNull { it.barometricPressureHpa },
             hasElevationData = fallbackHasElevationData || currentElevationMeters != null,
@@ -1417,19 +1427,41 @@ private fun List<TrackPoint>.lastSegmentSpeedMps(): Float? {
     return (distanceMeters / elapsedSeconds).toFloat().takeIf { it.isFinite() && it >= 0f }
 }
 
+private fun List<TrackPoint>.fastestSpeedMps(): Double? =
+    mapNotNull { point -> point.speedMps?.toDouble()?.takeIf { it.isFinite() && it > 0.0 } }
+        .maxOrNull()
+
 private fun List<TrackPoint>.averageHeartRateBpm(): Int? {
     val values = mapNotNull { point -> point.heartRateBpm?.takeIf { it > 0 } }
     if (values.isEmpty()) return null
     return values.average().roundToInt()
 }
 
+private fun List<TrackPoint>.maxHeartRateBpm(): Int? =
+    mapNotNull { point -> point.heartRateBpm?.takeIf { it > 0 } }
+        .maxOrNull()
+
 private fun List<TrackPoint>.hasElevationData(): Boolean = any { point -> point.elevation?.isFinite() == true }
+
+private fun List<TrackPoint>.averageCadenceSpm(): Int? {
+    val values = mapNotNull { point -> point.cadenceSpm?.takeIf { it > 0 } }
+    if (values.isEmpty()) return null
+    return values.average().roundToInt()
+}
+
+private fun List<TrackPoint>.maxCadenceSpm(): Int? =
+    mapNotNull { point -> point.cadenceSpm?.takeIf { it > 0 } }
+        .maxOrNull()
 
 private fun List<TrackPoint>.averagePowerWatts(): Int? {
     val values = mapNotNull { point -> point.powerWatts?.takeIf { it >= 0 } }
     if (values.isEmpty()) return null
     return values.average().roundToInt()
 }
+
+private fun List<TrackPoint>.maxPowerWatts(): Int? =
+    mapNotNull { point -> point.powerWatts?.takeIf { it >= 0 } }
+        .maxOrNull()
 
 private fun List<TrackPoint>.toRecordedTracePoints(): List<RecordedTracePoint> =
     mapNotNull { point ->

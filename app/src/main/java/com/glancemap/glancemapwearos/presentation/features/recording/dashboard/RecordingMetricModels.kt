@@ -55,6 +55,7 @@ data class RecordingDashboardSnapshot(
     val currentSpeedMps: Float?,
     val externalSpeedMps: Float? = null,
     val averageSpeedMps: Double?,
+    val fastestSpeedMps: Double? = null,
     val externalDistanceMeters: Double? = null,
     val gpsAccuracyMeters: Float?,
     val pointCount: Int,
@@ -70,10 +71,14 @@ data class RecordingDashboardSnapshot(
     val stepCount: Int? = null,
     val stepCountFromBluetooth: Boolean = false,
     val cadenceSpm: Int? = null,
+    val averageCadenceSpm: Int? = null,
+    val maxCadenceSpm: Int? = null,
     val cadenceFromBluetooth: Boolean = false,
     val powerWatts: Int? = null,
     val averagePowerWatts: Int? = null,
+    val maxPowerWatts: Int? = null,
     val powerFromBluetooth: Boolean = false,
+    val maxHeartRateBpm: Int? = null,
     val barometricPressureHpa: Double? = null,
     val lastLiveFixAgeMillis: Long? = null,
     val lastRecordedPointAgeMillis: Long? = null,
@@ -194,6 +199,11 @@ internal fun buildRecordingDashboardSnapshot(
             } else {
                 null
             },
+        fastestSpeedMps =
+            state.points
+                .mapNotNull { point -> point.speedMps?.toDouble()?.takeIf { it.isFinite() && it > 0.0 } }
+                .maxOrNull()
+                ?: displayCurrentSpeedMps?.toDouble()?.takeIf { it.isFinite() && it > 0.0 },
         externalDistanceMeters = state.externalDistanceMeters,
         gpsAccuracyMeters = currentPoint?.accuracyMeters ?: lastRecordedPoint?.accuracyMeters,
         pointCount = state.points.size,
@@ -206,12 +216,16 @@ internal fun buildRecordingDashboardSnapshot(
         heartRateBpm = state.heartRateBpm,
         heartRateFromBluetooth = state.heartRateFromBluetooth,
         averageHeartRateBpm = state.points.averageHeartRateBpm(),
+        maxHeartRateBpm = state.points.maxHeartRateBpm() ?: state.heartRateBpm?.takeIf { it > 0 },
         stepCount = state.stepCount,
         stepCountFromBluetooth = state.stepCountFromBluetooth,
         cadenceSpm = state.cadenceSpm,
+        averageCadenceSpm = state.points.averageCadenceSpm(),
+        maxCadenceSpm = state.points.maxCadenceSpm() ?: state.cadenceSpm?.takeIf { it > 0 },
         cadenceFromBluetooth = state.cadenceFromBluetooth,
         powerWatts = state.externalPowerWatts,
         averagePowerWatts = state.points.averagePowerWatts(),
+        maxPowerWatts = state.points.maxPowerWatts() ?: state.externalPowerWatts?.takeIf { it >= 0 },
         powerFromBluetooth =
             state.externalPowerFromBluetooth ||
                 state.points.any { point -> point.powerWatts != null },
@@ -385,7 +399,7 @@ private fun formatRecordingDurationClock(seconds: Double?): String {
 
 private fun Int.twoDigits(): String = toString().padStart(2, '0')
 
-private fun speedMetricValue(
+internal fun speedMetricValue(
     label: String,
     speedMps: Double?,
     isMetric: Boolean,
@@ -667,7 +681,7 @@ private fun lcda2024WeightedLoadWatts(
     return (wattsPerKg * bodyWeightKg).coerceAtLeast(0.0)
 }
 
-private fun paceMetricValue(
+internal fun paceMetricValue(
     label: String,
     speedMps: Double?,
     isMetric: Boolean,
@@ -731,11 +745,29 @@ private fun List<RecordedTracePoint>.averageHeartRateBpm(): Int? {
     return values.average().roundToInt()
 }
 
+private fun List<RecordedTracePoint>.maxHeartRateBpm(): Int? =
+    mapNotNull { point -> point.heartRateBpm?.takeIf { it > 0 } }
+        .maxOrNull()
+
+private fun List<RecordedTracePoint>.averageCadenceSpm(): Int? {
+    val values = mapNotNull { point -> point.cadenceSpm?.takeIf { it > 0 } }
+    if (values.isEmpty()) return null
+    return values.average().roundToInt()
+}
+
+private fun List<RecordedTracePoint>.maxCadenceSpm(): Int? =
+    mapNotNull { point -> point.cadenceSpm?.takeIf { it > 0 } }
+        .maxOrNull()
+
 private fun List<RecordedTracePoint>.averagePowerWatts(): Int? {
     val values = mapNotNull { point -> point.powerWatts?.takeIf { it >= 0 } }
     if (values.isEmpty()) return null
     return values.average().roundToInt()
 }
+
+private fun List<RecordedTracePoint>.maxPowerWatts(): Int? =
+    mapNotNull { point -> point.powerWatts?.takeIf { it >= 0 } }
+        .maxOrNull()
 
 private fun Long.ageMillisAt(nowMillis: Long): Long = (nowMillis - this).coerceAtLeast(0L)
 
