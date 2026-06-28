@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.recording.dashboard
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
@@ -39,7 +41,11 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.navigate.formatNavigateClockTime
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 @Composable
 internal fun RecordingFullscreenPageShell(
@@ -180,6 +186,28 @@ private fun RecordingDashboardPageIndicator(
     modifier: Modifier = Modifier,
 ) {
     if (pageCount <= 1) return
+    val adaptive = rememberWearAdaptiveSpec()
+    if (adaptive.isRound) {
+        RecordingDashboardArcPageIndicator(
+            pageIndex = pageIndex,
+            pageCount = pageCount,
+            modifier = modifier,
+        )
+    } else {
+        RecordingDashboardStraightPageIndicator(
+            pageIndex = pageIndex,
+            pageCount = pageCount,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun RecordingDashboardStraightPageIndicator(
+    pageIndex: Int,
+    pageCount: Int,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -195,6 +223,53 @@ private fun RecordingDashboardPageIndicator(
                             color = Color.White.copy(alpha = if (index == pageIndex) 0.72f else 0.28f),
                             shape = RoundedCornerShape(percent = 50),
                         ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecordingDashboardArcPageIndicator(
+    pageIndex: Int,
+    pageCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(
+        modifier =
+            modifier
+                .width(36.dp)
+                .height(112.dp),
+    ) {
+        val sweepDegrees =
+            when {
+                pageCount <= 2 -> 34f
+                pageCount == 3 -> 48f
+                else -> 68f
+            }
+        val centerY = size.height / 2f
+        val centerX = -size.height * 0.40f
+        val rightInset = 8.dp.toPx()
+        val radius = size.width - rightInset - centerX
+        val activeRadius = 3.5.dp.toPx()
+        val inactiveRadius = 2.2.dp.toPx()
+
+        repeat(pageCount) { index ->
+            val fraction =
+                if (pageCount == 1) {
+                    0.5f
+                } else {
+                    index.toFloat() / (pageCount - 1).toFloat()
+                }
+            val angleRadians = ((-sweepDegrees / 2f) + sweepDegrees * fraction) * (PI.toFloat() / 180f)
+            val active = index == pageIndex
+            drawCircle(
+                color = Color.White.copy(alpha = if (active) 0.78f else 0.28f),
+                radius = if (active) activeRadius else inactiveRadius,
+                center =
+                    Offset(
+                        x = centerX + cos(angleRadians) * radius,
+                        y = centerY + sin(angleRadians) * radius,
+                    ),
             )
         }
     }
