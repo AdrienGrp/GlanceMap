@@ -38,6 +38,7 @@ internal fun TurnByTurnGuidanceVoiceEffect(
     val appContext = context.applicationContext
     var ttsReady by remember { mutableStateOf(false) }
     var alertedInstructionKey by remember { mutableStateOf<String?>(null) }
+    var alertedStraightSectionKey by remember { mutableStateOf<String?>(null) }
     var arrivalAlertedTrack by remember { mutableStateOf<String?>(null) }
     val tts =
         remember(appContext) {
@@ -103,6 +104,7 @@ internal fun TurnByTurnGuidanceVoiceEffect(
     LaunchedEffect(state.active, state.trackTitle) {
         if (!state.active) {
             alertedInstructionKey = null
+            alertedStraightSectionKey = null
             arrivalAlertedTrack = null
             tts.stop()
         }
@@ -149,6 +151,37 @@ internal fun TurnByTurnGuidanceVoiceEffect(
         }
     }
 
+    LaunchedEffect(
+        ttsReady,
+        state.active,
+        state.mode,
+        state.offRoute,
+        state.nextInstruction?.trackPointIndex,
+        state.distanceToInstructionMeters,
+        voiceEnabled,
+        paused,
+        isMetric,
+    ) {
+        if (!ttsReady || paused || !voiceEnabled) return@LaunchedEffect
+        if (!shouldSpeakContinueStraightPrompt(state)) return@LaunchedEffect
+        val instruction = state.nextInstruction ?: return@LaunchedEffect
+        val distanceMeters = state.distanceToInstructionMeters ?: return@LaunchedEffect
+        val straightKey = "${state.trackTitle}:straight:${instruction.trackPointIndex}"
+        if (alertedStraightSectionKey == straightKey) return@LaunchedEffect
+
+        val spokenText = spokenContinueStraightText(distanceMeters, isMetric)
+        DebugTelemetry.log(
+            "TurnByTurn",
+            "voice=continue_straight index=${instruction.trackPointIndex} " +
+                "distanceM=${distanceMeters.toInt()} thresholdM=${VOICE_CONTINUE_STRAIGHT_MIN_DISTANCE_METERS.toInt()}",
+        )
+        val speakResult = tts.speak(spokenText, TextToSpeech.QUEUE_ADD, null, straightKey)
+        DebugTelemetry.log("TurnByTurn", "voice=speak_result id=$straightKey result=$speakResult")
+        if (speakResult == TextToSpeech.SUCCESS) {
+            alertedStraightSectionKey = straightKey
+        }
+    }
+
     LaunchedEffect(ttsReady, state.active, state.mode, state.trackTitle, paused) {
         if (!ttsReady || paused || !state.active || state.mode != GuidanceMode.FINISHED) {
             return@LaunchedEffect
@@ -190,6 +223,19 @@ internal fun TurnByTurnGuidanceVoiceEffect(
     }
 }
 
+internal fun shouldSpeakContinueStraightPrompt(state: TurnByTurnGuidanceState): Boolean {
+    if (!state.active || state.mode != GuidanceMode.FOLLOW_ROUTE || state.offRoute) return false
+    val distanceMeters = state.distanceToInstructionMeters ?: return false
+    if (!distanceMeters.isFinite() || distanceMeters < VOICE_CONTINUE_STRAIGHT_MIN_DISTANCE_METERS) return false
+    val instruction = state.nextInstruction ?: return false
+    return instruction.command != RouteInstructionCommand.CONTINUE
+}
+
+internal fun spokenContinueStraightText(
+    distanceMeters: Double,
+    isMetric: Boolean,
+): String = "Continue straight ${spokenStraightDistance(distanceMeters, isMetric)}"
+
 private fun spokenInstructionText(
     instruction: RouteInstruction,
     distanceMeters: Double,
@@ -211,6 +257,38 @@ private fun spokenInstructionText(
             null
         }
     return if (followingAction != null) "$primary, then $followingAction" else primary
+}
+
+private fun spokenStraightDistance(
+    distanceMeters: Double,
+    isMetric: Boolean,
+): String {
+    if (!distanceMeters.isFinite() || distanceMeters <= 0.0) return ""
+    if (!isMetric) {
+        val feet = distanceMeters * METERS_TO_FEET
+        return if (feet < FEET_PER_HALF_MILE) {
+            val roundedFeet = ((feet / 25.0).roundToInt() * 25).coerceAtLeast(50)
+            "for $roundedFeet feet"
+        } else {
+            val miles = distanceMeters * METERS_TO_MILES
+            val roundedTenths = (miles * 10.0).roundToInt().coerceAtLeast(1)
+            val spokenMiles = String.format(Locale.US, "%.1f", roundedTenths / 10.0)
+            "for $spokenMiles miles"
+        }
+    }
+    return if (distanceMeters < 1000.0) {
+        val roundedMeters = ((distanceMeters / 25.0).roundToInt() * 25).coerceAtLeast(50)
+        "for $roundedMeters meters"
+    } else {
+        val kilometers = distanceMeters / 1000.0
+        val spokenKilometers =
+            if (kilometers >= 10.0) {
+                kilometers.roundToInt().toString()
+            } else {
+                String.format(Locale.US, "%.1f", kilometers)
+            }
+        "for $spokenKilometers kilometers"
+    }
 }
 
 private fun spokenTurnAction(command: RouteInstructionCommand): String =
@@ -248,6 +326,7 @@ private fun spokenDistancePrefix(
 }
 
 private const val VOICE_FOLLOWING_TURN_MAX_GAP_METERS = 120.0
+internal const val VOICE_CONTINUE_STRAIGHT_MIN_DISTANCE_METERS = 450.0
 private const val METERS_TO_FEET = 3.28084
 private const val METERS_TO_MILES = 0.000621371
 private const val FEET_PER_HALF_MILE = 2_640.0

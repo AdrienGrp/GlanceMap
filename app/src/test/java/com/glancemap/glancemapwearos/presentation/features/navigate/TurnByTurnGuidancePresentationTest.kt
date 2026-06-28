@@ -4,7 +4,9 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Gui
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstruction
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.RouteInstructionCommand
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.message
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mapsforge.core.model.LatLong
@@ -32,15 +34,44 @@ class TurnByTurnGuidancePresentationTest {
         assertEquals("Now", text)
     }
 
-    private fun state(distanceMeters: Double): TurnByTurnGuidanceState =
+    @Test
+    fun voiceContinueStraightPromptOnlySpeaksForMeaningfulStraightSections() {
+        assertTrue(shouldSpeakContinueStraightPrompt(state(distanceMeters = 600.0)))
+        assertFalse(shouldSpeakContinueStraightPrompt(state(distanceMeters = 300.0)))
+        assertFalse(
+            shouldSpeakContinueStraightPrompt(
+                state(
+                    distanceMeters = 600.0,
+                    command = RouteInstructionCommand.CONTINUE,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun voiceContinueStraightPromptFormatsMetricAndImperialDistances() {
+        assertEquals(
+            "Continue straight for 750 meters",
+            spokenContinueStraightText(distanceMeters = 752.0, isMetric = true),
+        )
+        assertEquals(
+            "Continue straight for 0.5 miles",
+            spokenContinueStraightText(distanceMeters = 805.0, isMetric = false),
+        )
+    }
+
+    private fun state(
+        distanceMeters: Double,
+        command: RouteInstructionCommand = RouteInstructionCommand.RIGHT,
+    ): TurnByTurnGuidanceState =
         TurnByTurnGuidanceState(
             active = true,
             mode = GuidanceMode.FOLLOW_ROUTE,
             trackTitle = "Route",
             nextInstruction =
                 RouteInstruction(
-                    command = RouteInstructionCommand.RIGHT,
-                    message = "Right",
+                    command = command,
+                    message = command.message,
                     latLong = LatLong(45.0, 6.0),
                     trackPointIndex = 1,
                     distanceFromStartMeters = 200.0,
