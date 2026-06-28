@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
@@ -25,6 +26,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.wear.ambient.AmbientLifecycleObserver
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
@@ -64,7 +67,9 @@ import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnGu
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.UserProfileSettingsScreen
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
+import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
 import com.google.android.horologist.compose.layout.AppScaffold
 import kotlinx.coroutines.launch
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
@@ -862,13 +867,45 @@ class MainActivity : ComponentActivity() {
                 WearActionDialog(
                     visible = recordingStartWarning != null,
                     title = "External sensors unavailable",
-                    message = recordingStartWarning?.message.orEmpty(),
-                    confirmText = "Record anyway",
-                    onConfirm = appContainer.traceRecordingViewModel::confirmStartRecordingWithUnavailableSensors,
-                    dismissText = "Cancel",
-                    onDismiss = appContainer.traceRecordingViewModel::cancelStartRecordingWithUnavailableSensors,
                     onDismissRequest = appContainer.traceRecordingViewModel::cancelStartRecordingWithUnavailableSensors,
-                )
+                    buttons =
+                        listOf(
+                            WearActionDialogButton(
+                                text = "Use watch",
+                                onClick = {
+                                    appContainer.traceRecordingViewModel
+                                        .switchUnavailableSensorSourcesToWatchAndStartRecording()
+                                },
+                            ),
+                            WearActionDialogButton(
+                                text = "Record anyway",
+                                onClick = appContainer.traceRecordingViewModel::confirmStartRecordingWithUnavailableSensors,
+                                role = WearActionButtonRole.Secondary,
+                            ),
+                            WearActionDialogButton(
+                                text = "Sources",
+                                onClick = {
+                                    appContainer.traceRecordingViewModel.cancelStartRecordingWithUnavailableSensors()
+                                    navController.navigate(WatchRoutes.RECORDING_SOURCE_SETTINGS) {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                role = WearActionButtonRole.Secondary,
+                            ),
+                            WearActionDialogButton(
+                                text = "Cancel",
+                                onClick = appContainer.traceRecordingViewModel::cancelStartRecordingWithUnavailableSensors,
+                                role = WearActionButtonRole.Secondary,
+                            ),
+                        ),
+                ) {
+                    Text(
+                        text = recordingStartWarning?.message.orEmpty(),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
     }

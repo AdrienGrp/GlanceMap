@@ -18,7 +18,7 @@ data class RecordingStartWarning(
                 if (disconnectedDevices.isNotEmpty()) {
                     add("Recording will try to connect linked sensors after it starts.")
                 }
-                add("Record anyway?")
+                add("Choose how to start recording.")
             }.joinToString(separator = "\n\n")
 }
 

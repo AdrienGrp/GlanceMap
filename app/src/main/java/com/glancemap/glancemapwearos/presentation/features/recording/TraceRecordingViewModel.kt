@@ -226,6 +226,31 @@ class TraceRecordingViewModel(
         startRecordingNow()
     }
 
+    fun switchUnavailableSensorSourcesToWatchAndStartRecording() {
+        val warning = _startWarning.value ?: return
+        val state = _uiState.value
+        if (state.active || state.saving) return
+        _startWarning.value = null
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=external_sensor_start_warning_use_watch " +
+                "unlinked=${warning.unlinkedDevices.size} disconnected=${warning.disconnectedDevices.size}",
+        )
+        viewModelScope.launch {
+            recordingHeartRateSource = SettingsRepository.RECORDING_HEART_RATE_SOURCE_WATCH
+            recordingCadenceSource = SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
+            recordingSpeedSource = SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
+            recordingDistanceSource = SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
+            recordingStepsSource = SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS
+            settingsRepository.setRecordingHeartRateSource(SettingsRepository.RECORDING_HEART_RATE_SOURCE_WATCH)
+            settingsRepository.setRecordingCadenceSource(SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS)
+            settingsRepository.setRecordingSpeedSource(SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS)
+            settingsRepository.setRecordingDistanceSource(SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS)
+            settingsRepository.setRecordingStepsSource(SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS)
+            startRecordingNow()
+        }
+    }
+
     fun cancelStartRecordingWithUnavailableSensors() {
         if (_startWarning.value == null) return
         _startWarning.value = null
