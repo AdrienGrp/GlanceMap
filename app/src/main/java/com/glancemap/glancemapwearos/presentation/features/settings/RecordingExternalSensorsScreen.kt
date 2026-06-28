@@ -96,7 +96,7 @@ fun RecordingExternalSensorsScreen(
                 LinkedExternalSensorType.HEART_RATE -> linkedHeartRateAddress
                 LinkedExternalSensorType.RUN_POD -> linkedRunPodAddress
             }
-        if (persistedAddress == pending.address) {
+        if (persistedAddress.normalizedBluetoothAddressOrNull() == pending.address.normalizedBluetoothAddressOrNull()) {
             pendingSensorLink = null
         }
     }
@@ -165,16 +165,17 @@ fun RecordingExternalSensorsScreen(
                 )
             }
         }
-        val scannedAddresses = devices.mapTo(mutableSetOf()) { it.address }
+        val scannedAddresses = devices.mapNotNullTo(mutableSetOf()) { it.address.normalizedBluetoothAddressOrNull() }
         linkedHeartRateAddress
-            ?.takeIf { it.isNotBlank() && it !in scannedAddresses }
+            ?.takeIf { it.isNotBlank() && it.normalizedBluetoothAddressOrNull() !in scannedAddresses }
             ?.let { address ->
                 item {
+                    val connected = address.isConnectedIn(connectedAddresses)
                     LinkedExternalSensorChip(
                         name = linkedHeartRateName.orLinkedSensorFallback("Heart strap"),
                         address = address,
-                        connected = address.isConnectedIn(connectedAddresses),
-                        reconnecting = address.isConnectedIn(connectingAddresses),
+                        connected = connected,
+                        reconnecting = !connected && address.isConnectedIn(connectingAddresses),
                         batteryLevelPercent = externalSensorBatteryLevels[address.normalizedBluetoothAddress()],
                         onForget = {
                             pendingSensorRemoval =
@@ -188,17 +189,19 @@ fun RecordingExternalSensorsScreen(
                 }
             }
         linkedRunPodAddress
-            ?.takeIf { it.isNotBlank() && it !in scannedAddresses }
+            ?.takeIf { it.isNotBlank() && it.normalizedBluetoothAddressOrNull() !in scannedAddresses }
             ?.let { address ->
                 item {
+                    val normalizedAddress = address.normalizedBluetoothAddress()
+                    val connected = address.isConnectedIn(connectedAddresses)
                     LinkedExternalSensorChip(
                         name = linkedRunPodName.orLinkedSensorFallback("Run pod"),
                         address = address,
-                        connected = address.isConnectedIn(connectedAddresses),
-                        reconnecting = address.isConnectedIn(connectingAddresses),
+                        connected = connected,
+                        reconnecting = !connected && address.isConnectedIn(connectingAddresses),
                         batteryLevelPercent =
-                            runPodRuntimeInfos[address]?.batteryLevelPercent
-                                ?: externalSensorBatteryLevels[address.normalizedBluetoothAddress()],
+                            runPodRuntimeInfos[normalizedAddress]?.batteryLevelPercent
+                                ?: externalSensorBatteryLevels[normalizedAddress],
                         onForget = {
                             pendingSensorRemoval =
                                 PendingExternalSensorRemoval(
@@ -226,12 +229,28 @@ fun RecordingExternalSensorsScreen(
             devices.forEach { device ->
                 item {
                     val heartRateSelected =
-                        linkedHeartRateAddress == device.address ||
+                        linkedHeartRateAddress.normalizedBluetoothAddressOrNull() ==
+                            device.address.normalizedBluetoothAddressOrNull() ||
                             pendingSensorLink.matches(device.address, LinkedExternalSensorType.HEART_RATE)
                     val runPodSelected =
-                        linkedRunPodAddress == device.address ||
+                        linkedRunPodAddress.normalizedBluetoothAddressOrNull() ==
+                            device.address.normalizedBluetoothAddressOrNull() ||
                             pendingSensorLink.matches(device.address, LinkedExternalSensorType.RUN_POD)
                     if (heartRateSelected || runPodSelected) {
+                        val selectedType =
+                            if (heartRateSelected) {
+                                LinkedExternalSensorType.HEART_RATE
+                            } else {
+                                LinkedExternalSensorType.RUN_POD
+                            }
+                        val connected = device.address.isConnectedIn(connectedAddresses)
+                        val reconnecting =
+                            !connected &&
+                                (
+                                    pendingSensorLink.matches(device.address, selectedType) ||
+                                        device.address.isConnectedIn(connectingAddresses)
+                                )
+                        val normalizedAddress = device.address.normalizedBluetoothAddress()
                         LinkedExternalSensorChip(
                             name =
                                 if (heartRateSelected) {
@@ -248,19 +267,17 @@ fun RecordingExternalSensorsScreen(
                                         ?: linkedRunPodName.orLinkedSensorFallback(device.name)
                                 },
                             address = device.address,
-                            connected = device.address.isConnectedIn(connectedAddresses),
-                            reconnecting =
-                                pendingSensorLink?.address == device.address ||
-                                    device.address.isConnectedIn(connectingAddresses),
+                            connected = connected,
+                            reconnecting = reconnecting,
                             batteryLevelPercent =
                                 if (heartRateSelected) {
                                     externalSensorBatteryLevels[
-                                        device.address.normalizedBluetoothAddress(),
+                                        normalizedAddress,
                                     ]
                                 } else {
-                                    runPodRuntimeInfos[device.address]?.batteryLevelPercent
+                                    runPodRuntimeInfos[normalizedAddress]?.batteryLevelPercent
                                         ?: externalSensorBatteryLevels[
-                                            device.address.normalizedBluetoothAddress(),
+                                            normalizedAddress,
                                         ]
                                 },
                             onForget = {
@@ -342,11 +359,17 @@ fun RecordingExternalSensorsScreen(
                 unsupportedSensorDetail = null
                 when (pending.type) {
                     LinkedExternalSensorType.HEART_RATE ->
-                        if (linkedHeartRateAddress == pending.address) {
+                        if (
+                            linkedHeartRateAddress.normalizedBluetoothAddressOrNull() ==
+                            pending.address.normalizedBluetoothAddressOrNull()
+                        ) {
                             viewModel.setRecordingExternalHeartRateDevice(null, null)
                         }
                     LinkedExternalSensorType.RUN_POD ->
-                        if (linkedRunPodAddress == pending.address) {
+                        if (
+                            linkedRunPodAddress.normalizedBluetoothAddressOrNull() ==
+                            pending.address.normalizedBluetoothAddressOrNull()
+                        ) {
                             viewModel.setRecordingExternalRunPodDevice(null, null)
                         }
                 }
@@ -379,7 +402,9 @@ private data class PendingExternalSensorLink(
 private fun PendingExternalSensorLink?.matches(
     address: String,
     type: LinkedExternalSensorType,
-): Boolean = this?.address == address && this.type == type
+): Boolean =
+    this?.address.normalizedBluetoothAddressOrNull() == address.normalizedBluetoothAddressOrNull() &&
+        this?.type == type
 
 @Composable
 private fun LinkedExternalSensorChip(
@@ -486,7 +511,7 @@ private fun LinkedExternalSensorChipContent(
                         color = contentColor,
                         maxLines = 1,
                     )
-                } else if (reconnecting) {
+                } else if (!connected && reconnecting) {
                     Text(
                         text = "Connecting",
                         modifier = Modifier.padding(start = 5.dp),
@@ -506,6 +531,8 @@ private fun LinkedExternalSensorChipContent(
 }
 
 private fun String.normalizedBluetoothAddress(): String = trim().uppercase()
+
+private fun String?.normalizedBluetoothAddressOrNull(): String? = this?.trim()?.uppercase()?.takeIf(String::isNotBlank)
 
 private fun String.isConnectedIn(connectedAddresses: Set<String>): Boolean = normalizedBluetoothAddress() in connectedAddresses
 

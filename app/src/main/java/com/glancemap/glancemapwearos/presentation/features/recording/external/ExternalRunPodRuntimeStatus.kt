@@ -78,8 +78,8 @@ object ExternalRunPodRuntimeStatus {
         address: String,
         transform: (ExternalRunPodRuntimeInfo) -> ExternalRunPodRuntimeInfo,
     ) {
-        if (address.isBlank()) return
-        val current = _infos.value[address] ?: ExternalRunPodRuntimeInfo(address = address)
-        _infos.value = _infos.value + (address to transform(current))
+        val normalizedAddress = ExternalSensorConnectionStatus.normalizedAddress(address) ?: return
+        val current = _infos.value[normalizedAddress] ?: ExternalRunPodRuntimeInfo(address = normalizedAddress)
+        _infos.value = _infos.value + (normalizedAddress to transform(current))
     }
 }
