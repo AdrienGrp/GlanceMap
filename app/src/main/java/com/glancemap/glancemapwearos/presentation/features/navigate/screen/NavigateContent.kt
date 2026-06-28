@@ -1020,7 +1020,14 @@ private fun CenteredNavigateTimeChip(
             delay(1_000L)
         }
     }
-    val label = if (showTime) formatNavigateClockTime(context, nowMillis, timeFormat) else ""
+    val label =
+        when {
+            showTime -> formatNavigateClockTime(context, nowMillis, timeFormat)
+            recordingSaving -> "SAVE"
+            recordingPaused -> "PAUSE"
+            recordingActive -> "REC"
+            else -> ""
+        }
     val accentColor =
         when {
             recordingSaving || recordingPaused -> Color(0xFFFFB74D)

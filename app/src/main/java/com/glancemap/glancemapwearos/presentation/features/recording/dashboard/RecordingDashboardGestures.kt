@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -143,9 +144,10 @@ private fun FullscreenPopupTimeChip(
         modifier =
             modifier
                 .height(20.dp)
+                .widthIn(min = 62.dp)
                 .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
                 .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
-                .padding(horizontal = 9.dp),
+                .padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
