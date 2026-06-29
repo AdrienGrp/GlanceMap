@@ -564,7 +564,7 @@ private fun FlatSpeedSetting(
             text =
                 String.format(
                     currentLocale,
-                    "Flat Speed: %.1f %s",
+                    "Avg flat speed: %.1f %s",
                     sliderValue,
                     displayUnit,
                 ),

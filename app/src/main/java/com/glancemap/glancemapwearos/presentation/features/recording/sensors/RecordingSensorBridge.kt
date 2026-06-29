@@ -155,18 +155,25 @@ fun RecordingSensorBridge(
     val useExternalRunPod =
         useExternalCadence || useExternalSpeed || useExternalDistance || useExternalPower
     val collectBarometricPressure = active
+    val collectInternalSteps = active && useInternalSteps
     val sensorMetricIds =
-        remember(selectedMetricIds, useWatchHeartRate, useInternalCadence, useInternalSteps, collectBarometricPressure) {
+        remember(selectedMetricIds, useWatchHeartRate, useInternalCadence, useInternalSteps, collectInternalSteps, collectBarometricPressure) {
             val filteredMetricIds =
                 selectedMetricIds
                     .filter { it in recordingSensorMetricIds }
                     .filterNot { !useWatchHeartRate && it == SettingsRepository.RECORDING_METRIC_HEART_RATE }
                     .filterNot { !useInternalCadence && it == SettingsRepository.RECORDING_METRIC_CADENCE }
                     .filterNot { !useInternalSteps && it == SettingsRepository.RECORDING_METRIC_STEPS }
+            val withActivityDetailMetrics =
+                if (collectInternalSteps) {
+                    (filteredMetricIds + SettingsRepository.RECORDING_METRIC_STEPS).distinct()
+                } else {
+                    filteredMetricIds
+                }
             if (collectBarometricPressure) {
-                (filteredMetricIds + SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE).distinct()
+                (withActivityDetailMetrics + SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE).distinct()
             } else {
-                filteredMetricIds
+                withActivityDetailMetrics
             }
         }
     var permissionResultVersion by remember { mutableIntStateOf(0) }
@@ -388,15 +395,20 @@ fun RecordingSensorBridge(
                                     stepCount = reading.steps,
                                     stepCountUpdatedAtMillis = now,
                                     stepCountFromBluetooth = false,
-                                    cadenceSpm = reading.cadenceSpm ?: current.cadenceSpm,
+                                    cadenceSpm =
+                                        if (useInternalCadence) {
+                                            reading.cadenceSpm ?: current.cadenceSpm
+                                        } else {
+                                            current.cadenceSpm
+                                        },
                                     cadenceUpdatedAtMillis =
-                                        if (reading.cadenceSpm != null) {
+                                        if (useInternalCadence && reading.cadenceSpm != null) {
                                             now
                                         } else {
                                             current.cadenceUpdatedAtMillis
                                         },
                                     cadenceFromBluetooth =
-                                        if (reading.cadenceSpm != null) {
+                                        if (useInternalCadence && reading.cadenceSpm != null) {
                                             false
                                         } else {
                                             current.cadenceFromBluetooth
@@ -409,15 +421,20 @@ fun RecordingSensorBridge(
                             val cadence = sensorRuntimeState.updateStepDetector(nowMillis = now)
                             publishSensorUpdate { current ->
                                 current.copy(
-                                    cadenceSpm = cadence ?: current.cadenceSpm,
+                                    cadenceSpm =
+                                        if (useInternalCadence) {
+                                            cadence ?: current.cadenceSpm
+                                        } else {
+                                            current.cadenceSpm
+                                        },
                                     cadenceUpdatedAtMillis =
-                                        if (cadence != null) {
+                                        if (useInternalCadence && cadence != null) {
                                             now
                                         } else {
                                             current.cadenceUpdatedAtMillis
                                         },
                                     cadenceFromBluetooth =
-                                        if (cadence != null) {
+                                        if (useInternalCadence && cadence != null) {
                                             false
                                         } else {
                                             current.cadenceFromBluetooth
@@ -626,6 +643,15 @@ private fun recordingSensorPermissionsToRequest(
             !hasPermission(context, Manifest.permission.BODY_SENSORS)
         ) {
             add(Manifest.permission.BODY_SENSORS)
+        }
+        if (
+            (
+                SettingsRepository.RECORDING_METRIC_STEPS in selectedMetricIds ||
+                    SettingsRepository.RECORDING_METRIC_CADENCE in selectedMetricIds
+            ) &&
+            !hasActivityRecognitionPermission(context)
+        ) {
+            add(activityRecognitionPermission())
         }
     }
 
