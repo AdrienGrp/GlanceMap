@@ -636,9 +636,9 @@ internal fun RouteStylePreset.next(): RouteStylePreset {
 
 internal fun visibleModifyModes(): List<RouteModifyMode> =
     listOf(
-        RouteModifyMode.RESHAPE_ROUTE,
         RouteModifyMode.TRIM_START_TO_HERE,
         RouteModifyMode.TRIM_END_FROM_HERE,
+        RouteModifyMode.RESHAPE_ROUTE,
         RouteModifyMode.REVERSE_GPX,
     )
 
