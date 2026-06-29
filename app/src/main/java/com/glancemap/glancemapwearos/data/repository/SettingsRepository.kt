@@ -63,6 +63,9 @@ interface SettingsRepository {
         const val DEFAULT_BIKE_WEIGHT_KG = 12f
         const val MIN_BIKE_WEIGHT_KG = 5f
         const val MAX_BIKE_WEIGHT_KG = 40f
+        const val DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS = 2.105f
+        const val MIN_CYCLING_WHEEL_CIRCUMFERENCE_METERS = 1.0f
+        const val MAX_CYCLING_WHEEL_CIRCUMFERENCE_METERS = 2.5f
         val DEFAULT_RECORDING_DASHBOARD_METRICS =
             listOf(
                 RECORDING_METRIC_DISTANCE,
@@ -321,6 +324,10 @@ interface SettingsRepository {
     val bikeWeightKg: Flow<Float>
 
     suspend fun setBikeWeightKg(weightKg: Float)
+
+    val cyclingWheelCircumferenceMeters: Flow<Float>
+
+    suspend fun setCyclingWheelCircumferenceMeters(meters: Float)
 
     val turnByTurnGuidanceSource: Flow<String>
 

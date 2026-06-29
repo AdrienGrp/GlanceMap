@@ -118,6 +118,7 @@ class GpxViewModel(
         val elevationGain: Double,
         val elevationLoss: Double,
         val isActivity: Boolean,
+        val activityProfile: String?,
         val activityDurationSec: Double?,
         val activitySummary: RecordingDashboardSnapshot?,
     )
@@ -509,6 +510,14 @@ class GpxViewModel(
                                 cachedMeta.activitySummary.withRecoveredElevationIfAvailable(activityProfile)
                             else -> null
                         }
+                    val recordingActivityProfile =
+                        if (isActivity) {
+                            parsed?.activitySummary?.activityProfile?.resolvedActivityProfile()
+                                ?: cachedMeta?.activityProfile
+                                ?: SettingsRepository.ACTIVITY_PROFILE_HIKE
+                        } else {
+                            null
+                        }
                     val canonicalMeta =
                         CachedMeta(
                             sig = sig,
@@ -520,6 +529,7 @@ class GpxViewModel(
                             elevationGain = activityProfile.totalAscent,
                             elevationLoss = activityProfile.totalDescent,
                             isActivity = isActivity,
+                            activityProfile = recordingActivityProfile,
                             activityDurationSec = cachedMeta?.activityDurationSec ?: parsed?.activityDurationSec,
                             activitySummary = activitySummary,
                         )
@@ -555,6 +565,7 @@ class GpxViewModel(
                         estimatedDurationSec = etaSeconds,
                         isActive = path in activePaths,
                         isActivity = meta.isActivity,
+                        activityProfile = meta.activityProfile,
                         activityDurationSec = meta.activityDurationSec,
                         activitySummary = meta.activitySummary,
                     )

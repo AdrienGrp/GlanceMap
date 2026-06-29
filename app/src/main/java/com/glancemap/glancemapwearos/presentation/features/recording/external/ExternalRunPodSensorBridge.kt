@@ -5,6 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -13,6 +14,7 @@ fun ExternalRunPodSensorBridge(
     active: Boolean,
     paused: Boolean,
     address: String?,
+    wheelCircumferenceMeters: Float = SettingsRepository.DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS,
     onMeasurement: (ExternalRunPodMeasurement) -> Unit,
 ) {
     val context = LocalContext.current
@@ -53,7 +55,7 @@ fun ExternalRunPodSensorBridge(
         }
     }
 
-    DisposableEffect(context, active, paused, address) {
+    DisposableEffect(context, active, paused, address, wheelCircumferenceMeters) {
         val linkedAddress = address?.takeIf(String::isNotBlank)
         if (!active || paused || linkedAddress == null) {
             return@DisposableEffect onDispose {}
@@ -69,6 +71,7 @@ fun ExternalRunPodSensorBridge(
             ExternalRunPodClient(
                 context = context.applicationContext,
                 address = linkedAddress,
+                wheelCircumferenceMeters = wheelCircumferenceMeters.toDouble(),
                 onMeasurement = onMeasurement,
             )
         DebugTelemetry.log("ExternalRunPod", "event=bridge_start address=${linkedAddress.takeLast(5)}")

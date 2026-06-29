@@ -55,6 +55,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.MapDisplaySe
 import com.glancemap.glancemapwearos.presentation.features.settings.MapSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapZoomSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.PoiSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingBikeSensorSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.RecordingDashboardSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.RecordingExternalSensorsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.RecordingSettingsScreen
@@ -165,6 +166,7 @@ class MainActivity : ComponentActivity() {
             val recordingStepsSource by appContainer.settingsViewModel.recordingStepsSource.collectAsState()
             val recordingExternalHeartRateAddress by appContainer.settingsViewModel.recordingExternalHeartRateAddress.collectAsState()
             val recordingExternalRunPodAddress by appContainer.settingsViewModel.recordingExternalRunPodAddress.collectAsState()
+            val cyclingWheelCircumferenceMeters by appContainer.settingsViewModel.cyclingWheelCircumferenceMeters.collectAsState()
 
             val isAmbient = _isAmbient
             val ambientTickMs = _ambientTickMs
@@ -195,6 +197,7 @@ class MainActivity : ComponentActivity() {
                     stepsSource = recordingStepsSource,
                     externalHeartRateAddress = recordingExternalHeartRateAddress,
                     externalRunPodAddress = recordingExternalRunPodAddress,
+                    cyclingWheelCircumferenceMeters = cyclingWheelCircumferenceMeters,
                     onMetrics = appContainer.traceRecordingViewModel::onSensorMetrics,
                 )
                 val locationPermissionGranted =
@@ -592,6 +595,30 @@ class MainActivity : ComponentActivity() {
                                     onOpenRecordingSettings = {
                                         navController.navigate(WatchRoutes.RECORDING_SETTINGS) {
                                             popUpTo(WatchRoutes.RECORDING_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    onOpenBikeSensorSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_BIKE_SENSOR_SETTINGS) {
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_BIKE_SENSOR_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingBikeSensorSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenRecordingSourceSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_SOURCE_SETTINGS) {
+                                            popUpTo(WatchRoutes.RECORDING_SOURCE_SETTINGS) { inclusive = false }
                                             launchSingleTop = true
                                             restoreState = true
                                         }

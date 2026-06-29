@@ -124,6 +124,7 @@ fun RecordingSensorBridge(
     stepsSource: String,
     externalHeartRateAddress: String?,
     externalRunPodAddress: String?,
+    cyclingWheelCircumferenceMeters: Float,
     onMetrics: (RecordingSensorMetrics) -> Unit,
 ) {
     val context = LocalContext.current
@@ -205,6 +206,7 @@ fun RecordingSensorBridge(
         active = active && useExternalRunPod,
         paused = paused,
         address = externalRunPodAddress,
+        wheelCircumferenceMeters = cyclingWheelCircumferenceMeters,
         onMeasurement = { measurement ->
             metrics =
                 metrics.copy(

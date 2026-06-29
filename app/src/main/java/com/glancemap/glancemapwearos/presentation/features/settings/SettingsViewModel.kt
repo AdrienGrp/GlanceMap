@@ -953,6 +953,19 @@ class SettingsViewModel(
             settingsRepository.setActivityProfile(profile)
         }
 
+    val cyclingWheelCircumferenceMeters: StateFlow<Float> =
+        settingsRepository.cyclingWheelCircumferenceMeters
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS,
+            )
+
+    fun setCyclingWheelCircumferenceMeters(meters: Float) =
+        viewModelScope.launch {
+            settingsRepository.setCyclingWheelCircumferenceMeters(meters)
+        }
+
     val isMetric: StateFlow<Boolean> =
         settingsRepository.isMetric
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)

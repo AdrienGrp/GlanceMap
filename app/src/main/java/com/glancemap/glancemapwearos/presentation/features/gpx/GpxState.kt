@@ -16,6 +16,7 @@ data class GpxFileState(
     val estimatedDurationSec: Double?,
     val isActive: Boolean = false,
     val isActivity: Boolean = false,
+    val activityProfile: String? = null,
     val activityDurationSec: Double? = null,
     val activitySummary: RecordingDashboardSnapshot? = null,
 ) {

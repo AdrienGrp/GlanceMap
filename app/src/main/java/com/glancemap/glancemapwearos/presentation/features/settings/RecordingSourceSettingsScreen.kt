@@ -1,5 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.settings
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -10,6 +12,7 @@ import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 fun RecordingSourceSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenRecordingSettings: () -> Unit,
+    onOpenBikeSensorSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
     val elevationSource by viewModel.recordingElevationSource.collectAsState()
@@ -18,18 +21,37 @@ fun RecordingSourceSettingsScreen(
     val speedSource by viewModel.recordingSpeedSource.collectAsState()
     val distanceSource by viewModel.recordingDistanceSource.collectAsState()
     val stepsSource by viewModel.recordingStepsSource.collectAsState()
+    val activityProfile by viewModel.activityProfile.collectAsState()
     val linkedHeartRateAddress by viewModel.recordingExternalHeartRateAddress.collectAsState()
     val linkedRunPodAddress by viewModel.recordingExternalRunPodAddress.collectAsState()
+    val isBikeProfile = activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
+    val linkedSensorLabel =
+        if (isBikeProfile) {
+            if (!linkedRunPodAddress.isNullOrBlank()) "Linked bike sensor" else "Link bike sensor"
+        } else {
+            if (!linkedRunPodAddress.isNullOrBlank()) "Linked foot pod" else "Link foot pod"
+        }
     val elevationSourceOptions = RECORDING_ELEVATION_SOURCE_OPTIONS.map { it to recordingElevationSourceLabel(it) }
     val heartRateSourceOptions = RECORDING_HEART_RATE_SOURCE_OPTIONS.map { it to recordingHeartRateSourceLabel(it) }
-    val sensorSourceOptions = RECORDING_SENSOR_SOURCE_OPTIONS.map { it to recordingSensorSourceLabel(it) }
-    val stepsSourceOptions = RECORDING_STEPS_SOURCE_OPTIONS.map { it to recordingSensorSourceLabel(it) }
+    val sensorSourceOptions = RECORDING_SENSOR_SOURCE_OPTIONS.map { it to recordingSensorSourceLabel(it, isBikeProfile) }
+    val stepsSourceOptions = RECORDING_STEPS_SOURCE_OPTIONS.map { it to recordingSensorSourceLabel(it, isBikeProfile) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             RecordingSettingsShortcutChip(
                 onClick = onOpenRecordingSettings,
             )
+        }
+        if (isBikeProfile) {
+            item {
+                SettingsSectionChip(
+                    label = "Bike sensor",
+                    secondaryLabel = "Wheel size + BLE setup",
+                    iconImageVector = Icons.AutoMirrored.Filled.DirectionsBike,
+                    compactRoundWidthFraction = 0.86f,
+                    onClick = onOpenBikeSensorSettings,
+                )
+            }
         }
         item {
             SettingsOptionPickerRow(
@@ -62,7 +84,7 @@ fun RecordingSourceSettingsScreen(
                 secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         cadenceSource,
-                        if (!linkedRunPodAddress.isNullOrBlank()) "Linked sensor" else "Link sensor first",
+                        linkedSensorLabel,
                     ),
                 onSelect = viewModel::setRecordingCadenceSource,
             )
@@ -75,7 +97,7 @@ fun RecordingSourceSettingsScreen(
                 secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         speedSource,
-                        if (!linkedRunPodAddress.isNullOrBlank()) "Linked sensor" else "Link sensor first",
+                        linkedSensorLabel,
                     ),
                 onSelect = viewModel::setRecordingSpeedSource,
             )
@@ -88,7 +110,7 @@ fun RecordingSourceSettingsScreen(
                 secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         distanceSource,
-                        if (!linkedRunPodAddress.isNullOrBlank()) "Linked sensor" else "Link sensor first",
+                        linkedSensorLabel,
                     ),
                 onSelect = viewModel::setRecordingDistanceSource,
             )
@@ -149,10 +171,13 @@ private fun recordingHeartRateSourceLabel(source: String): String =
         else -> "Watch"
     }
 
-private fun recordingSensorSourceLabel(source: String): String =
+private fun recordingSensorSourceLabel(
+    source: String,
+    isBikeProfile: Boolean,
+): String =
     when (source) {
         SettingsRepository.RECORDING_SOURCE_DISABLED -> "Deactivated"
-        SettingsRepository.RECORDING_SENSOR_SOURCE_POD -> "External"
+        SettingsRepository.RECORDING_SENSOR_SOURCE_POD -> if (isBikeProfile) "Bike sensor" else "Foot pod"
         else -> "Watch/GPS"
     }
 

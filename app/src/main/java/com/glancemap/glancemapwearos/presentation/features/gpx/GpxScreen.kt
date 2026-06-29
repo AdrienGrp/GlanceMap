@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AssistantDirection
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Check
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -62,6 +64,7 @@ import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingRecapMetricsGrid
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetric
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetricsForSnapshot
@@ -83,6 +86,40 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+
+private enum class GpxListMode(
+    val headerTitle: String,
+    val icon: ImageVector,
+    val toggleContentDescription: String,
+    val emptyStateMessage: String,
+) {
+    TRACKS(
+        headerTitle = "GPX Tracks",
+        icon = Icons.Default.Route,
+        toggleContentDescription = "Show hike activities",
+        emptyStateMessage = "Send GPX files from the companion phone app.",
+    ),
+    HIKE_ACTIVITIES(
+        headerTitle = "Hike Activities",
+        icon = Icons.AutoMirrored.Filled.DirectionsRun,
+        toggleContentDescription = "Show bike activities",
+        emptyStateMessage = "Hike recordings will appear here.",
+    ),
+    BIKE_ACTIVITIES(
+        headerTitle = "Bike Activities",
+        icon = Icons.AutoMirrored.Filled.DirectionsBike,
+        toggleContentDescription = "Show GPX tracks",
+        emptyStateMessage = "Bike recordings will appear here.",
+    ),
+    ;
+
+    fun next(): GpxListMode =
+        when (this) {
+            TRACKS -> HIKE_ACTIVITIES
+            HIKE_ACTIVITIES -> BIKE_ACTIVITIES
+            BIKE_ACTIVITIES -> TRACKS
+        }
+}
 
 @Composable
 fun GpxScreen(
@@ -115,8 +152,22 @@ fun GpxScreen(
     var guidanceMessageBody by remember { mutableStateOf<String?>(null) }
     var navigateAfterGuidanceMessage by remember { mutableStateOf(false) }
     var guidanceStartingPath by remember { mutableStateOf<String?>(null) }
-    var showActivities by remember { mutableStateOf(false) }
-    val visibleGpxFiles = remember(gpxFiles, showActivities) { gpxFiles.filter { it.isActivity == showActivities } }
+    var listMode by remember { mutableStateOf(GpxListMode.TRACKS) }
+    val showActivities = listMode != GpxListMode.TRACKS
+    val visibleGpxFiles =
+        remember(gpxFiles, listMode) {
+            gpxFiles.filter { gpxFile ->
+                when (listMode) {
+                    GpxListMode.TRACKS -> !gpxFile.isActivity
+                    GpxListMode.HIKE_ACTIVITIES ->
+                        gpxFile.isActivity &&
+                            gpxFile.activityProfile != SettingsRepository.ACTIVITY_PROFILE_BIKE
+                    GpxListMode.BIKE_ACTIVITIES ->
+                        gpxFile.isActivity &&
+                            gpxFile.activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
+                }
+            }
+        }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val helpPrefs =
@@ -451,7 +502,7 @@ fun GpxScreen(
 
         FeatureListScaffold {
             FeatureListHeader(
-                title = if (showActivities) "Activities" else "GPX Tracks",
+                title = listMode.headerTitle,
                 titleStyle =
                     if (adaptive.isCompact) {
                         MaterialTheme.typography.titleSmall
@@ -483,7 +534,7 @@ fun GpxScreen(
                     CompactIconHitTargetButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            showActivities = !showActivities
+                            listMode = listMode.next()
                             isSendMode = false
                             selectedSendPaths = emptySet()
                             isRenameMode = false
@@ -506,17 +557,8 @@ fun GpxScreen(
                     ) {
                         Icon(
                             imageVector =
-                                if (showActivities) {
-                                    Icons.AutoMirrored.Filled.DirectionsRun
-                                } else {
-                                    Icons.Default.Route
-                                },
-                            contentDescription =
-                                if (showActivities) {
-                                    "Show GPX tracks"
-                                } else {
-                                    "Show recorded activities"
-                                },
+                                listMode.icon,
+                            contentDescription = listMode.toggleContentDescription,
                             modifier = Modifier.size(activityToggleIconSize),
                         )
                     }
@@ -597,11 +639,7 @@ fun GpxScreen(
                         item {
                             Text(
                                 text =
-                                    if (showActivities) {
-                                        "Recorded activities will appear here."
-                                    } else {
-                                        "Send GPX files from the companion phone app."
-                                    },
+                                    listMode.emptyStateMessage,
                                 modifier = Modifier.padding(emptyStatePadding),
                                 textAlign = TextAlign.Center,
                             )

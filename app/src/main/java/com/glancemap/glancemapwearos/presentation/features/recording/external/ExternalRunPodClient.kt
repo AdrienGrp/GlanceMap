@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.presentation.features.recording.external
 import android.bluetooth.BluetoothGattService
 import android.content.Context
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import java.util.UUID
 
 data class ExternalRunPodMeasurement(
@@ -18,9 +19,10 @@ data class ExternalRunPodMeasurement(
 class ExternalRunPodClient(
     private val context: Context,
     private val address: String,
+    private val wheelCircumferenceMeters: Double = SettingsRepository.DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS.toDouble(),
     private val onMeasurement: (ExternalRunPodMeasurement) -> Unit,
 ) {
-    private val cscDecoder = CyclingSpeedCadenceDecoder(DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS)
+    private val cscDecoder = CyclingSpeedCadenceDecoder(wheelCircumferenceMeters)
     private val client =
         ExternalBleGattClient(
             context = context,
@@ -115,7 +117,7 @@ class ExternalRunPodClient(
                         "cadenceSpm=${measurement.cadenceSpm ?: -1} " +
                         "rawDistanceUnits=${measurement.rawTotalDistanceUnits ?: -1} " +
                         "distanceMeters=${measurement.totalDistanceMeters?.let { formatTelemetryDouble(it) } ?: "na"} " +
-                        "wheelCircumferenceM=${formatTelemetryDouble(DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS)} " +
+                        "wheelCircumferenceM=${formatTelemetryDouble(wheelCircumferenceMeters)} " +
                         "source=csc raw=${value.toHexSnippet()}",
                 )
             }
@@ -464,7 +466,6 @@ private fun UUID.deviceInfoLabel(): String =
     }
 
 private const val RSC_TOTAL_DISTANCE_UNITS_PER_METER = 10.0
-private const val DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS = 2.105
 private const val CSC_FLAG_WHEEL_REVOLUTION_DATA_PRESENT = 0x01
 private const val CSC_FLAG_CRANK_REVOLUTION_DATA_PRESENT = 0x02
 private const val BLE_EVENT_TIME_TICKS_PER_SECOND = 1024.0

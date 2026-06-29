@@ -75,6 +75,7 @@ class SettingsRepositoryImpl private constructor(
         val USER_WEIGHT_KG = floatPreferencesKey("user_weight_kg")
         val BACKPACK_WEIGHT_KG = floatPreferencesKey("backpack_weight_kg")
         val BIKE_WEIGHT_KG = floatPreferencesKey("bike_weight_kg")
+        val CYCLING_WHEEL_CIRCUMFERENCE_METERS = floatPreferencesKey("cycling_wheel_circumference_meters")
         val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
         val TURN_BY_TURN_HAPTICS_ENABLED = booleanPreferencesKey("turn_by_turn_haptics_enabled")
         val TURN_BY_TURN_VOICE_GUIDANCE_ENABLED = booleanPreferencesKey("turn_by_turn_voice_guidance_enabled")
@@ -500,6 +501,17 @@ class SettingsRepositoryImpl private constructor(
     override suspend fun setBikeWeightKg(weightKg: Float) {
         context.dataStore.edit {
             it[PrefKeys.BIKE_WEIGHT_KG] = sanitizeBikeWeightKg(weightKg)
+        }
+    }
+
+    override val cyclingWheelCircumferenceMeters: Flow<Float> =
+        context.dataStore.data.map {
+            sanitizeCyclingWheelCircumferenceMeters(it[PrefKeys.CYCLING_WHEEL_CIRCUMFERENCE_METERS])
+        }
+
+    override suspend fun setCyclingWheelCircumferenceMeters(meters: Float) {
+        context.dataStore.edit {
+            it[PrefKeys.CYCLING_WHEEL_CIRCUMFERENCE_METERS] = sanitizeCyclingWheelCircumferenceMeters(meters)
         }
     }
 
@@ -1683,6 +1695,15 @@ class SettingsRepositoryImpl private constructor(
                 ?.takeIf { it.isFinite() }
                 ?.coerceIn(SettingsRepository.MIN_BIKE_WEIGHT_KG, SettingsRepository.MAX_BIKE_WEIGHT_KG)
                 ?: SettingsRepository.DEFAULT_BIKE_WEIGHT_KG
+
+        private fun sanitizeCyclingWheelCircumferenceMeters(meters: Float?): Float =
+            meters
+                ?.takeIf { it.isFinite() }
+                ?.coerceIn(
+                    SettingsRepository.MIN_CYCLING_WHEEL_CIRCUMFERENCE_METERS,
+                    SettingsRepository.MAX_CYCLING_WHEEL_CIRCUMFERENCE_METERS,
+                )
+                ?: SettingsRepository.DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS
 
         private fun legacyZoomScaleMeters(zoom: Int): Int =
             scaleMetersForZoomLevel(
