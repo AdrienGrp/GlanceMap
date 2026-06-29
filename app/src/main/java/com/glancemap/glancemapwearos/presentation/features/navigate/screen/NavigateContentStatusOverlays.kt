@@ -126,7 +126,7 @@ internal fun BoxScope.MarkerMotionDebugOverlay(
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "Heading wrong",
+            text = "Report heading",
             modifier =
                 Modifier
                     .padding(top = 3.dp)
