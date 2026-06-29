@@ -387,6 +387,11 @@ internal data class RouteToolSession(
                         "Place start, then check."
                     } else if (options.toolKind == RouteToolKind.CREATE) {
                         "Place start, then check."
+                    } else if (
+                        options.toolKind == RouteToolKind.MODIFY &&
+                        options.modifyMode == RouteModifyMode.TRIM_START_TO_HERE
+                    ) {
+                        "Pick new start"
                     } else {
                         "Place A, then check."
                     }
