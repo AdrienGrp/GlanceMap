@@ -363,7 +363,7 @@ internal data class RouteToolSession(
     val instructionText: String
         get() =
             when (currentSelectionTarget) {
-                RouteSelectionTarget.RESHAPE_POINT -> "Place route point, then check."
+                RouteSelectionTarget.RESHAPE_POINT -> "Pick point to move"
                 RouteSelectionTarget.DESTINATION ->
                     when {
                         isMultiPointCreate && chainPoints.isEmpty() -> "Place start, then check."
@@ -371,7 +371,7 @@ internal data class RouteToolSession(
                         isMultiPointCreate -> "Add point, then check."
                         options.toolKind == RouteToolKind.MODIFY &&
                             options.modifyMode == RouteModifyMode.RESHAPE_ROUTE -> {
-                            "Place replacement point, then check."
+                            "Pick new point"
                         }
 
                         else -> {
