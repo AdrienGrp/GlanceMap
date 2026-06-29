@@ -43,6 +43,8 @@ internal fun BoxScope.NavigateRouteToolOverlayHost(
     onCancelRouteToolMode: () -> Unit,
     reshapePreviewInspectMode: Boolean,
     reshapePreviewPoints: List<LatLong>,
+    reshapePreviewTitle: String,
+    reshapePreviewInstruction: String,
     reshapePreviewBusy: Boolean,
     reshapePreviewBusyMessage: String?,
     reshapePreviewMessage: String?,
@@ -104,6 +106,8 @@ internal fun BoxScope.NavigateRouteToolOverlayHost(
     } else if (reshapePreviewInspectMode && reshapePreviewPoints.size >= 2) {
         RouteReshapePreviewOverlay(
             screenSize = screenSize,
+            title = reshapePreviewTitle,
+            instruction = reshapePreviewInstruction,
             busy = reshapePreviewBusy,
             busyMessage = reshapePreviewBusyMessage,
             message = reshapePreviewMessage,

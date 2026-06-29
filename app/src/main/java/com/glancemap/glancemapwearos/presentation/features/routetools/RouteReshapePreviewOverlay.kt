@@ -29,6 +29,8 @@ import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 @Composable
 internal fun BoxScope.RouteReshapePreviewOverlay(
     screenSize: WearScreenSize,
+    title: String,
+    instruction: String,
     busy: Boolean,
     busyMessage: String?,
     message: String?,
@@ -72,7 +74,7 @@ internal fun BoxScope.RouteReshapePreviewOverlay(
         verticalArrangement = Arrangement.spacedBy(popupSpec.rowSpacing),
     ) {
         Text(
-            text = "Reshape preview",
+            text = title,
             style = MaterialTheme.typography.labelMedium.copy(fontSize = popupSpec.modeTitleFontSize),
             color = Color(0xFFF7C948),
             textAlign = TextAlign.Center,
@@ -111,7 +113,7 @@ internal fun BoxScope.RouteReshapePreviewOverlay(
 
             else -> {
                 Text(
-                    text = "Inspect the reroute, then save.",
+                    text = instruction,
                     style =
                         MaterialTheme.typography.bodySmall.copy(
                             fontSize = popupSpec.instructionFontSize,

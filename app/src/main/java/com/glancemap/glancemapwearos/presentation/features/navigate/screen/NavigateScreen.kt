@@ -48,6 +48,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolM
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
+import com.glancemap.glancemapwearos.presentation.features.routetools.previewBeforeSaving
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeStylePresetFromSettingsValue
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeToolMultiPointDraftConnectorPoints
 import com.glancemap.glancemapwearos.presentation.features.routetools.visibleRouteToolCreatePreview
@@ -606,10 +607,28 @@ fun NavigateScreen(
         val reshapePreviewInspectDraft =
             completedRouteToolDraft?.takeIf { draft ->
                 draft.options.toolKind == RouteToolKind.MODIFY &&
-                    draft.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE &&
+                    draft.options.modifyMode.previewBeforeSaving &&
                     routeToolPreview != null
             }
         val reshapePreviewInspectMode = reshapePreviewInspectDraft != null
+        val routeModifyPreviewTitle =
+            reshapePreviewInspectDraft?.options?.modifyMode?.let { mode ->
+                when (mode) {
+                    RouteModifyMode.RESHAPE_ROUTE -> "Reshape preview"
+                    RouteModifyMode.TRIM_START_TO_HERE -> "Change start preview"
+                    RouteModifyMode.TRIM_END_FROM_HERE -> "Change end preview"
+                    else -> "GPX preview"
+                }
+            } ?: "GPX preview"
+        val routeModifyPreviewInstruction =
+            reshapePreviewInspectDraft?.options?.modifyMode?.let { mode ->
+                when (mode) {
+                    RouteModifyMode.RESHAPE_ROUTE -> "Inspect the reroute, then save."
+                    RouteModifyMode.TRIM_START_TO_HERE -> "Inspect the new start, then save."
+                    RouteModifyMode.TRIM_END_FROM_HERE -> "Inspect the new end, then save."
+                    else -> "Inspect the edit, then save."
+                }
+            } ?: "Inspect the edit, then save."
         val recenterTarget: LatLong? =
             NavigateStartupCenteringEffects(
                 offlineMode = offlineMode,
@@ -994,6 +1013,8 @@ fun NavigateScreen(
             routeToolCreatePreviewMessage = routeToolCreatePreviewMessage,
             reshapePreviewInspectMode = reshapePreviewInspectMode,
             reshapePreviewPoints = routeToolPreview?.previewPoints ?: emptyList(),
+            reshapePreviewTitle = routeModifyPreviewTitle,
+            reshapePreviewInstruction = routeModifyPreviewInstruction,
             reshapePreviewBusy = routeToolExecutionInProgress,
             reshapePreviewBusyMessage = routeToolExecutionStatus,
             reshapePreviewMessage = routeToolExecutionMessage,

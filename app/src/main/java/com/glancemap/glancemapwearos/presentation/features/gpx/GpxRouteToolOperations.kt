@@ -11,6 +11,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteResha
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteReshapeDirection
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteSaveBehavior
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolEditOutput
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolPlannedCreation
@@ -25,6 +26,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.buildRoute
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildRouteToolReshapePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.encodeTrackAsGpx
 import com.glancemap.glancemapwearos.presentation.features.routetools.pointAt
+import com.glancemap.glancemapwearos.presentation.features.routetools.previewBeforeSaving
 import com.glancemap.glancemapwearos.presentation.features.routetools.reshapeCandidateMatchesUserIntent
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveReplaceSectionEndpoints
 import com.glancemap.glancemapwearos.presentation.features.routetools.resolveRouteReshapeCandidateBounds
@@ -58,195 +60,7 @@ internal class GpxRouteToolOperations(
         }
 
         val source = requireSingleActiveRouteToolSource()
-        val editOutput =
-            when (session.options.modifyMode) {
-                RouteModifyMode.RESHAPE_ROUTE -> {
-                    val reshapePlan = buildReshapePlan(source = source, session = session)
-                    buildRouteToolReshapeOutput(
-                        sourcePath = source.file.absolutePath,
-                        sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
-                        profile = source.profile,
-                        session = session,
-                        firstLegPoints = reshapePlan.firstLegPoints,
-                        secondLegPoints = reshapePlan.secondLegPoints,
-                        bounds = reshapePlan.bounds,
-                    )
-                }
-
-                RouteModifyMode.REPLACE_SECTION_A_TO_B -> {
-                    val sectionStart =
-                        requireNotNull(session.pointA) {
-                            "Pick point A first."
-                        }
-                    val sectionEnd =
-                        requireNotNull(session.pointB) {
-                            "Pick point B first."
-                        }
-                    val (origin, destination) =
-                        resolveReplaceSectionEndpoints(
-                            sourcePath = source.file.absolutePath,
-                            sourceTitle = source.fileState.title ?: source.parsed.title,
-                            profile = source.profile,
-                            pointA = sectionStart,
-                            pointB = sectionEnd,
-                        )
-                    val plannerRequest =
-                        RoutePlannerRequest(
-                            origin = origin,
-                            destination = destination,
-                            preset = session.options.routeStyle.toPlannerPreset(),
-                            useElevation = session.options.useElevation,
-                            allowFerries = session.options.allowFerries,
-                        )
-                    val route = routePlanner.createRoute(plannerRequest)
-                    buildRouteToolReplaceSectionOutput(
-                        sourcePath = source.file.absolutePath,
-                        sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
-                        profile = source.profile,
-                        session = session,
-                        routedPoints = route.points,
-                    )
-                }
-
-                RouteModifyMode.TRIM_START_TO_HERE -> {
-                    val startTarget =
-                        requireNotNull(session.pointA) {
-                            "Pick the new start first."
-                        }
-                    val match =
-                        resolveRouteToolTrackMatch(
-                            sourcePath = source.file.absolutePath,
-                            sourceTitle = source.fileState.title ?: source.parsed.title,
-                            profile = source.profile,
-                            target = startTarget,
-                        )
-                    val endpointPosition =
-                        session.pointATrackPosition?.resolveRouteToolTrackPosition(source.profile)
-                    if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
-                        buildRouteToolEditOutput(
-                            sourcePath = source.file.absolutePath,
-                            sourceFileName = source.file.name,
-                            sourceTitle = source.fileState.title ?: source.parsed.title,
-                            profile = source.profile,
-                            session = session.copy(pointATrackPosition = match.position),
-                        )
-                    } else if (endpointPosition != null) {
-                        val originalStart = pointAt(source.profile.points, endpointPosition).latLong
-                        val route =
-                            routePlanner.createRoute(
-                                RoutePlannerRequest(
-                                    origin = startTarget,
-                                    destination = originalStart,
-                                    preset = session.options.routeStyle.toPlannerPreset(),
-                                    useElevation = session.options.useElevation,
-                                    allowFerries = session.options.allowFerries,
-                                ),
-                            )
-                        buildRouteToolEndpointChangeOutput(
-                            sourceFileName = source.file.name,
-                            sourceTitle = source.fileState.title ?: source.parsed.title,
-                            profile = source.profile,
-                            session = session,
-                            snappedPosition = endpointPosition,
-                            routedPoints = route.points,
-                        )
-                    } else {
-                        val route =
-                            routePlanner.createRoute(
-                                RoutePlannerRequest(
-                                    origin = startTarget,
-                                    destination = match.latLong,
-                                    preset = session.options.routeStyle.toPlannerPreset(),
-                                    useElevation = session.options.useElevation,
-                                    allowFerries = session.options.allowFerries,
-                                ),
-                            )
-                        buildRouteToolEndpointChangeOutput(
-                            sourceFileName = source.file.name,
-                            sourceTitle = source.fileState.title ?: source.parsed.title,
-                            profile = source.profile,
-                            session = session,
-                            snappedPosition = match.position,
-                            routedPoints = route.points,
-                        )
-                    }
-                }
-
-                RouteModifyMode.TRIM_END_FROM_HERE -> {
-                    val endTarget =
-                        requireNotNull(session.pointB) {
-                            "Pick the new end first."
-                        }
-                    val match =
-                        resolveRouteToolTrackMatch(
-                            sourcePath = source.file.absolutePath,
-                            sourceTitle = source.fileState.title ?: source.parsed.title,
-                            profile = source.profile,
-                            target = endTarget,
-                        )
-                    val endpointPosition =
-                        session.pointBTrackPosition?.resolveRouteToolTrackPosition(source.profile)
-                    if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
-                        buildRouteToolEditOutput(
-                            sourcePath = source.file.absolutePath,
-                            sourceFileName = source.file.name,
-                            sourceTitle = source.fileState.title ?: source.parsed.title,
-                            profile = source.profile,
-                            session = session.copy(pointBTrackPosition = match.position),
-                        )
-                    } else if (endpointPosition != null) {
-                        val originalEnd = pointAt(source.profile.points, endpointPosition).latLong
-                        val route =
-                            routePlanner.createRoute(
-                                RoutePlannerRequest(
-                                    origin = originalEnd,
-                                    destination = endTarget,
-                                    preset = session.options.routeStyle.toPlannerPreset(),
-                                    useElevation = session.options.useElevation,
-                                    allowFerries = session.options.allowFerries,
-                                ),
-                            )
-                        buildRouteToolEndpointChangeOutput(
-                            sourceFileName = source.file.name,
-                            sourceTitle = source.fileState.title ?: source.parsed.title,
-                            profile = source.profile,
-                            session = session,
-                            snappedPosition = endpointPosition,
-                            routedPoints = route.points,
-                        )
-                    } else {
-                        val route =
-                            routePlanner.createRoute(
-                                RoutePlannerRequest(
-                                    origin = match.latLong,
-                                    destination = endTarget,
-                                    preset = session.options.routeStyle.toPlannerPreset(),
-                                    useElevation = session.options.useElevation,
-                                    allowFerries = session.options.allowFerries,
-                                ),
-                            )
-                        buildRouteToolEndpointChangeOutput(
-                            sourceFileName = source.file.name,
-                            sourceTitle = source.fileState.title ?: source.parsed.title,
-                            profile = source.profile,
-                            session = session,
-                            snappedPosition = match.position,
-                            routedPoints = route.points,
-                        )
-                    }
-                }
-
-                else ->
-                    buildRouteToolEditOutput(
-                        sourcePath = source.file.absolutePath,
-                        sourceFileName = source.file.name,
-                        sourceTitle = source.fileState.title ?: source.parsed.title,
-                        profile = source.profile,
-                        session = session,
-                    )
-            }
+        val editOutput = buildModificationEditOutput(source = source, session = session)
 
         val bytes =
             encodeTrackAsGpx(
@@ -277,25 +91,223 @@ internal class GpxRouteToolOperations(
         )
     }
 
+    private suspend fun buildModificationEditOutput(
+        source: ActiveRouteToolSource,
+        session: RouteToolSession,
+    ): RouteToolEditOutput =
+        when (session.options.modifyMode) {
+            RouteModifyMode.RESHAPE_ROUTE -> {
+                val reshapePlan = buildReshapePlan(source = source, session = session)
+                buildRouteToolReshapeOutput(
+                    sourcePath = source.file.absolutePath,
+                    sourceFileName = source.file.name,
+                    sourceTitle = source.fileState.title ?: source.parsed.title,
+                    profile = source.profile,
+                    session = session,
+                    firstLegPoints = reshapePlan.firstLegPoints,
+                    secondLegPoints = reshapePlan.secondLegPoints,
+                    bounds = reshapePlan.bounds,
+                )
+            }
+
+            RouteModifyMode.REPLACE_SECTION_A_TO_B -> {
+                val sectionStart =
+                    requireNotNull(session.pointA) {
+                        "Pick point A first."
+                    }
+                val sectionEnd =
+                    requireNotNull(session.pointB) {
+                        "Pick point B first."
+                    }
+                val (origin, destination) =
+                    resolveReplaceSectionEndpoints(
+                        sourcePath = source.file.absolutePath,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        pointA = sectionStart,
+                        pointB = sectionEnd,
+                    )
+                val plannerRequest =
+                    RoutePlannerRequest(
+                        origin = origin,
+                        destination = destination,
+                        preset = session.options.routeStyle.toPlannerPreset(),
+                        useElevation = session.options.useElevation,
+                        allowFerries = session.options.allowFerries,
+                    )
+                val route = routePlanner.createRoute(plannerRequest)
+                buildRouteToolReplaceSectionOutput(
+                    sourcePath = source.file.absolutePath,
+                    sourceFileName = source.file.name,
+                    sourceTitle = source.fileState.title ?: source.parsed.title,
+                    profile = source.profile,
+                    session = session,
+                    routedPoints = route.points,
+                )
+            }
+
+            RouteModifyMode.TRIM_START_TO_HERE -> {
+                val startTarget =
+                    requireNotNull(session.pointA) {
+                        "Pick the new start first."
+                    }
+                val match =
+                    resolveRouteToolTrackMatch(
+                        sourcePath = source.file.absolutePath,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        target = startTarget,
+                    )
+                val endpointPosition =
+                    session.pointATrackPosition?.resolveRouteToolTrackPosition(source.profile)
+                if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
+                    buildRouteToolEditOutput(
+                        sourcePath = source.file.absolutePath,
+                        sourceFileName = source.file.name,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        session = session.copy(pointATrackPosition = match.position),
+                    )
+                } else if (endpointPosition != null) {
+                    val originalStart = pointAt(source.profile.points, endpointPosition).latLong
+                    val route =
+                        routePlanner.createRoute(
+                            RoutePlannerRequest(
+                                origin = startTarget,
+                                destination = originalStart,
+                                preset = session.options.routeStyle.toPlannerPreset(),
+                                useElevation = session.options.useElevation,
+                                allowFerries = session.options.allowFerries,
+                            ),
+                        )
+                    buildRouteToolEndpointChangeOutput(
+                        sourceFileName = source.file.name,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        session = session,
+                        snappedPosition = endpointPosition,
+                        routedPoints = route.points,
+                    )
+                } else {
+                    val route =
+                        routePlanner.createRoute(
+                            RoutePlannerRequest(
+                                origin = startTarget,
+                                destination = match.latLong,
+                                preset = session.options.routeStyle.toPlannerPreset(),
+                                useElevation = session.options.useElevation,
+                                allowFerries = session.options.allowFerries,
+                            ),
+                        )
+                    buildRouteToolEndpointChangeOutput(
+                        sourceFileName = source.file.name,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        session = session,
+                        snappedPosition = match.position,
+                        routedPoints = route.points,
+                    )
+                }
+            }
+
+            RouteModifyMode.TRIM_END_FROM_HERE -> {
+                val endTarget =
+                    requireNotNull(session.pointB) {
+                        "Pick the new end first."
+                    }
+                val match =
+                    resolveRouteToolTrackMatch(
+                        sourcePath = source.file.absolutePath,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        target = endTarget,
+                    )
+                val endpointPosition =
+                    session.pointBTrackPosition?.resolveRouteToolTrackPosition(source.profile)
+                if (match.distanceMeters <= routeToolSnapThresholdMeters()) {
+                    buildRouteToolEditOutput(
+                        sourcePath = source.file.absolutePath,
+                        sourceFileName = source.file.name,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        session = session.copy(pointBTrackPosition = match.position),
+                    )
+                } else if (endpointPosition != null) {
+                    val originalEnd = pointAt(source.profile.points, endpointPosition).latLong
+                    val route =
+                        routePlanner.createRoute(
+                            RoutePlannerRequest(
+                                origin = originalEnd,
+                                destination = endTarget,
+                                preset = session.options.routeStyle.toPlannerPreset(),
+                                useElevation = session.options.useElevation,
+                                allowFerries = session.options.allowFerries,
+                            ),
+                        )
+                    buildRouteToolEndpointChangeOutput(
+                        sourceFileName = source.file.name,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        session = session,
+                        snappedPosition = endpointPosition,
+                        routedPoints = route.points,
+                    )
+                } else {
+                    val route =
+                        routePlanner.createRoute(
+                            RoutePlannerRequest(
+                                origin = match.latLong,
+                                destination = endTarget,
+                                preset = session.options.routeStyle.toPlannerPreset(),
+                                useElevation = session.options.useElevation,
+                                allowFerries = session.options.allowFerries,
+                            ),
+                        )
+                    buildRouteToolEndpointChangeOutput(
+                        sourceFileName = source.file.name,
+                        sourceTitle = source.fileState.title ?: source.parsed.title,
+                        profile = source.profile,
+                        session = session,
+                        snappedPosition = match.position,
+                        routedPoints = route.points,
+                    )
+                }
+            }
+
+            else ->
+                buildRouteToolEditOutput(
+                    sourcePath = source.file.absolutePath,
+                    sourceFileName = source.file.name,
+                    sourceTitle = source.fileState.title ?: source.parsed.title,
+                    profile = source.profile,
+                    session = session,
+                )
+        }
+
     suspend fun previewModification(session: RouteToolSession): RouteToolModifyPreview {
         require(session.options.toolKind == RouteToolKind.MODIFY) {
             "Only GPX modify actions are supported here."
         }
-        require(session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE) {
-            "Preview is only available for reshape edits."
+        require(session.options.modifyMode.previewBeforeSaving) {
+            "Preview is only available for reshape and endpoint edits."
         }
 
         val source = requireSingleActiveRouteToolSource()
-        val reshapePlan = buildReshapePlan(source = source, session = session)
-        return buildRouteToolReshapePreview(
-            sourcePath = source.file.absolutePath,
-            sourceTitle = source.fileState.title ?: source.parsed.title,
-            profile = source.profile,
-            session = session,
-            firstLegPoints = reshapePlan.firstLegPoints,
-            secondLegPoints = reshapePlan.secondLegPoints,
-            bounds = reshapePlan.bounds,
-        )
+        if (session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE) {
+            val reshapePlan = buildReshapePlan(source = source, session = session)
+            return buildRouteToolReshapePreview(
+                sourcePath = source.file.absolutePath,
+                sourceTitle = source.fileState.title ?: source.parsed.title,
+                profile = source.profile,
+                session = session,
+                firstLegPoints = reshapePlan.firstLegPoints,
+                secondLegPoints = reshapePlan.secondLegPoints,
+                bounds = reshapePlan.bounds,
+            )
+        }
+
+        val editOutput = buildModificationEditOutput(source = source, session = session)
+        return RouteToolModifyPreview(previewPoints = editOutput.points.map { it.latLong })
     }
 
     suspend fun previewCreation(

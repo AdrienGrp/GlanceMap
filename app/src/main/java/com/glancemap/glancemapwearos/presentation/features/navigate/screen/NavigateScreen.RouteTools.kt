@@ -22,6 +22,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolS
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildLoopRetryOptions
 import com.glancemap.glancemapwearos.presentation.features.routetools.preflightStart
+import com.glancemap.glancemapwearos.presentation.features.routetools.previewBeforeSaving
 import com.glancemap.glancemapwearos.presentation.features.routetools.withVisibleLoopDefaults
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -142,7 +143,7 @@ internal fun rememberNavigateRouteToolActions(
                 }.onFailure { error ->
                     val message =
                         error.localizedMessage?.takeIf { it.isNotBlank() }
-                            ?: "Failed to preview the reshaped GPX."
+                            ?: "Failed to preview the edited GPX."
                     setRouteToolExecutionMessage(message)
                     setRouteToolPreview(null)
                     setCompletedRouteToolDraft(draft)
@@ -369,7 +370,7 @@ internal fun rememberNavigateRouteToolActions(
 
                 session.options.saveBehavior == RouteSaveBehavior.SAVE_AS_NEW -> {
                     setRouteToolSession(null)
-                    if (session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE) {
+                    if (session.options.modifyMode.previewBeforeSaving) {
                         previewModifyDraft(session, true)
                         return
                     }
@@ -603,7 +604,7 @@ internal fun rememberNavigateRouteToolActions(
                     executeCreateDraft(updated, true)
                 }
 
-                updated.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE -> {
+                updated.options.modifyMode.previewBeforeSaving -> {
                     setRouteToolSession(null)
                     previewModifyDraft(updated, true)
                 }

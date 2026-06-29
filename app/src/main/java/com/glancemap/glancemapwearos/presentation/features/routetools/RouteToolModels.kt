@@ -77,6 +77,20 @@ internal enum class RouteModifyMode(
     ),
 }
 
+internal val RouteModifyMode.previewBeforeSaving: Boolean
+    get() =
+        when (this) {
+            RouteModifyMode.RESHAPE_ROUTE,
+            RouteModifyMode.TRIM_START_TO_HERE,
+            RouteModifyMode.TRIM_END_FROM_HERE
+            -> true
+
+            RouteModifyMode.REPLACE_SECTION_A_TO_B,
+            RouteModifyMode.KEEP_ONLY_A_TO_B,
+            RouteModifyMode.REVERSE_GPX
+            -> false
+        }
+
 internal enum class RouteStylePreset(
     val title: String,
     val summary: String,

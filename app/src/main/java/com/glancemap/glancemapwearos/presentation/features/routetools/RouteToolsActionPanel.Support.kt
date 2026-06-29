@@ -202,8 +202,8 @@ internal fun RouteToolDraftSummaryDialog(
                 when {
                     executionMessage != null -> executionMessage
                     isCreate -> "Ready to generate the GPX."
-                    session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE ->
-                        "Preview the rerouted section, then save."
+                    session.options.modifyMode.previewBeforeSaving ->
+                        "Preview the edit, then save."
                     isReplaceCurrent -> "This will replace the active GPX."
                     else -> "Ready to save the GPX edit."
                 },
