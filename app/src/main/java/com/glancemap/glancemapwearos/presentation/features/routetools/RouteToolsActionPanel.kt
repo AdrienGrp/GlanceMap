@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -263,6 +265,8 @@ internal fun RouteToolsActionPanel(
         RouteSettingRow(
             title = "GPX tools settings",
             value = "Creation defaults",
+            icon = Icons.Filled.Folder,
+            iconTint = Color(0xFFFFD54F),
             onClick = onOpenGpxToolsSettings,
         )
     }
