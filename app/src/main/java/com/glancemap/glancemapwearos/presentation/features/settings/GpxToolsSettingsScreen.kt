@@ -73,7 +73,7 @@ private fun GpxSettingsShortcutChip(
         standardSecondaryLabel = "Back to GPX settings",
         compactSecondaryLabel = "Back",
         iconImageVector = Icons.Filled.Folder,
-        applyTopPadding = false,
+        applyTopPadding = true,
         compactRoundWidthFraction = 0.78f,
         onClick = onClick,
     )
