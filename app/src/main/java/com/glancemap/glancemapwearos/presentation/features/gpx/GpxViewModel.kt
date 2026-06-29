@@ -128,9 +128,18 @@ class GpxViewModel(
         val projection: GpxEtaProjection?,
     )
 
+    private data class UserProfileWeights(
+        val userWeightKg: Float,
+        val backpackWeightKg: Float,
+        val bikeWeightKg: Float,
+        val activityProfile: String,
+    )
+
     private val metaCache = LinkedHashMap<String, CachedMeta>(64, 0.75f, true)
     private val profileCache = LinkedHashMap<String, TrackProfile>(16, 0.75f, true)
     private val etaCache = LinkedHashMap<String, CachedEta>(16, 0.75f, true)
+    private val cacheLock = Any()
+    private var reloadGeneration = 0L
 
     private val maxMetaCacheEntries = 128
     private val maxProfileCacheEntries = 24
@@ -138,12 +147,19 @@ class GpxViewModel(
         GpxEtaModelConfig(
             flatSpeedMps = SettingsRepository.DEFAULT_GPX_FLAT_SPEED_MPS.toDouble(),
             advancedVerticalRateEnabled = SettingsRepository.DEFAULT_GPX_ADVANCED_ETA_ENABLED,
+            staminaAdjustmentEnabled = SettingsRepository.DEFAULT_GPX_STAMINA_ADJUSTMENT_ENABLED,
+            activityProfile = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
+            userWeightKg = SettingsRepository.DEFAULT_USER_WEIGHT_KG.toDouble(),
+            backpackWeightKg = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG.toDouble(),
+            bikeWeightKg = SettingsRepository.DEFAULT_BIKE_WEIGHT_KG.toDouble(),
             uphillVerticalMetersPerHour = SettingsRepository.DEFAULT_GPX_UPHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
             downhillVerticalMetersPerHour = SettingsRepository.DEFAULT_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
         )
     private var elevationFilterConfig = GpxElevationFilterDefaults.defaultConfig()
     private var userWeightKg = SettingsRepository.DEFAULT_USER_WEIGHT_KG
     private var backpackWeightKg = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
+    private var bikeWeightKg = SettingsRepository.DEFAULT_BIKE_WEIGHT_KG
+    private var activeActivityProfile = SettingsRepository.DEFAULT_ACTIVITY_PROFILE
     private val routeToolOperations =
         GpxRouteToolOperations(
             gpxRepository = gpxRepository,
@@ -158,37 +174,52 @@ class GpxViewModel(
 
     init {
         combine(
-            settingsRepository.gpxFlatSpeedMps,
-            settingsRepository.gpxAdvancedEtaEnabled,
-            settingsRepository.gpxUphillVerticalMetersPerHour,
-            settingsRepository.gpxDownhillVerticalMetersPerHour,
-        ) { flatSpeedMps, advancedEnabled, uphillMetersPerHour, downhillMetersPerHour ->
-            GpxEtaModelConfig(
-                flatSpeedMps =
-                    flatSpeedMps
-                        .toDouble()
-                        .coerceIn(0.0, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS.toDouble()),
-                advancedVerticalRateEnabled = advancedEnabled,
-                uphillVerticalMetersPerHour =
-                    uphillMetersPerHour
-                        .toDouble()
-                        .coerceIn(
-                            SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR.toDouble(),
-                            SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
-                        ),
-                downhillVerticalMetersPerHour =
-                    downhillMetersPerHour
-                        .toDouble()
-                        .coerceIn(
-                            SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR.toDouble(),
-                            SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
-                        ),
+            combine(
+                settingsRepository.gpxFlatSpeedMps,
+                settingsRepository.gpxAdvancedEtaEnabled,
+                settingsRepository.gpxStaminaAdjustmentEnabled,
+                settingsRepository.gpxUphillVerticalMetersPerHour,
+                settingsRepository.gpxDownhillVerticalMetersPerHour,
+            ) { flatSpeedMps, advancedEnabled, staminaEnabled, uphillMetersPerHour, downhillMetersPerHour ->
+                GpxEtaModelConfig(
+                    flatSpeedMps =
+                        flatSpeedMps
+                            .toDouble()
+                            .coerceIn(0.0, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS.toDouble()),
+                    advancedVerticalRateEnabled = advancedEnabled,
+                    staminaAdjustmentEnabled = staminaEnabled,
+                    uphillVerticalMetersPerHour =
+                        uphillMetersPerHour
+                            .toDouble()
+                            .coerceIn(
+                                SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR.toDouble(),
+                                SettingsRepository.MAX_GPX_UPHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
+                            ),
+                    downhillVerticalMetersPerHour =
+                        downhillMetersPerHour
+                            .toDouble()
+                            .coerceIn(
+                                SettingsRepository.MIN_GPX_VERTICAL_METERS_PER_HOUR.toDouble(),
+                                SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR.toDouble(),
+                            ),
+                )
+            },
+            settingsRepository.activityProfile,
+            settingsRepository.userWeightKg,
+            settingsRepository.backpackWeightKg,
+            settingsRepository.bikeWeightKg,
+        ) { config, activityProfile, userWeightKg, backpackWeightKg, bikeWeightKg ->
+            config.copy(
+                activityProfile = activityProfile.resolvedActivityProfile(),
+                userWeightKg = userWeightKg.toDouble(),
+                backpackWeightKg = backpackWeightKg.toDouble(),
+                bikeWeightKg = bikeWeightKg.toDouble(),
             )
         }.onEach { config ->
             if (config == etaModelConfig) return@onEach
 
             etaModelConfig = config
-            etaCache.clear()
+            clearEtaProjectionCache()
 
             reloadFromDisk()
             refreshOpenEtaUi()
@@ -212,8 +243,7 @@ class GpxViewModel(
             if (config == elevationFilterConfig) return@onEach
 
             elevationFilterConfig = config
-            profileCache.clear()
-            metaCache.clear()
+            clearProfileMetadataCaches()
 
             reloadFromDisk()
             refreshOpenEtaUi()
@@ -222,16 +252,30 @@ class GpxViewModel(
         combine(
             settingsRepository.userWeightKg,
             settingsRepository.backpackWeightKg,
-        ) { userWeightKg, backpackWeightKg ->
-            userWeightKg to backpackWeightKg
-        }.onEach { (newUserWeightKg, newBackpackWeightKg) ->
-            if (newUserWeightKg == userWeightKg && newBackpackWeightKg == backpackWeightKg) {
+            settingsRepository.bikeWeightKg,
+            settingsRepository.activityProfile,
+        ) { userWeightKg, backpackWeightKg, bikeWeightKg, activityProfile ->
+            UserProfileWeights(
+                userWeightKg = userWeightKg,
+                backpackWeightKg = backpackWeightKg,
+                bikeWeightKg = bikeWeightKg,
+                activityProfile = activityProfile,
+            )
+        }.onEach { profileWeights ->
+            if (
+                profileWeights.userWeightKg == userWeightKg &&
+                profileWeights.backpackWeightKg == backpackWeightKg &&
+                profileWeights.bikeWeightKg == bikeWeightKg &&
+                profileWeights.activityProfile == activeActivityProfile
+            ) {
                 return@onEach
             }
 
-            userWeightKg = newUserWeightKg
-            backpackWeightKg = newBackpackWeightKg
-            metaCache.clear()
+            userWeightKg = profileWeights.userWeightKg
+            backpackWeightKg = profileWeights.backpackWeightKg
+            bikeWeightKg = profileWeights.bikeWeightKg
+            activeActivityProfile = profileWeights.activityProfile
+            clearMetadataCache()
 
             reloadFromDisk()
         }.launchIn(viewModelScope)
@@ -257,10 +301,137 @@ class GpxViewModel(
         viewModelScope.launch { reloadFromDisk() }
     }
 
+    private fun beginReloadGeneration(): Long =
+        synchronized(cacheLock) {
+            reloadGeneration += 1L
+            reloadGeneration
+        }
+
+    private fun isCurrentReloadGeneration(generation: Long): Boolean =
+        synchronized(cacheLock) {
+            generation == reloadGeneration
+        }
+
+    private fun clearAllGpxCaches() {
+        synchronized(cacheLock) {
+            reloadGeneration += 1L
+            metaCache.clear()
+            profileCache.clear()
+            etaCache.clear()
+        }
+    }
+
+    private fun clearEtaProjectionCache() {
+        synchronized(cacheLock) {
+            reloadGeneration += 1L
+            etaCache.clear()
+        }
+    }
+
+    private fun clearProfileMetadataCaches() {
+        synchronized(cacheLock) {
+            reloadGeneration += 1L
+            metaCache.clear()
+            profileCache.clear()
+            etaCache.clear()
+        }
+    }
+
+    private fun clearMetadataCache() {
+        synchronized(cacheLock) {
+            reloadGeneration += 1L
+            metaCache.clear()
+        }
+    }
+
+    private fun removeCachedGpx(path: String) {
+        synchronized(cacheLock) {
+            reloadGeneration += 1L
+            metaCache.remove(path)
+            profileCache.remove(path)
+            etaCache.remove(path)
+        }
+    }
+
+    private fun pruneCachesToExistingPaths(existingPaths: Set<String>) {
+        synchronized(cacheLock) {
+            metaCache.keys.retainAll(existingPaths)
+            profileCache.keys.retainAll(existingPaths)
+            etaCache.keys.retainAll(existingPaths)
+        }
+    }
+
+    private fun cachedMeta(
+        path: String,
+        sig: FileSig,
+    ): CachedMeta? =
+        synchronized(cacheLock) {
+            metaCache[path]?.takeIf { it.sig == sig }
+        }
+
+    private fun cachedProfile(
+        path: String,
+        sig: FileSig? = null,
+        elevationConfig: GpxElevationFilterConfig? = null,
+    ): TrackProfile? =
+        synchronized(cacheLock) {
+            profileCache[path]?.takeIf { profile ->
+                (sig == null || profile.sig == sig) &&
+                    (elevationConfig == null || profile.elevationFilterConfig == elevationConfig)
+            }
+        }
+
+    private fun putProfileCache(
+        path: String,
+        profile: TrackProfile,
+    ) {
+        synchronized(cacheLock) {
+            profileCache[path] = profile
+            profileCache.trimTo(maxProfileCacheEntries)
+        }
+    }
+
+    private fun putMetaCache(
+        path: String,
+        meta: CachedMeta,
+    ) {
+        synchronized(cacheLock) {
+            metaCache[path] = meta
+            metaCache.trimTo(maxMetaCacheEntries)
+        }
+    }
+
+    private fun cachedEta(
+        path: String,
+        sig: FileSig,
+        modelConfig: GpxEtaModelConfig,
+    ): CachedEta? =
+        synchronized(cacheLock) {
+            etaCache[path]
+                ?.takeIf { cached ->
+                    cached.sig == sig && cached.modelConfig == modelConfig
+                }
+        }
+
+    private fun putEtaCache(
+        path: String,
+        sig: FileSig,
+        modelConfig: GpxEtaModelConfig,
+        projection: GpxEtaProjection?,
+    ) {
+        synchronized(cacheLock) {
+            etaCache[path] =
+                CachedEta(
+                    sig = sig,
+                    modelConfig = modelConfig,
+                    projection = projection,
+                )
+            etaCache.trimTo(maxProfileCacheEntries)
+        }
+    }
+
     suspend fun clearDerivedCaches() {
-        metaCache.clear()
-        profileCache.clear()
-        etaCache.clear()
+        clearAllGpxCaches()
         reloadFromDisk()
         refreshOpenEtaUi()
     }
@@ -275,10 +446,11 @@ class GpxViewModel(
         files: List<File>,
         activePaths: Set<String>,
     ) {
+        val reloadId = beginReloadGeneration()
         val existingPaths = files.asSequence().map { it.absolutePath }.toSet()
-        metaCache.keys.retainAll(existingPaths)
-        profileCache.keys.retainAll(existingPaths)
-        etaCache.keys.retainAll(existingPaths)
+        pruneCachesToExistingPaths(existingPaths)
+        val filterConfig = elevationFilterConfig
+        val etaConfig = etaModelConfig
 
         val fileStates =
             withContext(Dispatchers.IO) {
@@ -286,11 +458,13 @@ class GpxViewModel(
                     val path = file.absolutePath
                     val sig = sigOf(file)
 
-                    val cachedMeta = metaCache[path]?.takeIf { it.sig == sig }
+                    val cachedMeta = cachedMeta(path, sig)
                     val cachedProfile =
-                        profileCache[path]?.takeIf {
-                            it.sig == sig && it.elevationFilterConfig == elevationFilterConfig
-                        }
+                        cachedProfile(
+                            path = path,
+                            sig = sig,
+                            elevationConfig = filterConfig,
+                        )
 
                     val parsed =
                         if (cachedMeta != null && cachedProfile != null) {
@@ -302,10 +476,11 @@ class GpxViewModel(
                         cachedProfile ?: buildProfile(
                             sig = sig,
                             pts = parsed?.points ?: emptyList(),
-                            elevationFilterConfig = elevationFilterConfig,
+                            elevationFilterConfig = filterConfig,
                         ).also { created ->
-                            profileCache[path] = created
-                            profileCache.trimTo(maxProfileCacheEntries)
+                            if (isCurrentReloadGeneration(reloadId)) {
+                                putProfileCache(path, created)
+                            }
                         }
                     val isActivity =
                         cachedMeta?.isActivity
@@ -353,8 +528,9 @@ class GpxViewModel(
                             cachedMeta
                         } else {
                             canonicalMeta.also { created ->
-                                metaCache[path] = created
-                                metaCache.trimTo(maxMetaCacheEntries)
+                                if (isCurrentReloadGeneration(reloadId)) {
+                                    putMetaCache(path, created)
+                                }
                             }
                         }
 
@@ -363,6 +539,8 @@ class GpxViewModel(
                             path = path,
                             sig = sig,
                             profile = profile,
+                            modelConfig = etaConfig,
+                            cacheGeneration = reloadId,
                         )?.totalSeconds
 
                     GpxFileState(
@@ -383,8 +561,18 @@ class GpxViewModel(
                 }
             }
 
+        if (!isCurrentReloadGeneration(reloadId)) {
+            DebugTelemetry.log(
+                "GpxViewModel",
+                "reload skipped stale generation=$reloadId files=${files.size}",
+            )
+            return
+        }
         _gpxFiles.value = fileStates
-        updateActiveGpxDetails(fileStates.filter { it.isActive })
+        updateActiveGpxDetails(
+            activeFiles = fileStates.filter { it.isActive },
+            reloadId = reloadId,
+        )
 
         val aTrack = aPos?.trackId
         if (aTrack != null && aTrack !in existingPaths) {
@@ -463,6 +651,8 @@ class GpxViewModel(
                     points = recordedPoints,
                     userWeightKg = userWeightKg,
                     backpackWeightKg = backpackWeightKg,
+                    bikeWeightKg = bikeWeightKg,
+                    activityProfile = parsed.activitySummary?.activityProfile?.resolvedActivityProfile() ?: activeActivityProfile,
                 )
             } else {
                 RecordingCalorieEstimate()
@@ -522,6 +712,8 @@ class GpxViewModel(
                     points = recordedPoints,
                     userWeightKg = userWeightKg,
                     backpackWeightKg = backpackWeightKg,
+                    bikeWeightKg = bikeWeightKg,
+                    activityProfile = activityProfile.resolvedActivityProfile(),
                 )
             } else {
                 null
@@ -562,6 +754,10 @@ class GpxViewModel(
                         grossKcal = caloriesGrossKcal ?: 0.0,
                         activeKcal = caloriesActiveKcal ?: 0.0,
                         restingKcal = caloriesRestingKcal ?: 0.0,
+                        model = calorieModel ?: defaultCalorieModelForActivityProfile(activityProfile),
+                        cyclingMechanicalKj = cyclingMechanicalKj ?: 0.0,
+                        cyclingPowerSampleSegments = cyclingPowerSampleSegments ?: 0,
+                        cyclingPhysicsSegments = cyclingPhysicsSegments ?: 0,
                     ),
             heartRateBpm = fallbackPoints.lastMappedNotNull { it.heartRateBpm },
             averageHeartRateBpm = heartRateBpm ?: fallbackPoints.averageHeartRateBpm(),
@@ -588,6 +784,8 @@ class GpxViewModel(
                 points = profile.points.toRecordedTracePoints(),
                 userWeightKg = userWeightKg,
                 backpackWeightKg = backpackWeightKg,
+                bikeWeightKg = bikeWeightKg,
+                activityProfile = calorieEstimate.model.activityProfileFromCalorieModel(),
             )
         return copy(
             elevationGainMeters = profile.totalAscent,
@@ -829,9 +1027,7 @@ class GpxViewModel(
     fun deleteGpxFile(path: String) {
         viewModelScope.launch {
             gpxRepository.deleteGpxFile(path)
-            metaCache.remove(path)
-            profileCache.remove(path)
-            etaCache.remove(path)
+            removeCachedGpx(path)
             if (_turnByTurnGuidanceSession.value?.trackId == path) stopTurnByTurnGuidance()
             if (aPos?.trackId == path) dismissInspection()
             if (_elevationProfileUiState.value?.trackPath == path) dismissElevationProfile()
@@ -855,9 +1051,7 @@ class GpxViewModel(
                     }
                 }
             if (result.isSuccess) {
-                metaCache.clear()
-                profileCache.clear()
-                etaCache.clear()
+                clearAllGpxCaches()
                 if (_turnByTurnGuidanceSession.value?.trackId == filePath) stopTurnByTurnGuidance()
                 if (aPos?.trackId == filePath) dismissInspection()
                 if (_elevationProfileUiState.value?.trackPath == filePath) dismissElevationProfile()
@@ -1017,7 +1211,10 @@ class GpxViewModel(
         _elevationProfileUiState.value = null
     }
 
-    private suspend fun updateActiveGpxDetails(activeFiles: List<GpxFileState>) {
+    private suspend fun updateActiveGpxDetails(
+        activeFiles: List<GpxFileState>,
+        reloadId: Long,
+    ) {
         val details =
             withContext(Dispatchers.IO) {
                 activeFiles.mapNotNull { fileState ->
@@ -1025,7 +1222,13 @@ class GpxViewModel(
                     if (!file.exists()) return@mapNotNull null
 
                     val path = file.absolutePath
-                    val profile = getOrBuildProfile(path = path, file = file, sig = sigOf(file))
+                    val profile =
+                        getOrBuildProfile(
+                            path = path,
+                            file = file,
+                            sig = sigOf(file),
+                            cacheGeneration = reloadId,
+                        )
 
                     val start = profile.points.firstOrNull()?.latLong
                     val end = profile.points.lastOrNull()?.latLong
@@ -1043,6 +1246,13 @@ class GpxViewModel(
                 }
             }
 
+        if (!isCurrentReloadGeneration(reloadId)) {
+            DebugTelemetry.log(
+                "GpxViewModel",
+                "active details skipped stale generation=$reloadId activeFiles=${activeFiles.size}",
+            )
+            return
+        }
         _activeGpxDetails.value = details
     }
 
@@ -1050,12 +1260,17 @@ class GpxViewModel(
         path: String,
         file: File,
         sig: FileSig,
+        cacheGeneration: Long? = null,
     ): TrackProfile {
-        val cached = profileCache[path]
+        val filterConfig = elevationFilterConfig
+        val cached =
+            cachedProfile(
+                path = path,
+                sig = sig,
+                elevationConfig = filterConfig,
+            )
         if (
-            cached != null &&
-            cached.sig == sig &&
-            cached.elevationFilterConfig == elevationFilterConfig
+            cached != null
         ) {
             return cached
         }
@@ -1063,10 +1278,11 @@ class GpxViewModel(
         return buildProfile(
             sig = sig,
             pts = parseGpxPoints(file),
-            elevationFilterConfig = elevationFilterConfig,
+            elevationFilterConfig = filterConfig,
         ).also { profile ->
-            profileCache[path] = profile
-            profileCache.trimTo(maxProfileCacheEntries)
+            if (cacheGeneration == null || isCurrentReloadGeneration(cacheGeneration)) {
+                putProfileCache(path, profile)
+            }
         }
     }
 
@@ -1074,24 +1290,28 @@ class GpxViewModel(
         path: String,
         sig: FileSig,
         profile: TrackProfile,
+        modelConfig: GpxEtaModelConfig = etaModelConfig,
+        cacheGeneration: Long? = null,
     ): GpxEtaProjection? {
-        val cached = etaCache[path]
-        if (
-            cached != null &&
-            cached.sig == sig &&
-            cached.modelConfig == etaModelConfig
-        ) {
+        val cached =
+            cachedEta(
+                path = path,
+                sig = sig,
+                modelConfig = modelConfig,
+            )
+        if (cached != null) {
             return cached.projection
         }
 
-        val projection = buildEtaProjection(profile, etaModelConfig)
-        etaCache[path] =
-            CachedEta(
+        val projection = buildEtaProjection(profile, modelConfig)
+        if (cacheGeneration == null || isCurrentReloadGeneration(cacheGeneration)) {
+            putEtaCache(
+                path = path,
                 sig = sig,
-                modelConfig = etaModelConfig,
+                modelConfig = modelConfig,
                 projection = projection,
             )
-        etaCache.trimTo(maxProfileCacheEntries)
+        }
         return projection
     }
 
@@ -1141,7 +1361,7 @@ class GpxViewModel(
                 findClosestTrackPosition(
                     press = press,
                     tracks = tracks,
-                    profileProvider = { id -> profileCache[id] },
+                    profileProvider = { id -> cachedProfile(id) },
                     allowedTrackId = allowedTrackId,
                 ) ?: return@launch
 
@@ -1254,9 +1474,7 @@ class GpxViewModel(
                     runCatching { routeToolOperations.applyModification(session, onProgress) }
                 }
             if (result.isSuccess) {
-                metaCache.clear()
-                profileCache.clear()
-                etaCache.clear()
+                clearAllGpxCaches()
                 dismissInspection()
                 reloadFromDisk()
                 onComplete(result)
@@ -1328,9 +1546,7 @@ class GpxViewModel(
                     }
                 }
             if (result.isSuccess) {
-                metaCache.clear()
-                profileCache.clear()
-                etaCache.clear()
+                clearAllGpxCaches()
                 dismissInspection()
                 onComplete(result)
                 launch { reloadFromDisk() }
@@ -1351,9 +1567,7 @@ class GpxViewModel(
                     runCatching { routeToolOperations.renameSavedRoute(filePath, newName) }
                 }
             if (result.isSuccess) {
-                metaCache.clear()
-                profileCache.clear()
-                etaCache.clear()
+                clearAllGpxCaches()
                 if (aPos?.trackId == filePath) dismissInspection()
                 if (_elevationProfileUiState.value?.trackPath == filePath) dismissElevationProfile()
                 reloadFromDisk()
@@ -1370,7 +1584,7 @@ class GpxViewModel(
         trackId: String,
         pos: TrackPosition,
     ) {
-        val profile = profileCache[trackId] ?: return
+        val profile = cachedProfile(trackId) ?: return
         val title = activeGpxDetails.value.firstOrNull { it.id == trackId }?.title
         val etaProjection = getOrBuildEtaProjection(path = trackId, sig = profile.sig, profile = profile)
 
@@ -1389,7 +1603,7 @@ class GpxViewModel(
         b: TrackPosition,
     ) {
         if (a.trackId != b.trackId) return
-        val profile = profileCache[trackId] ?: return
+        val profile = cachedProfile(trackId) ?: return
         val title = activeGpxDetails.value.firstOrNull { it.id == trackId }?.title
         val etaProjection = getOrBuildEtaProjection(path = trackId, sig = profile.sig, profile = profile)
 
@@ -1478,6 +1692,30 @@ private fun List<TrackPoint>.toRecordedTracePoints(): List<RecordedTracePoint> =
             powerWatts = point.powerWatts,
             barometricPressureHpa = point.barometricPressureHpa,
         )
+    }
+
+private fun String?.resolvedActivityProfile(): String =
+    when (this) {
+        SettingsRepository.ACTIVITY_PROFILE_BIKE -> SettingsRepository.ACTIVITY_PROFILE_BIKE
+        SettingsRepository.ACTIVITY_PROFILE_HIKE,
+        SettingsRepository.ACTIVITY_PROFILE_WALK_HIKE,
+        -> SettingsRepository.ACTIVITY_PROFILE_HIKE
+        null -> SettingsRepository.DEFAULT_ACTIVITY_PROFILE
+        else -> SettingsRepository.DEFAULT_ACTIVITY_PROFILE
+    }
+
+private fun String?.activityProfileFromCalorieModel(): String =
+    if (this?.startsWith("cycling_", ignoreCase = true) == true) {
+        SettingsRepository.ACTIVITY_PROFILE_BIKE
+    } else {
+        SettingsRepository.DEFAULT_ACTIVITY_PROFILE
+    }
+
+private fun defaultCalorieModelForActivityProfile(activityProfile: String?): String =
+    if (activityProfile.resolvedActivityProfile() == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        "cycling_physics_fallback_v1"
+    } else {
+        "pandolf_santee_segment_v2"
     }
 
 private fun batchSendSummary(

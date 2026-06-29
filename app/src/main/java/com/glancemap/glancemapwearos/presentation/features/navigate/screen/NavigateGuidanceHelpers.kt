@@ -5,6 +5,7 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.Tur
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.bearingDegrees
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.buildCumulativeDistances
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.projectLocationToRoute
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import org.mapsforge.core.model.LatLong
 import java.util.Locale
 import kotlin.math.abs
@@ -33,6 +34,11 @@ internal fun buildTurnByTurnTelemetryMessage(
     turnAlertsMode: String,
     offRouteAlertsEnabled: Boolean,
     guidanceGpsInAmbient: Boolean,
+    activityProfile: String = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
+    resolvedGpsIntervalMs: Long = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
+    resolvedEtaFlatSpeedMps: Float = SettingsRepository.DEFAULT_GPX_FLAT_SPEED_MPS,
+    resolvedTurnAlertMaxDistanceMeters: Double =
+        turnAlertMaxDistanceMeters(SettingsRepository.DEFAULT_ACTIVITY_PROFILE),
 ): String {
     val instruction = state.nextInstruction
     return buildString {
@@ -65,6 +71,10 @@ internal fun buildTurnByTurnTelemetryMessage(
         append(" turnAlerts=$turnAlertsMode")
         append(" offRouteAlerts=$offRouteAlertsEnabled")
         append(" guidanceGpsAmbient=$guidanceGpsInAmbient")
+        append(" activityProfile=$activityProfile")
+        append(" resolvedGpsIntervalMs=$resolvedGpsIntervalMs")
+        append(" resolvedEtaFlatSpeedMps=${resolvedEtaFlatSpeedMps.telemetrySpeed()}")
+        append(" resolvedTurnAlertMaxM=${resolvedTurnAlertMaxDistanceMeters.telemetryDistance()}")
     }
 }
 
@@ -133,6 +143,8 @@ internal fun String?.telemetryTrackName(): String =
         ?: "none"
 
 internal fun Double?.telemetryDistance(): String = this?.let { String.format(Locale.US, "%.1f", it) } ?: "na"
+
+internal fun Float.telemetrySpeed(): String = String.format(Locale.US, "%.2f", this)
 
 internal fun Float?.telemetryPercent(): String = this?.let { String.format(Locale.US, "%.1f", it.coerceIn(0f, 1f) * 100f) } ?: "na"
 

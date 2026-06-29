@@ -73,6 +73,51 @@ class TraceGpxEncoderTest {
     }
 
     @Test
+    fun encodeRecordedTraceAsGpxWritesActivityProfileAndCalorieModelSummary() {
+        val bytes =
+            encodeRecordedTraceAsGpx(
+                title = "Bike Test",
+                points = listOf(recordedPoint(latitude = 45.0, longitude = 6.0, timeMillis = 1_000L)),
+                summary =
+                    RecordedTraceSummary(
+                        activityProfile = "BIKE",
+                        durationSeconds = 600.0,
+                        distanceMeters = 4_000.0,
+                        elevationGainMeters = 50.0,
+                        elevationLossMeters = 20.0,
+                        currentElevationMeters = 300.0,
+                        currentSpeedMps = 6.0f,
+                        averageSpeedMps = 6.67,
+                        gpsAccuracyMeters = 5.0f,
+                        pointCount = 10,
+                        gpsActiveDurationSeconds = 590.0,
+                        recordingGapCount = 0,
+                        recordingMaxGapSeconds = 0.0,
+                        caloriesGrossKcal = 220.0,
+                        caloriesActiveKcal = 210.0,
+                        caloriesRestingKcal = 10.0,
+                        calorieModel = "cycling_physics_fallback_v1",
+                        cyclingMechanicalKj = 202.4,
+                        cyclingPowerSampleSegments = 0,
+                        cyclingPhysicsSegments = 9,
+                        heartRateBpm = 130,
+                        stepCount = null,
+                        cadenceSpm = 82,
+                        powerWatts = null,
+                        barometricPressureHpa = null,
+                    ),
+            )
+
+        val xml = bytes.toString(Charsets.UTF_8)
+
+        assertTrue(xml.contains("<gmap:activityProfile>BIKE</gmap:activityProfile>"))
+        assertTrue(xml.contains("<gmap:calorieModel>cycling_physics_fallback_v1</gmap:calorieModel>"))
+        assertTrue(xml.contains("<gmap:cyclingMechanicalKj>202.40</gmap:cyclingMechanicalKj>"))
+        assertFalse(xml.contains("<gmap:cyclingPowerSampleSegments>"))
+        assertTrue(xml.contains("<gmap:cyclingPhysicsSegments>9</gmap:cyclingPhysicsSegments>"))
+    }
+
+    @Test
     fun encodeRecordedTraceAsGpxWritesExtensionsForSensorOnlyPointData() {
         val bytes =
             encodeRecordedTraceAsGpx(

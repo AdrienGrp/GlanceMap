@@ -119,8 +119,10 @@ fun DebuggingSettingsScreen(
     val recordingExternalRunPodAddress by viewModel.recordingExternalRunPodAddress.collectAsState()
     val recordingExternalRunPodName by viewModel.recordingExternalRunPodName.collectAsState()
     val externalSensorSimulationEnabled by ExternalSensorSimulation.enabled.collectAsState()
+    val activityProfile by viewModel.activityProfile.collectAsState()
     val userWeightKg by viewModel.userWeightKg.collectAsState()
     val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
+    val bikeWeightKg by viewModel.bikeWeightKg.collectAsState()
     var diagnosticsExportStatus by remember {
         mutableStateOf(DIAGNOSTICS_DEFAULT_STATUS)
     }
@@ -433,8 +435,10 @@ fun DebuggingSettingsScreen(
                                                 recordingExternalRunPodName = recordingExternalRunPodName,
                                                 recordingExternalRunPodAddressSuffix =
                                                     recordingExternalRunPodAddress?.takeLast(5),
+                                                activityProfile = activityProfile,
                                                 userWeightKg = userWeightKg,
                                                 backpackWeightKg = backpackWeightKg,
+                                                bikeWeightKg = bikeWeightKg,
                                                 turnByTurnGuidanceSource = turnByTurnGuidanceSource,
                                                 turnByTurnHapticsEnabled = turnByTurnHapticsEnabled,
                                                 turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,

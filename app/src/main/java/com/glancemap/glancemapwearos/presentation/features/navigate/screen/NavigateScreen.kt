@@ -48,6 +48,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolM
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
+import com.glancemap.glancemapwearos.presentation.features.routetools.routeStylePresetFromSettingsValue
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeToolMultiPointDraftConnectorPoints
 import com.glancemap.glancemapwearos.presentation.features.routetools.visibleRouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.withVisibleLoopDefaults
@@ -80,6 +81,7 @@ fun NavigateScreen(
     onRecordingTimeTap: () -> Unit = {},
     onRecordingTimeLongPress: () -> Unit = {},
     onMenuClick: () -> Unit,
+    onOpenGpxToolsSettings: () -> Unit = {},
     compassViewModel: CompassViewModel = viewModel(),
     navigateViewModel: NavigateViewModel =
         viewModel(
@@ -644,8 +646,15 @@ fun NavigateScreen(
                 brouterGuideBackEnabled = turnByTurnBrouterGuideBackEnabled,
                 lastScreenResumeElapsedMs = lastScreenResumeElapsedMs,
                 isMetric = isMetric,
+                activityProfile = activityProfile,
+                userWeightKg = userWeightKg,
+                backpackWeightKg = backpackWeightKg,
+                bikeWeightKg = bikeWeightKg,
+                recordingActive = traceRecordingState.active,
+                recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
                 gpxFlatSpeedMps = gpxFlatSpeedMps,
                 gpxAdvancedEtaEnabled = gpxAdvancedEtaEnabled,
+                gpxStaminaAdjustmentEnabled = gpxStaminaAdjustmentEnabled,
                 gpxUphillVerticalMetersPerHour = gpxUphillVerticalMetersPerHour,
                 gpxDownhillVerticalMetersPerHour = gpxDownhillVerticalMetersPerHour,
             )
@@ -660,6 +669,15 @@ fun NavigateScreen(
                 recenterTarget?.let { mapView.setCenterForNavigationMarker(it, effectiveNavigationMarkerAnchorMode) }
             }
         }
+
+        val defaultRouteToolOptions =
+            remember(gpxToolRouteStyle, gpxToolUseElevation, gpxToolAllowFerries) {
+                RouteToolOptions(
+                    routeStyle = routeStylePresetFromSettingsValue(gpxToolRouteStyle),
+                    useElevation = gpxToolUseElevation,
+                    allowFerries = gpxToolAllowFerries,
+                )
+            }
 
         val routeToolActions =
             rememberNavigateRouteToolActions(
@@ -676,6 +694,7 @@ fun NavigateScreen(
                 selectedMapPath = selectedMapPath,
                 triggerHaptic = screenActions.triggerHaptic,
                 routeToolOptions = routeToolOptions,
+                routeToolDefaultOptions = defaultRouteToolOptions,
                 setRouteToolOptions = { routeToolOptions = it },
                 routeToolSession = routeToolSession,
                 setRouteToolSession = { routeToolSession = it },
@@ -831,6 +850,12 @@ fun NavigateScreen(
                 routeToolPreflightMessage = null
                 poiViewModel.clearOfflinePoiSearch()
             },
+            onOpenGpxToolsSettings = {
+                showRouteToolsPanel = false
+                routeToolPreflightMessage = null
+                poiViewModel.clearOfflinePoiSearch()
+                onOpenGpxToolsSettings()
+            },
         )
 
         NavigateContent(
@@ -912,6 +937,8 @@ fun NavigateScreen(
             turnByTurnDashboardMetricSlots = turnByTurnDashboardMetricSlots,
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
+            bikeWeightKg = bikeWeightKg,
+            activityProfile = activityProfile,
             recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
             recordingActionPromptRequestToken = recordingActionPromptRequestToken,
             onRecordingTimeTap = onRecordingTimeTap,

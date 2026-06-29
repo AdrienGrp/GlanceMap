@@ -87,6 +87,7 @@ internal fun NavigateScreenDialogsHost(
     onSetRouteToolRenameInProgress: (Boolean) -> Unit,
     onSetRouteToolRenameError: (String?) -> Unit,
     onDismissRouteToolsPanel: () -> Unit,
+    onOpenGpxToolsSettings: () -> Unit,
     onRouteToolGuidanceStarted: () -> Unit,
 ) {
     var showGpsDeactivatedInfo by rememberSaveable { mutableStateOf(false) }
@@ -130,6 +131,7 @@ internal fun NavigateScreenDialogsHost(
         onSearchPoi = { query -> poiViewModel.searchOfflinePoi(query) },
         onClearPoiSearch = { poiViewModel.clearOfflinePoiSearch() },
         onDismissRouteToolsPanel = onDismissRouteToolsPanel,
+        onOpenGpxToolsSettings = onOpenGpxToolsSettings,
         onStartRouteToolSelection = routeToolActions.startRouteToolSelection,
         completedRouteToolDraft = if (reshapePreviewInspectMode) null else completedRouteToolDraft,
         routeToolExecutionInProgress = routeToolExecutionInProgress,
@@ -379,6 +381,7 @@ internal fun NavigateRouteToolDialogs(
     onSearchPoi: (String) -> Unit,
     onClearPoiSearch: () -> Unit,
     onDismissRouteToolsPanel: () -> Unit,
+    onOpenGpxToolsSettings: () -> Unit,
     onStartRouteToolSelection: (RouteToolSession) -> Unit,
     completedRouteToolDraft: RouteToolSession?,
     routeToolExecutionInProgress: Boolean,
@@ -412,6 +415,7 @@ internal fun NavigateRouteToolDialogs(
         onClearPoiSearch = onClearPoiSearch,
         onDismiss = onDismissRouteToolsPanel,
         onStartSelection = onStartRouteToolSelection,
+        onOpenGpxToolsSettings = onOpenGpxToolsSettings,
     )
 
     RouteToolDraftSummaryDialog(

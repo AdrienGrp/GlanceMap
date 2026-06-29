@@ -6,15 +6,20 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,6 +41,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
@@ -54,10 +60,13 @@ fun UserProfileSettingsScreen(
 ) {
     val listTokens = rememberSettingsListTokens()
     val isMetric by viewModel.isMetric.collectAsState()
+    val activityProfile by viewModel.activityProfile.collectAsState()
     val userWeightKg by viewModel.userWeightKg.collectAsState()
     val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
+    val bikeWeightKg by viewModel.bikeWeightKg.collectAsState()
     var showWeightPicker by remember { mutableStateOf(false) }
     var showBackpackPicker by remember { mutableStateOf(false) }
+    var showBikeWeightPicker by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -83,6 +92,12 @@ fun UserProfileSettingsScreen(
             )
         }
         item {
+            ActivityProfileToggle(
+                selectedProfile = activityProfile,
+                onSelect = viewModel::setActivityProfile,
+            )
+        }
+        item {
             SettingsPickerChip(
                 label = "Body weight",
                 secondaryLabel = formatUserWeight(userWeightKg, isMetric),
@@ -95,6 +110,15 @@ fun UserProfileSettingsScreen(
                 secondaryLabel = formatUserWeight(backpackWeightKg, isMetric),
                 onClick = { showBackpackPicker = true },
             )
+        }
+        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+            item {
+                SettingsPickerChip(
+                    label = "Bike weight",
+                    secondaryLabel = formatUserWeight(bikeWeightKg, isMetric),
+                    onClick = { showBikeWeightPicker = true },
+                )
+            }
         }
     }
 
@@ -118,6 +142,16 @@ fun UserProfileSettingsScreen(
         onDismiss = { showBackpackPicker = false },
         onValueChange = viewModel::setBackpackWeightKg,
     )
+    RotaryWeightPickerDialog(
+        visible = showBikeWeightPicker,
+        title = "Bike weight",
+        valueKg = bikeWeightKg,
+        minKg = SettingsRepository.MIN_BIKE_WEIGHT_KG,
+        maxKg = SettingsRepository.MAX_BIKE_WEIGHT_KG,
+        isMetric = isMetric,
+        onDismiss = { showBikeWeightPicker = false },
+        onValueChange = viewModel::setBikeWeightKg,
+    )
     UserProfileInfoDialog(
         visible = showInfoDialog,
         onDismiss = { showInfoDialog = false },
@@ -136,6 +170,8 @@ private fun UserProfileInfoDialog(
         lines =
             listOf(
                 "Weight and backpack improve hiking calories.\n" +
+                    "Bike weight improves cycling ETA and calories.\n" +
+                    "Activity changes default route tools, ETA and dashboard choices.\n" +
                     "Calories use Pandolf/Santee and LCDA with speed and slope.\n" +
                     "DEM elevation is used when available.",
             ),
@@ -151,6 +187,93 @@ private fun formatUserWeight(
     } else {
         "${ONE_DECIMAL_FORMAT.format(weightKg * KG_TO_LB)} lb"
     }
+
+@Composable
+private fun ActivityProfileToggle(
+    selectedProfile: String,
+    onSelect: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "Activity",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ActivityProfileButton(
+                label = "Hike",
+                selected = selectedProfile != SettingsRepository.ACTIVITY_PROFILE_BIKE,
+                onClick = { onSelect(SettingsRepository.ACTIVITY_PROFILE_HIKE) },
+                icon = Icons.Default.Terrain,
+                modifier = Modifier.weight(1f),
+            )
+            ActivityProfileButton(
+                label = "Bike",
+                selected = selectedProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE,
+                onClick = { onSelect(SettingsRepository.ACTIVITY_PROFILE_BIKE) },
+                icon = Icons.AutoMirrored.Filled.DirectionsBike,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActivityProfileButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        modifier =
+            modifier
+                .heightIn(min = 58.dp),
+        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor =
+                    if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        Color.White.copy(alpha = 0.10f)
+                    },
+                contentColor =
+                    if (selected) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        Color.White
+                    },
+            ),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(19.dp),
+            )
+            Text(
+                label,
+                maxLines = 1,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
 
 @Composable
 private fun RotaryWeightPickerDialog(

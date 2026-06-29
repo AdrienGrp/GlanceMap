@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -120,6 +122,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
     turnByTurnDashboardMetricSlots: List<String>,
     userWeightKg: Float,
     backpackWeightKg: Float,
+    bikeWeightKg: Float,
+    activityProfile: String,
     recordingDashboardExpandRequestToken: Long,
     recordingActionPromptRequestToken: Long,
     onRecordingClick: () -> Unit,
@@ -200,6 +204,16 @@ internal fun BoxScope.NavigateOverlaysLayer(
         (turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded) ||
             (traceRecordingState.active && recordingDashboardFullScreenExpanded) ||
             combinedGuidanceRecordingFullScreenExpanded
+    val showGuideBackShortcut =
+        turnByTurnGuidanceState.active &&
+            turnByTurnGuidanceState.offRoute &&
+            !guideBackToRouteActive &&
+            !showGuideBackPrompt &&
+            !suppressMapControlsForGuidance &&
+            !suppressGuidanceForPanning &&
+            poiTapMessage == null &&
+            !routeToolModeActive &&
+            !shortcutTrayExpanded
 
     LaunchedEffect(
         turnByTurnGuidanceState.mode,
@@ -471,6 +485,33 @@ internal fun BoxScope.NavigateOverlaysLayer(
         Icon(Icons.Default.Menu, "Menu", Modifier.size(sideButtonIconSize))
     }
 
+    if (showGuideBackShortcut) {
+        IconButton(
+            onClick = {
+                DebugTelemetry.log("TurnByTurn", "event=guide_back_shortcut_click")
+                triggerHaptic()
+                onGuideBackToRoute()
+            },
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = sideButtonEdgePadding)
+                    .offset(y = (-44).dp)
+                    .size((sideButtonSize * 0.84f).coerceAtLeast(34.dp)),
+            colors =
+                IconButtonDefaults.iconButtonColors(
+                    containerColor = Color(0xFFFFC107).copy(alpha = 0.92f),
+                    contentColor = Color.Black,
+                ),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Route,
+                contentDescription = "Route back to GPX",
+                modifier = Modifier.size((sideButtonIconSize * 0.92f).coerceAtLeast(18.dp)),
+            )
+        }
+    }
+
     if (!suppressMapControlsForGuidance && !routeToolModeActive) {
         RouteShortcutTray(
             expanded = shortcutTrayExpanded,
@@ -544,6 +585,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
         metricSlots = recordingDashboardMetricSlots,
         userWeightKg = userWeightKg,
         backpackWeightKg = backpackWeightKg,
+        bikeWeightKg = bikeWeightKg,
+        activityProfile = activityProfile,
         screenSize = screenSize,
         isMetric = isMetric,
         showRouteCompletePrompt = showRouteCompleteRecordingPrompt,
@@ -573,6 +616,8 @@ internal fun BoxScope.NavigateOverlaysLayer(
         guidanceMetricSlots = turnByTurnDashboardMetricSlots,
         userWeightKg = userWeightKg,
         backpackWeightKg = backpackWeightKg,
+        bikeWeightKg = bikeWeightKg,
+        activityProfile = activityProfile,
         screenSize = screenSize,
         isMetric = isMetric,
         compassHeadingDeg = compassHeadingDeg,

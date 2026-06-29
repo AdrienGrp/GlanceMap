@@ -38,12 +38,16 @@ data class RecordingCalorieEstimate(
     val grossKcal: Double = 0.0,
     val activeKcal: Double = 0.0,
     val restingKcal: Double = 0.0,
+    val model: String = CALORIE_MODEL_HIKE_PANDOLF_SANTEE,
     val pandolfBaseGrossKcal: Double = 0.0,
     val pandolfBaseActiveKcal: Double = 0.0,
     val pandolfBaseRestingKcal: Double = 0.0,
     val lcdaGrossKcal: Double = 0.0,
     val lcdaActiveKcal: Double = 0.0,
     val lcdaRestingKcal: Double = 0.0,
+    val cyclingMechanicalKj: Double = 0.0,
+    val cyclingPowerSampleSegments: Int = 0,
+    val cyclingPhysicsSegments: Int = 0,
 )
 
 data class RecordingDashboardSnapshot(
@@ -149,6 +153,8 @@ internal fun buildRecordingDashboardSnapshot(
     nowMillis: Long,
     userWeightKg: Float = SettingsRepository.DEFAULT_USER_WEIGHT_KG,
     backpackWeightKg: Float = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG,
+    bikeWeightKg: Float = SettingsRepository.DEFAULT_BIKE_WEIGHT_KG,
+    activityProfile: String = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
 ): RecordingDashboardSnapshot {
     val startedAt = state.startedAtMillis ?: nowMillis
     val currentPausedMillis =
@@ -182,6 +188,8 @@ internal fun buildRecordingDashboardSnapshot(
             points = state.points,
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
+            bikeWeightKg = bikeWeightKg,
+            activityProfile = activityProfile,
         )
     val hasElevationData = state.points.any { it.elevationMeters?.isFinite() == true }
     return RecordingDashboardSnapshot(
@@ -467,6 +475,8 @@ internal fun estimateRecordingCalories(
     points: List<RecordedTracePoint>,
     userWeightKg: Float,
     backpackWeightKg: Float,
+    bikeWeightKg: Float = SettingsRepository.DEFAULT_BIKE_WEIGHT_KG,
+    activityProfile: String = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
     terrainFactor: Double = DEFAULT_TERRAIN_FACTOR,
 ): RecordingCalorieEstimate {
     if (points.size < 2) return RecordingCalorieEstimate()
@@ -480,6 +490,20 @@ internal fun estimateRecordingCalories(
             .takeIf { it.isFinite() }
             ?.coerceIn(SettingsRepository.MIN_BACKPACK_WEIGHT_KG, SettingsRepository.MAX_BACKPACK_WEIGHT_KG)
             ?: SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
+    val equipmentWeightKg =
+        bikeWeightKg
+            .takeIf { it.isFinite() }
+            ?.coerceIn(SettingsRepository.MIN_BIKE_WEIGHT_KG, SettingsRepository.MAX_BIKE_WEIGHT_KG)
+            ?: SettingsRepository.DEFAULT_BIKE_WEIGHT_KG
+
+    if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        return estimateCyclingCalories(
+            points = points,
+            bodyWeightKg = bodyWeightKg.toDouble(),
+            loadWeightKg = loadWeightKg.toDouble(),
+            bikeWeightKg = equipmentWeightKg.toDouble(),
+        )
+    }
 
     var grossKcal = 0.0
     var pandolfBaseGrossKcal = 0.0
@@ -550,6 +574,7 @@ internal fun estimateRecordingCalories(
         grossKcal = grossKcal,
         activeKcal = activeKcal,
         restingKcal = restingKcal,
+        model = CALORIE_MODEL_HIKE_PANDOLF_SANTEE,
         pandolfBaseGrossKcal = pandolfBaseGrossKcal,
         pandolfBaseActiveKcal = pandolfBaseActiveKcal,
         pandolfBaseRestingKcal = pandolfBaseRestingKcal,
@@ -557,6 +582,135 @@ internal fun estimateRecordingCalories(
         lcdaActiveKcal = lcdaActiveKcal,
         lcdaRestingKcal = lcdaRestingKcal,
     )
+}
+
+private fun estimateCyclingCalories(
+    points: List<RecordedTracePoint>,
+    bodyWeightKg: Double,
+    loadWeightKg: Double,
+    bikeWeightKg: Double,
+): RecordingCalorieEstimate {
+    var mechanicalJoules = 0.0
+    var modeledDurationSeconds = 0.0
+    var powerSampleSegments = 0
+    var physicsSegments = 0
+    val calorieElevations = smoothedCalorieElevations(points)
+    var previousSpeedMetersPerSecond: Double? = null
+
+    points.zipWithNext().forEachIndexed { index, (start, end) ->
+        if (end.startsNewSegment) {
+            previousSpeedMetersPerSecond = null
+            return@forEachIndexed
+        }
+        val segmentDurationSeconds =
+            ((end.timeMillis - start.timeMillis) / 1000.0)
+                .takeIf { it.isFinite() && it > 0.0 }
+                ?.coerceAtMost(MAX_CALORIE_SEGMENT_DURATION_SECONDS)
+                ?: return@forEachIndexed
+        val distanceMeters = haversineMeters(start.latLong, end.latLong).coerceAtLeast(0.0)
+        val speedMetersPerSecond =
+            (distanceMeters / segmentDurationSeconds)
+                .takeIf { it.isFinite() }
+                ?.coerceIn(0.0, MAX_CYCLING_SPEED_MPS)
+                ?: 0.0
+        val powerWatts = end.powerWatts?.takeIf { it in CYCLING_POWER_WATTS_RANGE }
+        val estimatedPowerWatts =
+            if (powerWatts != null) {
+                powerSampleSegments += 1
+                powerWatts.toDouble()
+            } else {
+                physicsSegments += 1
+                val elevationDeltaMeters =
+                    if (calorieElevations[index] != null && calorieElevations[index + 1] != null) {
+                        calorieElevations[index + 1]!! - calorieElevations[index]!!
+                    } else {
+                        0.0
+                    }
+                val gradeFraction =
+                    if (distanceMeters >= MIN_DISTANCE_METERS_FOR_GRADE) {
+                        (elevationDeltaMeters / distanceMeters)
+                            .coerceIn(-MAX_CYCLING_GRADE_FRACTION, MAX_CYCLING_GRADE_FRACTION)
+                    } else {
+                        0.0
+                    }
+                cyclingPhysicsPowerWatts(
+                    bodyWeightKg = bodyWeightKg,
+                    loadWeightKg = loadWeightKg,
+                    bikeWeightKg = bikeWeightKg,
+                    speedMetersPerSecond = speedMetersPerSecond,
+                    previousSpeedMetersPerSecond = previousSpeedMetersPerSecond,
+                    durationSeconds = segmentDurationSeconds,
+                    gradeFraction = gradeFraction,
+                )
+            }
+
+        mechanicalJoules += estimatedPowerWatts * segmentDurationSeconds
+        previousSpeedMetersPerSecond = speedMetersPerSecond
+        modeledDurationSeconds += segmentDurationSeconds
+    }
+
+    val activeKcal =
+        (mechanicalJoules / JOULES_PER_KILOCALORIE / CYCLING_DEFAULT_GROSS_EFFICIENCY)
+            .takeIf { it.isFinite() }
+            ?.coerceAtLeast(0.0)
+            ?: 0.0
+    val restingKcal = bodyWeightKg * (modeledDurationSeconds / SECONDS_PER_HOUR) * RESTING_MET
+    val model =
+        if (powerSampleSegments > 0) {
+            CALORIE_MODEL_BIKE_POWER
+        } else {
+            CALORIE_MODEL_BIKE_PHYSICS
+        }
+    return RecordingCalorieEstimate(
+        grossKcal = activeKcal + restingKcal,
+        activeKcal = activeKcal,
+        restingKcal = restingKcal,
+        model = model,
+        cyclingMechanicalKj = mechanicalJoules / 1_000.0,
+        cyclingPowerSampleSegments = powerSampleSegments,
+        cyclingPhysicsSegments = physicsSegments,
+    )
+}
+
+private fun cyclingPhysicsPowerWatts(
+    bodyWeightKg: Double,
+    loadWeightKg: Double,
+    bikeWeightKg: Double,
+    speedMetersPerSecond: Double,
+    previousSpeedMetersPerSecond: Double?,
+    durationSeconds: Double,
+    gradeFraction: Double,
+): Double {
+    val totalMassKg = bodyWeightKg + loadWeightKg + bikeWeightKg
+    val rollingPower =
+        totalMassKg *
+            GRAVITY_METERS_PER_SECOND_SQUARED *
+            CYCLING_DEFAULT_ROLLING_RESISTANCE *
+            speedMetersPerSecond
+    val gravityPower =
+        totalMassKg *
+            GRAVITY_METERS_PER_SECOND_SQUARED *
+            gradeFraction *
+            speedMetersPerSecond
+    val aeroPower =
+        0.5 *
+            AIR_DENSITY_KG_PER_CUBIC_METER *
+            CYCLING_DEFAULT_CDA *
+            speedMetersPerSecond.pow(3.0)
+    val accelerationPower =
+        previousSpeedMetersPerSecond
+            ?.let { previousSpeed ->
+                val accelerationMetersPerSecondSquared =
+                    ((speedMetersPerSecond - previousSpeed) / durationSeconds)
+                        .takeIf { it.isFinite() && it > 0.0 }
+                        ?: 0.0
+                totalMassKg * accelerationMetersPerSecondSquared * speedMetersPerSecond
+            } ?: 0.0
+
+    return (rollingPower + gravityPower + aeroPower + accelerationPower)
+        .takeIf { it.isFinite() }
+        ?.coerceAtLeast(0.0)
+        ?: 0.0
 }
 
 private fun smoothedCalorieElevations(points: List<RecordedTracePoint>): List<Double?> {
@@ -779,6 +933,9 @@ private const val JOULES_PER_KILOCALORIE = 4_184.0
 private const val SECONDS_PER_HOUR = 3_600.0
 private const val RESTING_MET = 1.0
 private const val DEFAULT_TERRAIN_FACTOR = 1.0
+private const val CALORIE_MODEL_HIKE_PANDOLF_SANTEE = "pandolf_santee_segment_v2"
+private const val CALORIE_MODEL_BIKE_POWER = "cycling_power_meter_efficiency_v1"
+private const val CALORIE_MODEL_BIKE_PHYSICS = "cycling_physics_fallback_v1"
 private const val MAX_PANDOLF_SPEED_MPS = 3.0
 private const val MAX_PANDOLF_GRADE_PERCENT = 35.0
 private const val SANTEE_SPEED_NORMALIZER = 3.5
@@ -802,5 +959,13 @@ private const val LCDA_VEST_LOAD_EXPONENT = 1.21
 private const val MIN_DISTANCE_METERS_FOR_GRADE = 1.0
 private const val MIN_ELEVATION_SMOOTHING_WINDOW_SIZE = 3
 private const val MAX_CALORIE_SEGMENT_DURATION_SECONDS = 600.0
+private const val CYCLING_DEFAULT_GROSS_EFFICIENCY = 0.23
+private const val CYCLING_DEFAULT_CDA = 0.50
+private const val CYCLING_DEFAULT_ROLLING_RESISTANCE = 0.006
+private const val MAX_CYCLING_SPEED_MPS = 25.0
+private const val MAX_CYCLING_GRADE_FRACTION = 0.35
+private const val GRAVITY_METERS_PER_SECOND_SQUARED = 9.80665
+private const val AIR_DENSITY_KG_PER_CUBIC_METER = 1.225
+private val CYCLING_POWER_WATTS_RANGE = 0..2_500
 private const val LIVE_POINT_MAX_AGE_MS = 15_000L
 private val RECORDING_DISTANCE_FORMAT = DecimalFormat("0.00")

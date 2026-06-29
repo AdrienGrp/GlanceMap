@@ -10,6 +10,7 @@ import androidx.navigation.NavHostController
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.transfer.storage.StalePartialTransferCleaner
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
@@ -41,8 +42,10 @@ fun SettingsScreen(
         mutableStateOf(StalePartialTransferCleaner.PartialFilesSummary(count = 0, totalBytes = 0L))
     }
     val isMetric by viewModel.isMetric.collectAsState()
+    val activityProfile by viewModel.activityProfile.collectAsState()
     val userWeightKg by viewModel.userWeightKg.collectAsState()
     val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
+    val bikeWeightKg by viewModel.bikeWeightKg.collectAsState()
     val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
 
     fun refreshPartialSummary() {
@@ -80,7 +83,14 @@ fun SettingsScreen(
         item {
             SettingsSectionChip(
                 label = "User profile",
-                secondaryLabel = formatUserProfileSummary(isMetric, userWeightKg, backpackWeightKg),
+                secondaryLabel =
+                    formatUserProfileSummary(
+                        activityProfile = activityProfile,
+                        isMetric = isMetric,
+                        userWeightKg = userWeightKg,
+                        backpackWeightKg = backpackWeightKg,
+                        bikeWeightKg = bikeWeightKg,
+                    ),
                 compactRoundWidthFraction = 0.86f,
                 onClick = { navController.navigate(WatchRoutes.USER_PROFILE_SETTINGS) },
             )
@@ -324,17 +334,24 @@ private fun formatSettingsUserWeight(
     }
 
 private fun formatUserProfileSummary(
+    activityProfile: String,
     isMetric: Boolean,
     userWeightKg: Float,
     backpackWeightKg: Float,
+    bikeWeightKg: Float,
 ): String {
+    val isBike = activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
     val parts =
         mutableListOf(
+            if (isBike) "Bike" else "Hike",
             if (isMetric) "Metric" else "Imperial",
             formatSettingsUserWeight(userWeightKg, isMetric),
         )
     if (backpackWeightKg.roundToInt() > 0) {
         parts += "pack ${formatSettingsUserWeight(backpackWeightKg, isMetric)}"
+    }
+    if (isBike) {
+        parts += "bike ${formatSettingsUserWeight(bikeWeightKg, isMetric)}"
     }
     return parts.joinToString(" · ")
 }

@@ -506,8 +506,73 @@ class RecordingDashboardModelsTest {
         assertEquals(flat.lcdaGrossKcal, spiked.lcdaGrossKcal, 1.0)
     }
 
+    @Test
+    fun estimateRecordingCaloriesUsesPowerMeterForBikeProfile() {
+        val estimate =
+            estimateRecordingCalories(
+                points = oneHourFlatWalkPoints().map { it.copy(powerWatts = 230) },
+                userWeightKg = 75f,
+                backpackWeightKg = 0f,
+                activityProfile = SettingsRepository.ACTIVITY_PROFILE_BIKE,
+            )
+
+        assertEquals("cycling_power_meter_efficiency_v1", estimate.model)
+        assertEquals(828.0, estimate.cyclingMechanicalKj, 1.0)
+        assertEquals(860.0, estimate.activeKcal, 1.0)
+        assertEquals(935.0, estimate.grossKcal, 1.0)
+        assertEquals(6, estimate.cyclingPowerSampleSegments)
+        assertEquals(0, estimate.cyclingPhysicsSegments)
+    }
+
+    @Test
+    fun estimateRecordingCaloriesUsesPhysicsFallbackForBikeProfileWithoutPower() {
+        val estimate =
+            estimateRecordingCalories(
+                points = oneHourBikePoints(),
+                userWeightKg = 75f,
+                backpackWeightKg = 0f,
+                activityProfile = SettingsRepository.ACTIVITY_PROFILE_BIKE,
+            )
+
+        assertEquals("cycling_physics_fallback_v1", estimate.model)
+        assertEquals(229.0, estimate.cyclingMechanicalKj, 5.0)
+        assertEquals(238.0, estimate.activeKcal, 5.0)
+        assertEquals(313.0, estimate.grossKcal, 5.0)
+        assertEquals(0, estimate.cyclingPowerSampleSegments)
+        assertEquals(6, estimate.cyclingPhysicsSegments)
+    }
+
+    @Test
+    fun estimateRecordingCaloriesUsesBikeWeightForBikePhysicsFallback() {
+        val lightBike =
+            estimateRecordingCalories(
+                points = oneHourBikePoints(),
+                userWeightKg = 75f,
+                backpackWeightKg = 0f,
+                bikeWeightKg = 8f,
+                activityProfile = SettingsRepository.ACTIVITY_PROFILE_BIKE,
+            )
+        val heavyBike =
+            estimateRecordingCalories(
+                points = oneHourBikePoints(),
+                userWeightKg = 75f,
+                backpackWeightKg = 0f,
+                bikeWeightKg = 20f,
+                activityProfile = SettingsRepository.ACTIVITY_PROFILE_BIKE,
+            )
+
+        assertTrue(heavyBike.activeKcal > lightBike.activeKcal)
+    }
+
     private fun oneHourFlatWalkPoints(): List<RecordedTracePoint> =
         oneHourWalkPoints(
+            startElevationMeters = 0.0,
+            endElevationMeters = 0.0,
+        )
+
+    private fun oneHourBikePoints(): List<RecordedTracePoint> =
+        oneHourRoutePoints(
+            longitudeDelta = ONE_HOUR_BIKE_LONGITUDE_DELTA,
             startElevationMeters = 0.0,
             endElevationMeters = 0.0,
         )
@@ -516,10 +581,21 @@ class RecordingDashboardModelsTest {
         startElevationMeters: Double,
         endElevationMeters: Double,
     ): List<RecordedTracePoint> =
+        oneHourRoutePoints(
+            longitudeDelta = ONE_HOUR_WALK_LONGITUDE_DELTA,
+            startElevationMeters = startElevationMeters,
+            endElevationMeters = endElevationMeters,
+        )
+
+    private fun oneHourRoutePoints(
+        longitudeDelta: Double,
+        startElevationMeters: Double,
+        endElevationMeters: Double,
+    ): List<RecordedTracePoint> =
         (0..ONE_HOUR_WALK_SEGMENT_COUNT).map { index ->
             val progress = index / ONE_HOUR_WALK_SEGMENT_COUNT.toDouble()
             recordingPoint(
-                longitude = ONE_HOUR_WALK_LONGITUDE_DELTA * progress,
+                longitude = longitudeDelta * progress,
                 elevationMeters = startElevationMeters + (endElevationMeters - startElevationMeters) * progress,
                 timeMillis = (3_600_000L * progress).toLong(),
             )
@@ -562,5 +638,6 @@ class RecordingDashboardModelsTest {
     private companion object {
         private const val ONE_HOUR_WALK_SEGMENT_COUNT = 6
         private const val ONE_HOUR_WALK_LONGITUDE_DELTA = 0.045319
+        private const val ONE_HOUR_BIKE_LONGITUDE_DELTA = 0.161697
     }
 }

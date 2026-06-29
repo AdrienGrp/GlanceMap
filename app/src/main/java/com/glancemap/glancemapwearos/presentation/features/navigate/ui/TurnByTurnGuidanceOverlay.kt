@@ -166,7 +166,13 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
             WearScreenSize.MEDIUM -> 50.dp
             WearScreenSize.SMALL -> 46.dp
         }
-    val compactWidth =
+    val compactMinWidth =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 82.dp
+            WearScreenSize.MEDIUM -> 82.dp
+            WearScreenSize.SMALL -> 78.dp
+        }
+    val compactMaxWidth =
         when (screenSize) {
             WearScreenSize.LARGE -> 112.dp
             WearScreenSize.MEDIUM -> 112.dp
@@ -243,7 +249,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                 Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = topPadding)
-                    .width(compactWidth)
+                    .width(compactMaxWidth)
                     .height(48.dp)
                     .combinedClickable(
                         onClick = {
@@ -261,7 +267,7 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
             Box(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .widthIn(min = compactMinWidth, max = compactMaxWidth)
                         .heightIn(min = 30.dp)
                         .background(compactBackground, RoundedCornerShape(8.dp))
                         .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
@@ -286,7 +292,6 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                                 } else {
                                     guidanceCompactText(state, isMetric, guideBackToRouteActive)
                                 },
-                            modifier = Modifier.weight(1f),
                             color = if (state.offRoute) OFF_ROUTE_AMBER else Color.White,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = titleFont,
@@ -423,6 +428,7 @@ private fun ExpandedGuidanceOverlay(
             WearScreenSize.MEDIUM -> 38.dp
             WearScreenSize.SMALL -> 36.dp
         }
+    val showRouteProgressDetails = !state.offRoute || guideBackToRouteActive
 
     Box(
         modifier =
@@ -498,37 +504,39 @@ private fun ExpandedGuidanceOverlay(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                guidanceFollowingText(state, isMetric)?.let { followingText ->
-                    Spacer(modifier = Modifier.size(4.dp))
-                    Text(
-                        text = followingText,
-                        color = Color.White.copy(alpha = 0.72f),
-                        fontSize = 11.sp,
-                        lineHeight = 12.sp,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                state.distanceRemainingMeters?.let { remaining ->
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text(
-                        text = guidanceRemainingText(remaining, state.estimatedRemainingSeconds, isMetric),
-                        color = Color.White.copy(alpha = 0.64f),
-                        fontSize = 11.sp,
-                        lineHeight = 12.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-                state.routeProgressFraction?.let { progress ->
-                    Spacer(modifier = Modifier.size(3.dp))
-                    Text(
-                        text = "${(progress * 100f).roundToInt()}%",
-                        color = Color.White.copy(alpha = 0.46f),
-                        fontSize = 9.sp,
-                        lineHeight = 10.sp,
-                        textAlign = TextAlign.Center,
-                    )
+                if (showRouteProgressDetails) {
+                    guidanceFollowingText(state, isMetric)?.let { followingText ->
+                        Spacer(modifier = Modifier.size(4.dp))
+                        Text(
+                            text = followingText,
+                            color = Color.White.copy(alpha = 0.72f),
+                            fontSize = 11.sp,
+                            lineHeight = 12.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    state.distanceRemainingMeters?.let { remaining ->
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            text = guidanceRemainingText(remaining, state.estimatedRemainingSeconds, isMetric),
+                            color = Color.White.copy(alpha = 0.64f),
+                            fontSize = 11.sp,
+                            lineHeight = 12.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    state.routeProgressFraction?.let { progress ->
+                        Spacer(modifier = Modifier.size(3.dp))
+                        Text(
+                            text = "${(progress * 100f).roundToInt()}%",
+                            color = Color.White.copy(alpha = 0.46f),
+                            fontSize = 9.sp,
+                            lineHeight = 10.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
         }

@@ -57,6 +57,8 @@ class TraceRecordingViewModel(
     private var recordingExternalRunPodAddress: String? = null
     private var userWeightKg = SettingsRepository.DEFAULT_USER_WEIGHT_KG
     private var backpackWeightKg = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
+    private var bikeWeightKg = SettingsRepository.DEFAULT_BIKE_WEIGHT_KG
+    private var activityProfile = SettingsRepository.DEFAULT_ACTIVITY_PROFILE
     private var showSavedGpxOnMap = SettingsRepository.DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP
     private var lastAcceptedElapsedMs: Long = Long.MIN_VALUE
     private val locationPointMutex = Mutex()
@@ -138,6 +140,12 @@ class TraceRecordingViewModel(
             .launchIn(viewModelScope)
         settingsRepository.backpackWeightKg
             .onEach { backpackWeightKg = it }
+            .launchIn(viewModelScope)
+        settingsRepository.bikeWeightKg
+            .onEach { bikeWeightKg = it }
+            .launchIn(viewModelScope)
+        settingsRepository.activityProfile
+            .onEach { activityProfile = it }
             .launchIn(viewModelScope)
         settingsRepository.recordingShowSavedGpxOnMap
             .onEach { showSavedGpxOnMap = it }
@@ -666,12 +674,14 @@ class TraceRecordingViewModel(
                                 nowMillis = now,
                                 userWeightKg = userWeightKg,
                                 backpackWeightKg = backpackWeightKg,
+                                bikeWeightKg = bikeWeightKg,
+                                activityProfile = activityProfile,
                             )
                         val bytes =
                             encodeRecordedTraceAsGpx(
                                 title = title,
                                 points = state.points,
-                                summary = summarySnapshot.toRecordedTraceSummary(),
+                                summary = summarySnapshot.toRecordedTraceSummary(activityProfile),
                             )
                         gpxRepository.saveGpxFileAtomic(
                             fileName = fileName,
@@ -1037,6 +1047,8 @@ class TraceRecordingViewModel(
                 nowMillis = nowMillis,
                 userWeightKg = userWeightKg,
                 backpackWeightKg = backpackWeightKg,
+                bikeWeightKg = bikeWeightKg,
+                activityProfile = activityProfile,
             )
         val calories = displaySnapshot.calorieEstimate
         val sensorTokens = sensorTelemetryTokens(nowMillis)
@@ -1088,7 +1100,8 @@ class TraceRecordingViewModel(
             "lastPowerWatts=${lastPoint?.powerWatts ?: -1} " +
             "lastPressureHpa=${lastPoint?.barometricPressureHpa?.toInt() ?: -1} " +
             "demMisses=$demElevationMissCount gpsElevationUsed=$gpsElevationUsedCount " +
-            "calorieModel=pandolf_santee_segment_v2 " +
+            "activityProfile=$activityProfile " +
+            "calorieModel=${calories.model} " +
             "caloriesGrossKcal=${calories.grossKcal.roundToInt()} " +
             "caloriesActiveKcal=${calories.activeKcal.roundToInt()} " +
             "caloriesRestingKcal=${calories.restingKcal.roundToInt()} " +
@@ -1099,6 +1112,9 @@ class TraceRecordingViewModel(
             "lcdaGrossKcal=${calories.lcdaGrossKcal.roundToInt()} " +
             "lcdaActiveKcal=${calories.lcdaActiveKcal.roundToInt()} " +
             "lcdaRestingKcal=${calories.lcdaRestingKcal.roundToInt()} " +
+            "cyclingMechanicalKj=${calories.cyclingMechanicalKj.roundToInt()} " +
+            "cyclingPowerSampleSegments=${calories.cyclingPowerSampleSegments} " +
+            "cyclingPhysicsSegments=${calories.cyclingPhysicsSegments} " +
             "accuracySamples=$acceptedAccuracyCount " +
             "accuracyAvgMeters=${avgAccuracy?.toInt() ?: -1} " +
             "accuracyMinMeters=${acceptedAccuracyMinMeters?.toInt() ?: -1} " +
@@ -1165,8 +1181,9 @@ class TraceRecordingViewModel(
     private fun effectiveSampleIntervalSeconds(): Int = sampleIntervalSeconds.takeIf { it > 0 } ?: SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
 }
 
-private fun RecordingDashboardSnapshot.toRecordedTraceSummary(): RecordedTraceSummary =
+private fun RecordingDashboardSnapshot.toRecordedTraceSummary(activityProfile: String): RecordedTraceSummary =
     RecordedTraceSummary(
+        activityProfile = activityProfile,
         durationSeconds = durationSeconds,
         distanceMeters = distanceMeters,
         elevationGainMeters = elevationGainMeters,
@@ -1182,6 +1199,10 @@ private fun RecordingDashboardSnapshot.toRecordedTraceSummary(): RecordedTraceSu
         caloriesGrossKcal = calorieEstimate.grossKcal,
         caloriesActiveKcal = calorieEstimate.activeKcal,
         caloriesRestingKcal = calorieEstimate.restingKcal,
+        calorieModel = calorieEstimate.model,
+        cyclingMechanicalKj = calorieEstimate.cyclingMechanicalKj,
+        cyclingPowerSampleSegments = calorieEstimate.cyclingPowerSampleSegments,
+        cyclingPhysicsSegments = calorieEstimate.cyclingPhysicsSegments,
         heartRateBpm = averageHeartRateBpm ?: heartRateBpm,
         stepCount = stepCount,
         cadenceSpm = cadenceSpm,

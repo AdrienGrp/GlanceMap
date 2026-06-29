@@ -62,7 +62,7 @@ fun RecordingSourceSettingsScreen(
                 secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         cadenceSource,
-                        if (!linkedRunPodAddress.isNullOrBlank()) "Linked pod" else "Link pod first",
+                        if (!linkedRunPodAddress.isNullOrBlank()) "Linked sensor" else "Link sensor first",
                     ),
                 onSelect = viewModel::setRecordingCadenceSource,
             )
@@ -75,7 +75,7 @@ fun RecordingSourceSettingsScreen(
                 secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         speedSource,
-                        if (!linkedRunPodAddress.isNullOrBlank()) "Linked pod" else "Link pod first",
+                        if (!linkedRunPodAddress.isNullOrBlank()) "Linked sensor" else "Link sensor first",
                     ),
                 onSelect = viewModel::setRecordingSpeedSource,
             )
@@ -88,7 +88,7 @@ fun RecordingSourceSettingsScreen(
                 secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         distanceSource,
-                        if (!linkedRunPodAddress.isNullOrBlank()) "Linked pod" else "Link pod first",
+                        if (!linkedRunPodAddress.isNullOrBlank()) "Linked sensor" else "Link sensor first",
                     ),
                 onSelect = viewModel::setRecordingDistanceSource,
             )
@@ -101,7 +101,7 @@ fun RecordingSourceSettingsScreen(
                 secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         stepsSource,
-                        if (!linkedRunPodAddress.isNullOrBlank()) "Pod if available" else "Link pod first",
+                        if (!linkedRunPodAddress.isNullOrBlank()) "Sensor if available" else "Link sensor first",
                     ),
                 onSelect = viewModel::setRecordingStepsSource,
             )
@@ -152,7 +152,7 @@ private fun recordingHeartRateSourceLabel(source: String): String =
 private fun recordingSensorSourceLabel(source: String): String =
     when (source) {
         SettingsRepository.RECORDING_SOURCE_DISABLED -> "Deactivated"
-        SettingsRepository.RECORDING_SENSOR_SOURCE_POD -> "Pod"
+        SettingsRepository.RECORDING_SENSOR_SOURCE_POD -> "External"
         else -> "Watch/GPS"
     }
 

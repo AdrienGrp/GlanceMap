@@ -16,9 +16,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiSearchUiState
+import com.glancemap.glancemapwearos.presentation.features.settings.SettingsOptionPickerHost
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearToolPanelDialog
 import org.mapsforge.core.model.LatLong
@@ -36,6 +36,7 @@ internal fun RouteToolsActionPanel(
     onClearPoiSearch: () -> Unit,
     onDismiss: () -> Unit,
     onStartSelection: (RouteToolSession) -> Unit,
+    onOpenGpxToolsSettings: () -> Unit,
 ) {
     if (!visible) return
 
@@ -87,7 +88,6 @@ internal fun RouteToolsActionPanel(
                 )
             }
         }
-
         RouteToolKindSelector(
             selected = options.toolKind,
             onSelected = { kind ->
@@ -246,20 +246,9 @@ internal fun RouteToolsActionPanel(
             color = Color.White.copy(alpha = 0.68f),
         )
 
-        RouteSettingRow(
-            title = "Route style",
-            value = options.routeStyle.title,
-            onClick = {
-                onOptionsChange(
-                    options.copy(routeStyle = options.routeStyle.next()),
-                )
-            },
-        )
-        Text(
-            text = options.routeStyle.summary,
-            style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Center,
-            color = Color.White.copy(alpha = 0.72f),
+        RouteStylePickerRow(
+            selected = options.routeStyle,
+            onSelected = { routeStyle -> onOptionsChange(options.copy(routeStyle = routeStyle)) },
         )
 
         if (options.toolKind == RouteToolKind.MODIFY) {
@@ -271,41 +260,11 @@ internal fun RouteToolsActionPanel(
             )
         }
 
-        if (options.toolKind == RouteToolKind.CREATE) {
-            RouteSettingRow(
-                title =
-                    if (options.showAdvancedOptions) {
-                        "Hide options"
-                    } else {
-                        "More options"
-                    },
-                value = if (options.showAdvancedOptions) "Advanced" else "Basic",
-                onClick = {
-                    onOptionsChange(
-                        options.copy(showAdvancedOptions = !options.showAdvancedOptions),
-                    )
-                },
-            )
-        }
-
-        if (options.toolKind == RouteToolKind.CREATE && options.showAdvancedOptions) {
-            SwitchButton(
-                modifier = Modifier.fillMaxWidth(),
-                checked = options.useElevation,
-                onCheckedChange = { enabled ->
-                    onOptionsChange(options.copy(useElevation = enabled))
-                },
-                label = { Text("Use elevation") },
-            )
-            SwitchButton(
-                modifier = Modifier.fillMaxWidth(),
-                checked = options.allowFerries,
-                onCheckedChange = { enabled ->
-                    onOptionsChange(options.copy(allowFerries = enabled))
-                },
-                label = { Text("Allow ferries") },
-            )
-        }
+        RouteSettingRow(
+            title = "GPX tools settings",
+            value = "Creation defaults",
+            onClick = onOpenGpxToolsSettings,
+        )
     }
 
     if (!preflightMessage.isNullOrBlank() && shouldUsePreflightPopup && showPreflightPopup) {
@@ -365,5 +324,30 @@ internal fun RouteToolsActionPanel(
                 ),
             )
         },
+    )
+}
+
+@Composable
+private fun RouteStylePickerRow(
+    selected: RouteStylePreset,
+    onSelected: (RouteStylePreset) -> Unit,
+) {
+    SettingsOptionPickerHost(
+        title = "Route style",
+        selectedValue = selected,
+        options = routeStylePickerOptions,
+        onSelect = onSelected,
+    ) { openPicker ->
+        RouteSettingRow(
+            title = "Route style",
+            value = selected.title,
+            onClick = openPicker,
+        )
+    }
+    Text(
+        text = selected.summary,
+        style = MaterialTheme.typography.labelSmall,
+        textAlign = TextAlign.Center,
+        color = Color.White.copy(alpha = 0.72f),
     )
 }

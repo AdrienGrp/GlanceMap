@@ -61,8 +61,10 @@ data class DiagnosticsSettingsSnapshot(
     val recordingExternalRunPodLinked: Boolean = false,
     val recordingExternalRunPodName: String? = null,
     val recordingExternalRunPodAddressSuffix: String? = null,
+    val activityProfile: String = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
     val userWeightKg: Float = 0f,
     val backpackWeightKg: Float = 0f,
+    val bikeWeightKg: Float = SettingsRepository.DEFAULT_BIKE_WEIGHT_KG,
     val turnByTurnGuidanceSource: String = "na",
     val turnByTurnHapticsEnabled: Boolean = true,
     val turnByTurnVoiceGuidanceEnabled: Boolean = false,
@@ -641,8 +643,10 @@ object DiagnosticsExporter {
             )
             writer.appendLine("bluetoothScanPermissionGranted=${hasBluetoothScanPermission(context)}")
             writer.appendLine("bluetoothConnectPermissionGranted=${hasBluetoothConnectPermission(context)}")
+            writer.appendLine("activityProfile=${settings.activityProfile}")
             writer.appendLine("userWeightKg=${settings.userWeightKg}")
             writer.appendLine("backpackWeightKg=${settings.backpackWeightKg}")
+            writer.appendLine("bikeWeightKg=${settings.bikeWeightKg}")
             writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
             writer.appendLine("turnByTurnHapticsEnabled=${settings.turnByTurnHapticsEnabled}")
             writer.appendLine("turnByTurnVoiceGuidanceEnabled=${settings.turnByTurnVoiceGuidanceEnabled}")

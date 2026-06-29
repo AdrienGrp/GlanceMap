@@ -61,8 +61,15 @@ internal fun rememberNavigateGuidanceRuntime(
     brouterGuideBackEnabled: Boolean,
     lastScreenResumeElapsedMs: Long,
     isMetric: Boolean,
+    activityProfile: String,
+    userWeightKg: Float,
+    backpackWeightKg: Float,
+    bikeWeightKg: Float,
+    recordingActive: Boolean,
+    recordingSampleIntervalSeconds: Int,
     gpxFlatSpeedMps: Float,
     gpxAdvancedEtaEnabled: Boolean,
+    gpxStaminaAdjustmentEnabled: Boolean,
     gpxUphillVerticalMetersPerHour: Float,
     gpxDownhillVerticalMetersPerHour: Float,
 ): NavigateGuidanceRuntime {
@@ -102,12 +109,22 @@ internal fun rememberNavigateGuidanceRuntime(
         remember(
             gpxFlatSpeedMps,
             gpxAdvancedEtaEnabled,
+            gpxStaminaAdjustmentEnabled,
+            activityProfile,
+            userWeightKg,
+            backpackWeightKg,
+            bikeWeightKg,
             gpxUphillVerticalMetersPerHour,
             gpxDownhillVerticalMetersPerHour,
         ) {
             GpxEtaModelConfig(
                 flatSpeedMps = gpxFlatSpeedMps.toDouble(),
                 advancedVerticalRateEnabled = gpxAdvancedEtaEnabled,
+                staminaAdjustmentEnabled = gpxStaminaAdjustmentEnabled,
+                activityProfile = activityProfile,
+                userWeightKg = userWeightKg.toDouble(),
+                backpackWeightKg = backpackWeightKg.toDouble(),
+                bikeWeightKg = bikeWeightKg.toDouble(),
                 uphillVerticalMetersPerHour = gpxUphillVerticalMetersPerHour.toDouble(),
                 downhillVerticalMetersPerHour = gpxDownhillVerticalMetersPerHour.toDouble(),
             )
@@ -325,6 +342,7 @@ internal fun rememberNavigateGuidanceRuntime(
         context = context,
         state = state,
         currentSpeedMps = rawCurrentLocation?.speed,
+        activityProfile = activityProfile,
         hapticsEnabled = hapticsEnabled,
         turnAlertsMode = turnAlertsMode,
         offRouteAlertsEnabled = offRouteAlertsEnabled,
@@ -335,6 +353,7 @@ internal fun rememberNavigateGuidanceRuntime(
         context = context,
         state = state,
         currentSpeedMps = rawCurrentLocation?.speed,
+        activityProfile = activityProfile,
         voiceEnabled = voiceGuidanceEnabled,
         turnAlertsMode = turnAlertsMode,
         offRouteAlertsEnabled = offRouteAlertsEnabled,
@@ -368,6 +387,10 @@ internal fun rememberNavigateGuidanceRuntime(
         turnAlertsMode,
         offRouteAlertsEnabled,
         guidanceGpsInAmbient,
+        activityProfile,
+        recordingActive,
+        recordingSampleIntervalSeconds,
+        gpxFlatSpeedMps,
     ) {
         if (!state.active && session == null) return@LaunchedEffect
         DebugTelemetry.log(
@@ -389,6 +412,14 @@ internal fun rememberNavigateGuidanceRuntime(
                 turnAlertsMode = turnAlertsMode,
                 offRouteAlertsEnabled = offRouteAlertsEnabled,
                 guidanceGpsInAmbient = guidanceGpsInAmbient,
+                activityProfile = activityProfile,
+                resolvedGpsIntervalMs =
+                    expectedGuidanceGpsIntervalMs(
+                        recordingActive = recordingActive,
+                        recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
+                    ),
+                resolvedEtaFlatSpeedMps = gpxFlatSpeedMps,
+                resolvedTurnAlertMaxDistanceMeters = turnAlertMaxDistanceMeters(activityProfile),
             ),
         )
     }
@@ -434,4 +465,19 @@ internal fun rememberNavigateGuidanceRuntime(
             pendingStartDecision = null
         },
     )
+}
+
+private fun expectedGuidanceGpsIntervalMs(
+    recordingActive: Boolean,
+    recordingSampleIntervalSeconds: Int,
+): Long {
+    val userIntervalMs = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+    if (!recordingActive) return userIntervalMs
+    val recordingIntervalMs =
+        if (recordingSampleIntervalSeconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) {
+            Long.MAX_VALUE
+        } else {
+            recordingSampleIntervalSeconds.coerceAtLeast(1) * 1_000L
+        }
+    return minOf(userIntervalMs, recordingIntervalMs)
 }

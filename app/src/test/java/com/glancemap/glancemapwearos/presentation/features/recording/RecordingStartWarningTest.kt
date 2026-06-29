@@ -35,7 +35,7 @@ class RecordingStartWarningTest {
 
         requireNotNull(warning)
         assertTrue(warning.unlinkedDevices.isEmpty())
-        assertEquals(listOf("heart-rate strap", "run pod"), warning.disconnectedDevices)
+        assertEquals(listOf("heart-rate strap", "external sensor"), warning.disconnectedDevices)
         assertTrue(warning.message.contains("Recording will try to connect"))
     }
 

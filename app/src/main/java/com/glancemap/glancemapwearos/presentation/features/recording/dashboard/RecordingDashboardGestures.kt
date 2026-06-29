@@ -10,11 +10,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +55,9 @@ internal fun RecordingFullscreenPageShell(
     pageIndex: Int,
     pageCount: Int,
     dragKey: Any?,
+    recordingActive: Boolean = false,
+    recordingPaused: Boolean = false,
+    recordingSaving: Boolean = false,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
@@ -115,6 +121,9 @@ internal fun RecordingFullscreenPageShell(
     ) {
         content()
         FullscreenPopupTimeChip(
+            recordingActive = recordingActive,
+            recordingPaused = recordingPaused,
+            recordingSaving = recordingSaving,
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
@@ -126,7 +135,7 @@ internal fun RecordingFullscreenPageShell(
             modifier =
                 Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 14.dp),
+                    .padding(end = 8.dp),
         )
     }
 }
@@ -136,6 +145,9 @@ internal val LocalFullscreenPopupTimeFormat =
 
 @Composable
 private fun FullscreenPopupTimeChip(
+    recordingActive: Boolean,
+    recordingPaused: Boolean,
+    recordingSaving: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -146,25 +158,43 @@ private fun FullscreenPopupTimeChip(
             delay(1_000L)
         }
     }
+    val recordingVisible = recordingActive || recordingPaused || recordingSaving
+    val accentColor =
+        when {
+            recordingSaving || recordingPaused -> Color(0xFFFFB74D)
+            recordingActive -> Color(0xFFFF1744)
+            else -> MaterialTheme.colorScheme.primary
+        }
     Box(
         modifier =
             modifier
                 .height(20.dp)
                 .widthIn(min = 62.dp)
                 .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
-                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
-                .padding(horizontal = 10.dp),
+                .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
+                .padding(start = if (recordingVisible) 7.dp else 10.dp, end = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = formatNavigateClockTime(context, nowMillis, LocalFullscreenPopupTimeFormat.current),
-            style =
-                MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 15.sp,
-                ),
-            color = Color.White,
-            maxLines = 1,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (recordingVisible) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(4.dp)
+                            .background(accentColor, CircleShape),
+                )
+            }
+            Text(
+                text = formatNavigateClockTime(context, nowMillis, LocalFullscreenPopupTimeFormat.current),
+                modifier = Modifier.padding(start = if (recordingVisible) 5.dp else 0.dp),
+                style =
+                    MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 15.sp,
+                    ),
+                color = Color.White,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -211,14 +241,14 @@ private fun RecordingDashboardStraightPageIndicator(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         repeat(pageCount) { index ->
             Box(
                 modifier =
                     Modifier
                         .width(4.dp)
-                        .height(if (index == pageIndex) 18.dp else 6.dp)
+                        .height(if (index == pageIndex) 14.dp else 5.dp)
                         .background(
                             color = Color.White.copy(alpha = if (index == pageIndex) 0.72f else 0.28f),
                             shape = RoundedCornerShape(percent = 50),
@@ -237,21 +267,21 @@ private fun RecordingDashboardArcPageIndicator(
     Canvas(
         modifier =
             modifier
-                .width(36.dp)
-                .height(112.dp),
+                .width(30.dp)
+                .height(84.dp),
     ) {
         val sweepDegrees =
             when {
-                pageCount <= 2 -> 34f
-                pageCount == 3 -> 48f
-                else -> 68f
+                pageCount <= 2 -> 22f
+                pageCount == 3 -> 32f
+                else -> 44f
             }
         val centerY = size.height / 2f
-        val centerX = -size.height * 0.40f
-        val rightInset = 8.dp.toPx()
+        val centerX = -size.height * 0.48f
+        val rightInset = 4.dp.toPx()
         val radius = size.width - rightInset - centerX
-        val activeRadius = 3.5.dp.toPx()
-        val inactiveRadius = 2.2.dp.toPx()
+        val activeRadius = 3.0.dp.toPx()
+        val inactiveRadius = 2.0.dp.toPx()
 
         repeat(pageCount) { index ->
             val fraction =

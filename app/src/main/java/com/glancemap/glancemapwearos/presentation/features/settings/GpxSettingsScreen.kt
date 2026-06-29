@@ -58,6 +58,7 @@ fun GpxSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenGeneralSettings: () -> Unit,
     onOpenTurnByTurnSettings: () -> Unit,
+    onOpenGpxToolsSettings: () -> Unit,
 ) {
     val screenSize = rememberWearScreenSize()
     val listTokens = rememberSettingsListTokens()
@@ -69,6 +70,7 @@ fun GpxSettingsScreen(
     val isGpxInspectionEnabled by viewModel.isGpxInspectionEnabled.collectAsState()
     val gpxFlatSpeedMps by viewModel.gpxFlatSpeedMps.collectAsState()
     val gpxAdvancedEtaEnabled by viewModel.gpxAdvancedEtaEnabled.collectAsState()
+    val gpxStaminaAdjustmentEnabled by viewModel.gpxStaminaAdjustmentEnabled.collectAsState()
     val gpxUphillVerticalMetersPerHour by viewModel.gpxUphillVerticalMetersPerHour.collectAsState()
     val gpxDownhillVerticalMetersPerHour by viewModel.gpxDownhillVerticalMetersPerHour.collectAsState()
     val gpxElevationSmoothingDistanceMeters by viewModel.gpxElevationSmoothingDistanceMeters.collectAsState()
@@ -129,8 +131,16 @@ fun GpxSettingsScreen(
         item {
             SettingsSectionChip(
                 label = "Turn-by-turn settings",
-                secondaryLabel = "GPX guidance and BRouter",
+                secondaryLabel = "Guidance alerts and dashboard",
                 onClick = onOpenTurnByTurnSettings,
+            )
+        }
+
+        item {
+            SettingsSectionChip(
+                label = "GPX tools settings",
+                secondaryLabel = "Route creation defaults",
+                onClick = onOpenGpxToolsSettings,
             )
         }
 
@@ -148,6 +158,20 @@ fun GpxSettingsScreen(
                 speedMps = gpxFlatSpeedMps,
                 isMetric = isMetric,
                 onSpeedChange = viewModel::setGpxFlatSpeedMps,
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = gpxStaminaAdjustmentEnabled,
+                onCheckedChanged = viewModel::setGpxStaminaAdjustmentEnabled,
+                label = "Long route adjustment",
+                secondaryLabel =
+                    if (gpxStaminaAdjustmentEnabled) {
+                        "Reduce speed on long routes"
+                    } else {
+                        "Use the same flat speed"
+                    },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
         item {
@@ -515,7 +539,7 @@ private fun FlatSpeedSetting(
     val currentLocale = LocalLocale.current.platformLocale
     val maxDisplaySpeed =
         if (isMetric) {
-            20f
+            SettingsRepository.MAX_GPX_FLAT_SPEED_MPS * MPS_TO_KMPH
         } else {
             SettingsRepository.MAX_GPX_FLAT_SPEED_MPS * MPS_TO_MPH
         }

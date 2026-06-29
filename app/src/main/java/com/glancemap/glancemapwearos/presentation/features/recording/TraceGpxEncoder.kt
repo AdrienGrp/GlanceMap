@@ -60,6 +60,7 @@ internal fun recordedTraceSegments(points: List<RecordedTracePoint>): List<List<
     }
 
 data class RecordedTraceSummary(
+    val activityProfile: String?,
     val durationSeconds: Double,
     val distanceMeters: Double,
     val elevationGainMeters: Double,
@@ -75,6 +76,10 @@ data class RecordedTraceSummary(
     val caloriesGrossKcal: Double,
     val caloriesActiveKcal: Double,
     val caloriesRestingKcal: Double,
+    val calorieModel: String?,
+    val cyclingMechanicalKj: Double,
+    val cyclingPowerSampleSegments: Int,
+    val cyclingPhysicsSegments: Int,
     val heartRateBpm: Int?,
     val stepCount: Int?,
     val cadenceSpm: Int?,
@@ -83,6 +88,9 @@ data class RecordedTraceSummary(
 )
 
 private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceSummary) {
+    summary.activityProfile?.takeIf { it.isNotBlank() }?.let {
+        textTag("gmap:activityProfile", it)
+    }
     textTag("gmap:durationSeconds", formatDouble(summary.durationSeconds))
     textTag("gmap:distanceMeters", formatDouble(summary.distanceMeters))
     textTag("gmap:elevationGainMeters", formatDouble(summary.elevationGainMeters))
@@ -106,6 +114,18 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     textTag("gmap:caloriesGrossKcal", formatDouble(summary.caloriesGrossKcal))
     textTag("gmap:caloriesActiveKcal", formatDouble(summary.caloriesActiveKcal))
     textTag("gmap:caloriesRestingKcal", formatDouble(summary.caloriesRestingKcal))
+    summary.calorieModel?.takeIf { it.isNotBlank() }?.let {
+        textTag("gmap:calorieModel", it)
+    }
+    summary.cyclingMechanicalKj.takeIf { it.isFinite() && it > 0.0 }?.let {
+        textTag("gmap:cyclingMechanicalKj", formatDouble(it))
+    }
+    summary.cyclingPowerSampleSegments.takeIf { it > 0 }?.let {
+        textTag("gmap:cyclingPowerSampleSegments", it.toString())
+    }
+    summary.cyclingPhysicsSegments.takeIf { it > 0 }?.let {
+        textTag("gmap:cyclingPhysicsSegments", it.toString())
+    }
     summary.heartRateBpm?.takeIf { it > 0 }?.let {
         textTag("gmap:heartRateBpm", it.toString())
     }

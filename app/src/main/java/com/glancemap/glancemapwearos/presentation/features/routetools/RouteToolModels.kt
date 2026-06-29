@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPosition
 import org.mapsforge.core.model.LatLong
 
@@ -92,7 +93,32 @@ internal enum class RouteStylePreset(
         title = "Prefer easiest",
         summary = "Avoids harder terrain when possible and prefers simpler route choices.",
     ),
+    BIKE(
+        title = "Bike",
+        summary = "Prefers bike-friendly roads and cycleways for cycling tests.",
+    ),
 }
+
+internal val RouteStylePreset.settingsValue: String
+    get() =
+        when (this) {
+            RouteStylePreset.BALANCED_HIKE -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE
+            RouteStylePreset.PREFER_TRAILS -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS
+            RouteStylePreset.PREFER_EASIEST -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST
+            RouteStylePreset.BIKE -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE
+        }
+
+internal val routeStylePickerOptions: List<Pair<RouteStylePreset, String>> =
+    RouteStylePreset.entries.map { preset -> preset to preset.title }
+
+internal val routeStyleSettingsOptions: List<Pair<String, String>> =
+    RouteStylePreset.entries.map { preset -> preset.settingsValue to preset.title }
+
+internal fun routeStylePresetFromSettingsValue(value: String): RouteStylePreset =
+    RouteStylePreset.entries.firstOrNull { it.settingsValue == value } ?: RouteStylePreset.BALANCED_HIKE
+
+internal fun routeStyleTitleForSettingsValue(value: String): String =
+    routeStyleSettingsOptions.firstOrNull { it.first == value }?.second ?: RouteStylePreset.BALANCED_HIKE.title
 
 internal enum class RouteSaveBehavior(
     val title: String,

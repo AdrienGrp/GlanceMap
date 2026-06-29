@@ -9,6 +9,7 @@ internal const val ROUTING_ROOT_DIR_NAME = "brouter"
 internal const val ROUTING_SEGMENTS_DIR_NAME = "segments4"
 internal const val ROUTING_PROFILES_DIR_NAME = "profiles2"
 internal const val ROUTING_DEFAULT_PROFILE_FILE_NAME = "hiking-mountain.brf"
+internal const val ROUTING_BIKE_PROFILE_FILE_NAME = "trekking.brf"
 internal const val ROUTING_DUMMY_PROFILE_FILE_NAME = "dummy.brf"
 
 private const val ROUTING_SEGMENT_DEGREES = 5.0
@@ -58,6 +59,8 @@ internal fun routingSegmentsDir(context: Context): File = File(routingRootDir(co
 internal fun routingProfilesDir(context: Context): File = File(routingRootDir(context), ROUTING_PROFILES_DIR_NAME).apply { mkdirs() }
 
 internal fun defaultRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_DEFAULT_PROFILE_FILE_NAME)
+
+internal fun bikeRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_BIKE_PROFILE_FILE_NAME)
 
 internal fun dummyRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_DUMMY_PROFILE_FILE_NAME)
 

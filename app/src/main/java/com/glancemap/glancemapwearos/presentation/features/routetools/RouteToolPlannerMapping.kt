@@ -156,6 +156,7 @@ internal fun RouteStylePreset.toPlannerPreset(): RoutePlannerPreset =
         RouteStylePreset.BALANCED_HIKE -> RoutePlannerPreset.BALANCED_HIKE
         RouteStylePreset.PREFER_TRAILS -> RoutePlannerPreset.PREFER_TRAILS
         RouteStylePreset.PREFER_EASIEST -> RoutePlannerPreset.PREFER_EASIEST
+        RouteStylePreset.BIKE -> RoutePlannerPreset.BIKE
     }
 
 private fun RouteToolSession.coordinatesDestination(): LatLong? =
@@ -201,4 +202,5 @@ private fun RouteToolOptions.estimatedLoopSpeedKmPerHour(etaModelConfig: GpxEtaM
             RouteStylePreset.BALANCED_HIKE -> if (useElevation) 4.0 else 4.5
             RouteStylePreset.PREFER_TRAILS -> if (useElevation) 3.5 else 4.0
             RouteStylePreset.PREFER_EASIEST -> if (useElevation) 4.5 else 5.0
+            RouteStylePreset.BIKE -> 15.0
         }

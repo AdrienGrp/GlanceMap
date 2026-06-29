@@ -122,4 +122,97 @@ class ExternalRunPodClientTest {
         requireNotNull(measurement)
         assertNull(measurement.powerWatts)
     }
+
+    @Test
+    fun decodesCyclingSpeedCadenceMeasurementFromDeltas() {
+        val decoder = CyclingSpeedCadenceDecoder(wheelCircumferenceMeters = 2.105)
+
+        val first =
+            decoder.decode(
+                cscMeasurement(
+                    wheelRevolutions = 1_000,
+                    wheelEventTime = 1_000,
+                    crankRevolutions = 50,
+                    crankEventTime = 1_000,
+                ),
+                timeMillis = 1_000L,
+            )
+        requireNotNull(first)
+        assertNull(first.speedMps)
+        assertNull(first.cadenceSpm)
+        assertEquals(2_105.0, first.totalDistanceMeters!!, 0.01)
+
+        val second =
+            decoder.decode(
+                cscMeasurement(
+                    wheelRevolutions = 1_010,
+                    wheelEventTime = 2_024,
+                    crankRevolutions = 51,
+                    crankEventTime = 2_024,
+                ),
+                timeMillis = 2_000L,
+            )
+
+        requireNotNull(second)
+        assertEquals(21.05f, second.speedMps!!, 0.01f)
+        assertEquals(60, second.cadenceSpm)
+        assertEquals(2_126.05, second.totalDistanceMeters!!, 0.01)
+        assertEquals(1_010L, second.rawTotalDistanceUnits)
+    }
+
+    @Test
+    fun decodesCyclingSpeedCadenceAcrossBleRollovers() {
+        val decoder = CyclingSpeedCadenceDecoder(wheelCircumferenceMeters = 2.105)
+
+        decoder.decode(
+            cscMeasurement(
+                wheelRevolutions = 4_294_967_294L,
+                wheelEventTime = 65_530,
+                crankRevolutions = 65_535,
+                crankEventTime = 65_000,
+            ),
+            timeMillis = 1_000L,
+        )
+
+        val measurement =
+            decoder.decode(
+                cscMeasurement(
+                    wheelRevolutions = 3,
+                    wheelEventTime = 506,
+                    crankRevolutions = 0,
+                    crankEventTime = 488,
+                ),
+                timeMillis = 2_000L,
+            )
+
+        requireNotNull(measurement)
+        assertEquals(21.05f, measurement.speedMps!!, 0.01f)
+        assertEquals(60, measurement.cadenceSpm)
+    }
 }
+
+private fun cscMeasurement(
+    wheelRevolutions: Long,
+    wheelEventTime: Int,
+    crankRevolutions: Int,
+    crankEventTime: Int,
+): ByteArray =
+    byteArrayOf(0x03) +
+        uint32Le(wheelRevolutions) +
+        uint16Le(wheelEventTime) +
+        uint16Le(crankRevolutions) +
+        uint16Le(crankEventTime)
+
+private fun uint16Le(value: Int): ByteArray =
+    byteArrayOf(
+        (value and 0xFF).toByte(),
+        ((value ushr 8) and 0xFF).toByte(),
+    )
+
+private fun uint32Le(value: Long): ByteArray =
+    byteArrayOf(
+        (value and 0xFF).toByte(),
+        ((value ushr 8) and 0xFF).toByte(),
+        ((value ushr 16) and 0xFF).toByte(),
+        ((value ushr 24) and 0xFF).toByte(),
+    )

@@ -6,6 +6,7 @@ import btools.router.OsmNodeNamed
 import btools.router.RoutingContext
 import btools.router.RoutingEngine
 import btools.util.CheapRuler
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -268,6 +269,7 @@ class BRouterRoutePlanner(
             try {
                 ensureBundledProfilesInstalled()
                 val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+                logRoutePlannerRequest(kind = "route", preset = request.preset, request.useElevation, request.allowFerries)
                 val routedAttempt = executeRoutingRequest(request)
                 buildRoutePlannerOutput(
                     routingContext = routedAttempt.routingContext,
@@ -287,6 +289,7 @@ class BRouterRoutePlanner(
         return withContext(Dispatchers.IO) {
             try {
                 ensureBundledProfilesInstalled()
+                logRoutePlannerRequest(kind = "loop", preset = request.preset, request.useElevation, request.allowFerries)
 
                 val searchCoverageRadiusMeters =
                     estimateLoopCoverageRadiusMeters(
@@ -445,13 +448,14 @@ class BRouterRoutePlanner(
         request: RoundTripPlannerRequest,
         spec: LoopAttemptSpec,
     ): LoopAttemptResult {
+        val effectivePreset = spec.presetOverride ?: request.preset
         val routingContext =
             RoutingContext().apply {
-                localFunction = defaultRoutingProfileFile(context).absolutePath
+                localFunction = routingProfileFileFor(effectivePreset).absolutePath
                 outputFormat = "gpx"
                 keyValues =
                     buildProfileParams(
-                        preset = spec.presetOverride ?: request.preset,
+                        preset = effectivePreset,
                         useElevation = request.useElevation,
                         allowFerries = request.allowFerries,
                     )
@@ -517,7 +521,7 @@ class BRouterRoutePlanner(
 
         val routingContext =
             RoutingContext().apply {
-                localFunction = defaultRoutingProfileFile(context).absolutePath
+                localFunction = routingProfileFileFor(request.preset).absolutePath
                 outputFormat = "gpx"
                 keyValues =
                     buildProfileParams(
@@ -936,11 +940,21 @@ class BRouterRoutePlanner(
             targetFile = defaultRoutingProfileFile(context),
         )
         copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_PROFILE_FILE_NAME",
+            targetFile = bikeRoutingProfileFile(context),
+        )
+        copyAsset(
             assetPath = "brouter/profiles2/$ROUTING_DEFAULT_PROFILE_FILE_NAME",
             targetFile = dummyRoutingProfileFile(context),
         )
         routingSegmentsDir(context)
     }
+
+    private fun routingProfileFileFor(preset: RoutePlannerPreset): File =
+        when (preset) {
+            RoutePlannerPreset.BIKE -> bikeRoutingProfileFile(context)
+            else -> defaultRoutingProfileFile(context)
+        }
 
     private fun copyAsset(
         assetPath: String,
@@ -984,8 +998,27 @@ class BRouterRoutePlanner(
                     put("SAC_scale_limit", "1")
                     put("SAC_scale_preferred", "1")
                 }
+
+                RoutePlannerPreset.BIKE -> {
+                    put("allow_steps", "0")
+                    put("consider_noise", "1")
+                    put("consider_traffic", "1")
+                    put("avoid_unsafe", "1")
+                }
             }
         }
+
+    private fun logRoutePlannerRequest(
+        kind: String,
+        preset: RoutePlannerPreset,
+        useElevation: Boolean,
+        allowFerries: Boolean,
+    ) {
+        DebugTelemetry.log(
+            "RouteTools",
+            "event=planner_request kind=$kind preset=$preset useElevation=$useElevation allowFerries=$allowFerries",
+        )
+    }
 
     private fun findMissingSegments(
         origin: LatLong,

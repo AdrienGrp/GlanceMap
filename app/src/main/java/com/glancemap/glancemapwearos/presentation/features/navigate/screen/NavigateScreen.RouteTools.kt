@@ -58,6 +58,7 @@ internal fun rememberNavigateRouteToolActions(
     selectedMapPath: String?,
     triggerHaptic: () -> Unit,
     routeToolOptions: RouteToolOptions,
+    routeToolDefaultOptions: RouteToolOptions,
     setRouteToolOptions: (RouteToolOptions) -> Unit,
     routeToolSession: RouteToolSession?,
     setRouteToolSession: (RouteToolSession?) -> Unit,
@@ -226,6 +227,11 @@ internal fun rememberNavigateRouteToolActions(
         setPoiCreationSelectionActive(false)
         setRouteToolOptions(
             routeToolOptions
+                .copy(
+                    routeStyle = routeToolDefaultOptions.routeStyle,
+                    useElevation = routeToolDefaultOptions.useElevation,
+                    allowFerries = routeToolDefaultOptions.allowFerries,
+                )
                 .withVisibleLoopDefaults()
                 .copy(saveBehavior = RouteSaveBehavior.SAVE_AS_NEW),
         )

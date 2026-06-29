@@ -7,6 +7,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
@@ -21,12 +22,14 @@ internal fun TurnByTurnGuidanceHapticEffect(
     context: Context,
     state: TurnByTurnGuidanceState,
     currentSpeedMps: Float?,
+    activityProfile: String = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
     hapticsEnabled: Boolean,
     turnAlertsMode: String,
     offRouteAlertsEnabled: Boolean,
     offRouteRepeatSeconds: Int,
 ) {
     val vibrator = remember { vibratorFrom(context) }
+    val latestState by rememberUpdatedState(state)
     var alertedInstructionKey by remember { mutableStateOf<String?>(null) }
     var arrivalAlertedTrack by remember { mutableStateOf<String?>(null) }
 
@@ -40,17 +43,20 @@ internal fun TurnByTurnGuidanceHapticEffect(
     LaunchedEffect(
         state.active,
         state.mode,
+        state.offRoute,
         state.nextInstruction?.trackPointIndex,
         state.distanceToInstructionMeters,
         currentSpeedMps,
+        activityProfile,
         hapticsEnabled,
         turnAlertsMode,
     ) {
         val instruction = state.nextInstruction ?: return@LaunchedEffect
         if (!hapticsEnabled || !shouldAlertForTurn(turnAlertsMode, instruction.command)) return@LaunchedEffect
         if (state.mode != GuidanceMode.FOLLOW_ROUTE) return@LaunchedEffect
+        if (state.offRoute) return@LaunchedEffect
         val distanceMeters = state.distanceToInstructionMeters ?: return@LaunchedEffect
-        val alertDistanceMeters = turnHapticDistanceMeters(currentSpeedMps)
+        val alertDistanceMeters = turnHapticDistanceMeters(currentSpeedMps, activityProfile)
         if (distanceMeters > alertDistanceMeters) return@LaunchedEffect
 
         val instructionKey = "${state.trackTitle}:${instruction.trackPointIndex}:${instruction.command}"
@@ -61,7 +67,7 @@ internal fun TurnByTurnGuidanceHapticEffect(
             "haptic=turn command=${instruction.command} index=${instruction.trackPointIndex} " +
                 "distanceM=${distanceMeters.toInt()} alertDistanceM=${alertDistanceMeters.toInt()} " +
                 "speedMps=${currentSpeedMps?.takeIf { it.isFinite() }?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "na"} " +
-                "mode=$turnAlertsMode",
+                "mode=$turnAlertsMode profile=$activityProfile",
         )
         vibrator?.vibrate(turnAlertEffect(instruction.command))
     }
@@ -87,9 +93,14 @@ internal fun TurnByTurnGuidanceHapticEffect(
         if (!state.active || state.mode != GuidanceMode.FOLLOW_ROUTE || !state.offRoute) return@LaunchedEffect
 
         while (isActive) {
+            val currentState = latestState
+            if (!currentState.active || currentState.mode != GuidanceMode.FOLLOW_ROUTE || !currentState.offRoute) {
+                return@LaunchedEffect
+            }
             DebugTelemetry.log(
                 "TurnByTurn",
-                "haptic=off_route distanceToRouteM=${state.distanceToRouteMeters?.toInt() ?: "na"} repeatSeconds=$offRouteRepeatSeconds",
+                "haptic=off_route distanceToRouteM=${currentState.distanceToRouteMeters?.toInt() ?: "na"} " +
+                    "repeatSeconds=$offRouteRepeatSeconds",
             )
             vibrator?.vibrate(OFF_ROUTE_ALERT_EFFECT)
             delay(offRouteRepeatSeconds.coerceAtLeast(OFF_ROUTE_MIN_REPEAT_SECONDS) * 1_000L)

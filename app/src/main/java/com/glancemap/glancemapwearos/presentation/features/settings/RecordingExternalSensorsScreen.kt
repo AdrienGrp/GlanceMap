@@ -195,7 +195,7 @@ fun RecordingExternalSensorsScreen(
                     val normalizedAddress = address.normalizedBluetoothAddress()
                     val connected = address.isConnectedIn(connectedAddresses)
                     LinkedExternalSensorChip(
-                        name = linkedRunPodName.orLinkedSensorFallback("Run pod"),
+                        name = linkedRunPodName.orLinkedSensorFallback("External sensor"),
                         address = address,
                         connected = connected,
                         reconnecting = !connected && address.isConnectedIn(connectingAddresses),
@@ -206,7 +206,7 @@ fun RecordingExternalSensorsScreen(
                             pendingSensorRemoval =
                                 PendingExternalSensorRemoval(
                                     type = LinkedExternalSensorType.RUN_POD,
-                                    name = linkedRunPodName.orLinkedSensorFallback("Run pod"),
+                                    name = linkedRunPodName.orLinkedSensorFallback("External sensor"),
                                     address = address,
                                 )
                         },
@@ -328,11 +328,7 @@ fun RecordingExternalSensorsScreen(
                                 } else {
                                     unsupportedSensorMessage = "${device.name} is not supported yet"
                                     unsupportedSensorDetail =
-                                        if (ExternalSensorKind.CYCLING_SPEED_CADENCE in device.kinds) {
-                                            "Cycling speed needs wheel size, and cycling cadence is not running cadence."
-                                        } else {
-                                            "The sensor does not advertise a supported heart-rate or run-pod service."
-                                        }
+                                        "The sensor does not advertise a supported heart-rate, run-pod, or cycling speed/cadence service."
                                     DebugTelemetry.log(
                                         "ExternalSensors",
                                         "event=device_tap_unsupported name=${device.name.sanitizeTelemetryToken()} " +
@@ -620,7 +616,7 @@ private fun ExternalSensorInfo(
 
 private fun scanStatusLabel(status: ExternalSensorScanStatus): String =
     when (status) {
-        ExternalSensorScanStatus.IDLE -> "Heart straps and pods"
+        ExternalSensorScanStatus.IDLE -> "Heart straps and sensors"
         ExternalSensorScanStatus.SCANNING -> "Searching"
         ExternalSensorScanStatus.BLUETOOTH_UNAVAILABLE -> "Bluetooth unavailable"
         ExternalSensorScanStatus.BLUETOOTH_OFF -> "Turn Bluetooth on"
@@ -630,7 +626,9 @@ private fun scanStatusLabel(status: ExternalSensorScanStatus): String =
 
 private fun ExternalSensorDevice.canLinkHeartRate(): Boolean = kinds.isEmpty() || ExternalSensorKind.HEART_RATE in kinds
 
-private fun ExternalSensorDevice.canLinkRunPod(): Boolean = ExternalSensorKind.RUNNING_SPEED_CADENCE in kinds
+private fun ExternalSensorDevice.canLinkRunPod(): Boolean =
+    ExternalSensorKind.RUNNING_SPEED_CADENCE in kinds ||
+        ExternalSensorKind.CYCLING_SPEED_CADENCE in kinds
 
 private fun String.sanitizeTelemetryToken(): String =
     replace(' ', '_')

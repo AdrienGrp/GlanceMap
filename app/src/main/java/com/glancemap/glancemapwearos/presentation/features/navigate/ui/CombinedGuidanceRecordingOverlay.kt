@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -97,6 +98,8 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     guidanceMetricSlots: List<String>,
     userWeightKg: Float,
     backpackWeightKg: Float,
+    bikeWeightKg: Float,
+    activityProfile: String,
     screenSize: WearScreenSize,
     isMetric: Boolean,
     compassHeadingDeg: Float,
@@ -211,6 +214,8 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
             nowMillis = nowMillis,
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
+            bikeWeightKg = bikeWeightKg,
+            activityProfile = activityProfile,
         )
 
     AnimatedVisibility(
@@ -403,7 +408,13 @@ private fun CombinedCompactPopup(
             WearScreenSize.MEDIUM -> 50.dp
             WearScreenSize.SMALL -> 46.dp
         }
-    val compactWidth =
+    val compactMinWidth =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 82.dp
+            WearScreenSize.MEDIUM -> 82.dp
+            WearScreenSize.SMALL -> 78.dp
+        }
+    val compactMaxWidth =
         when (screenSize) {
             WearScreenSize.LARGE -> 112.dp
             WearScreenSize.MEDIUM -> 112.dp
@@ -427,7 +438,7 @@ private fun CombinedCompactPopup(
         modifier =
             modifier
                 .padding(top = topPadding)
-                .width(compactWidth)
+                .width(compactMaxWidth)
                 .height(48.dp)
                 .combinedClickable(
                     onClick = onExpand,
@@ -449,7 +460,7 @@ private fun CombinedCompactPopup(
         Box(
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .widthIn(min = compactMinWidth, max = compactMaxWidth)
                     .heightIn(min = 30.dp)
                     .background(compactBackground, RoundedCornerShape(8.dp))
                     .border(1.dp, compactBorder, RoundedCornerShape(8.dp))
@@ -474,7 +485,6 @@ private fun CombinedCompactPopup(
                             } else {
                                 combinedGuidanceCompactText(guidanceState, isMetric, guideBackToRouteActive)
                             },
-                        modifier = Modifier.weight(1f),
                         color = if (guidanceState.offRoute) COMBINED_OFF_ROUTE_AMBER else Color.White,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = titleFont,
@@ -516,6 +526,9 @@ private fun CombinedFullscreenDashboard(
         pageIndex = pageIndex,
         pageCount = pageCount,
         dragKey = recordingState.active to recordingState.paused,
+        recordingActive = recordingState.active,
+        recordingPaused = recordingState.paused,
+        recordingSaving = recordingState.saving,
         onPreviousPage = onPreviousPage,
         onNextPage = onNextPage,
         onShowActions = onShowActions,
@@ -585,6 +598,7 @@ private fun CombinedGuidancePage(
             WearScreenSize.MEDIUM -> 38.dp
             WearScreenSize.SMALL -> 36.dp
         }
+    val showRouteProgressDetails = !state.offRoute || guideBackToRouteActive
 
     Box(modifier = Modifier.fillMaxSize()) {
         CombinedRouteProgressRing(
@@ -660,37 +674,39 @@ private fun CombinedGuidancePage(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                guidanceFollowingText(state, isMetric)?.let { followingText ->
-                    Spacer(modifier = Modifier.size(4.dp))
-                    Text(
-                        text = followingText,
-                        color = Color.White.copy(alpha = 0.72f),
-                        fontSize = 11.sp,
-                        lineHeight = 12.sp,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                state.distanceRemainingMeters?.let { remaining ->
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text(
-                        text = guidanceRemainingText(remaining, state.estimatedRemainingSeconds, isMetric),
-                        color = Color.White.copy(alpha = 0.64f),
-                        fontSize = 11.sp,
-                        lineHeight = 12.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-                state.routeProgressFraction?.let { progress ->
-                    Spacer(modifier = Modifier.size(3.dp))
-                    Text(
-                        text = "${(progress * 100f).roundToInt()}%",
-                        color = Color.White.copy(alpha = 0.46f),
-                        fontSize = 9.sp,
-                        lineHeight = 10.sp,
-                        textAlign = TextAlign.Center,
-                    )
+                if (showRouteProgressDetails) {
+                    guidanceFollowingText(state, isMetric)?.let { followingText ->
+                        Spacer(modifier = Modifier.size(4.dp))
+                        Text(
+                            text = followingText,
+                            color = Color.White.copy(alpha = 0.72f),
+                            fontSize = 11.sp,
+                            lineHeight = 12.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    state.distanceRemainingMeters?.let { remaining ->
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            text = guidanceRemainingText(remaining, state.estimatedRemainingSeconds, isMetric),
+                            color = Color.White.copy(alpha = 0.64f),
+                            fontSize = 11.sp,
+                            lineHeight = 12.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    state.routeProgressFraction?.let { progress ->
+                        Spacer(modifier = Modifier.size(3.dp))
+                        Text(
+                            text = "${(progress * 100f).roundToInt()}%",
+                            color = Color.White.copy(alpha = 0.46f),
+                            fontSize = 9.sp,
+                            lineHeight = 10.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
         }

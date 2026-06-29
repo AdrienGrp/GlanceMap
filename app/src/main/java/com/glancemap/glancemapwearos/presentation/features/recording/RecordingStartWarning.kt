@@ -46,7 +46,7 @@ internal fun resolveRecordingStartWarning(
                 add("heart-rate strap")
             }
             if (runPodSelected && externalRunPodAddress.isNullOrBlank()) {
-                add("run pod")
+                add("external sensor")
             }
         }
     val disconnectedDevices =
@@ -63,7 +63,7 @@ internal fun resolveRecordingStartWarning(
                 !externalRunPodAddress.isNullOrBlank() &&
                 externalRunPodAddress.normalizedBluetoothAddress() !in connectedExternalAddresses
             ) {
-                add("run pod")
+                add("external sensor")
             }
         }
 

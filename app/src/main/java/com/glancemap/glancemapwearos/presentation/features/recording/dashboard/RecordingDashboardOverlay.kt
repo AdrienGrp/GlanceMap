@@ -39,6 +39,8 @@ internal fun BoxScope.RecordingDashboardOverlay(
     metricSlots: List<String>,
     userWeightKg: Float,
     backpackWeightKg: Float,
+    bikeWeightKg: Float,
+    activityProfile: String,
     screenSize: WearScreenSize,
     isMetric: Boolean,
     showRouteCompletePrompt: Boolean = false,
@@ -138,6 +140,8 @@ internal fun BoxScope.RecordingDashboardOverlay(
             nowMillis = nowMillis,
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
+            bikeWeightKg = bikeWeightKg,
+            activityProfile = activityProfile,
         )
 
     AnimatedVisibility(

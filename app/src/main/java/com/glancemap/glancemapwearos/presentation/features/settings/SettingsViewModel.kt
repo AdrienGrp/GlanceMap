@@ -810,6 +810,19 @@ class SettingsViewModel(
             settingsRepository.setGpxAdvancedEtaEnabled(enabled)
         }
 
+    val gpxStaminaAdjustmentEnabled: StateFlow<Boolean> =
+        settingsRepository.gpxStaminaAdjustmentEnabled
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_STAMINA_ADJUSTMENT_ENABLED,
+            )
+
+    fun setGpxStaminaAdjustmentEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setGpxStaminaAdjustmentEnabled(enabled)
+        }
+
     val gpxUphillVerticalMetersPerHour: StateFlow<Float> =
         settingsRepository.gpxUphillVerticalMetersPerHour
             .stateIn(
@@ -888,6 +901,58 @@ class SettingsViewModel(
             settingsRepository.setGpxElevationAutoAdjustPerGpx(enabled)
         }
 
+    val gpxToolRouteStyle: StateFlow<String> =
+        settingsRepository.gpxToolRouteStyle
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TOOL_ROUTE_STYLE,
+            )
+
+    fun setGpxToolRouteStyle(style: String) =
+        viewModelScope.launch {
+            settingsRepository.setGpxToolRouteStyle(style)
+        }
+
+    val gpxToolUseElevation: StateFlow<Boolean> =
+        settingsRepository.gpxToolUseElevation
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TOOL_USE_ELEVATION,
+            )
+
+    fun setGpxToolUseElevation(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setGpxToolUseElevation(enabled)
+        }
+
+    val gpxToolAllowFerries: StateFlow<Boolean> =
+        settingsRepository.gpxToolAllowFerries
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TOOL_ALLOW_FERRIES,
+            )
+
+    fun setGpxToolAllowFerries(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setGpxToolAllowFerries(enabled)
+        }
+
+    val activityProfile: StateFlow<String> =
+        settingsRepository.activityProfile
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
+            )
+
+    fun setActivityProfile(profile: String) =
+        viewModelScope.launch {
+            settingsRepository.setActivityProfile(profile)
+        }
+
     val isMetric: StateFlow<Boolean> =
         settingsRepository.isMetric
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -921,6 +986,19 @@ class SettingsViewModel(
     fun setBackpackWeightKg(weightKg: Float) =
         viewModelScope.launch {
             settingsRepository.setBackpackWeightKg(weightKg)
+        }
+
+    val bikeWeightKg: StateFlow<Float> =
+        settingsRepository.bikeWeightKg
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_BIKE_WEIGHT_KG,
+            )
+
+    fun setBikeWeightKg(weightKg: Float) =
+        viewModelScope.launch {
+            settingsRepository.setBikeWeightKg(weightKg)
         }
 
     val backButtonExitsNavigation: StateFlow<Boolean> =

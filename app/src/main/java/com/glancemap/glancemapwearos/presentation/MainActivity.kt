@@ -47,6 +47,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.CompassSetti
 import com.glancemap.glancemapwearos.presentation.features.settings.DebuggingSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpsSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpxSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.GpxToolsSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.LicensesScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapDisplaySettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapSettingsScreen
@@ -339,6 +340,11 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(WatchRoutes.MAIN_MENU) {
                                         launchSingleTop = true
                                         restoreState = true
+                                    }
+                                },
+                                onOpenGpxToolsSettings = {
+                                    navController.navigate(WatchRoutes.GPX_TOOLS_SETTINGS) {
+                                        launchSingleTop = true
                                     }
                                 },
                             )
@@ -742,6 +748,27 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onOpenTurnByTurnSettings = {
                                         navController.navigate(WatchRoutes.TURN_BY_TURN_SETTINGS)
+                                    },
+                                    onOpenGpxToolsSettings = {
+                                        navController.navigate(WatchRoutes.GPX_TOOLS_SETTINGS)
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.GPX_TOOLS_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                GpxToolsSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGpxSettings = {
+                                        navController.navigate(WatchRoutes.GPX_SETTINGS) {
+                                            popUpTo(WatchRoutes.GPX_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     },
                                 )
                             }

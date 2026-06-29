@@ -54,13 +54,19 @@ internal data class NavigateSettingsState(
     val poiPopupManualCloseOnly: Boolean,
     val recordingDashboardMetricSlots: List<String>,
     val turnByTurnDashboardMetricSlots: List<String>,
+    val activityProfile: String,
+    val gpxToolRouteStyle: String,
+    val gpxToolUseElevation: Boolean,
+    val gpxToolAllowFerries: Boolean,
     val gpxFlatSpeedMps: Float,
     val gpxAdvancedEtaEnabled: Boolean,
+    val gpxStaminaAdjustmentEnabled: Boolean,
     val gpxUphillVerticalMetersPerHour: Float,
     val gpxDownhillVerticalMetersPerHour: Float,
     val compassConeAccuracyColorsEnabled: Boolean,
     val userWeightKg: Float,
     val backpackWeightKg: Float,
+    val bikeWeightKg: Float,
 )
 
 @Composable
@@ -138,8 +144,13 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
     val poiPopupManualCloseOnly by settingsViewModel.poiPopupManualCloseOnly.collectAsState(initial = false)
     val recordingDashboardMetricSlots by settingsViewModel.recordingDashboardMetricSlots.collectAsState()
     val turnByTurnDashboardMetricSlots by settingsViewModel.turnByTurnDashboardMetricSlots.collectAsState()
+    val activityProfile by settingsViewModel.activityProfile.collectAsState()
+    val gpxToolRouteStyle by settingsViewModel.gpxToolRouteStyle.collectAsState()
+    val gpxToolUseElevation by settingsViewModel.gpxToolUseElevation.collectAsState()
+    val gpxToolAllowFerries by settingsViewModel.gpxToolAllowFerries.collectAsState()
     val gpxFlatSpeedMps by settingsViewModel.gpxFlatSpeedMps.collectAsState()
     val gpxAdvancedEtaEnabled by settingsViewModel.gpxAdvancedEtaEnabled.collectAsState()
+    val gpxStaminaAdjustmentEnabled by settingsViewModel.gpxStaminaAdjustmentEnabled.collectAsState()
     val gpxUphillVerticalMetersPerHour by settingsViewModel.gpxUphillVerticalMetersPerHour.collectAsState()
     val gpxDownhillVerticalMetersPerHour by settingsViewModel.gpxDownhillVerticalMetersPerHour.collectAsState()
     val compassConeAccuracyColorsEnabled by settingsViewModel.compassConeAccuracyColorsEnabled.collectAsState(
@@ -147,6 +158,7 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
     )
     val userWeightKg by settingsViewModel.userWeightKg.collectAsState()
     val backpackWeightKg by settingsViewModel.backpackWeightKg.collectAsState()
+    val bikeWeightKg by settingsViewModel.bikeWeightKg.collectAsState()
 
     return NavigateSettingsState(
         zoomDefaultScaleMeters = zoomDefaultScaleMeters,
@@ -196,12 +208,18 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
         poiPopupManualCloseOnly = poiPopupManualCloseOnly,
         recordingDashboardMetricSlots = recordingDashboardMetricSlots,
         turnByTurnDashboardMetricSlots = turnByTurnDashboardMetricSlots,
+        activityProfile = activityProfile,
+        gpxToolRouteStyle = gpxToolRouteStyle,
+        gpxToolUseElevation = gpxToolUseElevation,
+        gpxToolAllowFerries = gpxToolAllowFerries,
         gpxFlatSpeedMps = gpxFlatSpeedMps,
         gpxAdvancedEtaEnabled = gpxAdvancedEtaEnabled,
+        gpxStaminaAdjustmentEnabled = gpxStaminaAdjustmentEnabled,
         gpxUphillVerticalMetersPerHour = gpxUphillVerticalMetersPerHour,
         gpxDownhillVerticalMetersPerHour = gpxDownhillVerticalMetersPerHour,
         compassConeAccuracyColorsEnabled = compassConeAccuracyColorsEnabled,
         userWeightKg = userWeightKg,
         backpackWeightKg = backpackWeightKg,
+        bikeWeightKg = bikeWeightKg,
     )
 }

@@ -39,6 +39,7 @@ internal data class ParsedGpxData(
 )
 
 internal data class GpxActivitySummary(
+    val activityProfile: String?,
     val durationSeconds: Double?,
     val distanceMeters: Double?,
     val elevationGainMeters: Double?,
@@ -54,6 +55,10 @@ internal data class GpxActivitySummary(
     val caloriesGrossKcal: Double?,
     val caloriesActiveKcal: Double?,
     val caloriesRestingKcal: Double?,
+    val calorieModel: String?,
+    val cyclingMechanicalKj: Double?,
+    val cyclingPowerSampleSegments: Int?,
+    val cyclingPhysicsSegments: Int?,
     val heartRateBpm: Int?,
     val stepCount: Int?,
     val cadenceSpm: Int?,
@@ -148,6 +153,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var metadataDepth = -1
     var metadataExtensionsDepth = -1
     var isActivity = false
+    var summaryActivityProfile: String? = null
     var firstTimestampMillis: Long? = null
     var lastTimestampMillis: Long? = null
     var summaryDurationSeconds: Double? = null
@@ -165,6 +171,10 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     var summaryCaloriesGrossKcal: Double? = null
     var summaryCaloriesActiveKcal: Double? = null
     var summaryCaloriesRestingKcal: Double? = null
+    var summaryCalorieModel: String? = null
+    var summaryCyclingMechanicalKj: Double? = null
+    var summaryCyclingPowerSampleSegments: Int? = null
+    var summaryCyclingPhysicsSegments: Int? = null
     var summaryHeartRateBpm: Int? = null
     var summaryStepCount: Int? = null
     var summaryCadenceSpm: Int? = null
@@ -222,6 +232,11 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                             ?.equals("recording", ignoreCase = true) == true
                                 }
                             }
+                            "activityProfile" -> {
+                                if (inMetadataExtensions) {
+                                    summaryActivityProfile = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
+                                }
+                            }
                             "durationSeconds" -> {
                                 if (inMetadataExtensions) summaryDurationSeconds = parser.nextTextDouble()
                             }
@@ -266,6 +281,20 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             }
                             "caloriesRestingKcal" -> {
                                 if (inMetadataExtensions) summaryCaloriesRestingKcal = parser.nextTextDouble()
+                            }
+                            "calorieModel" -> {
+                                if (inMetadataExtensions) {
+                                    summaryCalorieModel = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
+                                }
+                            }
+                            "cyclingMechanicalKj" -> {
+                                if (inMetadataExtensions) summaryCyclingMechanicalKj = parser.nextTextDouble()
+                            }
+                            "cyclingPowerSampleSegments" -> {
+                                if (inMetadataExtensions) summaryCyclingPowerSampleSegments = parser.nextTextInt()
+                            }
+                            "cyclingPhysicsSegments" -> {
+                                if (inMetadataExtensions) summaryCyclingPhysicsSegments = parser.nextTextInt()
                             }
                             "name" -> {
                                 val depth = parser.depth
@@ -474,6 +503,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                 },
             activitySummary =
                 buildGpxActivitySummary(
+                    activityProfile = summaryActivityProfile,
                     durationSeconds = summaryDurationSeconds,
                     distanceMeters = summaryDistanceMeters,
                     elevationGainMeters = summaryElevationGainMeters,
@@ -489,6 +519,10 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                     caloriesGrossKcal = summaryCaloriesGrossKcal,
                     caloriesActiveKcal = summaryCaloriesActiveKcal,
                     caloriesRestingKcal = summaryCaloriesRestingKcal,
+                    calorieModel = summaryCalorieModel,
+                    cyclingMechanicalKj = summaryCyclingMechanicalKj,
+                    cyclingPowerSampleSegments = summaryCyclingPowerSampleSegments,
+                    cyclingPhysicsSegments = summaryCyclingPhysicsSegments,
                     heartRateBpm = summaryHeartRateBpm,
                     stepCount = summaryStepCount,
                     cadenceSpm = summaryCadenceSpm,
@@ -509,6 +543,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
 }
 
 private fun buildGpxActivitySummary(
+    activityProfile: String?,
     durationSeconds: Double?,
     distanceMeters: Double?,
     elevationGainMeters: Double?,
@@ -524,6 +559,10 @@ private fun buildGpxActivitySummary(
     caloriesGrossKcal: Double?,
     caloriesActiveKcal: Double?,
     caloriesRestingKcal: Double?,
+    calorieModel: String?,
+    cyclingMechanicalKj: Double?,
+    cyclingPowerSampleSegments: Int?,
+    cyclingPhysicsSegments: Int?,
     heartRateBpm: Int?,
     stepCount: Int?,
     cadenceSpm: Int?,
@@ -540,6 +579,7 @@ private fun buildGpxActivitySummary(
         return null
     }
     return GpxActivitySummary(
+        activityProfile = activityProfile,
         durationSeconds = durationSeconds,
         distanceMeters = distanceMeters,
         elevationGainMeters = elevationGainMeters,
@@ -555,6 +595,10 @@ private fun buildGpxActivitySummary(
         caloriesGrossKcal = caloriesGrossKcal,
         caloriesActiveKcal = caloriesActiveKcal,
         caloriesRestingKcal = caloriesRestingKcal,
+        calorieModel = calorieModel,
+        cyclingMechanicalKj = cyclingMechanicalKj,
+        cyclingPowerSampleSegments = cyclingPowerSampleSegments,
+        cyclingPhysicsSegments = cyclingPhysicsSegments,
         heartRateBpm = heartRateBpm,
         stepCount = stepCount,
         cadenceSpm = cadenceSpm,

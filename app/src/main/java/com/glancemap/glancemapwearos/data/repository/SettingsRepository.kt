@@ -15,6 +15,7 @@ interface SettingsRepository {
         const val MAX_AMBIENT_GPS_INTERVAL_MS = 120_000L
         const val RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS = -1
         const val DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS = 5
+        const val DEFAULT_BIKE_RECORDING_SAMPLE_INTERVAL_SECONDS = 1
         const val RECORDING_METRIC_DISTANCE = "distance"
         const val RECORDING_METRIC_DURATION = "duration"
         const val RECORDING_METRIC_ELEVATION_GAIN = "elevation_gain"
@@ -49,12 +50,19 @@ interface SettingsRepository {
         const val DEFAULT_RECORDING_STEPS_SOURCE = RECORDING_SENSOR_SOURCE_WATCH_GPS
         const val DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP = true
         const val DEFAULT_RECORDING_START_WITH_TURN_BY_TURN = false
+        const val ACTIVITY_PROFILE_HIKE = "HIKE"
+        const val ACTIVITY_PROFILE_WALK_HIKE = "WALK_HIKE"
+        const val ACTIVITY_PROFILE_BIKE = "BIKE"
+        const val DEFAULT_ACTIVITY_PROFILE = ACTIVITY_PROFILE_HIKE
         const val DEFAULT_USER_WEIGHT_KG = 75f
         const val MIN_USER_WEIGHT_KG = 35f
         const val MAX_USER_WEIGHT_KG = 160f
         const val DEFAULT_BACKPACK_WEIGHT_KG = 0f
         const val MIN_BACKPACK_WEIGHT_KG = 0f
         const val MAX_BACKPACK_WEIGHT_KG = 40f
+        const val DEFAULT_BIKE_WEIGHT_KG = 12f
+        const val MIN_BIKE_WEIGHT_KG = 5f
+        const val MAX_BIKE_WEIGHT_KG = 40f
         val DEFAULT_RECORDING_DASHBOARD_METRICS =
             listOf(
                 RECORDING_METRIC_DISTANCE,
@@ -77,6 +85,17 @@ interface SettingsRepository {
                 RECORDING_METRIC_AVERAGE_SPEED,
                 RECORDING_METRIC_CURRENT_PACE,
                 RECORDING_METRIC_HEART_RATE,
+            )
+        val DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS =
+            listOf(
+                RECORDING_METRIC_DISTANCE,
+                RECORDING_METRIC_DURATION,
+                RECORDING_METRIC_CURRENT_SPEED,
+                RECORDING_METRIC_AVERAGE_SPEED,
+                RECORDING_METRIC_HEART_RATE,
+                RECORDING_METRIC_CADENCE,
+                RECORDING_METRIC_POWER,
+                RECORDING_METRIC_CURRENT_ELEVATION,
             )
 
         const val ZOOM_BUTTONS_BOTH = "BOTH"
@@ -131,6 +150,13 @@ interface SettingsRepository {
                 TURN_BY_TURN_METRIC_PROGRESS,
                 TURN_BY_TURN_METRIC_ETA,
             )
+        val DEFAULT_BIKE_TURN_BY_TURN_DASHBOARD_METRICS =
+            listOf(
+                TURN_BY_TURN_METRIC_REMAINING_DISTANCE,
+                TURN_BY_TURN_METRIC_REMAINING_TIME,
+                TURN_BY_TURN_METRIC_ETA,
+                TURN_BY_TURN_METRIC_PROGRESS,
+            )
         const val TURN_BY_TURN_ROUTE_START_GO_TO_START = "GO_TO_START"
         const val TURN_BY_TURN_ROUTE_START_NEAREST_POINT = "NEAREST_POINT"
         const val TURN_BY_TURN_ROUTE_START_ASK = "ASK"
@@ -138,8 +164,10 @@ interface SettingsRepository {
         const val TURN_BY_TURN_REVERSE_SUGGESTION_NEVER = "NEVER"
 
         const val DEFAULT_GPX_FLAT_SPEED_MPS = 3.5f / 3.6f
-        const val MAX_GPX_FLAT_SPEED_MPS = 20f / 3.6f
+        const val DEFAULT_BIKE_GPX_FLAT_SPEED_MPS = 15f / 3.6f
+        const val MAX_GPX_FLAT_SPEED_MPS = 60f / 3.6f
         const val DEFAULT_GPX_ADVANCED_ETA_ENABLED = false
+        const val DEFAULT_GPX_STAMINA_ADJUSTMENT_ENABLED = false
         const val DEFAULT_GPX_UPHILL_VERTICAL_METERS_PER_HOUR = 600f
         const val DEFAULT_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR = 900f
         const val MIN_GPX_VERTICAL_METERS_PER_HOUR = 100f
@@ -161,6 +189,13 @@ interface SettingsRepository {
         const val GPX_TRACK_COLOR_MODE_ELEVATION = "ELEVATION"
         const val DEFAULT_GPX_TRACK_COLOR_MODE = GPX_TRACK_COLOR_MODE_SOLID
         const val DEFAULT_GPX_TRACK_DIRECTION_ARROWS_ENABLED = false
+        const val GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE = "BALANCED_HIKE"
+        const val GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS = "PREFER_TRAILS"
+        const val GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST = "PREFER_EASIEST"
+        const val GPX_TOOL_ROUTE_STYLE_BIKE = "BIKE"
+        const val DEFAULT_GPX_TOOL_ROUTE_STYLE = GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE
+        const val DEFAULT_GPX_TOOL_USE_ELEVATION = true
+        const val DEFAULT_GPX_TOOL_ALLOW_FERRIES = false
 
         const val POI_ICON_SIZE_SMALL_PX = 20
         const val POI_ICON_SIZE_MEDIUM_PX = 28
@@ -271,6 +306,10 @@ interface SettingsRepository {
         name: String?,
     )
 
+    val activityProfile: Flow<String>
+
+    suspend fun setActivityProfile(profile: String)
+
     val userWeightKg: Flow<Float>
 
     suspend fun setUserWeightKg(weightKg: Float)
@@ -278,6 +317,10 @@ interface SettingsRepository {
     val backpackWeightKg: Flow<Float>
 
     suspend fun setBackpackWeightKg(weightKg: Float)
+
+    val bikeWeightKg: Flow<Float>
+
+    suspend fun setBikeWeightKg(weightKg: Float)
 
     val turnByTurnGuidanceSource: Flow<String>
 
@@ -505,6 +548,10 @@ interface SettingsRepository {
 
     suspend fun setGpxAdvancedEtaEnabled(enabled: Boolean)
 
+    val gpxStaminaAdjustmentEnabled: Flow<Boolean>
+
+    suspend fun setGpxStaminaAdjustmentEnabled(enabled: Boolean)
+
     val gpxUphillVerticalMetersPerHour: Flow<Float>
 
     suspend fun setGpxUphillVerticalMetersPerHour(metersPerHour: Float)
@@ -528,6 +575,18 @@ interface SettingsRepository {
     val gpxElevationAutoAdjustPerGpx: Flow<Boolean>
 
     suspend fun setGpxElevationAutoAdjustPerGpx(enabled: Boolean)
+
+    val gpxToolRouteStyle: Flow<String>
+
+    suspend fun setGpxToolRouteStyle(style: String)
+
+    val gpxToolUseElevation: Flow<Boolean>
+
+    suspend fun setGpxToolUseElevation(enabled: Boolean)
+
+    val gpxToolAllowFerries: Flow<Boolean>
+
+    suspend fun setGpxToolAllowFerries(enabled: Boolean)
 
     val isMetric: Flow<Boolean>
 
