@@ -13,6 +13,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -898,7 +900,7 @@ class MainActivity : ComponentActivity() {
                     buttons =
                         listOf(
                             WearActionDialogButton(
-                                text = "Use watch",
+                                text = "Use watch sensors",
                                 onClick = {
                                     appContainer.traceRecordingViewModel
                                         .switchUnavailableSensorSourcesToWatchAndStartRecording()
@@ -911,6 +913,8 @@ class MainActivity : ComponentActivity() {
                             ),
                             WearActionDialogButton(
                                 text = "Sources",
+                                icon = Icons.Filled.Folder,
+                                iconTint = Color(0xFFFFD54F),
                                 onClick = {
                                     appContainer.traceRecordingViewModel.cancelStartRecordingWithUnavailableSensors()
                                     navController.navigate(WatchRoutes.RECORDING_SOURCE_SETTINGS) {

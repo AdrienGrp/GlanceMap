@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -21,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -29,6 +33,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
@@ -44,6 +49,8 @@ data class WearActionDialogButton(
     val onClick: () -> Unit,
     val enabled: Boolean = true,
     val role: WearActionButtonRole = WearActionButtonRole.Primary,
+    val icon: ImageVector? = null,
+    val iconTint: Color? = null,
 )
 
 @Composable
@@ -255,7 +262,25 @@ private fun WearActionButton(
                 .fillMaxWidth(widthFraction)
                 .heightIn(min = 44.dp),
     ) {
-        Text(button.text)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            button.icon?.let { icon ->
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = button.iconTint ?: Color.Unspecified,
+                    modifier = Modifier.size(18.dp),
+                )
+                Box(modifier = Modifier.width(6.dp))
+            }
+            Text(
+                text = button.text,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
