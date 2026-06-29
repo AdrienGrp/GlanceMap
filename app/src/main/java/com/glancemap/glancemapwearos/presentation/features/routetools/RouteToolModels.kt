@@ -398,6 +398,11 @@ internal data class RouteToolSession(
                 RouteSelectionTarget.POINT_B ->
                     if (options.toolKind == RouteToolKind.CREATE) {
                         "Place end, then check."
+                    } else if (
+                        options.toolKind == RouteToolKind.MODIFY &&
+                        options.modifyMode == RouteModifyMode.TRIM_END_FROM_HERE
+                    ) {
+                        "Pick new end"
                     } else {
                         "Place B, then check."
                     }
