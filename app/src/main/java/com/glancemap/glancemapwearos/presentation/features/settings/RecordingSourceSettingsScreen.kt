@@ -54,79 +54,165 @@ fun RecordingSourceSettingsScreen(
             }
         }
         item {
-            SettingsOptionPickerRow(
-                label = "Elevation source",
-                selectedValue = elevationSource,
-                options = elevationSourceOptions,
-                secondaryLabel = recordingElevationSourceLabel(elevationSource),
-                onSelect = viewModel::setRecordingElevationSource,
+            RecordingSourceToggle(
+                label = "Elevation",
+                source = elevationSource,
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE,
+                enabledLabel = recordingElevationSourceLabel(elevationSource),
+                onSourceChange = viewModel::setRecordingElevationSource,
             )
         }
+        if (elevationSource.isRecordingSourceEnabled()) {
+            item {
+                SettingsOptionPickerRow(
+                    label = "Elevation source",
+                    selectedValue = elevationSource,
+                    options = elevationSourceOptions,
+                    secondaryLabel = recordingElevationSourceLabel(elevationSource),
+                    onSelect = viewModel::setRecordingElevationSource,
+                )
+            }
+        }
         item {
-            SettingsOptionPickerRow(
-                label = "Heart rate source",
-                dialogTitle = "HR source",
-                selectedValue = heartRateSource,
-                options = heartRateSourceOptions,
-                secondaryLabel =
+            RecordingSourceToggle(
+                label = "Heart rate",
+                source = heartRateSource,
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_HEART_RATE_SOURCE,
+                enabledLabel =
                     recordingHeartRateSourceSecondaryLabel(
                         heartRateSource,
                         !linkedHeartRateAddress.isNullOrBlank(),
                     ),
-                onSelect = viewModel::setRecordingHeartRateSource,
+                onSourceChange = viewModel::setRecordingHeartRateSource,
             )
         }
+        if (heartRateSource.isRecordingSourceEnabled()) {
+            item {
+                SettingsOptionPickerRow(
+                    label = "Heart rate source",
+                    dialogTitle = "HR source",
+                    selectedValue = heartRateSource,
+                    options = heartRateSourceOptions,
+                    secondaryLabel =
+                        recordingHeartRateSourceSecondaryLabel(
+                            heartRateSource,
+                            !linkedHeartRateAddress.isNullOrBlank(),
+                        ),
+                    onSelect = viewModel::setRecordingHeartRateSource,
+                )
+            }
+        }
         item {
-            SettingsOptionPickerRow(
-                label = "Cadence source",
-                selectedValue = cadenceSource,
-                options = sensorSourceOptions,
-                secondaryLabel =
+            RecordingSourceToggle(
+                label = "Cadence",
+                source = cadenceSource,
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE,
+                enabledLabel =
                     recordingMetricSourceSecondaryLabel(
                         cadenceSource,
                         linkedSensorLabel,
                     ),
-                onSelect = viewModel::setRecordingCadenceSource,
+                onSourceChange = viewModel::setRecordingCadenceSource,
             )
         }
+        if (cadenceSource.isRecordingSourceEnabled()) {
+            item {
+                SettingsOptionPickerRow(
+                    label = "Cadence source",
+                    selectedValue = cadenceSource,
+                    options = sensorSourceOptions,
+                    secondaryLabel =
+                        recordingMetricSourceSecondaryLabel(
+                            cadenceSource,
+                            linkedSensorLabel,
+                        ),
+                    onSelect = viewModel::setRecordingCadenceSource,
+                )
+            }
+        }
         item {
-            SettingsOptionPickerRow(
-                label = "Speed source",
-                selectedValue = speedSource,
-                options = sensorSourceOptions,
-                secondaryLabel =
+            RecordingSourceToggle(
+                label = "Speed",
+                source = speedSource,
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE,
+                enabledLabel =
                     recordingMetricSourceSecondaryLabel(
                         speedSource,
                         linkedSensorLabel,
                     ),
-                onSelect = viewModel::setRecordingSpeedSource,
+                onSourceChange = viewModel::setRecordingSpeedSource,
             )
         }
+        if (speedSource.isRecordingSourceEnabled()) {
+            item {
+                SettingsOptionPickerRow(
+                    label = "Speed source",
+                    selectedValue = speedSource,
+                    options = sensorSourceOptions,
+                    secondaryLabel =
+                        recordingMetricSourceSecondaryLabel(
+                            speedSource,
+                            linkedSensorLabel,
+                        ),
+                    onSelect = viewModel::setRecordingSpeedSource,
+                )
+            }
+        }
         item {
-            SettingsOptionPickerRow(
-                label = "Distance source",
-                selectedValue = distanceSource,
-                options = sensorSourceOptions,
-                secondaryLabel =
+            RecordingSourceToggle(
+                label = "Distance",
+                source = distanceSource,
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE,
+                enabledLabel =
                     recordingMetricSourceSecondaryLabel(
                         distanceSource,
                         linkedSensorLabel,
                     ),
-                onSelect = viewModel::setRecordingDistanceSource,
+                onSourceChange = viewModel::setRecordingDistanceSource,
             )
         }
+        if (distanceSource.isRecordingSourceEnabled()) {
+            item {
+                SettingsOptionPickerRow(
+                    label = "Distance source",
+                    selectedValue = distanceSource,
+                    options = sensorSourceOptions,
+                    secondaryLabel =
+                        recordingMetricSourceSecondaryLabel(
+                            distanceSource,
+                            linkedSensorLabel,
+                        ),
+                    onSelect = viewModel::setRecordingDistanceSource,
+                )
+            }
+        }
         item {
-            SettingsOptionPickerRow(
-                label = "Steps source",
-                selectedValue = stepsSource,
-                options = stepsSourceOptions,
-                secondaryLabel =
+            RecordingSourceToggle(
+                label = "Steps",
+                source = stepsSource,
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE,
+                enabledLabel =
                     recordingMetricSourceSecondaryLabel(
                         stepsSource,
                         if (!linkedRunPodAddress.isNullOrBlank()) "Sensor if available" else "Link sensor first",
                     ),
-                onSelect = viewModel::setRecordingStepsSource,
+                onSourceChange = viewModel::setRecordingStepsSource,
             )
+        }
+        if (stepsSource.isRecordingSourceEnabled()) {
+            item {
+                SettingsOptionPickerRow(
+                    label = "Steps source",
+                    selectedValue = stepsSource,
+                    options = stepsSourceOptions,
+                    secondaryLabel =
+                        recordingMetricSourceSecondaryLabel(
+                            stepsSource,
+                            if (!linkedRunPodAddress.isNullOrBlank()) "Sensor if available" else "Link sensor first",
+                        ),
+                    onSelect = viewModel::setRecordingStepsSource,
+                )
+            }
         }
     }
 }
@@ -136,29 +222,52 @@ private val RECORDING_ELEVATION_SOURCE_OPTIONS =
         SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
         SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
         SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO,
-        SettingsRepository.RECORDING_SOURCE_DISABLED,
     )
 private val RECORDING_HEART_RATE_SOURCE_OPTIONS =
     listOf(
         SettingsRepository.RECORDING_HEART_RATE_SOURCE_WATCH,
         SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP,
-        SettingsRepository.RECORDING_SOURCE_DISABLED,
     )
 private val RECORDING_SENSOR_SOURCE_OPTIONS =
     listOf(
         SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
         SettingsRepository.RECORDING_SENSOR_SOURCE_POD,
-        SettingsRepository.RECORDING_SOURCE_DISABLED,
     )
 private val RECORDING_STEPS_SOURCE_OPTIONS =
     listOf(
         SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
-        SettingsRepository.RECORDING_SOURCE_DISABLED,
     )
+
+@Composable
+private fun RecordingSourceToggle(
+    label: String,
+    source: String,
+    defaultSource: String,
+    enabledLabel: String,
+    onSourceChange: (String) -> Unit,
+) {
+    val enabled = source.isRecordingSourceEnabled()
+    SettingsToggleChip(
+        checked = enabled,
+        onCheckedChanged = { checked ->
+            onSourceChange(
+                if (checked) {
+                    defaultSource
+                } else {
+                    SettingsRepository.RECORDING_SOURCE_DISABLED
+                },
+            )
+        },
+        label = label,
+        secondaryLabel = if (enabled) enabledLabel else "Off",
+    )
+}
+
+private fun String.isRecordingSourceEnabled(): Boolean = this != SettingsRepository.RECORDING_SOURCE_DISABLED
 
 private fun recordingElevationSourceLabel(source: String): String =
     when (source) {
-        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Deactivated"
+        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Off"
         SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM -> "DEM"
         SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO -> "Auto"
         else -> "GPS altitude"
@@ -166,7 +275,7 @@ private fun recordingElevationSourceLabel(source: String): String =
 
 private fun recordingHeartRateSourceLabel(source: String): String =
     when (source) {
-        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Deactivated"
+        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Off"
         SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP -> "Strap"
         else -> "Watch"
     }
@@ -176,7 +285,7 @@ private fun recordingSensorSourceLabel(
     isBikeProfile: Boolean,
 ): String =
     when (source) {
-        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Deactivated"
+        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Off"
         SettingsRepository.RECORDING_SENSOR_SOURCE_POD -> if (isBikeProfile) "Bike sensor" else "Foot pod"
         else -> "Watch/GPS"
     }
@@ -186,7 +295,7 @@ private fun recordingMetricSourceSecondaryLabel(
     podLabel: String,
 ): String =
     when (source) {
-        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Deactivated"
+        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Off"
         SettingsRepository.RECORDING_SENSOR_SOURCE_POD -> podLabel
         else -> "Watch/GPS"
     }
@@ -196,7 +305,7 @@ private fun recordingHeartRateSourceSecondaryLabel(
     hasLinkedStrap: Boolean,
 ): String =
     when (source) {
-        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Deactivated"
+        SettingsRepository.RECORDING_SOURCE_DISABLED -> "Off"
         SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP ->
             if (hasLinkedStrap) {
                 "Linked strap"

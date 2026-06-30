@@ -48,6 +48,7 @@ import com.glancemap.glancemapwearos.presentation.features.recording.sensors.Rec
 import com.glancemap.glancemapwearos.presentation.features.settings.CompassSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.DebuggingSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpsSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.GpxAppearanceSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpxSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpxToolsSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.LicensesScreen
@@ -780,6 +781,27 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onOpenGpxToolsSettings = {
                                         navController.navigate(WatchRoutes.GPX_TOOLS_SETTINGS)
+                                    },
+                                    onOpenGpxAppearanceSettings = {
+                                        navController.navigate(WatchRoutes.GPX_APPEARANCE_SETTINGS)
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.GPX_APPEARANCE_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                GpxAppearanceSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGpxSettings = {
+                                        navController.navigate(WatchRoutes.GPX_SETTINGS) {
+                                            popUpTo(WatchRoutes.GPX_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     },
                                 )
                             }

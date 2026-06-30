@@ -389,20 +389,9 @@ class GpxTurnByTurnGuidanceTest {
     }
 
     @Test
-    fun offRouteRequiresThreeAccurateOutsideSamples() {
+    fun offRouteRequiresTwoOutsideSamples() {
         var state = GuidanceOffRouteConfirmationState()
 
-        repeat(2) {
-            state =
-                updateGuidanceOffRouteConfirmation(
-                    previous = state,
-                    distanceToRouteMeters = 80.0,
-                    locationAccuracyMeters = 10f,
-                    thresholdMeters = 60.0,
-                    allowOffRouteEntry = true,
-                )
-            assertTrue(!state.offRoute)
-        }
         state =
             updateGuidanceOffRouteConfirmation(
                 previous = state,
@@ -411,14 +400,23 @@ class GpxTurnByTurnGuidanceTest {
                 thresholdMeters = 60.0,
                 allowOffRouteEntry = true,
             )
+        assertTrue(!state.offRoute)
 
+        state =
+            updateGuidanceOffRouteConfirmation(
+                previous = state,
+                distanceToRouteMeters = 80.0,
+                locationAccuracyMeters = 10f,
+                thresholdMeters = 60.0,
+                allowOffRouteEntry = true,
+            )
         assertTrue(state.offRoute)
     }
 
     @Test
-    fun offRouteIgnoresPoorAccuracyAndClearsOnStrongRecovery() {
+    fun offRouteIgnoresReportedAccuracyAndClearsOnStrongRecovery() {
         var state = GuidanceOffRouteConfirmationState()
-        repeat(3) {
+        repeat(2) {
             state =
                 updateGuidanceOffRouteConfirmation(
                     previous = state,
@@ -428,14 +426,14 @@ class GpxTurnByTurnGuidanceTest {
                     allowOffRouteEntry = true,
                 )
         }
-        assertTrue(!state.offRoute)
+        assertTrue(state.offRoute)
 
         state = GuidanceOffRouteConfirmationState(offRoute = true)
         state =
             updateGuidanceOffRouteConfirmation(
                 previous = state,
                 distanceToRouteMeters = 25.0,
-                locationAccuracyMeters = 10f,
+                locationAccuracyMeters = 125f,
                 thresholdMeters = 60.0,
                 allowOffRouteEntry = true,
             )
@@ -443,21 +441,28 @@ class GpxTurnByTurnGuidanceTest {
     }
 
     @Test
-    fun offRouteDoesNotTriggerWhenGpsUncertaintyOverlapsRouteCorridor() {
+    fun offRouteUsesSelectedThresholdWithoutAccuracyAllowance() {
         var state = GuidanceOffRouteConfirmationState()
 
-        repeat(4) {
-            state =
-                updateGuidanceOffRouteConfirmation(
-                    previous = state,
-                    distanceToRouteMeters = 32.0,
-                    locationAccuracyMeters = 18f,
-                    thresholdMeters = 20.0,
-                    allowOffRouteEntry = true,
-                )
-        }
-
+        state =
+            updateGuidanceOffRouteConfirmation(
+                previous = state,
+                distanceToRouteMeters = 32.0,
+                locationAccuracyMeters = 18f,
+                thresholdMeters = 20.0,
+                allowOffRouteEntry = true,
+            )
         assertTrue(!state.offRoute)
+
+        state =
+            updateGuidanceOffRouteConfirmation(
+                previous = state,
+                distanceToRouteMeters = 32.0,
+                locationAccuracyMeters = 18f,
+                thresholdMeters = 20.0,
+                allowOffRouteEntry = true,
+            )
+        assertTrue(state.offRoute)
     }
 
     @Test

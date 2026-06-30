@@ -25,6 +25,7 @@ object WatchRoutes {
     const val TURN_BY_TURN_DASHBOARD_SETTINGS = "turn_by_turn_dashboard_settings_screen"
     const val DEBUG_SETTINGS = "debug_settings_screen"
     const val GPX_SETTINGS = "gpx_settings_screen"
+    const val GPX_APPEARANCE_SETTINGS = "gpx_appearance_settings_screen"
     const val GPX_TOOLS_SETTINGS = "gpx_tools_settings_screen"
     const val MAP_SETTINGS = "map_settings_screen"
     const val POI_SETTINGS = "poi_settings_screen"

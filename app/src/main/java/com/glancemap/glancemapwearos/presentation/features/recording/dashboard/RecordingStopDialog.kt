@@ -246,11 +246,11 @@ internal fun recordingRecapMetricsForSnapshot(
             .toRecordingRecapMetric(),
         paceMetricValue("Max pace", snapshot.fastestSpeedMps, isMetric)
             .toRecordingRecapMetric(),
-        integerRecapMetric("Avg HR", snapshot.averageHeartRateBpm ?: snapshot.heartRateBpm, "bpm"),
+        integerRecapMetric("HR (Avg)", snapshot.averageHeartRateBpm ?: snapshot.heartRateBpm, "bpm"),
         integerRecapMetric("Max HR", snapshot.maxHeartRateBpm ?: snapshot.heartRateBpm, "bpm"),
-        integerRecapMetric("Avg Power", snapshot.averagePowerWatts ?: snapshot.powerWatts, "W"),
+        integerRecapMetric("Power (Avg)", snapshot.averagePowerWatts ?: snapshot.powerWatts, "W"),
         integerRecapMetric("Max Power", snapshot.maxPowerWatts ?: snapshot.powerWatts, "W"),
-        integerRecapMetric("Avg cad", snapshot.averageCadenceSpm ?: snapshot.cadenceSpm, "spm"),
+        integerRecapMetric("Cadence (Avg)", snapshot.averageCadenceSpm ?: snapshot.cadenceSpm, "spm"),
         integerRecapMetric("Max cad", snapshot.maxCadenceSpm ?: snapshot.cadenceSpm, "spm"),
         formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_STEPS, snapshot, isMetric)
             .toRecordingRecapMetric(),

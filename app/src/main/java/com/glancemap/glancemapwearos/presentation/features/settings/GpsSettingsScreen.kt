@@ -93,8 +93,8 @@ fun GpsSettingsScreen(
 
         item {
             GpsIntervalSummary(
-                primaryText = "GPS interval is fixed to 3s while the screen is on.",
-                secondaryText = "This keeps walking motion smooth without pushing battery too hard.",
+                primaryText = "Screen-on GPS uses 3s by default.",
+                secondaryText = "REC and TBT GPS timing can be adjusted in their settings.",
             )
         }
 
@@ -148,10 +148,10 @@ fun GpsSettingsScreen(
 
         item {
             GpsIntervalSummary(
-                primaryText = "AOD/Screen Off uses a fixed 60s interval when enabled.",
+                primaryText = "Screen-off GPS uses 60s when enabled.",
                 secondaryText =
                     if (gpsInAmbientMode) {
-                        "Ambient updates stay available, but at a battery-friendly pace."
+                        "REC and TBT can override this with their own GPS timing."
                     } else {
                         "Turn on AOD/Screen Off above if you want background location updates."
                     },

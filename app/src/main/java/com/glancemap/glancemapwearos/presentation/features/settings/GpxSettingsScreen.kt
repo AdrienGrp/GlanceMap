@@ -59,14 +59,9 @@ fun GpxSettingsScreen(
     onOpenGeneralSettings: () -> Unit,
     onOpenTurnByTurnSettings: () -> Unit,
     onOpenGpxToolsSettings: () -> Unit,
+    onOpenGpxAppearanceSettings: () -> Unit,
 ) {
-    val screenSize = rememberWearScreenSize()
     val listTokens = rememberSettingsListTokens()
-    val trackColor by viewModel.gpxTrackColor.collectAsState()
-    val trackColorMode by viewModel.gpxTrackColorMode.collectAsState()
-    val trackWidth by viewModel.gpxTrackWidth.collectAsState()
-    val trackOpacityPercent by viewModel.gpxTrackOpacityPercent.collectAsState()
-    val trackDirectionArrowsEnabled by viewModel.gpxTrackDirectionArrowsEnabled.collectAsState()
     val isGpxInspectionEnabled by viewModel.isGpxInspectionEnabled.collectAsState()
     val gpxFlatSpeedMps by viewModel.gpxFlatSpeedMps.collectAsState()
     val gpxAdvancedEtaEnabled by viewModel.gpxAdvancedEtaEnabled.collectAsState()
@@ -79,50 +74,6 @@ fun GpxSettingsScreen(
     val gpxElevationAutoAdjustPerGpx by viewModel.gpxElevationAutoAdjustPerGpx.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
     var showAdvancedElevationFilter by remember { mutableStateOf(false) }
-    val trackColorModeOptions =
-        listOf(
-            SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID to "Solid color",
-            SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION to "Elevation",
-        )
-
-    val colorPalette =
-        listOf(
-            Color.Magenta,
-            Color.Blue,
-            Color(0xFFFFA500), // Orange
-            Color.Red,
-        )
-
-    val groupSpacing =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 8.dp
-            WearScreenSize.MEDIUM -> 7.dp
-            WearScreenSize.SMALL -> 6.dp
-        }
-    val colorPickerSpacing =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 10.dp
-            WearScreenSize.MEDIUM -> 8.dp
-            WearScreenSize.SMALL -> 6.dp
-        }
-    val colorButtonSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 32.dp
-            WearScreenSize.MEDIUM -> 30.dp
-            WearScreenSize.SMALL -> 28.dp
-        }
-    val selectedIconSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 16.dp
-            WearScreenSize.MEDIUM -> 14.dp
-            WearScreenSize.SMALL -> 12.dp
-        }
-    val trackWidthSpacing =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 4.dp
-            WearScreenSize.MEDIUM -> 3.dp
-            WearScreenSize.SMALL -> 2.dp
-        }
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
@@ -141,6 +92,14 @@ fun GpxSettingsScreen(
                 label = "GPX tools settings",
                 secondaryLabel = "Route creation defaults",
                 onClick = onOpenGpxToolsSettings,
+            )
+        }
+
+        item {
+            SettingsSectionChip(
+                label = "GPX appearance",
+                secondaryLabel = "Track color and width",
+                onClick = onOpenGpxAppearanceSettings,
             )
         }
 
@@ -277,72 +236,6 @@ fun GpxSettingsScreen(
             }
         }
         item {
-            SettingsOptionPickerRow(
-                label = "Color Mode",
-                selectedValue = trackColorMode,
-                options = trackColorModeOptions,
-                secondaryLabel =
-                    when (trackColorMode) {
-                        SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION -> "Elevation"
-                        else -> "Solid color"
-                    },
-                onSelect = viewModel::setGpxTrackColorMode,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        if (trackColorMode == SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID) {
-            item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(groupSpacing),
-                ) {
-                    Text(
-                        text = "Track Color",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-
-                    SimpleColorPicker(
-                        colors = colorPalette,
-                        selectedColor = Color(trackColor),
-                        itemSpacing = colorPickerSpacing,
-                        buttonSize = colorButtonSize,
-                        selectedIconSize = selectedIconSize,
-                        onColorSelected = { color ->
-                            viewModel.setGpxTrackColor(color.toArgb())
-                        },
-                    )
-                }
-            }
-        }
-        item {
-            SettingsToggleChip(
-                checked = trackDirectionArrowsEnabled,
-                onCheckedChanged = viewModel::setGpxTrackDirectionArrowsEnabled,
-                label = "Track direction",
-                secondaryLabel = if (trackDirectionArrowsEnabled) "Hide arrows" else "Show arrows",
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item {
-            TrackWidthSetting(
-                label = "Track Width",
-                value = trackWidth,
-                onValueChange = { newWidth ->
-                    viewModel.setGpxTrackWidth(newWidth)
-                },
-                spacing = trackWidthSpacing,
-            )
-        }
-        item {
-            TrackOpacitySetting(
-                label = "Track Opacity",
-                valuePercent = trackOpacityPercent,
-                onValueChange = viewModel::setGpxTrackOpacityPercent,
-                spacing = trackWidthSpacing,
-            )
-        }
-        item {
             Text(
                 text = "Fine-tune how GPX ascent and descent are calculated. Most tracks can stay on the defaults.",
                 style = MaterialTheme.typography.bodySmall,
@@ -473,6 +366,141 @@ fun GpxSettingsScreen(
                             .padding(horizontal = 12.dp),
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalHorologistApi::class)
+@Composable
+fun GpxAppearanceSettingsScreen(
+    viewModel: SettingsViewModel,
+    onOpenGpxSettings: () -> Unit,
+) {
+    val screenSize = rememberWearScreenSize()
+    val listTokens = rememberSettingsListTokens()
+    val trackColor by viewModel.gpxTrackColor.collectAsState()
+    val trackColorMode by viewModel.gpxTrackColorMode.collectAsState()
+    val trackWidth by viewModel.gpxTrackWidth.collectAsState()
+    val trackOpacityPercent by viewModel.gpxTrackOpacityPercent.collectAsState()
+    val trackDirectionArrowsEnabled by viewModel.gpxTrackDirectionArrowsEnabled.collectAsState()
+    val trackColorModeOptions =
+        listOf(
+            SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID to "Solid color",
+            SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION to "Elevation",
+        )
+
+    val colorPalette =
+        listOf(
+            Color.Magenta,
+            Color.Blue,
+            Color(0xFFFFA500),
+            Color.Red,
+        )
+
+    val groupSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 8.dp
+            WearScreenSize.MEDIUM -> 7.dp
+            WearScreenSize.SMALL -> 6.dp
+        }
+    val colorPickerSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 10.dp
+            WearScreenSize.MEDIUM -> 8.dp
+            WearScreenSize.SMALL -> 6.dp
+        }
+    val colorButtonSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 32.dp
+            WearScreenSize.MEDIUM -> 30.dp
+            WearScreenSize.SMALL -> 28.dp
+        }
+    val selectedIconSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 16.dp
+            WearScreenSize.MEDIUM -> 14.dp
+            WearScreenSize.SMALL -> 12.dp
+        }
+    val trackWidthSpacing =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 4.dp
+            WearScreenSize.MEDIUM -> 3.dp
+            WearScreenSize.SMALL -> 2.dp
+        }
+
+    WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            SettingsSectionChip(
+                label = "GPX settings",
+                secondaryLabel = "Back to GPX settings",
+                compactRoundWidthFraction = 0.78f,
+                onClick = onOpenGpxSettings,
+            )
+        }
+
+        item {
+            SettingsOptionPickerRow(
+                label = "Color Mode",
+                selectedValue = trackColorMode,
+                options = trackColorModeOptions,
+                secondaryLabel =
+                    when (trackColorMode) {
+                        SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION -> "Elevation"
+                        else -> "Solid color"
+                    },
+                onSelect = viewModel::setGpxTrackColorMode,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (trackColorMode == SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(groupSpacing),
+                ) {
+                    Text(
+                        text = "Track Color",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+
+                    SimpleColorPicker(
+                        colors = colorPalette,
+                        selectedColor = Color(trackColor),
+                        itemSpacing = colorPickerSpacing,
+                        buttonSize = colorButtonSize,
+                        selectedIconSize = selectedIconSize,
+                        onColorSelected = { color ->
+                            viewModel.setGpxTrackColor(color.toArgb())
+                        },
+                    )
+                }
+            }
+        }
+        item {
+            SettingsToggleChip(
+                checked = trackDirectionArrowsEnabled,
+                onCheckedChanged = viewModel::setGpxTrackDirectionArrowsEnabled,
+                label = "Track direction",
+                secondaryLabel = if (trackDirectionArrowsEnabled) "Hide arrows" else "Show arrows",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            TrackWidthSetting(
+                label = "Track Width",
+                value = trackWidth,
+                onValueChange = viewModel::setGpxTrackWidth,
+                spacing = trackWidthSpacing,
+            )
+        }
+        item {
+            TrackOpacitySetting(
+                label = "Track Opacity",
+                valuePercent = trackOpacityPercent,
+                onValueChange = viewModel::setGpxTrackOpacityPercent,
+                spacing = trackWidthSpacing,
+            )
         }
     }
 }

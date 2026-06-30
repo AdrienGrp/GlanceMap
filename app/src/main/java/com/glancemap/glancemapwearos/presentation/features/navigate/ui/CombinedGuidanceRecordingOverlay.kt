@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -104,6 +105,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     isMetric: Boolean,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
+    showGuideBackPrompt: Boolean,
     expandRequestToken: Long,
     actionPromptRequestToken: Long,
     suppressed: Boolean,
@@ -111,6 +113,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
     onResumeGuidance: () -> Unit,
     onStopGuidance: () -> Unit,
     onVoiceGuidanceChange: (Boolean) -> Unit,
+    onGuideBackToRoute: () -> Unit,
     onPauseRecording: () -> Unit,
     onResumeRecording: () -> Unit,
     onFinishRecording: (String?) -> Unit,
@@ -245,6 +248,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                     isMetric = isMetric,
                     compassHeadingDeg = compassHeadingDeg,
                     guideBackToRouteActive = guideBackToRouteActive,
+                    showGuideBackPrompt = showGuideBackPrompt,
                     onSlotLongPress = { slotIndex ->
                         if (pageIndex > guidanceMetricPageCount) {
                             metricPickerSlot = recordingPageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT + slotIndex
@@ -270,6 +274,7 @@ internal fun BoxScope.CombinedGuidanceRecordingOverlay(
                     },
                     onShowActions = { showActions = true },
                     onVoiceGuidanceChange = onVoiceGuidanceChange,
+                    onGuideBackToRoute = onGuideBackToRoute,
                 )
             }
         }
@@ -515,12 +520,14 @@ private fun CombinedFullscreenDashboard(
     isMetric: Boolean,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
+    showGuideBackPrompt: Boolean,
     onSlotLongPress: (Int) -> Unit,
     onGuidanceSlotLongPress: (Int, Int) -> Unit,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     onShowActions: () -> Unit,
     onVoiceGuidanceChange: (Boolean) -> Unit,
+    onGuideBackToRoute: () -> Unit,
 ) {
     RecordingFullscreenPageShell(
         pageIndex = pageIndex,
@@ -542,8 +549,10 @@ private fun CombinedFullscreenDashboard(
                 isMetric = isMetric,
                 compassHeadingDeg = compassHeadingDeg,
                 guideBackToRouteActive = guideBackToRouteActive,
+                showGuideBackPrompt = showGuideBackPrompt,
                 voiceGuidanceEnabled = voiceGuidanceEnabled,
                 onVoiceGuidanceChange = onVoiceGuidanceChange,
+                onGuideBackToRoute = onGuideBackToRoute,
             )
         } else if (pageIndex <= guidanceMetricPageCount) {
             val metricPageIndex = pageIndex - 1
@@ -577,8 +586,10 @@ private fun CombinedGuidancePage(
     isMetric: Boolean,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
+    showGuideBackPrompt: Boolean,
     voiceGuidanceEnabled: Boolean,
     onVoiceGuidanceChange: (Boolean) -> Unit,
+    onGuideBackToRoute: () -> Unit,
 ) {
     val contentWidthFraction =
         when (screenSize) {
@@ -599,6 +610,7 @@ private fun CombinedGuidancePage(
             WearScreenSize.SMALL -> 36.dp
         }
     val showRouteProgressDetails = !state.offRoute || guideBackToRouteActive
+    val showGuideBackShortcut = state.active && state.offRoute && !guideBackToRouteActive && !showGuideBackPrompt
 
     Box(modifier = Modifier.fillMaxSize()) {
         CombinedRouteProgressRing(
@@ -617,6 +629,18 @@ private fun CombinedGuidancePage(
                     .align(Alignment.CenterStart)
                     .padding(start = 16.dp),
         )
+        if (showGuideBackShortcut) {
+            CombinedGuideBackShortcut(
+                onClick = {
+                    DebugTelemetry.log("TurnByTurn", "event=guide_back_dashboard_shortcut_click mode=combined")
+                    onGuideBackToRoute()
+                },
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 16.dp),
+            )
+        }
         cappedFontScale(maxFontScale = 1.15f) {
             Column(
                 modifier =
@@ -987,6 +1011,27 @@ private fun CombinedGuidanceIcon(
         modifier = modifier,
         tint = tint,
     )
+}
+
+@Composable
+private fun CombinedGuideBackShortcut(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .size(48.dp)
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Route,
+            contentDescription = "Route back to GPX",
+            tint = COMBINED_OFF_ROUTE_AMBER,
+            modifier = Modifier.size(18.dp),
+        )
+    }
 }
 
 @Composable

@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Route
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -204,17 +203,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
         (turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded) ||
             (traceRecordingState.active && recordingDashboardFullScreenExpanded) ||
             combinedGuidanceRecordingFullScreenExpanded
-    val showGuideBackShortcut =
-        turnByTurnGuidanceState.active &&
-            turnByTurnGuidanceState.offRoute &&
-            !guideBackToRouteActive &&
-            !showGuideBackPrompt &&
-            !suppressMapControlsForGuidance &&
-            !suppressGuidanceForPanning &&
-            poiTapMessage == null &&
-            !routeToolModeActive &&
-            !shortcutTrayExpanded
-
     LaunchedEffect(
         turnByTurnGuidanceState.mode,
         turnByTurnGuidanceState.trackTitle,
@@ -485,33 +473,6 @@ internal fun BoxScope.NavigateOverlaysLayer(
         Icon(Icons.Default.Menu, "Menu", Modifier.size(sideButtonIconSize))
     }
 
-    if (showGuideBackShortcut) {
-        IconButton(
-            onClick = {
-                DebugTelemetry.log("TurnByTurn", "event=guide_back_shortcut_click")
-                triggerHaptic()
-                onGuideBackToRoute()
-            },
-            modifier =
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = sideButtonEdgePadding)
-                    .offset(y = (-44).dp)
-                    .size((sideButtonSize * 0.84f).coerceAtLeast(34.dp)),
-            colors =
-                IconButtonDefaults.iconButtonColors(
-                    containerColor = Color(0xFFFFC107).copy(alpha = 0.92f),
-                    contentColor = Color.Black,
-                ),
-        ) {
-            Icon(
-                imageVector = Icons.Default.Route,
-                contentDescription = "Route back to GPX",
-                modifier = Modifier.size((sideButtonIconSize * 0.92f).coerceAtLeast(18.dp)),
-            )
-        }
-    }
-
     if (!suppressMapControlsForGuidance && !routeToolModeActive) {
         RouteShortcutTray(
             expanded = shortcutTrayExpanded,
@@ -622,6 +583,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         isMetric = isMetric,
         compassHeadingDeg = compassHeadingDeg,
         guideBackToRouteActive = guideBackToRouteActive,
+        showGuideBackPrompt = showGuideBackPrompt,
         expandRequestToken = recordingDashboardExpandRequestToken,
         actionPromptRequestToken = recordingActionPromptRequestToken,
         suppressed =
@@ -632,6 +594,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onResumeGuidance = onResumeTurnByTurnGuidance,
         onStopGuidance = onStopTurnByTurnGuidance,
         onVoiceGuidanceChange = onTurnByTurnVoiceGuidanceChange,
+        onGuideBackToRoute = onGuideBackToRoute,
         onPauseRecording = onPauseRecording,
         onResumeRecording = onResumeRecording,
         onFinishRecording = onFinishRecording,

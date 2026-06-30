@@ -44,6 +44,7 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.navigate.formatNavigateClockTime
+import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import kotlinx.coroutines.delay
 import kotlin.math.PI
@@ -168,32 +169,42 @@ private fun FullscreenPopupTimeChip(
     Box(
         modifier =
             modifier
-                .height(20.dp)
-                .widthIn(min = 62.dp)
-                .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
-                .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
-                .padding(start = if (recordingVisible) 7.dp else 10.dp, end = 10.dp),
-        contentAlignment = Alignment.Center,
+                .width(128.dp)
+                .height(48.dp),
+        contentAlignment = Alignment.TopCenter,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (recordingVisible) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(4.dp)
-                            .background(accentColor, CircleShape),
-                )
+        Box(
+            modifier =
+                Modifier
+                    .height(20.dp)
+                    .widthIn(min = 62.dp)
+                    .background(Color.Black.copy(alpha = 0.74f), RoundedCornerShape(percent = 50))
+                    .border(1.dp, accentColor.copy(alpha = 0.96f), RoundedCornerShape(percent = 50))
+                    .padding(start = if (recordingVisible) 7.dp else 10.dp, end = 10.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            cappedFontScale(maxFontScale = 1f) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (recordingVisible) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(4.dp)
+                                    .background(accentColor, CircleShape),
+                        )
+                    }
+                    Text(
+                        text = formatNavigateClockTime(context, nowMillis, LocalFullscreenPopupTimeFormat.current),
+                        modifier = Modifier.padding(start = if (recordingVisible) 5.dp else 0.dp),
+                        style =
+                            MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 15.sp,
+                            ),
+                        color = Color.White,
+                        maxLines = 1,
+                    )
+                }
             }
-            Text(
-                text = formatNavigateClockTime(context, nowMillis, LocalFullscreenPopupTimeFormat.current),
-                modifier = Modifier.padding(start = if (recordingVisible) 5.dp else 0.dp),
-                style =
-                    MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 15.sp,
-                    ),
-                color = Color.White,
-                maxLines = 1,
-            )
         }
     }
 }
@@ -272,13 +283,13 @@ private fun RecordingDashboardArcPageIndicator(
     ) {
         val sweepDegrees =
             when {
-                pageCount <= 2 -> 22f
-                pageCount == 3 -> 32f
-                else -> 44f
+                pageCount <= 2 -> 24f
+                pageCount == 3 -> 34f
+                else -> 46f
             }
         val centerY = size.height / 2f
         val centerX = -size.height * 0.48f
-        val rightInset = 4.dp.toPx()
+        val rightInset = 6.dp.toPx()
         val radius = size.width - rightInset - centerX
         val activeRadius = 3.0.dp.toPx()
         val inactiveRadius = 2.0.dp.toPx()

@@ -141,12 +141,6 @@ fun SettingsScreen(
 
         item { Text("Advanced settings", style = MaterialTheme.typography.titleMedium) }
         item {
-            SettingsSectionChip(
-                label = "Debugging",
-                onClick = { navController.navigate(WatchRoutes.DEBUG_SETTINGS) },
-            )
-        }
-        item {
             SettingsToggleChip(
                 checked = backButtonExitsNavigation,
                 onCheckedChanged = viewModel::setBackButtonExitsNavigation,
@@ -195,6 +189,12 @@ fun SettingsScreen(
                 label = "Reset to Default",
                 iconImageVector = null,
                 onClick = { navController.navigate(WatchRoutes.RESET_DEFAULTS_CONFIRM) },
+            )
+        }
+        item {
+            SettingsSectionChip(
+                label = "Debugging",
+                onClick = { navController.navigate(WatchRoutes.DEBUG_SETTINGS) },
             )
         }
         item {

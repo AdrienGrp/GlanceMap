@@ -94,19 +94,19 @@ private enum class GpxListMode(
     val emptyStateMessage: String,
 ) {
     TRACKS(
-        headerTitle = "GPX Tracks",
+        headerTitle = "Activities",
         icon = Icons.Default.Route,
         toggleContentDescription = "Show hike activities",
         emptyStateMessage = "Send GPX files from the companion phone app.",
     ),
     HIKE_ACTIVITIES(
-        headerTitle = "Hike Activities",
+        headerTitle = "Hike",
         icon = Icons.AutoMirrored.Filled.DirectionsRun,
         toggleContentDescription = "Show bike activities",
         emptyStateMessage = "Hike recordings will appear here.",
     ),
     BIKE_ACTIVITIES(
-        headerTitle = "Bike Activities",
+        headerTitle = "Bike",
         icon = Icons.AutoMirrored.Filled.DirectionsBike,
         toggleContentDescription = "Show GPX tracks",
         emptyStateMessage = "Bike recordings will appear here.",

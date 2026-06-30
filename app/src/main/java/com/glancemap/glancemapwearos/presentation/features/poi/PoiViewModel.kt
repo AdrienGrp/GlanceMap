@@ -1,8 +1,10 @@
 package com.glancemap.glancemapwearos.presentation.features.poi
 
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.glancemap.glancemapwearos.core.maps.GeoBounds
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.PoiCategory
 import com.glancemap.glancemapwearos.data.repository.PoiPointDetails
 import com.glancemap.glancemapwearos.data.repository.PoiRepository
@@ -154,6 +156,9 @@ class PoiViewModel(
 
     private val _poiFiles = MutableStateFlow<List<PoiFileUiState>>(emptyList())
     val poiFiles: StateFlow<List<PoiFileUiState>> = _poiFiles.asStateFlow()
+
+    private val _isLoadingPoiFiles = MutableStateFlow(true)
+    val isLoadingPoiFiles: StateFlow<Boolean> = _isLoadingPoiFiles.asStateFlow()
 
     private val _poiCoverageAreas = MutableStateFlow<List<PoiCoverageAreaUiState>>(emptyList())
     val poiCoverageAreas: StateFlow<List<PoiCoverageAreaUiState>> = _poiCoverageAreas.asStateFlow()
@@ -730,32 +735,51 @@ class PoiViewModel(
         }
 
     private suspend fun reloadFromDisk(collapseAll: Boolean = false) {
-        val previousExpanded =
-            if (collapseAll) {
-                emptyMap()
-            } else {
-                _poiFiles.value.associate { it.path to it.isExpanded }
-            }
-        userPoiSourceState = userPoiRepository.readSourceState()
-        val earlySyntheticUserFile =
-            buildUserPoiFileUiState(
-                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: false,
+        val startedAtElapsedMs = SystemClock.elapsedRealtime()
+        var listedFileCount = -1
+        var importedFileCount = -1
+        DebugTelemetry.log(
+            "POI",
+            "event=reload_start collapseAll=$collapseAll previousFiles=${_poiFiles.value.size}",
+        )
+        _isLoadingPoiFiles.value = true
+        try {
+            val previousExpanded =
+                if (collapseAll) {
+                    emptyMap()
+                } else {
+                    _poiFiles.value.associate { it.path to it.isExpanded }
+                }
+            userPoiSourceState = userPoiRepository.readSourceState()
+            val earlySyntheticUserFile =
+                buildUserPoiFileUiState(
+                    isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: false,
+                )
+            publishSyntheticUserFile(earlySyntheticUserFile)
+            val files = poiRepository.listPoiFiles()
+            listedFileCount = files.size
+
+            val (importedFiles, coverageAreas) = loadImportedPoiFiles(files, previousExpanded)
+            importedFileCount = importedFiles.size
+
+            val syntheticUserFile =
+                buildUserPoiFileUiState(
+                    isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: false,
+                )
+
+            _poiFiles.value = listOf(syntheticUserFile) + importedFiles
+            _poiCoverageAreas.value = coverageAreas
+            _categoryPreviews.value = emptyMap()
+            _categoryCounts.value = emptyMap()
+            updateUserPoiPreviewCache(syntheticUserFile)
+        } finally {
+            _isLoadingPoiFiles.value = false
+            DebugTelemetry.log(
+                "POI",
+                "event=reload_complete durationMs=${SystemClock.elapsedRealtime() - startedAtElapsedMs} " +
+                    "listedFiles=$listedFileCount importedFiles=$importedFileCount visibleFiles=${_poiFiles.value.size}",
             )
-        publishSyntheticUserFile(earlySyntheticUserFile)
-        val files = poiRepository.listPoiFiles()
-
-        val (importedFiles, coverageAreas) = loadImportedPoiFiles(files, previousExpanded)
-
-        val syntheticUserFile =
-            buildUserPoiFileUiState(
-                isExpanded = previousExpanded[USER_POI_SOURCE_PATH] ?: false,
-            )
-
-        _poiFiles.value = listOf(syntheticUserFile) + importedFiles
-        _poiCoverageAreas.value = coverageAreas
-        _categoryPreviews.value = emptyMap()
-        _categoryCounts.value = emptyMap()
-        updateUserPoiPreviewCache(syntheticUserFile)
+        }
     }
 
     private suspend fun loadImportedPoiFiles(

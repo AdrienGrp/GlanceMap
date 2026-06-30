@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -215,8 +216,10 @@ internal fun BoxScope.TurnByTurnGuidanceOverlay(
                             isMetric = isMetric,
                             compassHeadingDeg = compassHeadingDeg,
                             guideBackToRouteActive = guideBackToRouteActive,
+                            showGuideBackPrompt = showGuideBackPrompt,
                             voiceGuidanceEnabled = voiceGuidanceEnabled,
                             onVoiceGuidanceChange = onVoiceGuidanceChange,
+                            onGuideBackToRoute = onGuideBackToRoute,
                             onLongPress = { showActionPrompt = true },
                         )
                     } else {
@@ -406,8 +409,10 @@ private fun ExpandedGuidanceOverlay(
     isMetric: Boolean,
     compassHeadingDeg: Float,
     guideBackToRouteActive: Boolean,
+    showGuideBackPrompt: Boolean,
     voiceGuidanceEnabled: Boolean,
     onVoiceGuidanceChange: (Boolean) -> Unit,
+    onGuideBackToRoute: () -> Unit,
     onLongPress: () -> Unit,
 ) {
     val contentWidthFraction =
@@ -429,6 +434,7 @@ private fun ExpandedGuidanceOverlay(
             WearScreenSize.SMALL -> 36.dp
         }
     val showRouteProgressDetails = !state.offRoute || guideBackToRouteActive
+    val showGuideBackShortcut = state.active && state.offRoute && !guideBackToRouteActive && !showGuideBackPrompt
 
     Box(
         modifier =
@@ -458,6 +464,19 @@ private fun ExpandedGuidanceOverlay(
                     .align(Alignment.CenterStart)
                     .padding(start = 16.dp),
         )
+
+        if (showGuideBackShortcut) {
+            GuidanceGuideBackShortcut(
+                onClick = {
+                    DebugTelemetry.log("TurnByTurn", "event=guide_back_dashboard_shortcut_click")
+                    onGuideBackToRoute()
+                },
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 16.dp),
+            )
+        }
 
         cappedFontScale(maxFontScale = 1.15f) {
             Column(
@@ -576,6 +595,27 @@ private fun formatGuidanceDuration(seconds: Long): String {
         hours > 0L && minutes > 0L -> "${hours}h ${minutes}m"
         hours > 0L -> "${hours}h"
         else -> "${minutes.coerceAtLeast(1L)}m"
+    }
+}
+
+@Composable
+private fun GuidanceGuideBackShortcut(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .size(48.dp)
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Route,
+            contentDescription = "Route back to GPX",
+            tint = OFF_ROUTE_AMBER,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 

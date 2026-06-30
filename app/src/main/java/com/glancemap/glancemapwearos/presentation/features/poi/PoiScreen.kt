@@ -7,12 +7,18 @@ package com.glancemap.glancemapwearos.presentation.features.poi
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
@@ -35,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.Placeholder
@@ -163,6 +170,7 @@ private fun MutableList<PoiListRow>.addCategoryPreviewRows(
 
 private const val POI_HELP_PREFS = "poi_screen_help_prefs"
 private const val POI_HELP_SHOWN_KEY = "poi_help_shown"
+private const val POI_LOADING_DRAG_DISMISS_PX = 34f
 
 @Composable
 fun PoiScreen(
@@ -174,6 +182,7 @@ fun PoiScreen(
     val adaptive = rememberWearAdaptiveSpec()
     val scope = rememberCoroutineScope()
     val poiFiles by poiViewModel.poiFiles.collectAsState()
+    val isLoadingPoiFiles by poiViewModel.isLoadingPoiFiles.collectAsState()
     val poiTapToCenterEnabled by poiViewModel.poiTapToCenterEnabled.collectAsState()
     val categoryPreviews by poiViewModel.categoryPreviews.collectAsState()
     val categoryCounts by poiViewModel.categoryCounts.collectAsState()
@@ -187,6 +196,7 @@ fun PoiScreen(
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameInProgress by remember { mutableStateOf(false) }
     var renameError by remember { mutableStateOf<String?>(null) }
+    var loadingOverlayDismissed by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val helpPrefs =
@@ -311,6 +321,11 @@ fun PoiScreen(
     LaunchedEffect(helpPrefs) {
         if (!helpPrefs.getBoolean(POI_HELP_SHOWN_KEY, false)) {
             showHelpDialog = true
+        }
+    }
+    LaunchedEffect(isLoadingPoiFiles) {
+        if (isLoadingPoiFiles) {
+            loadingOverlayDismissed = false
         }
     }
 
@@ -895,6 +910,78 @@ fun PoiScreen(
                         }
                     }
                 }
+            }
+        }
+
+        if (isLoadingPoiFiles && !loadingOverlayDismissed && !showHelpDialog && !showDeleteDialog && !showRenameDialog) {
+            PoiLoadingOverlay(
+                onDismiss = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    loadingOverlayDismissed = true
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PoiLoadingOverlay(onDismiss: () -> Unit) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.72f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth(0.78f)
+                    .pointerInput(onDismiss) {
+                        var totalDrag = 0f
+                        detectVerticalDragGestures(
+                            onDragEnd = { totalDrag = 0f },
+                            onDragCancel = { totalDrag = 0f },
+                        ) { _, dragAmount ->
+                            totalDrag += dragAmount
+                            if (totalDrag > POI_LOADING_DRAG_DISMISS_PX) {
+                                onDismiss()
+                                totalDrag = 0f
+                            }
+                        }
+                    }
+                    .background(
+                        color = Color.Black.copy(alpha = 0.88f),
+                        shape = RoundedCornerShape(18.dp),
+                    ).padding(horizontal = 14.dp, vertical = 12.dp),
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .width(26.dp)
+                            .height(3.dp)
+                            .background(Color.White.copy(alpha = 0.42f), RoundedCornerShape(50)),
+                )
+                Text(
+                    text = "Loading POI...",
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = "Downloaded POIs will appear shortly.",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

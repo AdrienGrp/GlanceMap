@@ -63,6 +63,7 @@ import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecord
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.LocalFullscreenPopupTimeFormat
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
+import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import kotlinx.coroutines.delay
@@ -1093,25 +1094,27 @@ private fun CenteredNavigateTimeChip(
                         .padding(start = if (recordingActive) 7.dp else 9.dp, end = 9.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (recordingActive) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(4.dp)
-                                    .background(accentColor, CircleShape),
+                cappedFontScale(maxFontScale = 1f) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (recordingActive) {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .size(4.dp)
+                                        .background(accentColor, CircleShape),
+                            )
+                        }
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(start = if (recordingActive) 5.dp else 0.dp),
+                            style =
+                                MaterialTheme.typography.titleMedium.copy(
+                                    fontSize = 15.sp,
+                                ),
+                            color = Color.White,
+                            maxLines = 1,
                         )
                     }
-                    Text(
-                        text = label,
-                        modifier = Modifier.padding(start = if (recordingActive) 5.dp else 0.dp),
-                        style =
-                            MaterialTheme.typography.titleMedium.copy(
-                                fontSize = 15.sp,
-                            ),
-                        color = Color.White,
-                        maxLines = 1,
-                    )
                 }
             }
         }

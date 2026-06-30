@@ -101,9 +101,9 @@ internal val recordingMetricDefinitions =
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS, "Elev -"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION, "Altitude"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_SPEED, "Speed"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED, "Avg speed"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED, "Speed (Avg)"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_PACE, "Pace"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_AVERAGE_PACE, "Avg pace"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_AVERAGE_PACE, "Pace (Avg)"),
         RecordingMetricDefinition(
             SettingsRepository.RECORDING_METRIC_HEART_RATE,
             "Heart rate",
@@ -126,7 +126,7 @@ internal val recordingMetricDefinitions =
         ),
         RecordingMetricDefinition(
             SettingsRepository.RECORDING_METRIC_AVERAGE_POWER,
-            "Average power",
+            "Power (Avg)",
             RecordingMetricSource.EXTERNAL,
         ),
         RecordingMetricDefinition(
