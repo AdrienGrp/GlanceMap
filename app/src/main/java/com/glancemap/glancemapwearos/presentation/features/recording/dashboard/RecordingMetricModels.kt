@@ -134,9 +134,9 @@ internal val recordingMetricDefinitions =
             "Pressure",
             RecordingMetricSource.INTERNAL_SENSOR,
         ),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CALORIES, "Calories"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES, "Active cal"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_RESTING_CALORIES, "Rest cal"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CALORIES, "Cal (Total)"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES, "Cal (Active)"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_RESTING_CALORIES, "Cal (Rest)"),
     )
 
 internal val recordingMetricPickerOptions: List<Pair<String, String>> =
@@ -595,11 +595,9 @@ private fun estimateCyclingCalories(
     var powerSampleSegments = 0
     var physicsSegments = 0
     val calorieElevations = smoothedCalorieElevations(points)
-    var previousSpeedMetersPerSecond: Double? = null
 
     points.zipWithNext().forEachIndexed { index, (start, end) ->
         if (end.startsNewSegment) {
-            previousSpeedMetersPerSecond = null
             return@forEachIndexed
         }
         val segmentDurationSeconds =
@@ -638,14 +636,11 @@ private fun estimateCyclingCalories(
                     loadWeightKg = loadWeightKg,
                     bikeWeightKg = bikeWeightKg,
                     speedMetersPerSecond = speedMetersPerSecond,
-                    previousSpeedMetersPerSecond = previousSpeedMetersPerSecond,
-                    durationSeconds = segmentDurationSeconds,
                     gradeFraction = gradeFraction,
                 )
             }
 
         mechanicalJoules += estimatedPowerWatts * segmentDurationSeconds
-        previousSpeedMetersPerSecond = speedMetersPerSecond
         modeledDurationSeconds += segmentDurationSeconds
     }
 
@@ -677,8 +672,6 @@ private fun cyclingPhysicsPowerWatts(
     loadWeightKg: Double,
     bikeWeightKg: Double,
     speedMetersPerSecond: Double,
-    previousSpeedMetersPerSecond: Double?,
-    durationSeconds: Double,
     gradeFraction: Double,
 ): Double {
     val totalMassKg = bodyWeightKg + loadWeightKg + bikeWeightKg
@@ -697,17 +690,8 @@ private fun cyclingPhysicsPowerWatts(
             AIR_DENSITY_KG_PER_CUBIC_METER *
             CYCLING_DEFAULT_CDA *
             speedMetersPerSecond.pow(3.0)
-    val accelerationPower =
-        previousSpeedMetersPerSecond
-            ?.let { previousSpeed ->
-                val accelerationMetersPerSecondSquared =
-                    ((speedMetersPerSecond - previousSpeed) / durationSeconds)
-                        .takeIf { it.isFinite() && it > 0.0 }
-                        ?: 0.0
-                totalMassKg * accelerationMetersPerSecondSquared * speedMetersPerSecond
-            } ?: 0.0
 
-    return (rollingPower + gravityPower + aeroPower + accelerationPower)
+    return (rollingPower + gravityPower + aeroPower)
         .takeIf { it.isFinite() }
         ?.coerceAtLeast(0.0)
         ?: 0.0

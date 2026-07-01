@@ -259,7 +259,7 @@ class RecordingDashboardModelsTest {
                 isMetric = true,
             )
 
-        assertEquals("Average power", metric.label)
+        assertEquals("Power (Avg)", metric.label)
         assertEquals("200", metric.value)
         assertEquals("W", metric.unit)
     }
@@ -310,20 +310,20 @@ class RecordingDashboardModelsTest {
                 "Active time",
                 "Elev +",
                 "Elev -",
-                "Avg speed",
+                "Speed (Avg)",
                 "Max speed",
-                "Avg pace",
+                "Pace (Avg)",
                 "Max pace",
-                "Avg HR",
+                "HR (Avg)",
                 "Max HR",
-                "Avg Power",
+                "Power (Avg)",
                 "Max Power",
-                "Avg cad",
+                "Cadence (Avg)",
                 "Max cad",
                 "Steps",
-                "Calories",
-                "Active cal",
-                "Rest cal",
+                "Cal (Total)",
+                "Cal (Active)",
+                "Cal (Rest)",
             ),
             labels,
         )
@@ -333,7 +333,7 @@ class RecordingDashboardModelsTest {
     fun metricPickerOptionsAreAlphabetical() {
         val labels = recordingMetricPickerOptions.map { it.second }
         assertEquals(labels.sortedBy { it.lowercase() }, labels)
-        assertTrue(labels.contains("Average power"))
+        assertTrue(labels.contains("Power (Avg)"))
     }
 
     @Test
@@ -420,7 +420,7 @@ class RecordingDashboardModelsTest {
                 snapshot = recordingSnapshot(calorieEstimate = estimate),
                 isMetric = true,
             )
-        assertEquals("Calories", calories.label)
+        assertEquals("Cal (Total)", calories.label)
         assertEquals("286", calories.value)
         assertEquals("kcal", calories.unit)
         assertEquals(75.0, estimate.restingKcal, 0.1)
@@ -562,6 +562,29 @@ class RecordingDashboardModelsTest {
             )
 
         assertTrue(heavyBike.activeKcal > lightBike.activeKcal)
+    }
+
+    @Test
+    fun estimateRecordingCaloriesDoesNotUseGpsAccelerationForBikePhysicsFallback() {
+        val estimate =
+            estimateRecordingCalories(
+                points =
+                    listOf(
+                        recordingPoint(longitude = 0.0, elevationMeters = 0.0, timeMillis = 0L),
+                        recordingPoint(longitude = 0.000018, elevationMeters = 0.0, timeMillis = 5_000L),
+                        recordingPoint(longitude = 0.000198, elevationMeters = 0.0, timeMillis = 10_000L),
+                        recordingPoint(longitude = 0.000216, elevationMeters = 0.0, timeMillis = 15_000L),
+                        recordingPoint(longitude = 0.000396, elevationMeters = 0.0, timeMillis = 20_000L),
+                    ),
+                userWeightKg = 75f,
+                backpackWeightKg = 0f,
+                activityProfile = SettingsRepository.ACTIVITY_PROFILE_BIKE,
+            )
+
+        assertEquals("cycling_physics_fallback_v1", estimate.model)
+        assertEquals(0, estimate.cyclingPowerSampleSegments)
+        assertEquals(4, estimate.cyclingPhysicsSegments)
+        assertTrue(estimate.cyclingMechanicalKj < 1.0)
     }
 
     private fun oneHourFlatWalkPoints(): List<RecordedTracePoint> =
