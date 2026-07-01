@@ -21,7 +21,6 @@ fun TurnByTurnSettingsScreen(
     val hapticsEnabled by viewModel.turnByTurnHapticsEnabled.collectAsState()
     val voiceGuidanceEnabled by viewModel.turnByTurnVoiceGuidanceEnabled.collectAsState()
     val offRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
-    val guidanceGpsInAmbient by viewModel.turnByTurnGpsInAmbientMode.collectAsState()
     var showInfoDialog by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -67,19 +66,6 @@ fun TurnByTurnSettingsScreen(
             )
         }
         item {
-            SettingsToggleChip(
-                checked = guidanceGpsInAmbient,
-                onCheckedChanged = viewModel::setTurnByTurnGpsInAmbientMode,
-                label = "Screen-off guidance",
-                secondaryLabel =
-                    if (guidanceGpsInAmbient) {
-                        "Reliable alerts; uses more battery"
-                    } else {
-                        "Pause dedicated guidance GPS"
-                    },
-            )
-        }
-        item {
             SettingsSectionChip(
                 label = "Dashboard",
                 secondaryLabel = "Route metrics and pages",
@@ -111,7 +97,7 @@ fun TurnByTurnSettingsScreen(
                 "Use the crown or swipe vertically to move between guidance, route metrics and REC pages.",
                 "Tap the speaker icon in the full turn view to switch voice guidance on or off.",
                 "Amber guidance means you are off route. The distance shows how far you are from the GPX.",
-                "Screen-off guidance keeps dedicated GPS updates active for reliable alerts, but uses more battery.",
+                "Set TBT GPS timing in GPS settings. Faster timing gives more reliable alerts but uses more battery.",
                 "Turn instructions depend on the GPX geometry or routing hints available in the file.",
             ),
         onDismiss = { showInfoDialog = false },

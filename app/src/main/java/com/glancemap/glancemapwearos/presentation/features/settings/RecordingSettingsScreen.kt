@@ -7,8 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import com.glancemap.glancemapwearos.data.repository.SettingsRepository
-import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 
 @Composable
@@ -20,12 +18,9 @@ fun RecordingSettingsScreen(
     onOpenDashboardSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
-    val sampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
     val showSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
     val startWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
-    var showGpsDisabledWarning by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
-    val intervalOptions = RECORDING_INTERVAL_OPTIONS_SECONDS.map { it to recordingIntervalLabel(it) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
@@ -38,20 +33,6 @@ fun RecordingSettingsScreen(
             GeneralSettingsShortcutChip(
                 onClick = onOpenGeneralSettings,
                 applyTopPadding = false,
-            )
-        }
-        item {
-            SettingsOptionPickerRow(
-                label = "GPS Frequency",
-                selectedValue = sampleIntervalSeconds,
-                options = intervalOptions,
-                secondaryLabel = recordingIntervalLabel(sampleIntervalSeconds),
-                onSelect = { seconds ->
-                    viewModel.setRecordingSampleIntervalSeconds(seconds)
-                    if (seconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) {
-                        showGpsDisabledWarning = true
-                    }
-                },
             )
         }
         item {
@@ -81,14 +62,6 @@ fun RecordingSettingsScreen(
         }
     }
 
-    WearActionDialog(
-        visible = showGpsDisabledWarning,
-        title = "GPS deactivated",
-        message = "REC will not record GPS points. Distance, speed, elevation, track, and calories may be unavailable unless another source provides them.",
-        confirmText = "OK",
-        onConfirm = { showGpsDisabledWarning = false },
-        onDismissRequest = { showGpsDisabledWarning = false },
-    )
     WearHelpDialog(
         visible = showInfoDialog,
         title = "Recording",
@@ -99,7 +72,7 @@ fun RecordingSettingsScreen(
                 "Long press the time or REC popup for pause, stop and discard controls.",
                 "Use the crown or swipe vertically to change dashboard pages.",
                 "Long press a dashboard measure to replace it.",
-                "A shorter GPS frequency gives a more detailed track but uses more battery.",
+                "Set REC GPS timing in GPS settings. Shorter timing gives a more detailed track but uses more battery.",
                 "Pausing creates a break in the saved track, so stopped time is not joined by a straight line.",
             ),
         onDismiss = { showInfoDialog = false },
@@ -136,13 +109,3 @@ private fun RecordingDashboardSettingsFolder(
         onClick = onClick,
     )
 }
-
-private val RECORDING_INTERVAL_OPTIONS_SECONDS =
-    listOf(SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS, 1, 2, 5, 10, 15, 30, 60)
-
-private fun recordingIntervalLabel(seconds: Int): String =
-    when {
-        seconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> "Deactivated"
-        seconds <= 1 -> "1 second"
-        else -> "$seconds seconds"
-    }

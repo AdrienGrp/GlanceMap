@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemand
 import com.glancemap.glancemapwearos.core.service.location.policy.navigationRuntimeDemand
@@ -26,7 +27,8 @@ internal fun rememberNavigateRuntimeState(
     offlineMode: Boolean,
     generalGpsInAmbient: Boolean,
     traceRecordingState: TraceRecordingUiState,
-    recordingGpsEnabled: Boolean,
+    recordingScreenOnGpsEnabled: Boolean,
+    recordingScreenOffGpsEnabled: Boolean,
     turnByTurnActive: Boolean,
     turnByTurnPaused: Boolean,
     turnByTurnGpsInAmbient: Boolean,
@@ -40,6 +42,13 @@ internal fun rememberNavigateRuntimeState(
                 isDeviceInteractive = isDeviceInteractive,
             )
         }
+    val recordingGpsEnabled =
+        if (screenState.isNonInteractive) {
+            recordingScreenOffGpsEnabled
+        } else {
+            recordingScreenOnGpsEnabled
+        }
+    val recordingRuntimePaused = traceRecordingState.paused && !traceRecordingState.autoPaused
     val runtimeDemand =
         navigationRuntimeDemand(
             isNavigateScreen = true,
@@ -49,7 +58,7 @@ internal fun rememberNavigateRuntimeState(
             offlineMode = offlineMode,
             generalGpsInAmbient = generalGpsInAmbient,
             recordingActive = traceRecordingState.active,
-            recordingPaused = traceRecordingState.paused,
+            recordingPaused = recordingRuntimePaused,
             recordingGpsEnabled = recordingGpsEnabled,
             turnByTurnActive = turnByTurnActive,
             turnByTurnPaused = turnByTurnPaused,
@@ -87,6 +96,8 @@ private fun NavigateRuntimeEffects(
     locationViewModel: LocationViewModel,
     traceRecordingViewModel: TraceRecordingViewModel,
 ) {
+    val recordingRuntimePaused = traceRecordingState.paused && !traceRecordingState.autoPaused
+
     LaunchedEffect(
         screenState,
         runtimeDemand.trackingEnabled,
@@ -121,6 +132,8 @@ private fun NavigateRuntimeEffects(
         hasLocationPermission,
         traceRecordingState.active,
         traceRecordingState.paused,
+        traceRecordingState.autoPaused,
+        recordingRuntimePaused,
         traceRecordingState.saving,
         recordingGpsEnabled,
     ) {

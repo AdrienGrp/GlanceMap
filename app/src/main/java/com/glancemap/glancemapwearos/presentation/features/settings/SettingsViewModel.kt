@@ -95,6 +95,32 @@ class SettingsViewModel(
             settingsRepository.setRecordingSampleIntervalSeconds(seconds)
         }
 
+    val recordingScreenOffSampleIntervalSeconds: StateFlow<Int> =
+        settingsRepository.recordingScreenOffSampleIntervalSeconds
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS,
+            )
+
+    fun setRecordingScreenOffSampleIntervalSeconds(seconds: Int) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingScreenOffSampleIntervalSeconds(seconds)
+        }
+
+    val recordingAutoPauseMode: StateFlow<String> =
+        settingsRepository.recordingAutoPauseMode
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_RECORDING_AUTO_PAUSE_MODE,
+            )
+
+    fun setRecordingAutoPauseMode(mode: String) =
+        viewModelScope.launch {
+            settingsRepository.setRecordingAutoPauseMode(mode)
+        }
+
     val recordingElevationSource: StateFlow<String> =
         settingsRepository.recordingElevationSource
             .stateIn(
@@ -373,6 +399,32 @@ class SettingsViewModel(
     fun setTurnByTurnGpsInAmbientMode(enabled: Boolean) =
         viewModelScope.launch {
             settingsRepository.setTurnByTurnGpsInAmbientMode(enabled)
+        }
+
+    val turnByTurnGpsIntervalSeconds: StateFlow<Int> =
+        settingsRepository.turnByTurnGpsIntervalSeconds
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS,
+            )
+
+    fun setTurnByTurnGpsIntervalSeconds(seconds: Int) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnGpsIntervalSeconds(seconds)
+        }
+
+    val turnByTurnScreenOffGpsIntervalSeconds: StateFlow<Int> =
+        settingsRepository.turnByTurnScreenOffGpsIntervalSeconds
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS,
+            )
+
+    fun setTurnByTurnScreenOffGpsIntervalSeconds(seconds: Int) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnScreenOffGpsIntervalSeconds(seconds)
         }
 
     val turnByTurnBrouterGuideBackEnabled: StateFlow<Boolean> =

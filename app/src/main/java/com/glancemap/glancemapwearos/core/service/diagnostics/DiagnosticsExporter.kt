@@ -47,6 +47,8 @@ data class DiagnosticsSettingsSnapshot(
     val gpsPassiveLocationExperiment: Boolean,
     val backButtonExitsNavigation: Boolean,
     val recordingSampleIntervalSeconds: Int = 0,
+    val recordingScreenOffSampleIntervalSeconds: Int = SettingsRepository.DEFAULT_RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS,
+    val recordingAutoPauseMode: String = SettingsRepository.DEFAULT_RECORDING_AUTO_PAUSE_MODE,
     val recordingElevationSource: String = "na",
     val recordingHeartRateSource: String = "na",
     val recordingCadenceSource: String = "na",
@@ -66,6 +68,8 @@ data class DiagnosticsSettingsSnapshot(
     val backpackWeightKg: Float = 0f,
     val bikeWeightKg: Float = SettingsRepository.DEFAULT_BIKE_WEIGHT_KG,
     val turnByTurnGuidanceSource: String = "na",
+    val turnByTurnGpsIntervalSeconds: Int = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS,
+    val turnByTurnScreenOffGpsIntervalSeconds: Int = SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS,
     val turnByTurnHapticsEnabled: Boolean = true,
     val turnByTurnVoiceGuidanceEnabled: Boolean = false,
     val turnByTurnTurnAlertsMode: String = "na",
@@ -618,7 +622,10 @@ object DiagnosticsExporter {
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
             writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
-            writer.appendLine("recordingBackgroundGps=always_on_when_recording")
+            writer.appendLine(
+                "recordingScreenOffSampleIntervalSeconds=${settings.recordingScreenOffSampleIntervalSeconds}",
+            )
+            writer.appendLine("recordingAutoPauseMode=${settings.recordingAutoPauseMode}")
             writer.appendLine("recordingElevationSource=${settings.recordingElevationSource}")
             writer.appendLine("recordingHeartRateSource=${settings.recordingHeartRateSource}")
             writer.appendLine("recordingCadenceSource=${settings.recordingCadenceSource}")
@@ -648,6 +655,10 @@ object DiagnosticsExporter {
             writer.appendLine("backpackWeightKg=${settings.backpackWeightKg}")
             writer.appendLine("bikeWeightKg=${settings.bikeWeightKg}")
             writer.appendLine("turnByTurnGuidanceSource=${settings.turnByTurnGuidanceSource}")
+            writer.appendLine("turnByTurnGpsIntervalSeconds=${settings.turnByTurnGpsIntervalSeconds}")
+            writer.appendLine(
+                "turnByTurnScreenOffGpsIntervalSeconds=${settings.turnByTurnScreenOffGpsIntervalSeconds}",
+            )
             writer.appendLine("turnByTurnHapticsEnabled=${settings.turnByTurnHapticsEnabled}")
             writer.appendLine("turnByTurnVoiceGuidanceEnabled=${settings.turnByTurnVoiceGuidanceEnabled}")
             writer.appendLine("turnByTurnTurnAlertsMode=${settings.turnByTurnTurnAlertsMode}")

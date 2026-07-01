@@ -12,6 +12,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.isInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntimeMode
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
+import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
 import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CancellationException
@@ -291,7 +292,13 @@ internal class LocationRequestCoordinator(
         permissions: LocationPermissionSnapshot,
     ): ResolvedRequestPlan {
         val explicitBackgroundTracking = state.tracking && state.screenState.isNonInteractive && state.backgroundGps
-        val activeBackgroundTracking = explicitBackgroundTracking && state.runtimeReason == "recording"
+        val activeBackgroundTracking =
+            explicitBackgroundTracking &&
+                (
+                    state.runtimeReason == NavigationRuntimeDemandReason.RECORDING ||
+                        state.runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_AMBIENT ||
+                        state.runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND
+                )
         val passiveExperimentListening =
             state.passiveLocationExperiment && !state.watchOnlyEffective && state.keepOpen
         val passiveTracking =

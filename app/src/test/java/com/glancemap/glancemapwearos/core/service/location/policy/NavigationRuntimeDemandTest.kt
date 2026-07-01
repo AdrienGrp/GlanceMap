@@ -115,6 +115,22 @@ class NavigationRuntimeDemandTest {
     }
 
     @Test
+    fun turnByTurnScreenOffRequiresGuidanceAmbientSettingEvenIfLifecycleResumed() {
+        val demand =
+            demand(
+                isNavigateScreen = true,
+                screenState = LocationScreenState.SCREEN_OFF,
+                isScreenResumed = true,
+                turnByTurnActive = true,
+                turnByTurnGpsInAmbient = false,
+            )
+
+        assertFalse(demand.trackingEnabled)
+        assertFalse(demand.backgroundGpsEnabled)
+        assertEquals(NavigationRuntimeDemandReason.IDLE, demand.reason)
+    }
+
+    @Test
     fun turnByTurnGuidanceAmbientKeepsGpsInScreenOff() {
         val demand =
             demand(

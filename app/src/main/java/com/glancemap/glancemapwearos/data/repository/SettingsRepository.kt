@@ -14,8 +14,14 @@ interface SettingsRepository {
         const val MIN_AMBIENT_GPS_INTERVAL_MS = 1_000L
         const val MAX_AMBIENT_GPS_INTERVAL_MS = 120_000L
         const val RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS = -1
-        const val DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS = 5
+        const val GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS = 0
+        const val DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS = 3
         const val DEFAULT_BIKE_RECORDING_SAMPLE_INTERVAL_SECONDS = 1
+        const val DEFAULT_RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS = GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
+        const val RECORDING_AUTO_PAUSE_OFF = "OFF"
+        const val RECORDING_AUTO_PAUSE_BIKE_ONLY = "BIKE_ONLY"
+        const val RECORDING_AUTO_PAUSE_ALWAYS = "ALWAYS"
+        const val DEFAULT_RECORDING_AUTO_PAUSE_MODE = RECORDING_AUTO_PAUSE_OFF
         const val RECORDING_METRIC_DISTANCE = "distance"
         const val RECORDING_METRIC_DURATION = "duration"
         const val RECORDING_METRIC_ELEVATION_GAIN = "elevation_gain"
@@ -130,6 +136,8 @@ interface SettingsRepository {
         const val DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED = false
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS = 40
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS = 60
+        const val DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS = 3
+        const val DEFAULT_TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS = GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
         const val DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE = true
         const val TURN_BY_TURN_METRIC_REMAINING_DISTANCE = "remaining_distance"
         const val TURN_BY_TURN_METRIC_REMAINING_ASCENT = "remaining_ascent"
@@ -248,6 +256,14 @@ interface SettingsRepository {
 
     suspend fun setRecordingSampleIntervalSeconds(seconds: Int)
 
+    val recordingScreenOffSampleIntervalSeconds: Flow<Int>
+
+    suspend fun setRecordingScreenOffSampleIntervalSeconds(seconds: Int)
+
+    val recordingAutoPauseMode: Flow<String>
+
+    suspend fun setRecordingAutoPauseMode(mode: String)
+
     val recordingElevationSource: Flow<String>
 
     suspend fun setRecordingElevationSource(source: String)
@@ -360,6 +376,14 @@ interface SettingsRepository {
     val turnByTurnGpsInAmbientMode: Flow<Boolean>
 
     suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean)
+
+    val turnByTurnGpsIntervalSeconds: Flow<Int>
+
+    suspend fun setTurnByTurnGpsIntervalSeconds(seconds: Int)
+
+    val turnByTurnScreenOffGpsIntervalSeconds: Flow<Int>
+
+    suspend fun setTurnByTurnScreenOffGpsIntervalSeconds(seconds: Int)
 
     val turnByTurnBrouterGuideBackEnabled: Flow<Boolean>
 

@@ -54,6 +54,7 @@ class TraceRecordingDraftStore(
                 TraceRecordingDraft(
                     active = json.optBoolean("active", true),
                     paused = json.optBoolean("paused", false),
+                    autoPaused = json.optBoolean("autoPaused", false),
                     startedAtMillis = json.optLong("startedAtMillis", 0L).takeIf { it > 0L },
                     pausedAtMillis = json.optLong("pausedAtMillis", 0L).takeIf { it > 0L },
                     accumulatedPausedMillis = json.optLong("accumulatedPausedMillis", 0L).coerceAtLeast(0L),
@@ -78,6 +79,7 @@ class TraceRecordingDraftStore(
             JSONObject()
                 .put("active", state.active)
                 .put("paused", state.paused)
+                .put("autoPaused", state.autoPaused)
                 .put("startedAtMillis", state.startedAtMillis ?: 0L)
                 .put("pausedAtMillis", state.pausedAtMillis ?: 0L)
                 .put("accumulatedPausedMillis", state.accumulatedPausedMillis)
@@ -116,6 +118,7 @@ class TraceRecordingDraftStore(
 data class TraceRecordingDraft(
     val active: Boolean,
     val paused: Boolean,
+    val autoPaused: Boolean,
     val startedAtMillis: Long?,
     val pausedAtMillis: Long?,
     val accumulatedPausedMillis: Long,

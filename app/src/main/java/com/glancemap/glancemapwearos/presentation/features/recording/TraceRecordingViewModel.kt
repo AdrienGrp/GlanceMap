@@ -53,6 +53,7 @@ class TraceRecordingViewModel(
     private var recordingSpeedSource = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE
     private var recordingDistanceSource = SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE
     private var recordingStepsSource = SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE
+    private var recordingAutoPauseMode = SettingsRepository.DEFAULT_RECORDING_AUTO_PAUSE_MODE
     private var recordingExternalHeartRateAddress: String? = null
     private var recordingExternalRunPodAddress: String? = null
     private var userWeightKg = SettingsRepository.DEFAULT_USER_WEIGHT_KG
@@ -98,10 +99,17 @@ class TraceRecordingViewModel(
     private var externalIntegratedDistanceMeters: Double? = null
     private var externalSpeedIntegrationLastTimeMillis: Long? = null
     private var externalSpeedIntegrationLastMps: Float? = null
+    private var autoPauseStationarySinceElapsedMs: Long? = null
+    private var autoPauseMovingSinceElapsedMs: Long? = null
+    private var autoPauseTriggerCount = 0
+    private var autoResumeTriggerCount = 0
 
     init {
         settingsRepository.recordingSampleIntervalSeconds
             .onEach { sampleIntervalSeconds = it }
+            .launchIn(viewModelScope)
+        settingsRepository.recordingAutoPauseMode
+            .onEach { recordingAutoPauseMode = it }
             .launchIn(viewModelScope)
         settingsRepository.recordingElevationSource
             .onEach { recordingElevationSource = it }
@@ -279,13 +287,14 @@ class TraceRecordingViewModel(
                 speedSource = recordingSpeedSource,
                 distanceSource = recordingDistanceSource,
                 stepsSource = recordingStepsSource,
-                message = "REC on",
+                message = "REC on · ${recordingProfileLabel(activityProfile)}",
             )
         DebugTelemetry.log(
             "TraceRecording",
             "event=start sampleIntervalSeconds=$sampleIntervalSeconds elevationSource=$recordingElevationSource " +
                 "cadenceSource=$recordingCadenceSource speedSource=$recordingSpeedSource " +
                 "distanceSource=$recordingDistanceSource stepsSource=$recordingStepsSource " +
+                "activityProfile=$activityProfile " +
                 "draftPath=${sanitizeTelemetryValue(draftStore.draftPath())} lastUiAction=$lastUiAction",
         )
         persistDraftAsync(reason = "start")
@@ -295,7 +304,7 @@ class TraceRecordingViewModel(
         if (location == null) return
         val state = _uiState.value
         if (!state.active || state.saving) return
-        if (state.paused) {
+        if (state.paused && !state.autoPaused) {
             skippedPausedCount += 1
             return
         }
@@ -315,6 +324,15 @@ class TraceRecordingViewModel(
         _uiState.value = _uiState.value.copy(latestLivePoint = livePoint)
 
         val nowElapsedMs = SystemClock.elapsedRealtime()
+        if (state.paused && state.autoPaused) {
+            if (!maybeAutoResumeRecording(livePoint = livePoint, nowElapsedMs = nowElapsedMs)) {
+                skippedPausedCount += 1
+                return
+            }
+        } else if (maybeAutoPauseRecording(state = state, livePoint = livePoint, nowElapsedMs = nowElapsedMs)) {
+            skippedPausedCount += 1
+            return
+        }
         val forceAcceptReason =
             forceAcceptNextGoodFixReason
                 ?.takeIf { shouldForceAcceptNextFix(nowElapsedMs) }
@@ -582,10 +600,12 @@ class TraceRecordingViewModel(
     fun pauseRecording() {
         val state = _uiState.value
         if (!state.active || state.paused || state.saving) return
+        resetAutoPauseMotionState()
         lastUiAction = "pause"
         _uiState.value =
             state.copy(
                 paused = true,
+                autoPaused = false,
                 pausedAtMillis = System.currentTimeMillis(),
                 message = "REC paused",
             )
@@ -604,10 +624,12 @@ class TraceRecordingViewModel(
         lastAcceptedElapsedMs = Long.MIN_VALUE
         lastAcceptedPointTimeMillis = null
         startNewSegmentOnNextPoint = state.points.isNotEmpty()
+        resetAutoPauseMotionState()
         lastUiAction = "resume"
         _uiState.value =
             state.copy(
                 paused = false,
+                autoPaused = false,
                 pausedAtMillis = null,
                 accumulatedPausedMillis = state.accumulatedPausedMillis + addedPausedMillis,
                 message = "REC on",
@@ -644,6 +666,7 @@ class TraceRecordingViewModel(
             state.copy(
                 active = false,
                 paused = false,
+                autoPaused = false,
                 saving = true,
                 accumulatedPausedMillis = state.accumulatedPausedMillis + finalPausedMillis,
                 message = "Saving REC",
@@ -669,6 +692,7 @@ class TraceRecordingViewModel(
                                     state.copy(
                                         accumulatedPausedMillis = state.accumulatedPausedMillis + finalPausedMillis,
                                         paused = false,
+                                        autoPaused = false,
                                         pausedAtMillis = null,
                                     ),
                                 nowMillis = now,
@@ -776,6 +800,7 @@ class TraceRecordingViewModel(
                 TraceRecordingUiState(
                     active = true,
                     paused = draft.paused,
+                    autoPaused = draft.autoPaused,
                     saving = false,
                     points = draft.points,
                     latestLivePoint = draft.points.lastOrNull(),
@@ -886,6 +911,242 @@ class TraceRecordingViewModel(
         stepSensorEventCount = 0
         cadenceSensorEventCount = 0
         pressureSensorEventCount = 0
+        resetAutoPauseMotionState()
+        autoPauseTriggerCount = 0
+        autoResumeTriggerCount = 0
+    }
+
+    private fun maybeAutoPauseRecording(
+        state: TraceRecordingUiState,
+        livePoint: RecordedTracePoint,
+        nowElapsedMs: Long,
+    ): Boolean {
+        if (!isAutoPauseEnabledForCurrentProfile()) {
+            resetAutoPauseMotionState()
+            return false
+        }
+        val startedAtMillis = state.startedAtMillis ?: return false
+        if (System.currentTimeMillis() - startedAtMillis < AUTO_PAUSE_START_GRACE_MS) return false
+        val previousPoint = state.points.lastOrNull() ?: return false
+        if (state.points.size < AUTO_PAUSE_MIN_POINTS) return false
+        if (!hasReliableAutoPauseFix(livePoint)) {
+            autoPauseStationarySinceElapsedMs = null
+            return false
+        }
+        if (!isAutoPauseStationary(livePoint = livePoint, previousPoint = previousPoint)) {
+            autoPauseStationarySinceElapsedMs = null
+            return false
+        }
+        val stationarySince =
+            autoPauseStationarySinceElapsedMs ?: nowElapsedMs.also {
+                autoPauseStationarySinceElapsedMs = it
+            }
+        val stationaryDurationMs = nowElapsedMs - stationarySince
+        if (stationaryDurationMs < autoPauseStopDurationMs()) return false
+
+        autoPauseTriggerCount += 1
+        resetAutoPauseMotionState()
+        val nowMillis = System.currentTimeMillis()
+        lastUiAction = "auto_pause"
+        _uiState.value =
+            state.copy(
+                paused = true,
+                autoPaused = true,
+                pausedAtMillis = nowMillis,
+                latestLivePoint = livePoint,
+                message = "REC auto-paused",
+            )
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=auto_pause count=$autoPauseTriggerCount " +
+                "mode=$recordingAutoPauseMode activityProfile=$activityProfile " +
+                "stationaryDurationMs=$stationaryDurationMs " +
+                autoPauseMotionTelemetry(livePoint, previousPoint),
+        )
+        persistDraftAsync(reason = "auto_pause")
+        return true
+    }
+
+    private fun maybeAutoResumeRecording(
+        livePoint: RecordedTracePoint,
+        nowElapsedMs: Long,
+    ): Boolean {
+        val state = _uiState.value
+        if (!state.active || !state.paused || !state.autoPaused || state.saving) return false
+        val previousPoint = state.points.lastOrNull()
+        if (!isAutoPauseEnabledForCurrentProfile()) {
+            autoResumeRecording(
+                state = state,
+                livePoint = livePoint,
+                nowElapsedMs = nowElapsedMs,
+                movingDurationMs = 0L,
+                reason = "setting_off",
+            )
+            return true
+        }
+        if (previousPoint == null || !hasReliableAutoPauseFix(livePoint)) {
+            autoPauseMovingSinceElapsedMs = null
+            return false
+        }
+        if (!isAutoPauseMoving(livePoint = livePoint, previousPoint = previousPoint)) {
+            autoPauseMovingSinceElapsedMs = null
+            return false
+        }
+        val movingSince =
+            autoPauseMovingSinceElapsedMs ?: nowElapsedMs.also {
+                autoPauseMovingSinceElapsedMs = it
+            }
+        val movingDurationMs = nowElapsedMs - movingSince
+        if (movingDurationMs < autoPauseResumeDurationMs()) return false
+        autoResumeRecording(
+            state = state,
+            livePoint = livePoint,
+            nowElapsedMs = nowElapsedMs,
+            movingDurationMs = movingDurationMs,
+            reason = "movement",
+        )
+        return true
+    }
+
+    private fun autoResumeRecording(
+        state: TraceRecordingUiState,
+        livePoint: RecordedTracePoint,
+        nowElapsedMs: Long,
+        movingDurationMs: Long,
+        reason: String,
+    ) {
+        val nowMillis = System.currentTimeMillis()
+        val addedPausedMillis = state.pausedAtMillis?.let { nowMillis - it }?.coerceAtLeast(0L) ?: 0L
+        lastAcceptedElapsedMs = Long.MIN_VALUE
+        lastAcceptedPointTimeMillis = null
+        startNewSegmentOnNextPoint = state.points.isNotEmpty()
+        resetAutoPauseMotionState()
+        autoResumeTriggerCount += 1
+        lastUiAction = "auto_resume"
+        _uiState.value =
+            state.copy(
+                paused = false,
+                autoPaused = false,
+                pausedAtMillis = null,
+                latestLivePoint = livePoint,
+                accumulatedPausedMillis = state.accumulatedPausedMillis + addedPausedMillis,
+                message = "REC on",
+            )
+        DebugTelemetry.log(
+            "TraceRecording",
+            "event=auto_resume count=$autoResumeTriggerCount reason=$reason " +
+                "mode=$recordingAutoPauseMode activityProfile=$activityProfile " +
+                "movingDurationMs=$movingDurationMs pausedAddedMs=$addedPausedMillis " +
+                "nowElapsedMs=$nowElapsedMs " +
+                autoPauseMotionTelemetry(livePoint, state.points.lastOrNull()),
+        )
+        persistDraftAsync(reason = "auto_resume")
+    }
+
+    private fun resetAutoPauseMotionState() {
+        autoPauseStationarySinceElapsedMs = null
+        autoPauseMovingSinceElapsedMs = null
+    }
+
+    private fun isAutoPauseEnabledForCurrentProfile(): Boolean =
+        when (recordingAutoPauseMode) {
+            SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS -> true
+            SettingsRepository.RECORDING_AUTO_PAUSE_BIKE_ONLY ->
+                activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
+            else -> false
+        }
+
+    private fun hasReliableAutoPauseFix(livePoint: RecordedTracePoint): Boolean {
+        val accuracy = livePoint.accuracyMeters ?: return false
+        if (!accuracy.isFinite() || accuracy < 0f) return false
+        return accuracy <= autoPauseMaxAccuracyMeters()
+    }
+
+    private fun isAutoPauseStationary(
+        livePoint: RecordedTracePoint,
+        previousPoint: RecordedTracePoint,
+    ): Boolean {
+        val speed = livePoint.speedMps?.takeIf { it.isFinite() && it >= 0f }
+        val distanceMeters = haversineMeters(previousPoint.latLong, livePoint.latLong)
+        val radiusMeters = autoPauseStationaryRadiusMeters(livePoint)
+        return (speed == null || speed <= autoPauseStopSpeedMps()) && distanceMeters <= radiusMeters
+    }
+
+    private fun isAutoPauseMoving(
+        livePoint: RecordedTracePoint,
+        previousPoint: RecordedTracePoint,
+    ): Boolean {
+        val speed = livePoint.speedMps?.takeIf { it.isFinite() && it >= 0f }
+        val distanceMeters = haversineMeters(previousPoint.latLong, livePoint.latLong)
+        return speed?.let { it >= autoPauseResumeSpeedMps() } == true ||
+            distanceMeters >= autoPauseResumeDistanceMeters(livePoint)
+    }
+
+    private fun autoPauseMotionTelemetry(
+        livePoint: RecordedTracePoint,
+        previousPoint: RecordedTracePoint?,
+    ): String {
+        val distanceMeters = previousPoint?.let { haversineMeters(it.latLong, livePoint.latLong) }
+        return "speedMps=${livePoint.speedMps?.formatTelemetry(2) ?: "na"} " +
+            "accuracyMeters=${livePoint.accuracyMeters?.formatTelemetry(1) ?: "na"} " +
+            "distanceFromLastPointMeters=${distanceMeters?.formatTelemetry(1) ?: "na"}"
+    }
+
+    private fun autoPauseStopDurationMs(): Long =
+        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+            AUTO_PAUSE_BIKE_STOP_DURATION_MS
+        } else {
+            AUTO_PAUSE_HIKE_STOP_DURATION_MS
+        }
+
+    private fun autoPauseResumeDurationMs(): Long =
+        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+            AUTO_PAUSE_BIKE_RESUME_DURATION_MS
+        } else {
+            AUTO_PAUSE_HIKE_RESUME_DURATION_MS
+        }
+
+    private fun autoPauseStopSpeedMps(): Float =
+        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+            AUTO_PAUSE_BIKE_STOP_SPEED_MPS
+        } else {
+            AUTO_PAUSE_HIKE_STOP_SPEED_MPS
+        }
+
+    private fun autoPauseResumeSpeedMps(): Float =
+        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+            AUTO_PAUSE_BIKE_RESUME_SPEED_MPS
+        } else {
+            AUTO_PAUSE_HIKE_RESUME_SPEED_MPS
+        }
+
+    private fun autoPauseMaxAccuracyMeters(): Float =
+        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+            AUTO_PAUSE_BIKE_MAX_ACCURACY_M
+        } else {
+            AUTO_PAUSE_HIKE_MAX_ACCURACY_M
+        }
+
+    private fun autoPauseStationaryRadiusMeters(livePoint: RecordedTracePoint): Double {
+        val base =
+            if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                AUTO_PAUSE_BIKE_STATIONARY_RADIUS_M
+            } else {
+                AUTO_PAUSE_HIKE_STATIONARY_RADIUS_M
+            }
+        val accuracy = livePoint.accuracyMeters?.takeIf { it.isFinite() && it >= 0f } ?: return base.toDouble()
+        return maxOf(base, accuracy * AUTO_PAUSE_ACCURACY_RADIUS_FACTOR).toDouble()
+    }
+
+    private fun autoPauseResumeDistanceMeters(livePoint: RecordedTracePoint): Double {
+        val base =
+            if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                AUTO_PAUSE_BIKE_RESUME_DISTANCE_M
+            } else {
+                AUTO_PAUSE_HIKE_RESUME_DISTANCE_M
+            }
+        val accuracy = livePoint.accuracyMeters?.takeIf { it.isFinite() && it >= 0f } ?: return base.toDouble()
+        return maxOf(base, accuracy * AUTO_PAUSE_ACCURACY_RESUME_FACTOR).toDouble()
     }
 
     private fun latestFreshSensorMetrics(nowMillis: Long): RecordingSensorMetrics? {
@@ -1070,7 +1331,8 @@ class TraceRecordingViewModel(
             "displayDistanceMeters=${displaySnapshot.distanceMeters.toInt()} " +
             "podSessionDistanceMeters=${state.externalDistanceMeters?.toInt() ?: -1} " +
             "podIntegratedDistanceMeters=${state.externalIntegratedDistanceMeters?.toInt() ?: -1} " +
-            "active=${state.active} paused=${state.paused} lastUiAction=${lastUiAction ?: "na"} " +
+            "active=${state.active} paused=${state.paused} autoPaused=${state.autoPaused} " +
+            "lastUiAction=${lastUiAction ?: "na"} " +
             "durationMs=$durationMillis pausedMs=$pausedMillis " +
             "cadenceSource=$recordingCadenceSource speedSource=$recordingSpeedSource " +
             "distanceSource=$recordingDistanceSource stepsSource=$recordingStepsSource " +
@@ -1224,6 +1486,24 @@ private const val RECORDING_MIN_SAMPLE_ACCEPT_THRESHOLD_MS = 1_000L
 private const val EXTERNAL_SPEED_INTEGRATION_MAX_GAP_MS = 5_000L
 private const val SENSOR_SNAPSHOT_MAX_AGE_MS = 15_000L
 private const val MAX_RECORDING_TITLE_LENGTH = 64
+private const val AUTO_PAUSE_MIN_POINTS = 2
+private const val AUTO_PAUSE_START_GRACE_MS = 60_000L
+private const val AUTO_PAUSE_BIKE_STOP_DURATION_MS = 20_000L
+private const val AUTO_PAUSE_HIKE_STOP_DURATION_MS = 45_000L
+private const val AUTO_PAUSE_BIKE_RESUME_DURATION_MS = 5_000L
+private const val AUTO_PAUSE_HIKE_RESUME_DURATION_MS = 8_000L
+private const val AUTO_PAUSE_BIKE_STOP_SPEED_MPS = 0.8f
+private const val AUTO_PAUSE_HIKE_STOP_SPEED_MPS = 0.3f
+private const val AUTO_PAUSE_BIKE_RESUME_SPEED_MPS = 1.8f
+private const val AUTO_PAUSE_HIKE_RESUME_SPEED_MPS = 0.8f
+private const val AUTO_PAUSE_BIKE_MAX_ACCURACY_M = 30f
+private const val AUTO_PAUSE_HIKE_MAX_ACCURACY_M = 25f
+private const val AUTO_PAUSE_BIKE_STATIONARY_RADIUS_M = 15f
+private const val AUTO_PAUSE_HIKE_STATIONARY_RADIUS_M = 8f
+private const val AUTO_PAUSE_BIKE_RESUME_DISTANCE_M = 30f
+private const val AUTO_PAUSE_HIKE_RESUME_DISTANCE_M = 15f
+private const val AUTO_PAUSE_ACCURACY_RADIUS_FACTOR = 1.2f
+private const val AUTO_PAUSE_ACCURACY_RESUME_FACTOR = 1.5f
 
 private data class RecordingSaveInfo(
     val fileName: String,
@@ -1308,6 +1588,13 @@ private fun sanitizeTelemetryValue(value: String): String =
     value
         .replace(Regex("\\s+"), "_")
         .take(80)
+
+private fun recordingProfileLabel(activityProfile: String): String =
+    if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        "Bike"
+    } else {
+        "Hike"
+    }
 
 private fun Double.formatTelemetry(decimalPlaces: Int): String = String.format(Locale.US, "%.${decimalPlaces}f", this)
 

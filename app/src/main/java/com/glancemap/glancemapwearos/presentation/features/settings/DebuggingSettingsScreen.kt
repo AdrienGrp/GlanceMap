@@ -102,10 +102,14 @@ fun DebuggingSettingsScreen(
     val turnByTurnOffRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
     val turnByTurnOffRouteRepeatSeconds by viewModel.turnByTurnOffRouteRepeatSeconds.collectAsState()
     val turnByTurnGpsInAmbientMode by viewModel.turnByTurnGpsInAmbientMode.collectAsState()
+    val turnByTurnGpsIntervalSeconds by viewModel.turnByTurnGpsIntervalSeconds.collectAsState()
+    val turnByTurnScreenOffGpsIntervalSeconds by viewModel.turnByTurnScreenOffGpsIntervalSeconds.collectAsState()
     val turnByTurnBrouterGuideBackEnabled by viewModel.turnByTurnBrouterGuideBackEnabled.collectAsState()
     val turnByTurnRouteStartBehavior by viewModel.turnByTurnRouteStartBehavior.collectAsState()
     val turnByTurnReverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
     val recordingSampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
+    val recordingScreenOffSampleIntervalSeconds by viewModel.recordingScreenOffSampleIntervalSeconds.collectAsState()
+    val recordingAutoPauseMode by viewModel.recordingAutoPauseMode.collectAsState()
     val recordingElevationSource by viewModel.recordingElevationSource.collectAsState()
     val recordingHeartRateSource by viewModel.recordingHeartRateSource.collectAsState()
     val recordingCadenceSource by viewModel.recordingCadenceSource.collectAsState()
@@ -417,6 +421,9 @@ fun DebuggingSettingsScreen(
                                                 gpsPassiveLocationExperiment = gpsPassiveLocationExperiment,
                                                 backButtonExitsNavigation = backButtonExitsNavigation,
                                                 recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
+                                                recordingScreenOffSampleIntervalSeconds =
+                                                recordingScreenOffSampleIntervalSeconds,
+                                                recordingAutoPauseMode = recordingAutoPauseMode,
                                                 recordingElevationSource = recordingElevationSource,
                                                 recordingHeartRateSource = recordingHeartRateSource,
                                                 recordingCadenceSource = recordingCadenceSource,
@@ -440,6 +447,9 @@ fun DebuggingSettingsScreen(
                                                 backpackWeightKg = backpackWeightKg,
                                                 bikeWeightKg = bikeWeightKg,
                                                 turnByTurnGuidanceSource = turnByTurnGuidanceSource,
+                                                turnByTurnGpsIntervalSeconds = turnByTurnGpsIntervalSeconds,
+                                                turnByTurnScreenOffGpsIntervalSeconds =
+                                                turnByTurnScreenOffGpsIntervalSeconds,
                                                 turnByTurnHapticsEnabled = turnByTurnHapticsEnabled,
                                                 turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
                                                 turnByTurnTurnAlertsMode = turnByTurnTurnAlertsMode,

@@ -21,6 +21,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
+import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
+import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
 import com.glancemap.glancemapwearos.data.repository.PoiType
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
@@ -184,8 +187,17 @@ fun NavigateScreen(
         val offlinePoiSearchUiState by poiViewModel.offlineSearchUiState.collectAsState()
         val traceRecordingState by traceRecordingViewModel.uiState.collectAsState()
         val recordingSampleIntervalSeconds by settingsViewModel.recordingSampleIntervalSeconds.collectAsState()
-        val recordingGpsEnabled =
+        val recordingScreenOffSampleIntervalSeconds by settingsViewModel.recordingScreenOffSampleIntervalSeconds.collectAsState()
+        val turnByTurnGpsIntervalSeconds by settingsViewModel.turnByTurnGpsIntervalSeconds.collectAsState()
+        val turnByTurnScreenOffGpsIntervalSeconds by settingsViewModel.turnByTurnScreenOffGpsIntervalSeconds.collectAsState()
+        val recordingScreenOnGpsEnabled =
             recordingSampleIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+        val recordingScreenOffGpsEnabled =
+            when (recordingScreenOffSampleIntervalSeconds) {
+                SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> recordingScreenOnGpsEnabled
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                else -> true
+            }
         val recordingTraceSegments =
             remember(traceRecordingState.points) {
                 recordedTraceSegments(traceRecordingState.points)
@@ -255,7 +267,8 @@ fun NavigateScreen(
                 offlineMode = offlineMode,
                 generalGpsInAmbient = keepGpsInAmbient,
                 traceRecordingState = traceRecordingState,
-                recordingGpsEnabled = recordingGpsEnabled,
+                recordingScreenOnGpsEnabled = recordingScreenOnGpsEnabled,
+                recordingScreenOffGpsEnabled = recordingScreenOffGpsEnabled,
                 turnByTurnActive = turnByTurnGuidanceSession != null,
                 turnByTurnPaused = turnByTurnGuidancePaused,
                 turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
@@ -264,6 +277,24 @@ fun NavigateScreen(
             )
         val screenState = runtimeState.screenState
         val shouldTrackLocation = runtimeState.shouldTrackLocation
+        val expectedMarkerGpsIntervalMs =
+            remember(
+                runtimeState.reason,
+                screenState,
+                recordingSampleIntervalSeconds,
+                recordingScreenOffSampleIntervalSeconds,
+                turnByTurnGpsIntervalSeconds,
+                turnByTurnScreenOffGpsIntervalSeconds,
+            ) {
+                expectedMarkerGpsIntervalMs(
+                    runtimeReason = runtimeState.reason,
+                    screenState = screenState,
+                    recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
+                    recordingScreenOffSampleIntervalSeconds = recordingScreenOffSampleIntervalSeconds,
+                    turnByTurnGpsIntervalSeconds = turnByTurnGpsIntervalSeconds,
+                    turnByTurnScreenOffGpsIntervalSeconds = turnByTurnScreenOffGpsIntervalSeconds,
+                )
+            }
         val effectiveNavMode = if (offlineMode) NavMode.PANNING else navMode
         // ---- Heading + Accuracy ----
         val compassUiState =
@@ -439,8 +470,7 @@ fun NavigateScreen(
                 shouldTrackLocation = shouldTrackLocation,
                 shouldFollowPosition = shouldFollowPosition,
                 screenState = screenState,
-                // Keep marker-motion timing stable; the 1s wake burst is a service detail.
-                expectedGpsIntervalMs = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
+                expectedGpsIntervalMs = expectedMarkerGpsIntervalMs,
                 navigationMarkerBitmap = navigationMarkerBitmap,
                 suppressLocationMarker = offlineMode,
                 navigationMarkerAnchorMode = effectiveNavigationMarkerAnchorMode,
@@ -851,7 +881,7 @@ fun NavigateScreen(
             routeToolRenameInProgress = routeToolRenameInProgress,
             routeToolRenameError = routeToolRenameError,
             isMetric = isMetric,
-            recordingGpsEnabled = recordingGpsEnabled,
+            recordingGpsEnabled = recordingScreenOnGpsEnabled,
             gpxViewModel = gpxViewModel,
             onSetRouteToolResult = { routeToolResult = it },
             onSetRouteToolRenameInProgress = { routeToolRenameInProgress = it },
@@ -1091,5 +1121,52 @@ fun NavigateScreen(
         }
     }
 }
+
+private fun expectedMarkerGpsIntervalMs(
+    runtimeReason: String,
+    screenState: LocationScreenState,
+    recordingSampleIntervalSeconds: Int,
+    recordingScreenOffSampleIntervalSeconds: Int,
+    turnByTurnGpsIntervalSeconds: Int,
+    turnByTurnScreenOffGpsIntervalSeconds: Int,
+): Long {
+    val recordingScreenOnMs = gpsIntervalMsOrDefault(recordingSampleIntervalSeconds)
+    val recordingScreenOffMs =
+        screenOffGpsIntervalMs(
+            screenOnIntervalMs = recordingScreenOnMs,
+            screenOffSeconds = recordingScreenOffSampleIntervalSeconds,
+        )
+    val turnByTurnScreenOnMs = gpsIntervalMsOrDefault(turnByTurnGpsIntervalSeconds)
+    val turnByTurnScreenOffMs =
+        screenOffGpsIntervalMs(
+            screenOnIntervalMs = turnByTurnScreenOnMs,
+            screenOffSeconds = turnByTurnScreenOffGpsIntervalSeconds,
+        )
+    return when (runtimeReason) {
+        NavigationRuntimeDemandReason.RECORDING ->
+            if (screenState.isNonInteractive) recordingScreenOffMs else recordingScreenOnMs
+        NavigationRuntimeDemandReason.GUIDANCE_VISIBLE,
+        NavigationRuntimeDemandReason.GUIDANCE_AMBIENT,
+        NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND,
+        -> if (screenState.isNonInteractive) turnByTurnScreenOffMs else turnByTurnScreenOnMs
+        else -> SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+    }
+}
+
+private fun screenOffGpsIntervalMs(
+    screenOnIntervalMs: Long,
+    screenOffSeconds: Int,
+): Long =
+    when (screenOffSeconds) {
+        SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> screenOnIntervalMs
+        SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+        else -> gpsIntervalMsOrDefault(screenOffSeconds)
+    }
+
+private fun gpsIntervalMsOrDefault(seconds: Int): Long =
+    when (seconds) {
+        SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+        else -> seconds.coerceAtLeast(1) * 1_000L
+    }
 
 private const val RECORDING_STATUS_MESSAGE_DURATION_MS = 1_200L

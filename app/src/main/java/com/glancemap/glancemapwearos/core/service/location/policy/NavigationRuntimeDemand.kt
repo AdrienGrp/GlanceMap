@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.core.service.location.policy
 
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.model.isInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 
 data class NavigationRuntimeDemand(
@@ -35,7 +36,7 @@ fun navigationRuntimeDemand(
             guidanceBackgroundDemand ||
             recordingDemand
     val backgroundGpsModeActive = backgroundGpsEnabled && screenState.isNonInteractive
-    val navigateVisibleDemand = isNavigateScreen && isScreenResumed
+    val navigateVisibleDemand = isNavigateScreen && isScreenResumed && screenState.isInteractive
     val guidanceOutsideNavigateDemand = !isNavigateScreen && guidanceBackgroundDemand
     val trackingEnabled =
         navigateVisibleDemand ||

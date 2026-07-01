@@ -148,6 +148,15 @@ class LocationService : Service() {
     @Volatile private var latestRecordingIntervalMs: Long =
         SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS * 1_000L
 
+    @Volatile private var latestRecordingScreenOffIntervalMs: Long =
+        SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS * 1_000L
+
+    @Volatile private var latestTurnByTurnIntervalMs: Long =
+        SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS * 1_000L
+
+    @Volatile private var latestTurnByTurnScreenOffIntervalMs: Long =
+        SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS * 1_000L
+
     @Volatile private var latestAmbientIntervalMs: Long = SettingsRepository.DEFAULT_AMBIENT_GPS_INTERVAL_MS
 
     @Volatile private var latestTrackingEnabled: Boolean = false
@@ -304,10 +313,20 @@ class LocationService : Service() {
                 },
                 currentState = {
                     val effectiveUserIntervalMs =
-                        if (latestRuntimeReason == "recording") {
-                            minOf(latestUserIntervalMs, latestRecordingIntervalMs)
-                        } else {
-                            latestUserIntervalMs
+                        when {
+                            latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING ->
+                                if (latestScreenState.isNonInteractive) {
+                                    latestRecordingScreenOffIntervalMs
+                                } else {
+                                    latestRecordingIntervalMs
+                                }
+                            latestRuntimeReason.isGuidanceRuntimeReason() ->
+                                if (latestScreenState.isNonInteractive) {
+                                    latestTurnByTurnScreenOffIntervalMs
+                                } else {
+                                    latestTurnByTurnIntervalMs
+                                }
+                            else -> latestUserIntervalMs
                         }
                     RequestUpdateState(
                         bound = isBound.value,
@@ -402,17 +421,46 @@ class LocationService : Service() {
                 latestRecordingIntervalMs =
                     recordingIntervalMillis(settingsRepository.recordingSampleIntervalSeconds.first())
             }
+            runCatching {
+                latestRecordingScreenOffIntervalMs =
+                    screenOffIntervalMillis(
+                        screenOnIntervalMs = latestRecordingIntervalMs,
+                        screenOffSeconds = settingsRepository.recordingScreenOffSampleIntervalSeconds.first(),
+                    )
+            }
+            runCatching {
+                latestTurnByTurnIntervalMs =
+                    gpsIntervalMillis(settingsRepository.turnByTurnGpsIntervalSeconds.first())
+            }
+            runCatching {
+                latestTurnByTurnScreenOffIntervalMs =
+                    screenOffIntervalMillis(
+                        screenOnIntervalMs = latestTurnByTurnIntervalMs,
+                        screenOffSeconds = settingsRepository.turnByTurnScreenOffGpsIntervalSeconds.first(),
+                    )
+            }
             requestLocationUpdateIfNeeded()
         }
 
         observeGpsSettings()
     }
 
-    private fun recordingIntervalMillis(recordingSampleSeconds: Int): Long =
-        if (recordingSampleSeconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) {
+    private fun recordingIntervalMillis(recordingSampleSeconds: Int): Long = gpsIntervalMillis(recordingSampleSeconds)
+
+    private fun gpsIntervalMillis(seconds: Int): Long =
+        if (seconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) {
             Long.MAX_VALUE
         } else {
-            recordingSampleSeconds.coerceAtLeast(1) * 1_000L
+            seconds.coerceAtLeast(1) * 1_000L
+        }
+
+    private fun screenOffIntervalMillis(
+        screenOnIntervalMs: Long,
+        screenOffSeconds: Int,
+    ): Long =
+        when (screenOffSeconds) {
+            SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> screenOnIntervalMs
+            else -> gpsIntervalMillis(screenOffSeconds)
         }
 
     override fun onStartCommand(
@@ -750,12 +798,33 @@ class LocationService : Service() {
                     intervalMs = interval,
                     ambientIntervalMs = ambientInterval,
                     recordingIntervalMs = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS * 1_000L,
+                    recordingScreenOffIntervalMs = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS * 1_000L,
+                    turnByTurnIntervalMs = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS * 1_000L,
+                    turnByTurnScreenOffIntervalMs = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS * 1_000L,
                     ambientGps = ambientGps,
                     debugTelemetry = debugTelemetry,
                     passiveLocationExperiment = false,
                 )
             }.combine(settingsRepository.recordingSampleIntervalSeconds) { state, recordingSampleSeconds ->
                 state.copy(recordingIntervalMs = recordingIntervalMillis(recordingSampleSeconds))
+            }.combine(settingsRepository.recordingScreenOffSampleIntervalSeconds) { state, recordingScreenOffSeconds ->
+                state.copy(
+                    recordingScreenOffIntervalMs =
+                        screenOffIntervalMillis(
+                            screenOnIntervalMs = state.recordingIntervalMs,
+                            screenOffSeconds = recordingScreenOffSeconds,
+                        ),
+                )
+            }.combine(settingsRepository.turnByTurnGpsIntervalSeconds) { state, turnByTurnSeconds ->
+                state.copy(turnByTurnIntervalMs = gpsIntervalMillis(turnByTurnSeconds))
+            }.combine(settingsRepository.turnByTurnScreenOffGpsIntervalSeconds) { state, turnByTurnScreenOffSeconds ->
+                state.copy(
+                    turnByTurnScreenOffIntervalMs =
+                        screenOffIntervalMillis(
+                            screenOnIntervalMs = state.turnByTurnIntervalMs,
+                            screenOffSeconds = turnByTurnScreenOffSeconds,
+                        ),
+                )
             }.combine(settingsRepository.gpsPassiveLocationExperiment) { state, passiveLocationExperiment ->
                 state.copy(passiveLocationExperiment = passiveLocationExperiment)
             }.collectLatest { state ->
@@ -774,6 +843,9 @@ class LocationService : Service() {
         latestWatchGpsOnly = state.watchOnly
         latestUserIntervalMs = state.intervalMs
         latestRecordingIntervalMs = state.recordingIntervalMs
+        latestRecordingScreenOffIntervalMs = state.recordingScreenOffIntervalMs
+        latestTurnByTurnIntervalMs = state.turnByTurnIntervalMs
+        latestTurnByTurnScreenOffIntervalMs = state.turnByTurnScreenOffIntervalMs
         latestAmbientIntervalMs = state.ambientIntervalMs
         latestAmbientGps = state.ambientGps
         latestGpsDebugTelemetry = debugTelemetryEnabledNow
@@ -1202,3 +1274,8 @@ class LocationService : Service() {
 private fun String.sanitizeTelemetryValue(): String =
     replace(Regex("\\s+"), "_")
         .take(80)
+
+private fun String.isGuidanceRuntimeReason(): Boolean =
+    this == NavigationRuntimeDemandReason.GUIDANCE_VISIBLE ||
+        this == NavigationRuntimeDemandReason.GUIDANCE_AMBIENT ||
+        this == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND

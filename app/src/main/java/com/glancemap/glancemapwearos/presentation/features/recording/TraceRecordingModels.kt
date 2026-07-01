@@ -21,6 +21,7 @@ data class RecordedTracePoint(
 data class TraceRecordingUiState(
     val active: Boolean = false,
     val paused: Boolean = false,
+    val autoPaused: Boolean = false,
     val saving: Boolean = false,
     val points: List<RecordedTracePoint> = emptyList(),
     val latestLivePoint: RecordedTracePoint? = null,
