@@ -2,10 +2,21 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.SplitSwitchButton
+import androidx.wear.compose.material3.SwitchButtonDefaults
+import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 
 @Composable
@@ -54,31 +65,23 @@ fun RecordingSourceSettingsScreen(
             }
         }
         item {
-            RecordingSourceToggle(
+            RecordingSourceSplitSetting(
                 label = "Elevation",
                 source = elevationSource,
                 defaultSource = SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE,
-                enabledLabel = recordingElevationSourceLabel(elevationSource),
+                options = elevationSourceOptions,
+                secondaryLabel = recordingElevationSourceLabel(elevationSource),
                 onSourceChange = viewModel::setRecordingElevationSource,
             )
         }
-        if (elevationSource.isRecordingSourceEnabled()) {
-            item {
-                SettingsOptionPickerRow(
-                    label = "Elevation source",
-                    selectedValue = elevationSource,
-                    options = elevationSourceOptions,
-                    secondaryLabel = recordingElevationSourceLabel(elevationSource),
-                    onSelect = viewModel::setRecordingElevationSource,
-                )
-            }
-        }
         item {
-            RecordingSourceToggle(
+            RecordingSourceSplitSetting(
                 label = "Heart rate",
+                dialogTitle = "HR source",
                 source = heartRateSource,
                 defaultSource = SettingsRepository.DEFAULT_RECORDING_HEART_RATE_SOURCE,
-                enabledLabel =
+                options = heartRateSourceOptions,
+                secondaryLabel =
                     recordingHeartRateSourceSecondaryLabel(
                         heartRateSource,
                         !linkedHeartRateAddress.isNullOrBlank(),
@@ -86,28 +89,13 @@ fun RecordingSourceSettingsScreen(
                 onSourceChange = viewModel::setRecordingHeartRateSource,
             )
         }
-        if (heartRateSource.isRecordingSourceEnabled()) {
-            item {
-                SettingsOptionPickerRow(
-                    label = "Heart rate source",
-                    dialogTitle = "HR source",
-                    selectedValue = heartRateSource,
-                    options = heartRateSourceOptions,
-                    secondaryLabel =
-                        recordingHeartRateSourceSecondaryLabel(
-                            heartRateSource,
-                            !linkedHeartRateAddress.isNullOrBlank(),
-                        ),
-                    onSelect = viewModel::setRecordingHeartRateSource,
-                )
-            }
-        }
         item {
-            RecordingSourceToggle(
+            RecordingSourceSplitSetting(
                 label = "Cadence",
                 source = cadenceSource,
                 defaultSource = SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE,
-                enabledLabel =
+                options = sensorSourceOptions,
+                secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         cadenceSource,
                         linkedSensorLabel,
@@ -115,27 +103,13 @@ fun RecordingSourceSettingsScreen(
                 onSourceChange = viewModel::setRecordingCadenceSource,
             )
         }
-        if (cadenceSource.isRecordingSourceEnabled()) {
-            item {
-                SettingsOptionPickerRow(
-                    label = "Cadence source",
-                    selectedValue = cadenceSource,
-                    options = sensorSourceOptions,
-                    secondaryLabel =
-                        recordingMetricSourceSecondaryLabel(
-                            cadenceSource,
-                            linkedSensorLabel,
-                        ),
-                    onSelect = viewModel::setRecordingCadenceSource,
-                )
-            }
-        }
         item {
-            RecordingSourceToggle(
+            RecordingSourceSplitSetting(
                 label = "Speed",
                 source = speedSource,
                 defaultSource = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE,
-                enabledLabel =
+                options = sensorSourceOptions,
+                secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         speedSource,
                         linkedSensorLabel,
@@ -143,27 +117,13 @@ fun RecordingSourceSettingsScreen(
                 onSourceChange = viewModel::setRecordingSpeedSource,
             )
         }
-        if (speedSource.isRecordingSourceEnabled()) {
-            item {
-                SettingsOptionPickerRow(
-                    label = "Speed source",
-                    selectedValue = speedSource,
-                    options = sensorSourceOptions,
-                    secondaryLabel =
-                        recordingMetricSourceSecondaryLabel(
-                            speedSource,
-                            linkedSensorLabel,
-                        ),
-                    onSelect = viewModel::setRecordingSpeedSource,
-                )
-            }
-        }
         item {
-            RecordingSourceToggle(
+            RecordingSourceSplitSetting(
                 label = "Distance",
                 source = distanceSource,
                 defaultSource = SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE,
-                enabledLabel =
+                options = sensorSourceOptions,
+                secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         distanceSource,
                         linkedSensorLabel,
@@ -171,48 +131,19 @@ fun RecordingSourceSettingsScreen(
                 onSourceChange = viewModel::setRecordingDistanceSource,
             )
         }
-        if (distanceSource.isRecordingSourceEnabled()) {
-            item {
-                SettingsOptionPickerRow(
-                    label = "Distance source",
-                    selectedValue = distanceSource,
-                    options = sensorSourceOptions,
-                    secondaryLabel =
-                        recordingMetricSourceSecondaryLabel(
-                            distanceSource,
-                            linkedSensorLabel,
-                        ),
-                    onSelect = viewModel::setRecordingDistanceSource,
-                )
-            }
-        }
         item {
-            RecordingSourceToggle(
+            RecordingSourceSplitSetting(
                 label = "Steps",
                 source = stepsSource,
                 defaultSource = SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE,
-                enabledLabel =
+                options = stepsSourceOptions,
+                secondaryLabel =
                     recordingMetricSourceSecondaryLabel(
                         stepsSource,
                         if (!linkedRunPodAddress.isNullOrBlank()) "Sensor if available" else "Link sensor first",
                     ),
                 onSourceChange = viewModel::setRecordingStepsSource,
             )
-        }
-        if (stepsSource.isRecordingSourceEnabled()) {
-            item {
-                SettingsOptionPickerRow(
-                    label = "Steps source",
-                    selectedValue = stepsSource,
-                    options = stepsSourceOptions,
-                    secondaryLabel =
-                        recordingMetricSourceSecondaryLabel(
-                            stepsSource,
-                            if (!linkedRunPodAddress.isNullOrBlank()) "Sensor if available" else "Link sensor first",
-                        ),
-                    onSelect = viewModel::setRecordingStepsSource,
-                )
-            }
         }
     }
 }
@@ -239,28 +170,72 @@ private val RECORDING_STEPS_SOURCE_OPTIONS =
     )
 
 @Composable
-private fun RecordingSourceToggle(
+private fun RecordingSourceSplitSetting(
     label: String,
     source: String,
     defaultSource: String,
-    enabledLabel: String,
+    options: List<Pair<String, String>>,
+    secondaryLabel: String,
     onSourceChange: (String) -> Unit,
+    dialogTitle: String = "$label source",
 ) {
     val enabled = source.isRecordingSourceEnabled()
-    SettingsToggleChip(
-        checked = enabled,
-        onCheckedChanged = { checked ->
-            onSourceChange(
-                if (checked) {
-                    defaultSource
-                } else {
-                    SettingsRepository.RECORDING_SOURCE_DISABLED
-                },
-            )
-        },
-        label = label,
-        secondaryLabel = if (enabled) enabledLabel else "Off",
-    )
+    SettingsOptionPickerHost(
+        title = dialogTitle,
+        selectedValue = source.takeIf { enabled } ?: defaultSource,
+        options = options,
+        onSelect = onSourceChange,
+    ) { openPicker ->
+        SplitSwitchButton(
+            checked = enabled,
+            onCheckedChange = { checked ->
+                onSourceChange(
+                    if (checked) {
+                        defaultSource
+                    } else {
+                        SettingsRepository.RECORDING_SOURCE_DISABLED
+                    },
+                )
+            },
+            toggleContentDescription = "Use $label",
+            onContainerClick = openPicker,
+            containerClickLabel = "Choose $label source",
+            modifier = Modifier.fillMaxWidth(),
+            colors =
+                SwitchButtonDefaults.splitSwitchButtonColors(
+                    checkedContainerColor = Color(0xFF5E6B7F),
+                    checkedContentColor = Color.White,
+                    checkedSecondaryContentColor = Color(0xFFE5E7EB),
+                    checkedSplitContainerColor = Color.Black.copy(alpha = 0.10f),
+                    uncheckedContainerColor = Color(0xFF2B2F36),
+                    uncheckedContentColor = Color(0xFFF1F5FB),
+                    uncheckedSecondaryContentColor = Color(0xFFBAC5D4),
+                    uncheckedSplitContainerColor = Color.Black.copy(alpha = 0.18f),
+                ),
+            label = {
+                Text(
+                    text = label,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (options.size > 1) {
+                    Icon(
+                        imageVector = Icons.Filled.UnfoldMore,
+                        contentDescription = "Choose $label source",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            },
+            secondaryLabel = {
+                Text(
+                    text = if (enabled) secondaryLabel else "Off",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+        )
+    }
 }
 
 private fun String.isRecordingSourceEnabled(): Boolean = this != SettingsRepository.RECORDING_SOURCE_DISABLED

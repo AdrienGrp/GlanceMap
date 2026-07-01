@@ -2,7 +2,9 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,6 +35,13 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listTokens = rememberSettingsListTokens()
+    val settingsUiPrefs =
+        remember {
+            context.getSharedPreferences(SETTINGS_UI_PREFS, android.content.Context.MODE_PRIVATE)
+        }
+    var advancedSettingsExpanded by remember {
+        mutableStateOf(settingsUiPrefs.getBoolean(ADVANCED_SETTINGS_EXPANDED_KEY, false))
+    }
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showClearPartialTransfersDialog by remember { mutableStateOf(false) }
     var isClearingCache by remember { mutableStateOf(false) }
@@ -97,7 +106,7 @@ fun SettingsScreen(
         }
         item {
             SettingsSectionChip(
-                label = "Recording settings",
+                label = "REC settings",
                 onClick = { navController.navigate(WatchRoutes.RECORDING_SETTINGS) },
             )
         }
@@ -139,63 +148,83 @@ fun SettingsScreen(
             )
         }
 
-        item { Text("Advanced settings", style = MaterialTheme.typography.titleMedium) }
-        item {
-            SettingsToggleChip(
-                checked = backButtonExitsNavigation,
-                onCheckedChanged = viewModel::setBackButtonExitsNavigation,
-                label = "Exit back button",
-                secondaryLabel = "For compatible watches",
-            )
-        }
         item {
             SettingsPickerChip(
-                label = if (isClearingCache) "Clearing cache..." else "Clear cache",
-                iconImageVector = null,
-                onClick = {
-                    if (!isClearingCache) {
-                        showClearCacheDialog = true
-                    }
-                },
-            )
-        }
-        item {
-            SettingsPickerChip(
-                label =
-                    if (isClearingPartialFiles) {
-                        "Clearing partial transfer..."
+                label = "Advanced settings",
+                secondaryLabel = if (advancedSettingsExpanded) "Hide advanced options" else "Show advanced options",
+                iconImageVector =
+                    if (advancedSettingsExpanded) {
+                        Icons.Filled.KeyboardArrowDown
                     } else {
-                        "Clear partial transfer"
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight
                     },
-                secondaryLabel = partialSummaryText,
-                iconImageVector = null,
                 onClick = {
-                    if (isClearingPartialFiles) return@SettingsPickerChip
-                    if (partialSummary.count <= 0) {
-                        Toast
-                            .makeText(
-                                context,
-                                "No partial transfer files",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                    } else {
-                        showClearPartialTransfersDialog = true
-                    }
+                    advancedSettingsExpanded = !advancedSettingsExpanded
+                    settingsUiPrefs
+                        .edit()
+                        .putBoolean(ADVANCED_SETTINGS_EXPANDED_KEY, advancedSettingsExpanded)
+                        .apply()
                 },
             )
         }
-        item {
-            SettingsPickerChip(
-                label = "Reset to Default",
-                iconImageVector = null,
-                onClick = { navController.navigate(WatchRoutes.RESET_DEFAULTS_CONFIRM) },
-            )
-        }
-        item {
-            SettingsSectionChip(
-                label = "Debugging",
-                onClick = { navController.navigate(WatchRoutes.DEBUG_SETTINGS) },
-            )
+        if (advancedSettingsExpanded) {
+            item {
+                SettingsToggleChip(
+                    checked = backButtonExitsNavigation,
+                    onCheckedChanged = viewModel::setBackButtonExitsNavigation,
+                    label = "Exit back button",
+                    secondaryLabel = "For compatible watches",
+                )
+            }
+            item {
+                SettingsPickerChip(
+                    label = if (isClearingCache) "Clearing cache..." else "Clear cache",
+                    iconImageVector = null,
+                    onClick = {
+                        if (!isClearingCache) {
+                            showClearCacheDialog = true
+                        }
+                    },
+                )
+            }
+            item {
+                SettingsPickerChip(
+                    label =
+                        if (isClearingPartialFiles) {
+                            "Clearing partial transfer..."
+                        } else {
+                            "Clear partial transfer"
+                        },
+                    secondaryLabel = partialSummaryText,
+                    iconImageVector = null,
+                    onClick = {
+                        if (isClearingPartialFiles) return@SettingsPickerChip
+                        if (partialSummary.count <= 0) {
+                            Toast
+                                .makeText(
+                                    context,
+                                    "No partial transfer files",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                        } else {
+                            showClearPartialTransfersDialog = true
+                        }
+                    },
+                )
+            }
+            item {
+                SettingsPickerChip(
+                    label = "Reset to Default",
+                    iconImageVector = null,
+                    onClick = { navController.navigate(WatchRoutes.RESET_DEFAULTS_CONFIRM) },
+                )
+            }
+            item {
+                SettingsSectionChip(
+                    label = "Debugging",
+                    onClick = { navController.navigate(WatchRoutes.DEBUG_SETTINGS) },
+                )
+            }
         }
         item {
             SettingsSectionChip(
@@ -357,3 +386,5 @@ private fun formatUserProfileSummary(
 }
 
 private const val SETTINGS_KG_TO_LB = 2.2046226218f
+private const val SETTINGS_UI_PREFS = "settings_screen_ui_prefs"
+private const val ADVANCED_SETTINGS_EXPANDED_KEY = "advanced_settings_expanded"

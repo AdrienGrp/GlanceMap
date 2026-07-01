@@ -12,7 +12,7 @@ internal fun RecordingSettingsShortcutChip(
     applyTopPadding: Boolean = true,
 ) {
     AdaptiveSettingsShortcutChip(
-        standardLabel = "Recording settings",
+        standardLabel = "REC settings",
         compactLabel = "REC settings",
         standardSecondaryLabel = "Back to REC settings",
         compactSecondaryLabel = "Back",

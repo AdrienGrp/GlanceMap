@@ -94,7 +94,7 @@ private enum class GpxListMode(
     val emptyStateMessage: String,
 ) {
     TRACKS(
-        headerTitle = "Activities",
+        headerTitle = "GPX",
         icon = Icons.Default.Route,
         toggleContentDescription = "Show hike activities",
         emptyStateMessage = "Send GPX files from the companion phone app.",
@@ -542,15 +542,10 @@ fun GpxScreen(
                         },
                         visualSize = activityToggleButtonSize,
                         visualOffsetY = headerActionVisualOffsetY,
-                        containerColor =
-                            if (showActivities) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                Color.Black.copy(alpha = 0.7f)
-                            },
+                        containerColor = Color.Black.copy(alpha = 0.7f),
                         contentColor =
                             if (showActivities) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
+                                MaterialTheme.colorScheme.primary
                             } else {
                                 Color.White
                             },
