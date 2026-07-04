@@ -494,31 +494,6 @@ fun DownloadScreen(
                             )
                         }
                     } else {
-                        if (
-                            effectiveRefreshMode &&
-                            (
-                                uiState.selectedRefreshBundleIds.isNotEmpty() ||
-                                    uiState.isCheckingUpdates
-                            )
-                        ) {
-                            item {
-                                DownloadActionButton(
-                                    label =
-                                        if (uiState.isCheckingUpdates) {
-                                            "Checking updates..."
-                                        } else {
-                                            refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size)
-                                        },
-                                    icon = Icons.Filled.Update,
-                                    enabled =
-                                        uiState.selectedRefreshBundleIds.isNotEmpty() &&
-                                            !uiState.isCheckingUpdates,
-                                    height = actionButtonHeight,
-                                    iconSize = actionButtonIconSize,
-                                    onClick = viewModel::checkSelectedBundlesForRefresh,
-                                )
-                            }
-                        }
                         uiState.installedBundles.forEach { bundle ->
                             item {
                                 InstalledBundleRow(
@@ -598,74 +573,101 @@ fun DownloadScreen(
                     }
                 }
             } else {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = bottomActionBottomPadding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                if (effectiveRefreshMode && uiState.installedBundles.isNotEmpty()) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = listHorizontalPadding)
+                                .padding(bottom = bottomActionBottomPadding),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Spacer(modifier = Modifier.size(48.dp))
-                        CompactIconHitTargetButton(
-                            onClick = onOpenSettings,
-                            enabled = !uiState.isDownloading,
-                            visualSize = settingsButtonSize,
-                            visualOffsetY = bottomActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.8f),
-                            contentColor = Color.White,
-                            disabledContainerColor = Color.Black.copy(alpha = 0.32f),
-                            disabledContentColor = Color.White.copy(alpha = 0.38f),
-                        ) {
-                            Material3Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = "Bundle settings",
-                            )
-                        }
-                        if (uiState.installedBundles.isNotEmpty()) {
-                            CompactIconHitTargetButton(
-                                onClick = {
-                                    val nextDeleteMode = !deleteMode
-                                    deleteMode = nextDeleteMode
-                                    if (nextDeleteMode) {
-                                        refreshMode = false
-                                        viewModel.clearRefreshBundleSelection()
-                                    }
+                        DownloadActionButton(
+                            label =
+                                if (uiState.isCheckingUpdates) {
+                                    "Checking updates..."
+                                } else {
+                                    refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size)
                                 },
+                            icon = Icons.Filled.Update,
+                            enabled =
+                                uiState.selectedRefreshBundleIds.isNotEmpty() &&
+                                    !uiState.isCheckingUpdates,
+                            height = actionButtonHeight,
+                            iconSize = actionButtonIconSize,
+                            onClick = viewModel::checkSelectedBundlesForRefresh,
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = bottomActionBottomPadding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Spacer(modifier = Modifier.size(48.dp))
+                            CompactIconHitTargetButton(
+                                onClick = onOpenSettings,
                                 enabled = !uiState.isDownloading,
-                                visualSize = headerActionButtonSize,
+                                visualSize = settingsButtonSize,
                                 visualOffsetY = bottomActionVisualOffsetY,
-                                containerColor =
-                                    if (deleteMode) {
-                                        MaterialTheme.colorScheme.errorContainer
-                                    } else {
-                                        Color.Black.copy(alpha = 0.8f)
-                                    },
-                                contentColor =
-                                    if (deleteMode) {
-                                        MaterialTheme.colorScheme.onErrorContainer
-                                    } else {
-                                        Color.White
-                                    },
+                                containerColor = Color.Black.copy(alpha = 0.8f),
+                                contentColor = Color.White,
                                 disabledContainerColor = Color.Black.copy(alpha = 0.32f),
                                 disabledContentColor = Color.White.copy(alpha = 0.38f),
                             ) {
                                 Material3Icon(
-                                    imageVector = if (deleteMode) Icons.Filled.Close else Icons.Filled.Delete,
-                                    contentDescription =
-                                        if (deleteMode) {
-                                            "Exit delete mode"
-                                        } else {
-                                            "Enter delete mode"
-                                        },
-                                    modifier = Modifier.size(headerActionIconSize),
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = "Bundle settings",
                                 )
                             }
-                        } else {
-                            Spacer(modifier = Modifier.size(48.dp))
+                            if (uiState.installedBundles.isNotEmpty()) {
+                                CompactIconHitTargetButton(
+                                    onClick = {
+                                        val nextDeleteMode = !deleteMode
+                                        deleteMode = nextDeleteMode
+                                        if (nextDeleteMode) {
+                                            refreshMode = false
+                                            viewModel.clearRefreshBundleSelection()
+                                        }
+                                    },
+                                    enabled = !uiState.isDownloading,
+                                    visualSize = headerActionButtonSize,
+                                    visualOffsetY = bottomActionVisualOffsetY,
+                                    containerColor =
+                                        if (deleteMode) {
+                                            MaterialTheme.colorScheme.errorContainer
+                                        } else {
+                                            Color.Black.copy(alpha = 0.8f)
+                                        },
+                                    contentColor =
+                                        if (deleteMode) {
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        } else {
+                                            Color.White
+                                        },
+                                    disabledContainerColor = Color.Black.copy(alpha = 0.32f),
+                                    disabledContentColor = Color.White.copy(alpha = 0.38f),
+                                ) {
+                                    Material3Icon(
+                                        imageVector = if (deleteMode) Icons.Filled.Close else Icons.Filled.Delete,
+                                        contentDescription =
+                                            if (deleteMode) {
+                                                "Exit delete mode"
+                                            } else {
+                                                "Enter delete mode"
+                                            },
+                                        modifier = Modifier.size(headerActionIconSize),
+                                    )
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.size(48.dp))
+                            }
                         }
                     }
                 }
