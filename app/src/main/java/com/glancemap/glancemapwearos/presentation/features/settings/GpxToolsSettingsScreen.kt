@@ -8,7 +8,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.glancemap.glancemapwearos.presentation.features.routetools.routeStyleSettingsOptions
+import com.glancemap.glancemapwearos.presentation.features.routetools.routeStyleSettingsOptionsForActivityProfile
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeStyleTitleForSettingsValue
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 
@@ -19,6 +19,7 @@ fun GpxToolsSettingsScreen(
     onOpenGpxSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
+    val activityProfile by viewModel.activityProfile.collectAsState()
     val routeStyle by viewModel.gpxToolRouteStyle.collectAsState()
     val useElevation by viewModel.gpxToolUseElevation.collectAsState()
     val allowFerries by viewModel.gpxToolAllowFerries.collectAsState()
@@ -32,9 +33,9 @@ fun GpxToolsSettingsScreen(
 
         item {
             SettingsOptionPickerRow(
-                label = "Route style",
+                label = "Route type",
                 selectedValue = routeStyle,
-                options = routeStyleSettingsOptions,
+                options = routeStyleSettingsOptionsForActivityProfile(activityProfile),
                 onSelect = viewModel::setGpxToolRouteStyle,
                 secondaryLabel = routeStyleTitleForSettingsValue(routeStyle),
                 modifier = Modifier.fillMaxWidth(),

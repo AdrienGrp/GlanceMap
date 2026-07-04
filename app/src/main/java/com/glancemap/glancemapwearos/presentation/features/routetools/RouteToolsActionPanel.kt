@@ -337,13 +337,13 @@ private fun RouteStylePickerRow(
     onSelected: (RouteStylePreset) -> Unit,
 ) {
     SettingsOptionPickerHost(
-        title = "Route style",
+        title = "Route type",
         selectedValue = selected,
-        options = routeStylePickerOptions,
+        options = routeStylePickerOptionsFor(selected),
         onSelect = onSelected,
     ) { openPicker ->
         RouteSettingRow(
-            title = "Route style",
+            title = "Route type",
             value = selected.title,
             onClick = openPicker,
         )

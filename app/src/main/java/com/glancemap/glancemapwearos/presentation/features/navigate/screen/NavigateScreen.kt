@@ -20,14 +20,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
-import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
 import com.glancemap.glancemapwearos.data.repository.PoiType
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
-import com.glancemap.glancemapwearos.domain.sensors.COMPASS_TELEMETRY_TAG
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
@@ -63,7 +61,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidBitmap
-import java.util.Locale
 
 @Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 @Composable
@@ -198,6 +195,14 @@ fun NavigateScreen(
                 SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
                 else -> true
             }
+        val turnByTurnScreenOnGpsEnabled =
+            turnByTurnGpsIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+        val turnByTurnScreenOffGpsEnabled =
+            when (turnByTurnScreenOffGpsIntervalSeconds) {
+                SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> turnByTurnScreenOnGpsEnabled
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                else -> true
+            }
         val recordingTraceSegments =
             remember(traceRecordingState.points) {
                 recordedTraceSegments(traceRecordingState.points)
@@ -269,9 +274,11 @@ fun NavigateScreen(
                 traceRecordingState = traceRecordingState,
                 recordingScreenOnGpsEnabled = recordingScreenOnGpsEnabled,
                 recordingScreenOffGpsEnabled = recordingScreenOffGpsEnabled,
+                turnByTurnScreenOnGpsEnabled = turnByTurnScreenOnGpsEnabled,
+                turnByTurnScreenOffGpsEnabled = turnByTurnScreenOffGpsEnabled,
                 turnByTurnActive = turnByTurnGuidanceSession != null,
                 turnByTurnPaused = turnByTurnGuidancePaused,
-                turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
+                turnByTurnGpsInAmbient = turnByTurnScreenOffGpsEnabled,
                 locationViewModel = locationViewModel,
                 traceRecordingViewModel = traceRecordingViewModel,
             )
@@ -485,6 +492,11 @@ fun NavigateScreen(
                 gpsIndicatorState
             }
         val gpsSignalSnapshot by locationViewModel.gpsSignalSnapshot.collectAsState()
+        LaunchedEffect(routeToolPreflightMessage, gpsSignalSnapshot.lastFixFresh) {
+            if (routeToolPreflightMessage == "Waiting for GPS" && gpsSignalSnapshot.lastFixFresh) {
+                routeToolPreflightMessage = null
+            }
+        }
         val rawCurrentLocation by locationViewModel.currentLocation.collectAsState()
         val gpsFixFreshForAccuracyCircle =
             gpsSignalSnapshot.isLocationAvailable &&
@@ -692,7 +704,7 @@ fun NavigateScreen(
                 offRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
                 offRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
                 guidanceGpsInAmbient = turnByTurnGpsInAmbient,
-                brouterGuideBackEnabled = turnByTurnBrouterGuideBackEnabled,
+                brouterGuideBackEnabled = true,
                 lastScreenResumeElapsedMs = lastScreenResumeElapsedMs,
                 isMetric = isMetric,
                 activityProfile = activityProfile,
@@ -1018,6 +1030,7 @@ fun NavigateScreen(
             turnByTurnGuidancePaused = turnByTurnGuidancePaused,
             turnByTurnPausedTrackTitle = turnByTurnGuidanceSession?.trackTitle,
             turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
+            turnByTurnCompactPopupEnabled = turnByTurnCompactPopupEnabled,
             onTurnByTurnVoiceGuidanceChange = settingsViewModel::setTurnByTurnVoiceGuidanceEnabled,
             guideBackToRouteActive = guidanceRuntime.guideBackToRouteActive,
             showGuideBackPrompt = guidanceRuntime.showGuideBackPrompt,
@@ -1081,22 +1094,6 @@ fun NavigateScreen(
             poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
             poiPopupManualCloseOnly = poiPopupManualCloseOnly,
             markerMotionDebugOverlayLabel = markerMotionDebugOverlayLabel,
-            onHeadingLooksWrong = {
-                FieldMarkerDiagnostics.recordMarker(
-                    type = "heading_looks_wrong",
-                    note = "navigate_compass_follow",
-                )
-                DebugTelemetry.log(
-                    COMPASS_TELEMETRY_TAG,
-                    "user_report heading_looks_wrong " +
-                        "source=${compassRenderState.headingSource.telemetryToken} " +
-                        "heading=${"%.1f".format(Locale.US, compassRenderState.headingDeg)} " +
-                        "rendered=${"%.1f".format(Locale.US, renderedCompassHeadingDeg)} " +
-                        "mapRotation=${"%.1f".format(Locale.US, renderedMapRotationDeg)} " +
-                        "accuracy=${compassRenderState.accuracy} " +
-                        "headingError=${compassRenderState.headingErrorDeg ?: "na"}",
-                )
-            },
         )
 
         LaunchedEffect(isScreenResumed) {

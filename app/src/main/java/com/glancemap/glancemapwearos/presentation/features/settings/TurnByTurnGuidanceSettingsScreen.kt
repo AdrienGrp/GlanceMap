@@ -12,7 +12,6 @@ fun TurnByTurnGuidanceSettingsScreen(
 ) {
     val routeStartBehavior by viewModel.turnByTurnRouteStartBehavior.collectAsState()
     val reverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
-    val brouterGuideBackEnabled by viewModel.turnByTurnBrouterGuideBackEnabled.collectAsState()
 
     WearSettingsListScreen(horizontalAlignment = Alignment.CenterHorizontally) {
         item {
@@ -34,19 +33,6 @@ fun TurnByTurnGuidanceSettingsScreen(
                 options = TurnByTurnReverseSuggestionOptions,
                 secondaryLabel = reverseSuggestionLabel(reverseSuggestionMode),
                 onSelect = viewModel::setTurnByTurnReverseSuggestionMode,
-            )
-        }
-        item {
-            SettingsToggleChip(
-                checked = brouterGuideBackEnabled,
-                onCheckedChanged = viewModel::setTurnByTurnBrouterGuideBackEnabled,
-                label = "Route back to GPX",
-                secondaryLabel =
-                    if (brouterGuideBackEnabled) {
-                        "Create return route"
-                    } else {
-                        "Direction arrow only"
-                    },
             )
         }
     }

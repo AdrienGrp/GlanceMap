@@ -23,6 +23,7 @@ interface SettingsRepository {
         const val RECORDING_AUTO_PAUSE_ALWAYS = "ALWAYS"
         const val DEFAULT_RECORDING_AUTO_PAUSE_MODE = RECORDING_AUTO_PAUSE_OFF
         const val RECORDING_METRIC_DISTANCE = "distance"
+        const val RECORDING_METRIC_TOTAL_TIME = "total_time"
         const val RECORDING_METRIC_DURATION = "duration"
         const val RECORDING_METRIC_ELEVATION_GAIN = "elevation_gain"
         const val RECORDING_METRIC_ELEVATION_LOSS = "elevation_loss"
@@ -134,6 +135,7 @@ interface SettingsRepository {
         const val TURN_BY_TURN_TURN_ALERTS_IMPORTANT = "IMPORTANT"
         const val TURN_BY_TURN_TURN_ALERTS_ALL = "ALL"
         const val DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED = false
+        const val DEFAULT_TURN_BY_TURN_COMPACT_POPUP_ENABLED = true
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS = 40
         const val DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS = 60
         const val DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS = 3
@@ -203,8 +205,14 @@ interface SettingsRepository {
         const val GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE = "BALANCED_HIKE"
         const val GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS = "PREFER_TRAILS"
         const val GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST = "PREFER_EASIEST"
-        const val GPX_TOOL_ROUTE_STYLE_BIKE = "BIKE"
+        const val GPX_TOOL_ROUTE_STYLE_BIKE_TOURING = "BIKE_TOURING"
+        const val GPX_TOOL_ROUTE_STYLE_BIKE_ROAD = "BIKE_ROAD"
+        const val GPX_TOOL_ROUTE_STYLE_BIKE_QUIET_ROAD = "BIKE_QUIET_ROAD"
+        const val GPX_TOOL_ROUTE_STYLE_BIKE_GRAVEL = "BIKE_GRAVEL"
+        const val GPX_TOOL_ROUTE_STYLE_BIKE_MTB = "BIKE_MTB"
+        const val GPX_TOOL_ROUTE_STYLE_BIKE = GPX_TOOL_ROUTE_STYLE_BIKE_TOURING
         const val DEFAULT_GPX_TOOL_ROUTE_STYLE = GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE
+        const val DEFAULT_BIKE_GPX_TOOL_ROUTE_STYLE = GPX_TOOL_ROUTE_STYLE_BIKE_TOURING
         const val DEFAULT_GPX_TOOL_USE_ELEVATION = true
         const val DEFAULT_GPX_TOOL_ALLOW_FERRIES = false
 
@@ -364,6 +372,10 @@ interface SettingsRepository {
     val turnByTurnOffRouteAlertsEnabled: Flow<Boolean>
 
     suspend fun setTurnByTurnOffRouteAlertsEnabled(enabled: Boolean)
+
+    val turnByTurnCompactPopupEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnCompactPopupEnabled(enabled: Boolean)
 
     val turnByTurnOffRouteAlertThresholdMeters: Flow<Int>
 

@@ -61,6 +61,8 @@ class SettingsRepositoryImpl private constructor(
         val RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS =
             intPreferencesKey("recording_screen_off_sample_interval_seconds")
         val RECORDING_AUTO_PAUSE_MODE = stringPreferencesKey("recording_auto_pause_mode")
+        val RECORDING_AUTO_PAUSE_MODE_HIKE = stringPreferencesKey("recording_auto_pause_mode_hike")
+        val RECORDING_AUTO_PAUSE_MODE_BIKE = stringPreferencesKey("recording_auto_pause_mode_bike")
         val RECORDING_ELEVATION_SOURCE = stringPreferencesKey("recording_elevation_source")
         val RECORDING_HEART_RATE_SOURCE = stringPreferencesKey("recording_heart_rate_source")
         val RECORDING_CADENCE_SOURCE = stringPreferencesKey("recording_cadence_source")
@@ -85,6 +87,8 @@ class SettingsRepositoryImpl private constructor(
         val TURN_BY_TURN_TURN_ALERTS_MODE = stringPreferencesKey("turn_by_turn_turn_alerts_mode")
         val TURN_BY_TURN_OFF_ROUTE_ALERTS_ENABLED =
             booleanPreferencesKey("turn_by_turn_off_route_alerts_enabled")
+        val TURN_BY_TURN_COMPACT_POPUP_ENABLED =
+            booleanPreferencesKey("turn_by_turn_compact_popup_enabled")
         val TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS =
             intPreferencesKey("turn_by_turn_off_route_alert_threshold_meters")
         val TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS =
@@ -158,6 +162,8 @@ class SettingsRepositoryImpl private constructor(
         val GPX_ELEVATION_AUTO_ADJUST_PER_GPX =
             booleanPreferencesKey("gpx_elevation_auto_adjust_per_gpx")
         val GPX_TOOL_ROUTE_STYLE = stringPreferencesKey("gpx_tool_route_style")
+        val GPX_TOOL_HIKE_ROUTE_STYLE = stringPreferencesKey("gpx_tool_hike_route_style")
+        val GPX_TOOL_BIKE_ROUTE_STYLE = stringPreferencesKey("gpx_tool_bike_route_style")
         val GPX_TOOL_USE_ELEVATION = booleanPreferencesKey("gpx_tool_use_elevation")
         val GPX_TOOL_ALLOW_FERRIES = booleanPreferencesKey("gpx_tool_allow_ferries")
         val IS_METRIC = booleanPreferencesKey("is_metric")
@@ -256,12 +262,18 @@ class SettingsRepositoryImpl private constructor(
 
     override val recordingAutoPauseMode: Flow<String> =
         context.dataStore.data.map {
-            sanitizeRecordingAutoPauseMode(it[PrefKeys.RECORDING_AUTO_PAUSE_MODE])
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            sanitizeRecordingAutoPauseMode(
+                mode = it[autoPauseModeKeyFor(profile)],
+                legacyMode = it[PrefKeys.RECORDING_AUTO_PAUSE_MODE],
+                profile = profile,
+            )
         }
 
     override suspend fun setRecordingAutoPauseMode(mode: String) {
         context.dataStore.edit {
-            it[PrefKeys.RECORDING_AUTO_PAUSE_MODE] = sanitizeRecordingAutoPauseMode(mode)
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            it[autoPauseModeKeyFor(profile)] = sanitizeRecordingAutoPauseMode(mode)
         }
     }
 
@@ -604,6 +616,16 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERTS_ENABLED] = enabled }
     }
 
+    override val turnByTurnCompactPopupEnabled: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_COMPACT_POPUP_ENABLED]
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_COMPACT_POPUP_ENABLED
+        }
+
+    override suspend fun setTurnByTurnCompactPopupEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_COMPACT_POPUP_ENABLED] = enabled }
+    }
+
     override val turnByTurnOffRouteAlertThresholdMeters: Flow<Int> =
         context.dataStore.data.map {
             it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS]
@@ -642,15 +664,34 @@ class SettingsRepositoryImpl private constructor(
 
     override val turnByTurnGpsInAmbientMode: Flow<Boolean> =
         context.dataStore.data.map {
-            sanitizeTurnByTurnScreenOffGpsIntervalSeconds(it) !=
-                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+            val screenOnSeconds =
+                sanitizeScreenOnGpsIntervalSeconds(
+                    it[PrefKeys.TURN_BY_TURN_GPS_INTERVAL_SECONDS],
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS,
+                )
+            when (sanitizeTurnByTurnScreenOffGpsIntervalSeconds(it)) {
+                SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS ->
+                    screenOnSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                else -> true
+            }
         }
 
     override suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean) {
         context.dataStore.edit {
+            val screenOnSeconds =
+                sanitizeScreenOnGpsIntervalSeconds(
+                    it[PrefKeys.TURN_BY_TURN_GPS_INTERVAL_SECONDS],
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS,
+                )
             it[PrefKeys.TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS] =
                 if (enabled) {
-                    SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
+                    if (screenOnSeconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) {
+                        SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS
+                    } else {
+                        SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
+                    }
                 } else {
                     SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
                 }
@@ -1356,13 +1397,21 @@ class SettingsRepositoryImpl private constructor(
     }
 
     override val gpxToolRouteStyle: Flow<String> =
-        context.dataStore.data.map {
-            sanitizeGpxToolRouteStyle(it[PrefKeys.GPX_TOOL_ROUTE_STYLE])
+        context.dataStore.data.map { preferences ->
+            val profile = sanitizeActivityProfile(preferences[PrefKeys.ACTIVITY_PROFILE])
+            sanitizeGpxToolRouteStyleForProfile(
+                profile = profile,
+                style =
+                    preferences[gpxToolRouteStyleKeyForProfile(profile)]
+                        ?: preferences[PrefKeys.GPX_TOOL_ROUTE_STYLE],
+            )
         }
 
     override suspend fun setGpxToolRouteStyle(style: String) {
-        context.dataStore.edit {
-            it[PrefKeys.GPX_TOOL_ROUTE_STYLE] = sanitizeGpxToolRouteStyle(style)
+        context.dataStore.edit { preferences ->
+            val profile = sanitizeActivityProfile(preferences[PrefKeys.ACTIVITY_PROFILE])
+            preferences[gpxToolRouteStyleKeyForProfile(profile)] =
+                sanitizeGpxToolRouteStyleForProfile(profile, style)
         }
     }
 
@@ -1611,7 +1660,6 @@ class SettingsRepositoryImpl private constructor(
         private val allowedRecordingAutoPauseModes =
             setOf(
                 SettingsRepository.RECORDING_AUTO_PAUSE_OFF,
-                SettingsRepository.RECORDING_AUTO_PAUSE_BIKE_ONLY,
                 SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS,
             )
         private val allowedPoiIconSizesPx =
@@ -1645,10 +1693,28 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE,
                 SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS,
                 SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST,
-                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_TOURING,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_ROAD,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_QUIET_ROAD,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_GRAVEL,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_MTB,
+            )
+        private val allowedHikeGpxToolRouteStyles =
+            setOf(
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST,
+            )
+        private val allowedBikeGpxToolRouteStyles =
+            setOf(
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_TOURING,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_ROAD,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_QUIET_ROAD,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_GRAVEL,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_MTB,
             )
         private val allowedScreenOnGpsIntervalsSeconds =
-            setOf(SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS, 1, 2, 3, 5, 10, 15, 30, 60)
+            setOf(SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) + (1..60) + setOf(90, 120)
         private val allowedScreenOffGpsIntervalsSeconds =
             allowedScreenOnGpsIntervalsSeconds + SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
         private const val LEGACY_ZOOM_BUTTONS_HIDE_MINUS = "HIDE_MINUS"
@@ -1713,6 +1779,29 @@ class SettingsRepositoryImpl private constructor(
                 ?.takeIf { it in allowedGpxToolRouteStyles }
                 ?: SettingsRepository.DEFAULT_GPX_TOOL_ROUTE_STYLE
 
+        private fun sanitizeGpxToolRouteStyleForProfile(
+            profile: String,
+            style: String?,
+        ): String {
+            val normalized = sanitizeGpxToolRouteStyle(style)
+            return if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                normalized
+                    .takeIf { it in allowedBikeGpxToolRouteStyles }
+                    ?: SettingsRepository.DEFAULT_BIKE_GPX_TOOL_ROUTE_STYLE
+            } else {
+                normalized
+                    .takeIf { it in allowedHikeGpxToolRouteStyles }
+                    ?: SettingsRepository.DEFAULT_GPX_TOOL_ROUTE_STYLE
+            }
+        }
+
+        private fun gpxToolRouteStyleKeyForProfile(profile: String): Preferences.Key<String> =
+            if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                PrefKeys.GPX_TOOL_BIKE_ROUTE_STYLE
+            } else {
+                PrefKeys.GPX_TOOL_HIKE_ROUTE_STYLE
+            }
+
         private fun sanitizeActivityProfile(profile: String?): String =
             when (profile?.takeIf { it in allowedActivityProfiles }) {
                 SettingsRepository.ACTIVITY_PROFILE_WALK_HIKE -> SettingsRepository.ACTIVITY_PROFILE_HIKE
@@ -1753,6 +1842,40 @@ class SettingsRepositoryImpl private constructor(
             mode
                 ?.takeIf { it in allowedRecordingAutoPauseModes }
                 ?: SettingsRepository.DEFAULT_RECORDING_AUTO_PAUSE_MODE
+
+        private fun sanitizeRecordingAutoPauseMode(
+            mode: String?,
+            legacyMode: String?,
+            profile: String,
+        ): String =
+            mode
+                ?.let(::sanitizeRecordingAutoPauseMode)
+                ?: legacyRecordingAutoPauseModeForProfile(
+                    legacyMode = legacyMode,
+                    profile = profile,
+                )
+
+        private fun legacyRecordingAutoPauseModeForProfile(
+            legacyMode: String?,
+            profile: String,
+        ): String =
+            when (legacyMode) {
+                SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS -> SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS
+                SettingsRepository.RECORDING_AUTO_PAUSE_BIKE_ONLY ->
+                    if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                        SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS
+                    } else {
+                        SettingsRepository.RECORDING_AUTO_PAUSE_OFF
+                    }
+                else -> SettingsRepository.DEFAULT_RECORDING_AUTO_PAUSE_MODE
+            }
+
+        private fun autoPauseModeKeyFor(profile: String): Preferences.Key<String> =
+            if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                PrefKeys.RECORDING_AUTO_PAUSE_MODE_BIKE
+            } else {
+                PrefKeys.RECORDING_AUTO_PAUSE_MODE_HIKE
+            }
 
         private fun sanitizeTurnByTurnScreenOffGpsIntervalSeconds(preferences: Preferences): Int {
             preferences[PrefKeys.TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS]
@@ -1853,12 +1976,6 @@ class SettingsRepositoryImpl private constructor(
             } else {
                 SettingsRepository.DEFAULT_TURN_BY_TURN_DASHBOARD_METRICS
             }
-        val nextRouteStyle =
-            if (nextProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
-                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE
-            } else {
-                SettingsRepository.DEFAULT_GPX_TOOL_ROUTE_STYLE
-            }
         val previousFlatSpeed = defaultGpxFlatSpeedMpsForProfile(previousProfile)
         val nextFlatSpeed = defaultGpxFlatSpeedMpsForProfile(nextProfile)
         val nextRecordingSampleInterval = defaultRecordingSampleIntervalSecondsForProfile(nextProfile)
@@ -1867,7 +1984,6 @@ class SettingsRepositoryImpl private constructor(
             sanitizeRecordingDashboardMetricSlots(preferences[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
         val currentTurnByTurnDashboard =
             sanitizeTurnByTurnDashboardMetricSlots(preferences[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
-        val currentRouteStyle = sanitizeGpxToolRouteStyle(preferences[PrefKeys.GPX_TOOL_ROUTE_STYLE])
         val currentFlatSpeed =
             preferences[PrefKeys.GPX_FLAT_SPEED_MPS]
                 ?.takeIf { it.isFinite() }
@@ -1880,11 +1996,6 @@ class SettingsRepositoryImpl private constructor(
         if (currentTurnByTurnDashboard.isProfileDefaultTurnByTurnDashboard()) {
             preferences[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS] =
                 nextTurnByTurnDashboard.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
-        }
-        if (currentRouteStyle == SettingsRepository.DEFAULT_GPX_TOOL_ROUTE_STYLE ||
-            currentRouteStyle == SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE
-        ) {
-            preferences[PrefKeys.GPX_TOOL_ROUTE_STYLE] = nextRouteStyle
         }
         if (currentFlatSpeed == null || currentFlatSpeed.isProfileManagedFlatSpeed(previousFlatSpeed, nextFlatSpeed)) {
             preferences[PrefKeys.GPX_FLAT_SPEED_MPS] = nextFlatSpeed

@@ -38,11 +38,27 @@ private val LOOKUP_VERSION_MISMATCH_REGEX =
 internal fun cityLoopRetryDirections(): List<Int> = LOOP_DIAGONAL_START_DIRECTIONS
 
 internal fun cityLoopRetryPreset(basePreset: RoutePlannerPreset): RoutePlannerPreset =
-    if (basePreset == RoutePlannerPreset.PREFER_EASIEST) {
-        basePreset
-    } else {
-        RoutePlannerPreset.PREFER_EASIEST
+    when {
+        basePreset.isBikePreset -> basePreset
+        basePreset == RoutePlannerPreset.PREFER_EASIEST -> basePreset
+        else -> RoutePlannerPreset.PREFER_EASIEST
     }
+
+private val RoutePlannerPreset.isBikePreset: Boolean
+    get() =
+        when (this) {
+            RoutePlannerPreset.BIKE_TOURING,
+            RoutePlannerPreset.BIKE_ROAD,
+            RoutePlannerPreset.BIKE_QUIET_ROAD,
+            RoutePlannerPreset.BIKE_GRAVEL,
+            RoutePlannerPreset.BIKE_MTB,
+            -> true
+
+            RoutePlannerPreset.BALANCED_HIKE,
+            RoutePlannerPreset.PREFER_TRAILS,
+            RoutePlannerPreset.PREFER_EASIEST,
+            -> false
+        }
 
 internal fun <T> rotateLoopVariants(
     values: List<T>,
@@ -940,8 +956,24 @@ class BRouterRoutePlanner(
             targetFile = defaultRoutingProfileFile(context),
         )
         copyAsset(
-            assetPath = "brouter/profiles2/$ROUTING_BIKE_PROFILE_FILE_NAME",
-            targetFile = bikeRoutingProfileFile(context),
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_TOURING_PROFILE_FILE_NAME",
+            targetFile = bikeTouringRoutingProfileFile(context),
+        )
+        copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_ROAD_PROFILE_FILE_NAME",
+            targetFile = bikeRoadRoutingProfileFile(context),
+        )
+        copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_QUIET_ROAD_PROFILE_FILE_NAME",
+            targetFile = bikeQuietRoadRoutingProfileFile(context),
+        )
+        copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_GRAVEL_PROFILE_FILE_NAME",
+            targetFile = bikeGravelRoutingProfileFile(context),
+        )
+        copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_MTB_PROFILE_FILE_NAME",
+            targetFile = bikeMtbRoutingProfileFile(context),
         )
         copyAsset(
             assetPath = "brouter/profiles2/$ROUTING_DEFAULT_PROFILE_FILE_NAME",
@@ -952,7 +984,11 @@ class BRouterRoutePlanner(
 
     private fun routingProfileFileFor(preset: RoutePlannerPreset): File =
         when (preset) {
-            RoutePlannerPreset.BIKE -> bikeRoutingProfileFile(context)
+            RoutePlannerPreset.BIKE_TOURING -> bikeTouringRoutingProfileFile(context)
+            RoutePlannerPreset.BIKE_ROAD -> bikeRoadRoutingProfileFile(context)
+            RoutePlannerPreset.BIKE_QUIET_ROAD -> bikeQuietRoadRoutingProfileFile(context)
+            RoutePlannerPreset.BIKE_GRAVEL -> bikeGravelRoutingProfileFile(context)
+            RoutePlannerPreset.BIKE_MTB -> bikeMtbRoutingProfileFile(context)
             else -> defaultRoutingProfileFile(context)
         }
 
@@ -999,11 +1035,25 @@ class BRouterRoutePlanner(
                     put("SAC_scale_preferred", "1")
                 }
 
-                RoutePlannerPreset.BIKE -> {
+                RoutePlannerPreset.BIKE_TOURING -> {
                     put("allow_steps", "0")
                     put("consider_noise", "1")
                     put("consider_traffic", "1")
                     put("avoid_unsafe", "1")
+                }
+
+                RoutePlannerPreset.BIKE_ROAD,
+                RoutePlannerPreset.BIKE_QUIET_ROAD,
+                -> {
+                    put("allow_steps", "0")
+                }
+
+                RoutePlannerPreset.BIKE_GRAVEL -> {
+                    put("avoid_steep_inclines", useElevation.toProfileNumber())
+                }
+
+                RoutePlannerPreset.BIKE_MTB -> {
+                    put("allow_steps", "0")
                 }
             }
         }
@@ -1014,9 +1064,16 @@ class BRouterRoutePlanner(
         useElevation: Boolean,
         allowFerries: Boolean,
     ) {
+        val profileFile = routingProfileFileFor(preset).name
+        val params =
+            buildProfileParams(
+                preset = preset,
+                useElevation = useElevation,
+                allowFerries = allowFerries,
+            ).toSortedMap()
         DebugTelemetry.log(
             "RouteTools",
-            "event=planner_request kind=$kind preset=$preset useElevation=$useElevation allowFerries=$allowFerries",
+            "event=planner_request kind=$kind preset=$preset profile=$profileFile params=$params",
         )
     }
 

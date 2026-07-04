@@ -107,9 +107,25 @@ internal enum class RouteStylePreset(
         title = "Prefer easiest",
         summary = "Avoids harder terrain when possible and prefers simpler route choices.",
     ),
-    BIKE(
-        title = "Bike",
-        summary = "Prefers bike-friendly roads and cycleways for cycling tests.",
+    BIKE_TOURING(
+        title = "Touring bike",
+        summary = "Uses BRouter trekking routing for efficient, calmer bike touring.",
+    ),
+    BIKE_ROAD(
+        title = "Road bike",
+        summary = "Uses BRouter fastbike routing for faster road cycling.",
+    ),
+    BIKE_QUIET_ROAD(
+        title = "Quiet road bike",
+        summary = "Uses BRouter fastbike low-traffic routing for quieter roads.",
+    ),
+    BIKE_GRAVEL(
+        title = "Gravel",
+        summary = "Uses BRouter gravel routing for mixed paved and unpaved surfaces.",
+    ),
+    BIKE_MTB(
+        title = "MTB",
+        summary = "Uses BRouter MTB routing for mountain-bike oriented routes.",
     ),
 }
 
@@ -119,17 +135,54 @@ internal val RouteStylePreset.settingsValue: String
             RouteStylePreset.BALANCED_HIKE -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE
             RouteStylePreset.PREFER_TRAILS -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS
             RouteStylePreset.PREFER_EASIEST -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST
-            RouteStylePreset.BIKE -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE
+            RouteStylePreset.BIKE_TOURING -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_TOURING
+            RouteStylePreset.BIKE_ROAD -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_ROAD
+            RouteStylePreset.BIKE_QUIET_ROAD -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_QUIET_ROAD
+            RouteStylePreset.BIKE_GRAVEL -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_GRAVEL
+            RouteStylePreset.BIKE_MTB -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_MTB
         }
 
-internal val routeStylePickerOptions: List<Pair<RouteStylePreset, String>> =
-    RouteStylePreset.entries.map { preset -> preset to preset.title }
+internal val hikeRouteStylePresets: List<RouteStylePreset> =
+    listOf(
+        RouteStylePreset.BALANCED_HIKE,
+        RouteStylePreset.PREFER_TRAILS,
+        RouteStylePreset.PREFER_EASIEST,
+    )
+
+internal val bikeRouteStylePresets: List<RouteStylePreset> =
+    listOf(
+        RouteStylePreset.BIKE_TOURING,
+        RouteStylePreset.BIKE_ROAD,
+        RouteStylePreset.BIKE_QUIET_ROAD,
+        RouteStylePreset.BIKE_GRAVEL,
+        RouteStylePreset.BIKE_MTB,
+    )
+
+internal fun routeStylePickerOptionsFor(selected: RouteStylePreset): List<Pair<RouteStylePreset, String>> =
+    if (selected in bikeRouteStylePresets) {
+        bikeRouteStylePresets
+    } else {
+        hikeRouteStylePresets
+    }.map { preset -> preset to preset.title }
 
 internal val routeStyleSettingsOptions: List<Pair<String, String>> =
     RouteStylePreset.entries.map { preset -> preset.settingsValue to preset.title }
 
+internal fun routeStyleSettingsOptionsForActivityProfile(activityProfile: String): List<Pair<String, String>> =
+    if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        bikeRouteStylePresets
+    } else {
+        hikeRouteStylePresets
+    }.map { preset -> preset.settingsValue to preset.title }
+
 internal fun routeStylePresetFromSettingsValue(value: String): RouteStylePreset =
     RouteStylePreset.entries.firstOrNull { it.settingsValue == value } ?: RouteStylePreset.BALANCED_HIKE
+
+internal fun routeStylePresetFromSavedName(name: String): RouteStylePreset =
+    when (name) {
+        "BIKE" -> RouteStylePreset.BIKE_TOURING
+        else -> RouteStylePreset.entries.firstOrNull { it.name == name } ?: RouteStylePreset.BALANCED_HIKE
+    }
 
 internal fun routeStyleTitleForSettingsValue(value: String): String =
     routeStyleSettingsOptions.firstOrNull { it.first == value }?.second ?: RouteStylePreset.BALANCED_HIKE.title

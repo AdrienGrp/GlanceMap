@@ -6,7 +6,11 @@ enum class RoutePlannerPreset {
     BALANCED_HIKE,
     PREFER_TRAILS,
     PREFER_EASIEST,
-    BIKE,
+    BIKE_TOURING,
+    BIKE_ROAD,
+    BIKE_QUIET_ROAD,
+    BIKE_GRAVEL,
+    BIKE_MTB,
 }
 
 data class RoutePlannerRequest(

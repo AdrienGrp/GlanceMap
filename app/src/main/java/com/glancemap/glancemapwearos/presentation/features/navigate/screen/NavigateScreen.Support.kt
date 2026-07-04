@@ -13,10 +13,10 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.LoopTarget
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteSaveBehavior
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteStylePreset
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
+import com.glancemap.glancemapwearos.presentation.features.routetools.routeStylePresetFromSavedName
 import com.glancemap.glancemapwearos.presentation.features.routetools.withVisibleLoopDefaults
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.view.MapView
@@ -50,7 +50,7 @@ internal val routeToolOptionsSaver: Saver<RouteToolOptions, Any> =
                 toolKind = RouteToolKind.valueOf(values[0] as String),
                 createMode = RouteCreateMode.valueOf(values[1] as String),
                 modifyMode = RouteModifyMode.valueOf(values[2] as String),
-                routeStyle = RouteStylePreset.valueOf(values[3] as String),
+                routeStyle = routeStylePresetFromSavedName(values[3] as String),
                 loopTargetMode = LoopTargetMode.valueOf(values[4] as String),
                 loopDistanceKm = values[5] as Int,
                 loopDurationMinutes = values[6] as Int,
@@ -115,7 +115,7 @@ internal val routeToolSessionSaver: Saver<RouteToolSession?, Any> =
                         toolKind = RouteToolKind.valueOf(values[0] as String),
                         createMode = RouteCreateMode.valueOf(values[1] as String),
                         modifyMode = RouteModifyMode.valueOf(values[2] as String),
-                        routeStyle = RouteStylePreset.valueOf(values[3] as String),
+                        routeStyle = routeStylePresetFromSavedName(values[3] as String),
                         loopTargetMode = LoopTargetMode.valueOf(values[4] as String),
                         loopDistanceKm = values[5] as Int,
                         loopDurationMinutes = values[6] as Int,
