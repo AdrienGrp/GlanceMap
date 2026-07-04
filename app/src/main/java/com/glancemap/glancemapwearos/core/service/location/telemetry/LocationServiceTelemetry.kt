@@ -295,6 +295,40 @@ internal class LocationServiceTelemetry(
         )
     }
 
+    fun logWatchGpsSelfHealSkipped(
+        phase: String,
+        searchAgeMs: Long,
+        graceMs: Long,
+        fixGapMs: Long,
+        staleThresholdMs: Long,
+        expectedIntervalMs: Long,
+        activityState: LocationActivityState,
+    ) {
+        log(
+            "watchGpsSelfHeal: skipped phase=$phase reason=await_first_callback " +
+                "searchAgeMs=$searchAgeMs graceMs=$graceMs fixGapMs=$fixGapMs " +
+                "staleThresholdMs=$staleThresholdMs expectedIntervalMs=$expectedIntervalMs " +
+                "state=${activityState.name}",
+        )
+    }
+
+    fun logWatchGpsSelfHealRestarting(
+        phase: String,
+        searchAgeMs: Long,
+        graceMs: Long,
+        fixGapMs: Long,
+        staleThresholdMs: Long,
+        expectedIntervalMs: Long,
+        activityState: LocationActivityState,
+    ) {
+        log(
+            "watchGpsSelfHeal: restarting phase=$phase reason=first_callback_grace_expired " +
+                "searchAgeMs=$searchAgeMs graceMs=$graceMs fixGapMs=$fixGapMs " +
+                "staleThresholdMs=$staleThresholdMs expectedIntervalMs=$expectedIntervalMs " +
+                "state=${activityState.name}",
+        )
+    }
+
     fun logAvailabilityRecoveryTriggered(
         unavailableForMs: Long,
         staleThresholdMs: Long,

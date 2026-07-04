@@ -21,6 +21,7 @@ fun TurnByTurnSettingsScreen(
     val hapticsEnabled by viewModel.turnByTurnHapticsEnabled.collectAsState()
     val voiceGuidanceEnabled by viewModel.turnByTurnVoiceGuidanceEnabled.collectAsState()
     val offRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
+    val compactPopupEnabled by viewModel.turnByTurnCompactPopupEnabled.collectAsState()
     var showInfoDialog by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -62,6 +63,19 @@ fun TurnByTurnSettingsScreen(
                         "Warn when leaving the GPX"
                     } else {
                         "Show off-route status only"
+                    },
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = compactPopupEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnCompactPopupEnabled,
+                label = "Small map popup",
+                secondaryLabel =
+                    if (compactPopupEnabled) {
+                        "Show TBT chip on the map"
+                    } else {
+                        "Hide TBT chip on the map"
                     },
             )
         }

@@ -52,6 +52,23 @@ class NavigationRuntimeDemandTest {
     }
 
     @Test
+    fun recordingAndTurnByTurnUsesCombinedDemand() {
+        val demand =
+            demand(
+                isNavigateScreen = true,
+                screenState = LocationScreenState.INTERACTIVE,
+                isScreenResumed = true,
+                recordingActive = true,
+                recordingPaused = false,
+                turnByTurnActive = true,
+            )
+
+        assertTrue(demand.trackingEnabled)
+        assertTrue(demand.backgroundGpsEnabled)
+        assertEquals(NavigationRuntimeDemandReason.RECORDING_GUIDANCE, demand.reason)
+    }
+
+    @Test
     fun recordingPausedFallsBackToDefault() {
         val demand =
             demand(
@@ -99,6 +116,23 @@ class NavigationRuntimeDemandTest {
     }
 
     @Test
+    fun turnByTurnVisibleNavigateFallsBackToNormalNavigateWhenGuidanceGpsIsOff() {
+        val demand =
+            demand(
+                isNavigateScreen = true,
+                screenState = LocationScreenState.INTERACTIVE,
+                isScreenResumed = true,
+                turnByTurnActive = true,
+                turnByTurnGpsEnabled = false,
+                turnByTurnGpsInAmbient = false,
+            )
+
+        assertTrue(demand.trackingEnabled)
+        assertFalse(demand.backgroundGpsEnabled)
+        assertEquals(NavigationRuntimeDemandReason.NAVIGATE_VISIBLE, demand.reason)
+    }
+
+    @Test
     fun turnByTurnScreenOffRequiresGuidanceAmbientSetting() {
         val demand =
             demand(
@@ -123,6 +157,23 @@ class NavigationRuntimeDemandTest {
                 isScreenResumed = true,
                 turnByTurnActive = true,
                 turnByTurnGpsInAmbient = false,
+            )
+
+        assertFalse(demand.trackingEnabled)
+        assertFalse(demand.backgroundGpsEnabled)
+        assertEquals(NavigationRuntimeDemandReason.IDLE, demand.reason)
+    }
+
+    @Test
+    fun turnByTurnScreenOffDoesNotTrackWhenGuidanceGpsIsOffEvenIfAmbientIsEnabled() {
+        val demand =
+            demand(
+                isNavigateScreen = true,
+                screenState = LocationScreenState.SCREEN_OFF,
+                isScreenResumed = false,
+                turnByTurnActive = true,
+                turnByTurnGpsEnabled = false,
+                turnByTurnGpsInAmbient = true,
             )
 
         assertFalse(demand.trackingEnabled)
@@ -190,6 +241,7 @@ class NavigationRuntimeDemandTest {
         recordingGpsEnabled: Boolean = true,
         turnByTurnActive: Boolean = false,
         turnByTurnPaused: Boolean = false,
+        turnByTurnGpsEnabled: Boolean = true,
         turnByTurnGpsInAmbient: Boolean = false,
     ): NavigationRuntimeDemand =
         navigationRuntimeDemand(
@@ -204,6 +256,7 @@ class NavigationRuntimeDemandTest {
             recordingGpsEnabled = recordingGpsEnabled,
             turnByTurnActive = turnByTurnActive,
             turnByTurnPaused = turnByTurnPaused,
+            turnByTurnGpsEnabled = turnByTurnGpsEnabled,
             turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
         )
 }

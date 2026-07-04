@@ -47,7 +47,8 @@ internal class LocationNotificationFactory(
             val guidanceActive =
                 runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_VISIBLE ||
                     runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_AMBIENT ||
-                    runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND
+                    runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND ||
+                    runtimeReason == NavigationRuntimeDemandReason.RECORDING_GUIDANCE
             builder
                 .setContentTitle(if (guidanceActive) "Turn-by-turn guidance" else "App kept open")
                 .setContentText(

@@ -108,6 +108,9 @@ internal fun deriveTelemetryInsights(
     var watchGpsDegradedClearedCount = 0
     var watchGpsDegradedSampleCount = 0
     var watchGpsDegradedLastObserved: Boolean? = null
+    var watchGpsSelfHealSkippedCount = 0
+    var watchGpsSelfHealRestartCount = 0
+    var watchGpsSelfHealMaxSearchAgeMs: Long? = null
     var batchEventCount = 0
     var batchOriginAutoFusedCount = 0
     var batchOriginPassiveExternalCount = 0
@@ -894,6 +897,20 @@ internal fun deriveTelemetryInsights(
                 watchGpsDegradedClearedCount += 1
                 watchGpsDegradedLastObserved = false
             }
+            "watchGpsSelfHeal: skipped" in line -> {
+                watchGpsSelfHealSkippedCount += 1
+                parseLongToken(line, "searchAgeMs=")?.let { searchAgeMs ->
+                    watchGpsSelfHealMaxSearchAgeMs =
+                        maxOf(watchGpsSelfHealMaxSearchAgeMs ?: searchAgeMs, searchAgeMs)
+                }
+            }
+            "watchGpsSelfHeal: restarting" in line -> {
+                watchGpsSelfHealRestartCount += 1
+                parseLongToken(line, "searchAgeMs=")?.let { searchAgeMs ->
+                    watchGpsSelfHealMaxSearchAgeMs =
+                        maxOf(watchGpsSelfHealMaxSearchAgeMs ?: searchAgeMs, searchAgeMs)
+                }
+            }
         }
     }
 
@@ -908,6 +925,14 @@ internal fun deriveTelemetryInsights(
             samples = backendSamples,
             requestStopSamples = requestStopSamples,
             captureWindowEndEpochMs = captureWindowEndEpochMs,
+        )
+    val recordingObservedPointCount =
+        maxOf(
+            recordingPointSampleCount,
+            recordingMaxPointCount ?: 0,
+            recordingSavedGpxWrittenPoints ?: 0,
+            recordingSavedGpxParsedPoints ?: 0,
+            recordingSavedGpxSummaryPoints ?: 0,
         )
 
     return TelemetryInsights(
@@ -1014,7 +1039,7 @@ internal fun deriveTelemetryInsights(
         recordingRecoveredCount = recordingRecoveredCount,
         recordingPauseCount = recordingPauseCount,
         recordingResumeCount = recordingResumeCount,
-        recordingPointSampleCount = recordingPointSampleCount,
+        recordingPointSampleCount = recordingObservedPointCount,
         recordingSaveStartCount = recordingSaveStartCount,
         recordingSaveSuccessCount = recordingSaveSuccessCount,
         recordingSaveFailureCount = recordingSaveFailureCount,
@@ -1159,7 +1184,11 @@ internal fun deriveTelemetryInsights(
         thermalStatusEventCount = thermalStatusEventCount,
         thermalMaxStatus = thermalMaxStatus,
         thermalLastStatusLabel = thermalLastStatusLabel,
-    )
+    ).also { insights ->
+        insights.watchGpsSelfHealSkippedCount = watchGpsSelfHealSkippedCount
+        insights.watchGpsSelfHealRestartCount = watchGpsSelfHealRestartCount
+        insights.watchGpsSelfHealMaxSearchAgeMs = watchGpsSelfHealMaxSearchAgeMs
+    }
 }
 
 internal fun resolveCaptureWindowEndEpochMs(
@@ -1223,6 +1252,23 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var startupOverlapRestartComparisonCount = 0
     var startupOverlapRestartImprovedCount = 0
     var headingLooksWrongReportCount = 0
+    var fusedPerfEventCount = 0
+    var fusedPerfCallbackCount = 0
+    var fusedPerfConfirmedCount = 0
+    var fusedPerfUnusableCount = 0
+    var fusedPerfHeadingPublishCount = 0
+    var fusedPerfCallbackHzMax: Float? = null
+    var fusedPerfPublishHzMax: Float? = null
+    var renderPerfEventCount = 0
+    var renderPerfFrameCount = 0
+    var renderPerfTargetUpdateCount = 0
+    var renderPerfHeadingRenderCount = 0
+    var renderPerfRotationAppliedCount = 0
+    var renderPerfRotationSkippedCount = 0
+    var renderPerfMarkerUpdateCount = 0
+    var renderPerfRedrawCount = 0
+    var renderPerfFrameHzMax: Float? = null
+    var renderPerfRenderHzMax: Float? = null
     var lastManagerStartAtMs: Long? = null
     var lastStopScheduledAtMs: Long? = null
     var lastStopRequestedAtMs: Long? = null
@@ -1298,6 +1344,35 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         if ("user_report heading_looks_wrong" in line) {
             headingLooksWrongReportCount += 1
         }
+        if ("google_fused perf" in line) {
+            fusedPerfEventCount += 1
+            fusedPerfCallbackCount += parseIntToken(line, "callbacks=") ?: 0
+            fusedPerfConfirmedCount += parseIntToken(line, "confirmed=") ?: 0
+            fusedPerfUnusableCount += parseIntToken(line, "unusable=") ?: 0
+            fusedPerfHeadingPublishCount += parseIntToken(line, "headingPublishes=") ?: 0
+            parseFloatToken(line, "callbackHz=")?.let { value ->
+                fusedPerfCallbackHzMax = maxOf(fusedPerfCallbackHzMax ?: value, value)
+            }
+            parseFloatToken(line, "publishHz=")?.let { value ->
+                fusedPerfPublishHzMax = maxOf(fusedPerfPublishHzMax ?: value, value)
+            }
+        }
+        if ("compass_render perf" in line) {
+            renderPerfEventCount += 1
+            renderPerfFrameCount += parseIntToken(line, "frames=") ?: 0
+            renderPerfTargetUpdateCount += parseIntToken(line, "targetUpdates=") ?: 0
+            renderPerfHeadingRenderCount += parseIntToken(line, "headingRenders=") ?: 0
+            renderPerfRotationAppliedCount += parseIntToken(line, "rotationApplied=") ?: 0
+            renderPerfRotationSkippedCount += parseIntToken(line, "rotationSkipped=") ?: 0
+            renderPerfMarkerUpdateCount += parseIntToken(line, "markerUpdates=") ?: 0
+            renderPerfRedrawCount += parseIntToken(line, "redraws=") ?: 0
+            parseFloatToken(line, "frameHz=")?.let { value ->
+                renderPerfFrameHzMax = maxOf(renderPerfFrameHzMax ?: value, value)
+            }
+            parseFloatToken(line, "renderHz=")?.let { value ->
+                renderPerfRenderHzMax = maxOf(renderPerfRenderHzMax ?: value, value)
+            }
+        }
         if (largeJump && lineEpochMs != null) {
             val startAtMs = lastManagerStartAtMs
             if (startAtMs != null && lineEpochMs - startAtMs in 0L..500L) {
@@ -1332,6 +1407,23 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         startupOverlapRestartComparisonCount = startupOverlapRestartComparisonCount,
         startupOverlapRestartImprovedCount = startupOverlapRestartImprovedCount,
         headingLooksWrongReportCount = headingLooksWrongReportCount,
+        fusedPerfEventCount = fusedPerfEventCount,
+        fusedPerfCallbackCount = fusedPerfCallbackCount,
+        fusedPerfConfirmedCount = fusedPerfConfirmedCount,
+        fusedPerfUnusableCount = fusedPerfUnusableCount,
+        fusedPerfHeadingPublishCount = fusedPerfHeadingPublishCount,
+        fusedPerfCallbackHzMax = fusedPerfCallbackHzMax,
+        fusedPerfPublishHzMax = fusedPerfPublishHzMax,
+        renderPerfEventCount = renderPerfEventCount,
+        renderPerfFrameCount = renderPerfFrameCount,
+        renderPerfTargetUpdateCount = renderPerfTargetUpdateCount,
+        renderPerfHeadingRenderCount = renderPerfHeadingRenderCount,
+        renderPerfRotationAppliedCount = renderPerfRotationAppliedCount,
+        renderPerfRotationSkippedCount = renderPerfRotationSkippedCount,
+        renderPerfMarkerUpdateCount = renderPerfMarkerUpdateCount,
+        renderPerfRedrawCount = renderPerfRedrawCount,
+        renderPerfFrameHzMax = renderPerfFrameHzMax,
+        renderPerfRenderHzMax = renderPerfRenderHzMax,
     )
 }
 

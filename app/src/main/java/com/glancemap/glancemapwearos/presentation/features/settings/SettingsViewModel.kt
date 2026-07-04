@@ -362,6 +362,19 @@ class SettingsViewModel(
             settingsRepository.setTurnByTurnOffRouteAlertsEnabled(enabled)
         }
 
+    val turnByTurnCompactPopupEnabled: StateFlow<Boolean> =
+        settingsRepository.turnByTurnCompactPopupEnabled
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_TURN_BY_TURN_COMPACT_POPUP_ENABLED,
+            )
+
+    fun setTurnByTurnCompactPopupEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnCompactPopupEnabled(enabled)
+        }
+
     val turnByTurnOffRouteAlertThresholdMeters: StateFlow<Int> =
         settingsRepository.turnByTurnOffRouteAlertThresholdMeters
             .stateIn(

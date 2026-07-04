@@ -253,6 +253,81 @@ class LocationRequestCoordinatorTest {
         }
 
     @Test
+    fun screenOffRecordingGuidanceGpsUsesActiveCadenceWhenBackgroundGpsIsEnabled() =
+        runBlocking {
+            val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+            telemetry.setDebugEnabled(false)
+            val engine = LocationEngine(telemetry)
+            val gateway = CapturingLocationGateway()
+            var requestedSourceMode: LocationSourceMode? = null
+            val scope = CoroutineScope(coroutineContext + SupervisorJob())
+            val coordinator =
+                LocationRequestCoordinator(
+                    serviceScope = scope,
+                    engine = engine,
+                    telemetry = telemetry,
+                    readAndStoreLocationPermissions = {
+                        LocationPermissionSnapshot(
+                            hasFinePermission = true,
+                            hasCoarsePermission = true,
+                        )
+                    },
+                    updateSelfHealMonitor = {},
+                    updateGnssDiagnostics = {},
+                    foregroundRefresh = {},
+                    inspectLocationEnvironment = { _, _, _, _ -> LocationEnvironmentAction.CONTINUE },
+                    cancelImmediateLocationWork = {},
+                    currentState = {
+                        RequestUpdateState(
+                            bound = false,
+                            tracking = true,
+                            keepOpen = true,
+                            watchOnlyRequested = false,
+                            watchOnlyEffective = false,
+                            screenState = LocationScreenState.SCREEN_OFF,
+                            backgroundGps = true,
+                            runtimeReason = NavigationRuntimeDemandReason.RECORDING_GUIDANCE,
+                            passiveLocationExperiment = false,
+                            userIntervalMs = 2_000L,
+                            ambientIntervalMs = 60_000L,
+                        )
+                    },
+                    effectiveUpdateIntervalMs = { 2_000L },
+                    strictSourceWarmupMs = 0L,
+                    setSourceModeWarmup = { _, _ -> },
+                    clearSourceModeWarmup = {},
+                    locationGatewayFor = { sourceMode ->
+                        requestedSourceMode = sourceMode
+                        gateway
+                    },
+                    locationUpdateSink = { NoopLocationUpdateSink },
+                    removeAllLocationUpdates = {},
+                    removeInactiveLocationUpdates = {},
+                    onNoPermissions = {},
+                    onNoRequestSpec = { _, _ -> },
+                    onRequestApplied = { _, _ -> },
+                    onRequestFailed = {},
+                    maybeTriggerInteractiveSelfHealNow = { _, _, _ -> },
+                    recordEnergySample = { _, _ -> },
+                    elapsedRealtime = { 1_000L },
+                )
+
+            coordinator.requestLocationUpdateIfNeeded()
+
+            withTimeout(1_000L) {
+                while (gateway.lastRequest == null) {
+                    yield()
+                }
+            }
+
+            assertEquals(2_000L, gateway.lastRequest?.intervalMs)
+            assertEquals(Priority.PRIORITY_HIGH_ACCURACY, gateway.lastRequest?.priority)
+            assertEquals(1f, gateway.lastRequest?.minDistanceMeters)
+            assertEquals(LocationSourceMode.AUTO_FUSED, requestedSourceMode)
+            assertFalse(gateway.lastRequest?.waitForAccurateLocation == true)
+        }
+
+    @Test
     fun retriesRequestApplicationAfterTransientGatewayFailure() =
         runBlocking {
             val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)

@@ -214,7 +214,7 @@ class SelfHealFailoverCoordinatorTest {
     }
 
     @Test
-    fun activeBurstSearchingTooLongForcesRequestRefresh() {
+    fun activeAutoFusedBurstSearchingTooLongForcesRequestRefresh() {
         val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
         telemetry.setDebugEnabled(false)
         val engine = LocationEngine(telemetry)
@@ -225,7 +225,7 @@ class SelfHealFailoverCoordinatorTest {
                 intervalMs = 1_000L,
                 minDistanceMeters = 1f,
                 mode = LocationRuntimeMode.BURST,
-                sourceMode = LocationSourceMode.WATCH_GPS,
+                sourceMode = LocationSourceMode.AUTO_FUSED,
             ),
         )
         val coordinator =
@@ -252,6 +252,98 @@ class SelfHealFailoverCoordinatorTest {
 
         coordinator.maybeTriggerInteractiveSelfHealNow(
             nowElapsedMs = 17_000L,
+            interactiveTracking = true,
+            expectedIntervalMs = 3_000L,
+        )
+
+        assertFalse(engine.hasAppliedRequest())
+    }
+
+    @Test
+    fun activeWatchGpsBurstWithinFirstCallbackGraceDoesNotRefreshRequest() {
+        val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+        telemetry.setDebugEnabled(false)
+        val engine = LocationEngine(telemetry)
+        engine.requestImmediateBurst(nowElapsedMs = 1_000L, source = "test_startup")
+        engine.markRequestApplied(
+            RequestSpec(
+                priority = Priority.PRIORITY_HIGH_ACCURACY,
+                intervalMs = 1_000L,
+                minDistanceMeters = 1f,
+                mode = LocationRuntimeMode.BURST,
+                sourceMode = LocationSourceMode.WATCH_GPS,
+            ),
+        )
+        val coordinator =
+            SelfHealFailoverCoordinator(
+                serviceScope = CoroutineScope(SupervisorJob()),
+                isServiceActive = { true },
+                engine = engine,
+                telemetry = telemetry,
+                requestLocationUpdateIfNeeded = {},
+                requestImmediateLocation = {},
+                trackingEnabled = { true },
+                ambientModeActive = { false },
+                hasFinePermission = { true },
+                hasCoarsePermission = { true },
+                watchGpsOnly = { true },
+                passiveLocationExperiment = { false },
+                phoneConnected = { false },
+                lastAnyAcceptedFixAtElapsedMs = { 0L },
+                lastCallbackAcceptedFixAtElapsedMs = { 0L },
+                lastRequestAppliedAtElapsedMs = { 1_000L },
+                expectedIntervalMs = { 3_000L },
+                strictFreshMaxAgeMs = { 6_000L },
+            )
+
+        coordinator.maybeTriggerInteractiveSelfHealNow(
+            nowElapsedMs = 17_000L,
+            interactiveTracking = true,
+            expectedIntervalMs = 3_000L,
+        )
+
+        assertTrue(engine.hasAppliedRequest())
+    }
+
+    @Test
+    fun activeWatchGpsBurstAfterFirstCallbackGraceCanRefreshRequest() {
+        val telemetry = LocationServiceTelemetry(tag = "LocTelemetryTest", summaryIntervalMs = 60_000L)
+        telemetry.setDebugEnabled(false)
+        val engine = LocationEngine(telemetry)
+        engine.requestImmediateBurst(nowElapsedMs = 1_000L, source = "test_startup")
+        engine.markRequestApplied(
+            RequestSpec(
+                priority = Priority.PRIORITY_HIGH_ACCURACY,
+                intervalMs = 1_000L,
+                minDistanceMeters = 1f,
+                mode = LocationRuntimeMode.BURST,
+                sourceMode = LocationSourceMode.WATCH_GPS,
+            ),
+        )
+        val coordinator =
+            SelfHealFailoverCoordinator(
+                serviceScope = CoroutineScope(SupervisorJob()),
+                isServiceActive = { true },
+                engine = engine,
+                telemetry = telemetry,
+                requestLocationUpdateIfNeeded = {},
+                requestImmediateLocation = {},
+                trackingEnabled = { true },
+                ambientModeActive = { false },
+                hasFinePermission = { true },
+                hasCoarsePermission = { true },
+                watchGpsOnly = { true },
+                passiveLocationExperiment = { false },
+                phoneConnected = { false },
+                lastAnyAcceptedFixAtElapsedMs = { 0L },
+                lastCallbackAcceptedFixAtElapsedMs = { 0L },
+                lastRequestAppliedAtElapsedMs = { 1_000L },
+                expectedIntervalMs = { 3_000L },
+                strictFreshMaxAgeMs = { 6_000L },
+            )
+
+        coordinator.maybeTriggerInteractiveSelfHealNow(
+            nowElapsedMs = 130_000L,
             interactiveTracking = true,
             expectedIntervalMs = 3_000L,
         )

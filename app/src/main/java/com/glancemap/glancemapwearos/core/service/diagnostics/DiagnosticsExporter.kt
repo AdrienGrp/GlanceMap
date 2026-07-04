@@ -74,6 +74,7 @@ data class DiagnosticsSettingsSnapshot(
     val turnByTurnVoiceGuidanceEnabled: Boolean = false,
     val turnByTurnTurnAlertsMode: String = "na",
     val turnByTurnOffRouteAlertsEnabled: Boolean = true,
+    val turnByTurnCompactPopupEnabled: Boolean = SettingsRepository.DEFAULT_TURN_BY_TURN_COMPACT_POPUP_ENABLED,
     val turnByTurnOffRouteAlertThresholdMeters: Int = 0,
     val turnByTurnOffRouteRepeatSeconds: Int = 0,
     val turnByTurnGpsInAmbientMode: Boolean = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE,
@@ -322,7 +323,11 @@ object DiagnosticsExporter {
         val thermalStatusEventCount: Int = 0,
         val thermalMaxStatus: Int? = null,
         val thermalLastStatusLabel: String? = null,
-    )
+    ) {
+        var watchGpsSelfHealSkippedCount: Int = 0
+        var watchGpsSelfHealRestartCount: Int = 0
+        var watchGpsSelfHealMaxSearchAgeMs: Long? = null
+    }
 
     internal data class CompassTelemetryInsights(
         val managerStartCount: Int = 0,
@@ -345,6 +350,23 @@ object DiagnosticsExporter {
         val startupOverlapRestartComparisonCount: Int = 0,
         val startupOverlapRestartImprovedCount: Int = 0,
         val headingLooksWrongReportCount: Int = 0,
+        val fusedPerfEventCount: Int = 0,
+        val fusedPerfCallbackCount: Int = 0,
+        val fusedPerfConfirmedCount: Int = 0,
+        val fusedPerfUnusableCount: Int = 0,
+        val fusedPerfHeadingPublishCount: Int = 0,
+        val fusedPerfCallbackHzMax: Float? = null,
+        val fusedPerfPublishHzMax: Float? = null,
+        val renderPerfEventCount: Int = 0,
+        val renderPerfFrameCount: Int = 0,
+        val renderPerfTargetUpdateCount: Int = 0,
+        val renderPerfHeadingRenderCount: Int = 0,
+        val renderPerfRotationAppliedCount: Int = 0,
+        val renderPerfRotationSkippedCount: Int = 0,
+        val renderPerfMarkerUpdateCount: Int = 0,
+        val renderPerfRedrawCount: Int = 0,
+        val renderPerfFrameHzMax: Float? = null,
+        val renderPerfRenderHzMax: Float? = null,
     )
 
     internal data class GnssInsights(
@@ -663,6 +685,7 @@ object DiagnosticsExporter {
             writer.appendLine("turnByTurnVoiceGuidanceEnabled=${settings.turnByTurnVoiceGuidanceEnabled}")
             writer.appendLine("turnByTurnTurnAlertsMode=${settings.turnByTurnTurnAlertsMode}")
             writer.appendLine("turnByTurnOffRouteAlertsEnabled=${settings.turnByTurnOffRouteAlertsEnabled}")
+            writer.appendLine("turnByTurnCompactPopupEnabled=${settings.turnByTurnCompactPopupEnabled}")
             writer.appendLine(
                 "turnByTurnOffRouteAlertThresholdMeters=${settings.turnByTurnOffRouteAlertThresholdMeters}",
             )
@@ -897,6 +920,13 @@ object DiagnosticsExporter {
                     TelemetryFormatters.booleanOrNa(telemetryInsights.watchGpsDegradedLastObserved)
                 }",
             )
+            writer.appendLine("watchGpsSelfHealSkippedCount=${telemetryInsights.watchGpsSelfHealSkippedCount}")
+            writer.appendLine("watchGpsSelfHealRestartCount=${telemetryInsights.watchGpsSelfHealRestartCount}")
+            writer.appendLine(
+                "watchGpsSelfHealMaxSearchAgeMs=${
+                    telemetryInsights.watchGpsSelfHealMaxSearchAgeMs?.toString() ?: "na"
+                }",
+            )
             writer.appendLine()
             writer.appendLine("Compass Telemetry Summary")
             writer.appendLine("managerStartCount=${compassTelemetryInsights.managerStartCount}")
@@ -973,6 +1003,59 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "headingLooksWrongReportCount=${compassTelemetryInsights.headingLooksWrongReportCount}",
+            )
+            writer.appendLine("fusedPerfEventCount=${compassTelemetryInsights.fusedPerfEventCount}")
+            writer.appendLine("fusedPerfCallbackCount=${compassTelemetryInsights.fusedPerfCallbackCount}")
+            writer.appendLine("fusedPerfConfirmedCount=${compassTelemetryInsights.fusedPerfConfirmedCount}")
+            writer.appendLine("fusedPerfUnusableCount=${compassTelemetryInsights.fusedPerfUnusableCount}")
+            writer.appendLine(
+                "fusedPerfHeadingPublishCount=${compassTelemetryInsights.fusedPerfHeadingPublishCount}",
+            )
+            writer.appendLine(
+                "fusedPerfCallbackHzMax=${
+                    compassTelemetryInsights.fusedPerfCallbackHzMax?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "fusedPerfPublishHzMax=${
+                    compassTelemetryInsights.fusedPerfPublishHzMax?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine("renderPerfEventCount=${compassTelemetryInsights.renderPerfEventCount}")
+            writer.appendLine("renderPerfFrameCount=${compassTelemetryInsights.renderPerfFrameCount}")
+            writer.appendLine(
+                "renderPerfTargetUpdateCount=${compassTelemetryInsights.renderPerfTargetUpdateCount}",
+            )
+            writer.appendLine(
+                "renderPerfHeadingRenderCount=${compassTelemetryInsights.renderPerfHeadingRenderCount}",
+            )
+            writer.appendLine(
+                "renderPerfRotationAppliedCount=${compassTelemetryInsights.renderPerfRotationAppliedCount}",
+            )
+            writer.appendLine(
+                "renderPerfRotationSkippedCount=${compassTelemetryInsights.renderPerfRotationSkippedCount}",
+            )
+            writer.appendLine(
+                "renderPerfMarkerUpdateCount=${compassTelemetryInsights.renderPerfMarkerUpdateCount}",
+            )
+            writer.appendLine("renderPerfRedrawCount=${compassTelemetryInsights.renderPerfRedrawCount}")
+            writer.appendLine(
+                "renderPerfFrameHzMax=${
+                    compassTelemetryInsights.renderPerfFrameHzMax?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "renderPerfRenderHzMax=${
+                    compassTelemetryInsights.renderPerfRenderHzMax?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
             )
             writer.appendLine("batchEventCount=${telemetryInsights.batchEventCount}")
             writer.appendLine("batchOriginAutoFusedCount=${telemetryInsights.batchOriginAutoFusedCount}")

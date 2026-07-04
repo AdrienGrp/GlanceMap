@@ -314,6 +314,19 @@ class LocationService : Service() {
                 currentState = {
                     val effectiveUserIntervalMs =
                         when {
+                            latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING_GUIDANCE ->
+                                minOf(
+                                    if (latestScreenState.isNonInteractive) {
+                                        latestRecordingScreenOffIntervalMs
+                                    } else {
+                                        latestRecordingIntervalMs
+                                    },
+                                    if (latestScreenState.isNonInteractive) {
+                                        latestTurnByTurnScreenOffIntervalMs
+                                    } else {
+                                        latestTurnByTurnIntervalMs
+                                    },
+                                )
                             latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING ->
                                 if (latestScreenState.isNonInteractive) {
                                     latestRecordingScreenOffIntervalMs
@@ -1278,4 +1291,5 @@ private fun String.sanitizeTelemetryValue(): String =
 private fun String.isGuidanceRuntimeReason(): Boolean =
     this == NavigationRuntimeDemandReason.GUIDANCE_VISIBLE ||
         this == NavigationRuntimeDemandReason.GUIDANCE_AMBIENT ||
-        this == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND
+        this == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND ||
+        this == NavigationRuntimeDemandReason.RECORDING_GUIDANCE
