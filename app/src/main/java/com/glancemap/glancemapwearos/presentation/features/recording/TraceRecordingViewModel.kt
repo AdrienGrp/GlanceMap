@@ -1049,12 +1049,7 @@ class TraceRecordingViewModel(
     }
 
     private fun isAutoPauseEnabledForCurrentProfile(): Boolean =
-        when (recordingAutoPauseMode) {
-            SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS -> true
-            SettingsRepository.RECORDING_AUTO_PAUSE_BIKE_ONLY ->
-                activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
-            else -> false
-        }
+        recordingAutoPauseMode == SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS
 
     private fun hasReliableAutoPauseFix(livePoint: RecordedTracePoint): Boolean {
         val accuracy = livePoint.accuracyMeters ?: return false

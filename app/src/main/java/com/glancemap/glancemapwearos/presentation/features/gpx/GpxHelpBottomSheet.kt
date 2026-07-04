@@ -4,6 +4,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AssistantDirection
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -13,6 +20,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.R
@@ -36,10 +44,29 @@ fun GpxHelpBottomSheet(
             WearInfoText("Toggle tracks on the map.")
         }
         item {
-            WearInfoText("Switch GPX and activities with the route/activity icon.")
+            GpxHelpInlineText(
+                iconContent =
+                    mapOf(
+                        "route" to Icons.Default.Route,
+                        "hike" to Icons.AutoMirrored.Filled.DirectionsRun,
+                        "bike" to Icons.AutoMirrored.Filled.DirectionsBike,
+                    ),
+            ) {
+                append("Tap ")
+                appendInlineContent("route", "[route]")
+                append(" to switch between GPX, REC hike ")
+                appendInlineContent("hike", "[hike]")
+                append(" and REC bike ")
+                appendInlineContent("bike", "[bike]")
+                append(".")
+            }
         }
         item {
-            WearInfoText("Use the guidance icon to start turn-by-turn.")
+            GpxHelpInlineText(iconContent = mapOf("guidance" to Icons.AutoMirrored.Filled.AssistantDirection)) {
+                append("Use ")
+                appendInlineContent("guidance", "[guidance]")
+                append(" to start turn-by-turn.")
+            }
         }
         item {
             WearInfoText("Long press for elevation.")
@@ -77,7 +104,50 @@ fun GpxHelpBottomSheet(
             }
         }
         item {
-            WearInfoText("Edit or delete tracks with mode buttons.")
+            GpxHelpInlineText(
+                iconContent =
+                    mapOf(
+                        "edit" to Icons.Default.Edit,
+                        "delete" to Icons.Default.Delete,
+                    ),
+            ) {
+                append("Use ")
+                appendInlineContent("edit", "[edit]")
+                append(" and ")
+                appendInlineContent("delete", "[delete]")
+                append(" to edit or delete tracks.")
+            }
         }
+    }
+}
+
+@Composable
+private fun GpxHelpInlineText(
+    iconContent: Map<String, ImageVector>,
+    textBuilder: androidx.compose.ui.text.AnnotatedString.Builder.() -> Unit,
+) {
+    cappedFontScale(maxFontScale = 1.08f) {
+        Text(
+            text = buildAnnotatedString(textBuilder),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+            inlineContent =
+                iconContent.mapValues { (_, imageVector) ->
+                    InlineTextContent(
+                        placeholder =
+                            Placeholder(
+                                width = 16.sp,
+                                height = 16.sp,
+                                placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+                            ),
+                    ) {
+                        Icon(
+                            imageVector = imageVector,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                },
+        )
     }
 }

@@ -87,6 +87,7 @@ class RecordingDashboardModelsTest {
             )
 
         assertEquals(4.0, snapshot.durationSeconds, 0.0)
+        assertEquals(9.0, snapshot.totalDurationSeconds, 0.0)
     }
 
     @Test
@@ -307,7 +308,8 @@ class RecordingDashboardModelsTest {
         assertEquals(
             listOf(
                 "Distance",
-                "Active time",
+                "Time (Total)",
+                "Time (Active)",
                 "Elev +",
                 "Elev -",
                 "Speed (Avg)",

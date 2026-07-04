@@ -25,6 +25,7 @@ fun CompactIconHitTargetButton(
     contentColor: Color,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    hitTargetSize: Dp = 48.dp,
     visualOffsetY: Dp = 0.dp,
     disabledContainerColor: Color = containerColor.copy(alpha = 0.5f),
     disabledContentColor: Color = contentColor.copy(alpha = 0.45f),
@@ -35,7 +36,7 @@ fun CompactIconHitTargetButton(
     IconButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.size(48.dp),
+        modifier = modifier.size(hitTargetSize),
         colors =
             IconButtonDefaults.iconButtonColors(
                 containerColor = Color.Transparent,

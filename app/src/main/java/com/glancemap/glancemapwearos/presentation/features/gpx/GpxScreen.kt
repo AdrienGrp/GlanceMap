@@ -66,6 +66,7 @@ import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingRecapMetricsGrid
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingRecapMetric
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetric
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetricsForSnapshot
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
@@ -195,10 +196,18 @@ fun GpxScreen(
             WearScreenSize.SMALL -> 0.dp
         }
     val listBottomPadding =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 2.dp
-            WearScreenSize.MEDIUM -> 1.dp
-            WearScreenSize.SMALL -> 0.dp
+        if (showActivities) {
+            when (screenSize) {
+                WearScreenSize.LARGE -> 14.dp
+                WearScreenSize.MEDIUM -> 12.dp
+                WearScreenSize.SMALL -> 10.dp
+            }
+        } else {
+            when (screenSize) {
+                WearScreenSize.LARGE -> 2.dp
+                WearScreenSize.MEDIUM -> 1.dp
+                WearScreenSize.SMALL -> 0.dp
+            }
         }
     val headerTopPadding =
         when (screenSize) {
@@ -303,6 +312,12 @@ fun GpxScreen(
             WearScreenSize.LARGE -> 26.dp
             WearScreenSize.MEDIUM -> 25.dp
             WearScreenSize.SMALL -> 24.dp
+        }
+    val activityActionHitTargetSize =
+        when (screenSize) {
+            WearScreenSize.LARGE -> 34.dp
+            WearScreenSize.MEDIUM -> 33.dp
+            WearScreenSize.SMALL -> 32.dp
         }
     val dialogTextTopPadding =
         when (screenSize) {
@@ -696,6 +711,7 @@ fun GpxScreen(
                             deleteButtonSize = deleteButtonSize,
                             singleGuidanceButtonSize = singleGuidanceButtonSize,
                             activityActionButtonSize = activityActionButtonSize,
+                            activityActionHitTargetSize = activityActionHitTargetSize,
                         )
                     }
                 }
@@ -850,13 +866,15 @@ private fun ActivityDetailsDialog(
     val (elevationLossValue, elevationLossUnit) = gpxFile.formattedElevationLoss(isMetric)
     val metrics =
         remember(gpxFile, isMetric) {
-            gpxFile.activitySummary?.let { summary ->
-                recordingRecapMetricsForSnapshot(summary, isMetric)
-            } ?: listOf(
-                recordingRecapMetric("Dist", distanceValue, distanceUnit),
-                recordingRecapMetric("Time", gpxFile.formattedActivityDurationClock()),
-                recordingRecapMetric("Elev +", elevationValue, elevationUnit),
-                recordingRecapMetric("Elev -", elevationLossValue, elevationLossUnit),
+            activityDetailsMetrics(
+                gpxFile = gpxFile,
+                isMetric = isMetric,
+                fallbackDistanceValue = distanceValue,
+                fallbackDistanceUnit = distanceUnit,
+                fallbackElevationValue = elevationValue,
+                fallbackElevationUnit = elevationUnit,
+                fallbackElevationLossValue = elevationLossValue,
+                fallbackElevationLossUnit = elevationLossUnit,
             )
         }
     WearInfoDialog(
@@ -880,6 +898,74 @@ private fun ActivityDetailsDialog(
         }
         item {
             Spacer(modifier = Modifier.height(56.dp))
+        }
+    }
+}
+
+private fun activityDetailsMetrics(
+    gpxFile: GpxFileState,
+    isMetric: Boolean,
+    fallbackDistanceValue: String,
+    fallbackDistanceUnit: String,
+    fallbackElevationValue: String,
+    fallbackElevationUnit: String,
+    fallbackElevationLossValue: String,
+    fallbackElevationLossUnit: String,
+): List<RecordingRecapMetric> {
+    val summary = gpxFile.activitySummary
+    if (summary == null) {
+        return listOf(
+            recordingRecapMetric("Dist", fallbackDistanceValue, fallbackDistanceUnit),
+            recordingRecapMetric("Time", gpxFile.formattedActivityDurationClock()),
+            recordingRecapMetric("Elev +", fallbackElevationValue, fallbackElevationUnit),
+            recordingRecapMetric("Elev -", fallbackElevationLossValue, fallbackElevationLossUnit),
+        )
+    }
+
+    val metrics = recordingRecapMetricsForSnapshot(summary, isMetric)
+    val isBike = gpxFile.activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
+    return if (isBike) {
+        metrics.inLabelOrder(
+            "Distance",
+            "Speed (Avg)",
+            "Time (Total)",
+            "Time (Active)",
+            "Elev +",
+            "Elev -",
+            "Max speed",
+            "HR (Avg)",
+            "Max HR",
+            "Power (Avg)",
+            "Max Power",
+            "Cal (Total)",
+            "Cal (Active)",
+            "Cal (Rest)",
+        )
+    } else {
+        metrics.moveLabelAfter(
+            label = "Steps",
+            afterLabel = "Distance",
+        )
+    }
+}
+
+private fun List<RecordingRecapMetric>.inLabelOrder(vararg labels: String): List<RecordingRecapMetric> {
+    val byLabel = associateBy { it.label }
+    return labels.mapNotNull(byLabel::get)
+}
+
+private fun List<RecordingRecapMetric>.moveLabelAfter(
+    label: String,
+    afterLabel: String,
+): List<RecordingRecapMetric> {
+    val moved = firstOrNull { it.label == label } ?: return this
+    val withoutMoved = filterNot { it.label == label }
+    val afterIndex = withoutMoved.indexOfFirst { it.label == afterLabel }
+    if (afterIndex < 0) return this
+    return buildList {
+        withoutMoved.forEachIndexed { index, metric ->
+            add(metric)
+            if (index == afterIndex) add(moved)
         }
     }
 }
@@ -919,6 +1005,7 @@ private fun GpxTrackItem(
     deleteButtonSize: Dp,
     singleGuidanceButtonSize: Dp,
     activityActionButtonSize: Dp,
+    activityActionHitTargetSize: Dp,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val longPressHandler by rememberUpdatedState(onLongPress)
@@ -1067,6 +1154,7 @@ private fun GpxTrackItem(
                     CompactIconHitTargetButton(
                         onClick = onShowActivityDetails,
                         visualSize = activityActionButtonSize,
+                        hitTargetSize = activityActionHitTargetSize,
                         containerColor = Color.Black.copy(alpha = 0.72f),
                         contentColor = Color.White,
                     ) {
@@ -1080,6 +1168,7 @@ private fun GpxTrackItem(
                         isGuidanceActive = isGuidanceActive,
                         isGuidanceStarting = isGuidanceStarting,
                         visualSize = activityActionButtonSize,
+                        hitTargetSize = activityActionHitTargetSize,
                         iconSize = 15.dp,
                         onStartGuidance = onStartGuidance,
                         onStopGuidance = onStopGuidance,
@@ -1104,6 +1193,7 @@ private fun GuidanceActionButton(
     isGuidanceActive: Boolean,
     isGuidanceStarting: Boolean,
     visualSize: Dp,
+    hitTargetSize: Dp = 48.dp,
     iconSize: Dp?,
     onStartGuidance: () -> Unit,
     onStopGuidance: () -> Unit,
@@ -1119,6 +1209,7 @@ private fun GuidanceActionButton(
             }
         },
         visualSize = visualSize,
+        hitTargetSize = hitTargetSize,
         containerColor =
             when {
                 isGuidanceStarting -> MaterialTheme.colorScheme.primaryContainer

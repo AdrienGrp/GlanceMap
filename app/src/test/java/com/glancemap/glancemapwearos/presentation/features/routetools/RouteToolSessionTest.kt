@@ -16,15 +16,15 @@ class RouteToolSessionTest {
                         toolKind = RouteToolKind.MODIFY,
                         modifyMode = RouteModifyMode.RESHAPE_ROUTE,
                     ),
-            )
+        )
 
         assertEquals(RouteSelectionTarget.RESHAPE_POINT, initial.currentSelectionTarget)
-        assertEquals("Place route point, then check.", initial.instructionText)
+        assertEquals("Pick point to move", initial.instructionText)
         assertTrue(initial.usesCrosshair)
 
         val selectedPoint = initial.captureSelection(LatLong(0.0, 1.0))
         assertEquals(RouteSelectionTarget.DESTINATION, selectedPoint.currentSelectionTarget)
-        assertEquals("Place replacement point, then check.", selectedPoint.instructionText)
+        assertEquals("Pick new point", selectedPoint.instructionText)
         assertEquals(LatLong(0.0, 1.0), selectedPoint.pointA)
 
         val completed = selectedPoint.captureSelection(LatLong(0.5, 1.5))

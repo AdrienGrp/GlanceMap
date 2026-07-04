@@ -52,6 +52,7 @@ data class RecordingCalorieEstimate(
 
 data class RecordingDashboardSnapshot(
     val durationSeconds: Double,
+    val totalDurationSeconds: Double = durationSeconds,
     val distanceMeters: Double,
     val elevationGainMeters: Double,
     val elevationLossMeters: Double,
@@ -96,7 +97,8 @@ data class RecordingDashboardSnapshot(
 internal val recordingMetricDefinitions =
     listOf(
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_DISTANCE, "Distance"),
-        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_DURATION, "Active time"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_TOTAL_TIME, "Time (Total)"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_DURATION, "Time (Active)"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN, "Elev +"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS, "Elev -"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION, "Altitude"),
@@ -166,6 +168,7 @@ internal fun buildRecordingDashboardSnapshot(
     val activeDurationMillis =
         (nowMillis - startedAt - state.accumulatedPausedMillis - currentPausedMillis).coerceAtLeast(0L)
     val activeDurationSeconds = activeDurationMillis / 1000.0
+    val totalDurationSeconds = ((nowMillis - startedAt).coerceAtLeast(0L)) / 1000.0
     val canonicalProfile = buildRecordingCanonicalProfile(state.points)
     val lastRecordedPoint = state.points.lastOrNull()
     val livePoint =
@@ -194,6 +197,7 @@ internal fun buildRecordingDashboardSnapshot(
     val hasElevationData = state.points.any { it.elevationMeters?.isFinite() == true }
     return RecordingDashboardSnapshot(
         durationSeconds = activeDurationSeconds,
+        totalDurationSeconds = totalDurationSeconds,
         distanceMeters = displayDistanceMeters,
         elevationGainMeters = canonicalProfile?.totalAscent ?: 0.0,
         elevationLossMeters = canonicalProfile?.totalDescent ?: 0.0,
@@ -268,6 +272,8 @@ internal fun formattedRecordingMetric(
         }
         SettingsRepository.RECORDING_METRIC_DURATION ->
             RecordingMetricValue(definition.label, formatRecordingDurationClock(snapshot.durationSeconds))
+        SettingsRepository.RECORDING_METRIC_TOTAL_TIME ->
+            RecordingMetricValue(definition.label, formatRecordingDurationClock(snapshot.totalDurationSeconds))
         SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN -> {
             if (!snapshot.hasElevationData) return RecordingMetricValue(definition.label, "--")
             val (value, unit) = UnitFormatter.formatElevation(snapshot.elevationGainMeters, isMetric)

@@ -232,6 +232,8 @@ internal fun recordingRecapMetricsForSnapshot(
     listOf(
         formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DISTANCE, snapshot, isMetric)
             .toRecordingRecapMetric(),
+        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_TOTAL_TIME, snapshot, isMetric)
+            .toRecordingRecapMetric(),
         formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DURATION, snapshot, isMetric)
             .toRecordingRecapMetric(),
         formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN, snapshot, isMetric)

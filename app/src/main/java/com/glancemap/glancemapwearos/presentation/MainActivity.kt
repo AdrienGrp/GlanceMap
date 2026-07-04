@@ -154,14 +154,13 @@ class MainActivity : ComponentActivity() {
             val turnByTurnGuidanceSession by appContainer.gpxViewModel.turnByTurnGuidanceSession.collectAsState()
             val turnByTurnGuidancePaused by appContainer.gpxViewModel.turnByTurnGuidancePaused.collectAsState()
             val gpsInAmbientMode by appContainer.settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
-            val turnByTurnGpsInAmbientMode by appContainer.settingsViewModel.turnByTurnGpsInAmbientMode.collectAsState(
-                initial = false,
-            )
             val offlineMode by appContainer.settingsViewModel.offlineMode.collectAsState(initial = false)
             val recordingDashboardMetricSlots by appContainer.settingsViewModel.recordingDashboardMetricSlots.collectAsState()
             val recordingStartWithTurnByTurn by appContainer.settingsViewModel.recordingStartWithTurnByTurn.collectAsState()
             val recordingSampleIntervalSeconds by appContainer.settingsViewModel.recordingSampleIntervalSeconds.collectAsState()
             val recordingScreenOffSampleIntervalSeconds by appContainer.settingsViewModel.recordingScreenOffSampleIntervalSeconds.collectAsState()
+            val turnByTurnGpsIntervalSeconds by appContainer.settingsViewModel.turnByTurnGpsIntervalSeconds.collectAsState()
+            val turnByTurnScreenOffGpsIntervalSeconds by appContainer.settingsViewModel.turnByTurnScreenOffGpsIntervalSeconds.collectAsState()
             val recordingHeartRateSource by appContainer.settingsViewModel.recordingHeartRateSource.collectAsState()
             val recordingCadenceSource by appContainer.settingsViewModel.recordingCadenceSource.collectAsState()
             val recordingSpeedSource by appContainer.settingsViewModel.recordingSpeedSource.collectAsState()
@@ -226,6 +225,20 @@ class MainActivity : ComponentActivity() {
                     } else {
                         recordingScreenOnGpsEnabled
                     }
+                val turnByTurnScreenOnGpsEnabled =
+                    turnByTurnGpsIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+                val turnByTurnScreenOffGpsEnabled =
+                    when (turnByTurnScreenOffGpsIntervalSeconds) {
+                        SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> turnByTurnScreenOnGpsEnabled
+                        SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                        else -> true
+                    }
+                val turnByTurnGpsEnabled =
+                    if (activityLocationScreenState.isNonInteractive) {
+                        turnByTurnScreenOffGpsEnabled
+                    } else {
+                        turnByTurnScreenOnGpsEnabled
+                    }
                 val recordingRuntimePaused = traceRecordingState.paused && !traceRecordingState.autoPaused
                 var suppressNavigateTime by remember { mutableStateOf(false) }
                 var recordingDashboardExpandRequestToken by remember { mutableLongStateOf(0L) }
@@ -247,8 +260,9 @@ class MainActivity : ComponentActivity() {
                     recordingGpsEnabled,
                     turnByTurnGuidanceSession,
                     turnByTurnGuidancePaused,
+                    turnByTurnGpsEnabled,
                     gpsInAmbientMode,
-                    turnByTurnGpsInAmbientMode,
+                    turnByTurnScreenOffGpsEnabled,
                     offlineMode,
                     activityLocationScreenState,
                     locationPermissionGranted,
@@ -267,7 +281,8 @@ class MainActivity : ComponentActivity() {
                             recordingGpsEnabled = recordingGpsEnabled,
                             turnByTurnActive = turnByTurnGuidanceSession != null,
                             turnByTurnPaused = turnByTurnGuidancePaused,
-                            turnByTurnGpsInAmbient = turnByTurnGpsInAmbientMode,
+                            turnByTurnGpsEnabled = turnByTurnGpsEnabled,
+                            turnByTurnGpsInAmbient = turnByTurnScreenOffGpsEnabled,
                         )
                     appContainer.locationViewModel.syncRuntimeState(
                         screenState = activityLocationScreenState,
@@ -1053,6 +1068,21 @@ class MainActivity : ComponentActivity() {
             } else {
                 destroyRecordingScreenOnGpsEnabled
             }
+        val destroyTurnByTurnScreenOnGpsEnabled =
+            appContainer.settingsViewModel.turnByTurnGpsIntervalSeconds.value !=
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+        val destroyTurnByTurnScreenOffGpsEnabled =
+            when (appContainer.settingsViewModel.turnByTurnScreenOffGpsIntervalSeconds.value) {
+                SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> destroyTurnByTurnScreenOnGpsEnabled
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                else -> true
+            }
+        val destroyTurnByTurnGpsEnabled =
+            if (destroyScreenState.isNonInteractive) {
+                destroyTurnByTurnScreenOffGpsEnabled
+            } else {
+                destroyTurnByTurnScreenOnGpsEnabled
+            }
         val runtimeDemand =
             navigationRuntimeDemand(
                 isNavigateScreen = false,
@@ -1066,7 +1096,8 @@ class MainActivity : ComponentActivity() {
                 recordingGpsEnabled = destroyRecordingGpsEnabled,
                 turnByTurnActive = appContainer.gpxViewModel.turnByTurnGuidanceSession.value != null,
                 turnByTurnPaused = appContainer.gpxViewModel.turnByTurnGuidancePaused.value,
-                turnByTurnGpsInAmbient = appContainer.settingsViewModel.turnByTurnGpsInAmbientMode.value,
+                turnByTurnGpsEnabled = destroyTurnByTurnGpsEnabled,
+                turnByTurnGpsInAmbient = destroyTurnByTurnScreenOffGpsEnabled,
             )
         if (runtimeDemand.trackingEnabled) {
             DebugTelemetry.log(
