@@ -149,6 +149,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     turnByTurnGuidancePaused: Boolean,
     turnByTurnPausedTrackTitle: String?,
     turnByTurnVoiceGuidanceEnabled: Boolean,
+    turnByTurnCompactPopupEnabled: Boolean,
     onTurnByTurnVoiceGuidanceChange: (Boolean) -> Unit,
     turnByTurnFullScreenExpanded: Boolean,
     recordingDashboardFullScreenExpanded: Boolean,
@@ -524,6 +525,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         startDecisionPrompt = startDecisionPrompt,
         expandRequestToken = recordingDashboardExpandRequestToken,
         actionPromptRequestToken = recordingActionPromptRequestToken,
+        compactPopupEnabled = turnByTurnCompactPopupEnabled,
         suppressed =
             poiTapMessage != null ||
                 suppressGuidanceForPanning ||
@@ -586,6 +588,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         showGuideBackPrompt = showGuideBackPrompt,
         expandRequestToken = recordingDashboardExpandRequestToken,
         actionPromptRequestToken = recordingActionPromptRequestToken,
+        compactPopupEnabled = turnByTurnCompactPopupEnabled,
         suppressed =
             poiTapMessage != null ||
                 suppressGuidanceForPanning ||

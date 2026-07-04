@@ -1,7 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -82,7 +81,6 @@ internal fun BoxScope.MarkerMotionDebugOverlay(
     label: String?,
     screenSize: WearScreenSize,
     recordingStatusChipVisible: Boolean,
-    onHeadingLooksWrong: () -> Unit,
 ) {
     if (label.isNullOrBlank()) return
 
@@ -123,20 +121,6 @@ internal fun BoxScope.MarkerMotionDebugOverlay(
             fontSize = overlayTextSize,
             lineHeight = overlayTextSize,
             fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = "Report heading",
-            modifier =
-                Modifier
-                    .padding(top = 3.dp)
-                    .background(Color(0xFF6D2430), RoundedCornerShape(5.dp))
-                    .clickable(onClick = onHeadingLooksWrong)
-                    .padding(horizontal = 7.dp, vertical = 3.dp),
-            color = Color.White,
-            fontSize = overlayTextSize,
-            lineHeight = overlayTextSize,
-            fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
         )
     }

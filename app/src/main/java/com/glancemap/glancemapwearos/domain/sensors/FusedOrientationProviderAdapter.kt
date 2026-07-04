@@ -193,6 +193,16 @@ internal class FusedOrientationProviderAdapter(
 
     @Volatile private var lastFusedSampleLogAtElapsedMs = 0L
 
+    @Volatile private var fusedPerfWindowStartElapsedMs = 0L
+
+    @Volatile private var fusedPerfCallbackCount = 0
+
+    @Volatile private var fusedPerfConfirmedCount = 0
+
+    @Volatile private var fusedPerfUnusableCount = 0
+
+    @Volatile private var fusedPerfHeadingPublishCount = 0
+
     @Volatile private var startupOverlapSampleCount = 0
 
     @Volatile private var startupOverlapDeltaTotalDeg = 0f
@@ -303,6 +313,7 @@ internal class FusedOrientationProviderAdapter(
         lastFusedSampleLogAtElapsedMs = 0L
         resetStartupOverlapMetrics()
         resetUnusableFusedSampleState()
+        resetFusedPerfCounters()
         publishNorthReferenceStatus()
     }
 
@@ -446,6 +457,7 @@ internal class FusedOrientationProviderAdapter(
     private fun handleDeviceOrientation(orientation: DeviceOrientation) {
         if (!started || _useFallbackProvider.value) return
         val now = SystemClock.elapsedRealtime()
+        recordFusedPerfCallback(now)
         val liveHeadingErrorDeg = orientation.headingErrorDegrees
         val conservativeHeadingErrorDeg =
             if (orientation.hasConservativeHeadingErrorDegrees()) {
@@ -598,6 +610,7 @@ internal class FusedOrientationProviderAdapter(
         // Pass through directly during settle window — Google's fusion needs a brief warmup.
         if ((now - startAtMs) < FUSED_ORIENTATION_SETTLE_WINDOW_MS) {
             _heading.value = displayHeading
+            recordFusedPerfHeadingPublish(now)
             return
         }
 
@@ -651,6 +664,7 @@ internal class FusedOrientationProviderAdapter(
                 fusedPendingJumpHeading = null
                 fusedPendingJumpAtMs = 0L
                 _heading.value = displayHeading
+                recordFusedPerfHeadingPublish(now)
             }
             LargeJumpAction.REJECT_PENDING -> {
                 if (!hasPendingJump) {
@@ -670,6 +684,7 @@ internal class FusedOrientationProviderAdapter(
                     fusedPendingJumpAtMs = 0L
                 }
                 _heading.value = displayHeading
+                recordFusedPerfHeadingPublish(now)
             }
         }
     }
@@ -924,6 +939,7 @@ internal class FusedOrientationProviderAdapter(
             conservativeHeadingErrorDeg.takeIf { it.isFinite() && it >= 0f }
         _headingSampleElapsedRealtimeMs.value = nowElapsedMs
         _headingSampleStale.value = false
+        recordFusedPerfConfirmed(nowElapsedMs)
         scheduleFusedSampleFreshnessTimeout(sampleAtElapsedMs = nowElapsedMs)
         updateHeadingSourceState(HeadingSource.FUSED_ORIENTATION)
     }
@@ -937,6 +953,7 @@ internal class FusedOrientationProviderAdapter(
         _conservativeHeadingErrorDeg.value =
             conservativeHeadingErrorDeg.takeIf { it.isFinite() && it >= 0f }
         _headingSampleStale.value = _headingSampleElapsedRealtimeMs.value != null
+        recordFusedPerfUnusable(SystemClock.elapsedRealtime())
     }
 
     private fun logFusedSample(
@@ -961,6 +978,65 @@ internal class FusedOrientationProviderAdapter(
                 "waitingDecl=${northStatus.waitingForDeclination} " +
                 "relock=${nowElapsedMs < headingRelockUntilElapsedMs}",
         )
+    }
+
+    private fun recordFusedPerfCallback(nowElapsedMs: Long) {
+        if (!DebugTelemetry.isEnabled()) return
+        ensureFusedPerfWindow(nowElapsedMs)
+        fusedPerfCallbackCount += 1
+        maybeLogFusedPerf(nowElapsedMs)
+    }
+
+    private fun recordFusedPerfConfirmed(nowElapsedMs: Long) {
+        if (!DebugTelemetry.isEnabled()) return
+        ensureFusedPerfWindow(nowElapsedMs)
+        fusedPerfConfirmedCount += 1
+        maybeLogFusedPerf(nowElapsedMs)
+    }
+
+    private fun recordFusedPerfUnusable(nowElapsedMs: Long) {
+        if (!DebugTelemetry.isEnabled()) return
+        ensureFusedPerfWindow(nowElapsedMs)
+        fusedPerfUnusableCount += 1
+        maybeLogFusedPerf(nowElapsedMs)
+    }
+
+    private fun recordFusedPerfHeadingPublish(nowElapsedMs: Long) {
+        if (!DebugTelemetry.isEnabled()) return
+        ensureFusedPerfWindow(nowElapsedMs)
+        fusedPerfHeadingPublishCount += 1
+        maybeLogFusedPerf(nowElapsedMs)
+    }
+
+    private fun ensureFusedPerfWindow(nowElapsedMs: Long) {
+        if (fusedPerfWindowStartElapsedMs == 0L) {
+            fusedPerfWindowStartElapsedMs = nowElapsedMs
+        }
+    }
+
+    private fun maybeLogFusedPerf(nowElapsedMs: Long) {
+        val windowStart = fusedPerfWindowStartElapsedMs
+        if (windowStart == 0L) return
+        val windowMs = (nowElapsedMs - windowStart).coerceAtLeast(0L)
+        if (windowMs < FUSED_PERF_LOG_WINDOW_MS) return
+        val seconds = (windowMs / 1000f).coerceAtLeast(0.001f)
+        logDiagnostics(
+            "google_fused perf windowMs=$windowMs " +
+                "callbacks=$fusedPerfCallbackCount callbackHz=${(fusedPerfCallbackCount / seconds).format(1)} " +
+                "confirmed=$fusedPerfConfirmedCount confirmedHz=${(fusedPerfConfirmedCount / seconds).format(1)} " +
+                "unusable=$fusedPerfUnusableCount " +
+                "headingPublishes=$fusedPerfHeadingPublishCount " +
+                "publishHz=${(fusedPerfHeadingPublishCount / seconds).format(1)}",
+        )
+        resetFusedPerfCounters(nowElapsedMs)
+    }
+
+    private fun resetFusedPerfCounters(windowStartElapsedMs: Long = 0L) {
+        fusedPerfWindowStartElapsedMs = windowStartElapsedMs
+        fusedPerfCallbackCount = 0
+        fusedPerfConfirmedCount = 0
+        fusedPerfUnusableCount = 0
+        fusedPerfHeadingPublishCount = 0
     }
 
     private fun recordStartupOverlap(displayHeadingDeg: Float) {
@@ -1115,6 +1191,7 @@ private const val FUSED_ORIENTATION_HIGH_POWER_SAMPLING_MICROS = 20_000L // 50 H
 private const val FUSED_ORIENTATION_LOW_POWER_SAMPLING_MICROS = 200_000L // 5 Hz
 private const val FUSED_INVALID_HEADING_ERROR_DEG = 180f
 private const val FUSED_ORIENTATION_SAMPLE_STALE_MS = 1_500L
+private const val FUSED_PERF_LOG_WINDOW_MS = 5_000L
 private const val FUSED_RECALIBRATION_HIGH_POWER_WINDOW_MS = 6_000L
 private const val FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS = 5_000L
 private const val FUSED_UNUSABLE_HEADING_FALLBACK_MIN_SAMPLES = 5

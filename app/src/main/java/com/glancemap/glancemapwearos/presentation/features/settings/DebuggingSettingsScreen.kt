@@ -99,6 +99,7 @@ fun DebuggingSettingsScreen(
     val turnByTurnVoiceGuidanceEnabled by viewModel.turnByTurnVoiceGuidanceEnabled.collectAsState()
     val turnByTurnTurnAlertsMode by viewModel.turnByTurnTurnAlertsMode.collectAsState()
     val turnByTurnOffRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
+    val turnByTurnCompactPopupEnabled by viewModel.turnByTurnCompactPopupEnabled.collectAsState()
     val turnByTurnOffRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
     val turnByTurnOffRouteRepeatSeconds by viewModel.turnByTurnOffRouteRepeatSeconds.collectAsState()
     val turnByTurnGpsInAmbientMode by viewModel.turnByTurnGpsInAmbientMode.collectAsState()
@@ -454,6 +455,7 @@ fun DebuggingSettingsScreen(
                                                 turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
                                                 turnByTurnTurnAlertsMode = turnByTurnTurnAlertsMode,
                                                 turnByTurnOffRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
+                                                turnByTurnCompactPopupEnabled = turnByTurnCompactPopupEnabled,
                                                 turnByTurnOffRouteAlertThresholdMeters =
                                                 turnByTurnOffRouteThresholdMeters,
                                                 turnByTurnOffRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,

@@ -29,6 +29,8 @@ internal fun rememberNavigateRuntimeState(
     traceRecordingState: TraceRecordingUiState,
     recordingScreenOnGpsEnabled: Boolean,
     recordingScreenOffGpsEnabled: Boolean,
+    turnByTurnScreenOnGpsEnabled: Boolean,
+    turnByTurnScreenOffGpsEnabled: Boolean,
     turnByTurnActive: Boolean,
     turnByTurnPaused: Boolean,
     turnByTurnGpsInAmbient: Boolean,
@@ -48,6 +50,12 @@ internal fun rememberNavigateRuntimeState(
         } else {
             recordingScreenOnGpsEnabled
         }
+    val turnByTurnGpsEnabled =
+        if (screenState.isNonInteractive) {
+            turnByTurnScreenOffGpsEnabled
+        } else {
+            turnByTurnScreenOnGpsEnabled
+        }
     val recordingRuntimePaused = traceRecordingState.paused && !traceRecordingState.autoPaused
     val runtimeDemand =
         navigationRuntimeDemand(
@@ -62,6 +70,7 @@ internal fun rememberNavigateRuntimeState(
             recordingGpsEnabled = recordingGpsEnabled,
             turnByTurnActive = turnByTurnActive,
             turnByTurnPaused = turnByTurnPaused,
+            turnByTurnGpsEnabled = turnByTurnGpsEnabled,
             turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
         )
     NavigateRuntimeEffects(

@@ -101,6 +101,7 @@ class MapRenderer(
         private const val STARTUP_PREWARM_ZOOM_STEPS = 2
         private const val STARTUP_PREWARM_TILE_MARGIN = 1
         private const val STARTUP_PREWARM_DURATION_MS = 8_000L
+        private const val STARTUP_PREWARM_ARM_DELAY_MS = 1_500L
         private const val CONSTRAINED_STARTUP_PREWARM_ZOOM_STEPS = 2
         private const val CONSTRAINED_STARTUP_PREWARM_TILE_MARGIN = 0
         private const val CONSTRAINED_STARTUP_PREWARM_DURATION_MS = 4_000L
@@ -788,19 +789,25 @@ class MapRenderer(
             return
         }
 
-        // Warm adjacent zoom levels once on startup so first manual zoom feels immediate.
-        layer.setCacheZoomPlus(config.startupPrewarmZoomPlus)
-        layer.setCacheZoomMinus(config.startupPrewarmZoomMinus)
-        layer.setCacheTileMargin(config.startupPrewarmTileMargin)
-
         mapView.postDelayed(
             {
                 if (currentLayer !== layer) return@postDelayed
-                layer.setCacheZoomPlus(0)
-                layer.setCacheZoomMinus(0)
-                layer.setCacheTileMargin(0)
+                // Warm adjacent zoom levels once startup rendering has had a chance to settle.
+                layer.setCacheZoomPlus(config.startupPrewarmZoomPlus)
+                layer.setCacheZoomMinus(config.startupPrewarmZoomMinus)
+                layer.setCacheTileMargin(config.startupPrewarmTileMargin)
+
+                mapView.postDelayed(
+                    {
+                        if (currentLayer !== layer) return@postDelayed
+                        layer.setCacheZoomPlus(0)
+                        layer.setCacheZoomMinus(0)
+                        layer.setCacheTileMargin(0)
+                    },
+                    config.startupPrewarmDurationMs,
+                )
             },
-            config.startupPrewarmDurationMs,
+            STARTUP_PREWARM_ARM_DELAY_MS,
         )
     }
 

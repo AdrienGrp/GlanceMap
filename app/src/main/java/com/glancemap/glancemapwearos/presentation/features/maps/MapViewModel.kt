@@ -141,6 +141,7 @@ class MapViewModel(
         private const val MAP_APPEARANCE_VISIBLE_TILE_SETTLE_MS = 220L
         private const val MAP_RENDERER_APPLY_DELAY_MS = 16L
         private const val INITIAL_THEME_PREWARM_DELAY_MS = 1500L
+        private const val RICH_MAP_METADATA_DEFER_MS = 2_000L
     }
 
     private val _mapFiles = MutableStateFlow<List<MapFileState>>(emptyList())
@@ -192,6 +193,8 @@ class MapViewModel(
     private var lastObservedSelectedMapPath: String? = null
     private var forcedOfflineStartCenterContextKey: String? = null
     private var selectedDemSourceForCoverage: DemSource = DemSource.DEFAULT
+    private var mapMetadataLoadJob: Job? = null
+    private var mapMetadataLoadGeneration: Long = 0L
 
     init {
         loadMapFiles()
@@ -486,6 +489,12 @@ class MapViewModel(
         )
     }
 
+    private fun buildLightMapFileState(file: File): MapFileState =
+        MapFileState(
+            name = file.name,
+            path = file.absolutePath,
+        )
+
     private fun applyLatestZoomBounds(reason: String) {
         val zoomMin = latestZoomMin
         val zoomMax = latestZoomMax
@@ -575,11 +584,9 @@ class MapViewModel(
         viewModelScope.launch {
             val files = mapRepository.listMapFiles()
             val demSource = selectedDemSourceForCoverage
-            val states =
-                withContext(Dispatchers.IO) {
-                    files.map { file -> buildMapFileState(file, demSource) }
-                }
-            _mapFiles.value = states
+            val generation = ++mapMetadataLoadGeneration
+            mapMetadataLoadJob?.cancel()
+            _mapFiles.value = files.map(::buildLightMapFileState)
 
             val currentPath = selectedMapPath.value
             if (currentPath != null && files.none { it.absolutePath == currentPath }) {
@@ -588,6 +595,18 @@ class MapViewModel(
 
             // Force refresh path/signature checks (handles file replacement with same path).
             requestMapLayerUpdate(selectedMapPath.value)
+
+            mapMetadataLoadJob =
+                viewModelScope.launch {
+                    delay(RICH_MAP_METADATA_DEFER_MS)
+                    val states =
+                        withContext(Dispatchers.IO) {
+                            files.map { file -> buildMapFileState(file, demSource) }
+                        }
+                    if (generation == mapMetadataLoadGeneration) {
+                        _mapFiles.value = states
+                    }
+                }
         }
     }
 

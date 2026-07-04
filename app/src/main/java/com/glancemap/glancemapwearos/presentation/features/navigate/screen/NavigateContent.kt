@@ -155,6 +155,7 @@ internal fun NavigateContent(
     turnByTurnGuidancePaused: Boolean,
     turnByTurnPausedTrackTitle: String?,
     turnByTurnVoiceGuidanceEnabled: Boolean,
+    turnByTurnCompactPopupEnabled: Boolean,
     onTurnByTurnVoiceGuidanceChange: (Boolean) -> Unit,
     guideBackToRouteActive: Boolean,
     showGuideBackPrompt: Boolean,
@@ -202,7 +203,6 @@ internal fun NavigateContent(
     poiPopupTimeoutSeconds: Int,
     poiPopupManualCloseOnly: Boolean,
     markerMotionDebugOverlayLabel: String?,
-    onHeadingLooksWrong: () -> Unit,
 ) {
     SideEffect {
         BenchmarkTrace.mark("recompose.NavigateContent")
@@ -911,6 +911,7 @@ internal fun NavigateContent(
                     turnByTurnGuidancePaused = turnByTurnGuidancePaused,
                     turnByTurnPausedTrackTitle = turnByTurnPausedTrackTitle,
                     turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
+                    turnByTurnCompactPopupEnabled = turnByTurnCompactPopupEnabled,
                     onTurnByTurnVoiceGuidanceChange = onTurnByTurnVoiceGuidanceChange,
                     turnByTurnFullScreenExpanded = turnByTurnFullScreenExpanded,
                     recordingDashboardFullScreenExpanded = recordingDashboardFullScreenExpanded,
@@ -949,7 +950,6 @@ internal fun NavigateContent(
                 label = markerMotionDebugOverlayLabel,
                 screenSize = screenSize,
                 recordingStatusChipVisible = traceRecordingState.active || traceRecordingState.saving,
-                onHeadingLooksWrong = onHeadingLooksWrong,
             )
 
             GpsEnvironmentWarningOverlay(

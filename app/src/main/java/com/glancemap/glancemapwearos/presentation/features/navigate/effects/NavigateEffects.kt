@@ -16,8 +16,10 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
+import com.glancemap.glancemapwearos.domain.sensors.COMPASS_TELEMETRY_TAG
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
@@ -32,6 +34,7 @@ import org.mapsforge.core.model.LatLong
 import org.mapsforge.core.model.Rotation
 import org.mapsforge.map.android.view.MapView
 import java.io.File
+import java.util.Locale
 import kotlin.math.abs
 
 /**
@@ -91,11 +94,13 @@ fun NavigationOrientationEffect(
         recenterLowerMarkerAnchor()
         val currentRotationDeg = syncDisplayedMapRotationFromMap()
         if (abs(angleDeltaDeg(targetRotationDeg, currentRotationDeg)) < MAP_ROTATION_APPLY_EPSILON_DEG) {
+            CompassRenderPerfTelemetry.recordRotationSkipped(navMode)
             onRenderedMapRotationChanged(currentRotationDeg)
             return
         }
         val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
         if (mv.trySetMapsforgeRotation(targetRotationDeg, anchor)) {
+            CompassRenderPerfTelemetry.recordRotationApplied(navMode)
             val appliedRotationDeg = syncDisplayedMapRotationFromMap()
             onRenderedMapRotationChanged(appliedRotationDeg)
         }
@@ -114,6 +119,7 @@ fun NavigationOrientationEffect(
             marker = marker,
             state = markerState,
         )
+        CompassRenderPerfTelemetry.recordMarkerUpdate(targetNavMode)
     }
 
     LaunchedEffect(mv) {
@@ -210,6 +216,7 @@ fun NavigationOrientationEffect(
                 .collect { heading ->
                     if (shouldDriveHeadingForNavMode(navMode, latestRenderState)) {
                         liveTarget = heading
+                        CompassRenderPerfTelemetry.recordTargetUpdate(navMode)
                     }
                 }
         }
@@ -221,6 +228,7 @@ fun NavigationOrientationEffect(
                 if (!shouldDriveHeadingForNavMode(navMode, latestRenderState)) {
                     return@withFrameNanos
                 }
+                CompassRenderPerfTelemetry.recordFrame(navMode)
                 val current = displayedHeading.floatValue
                 val diff = angleDeltaDeg(liveTarget, current)
                 if (abs(diff) < HEADING_ANIMATION_DONE_DEG) return@withFrameNanos
@@ -228,6 +236,7 @@ fun NavigationOrientationEffect(
                 val next = normalize360(current + diff * HEADING_ANIMATION_ALPHA)
                 displayedHeading.floatValue = next
                 onRenderedHeadingChanged(next)
+                CompassRenderPerfTelemetry.recordHeadingRender(navMode)
 
                 when (navMode) {
                     NavMode.COMPASS_FOLLOW -> {
@@ -240,8 +249,71 @@ fun NavigationOrientationEffect(
                     NavMode.PANNING -> Unit
                 }
                 requestMapRedraw()
+                CompassRenderPerfTelemetry.recordRedraw(navMode)
             }
         }
+    }
+}
+
+private object CompassRenderPerfTelemetry {
+    private var windowStartElapsedMs: Long = 0L
+    private var frameCount: Int = 0
+    private var targetUpdateCount: Int = 0
+    private var headingRenderCount: Int = 0
+    private var rotationAppliedCount: Int = 0
+    private var rotationSkippedCount: Int = 0
+    private var markerUpdateCount: Int = 0
+    private var redrawCount: Int = 0
+
+    fun recordFrame(navMode: NavMode) = record(navMode) { frameCount += 1 }
+
+    fun recordTargetUpdate(navMode: NavMode) = record(navMode) { targetUpdateCount += 1 }
+
+    fun recordHeadingRender(navMode: NavMode) = record(navMode) { headingRenderCount += 1 }
+
+    fun recordRotationApplied(navMode: NavMode) = record(navMode) { rotationAppliedCount += 1 }
+
+    fun recordRotationSkipped(navMode: NavMode) = record(navMode) { rotationSkippedCount += 1 }
+
+    fun recordMarkerUpdate(navMode: NavMode) = record(navMode) { markerUpdateCount += 1 }
+
+    fun recordRedraw(navMode: NavMode) = record(navMode) { redrawCount += 1 }
+
+    @Synchronized
+    private fun record(
+        navMode: NavMode,
+        mutate: () -> Unit,
+    ) {
+        if (!DebugTelemetry.isEnabled()) return
+        val now = SystemClock.elapsedRealtime()
+        if (windowStartElapsedMs == 0L) {
+            windowStartElapsedMs = now
+        }
+        mutate()
+        val windowMs = (now - windowStartElapsedMs).coerceAtLeast(0L)
+        if (windowMs < COMPASS_RENDER_PERF_LOG_WINDOW_MS) return
+        val seconds = (windowMs / 1000f).coerceAtLeast(0.001f)
+        DebugTelemetry.log(
+            COMPASS_TELEMETRY_TAG,
+            "compass_render perf windowMs=$windowMs navMode=${navMode.name} " +
+                "frames=$frameCount frameHz=${(frameCount / seconds).formatTelemetry(1)} " +
+                "targetUpdates=$targetUpdateCount headingRenders=$headingRenderCount " +
+                "renderHz=${(headingRenderCount / seconds).formatTelemetry(1)} " +
+                "rotationApplied=$rotationAppliedCount rotationSkipped=$rotationSkippedCount " +
+                "markerUpdates=$markerUpdateCount redraws=$redrawCount",
+        )
+        reset(now)
+    }
+
+    private fun reset(nextWindowStartElapsedMs: Long) {
+        windowStartElapsedMs = nextWindowStartElapsedMs
+        frameCount = 0
+        targetUpdateCount = 0
+        headingRenderCount = 0
+        rotationAppliedCount = 0
+        rotationSkippedCount = 0
+        markerUpdateCount = 0
+        redrawCount = 0
     }
 }
 
@@ -343,7 +415,10 @@ private const val HEADING_ANIMATION_ALPHA = 0.5f
 // Stop animating when within this threshold — sub-pixel on any WearOS display.
 private const val HEADING_ANIMATION_DONE_DEG = 0.05f
 private const val GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS = 30_000L
+private const val COMPASS_RENDER_PERF_LOG_WINDOW_MS = 5_000L
 private const val MAP_CENTER_UPDATE_EPSILON_DEG2 = 1e-11
+
+private fun Float.formatTelemetry(decimals: Int): String = "%.${decimals}f".format(Locale.US, this)
 
 private fun shouldUpdateMapCenter(
     target: LatLong,

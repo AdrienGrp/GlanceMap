@@ -313,6 +313,7 @@ fun CompassSettingsScreen(
         item {
             SettingsOptionPickerRow(
                 label = "Orientation provider",
+                dialogTitle = "Orientation\nprovider",
                 selectedValue = compassProviderModeSetting,
                 options = compassProviderOptions,
                 secondaryLabel =
