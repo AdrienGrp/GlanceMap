@@ -3,8 +3,8 @@ package com.glancemap.glancemapwearos.data.repository
 import android.content.Context
 import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
@@ -1281,8 +1281,7 @@ class SettingsRepositoryImpl private constructor(
                     ?: defaultGpxFlatSpeedMpsForProfile(
                         sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE]),
                     )
-            )
-                .coerceIn(0f, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS)
+            ).coerceIn(0f, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS)
         }
 
     override suspend fun setGpxFlatSpeedMps(speedMps: Float) {
@@ -2026,8 +2025,7 @@ class SettingsRepositoryImpl private constructor(
             approximatelyEquals(SettingsRepository.DEFAULT_GPX_FLAT_SPEED_MPS) ||
             approximatelyEquals(SettingsRepository.DEFAULT_BIKE_GPX_FLAT_SPEED_MPS)
 
-    private fun Float.approximatelyEquals(other: Float): Boolean =
-        kotlin.math.abs(this - other) < 0.001f
+    private fun Float.approximatelyEquals(other: Float): Boolean = kotlin.math.abs(this - other) < 0.001f
 
     private fun readCachedNavigationMarkerStyle(): String {
         val cached = markerStyleCachePrefs.getString(CACHE_KEY_NAVIGATION_MARKER_STYLE, null)

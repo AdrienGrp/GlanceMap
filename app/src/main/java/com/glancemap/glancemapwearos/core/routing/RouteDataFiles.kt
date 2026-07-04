@@ -64,20 +64,15 @@ internal fun routingProfilesDir(context: Context): File = File(routingRootDir(co
 
 internal fun defaultRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_DEFAULT_PROFILE_FILE_NAME)
 
-internal fun bikeTouringRoutingProfileFile(context: Context): File =
-    File(routingProfilesDir(context), ROUTING_BIKE_TOURING_PROFILE_FILE_NAME)
+internal fun bikeTouringRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_BIKE_TOURING_PROFILE_FILE_NAME)
 
-internal fun bikeRoadRoutingProfileFile(context: Context): File =
-    File(routingProfilesDir(context), ROUTING_BIKE_ROAD_PROFILE_FILE_NAME)
+internal fun bikeRoadRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_BIKE_ROAD_PROFILE_FILE_NAME)
 
-internal fun bikeQuietRoadRoutingProfileFile(context: Context): File =
-    File(routingProfilesDir(context), ROUTING_BIKE_QUIET_ROAD_PROFILE_FILE_NAME)
+internal fun bikeQuietRoadRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_BIKE_QUIET_ROAD_PROFILE_FILE_NAME)
 
-internal fun bikeGravelRoutingProfileFile(context: Context): File =
-    File(routingProfilesDir(context), ROUTING_BIKE_GRAVEL_PROFILE_FILE_NAME)
+internal fun bikeGravelRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_BIKE_GRAVEL_PROFILE_FILE_NAME)
 
-internal fun bikeMtbRoutingProfileFile(context: Context): File =
-    File(routingProfilesDir(context), ROUTING_BIKE_MTB_PROFILE_FILE_NAME)
+internal fun bikeMtbRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_BIKE_MTB_PROFILE_FILE_NAME)
 
 internal fun dummyRoutingProfileFile(context: Context): File = File(routingProfilesDir(context), ROUTING_DUMMY_PROFILE_FILE_NAME)
 

@@ -5,13 +5,13 @@
 
 package com.glancemap.glancemapwearos.presentation.features.poi
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -949,8 +949,7 @@ private fun PoiLoadingOverlay(onDismiss: () -> Unit) {
                                 totalDrag = 0f
                             }
                         }
-                    }
-                    .background(
+                    }.background(
                         color = Color.Black.copy(alpha = 0.88f),
                         shape = RoundedCornerShape(18.dp),
                     ).padding(horizontal = 14.dp, vertical = 12.dp),

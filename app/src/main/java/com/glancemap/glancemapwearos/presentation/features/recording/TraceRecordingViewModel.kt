@@ -1048,8 +1048,7 @@ class TraceRecordingViewModel(
         autoPauseMovingSinceElapsedMs = null
     }
 
-    private fun isAutoPauseEnabledForCurrentProfile(): Boolean =
-        recordingAutoPauseMode == SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS
+    private fun isAutoPauseEnabledForCurrentProfile(): Boolean = recordingAutoPauseMode == SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS
 
     private fun hasReliableAutoPauseFix(livePoint: RecordedTracePoint): Boolean {
         val accuracy = livePoint.accuracyMeters ?: return false

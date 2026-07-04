@@ -82,12 +82,12 @@ internal val RouteModifyMode.previewBeforeSaving: Boolean
         when (this) {
             RouteModifyMode.RESHAPE_ROUTE,
             RouteModifyMode.TRIM_START_TO_HERE,
-            RouteModifyMode.TRIM_END_FROM_HERE
+            RouteModifyMode.TRIM_END_FROM_HERE,
             -> true
 
             RouteModifyMode.REPLACE_SECTION_A_TO_B,
             RouteModifyMode.KEEP_ONLY_A_TO_B,
-            RouteModifyMode.REVERSE_GPX
+            RouteModifyMode.REVERSE_GPX,
             -> false
         }
 
@@ -175,8 +175,7 @@ internal fun routeStyleSettingsOptionsForActivityProfile(activityProfile: String
         hikeRouteStylePresets
     }.map { preset -> preset.settingsValue to preset.title }
 
-internal fun routeStylePresetFromSettingsValue(value: String): RouteStylePreset =
-    RouteStylePreset.entries.firstOrNull { it.settingsValue == value } ?: RouteStylePreset.BALANCED_HIKE
+internal fun routeStylePresetFromSettingsValue(value: String): RouteStylePreset = RouteStylePreset.entries.firstOrNull { it.settingsValue == value } ?: RouteStylePreset.BALANCED_HIKE
 
 internal fun routeStylePresetFromSavedName(name: String): RouteStylePreset =
     when (name) {
@@ -184,8 +183,7 @@ internal fun routeStylePresetFromSavedName(name: String): RouteStylePreset =
         else -> RouteStylePreset.entries.firstOrNull { it.name == name } ?: RouteStylePreset.BALANCED_HIKE
     }
 
-internal fun routeStyleTitleForSettingsValue(value: String): String =
-    routeStyleSettingsOptions.firstOrNull { it.first == value }?.second ?: RouteStylePreset.BALANCED_HIKE.title
+internal fun routeStyleTitleForSettingsValue(value: String): String = routeStyleSettingsOptions.firstOrNull { it.first == value }?.second ?: RouteStylePreset.BALANCED_HIKE.title
 
 internal enum class RouteSaveBehavior(
     val title: String,

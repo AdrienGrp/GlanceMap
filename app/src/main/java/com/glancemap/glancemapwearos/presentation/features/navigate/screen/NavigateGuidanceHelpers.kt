@@ -1,11 +1,11 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GpxGuidanceSession
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.bearingDegrees
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.buildCumulativeDistances
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.projectLocationToRoute
-import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import org.mapsforge.core.model.LatLong
 import java.util.Locale
 import kotlin.math.abs

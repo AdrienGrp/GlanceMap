@@ -33,11 +33,11 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
-import com.glancemap.glancemapwearos.data.repository.SettingsRepository
-import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import kotlin.math.abs
 
 @OptIn(ExperimentalHorologistApi::class)
@@ -327,8 +327,7 @@ private fun GpsTimingStepperDialog(
                             top = adaptive.dialogVerticalPadding + 12.dp,
                             end = adaptive.dialogHorizontalPadding,
                             bottom = adaptive.dialogVerticalPadding + 22.dp,
-                        )
-                        .onPreRotaryScrollEvent { event ->
+                        ).onPreRotaryScrollEvent { event ->
                             rotaryAccumulator += event.verticalScrollPixels
                             if (abs(rotaryAccumulator) >= GPS_STEPPER_ROTARY_STEP_PX) {
                                 if (rotaryAccumulator > 0f) {

@@ -11,7 +11,6 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteSaveBehavior
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
@@ -232,8 +231,7 @@ internal fun rememberNavigateRouteToolActions(
                     routeStyle = routeToolDefaultOptions.routeStyle,
                     useElevation = routeToolDefaultOptions.useElevation,
                     allowFerries = routeToolDefaultOptions.allowFerries,
-                )
-                .withVisibleLoopDefaults()
+                ).withVisibleLoopDefaults()
                 .copy(saveBehavior = RouteSaveBehavior.SAVE_AS_NEW),
         )
         clearRouteToolExecutionFeedback()

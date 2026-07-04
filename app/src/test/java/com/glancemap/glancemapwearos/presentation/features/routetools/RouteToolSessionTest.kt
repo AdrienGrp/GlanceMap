@@ -16,7 +16,7 @@ class RouteToolSessionTest {
                         toolKind = RouteToolKind.MODIFY,
                         modifyMode = RouteModifyMode.RESHAPE_ROUTE,
                     ),
-        )
+            )
 
         assertEquals(RouteSelectionTarget.RESHAPE_POINT, initial.currentSelectionTarget)
         assertEquals("Pick point to move", initial.instructionText)
