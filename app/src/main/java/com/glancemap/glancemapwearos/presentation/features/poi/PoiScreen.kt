@@ -420,6 +420,10 @@ fun PoiScreen(
             },
         )
 
+    LaunchedEffect(Unit) {
+        columnState.state.scrollToItem(0)
+    }
+
     fun dismissHelpDialog() {
         showHelpDialog = false
         helpPrefs.edit().putBoolean(POI_HELP_SHOWN_KEY, true).apply()

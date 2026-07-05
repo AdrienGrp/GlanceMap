@@ -179,6 +179,8 @@ class PoiViewModel(
     private val _offlineSearchUiState = MutableStateFlow(PoiSearchUiState())
     val offlineSearchUiState: StateFlow<PoiSearchUiState> = _offlineSearchUiState.asStateFlow()
     private var poiSearchJob: Job? = null
+    private var poiFilesReloadJob: Job? = null
+    private var hasLoadedPoiFiles = false
 
     private val selectedMapPath: StateFlow<String?> =
         settingsRepository.selectedMapPath
@@ -197,20 +199,49 @@ class PoiViewModel(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        viewModelScope.launch {
-            reloadFromDisk()
-        }
+        requestPoiFilesReload(reason = "init", forceRefresh = true)
 
         syncManager.poiSyncRequest
             .onEach {
-                reloadFromDisk()
+                requestPoiFilesReload(reason = "sync", forceRefresh = true)
             }.launchIn(viewModelScope)
     }
 
-    fun loadPoiFiles(collapseAll: Boolean = false) {
-        viewModelScope.launch {
-            reloadFromDisk(collapseAll = collapseAll)
+    fun loadPoiFiles(
+        collapseAll: Boolean = false,
+        forceRefresh: Boolean = false,
+    ) {
+        requestPoiFilesReload(
+            reason = if (forceRefresh) "external_refresh" else "screen",
+            collapseAll = collapseAll,
+            forceRefresh = forceRefresh,
+        )
+    }
+
+    private fun requestPoiFilesReload(
+        reason: String,
+        collapseAll: Boolean = false,
+        forceRefresh: Boolean = false,
+    ) {
+        val currentJob = poiFilesReloadJob
+        if (currentJob?.isActive == true) {
+            DebugTelemetry.log(
+                "POI",
+                "event=reload_skip reason=$reason skipReason=in_progress collapseAll=$collapseAll",
+            )
+            return
         }
+        if (!forceRefresh && hasLoadedPoiFiles && _poiFiles.value.isNotEmpty()) {
+            DebugTelemetry.log(
+                "POI",
+                "event=reload_skip reason=$reason skipReason=cached collapseAll=$collapseAll files=${_poiFiles.value.size}",
+            )
+            return
+        }
+        poiFilesReloadJob =
+            viewModelScope.launch {
+                reloadFromDisk(reason = reason, collapseAll = collapseAll)
+            }
     }
 
     fun toggleExpanded(path: String) {
@@ -355,6 +386,33 @@ class PoiViewModel(
             refreshPoiCounts(path)
             clearCategoryCounts(path)
         }
+    }
+
+    suspend fun resetPoiVisibilityAndWait() {
+        withContext(Dispatchers.IO) {
+            userPoiRepository.setFileEnabled(false)
+            poiRepository.listPoiFiles().forEach { file ->
+                poiRepository.deleteVisibilityState(file.absolutePath)
+            }
+        }
+        userPoiSourceState = userPoiRepository.readSourceState()
+        _poiFiles.update { files ->
+            files.map { file ->
+                file.copy(
+                    isEnabled = false,
+                    categories = file.categories.map { category -> category.copy(enabled = false) },
+                    enabledPoiCount = 0,
+                )
+            }
+        }
+        _categoryPreviews.value = emptyMap()
+        _categoryCounts.value = emptyMap()
+        updateUserPoiPreviewCache(
+            buildUserPoiFileUiState(
+                isExpanded = _poiFiles.value.firstOrNull { isUserPoiPath(it.path) }?.isExpanded ?: false,
+            ),
+        )
+        DebugTelemetry.log("POI", "event=reset_visibility files=${_poiFiles.value.size}")
     }
 
     fun loadCategoryPreview(
@@ -536,7 +594,7 @@ class PoiViewModel(
             _categoryCounts.update { counts ->
                 counts.filterKeys { key -> key.filePath != path }
             }
-            reloadFromDisk()
+            reloadFromDisk(reason = "delete")
         }
     }
 
@@ -734,15 +792,20 @@ class PoiViewModel(
             markers
         }
 
-    private suspend fun reloadFromDisk(collapseAll: Boolean = false) {
+    private suspend fun reloadFromDisk(
+        reason: String,
+        collapseAll: Boolean = false,
+    ) {
         val startedAtElapsedMs = SystemClock.elapsedRealtime()
         var listedFileCount = -1
         var importedFileCount = -1
+        val showBlockingLoading = _poiFiles.value.none { file -> !isUserPoiPath(file.path) }
         DebugTelemetry.log(
             "POI",
-            "event=reload_start collapseAll=$collapseAll previousFiles=${_poiFiles.value.size}",
+            "event=reload_start reason=$reason collapseAll=$collapseAll previousFiles=${_poiFiles.value.size} " +
+                "blockingOverlay=$showBlockingLoading",
         )
-        _isLoadingPoiFiles.value = true
+        _isLoadingPoiFiles.value = showBlockingLoading
         try {
             val previousExpanded =
                 if (collapseAll) {
@@ -772,11 +835,12 @@ class PoiViewModel(
             _categoryPreviews.value = emptyMap()
             _categoryCounts.value = emptyMap()
             updateUserPoiPreviewCache(syntheticUserFile)
+            hasLoadedPoiFiles = true
         } finally {
             _isLoadingPoiFiles.value = false
             DebugTelemetry.log(
                 "POI",
-                "event=reload_complete durationMs=${SystemClock.elapsedRealtime() - startedAtElapsedMs} " +
+                "event=reload_complete reason=$reason durationMs=${SystemClock.elapsedRealtime() - startedAtElapsedMs} " +
                     "listedFiles=$listedFileCount importedFiles=$importedFileCount visibleFiles=${_poiFiles.value.size}",
             )
         }

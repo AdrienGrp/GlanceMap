@@ -1609,17 +1609,45 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
                 SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
                 SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
+                SettingsRepository.RECORDING_METRIC_MAX_SPEED,
                 SettingsRepository.RECORDING_METRIC_CURRENT_PACE,
                 SettingsRepository.RECORDING_METRIC_AVERAGE_PACE,
+                SettingsRepository.RECORDING_METRIC_MAX_PACE,
                 SettingsRepository.RECORDING_METRIC_HEART_RATE,
+                SettingsRepository.RECORDING_METRIC_MAX_HEART_RATE,
                 SettingsRepository.RECORDING_METRIC_STEPS,
                 SettingsRepository.RECORDING_METRIC_CADENCE,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_CADENCE,
+                SettingsRepository.RECORDING_METRIC_MAX_CADENCE,
                 SettingsRepository.RECORDING_METRIC_POWER,
                 SettingsRepository.RECORDING_METRIC_AVERAGE_POWER,
+                SettingsRepository.RECORDING_METRIC_MAX_POWER,
                 SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
                 SettingsRepository.RECORDING_METRIC_CALORIES,
                 SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,
                 SettingsRepository.RECORDING_METRIC_RESTING_CALORIES,
+            )
+        private val LEGACY_RECORDING_DASHBOARD_ALL_METRICS =
+            listOf(
+                SettingsRepository.RECORDING_METRIC_DISTANCE,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
+                SettingsRepository.RECORDING_METRIC_DURATION,
+                SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
+                SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
+                SettingsRepository.RECORDING_METRIC_CURRENT_PACE,
+            )
+        private val LEGACY_BIKE_RECORDING_DASHBOARD_METRICS =
+            listOf(
+                SettingsRepository.RECORDING_METRIC_DISTANCE,
+                SettingsRepository.RECORDING_METRIC_DURATION,
+                SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
+                SettingsRepository.RECORDING_METRIC_HEART_RATE,
+                SettingsRepository.RECORDING_METRIC_CADENCE,
+                SettingsRepository.RECORDING_METRIC_POWER,
+                SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
             )
         private val allowedTurnByTurnDashboardMetricIds =
             setOf(
@@ -1910,6 +1938,9 @@ class SettingsRepositoryImpl private constructor(
                     ?.mapNotNull { value ->
                         value.trim().takeIf { it in allowedRecordingDashboardMetricIds }
                     }.orEmpty()
+            if (parsed == LEGACY_RECORDING_DASHBOARD_ALL_METRICS || parsed == LEGACY_BIKE_RECORDING_DASHBOARD_METRICS) {
+                return SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+            }
             return normalizeRecordingDashboardMetricSlots(parsed)
         }
 
@@ -2010,7 +2041,9 @@ class SettingsRepositoryImpl private constructor(
 
     private fun List<String>.isProfileDefaultRecordingDashboard(): Boolean =
         this == SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS ||
-            this == SettingsRepository.DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS
+            this == SettingsRepository.DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS ||
+            this == LEGACY_RECORDING_DASHBOARD_ALL_METRICS ||
+            this == LEGACY_BIKE_RECORDING_DASHBOARD_METRICS
 
     private fun List<String>.isProfileDefaultTurnByTurnDashboard(): Boolean =
         this == SettingsRepository.DEFAULT_TURN_BY_TURN_DASHBOARD_METRICS ||

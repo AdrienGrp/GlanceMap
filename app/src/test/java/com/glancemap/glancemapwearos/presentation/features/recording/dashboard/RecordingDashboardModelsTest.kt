@@ -266,6 +266,84 @@ class RecordingDashboardModelsTest {
     }
 
     @Test
+    fun maxDashboardMetricsUseSnapshotMaximums() {
+        val snapshot =
+            RecordingDashboardSnapshot(
+                durationSeconds = 60.0,
+                distanceMeters = 1_000.0,
+                elevationGainMeters = 0.0,
+                elevationLossMeters = 0.0,
+                currentElevationMeters = null,
+                currentSpeedMps = 2.0f,
+                averageSpeedMps = 3.0,
+                fastestSpeedMps = 4.0,
+                gpsAccuracyMeters = null,
+                pointCount = 2,
+                gpsActiveDurationSeconds = 60.0,
+                recordingGapCount = 0,
+                recordingMaxGapSeconds = 0.0,
+                maxHeartRateBpm = 165,
+                averageCadenceSpm = 155,
+                maxCadenceSpm = 172,
+                maxPowerWatts = 260,
+            )
+
+        val maxSpeed =
+            formattedRecordingMetric(
+                metricId = SettingsRepository.RECORDING_METRIC_MAX_SPEED,
+                snapshot = snapshot,
+                isMetric = true,
+            )
+        val maxPace =
+            formattedRecordingMetric(
+                metricId = SettingsRepository.RECORDING_METRIC_MAX_PACE,
+                snapshot = snapshot,
+                isMetric = true,
+            )
+        val maxHeartRate =
+            formattedRecordingMetric(
+                metricId = SettingsRepository.RECORDING_METRIC_MAX_HEART_RATE,
+                snapshot = snapshot,
+                isMetric = true,
+            )
+        val averageCadence =
+            formattedRecordingMetric(
+                metricId = SettingsRepository.RECORDING_METRIC_AVERAGE_CADENCE,
+                snapshot = snapshot,
+                isMetric = true,
+            )
+        val maxCadence =
+            formattedRecordingMetric(
+                metricId = SettingsRepository.RECORDING_METRIC_MAX_CADENCE,
+                snapshot = snapshot,
+                isMetric = true,
+            )
+        val maxPower =
+            formattedRecordingMetric(
+                metricId = SettingsRepository.RECORDING_METRIC_MAX_POWER,
+                snapshot = snapshot,
+                isMetric = true,
+            )
+
+        assertEquals("Speed (Max)", maxSpeed.label)
+        assertEquals("14.4", maxSpeed.value)
+        assertEquals("km/h", maxSpeed.unit)
+        assertEquals("Pace (Max)", maxPace.label)
+        assertEquals("4:10", maxPace.value)
+        assertEquals("min/km", maxPace.unit)
+        assertEquals("Heart rate (Max)", maxHeartRate.label)
+        assertEquals("165", maxHeartRate.value)
+        assertEquals("bpm", maxHeartRate.unit)
+        assertEquals("Cadence (Avg)", averageCadence.label)
+        assertEquals("155", averageCadence.value)
+        assertEquals("Cadence (Max)", maxCadence.label)
+        assertEquals("172", maxCadence.value)
+        assertEquals("Power (Max)", maxPower.label)
+        assertEquals("260", maxPower.value)
+        assertEquals("W", maxPower.unit)
+    }
+
+    @Test
     fun recordingRecapMetricsUseActivityDetailOrderAndRemoveLiveOnlyMetrics() {
         val snapshot =
             RecordingDashboardSnapshot(
@@ -335,7 +413,13 @@ class RecordingDashboardModelsTest {
     fun metricPickerOptionsAreAlphabetical() {
         val labels = recordingMetricPickerOptions.map { it.second }
         assertEquals(labels.sortedBy { it.lowercase() }, labels)
+        assertTrue(labels.contains("Cadence (Avg)"))
+        assertTrue(labels.contains("Cadence (Max)"))
+        assertTrue(labels.contains("Heart rate (Max)"))
         assertTrue(labels.contains("Power (Avg)"))
+        assertTrue(labels.contains("Power (Max)"))
+        assertTrue(labels.contains("Speed (Max)"))
+        assertTrue(labels.contains("Pace (Max)"))
     }
 
     @Test

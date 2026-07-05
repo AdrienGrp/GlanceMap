@@ -809,11 +809,40 @@ class GpxViewModel(
 
     fun toggleGpxFile(path: String) {
         viewModelScope.launch {
-            val currentActive = gpxRepository.getActiveGpxFiles().first()
+            val currentFiles = _gpxFiles.value
+            val currentActive =
+                if (currentFiles.any { it.path == path }) {
+                    currentFiles
+                        .asSequence()
+                        .filter { it.isActive }
+                        .map { it.path }
+                        .toSet()
+                } else {
+                    gpxRepository.getActiveGpxFiles().first()
+                }
             val newActive =
                 if (currentActive.contains(path)) currentActive - path else currentActive + path
+            _gpxFiles.value =
+                currentFiles.map { file ->
+                    if (file.path == path) {
+                        file.copy(isActive = path in newActive)
+                    } else {
+                        file
+                    }
+                }
+            DebugTelemetry.log(
+                "GpxViewModel",
+                "event=toggle_active_optimistic path=${File(path).name.telemetryToken()} active=${path in newActive}",
+            )
             gpxRepository.setActiveGpxFiles(newActive)
         }
+    }
+
+    suspend fun resetActiveGpxFilesAndWait() {
+        gpxRepository.setActiveGpxFiles(emptySet())
+        _gpxFiles.value = _gpxFiles.value.map { file -> file.copy(isActive = false) }
+        _activeGpxDetails.value = emptyList()
+        DebugTelemetry.log("GpxViewModel", "event=reset_active_files")
     }
 
     fun startTurnByTurnGuidance(

@@ -420,6 +420,14 @@ fun GpxScreen(
             },
         )
 
+    LaunchedEffect(listMode) {
+        columnState.state.scrollToItem(0)
+        DebugTelemetry.log(
+            "GpxScreen",
+            "event=scroll_top mode=${listMode.name}",
+        )
+    }
+
     ScreenScaffold(scrollState = columnState) {
         DeleteConfirmationDialog(
             visible = showDeleteDialog,

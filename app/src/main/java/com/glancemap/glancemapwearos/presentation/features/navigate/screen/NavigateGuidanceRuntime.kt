@@ -435,17 +435,38 @@ internal fun rememberNavigateGuidanceRuntime(
             brouterGuideBackRoute = emptyList()
             val origin = guidanceLocation
             val destination = guideBackTargetPoint
+            DebugTelemetry.log(
+                "TurnByTurn",
+                "event=guide_back_request enabled=$brouterGuideBackEnabled " +
+                    "origin=${origin != null} destination=${destination != null} " +
+                    "distanceToRouteM=${state.distanceToRouteMeters?.toInt() ?: "na"}",
+            )
             if (brouterGuideBackEnabled && origin != null && destination != null) {
                 gpxViewModel.buildTurnByTurnGuideBackRoute(
                     origin = origin,
                     destination = destination,
                 ) { result ->
                     result.onSuccess { route ->
+                        DebugTelemetry.log(
+                            "TurnByTurn",
+                            "event=guide_back_route_success points=${route.size} " +
+                                "distanceM=${route.sumRouteDistanceMeters().toInt()}",
+                        )
                         if (guideBackToRouteActive) {
                             brouterGuideBackRoute = route
                         }
+                    }.onFailure { error ->
+                        DebugTelemetry.log(
+                            "TurnByTurn",
+                            "event=guide_back_route_failure error=${error.javaClass.simpleName} " +
+                                "message=${error.localizedMessage?.take(80)?.replace(' ', '_') ?: "na"}",
+                        )
                     }
                 }
+            } else if (!brouterGuideBackEnabled) {
+                DebugTelemetry.log("TurnByTurn", "event=guide_back_route_skipped reason=disabled")
+            } else {
+                DebugTelemetry.log("TurnByTurn", "event=guide_back_route_skipped reason=missing_location")
             }
         },
         onDismissGuideBackPrompt = {
@@ -466,6 +487,9 @@ internal fun rememberNavigateGuidanceRuntime(
         },
     )
 }
+
+private fun List<LatLong>.sumRouteDistanceMeters(): Double =
+    zipWithNext().sumOf { (start, end) -> haversineMeters(start, end) }
 
 private fun expectedGuidanceGpsIntervalMs(
     recordingActive: Boolean,

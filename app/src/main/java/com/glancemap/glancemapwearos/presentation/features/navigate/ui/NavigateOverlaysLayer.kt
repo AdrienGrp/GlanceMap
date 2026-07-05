@@ -597,6 +597,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onStopGuidance = onStopTurnByTurnGuidance,
         onVoiceGuidanceChange = onTurnByTurnVoiceGuidanceChange,
         onGuideBackToRoute = onGuideBackToRoute,
+        onDismissGuideBackPrompt = onDismissGuideBackPrompt,
         onPauseRecording = onPauseRecording,
         onResumeRecording = onResumeRecording,
         onFinishRecording = onFinishRecording,

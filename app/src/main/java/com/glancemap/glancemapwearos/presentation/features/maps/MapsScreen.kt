@@ -229,6 +229,10 @@ fun MapsScreen(
             },
         )
 
+    LaunchedEffect(Unit) {
+        columnState.state.scrollToItem(0)
+    }
+
     LaunchedEffect(helpPrefs) {
         if (!helpPrefs.getBoolean(MAPS_HELP_SHOWN_KEY, false)) {
             showHelpDialog = true

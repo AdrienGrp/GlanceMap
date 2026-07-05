@@ -30,13 +30,19 @@ interface SettingsRepository {
         const val RECORDING_METRIC_CURRENT_ELEVATION = "current_elevation"
         const val RECORDING_METRIC_CURRENT_SPEED = "current_speed"
         const val RECORDING_METRIC_AVERAGE_SPEED = "average_speed"
+        const val RECORDING_METRIC_MAX_SPEED = "max_speed"
         const val RECORDING_METRIC_CURRENT_PACE = "current_pace"
         const val RECORDING_METRIC_AVERAGE_PACE = "average_pace"
+        const val RECORDING_METRIC_MAX_PACE = "max_pace"
         const val RECORDING_METRIC_HEART_RATE = "heart_rate"
+        const val RECORDING_METRIC_MAX_HEART_RATE = "max_heart_rate"
         const val RECORDING_METRIC_STEPS = "steps"
         const val RECORDING_METRIC_CADENCE = "cadence"
+        const val RECORDING_METRIC_AVERAGE_CADENCE = "average_cadence"
+        const val RECORDING_METRIC_MAX_CADENCE = "max_cadence"
         const val RECORDING_METRIC_POWER = "power"
         const val RECORDING_METRIC_AVERAGE_POWER = "average_power"
+        const val RECORDING_METRIC_MAX_POWER = "max_power"
         const val RECORDING_METRIC_BAROMETRIC_PRESSURE = "barometric_pressure"
         const val RECORDING_METRIC_CALORIES = "calories"
         const val RECORDING_METRIC_ACTIVE_CALORIES = "active_calories"
@@ -82,10 +88,10 @@ interface SettingsRepository {
             )
         val DEFAULT_RECORDING_DASHBOARD_PAGE_TWO_METRICS =
             listOf(
-                RECORDING_METRIC_CURRENT_ELEVATION,
-                RECORDING_METRIC_CURRENT_SPEED,
+                RECORDING_METRIC_HEART_RATE,
                 RECORDING_METRIC_AVERAGE_SPEED,
-                RECORDING_METRIC_CURRENT_PACE,
+                RECORDING_METRIC_AVERAGE_PACE,
+                RECORDING_METRIC_ACTIVE_CALORIES,
             )
         val DEFAULT_RECORDING_DASHBOARD_ALL_METRICS =
             DEFAULT_RECORDING_DASHBOARD_METRICS + DEFAULT_RECORDING_DASHBOARD_PAGE_TWO_METRICS
@@ -97,16 +103,7 @@ interface SettingsRepository {
                 RECORDING_METRIC_HEART_RATE,
             )
         val DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS =
-            listOf(
-                RECORDING_METRIC_DISTANCE,
-                RECORDING_METRIC_DURATION,
-                RECORDING_METRIC_CURRENT_SPEED,
-                RECORDING_METRIC_AVERAGE_SPEED,
-                RECORDING_METRIC_HEART_RATE,
-                RECORDING_METRIC_CADENCE,
-                RECORDING_METRIC_POWER,
-                RECORDING_METRIC_CURRENT_ELEVATION,
-            )
+            DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
 
         const val ZOOM_BUTTONS_BOTH = "BOTH"
         const val ZOOM_BUTTONS_HIDE_BOTH = "HIDE_BOTH"

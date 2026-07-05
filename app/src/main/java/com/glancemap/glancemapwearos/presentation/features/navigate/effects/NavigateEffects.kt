@@ -405,15 +405,17 @@ internal fun resolveNavigateInitialRenderedHeadingDeg(
 
 private fun normalize360(deg: Float): Float = (deg % 360f + 360f) % 360f
 
-private const val MAP_ROTATION_APPLY_EPSILON_DEG = 0.2f
+// Small heading noise is visible as left/right map shimmer in compass-follow.
+// Keep the compass pipeline responsive, but avoid applying sub-degree Mapsforge rotations.
+private const val MAP_ROTATION_APPLY_EPSILON_DEG = 0.8f
 
 // Interpolation factor per display frame (~60fps). At 0.5, closes half the remaining
 // gap each frame: a 10° step reaches <0.1° in ~7 frames (~117ms). Tracks 50Hz sensor
 // updates with at most 1-2 frames of visual lag.
 private const val HEADING_ANIMATION_ALPHA = 0.5f
 
-// Stop animating when within this threshold — sub-pixel on any WearOS display.
-private const val HEADING_ANIMATION_DONE_DEG = 0.05f
+// Stop animating when within this threshold — below the useful visual precision of a watch map.
+private const val HEADING_ANIMATION_DONE_DEG = 0.2f
 private const val GOOGLE_FUSED_CACHED_HEADING_SEED_MAX_AGE_MS = 30_000L
 private const val COMPASS_RENDER_PERF_LOG_WINDOW_MS = 5_000L
 private const val MAP_CENTER_UPDATE_EPSILON_DEG2 = 1e-11

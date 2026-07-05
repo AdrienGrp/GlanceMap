@@ -474,7 +474,7 @@ class MainActivity : ComponentActivity() {
                                     onLibraryChanged = {
                                         appContainer.mapViewModel.loadMapFiles()
                                         appContainer.mapViewModel.loadRoutingPackFiles()
-                                        appContainer.poiViewModel.loadPoiFiles()
+                                        appContainer.poiViewModel.loadPoiFiles(forceRefresh = true)
                                     },
                                     onOpenSettings = {
                                         navController.navigate(WatchRoutes.DOWNLOAD_SETTINGS)
@@ -543,6 +543,8 @@ class MainActivity : ComponentActivity() {
                                         appScope.launch {
                                             appContainer.settingsViewModel.resetToDefaultsAndWait()
                                             appContainer.themeViewModel.resetToDefaultsAndWait()
+                                            appContainer.gpxViewModel.resetActiveGpxFilesAndWait()
+                                            appContainer.poiViewModel.resetPoiVisibilityAndWait()
                                             navController.navigate(WatchRoutes.SETTINGS) {
                                                 popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
                                                 launchSingleTop = true

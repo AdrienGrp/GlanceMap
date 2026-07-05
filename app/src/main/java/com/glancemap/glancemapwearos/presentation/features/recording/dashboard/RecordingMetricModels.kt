@@ -104,11 +104,18 @@ internal val recordingMetricDefinitions =
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION, "Altitude"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_SPEED, "Speed"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED, "Speed (Avg)"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_MAX_SPEED, "Speed (Max)"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CURRENT_PACE, "Pace"),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_AVERAGE_PACE, "Pace (Avg)"),
+        RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_MAX_PACE, "Pace (Max)"),
         RecordingMetricDefinition(
             SettingsRepository.RECORDING_METRIC_HEART_RATE,
             "Heart rate",
+            RecordingMetricSource.INTERNAL_SENSOR,
+        ),
+        RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_MAX_HEART_RATE,
+            "Heart rate (Max)",
             RecordingMetricSource.INTERNAL_SENSOR,
         ),
         RecordingMetricDefinition(
@@ -122,6 +129,16 @@ internal val recordingMetricDefinitions =
             RecordingMetricSource.INTERNAL_SENSOR,
         ),
         RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_AVERAGE_CADENCE,
+            "Cadence (Avg)",
+            RecordingMetricSource.INTERNAL_SENSOR,
+        ),
+        RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_MAX_CADENCE,
+            "Cadence (Max)",
+            RecordingMetricSource.INTERNAL_SENSOR,
+        ),
+        RecordingMetricDefinition(
             SettingsRepository.RECORDING_METRIC_POWER,
             "Power",
             RecordingMetricSource.EXTERNAL,
@@ -132,8 +149,13 @@ internal val recordingMetricDefinitions =
             RecordingMetricSource.EXTERNAL,
         ),
         RecordingMetricDefinition(
+            SettingsRepository.RECORDING_METRIC_MAX_POWER,
+            "Power (Max)",
+            RecordingMetricSource.EXTERNAL,
+        ),
+        RecordingMetricDefinition(
             SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
-            "Pressure",
+            "Pressure (hPa)",
             RecordingMetricSource.INTERNAL_SENSOR,
         ),
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_CALORIES, "Cal (Total)"),
@@ -315,6 +337,17 @@ internal fun formattedRecordingMetric(
                     bluetooth = snapshot.distanceFromBluetooth(),
                 )
             }
+        SettingsRepository.RECORDING_METRIC_MAX_SPEED ->
+            if (snapshot.speedSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                speedMetricValue(
+                    definition.label,
+                    snapshot.fastestSpeedMps,
+                    isMetric,
+                    bluetooth = snapshot.speedFromBluetooth(),
+                )
+            }
         SettingsRepository.RECORDING_METRIC_CURRENT_PACE ->
             if (snapshot.speedSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
                 RecordingMetricValue(definition.label, "--")
@@ -337,10 +370,28 @@ internal fun formattedRecordingMetric(
                     bluetooth = snapshot.distanceFromBluetooth(),
                 )
             }
+        SettingsRepository.RECORDING_METRIC_MAX_PACE ->
+            if (snapshot.speedSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                paceMetricValue(
+                    definition.label,
+                    snapshot.fastestSpeedMps,
+                    isMetric,
+                    bluetooth = snapshot.speedFromBluetooth(),
+                )
+            }
         SettingsRepository.RECORDING_METRIC_HEART_RATE ->
             sensorIntegerMetricValue(
                 label = definition.label,
                 value = snapshot.heartRateBpm,
+                unit = "bpm",
+                bluetooth = snapshot.heartRateFromBluetooth,
+            )
+        SettingsRepository.RECORDING_METRIC_MAX_HEART_RATE ->
+            sensorIntegerMetricValue(
+                label = definition.label,
+                value = snapshot.maxHeartRateBpm,
                 unit = "bpm",
                 bluetooth = snapshot.heartRateFromBluetooth,
             )
@@ -366,6 +417,28 @@ internal fun formattedRecordingMetric(
                     bluetooth = snapshot.cadenceFromBluetooth,
                 )
             }
+        SettingsRepository.RECORDING_METRIC_AVERAGE_CADENCE ->
+            if (snapshot.cadenceSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                sensorIntegerMetricValue(
+                    definition.label,
+                    snapshot.averageCadenceSpm,
+                    "spm",
+                    bluetooth = snapshot.cadenceFromBluetooth,
+                )
+            }
+        SettingsRepository.RECORDING_METRIC_MAX_CADENCE ->
+            if (snapshot.cadenceSource == SettingsRepository.RECORDING_SOURCE_DISABLED) {
+                RecordingMetricValue(definition.label, "--")
+            } else {
+                sensorIntegerMetricValue(
+                    definition.label,
+                    snapshot.maxCadenceSpm,
+                    "spm",
+                    bluetooth = snapshot.cadenceFromBluetooth,
+                )
+            }
         SettingsRepository.RECORDING_METRIC_POWER ->
             sensorIntegerMetricValue(
                 definition.label,
@@ -377,6 +450,13 @@ internal fun formattedRecordingMetric(
             sensorIntegerMetricValue(
                 definition.label,
                 snapshot.averagePowerWatts,
+                "W",
+                bluetooth = snapshot.powerFromBluetooth,
+            )
+        SettingsRepository.RECORDING_METRIC_MAX_POWER ->
+            sensorIntegerMetricValue(
+                definition.label,
+                snapshot.maxPowerWatts,
                 "W",
                 bluetooth = snapshot.powerFromBluetooth,
             )

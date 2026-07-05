@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -418,9 +419,9 @@ private fun ExpandedGuidanceOverlay(
 ) {
     val contentWidthFraction =
         when (screenSize) {
-            WearScreenSize.LARGE -> 0.70f
-            WearScreenSize.MEDIUM -> 0.68f
-            WearScreenSize.SMALL -> 0.66f
+            WearScreenSize.LARGE -> 0.78f
+            WearScreenSize.MEDIUM -> 0.76f
+            WearScreenSize.SMALL -> 0.74f
         }
     val arrowContainerSize =
         when (screenSize) {
@@ -436,6 +437,12 @@ private fun ExpandedGuidanceOverlay(
         }
     val showRouteProgressDetails = !state.offRoute || guideBackToRouteActive
     val showGuideBackShortcut = state.active && state.offRoute && !guideBackToRouteActive && !showGuideBackPrompt
+    var showGuideBackShortcutConfirm by remember(state.trackTitle) { mutableStateOf(false) }
+    LaunchedEffect(state.offRoute, guideBackToRouteActive, showGuideBackPrompt) {
+        if (!state.offRoute || guideBackToRouteActive || showGuideBackPrompt) {
+            showGuideBackShortcutConfirm = false
+        }
+    }
 
     Box(
         modifier =
@@ -470,7 +477,7 @@ private fun ExpandedGuidanceOverlay(
             GuidanceGuideBackShortcut(
                 onClick = {
                     DebugTelemetry.log("TurnByTurn", "event=guide_back_dashboard_shortcut_click")
-                    onGuideBackToRoute()
+                    showGuideBackShortcutConfirm = true
                 },
                 modifier =
                     Modifier
@@ -481,7 +488,10 @@ private fun ExpandedGuidanceOverlay(
 
         cappedFontScale(maxFontScale = 1.15f) {
             Column(
-                modifier = Modifier.fillMaxWidth(contentWidthFraction),
+                modifier =
+                    Modifier
+                        .offset(y = 7.dp)
+                        .fillMaxWidth(contentWidthFraction),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
@@ -503,7 +513,7 @@ private fun ExpandedGuidanceOverlay(
                         tint = if (state.offRoute) Color.Black else MaterialTheme.colorScheme.onPrimary,
                     )
                 }
-                Spacer(modifier = Modifier.size(10.dp))
+                Spacer(modifier = Modifier.size(6.dp))
                 Text(
                     text = guidancePrimaryText(state, guideBackToRouteActive),
                     color = if (state.offRoute) OFF_ROUTE_AMBER else Color.White,
@@ -521,12 +531,12 @@ private fun ExpandedGuidanceOverlay(
                     fontSize = 14.sp,
                     lineHeight = 15.sp,
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (showRouteProgressDetails) {
                     guidanceFollowingText(state, isMetric)?.let { followingText ->
-                        Spacer(modifier = Modifier.size(4.dp))
+                        Spacer(modifier = Modifier.size(2.dp))
                         Text(
                             text = followingText,
                             color = Color.White.copy(alpha = 0.72f),
@@ -538,7 +548,7 @@ private fun ExpandedGuidanceOverlay(
                         )
                     }
                     state.distanceRemainingMeters?.let { remaining ->
-                        Spacer(modifier = Modifier.size(8.dp))
+                        Spacer(modifier = Modifier.size(4.dp))
                         Text(
                             text = guidanceRemainingText(remaining, state.estimatedRemainingSeconds, isMetric),
                             color = Color.White.copy(alpha = 0.64f),
@@ -548,7 +558,7 @@ private fun ExpandedGuidanceOverlay(
                         )
                     }
                     state.routeProgressFraction?.let { progress ->
-                        Spacer(modifier = Modifier.size(3.dp))
+                        Spacer(modifier = Modifier.size(1.dp))
                         Text(
                             text = "${(progress * 100f).roundToInt()}%",
                             color = Color.White.copy(alpha = 0.46f),
@@ -559,6 +569,31 @@ private fun ExpandedGuidanceOverlay(
                     }
                 }
             }
+        }
+
+        if (showGuideBackShortcutConfirm) {
+            GuidanceDecisionPromptCard(
+                title = "Route back?",
+                detail =
+                    state.distanceToRouteMeters?.let {
+                        "${formatLiveDistanceLabel(it, isMetric)} from GPX"
+                    } ?: "Create route to GPX",
+                acceptText = "Guide",
+                dismissText = "Cancel",
+                onAccept = {
+                    showGuideBackShortcutConfirm = false
+                    DebugTelemetry.log("TurnByTurn", "event=guide_back_dashboard_shortcut_confirm")
+                    onGuideBackToRoute()
+                },
+                onDismiss = {
+                    showGuideBackShortcutConfirm = false
+                    DebugTelemetry.log("TurnByTurn", "event=guide_back_dashboard_shortcut_cancel")
+                },
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 36.dp),
+            )
         }
     }
 }

@@ -150,7 +150,8 @@ fun RecordingSensorBridge(
         externalRunPodLinked &&
             (
                 SettingsRepository.RECORDING_METRIC_POWER in selectedMetricIds ||
-                    SettingsRepository.RECORDING_METRIC_AVERAGE_POWER in selectedMetricIds
+                    SettingsRepository.RECORDING_METRIC_AVERAGE_POWER in selectedMetricIds ||
+                    SettingsRepository.RECORDING_METRIC_MAX_POWER in selectedMetricIds
             )
     val useExternalRunPod =
         useExternalCadence || useExternalSpeed || useExternalDistance || useExternalPower
@@ -161,8 +162,8 @@ fun RecordingSensorBridge(
             val filteredMetricIds =
                 selectedMetricIds
                     .filter { it in recordingSensorMetricIds }
-                    .filterNot { !useWatchHeartRate && it == SettingsRepository.RECORDING_METRIC_HEART_RATE }
-                    .filterNot { !useInternalCadence && it == SettingsRepository.RECORDING_METRIC_CADENCE }
+                    .filterNot { !useWatchHeartRate && it in heartRateSensorMetricIds }
+                    .filterNot { !useInternalCadence && it in cadenceSensorMetricIds }
                     .filterNot { !useInternalSteps && it == SettingsRepository.RECORDING_METRIC_STEPS }
             val withActivityDetailMetrics =
                 if (collectInternalSteps) {
@@ -622,7 +623,7 @@ private fun registerRecordingSensors(
     }
 
     if (
-        SettingsRepository.RECORDING_METRIC_HEART_RATE in selectedMetricIds &&
+        selectedMetricIds.any { it in heartRateSensorMetricIds } &&
         hasPermission(context, Manifest.permission.BODY_SENSORS)
     ) {
         register(Sensor.TYPE_HEART_RATE, "heart_rate")
@@ -630,7 +631,7 @@ private fun registerRecordingSensors(
     if (
         (
             SettingsRepository.RECORDING_METRIC_STEPS in selectedMetricIds ||
-                SettingsRepository.RECORDING_METRIC_CADENCE in selectedMetricIds
+                selectedMetricIds.any { it in cadenceSensorMetricIds }
         ) &&
         hasActivityRecognitionPermission(context)
     ) {
@@ -649,7 +650,7 @@ private fun recordingSensorPermissionsToRequest(
 ): List<String> =
     buildList {
         if (
-            SettingsRepository.RECORDING_METRIC_HEART_RATE in selectedMetricIds &&
+            selectedMetricIds.any { it in heartRateSensorMetricIds } &&
             !hasPermission(context, Manifest.permission.BODY_SENSORS)
         ) {
             add(Manifest.permission.BODY_SENSORS)
@@ -657,7 +658,7 @@ private fun recordingSensorPermissionsToRequest(
         if (
             (
                 SettingsRepository.RECORDING_METRIC_STEPS in selectedMetricIds ||
-                    SettingsRepository.RECORDING_METRIC_CADENCE in selectedMetricIds
+                    selectedMetricIds.any { it in cadenceSensorMetricIds }
             ) &&
             !hasActivityRecognitionPermission(context)
         ) {
@@ -686,9 +687,25 @@ private fun hasPermission(
 private val recordingSensorMetricIds =
     setOf(
         SettingsRepository.RECORDING_METRIC_HEART_RATE,
+        SettingsRepository.RECORDING_METRIC_MAX_HEART_RATE,
         SettingsRepository.RECORDING_METRIC_STEPS,
         SettingsRepository.RECORDING_METRIC_CADENCE,
+        SettingsRepository.RECORDING_METRIC_AVERAGE_CADENCE,
+        SettingsRepository.RECORDING_METRIC_MAX_CADENCE,
         SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
+    )
+
+private val heartRateSensorMetricIds =
+    setOf(
+        SettingsRepository.RECORDING_METRIC_HEART_RATE,
+        SettingsRepository.RECORDING_METRIC_MAX_HEART_RATE,
+    )
+
+private val cadenceSensorMetricIds =
+    setOf(
+        SettingsRepository.RECORDING_METRIC_CADENCE,
+        SettingsRepository.RECORDING_METRIC_AVERAGE_CADENCE,
+        SettingsRepository.RECORDING_METRIC_MAX_CADENCE,
     )
 
 private const val CADENCE_WINDOW_MS = 30_000L
