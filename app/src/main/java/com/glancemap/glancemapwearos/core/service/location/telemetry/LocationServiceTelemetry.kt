@@ -27,6 +27,25 @@ internal class LocationServiceTelemetry(
     private var fixGapMinMs: Long = Long.MAX_VALUE
     private var fixGapMaxMs: Long = 0L
     private var lastAcceptedFixAtMs: Long = 0L
+    private var interactiveFixGapStats = FixGapStats()
+    private var nonInteractiveFixGapStats = FixGapStats()
+    private var unknownScreenFixGapStats = FixGapStats()
+    @Volatile private var latestScreenState: String = "UNKNOWN"
+    @Volatile private var latestExpectedIntervalMs: Long = 0L
+    @Volatile private var latestTrackingEnabled: Boolean = false
+    @Volatile private var latestBackgroundGpsEnabled: Boolean = false
+
+    fun updateFixContext(
+        screenState: String,
+        expectedIntervalMs: Long,
+        trackingEnabled: Boolean,
+        backgroundGpsEnabled: Boolean,
+    ) {
+        latestScreenState = screenState
+        latestExpectedIntervalMs = expectedIntervalMs
+        latestTrackingEnabled = trackingEnabled
+        latestBackgroundGpsEnabled = backgroundGpsEnabled
+    }
 
     fun onLocationCallback() {
         locationCallbacks += 1
@@ -631,17 +650,21 @@ internal class LocationServiceTelemetry(
         DebugTelemetry.setEnabled(enabled)
     }
 
-    private fun recordAcceptedFix(nowElapsedMs: Long) {
+    private fun recordAcceptedFix(nowElapsedMs: Long): Long? {
         val previousAcceptedAt = lastAcceptedFixAtMs
+        var gapMs: Long? = null
         if (previousAcceptedAt > 0L) {
             val gap = (nowElapsedMs - previousAcceptedAt).coerceAtLeast(0L)
+            gapMs = gap
             fixGapCount += 1
             fixGapSumMs += gap
             if (gap < fixGapMinMs) fixGapMinMs = gap
             if (gap > fixGapMaxMs) fixGapMaxMs = gap
+            gapStatsFor(latestScreenState).record(gap)
         }
         lastAcceptedFixAtMs = nowElapsedMs
         acceptedFixes += 1
+        return gapMs
     }
 
     private fun onAcceptedFix(
@@ -655,10 +678,13 @@ internal class LocationServiceTelemetry(
         provider: String?,
         origin: String,
     ) {
-        recordAcceptedFix(nowElapsedMs)
+        val gapMs = recordAcceptedFix(nowElapsedMs)
         log(
             "fixAccepted: source=$source detail=$sourceDetail ageMs=$ageMs " +
-                "accuracyM=${accuracyM.format(1)} origin=$origin provider=${provider ?: "unknown"}",
+                "accuracyM=${accuracyM.format(1)} origin=$origin provider=${provider ?: "unknown"} " +
+                "gapMs=${gapMs ?: "na"} screenState=$latestScreenState " +
+                "expectedIntervalMs=$latestExpectedIntervalMs trackingEnabled=$latestTrackingEnabled " +
+                "backgroundGpsEnabled=$latestBackgroundGpsEnabled",
         )
         maybeLogSummary(nowElapsedMs, activityState, burst)
     }
@@ -681,6 +707,9 @@ internal class LocationServiceTelemetry(
         val avgFixGapMs = if (fixGapCount > 0) (fixGapSumMs / fixGapCount).toString() else "na"
         val minFixGapMs = if (fixGapCount > 0) fixGapMinMs.toString() else "na"
         val maxFixGapMs = if (fixGapCount > 0) fixGapMaxMs.toString() else "na"
+        val interactiveGapSummary = interactiveFixGapStats.summary()
+        val nonInteractiveGapSummary = nonInteractiveFixGapStats.summary()
+        val unknownScreenGapSummary = unknownScreenFixGapStats.summary()
 
         summaryWindowStartedAtMs = nowElapsedMs
         log(
@@ -688,6 +717,11 @@ internal class LocationServiceTelemetry(
                 "fixes=$acceptedFixes fixPerMin=${TelemetryFormatters.decimal(acceptedRatePerMin, 1)} " +
                 "callbackFixes=$callbackAcceptedFixes immediateFixes=$immediateAcceptedFixes " +
                 "fixGapAvgMs=$avgFixGapMs fixGapMinMs=$minFixGapMs fixGapMaxMs=$maxFixGapMs " +
+                "fixGapInteractive=${interactiveGapSummary.telemetryValue()} " +
+                "fixGapNonInteractive=${nonInteractiveGapSummary.telemetryValue()} " +
+                "fixGapUnknownScreen=${unknownScreenGapSummary.telemetryValue()} " +
+                "screenState=$latestScreenState expectedIntervalMs=$latestExpectedIntervalMs " +
+                "trackingEnabled=$latestTrackingEnabled backgroundGpsEnabled=$latestBackgroundGpsEnabled " +
                 "filteredAcc=$filteredByAccuracy filteredCoord=$filteredByInvalidCoordinates " +
                 "filteredJitter=$filteredByJitter " +
                 "filteredStale=$filteredByStale filteredSourceMismatch=$filteredBySourceMismatch " +
@@ -715,11 +749,52 @@ internal class LocationServiceTelemetry(
         fixGapSumMs = 0L
         fixGapMinMs = Long.MAX_VALUE
         fixGapMaxMs = 0L
+        interactiveFixGapStats = FixGapStats()
+        nonInteractiveFixGapStats = FixGapStats()
+        unknownScreenFixGapStats = FixGapStats()
     }
 
     private fun log(message: String) {
         DebugTelemetry.log(tag, message)
     }
+
+    private fun gapStatsFor(screenState: String): FixGapStats =
+        when (screenState) {
+            "INTERACTIVE" -> interactiveFixGapStats
+            "SCREEN_OFF",
+            "AMBIENT",
+            -> nonInteractiveFixGapStats
+            else -> unknownScreenFixGapStats
+        }
 }
 
 private fun Float.format(digits: Int): String = TelemetryFormatters.decimal(this, digits)
+
+private class FixGapStats {
+    var count: Int = 0
+        private set
+    private var sumMs: Long = 0L
+    private var maxMs: Long = 0L
+
+    fun record(gapMs: Long) {
+        count += 1
+        sumMs += gapMs
+        if (gapMs > maxMs) maxMs = gapMs
+    }
+
+    fun summary(): FixGapSummary =
+        FixGapSummary(
+            count = count,
+            avgMs = if (count > 0) sumMs / count else null,
+            maxMs = if (count > 0) maxMs else null,
+        )
+}
+
+private data class FixGapSummary(
+    val count: Int,
+    val avgMs: Long?,
+    val maxMs: Long?,
+) {
+    fun telemetryValue(): String =
+        "count:$count,avgMs:${avgMs ?: "na"},maxMs:${maxMs ?: "na"}"
+}

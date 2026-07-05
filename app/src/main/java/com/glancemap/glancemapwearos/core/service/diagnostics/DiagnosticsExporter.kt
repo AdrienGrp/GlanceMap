@@ -87,6 +87,19 @@ data class DiagnosticsSettingsSnapshot(
 object DiagnosticsExporter {
     private const val SESSION_DURATION_MISMATCH_THRESHOLD_MS = 5_000L
 
+    internal data class FixGapBuckets(
+        val interactiveSampleCount: Int = 0,
+        val interactiveAvgMs: Long? = null,
+        val interactiveMaxMs: Long = 0L,
+        val nonInteractiveSampleCount: Int = 0,
+        val nonInteractiveAvgMs: Long? = null,
+        val nonInteractiveMaxMs: Long = 0L,
+        val unknownScreenSampleCount: Int = 0,
+        val unknownScreenAvgMs: Long? = null,
+        val unknownScreenMaxMs: Long = 0L,
+        val delayedCount: Int = 0,
+    )
+
     internal data class TelemetryInsights(
         val burstStartCount: Int = 0,
         val burstEndCount: Int = 0,
@@ -327,6 +340,9 @@ object DiagnosticsExporter {
         var watchGpsSelfHealSkippedCount: Int = 0
         var watchGpsSelfHealRestartCount: Int = 0
         var watchGpsSelfHealMaxSearchAgeMs: Long? = null
+        var fixGapBuckets: FixGapBuckets = FixGapBuckets()
+        var externalHeartRateReconnectScheduledCount: Int = 0
+        var externalHeartRateReconnectAttemptCount: Int = 0
     }
 
     internal data class CompassTelemetryInsights(
@@ -1102,6 +1118,56 @@ object DiagnosticsExporter {
                     }
                 }",
             )
+            writer.appendLine("interactiveFixGapSampleCount=${telemetryInsights.fixGapBuckets.interactiveSampleCount}")
+            writer.appendLine(
+                "interactiveFixGapAvgMs=${
+                    telemetryInsights.fixGapBuckets.interactiveAvgMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "interactiveFixGapMaxMs=${
+                    if (telemetryInsights.fixGapBuckets.interactiveSampleCount > 0) {
+                        telemetryInsights.fixGapBuckets.interactiveMaxMs.toString()
+                    } else {
+                        "na"
+                    }
+                }",
+            )
+            writer.appendLine(
+                "nonInteractiveFixGapSampleCount=${telemetryInsights.fixGapBuckets.nonInteractiveSampleCount}",
+            )
+            writer.appendLine(
+                "nonInteractiveFixGapAvgMs=${
+                    telemetryInsights.fixGapBuckets.nonInteractiveAvgMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "nonInteractiveFixGapMaxMs=${
+                    if (telemetryInsights.fixGapBuckets.nonInteractiveSampleCount > 0) {
+                        telemetryInsights.fixGapBuckets.nonInteractiveMaxMs.toString()
+                    } else {
+                        "na"
+                    }
+                }",
+            )
+            writer.appendLine(
+                "unknownScreenFixGapSampleCount=${telemetryInsights.fixGapBuckets.unknownScreenSampleCount}",
+            )
+            writer.appendLine(
+                "unknownScreenFixGapAvgMs=${
+                    telemetryInsights.fixGapBuckets.unknownScreenAvgMs?.toString() ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "unknownScreenFixGapMaxMs=${
+                    if (telemetryInsights.fixGapBuckets.unknownScreenSampleCount > 0) {
+                        telemetryInsights.fixGapBuckets.unknownScreenMaxMs.toString()
+                    } else {
+                        "na"
+                    }
+                }",
+            )
+            writer.appendLine("delayedFixGapCount=${telemetryInsights.fixGapBuckets.delayedCount}")
             writer.appendLine()
             writer.appendLine("Turn-by-Turn Guidance")
             writer.appendLine("turnByTurnSampleCount=${telemetryInsights.turnByTurnSampleCount}")
@@ -1423,6 +1489,14 @@ object DiagnosticsExporter {
             writer.appendLine("externalHeartRateConnectedCount=${telemetryInsights.externalHeartRateConnectedCount}")
             writer.appendLine(
                 "externalHeartRateDisconnectedCount=${telemetryInsights.externalHeartRateDisconnectedCount}",
+            )
+            writer.appendLine(
+                "externalHeartRateReconnectScheduledCount=${
+                    telemetryInsights.externalHeartRateReconnectScheduledCount
+                }",
+            )
+            writer.appendLine(
+                "externalHeartRateReconnectAttemptCount=${telemetryInsights.externalHeartRateReconnectAttemptCount}",
             )
             writer.appendLine(
                 "externalHeartRateNotifyRequestedCount=${telemetryInsights.externalHeartRateNotifyRequestedCount}",

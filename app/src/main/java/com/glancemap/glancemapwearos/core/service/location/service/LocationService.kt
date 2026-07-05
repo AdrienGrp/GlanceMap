@@ -396,9 +396,11 @@ class LocationService : Service() {
                 onRequestApplied = { nowElapsedMs, intervalMs ->
                     lastRequestAppliedAtElapsedMs = nowElapsedMs
                     _effectiveUpdateIntervalMs.value = intervalMs
+                    updateTelemetryFixContext()
                 },
                 onRequestFailed = {
                     _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+                    updateTelemetryFixContext()
                 },
                 maybeTriggerInteractiveSelfHealNow = { nowElapsedMs, interactiveTracking, expectedIntervalMs ->
                     selfHealFailoverCoordinator.maybeTriggerInteractiveSelfHealNow(
@@ -603,6 +605,7 @@ class LocationService : Service() {
         pendingDebouncedImmediateLocationJob?.cancel()
         pendingDebouncedImmediateLocationJob = null
         val effectiveBackgroundGpsEnabled = effectiveBackgroundGpsEnabled()
+        updateTelemetryFixContext(effectiveBackgroundGpsEnabled = effectiveBackgroundGpsEnabled)
 
         telemetry.logRuntimeStateApplied(
             screenState = screenState.name,
@@ -632,6 +635,17 @@ class LocationService : Service() {
         selfHealFailoverCoordinator.updateSelfHealMonitor()
         refreshKeepAliveNotificationState()
         requestLocationUpdateIfNeeded()
+    }
+
+    private fun updateTelemetryFixContext(
+        effectiveBackgroundGpsEnabled: Boolean = effectiveBackgroundGpsEnabled(),
+    ) {
+        telemetry.updateFixContext(
+            screenState = latestScreenState.name,
+            expectedIntervalMs = _effectiveUpdateIntervalMs.value,
+            trackingEnabled = latestTrackingEnabled,
+            backgroundGpsEnabled = effectiveBackgroundGpsEnabled,
+        )
     }
 
     fun setScreenState(screenState: LocationScreenState) {

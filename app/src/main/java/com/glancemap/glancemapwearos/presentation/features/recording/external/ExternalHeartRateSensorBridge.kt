@@ -14,6 +14,7 @@ fun ExternalHeartRateSensorBridge(
     paused: Boolean,
     address: String?,
     onHeartRate: (bpm: Int, timeMillis: Long) -> Unit,
+    onUnavailable: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val simulated = ExternalSensorSimulation.isSimulatedAddress(address)
@@ -49,6 +50,8 @@ fun ExternalHeartRateSensorBridge(
                 context = context.applicationContext,
                 address = linkedAddress,
                 onHeartRate = onHeartRate,
+                onUnavailable = onUnavailable,
+                autoReconnect = active && !paused,
             )
         DebugTelemetry.log("ExternalHeartRate", "event=bridge_start address=${linkedAddress.takeLast(5)}")
         client.connect()

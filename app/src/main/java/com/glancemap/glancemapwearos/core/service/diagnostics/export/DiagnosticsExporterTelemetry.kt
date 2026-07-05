@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.core.service.diagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.AcceptedFixSummaries
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.AcceptedFixSummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.CompassTelemetryInsights
+import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.FixGapBuckets
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.GnssInsights
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.ObservedFixQualitySummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.TelemetryInsights
@@ -140,6 +141,16 @@ internal fun deriveTelemetryInsights(
     var screenOnFixGapSampleCount = 0
     var screenOnFixGapSumMs = 0L
     var screenOnFixGapMaxMs = 0L
+    var interactiveFixGapSampleCount = 0
+    var interactiveFixGapSumMs = 0L
+    var interactiveFixGapMaxMs = 0L
+    var nonInteractiveFixGapSampleCount = 0
+    var nonInteractiveFixGapSumMs = 0L
+    var nonInteractiveFixGapMaxMs = 0L
+    var unknownScreenFixGapSampleCount = 0
+    var unknownScreenFixGapSumMs = 0L
+    var unknownScreenFixGapMaxMs = 0L
+    var delayedFixGapCount = 0
     var turnByTurnSampleCount = 0
     var turnByTurnActiveSampleCount = 0
     var turnByTurnPausedSampleCount = 0
@@ -248,6 +259,8 @@ internal fun deriveTelemetryInsights(
     var externalHeartRateLastConnectSkippedReason: String? = null
     var externalHeartRateConnectedCount = 0
     var externalHeartRateDisconnectedCount = 0
+    var externalHeartRateReconnectScheduledCount = 0
+    var externalHeartRateReconnectAttemptCount = 0
     var externalHeartRateNotifyRequestedCount = 0
     var externalHeartRateNotifyFailedCount = 0
     var externalHeartRateServiceFailureCount = 0
@@ -378,6 +391,38 @@ internal fun deriveTelemetryInsights(
             when (extractTokenValue(line, "provider=")?.lowercase()) {
                 "gps" -> fixProviderGpsCount += 1
                 "fused" -> fixProviderFusedCount += 1
+            }
+            val acceptedGapMs = parseLongToken(line, "gapMs=")
+            if (acceptedGapMs != null) {
+                when (extractTokenValue(line, "screenState=")) {
+                    "INTERACTIVE" -> {
+                        interactiveFixGapSampleCount += 1
+                        interactiveFixGapSumMs += acceptedGapMs
+                        if (acceptedGapMs > interactiveFixGapMaxMs) interactiveFixGapMaxMs = acceptedGapMs
+                    }
+                    "SCREEN_OFF",
+                    "AMBIENT",
+                    -> {
+                        nonInteractiveFixGapSampleCount += 1
+                        nonInteractiveFixGapSumMs += acceptedGapMs
+                        if (acceptedGapMs > nonInteractiveFixGapMaxMs) {
+                            nonInteractiveFixGapMaxMs = acceptedGapMs
+                        }
+                    }
+                    else -> {
+                        unknownScreenFixGapSampleCount += 1
+                        unknownScreenFixGapSumMs += acceptedGapMs
+                        if (acceptedGapMs > unknownScreenFixGapMaxMs) {
+                            unknownScreenFixGapMaxMs = acceptedGapMs
+                        }
+                    }
+                }
+                parseLongToken(line, "expectedIntervalMs=")?.takeIf { it > 0L }?.let { expectedIntervalMs ->
+                    val delayedThresholdMs = maxOf(expectedIntervalMs * 2L, expectedIntervalMs + 2_000L)
+                    if (acceptedGapMs > delayedThresholdMs) {
+                        delayedFixGapCount += 1
+                    }
+                }
             }
             if (screenActive && lineEpochMs != null) {
                 lastScreenFixAtMs?.let { previousFixAtMs ->
@@ -755,6 +800,8 @@ internal fun deriveTelemetryInsights(
                 }
                 "connected" -> externalHeartRateConnectedCount += 1
                 "disconnected" -> externalHeartRateDisconnectedCount += 1
+                "reconnect_scheduled" -> externalHeartRateReconnectScheduledCount += 1
+                "reconnect_attempt" -> externalHeartRateReconnectAttemptCount += 1
                 "notify_requested" -> externalHeartRateNotifyRequestedCount += 1
                 "notify_failed" -> externalHeartRateNotifyFailedCount += 1
                 "services_failed" -> externalHeartRateServiceFailureCount += 1
@@ -1188,6 +1235,36 @@ internal fun deriveTelemetryInsights(
         insights.watchGpsSelfHealSkippedCount = watchGpsSelfHealSkippedCount
         insights.watchGpsSelfHealRestartCount = watchGpsSelfHealRestartCount
         insights.watchGpsSelfHealMaxSearchAgeMs = watchGpsSelfHealMaxSearchAgeMs
+        insights.fixGapBuckets =
+            FixGapBuckets(
+                interactiveSampleCount = interactiveFixGapSampleCount,
+                interactiveAvgMs =
+                    if (interactiveFixGapSampleCount > 0) {
+                        interactiveFixGapSumMs / interactiveFixGapSampleCount
+                    } else {
+                        null
+                    },
+                interactiveMaxMs = interactiveFixGapMaxMs,
+                nonInteractiveSampleCount = nonInteractiveFixGapSampleCount,
+                nonInteractiveAvgMs =
+                    if (nonInteractiveFixGapSampleCount > 0) {
+                        nonInteractiveFixGapSumMs / nonInteractiveFixGapSampleCount
+                    } else {
+                        null
+                    },
+                nonInteractiveMaxMs = nonInteractiveFixGapMaxMs,
+                unknownScreenSampleCount = unknownScreenFixGapSampleCount,
+                unknownScreenAvgMs =
+                    if (unknownScreenFixGapSampleCount > 0) {
+                        unknownScreenFixGapSumMs / unknownScreenFixGapSampleCount
+                    } else {
+                        null
+                    },
+                unknownScreenMaxMs = unknownScreenFixGapMaxMs,
+                delayedCount = delayedFixGapCount,
+            )
+        insights.externalHeartRateReconnectScheduledCount = externalHeartRateReconnectScheduledCount
+        insights.externalHeartRateReconnectAttemptCount = externalHeartRateReconnectAttemptCount
     }
 }
 

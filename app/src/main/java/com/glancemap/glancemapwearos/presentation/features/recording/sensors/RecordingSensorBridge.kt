@@ -208,6 +208,16 @@ fun RecordingSensorBridge(
                 )
             onMetrics(metrics)
         },
+        onUnavailable = {
+            DebugTelemetry.log("TraceRecordingSensors", "event=external_heart_rate_unavailable")
+            metrics =
+                metrics.copy(
+                    heartRateBpm = null,
+                    heartRateUpdatedAtMillis = 0L,
+                    heartRateFromBluetooth = true,
+                )
+            onMetrics(metrics)
+        },
     )
     ExternalRunPodSensorBridge(
         active = active && useExternalRunPod,
