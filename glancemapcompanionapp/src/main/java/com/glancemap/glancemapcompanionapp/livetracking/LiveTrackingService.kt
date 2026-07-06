@@ -282,10 +282,11 @@ class LiveTrackingService : Service() {
     @Suppress("ReturnCount")
     private fun pauseTracking() {
         val activeSettings = settings ?: return
-        val location = lastLocation ?: run {
-            LiveTrackingSessionStore.setError("Wait for the first GPS position before pausing")
-            return
-        }
+        val location =
+            lastLocation ?: run {
+                LiveTrackingSessionStore.setError("Wait for the first GPS position before pausing")
+                return
+            }
         if (isPaused || isStopping || !sentStart) return
         runCatching { locationClient.removeLocationUpdates(locationCallback) }
         isPaused = true

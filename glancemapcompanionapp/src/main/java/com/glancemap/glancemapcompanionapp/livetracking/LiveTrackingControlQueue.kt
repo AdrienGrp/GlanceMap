@@ -111,6 +111,5 @@ internal object LiveTrackingControlQueue {
             )
         }.getOrNull()
 
-    private fun JSONObject.nullableDouble(key: String): Double? =
-        if (isNull(key)) null else optDouble(key)
+    private fun JSONObject.nullableDouble(key: String): Double? = if (isNull(key)) null else optDouble(key)
 }
