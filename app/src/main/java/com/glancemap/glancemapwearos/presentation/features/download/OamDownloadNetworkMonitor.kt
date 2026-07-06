@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 
 data class OamDownloadNetworkState(
@@ -67,54 +66,44 @@ class OamDownloadNetworkMonitor(
         )
     }
 
-    fun watchForValidatedWifi(onValidatedWifi: () -> Unit): AutoCloseable {
+    fun watchNetworkState(onChanged: (OamDownloadNetworkState) -> Unit): AutoCloseable {
         val manager = connectivityManager ?: return AutoCloseable {}
         val callback =
             object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    maybeNotify(manager, network, onValidatedWifi)
+                    notifyCurrentState(manager, "network_available", onChanged)
                 }
 
                 override fun onCapabilitiesChanged(
                     network: Network,
                     networkCapabilities: NetworkCapabilities,
                 ) {
-                    val state = networkCapabilities.toDownloadNetworkState()
-                    DebugTelemetry.log(
-                        OAM_DOWNLOAD_TELEMETRY_TAG,
-                        "event=network_capabilities_changed ${state.telemetryFields}",
-                    )
-                    if (state.isValidatedWifi) {
-                        onValidatedWifi()
-                    }
+                    notifyCurrentState(manager, "network_capabilities_changed", onChanged)
+                }
+
+                override fun onLost(network: Network) {
+                    notifyCurrentState(manager, "network_lost", onChanged)
                 }
             }
-        val request =
-            NetworkRequest
-                .Builder()
-                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
-        manager.registerNetworkCallback(request, callback)
+        manager.registerDefaultNetworkCallback(callback)
         return AutoCloseable {
             runCatching { manager.unregisterNetworkCallback(callback) }
         }
     }
 
-    private fun maybeNotify(
+    private fun notifyCurrentState(
         manager: ConnectivityManager,
-        network: Network,
-        onValidatedWifi: () -> Unit,
+        event: String,
+        onChanged: (OamDownloadNetworkState) -> Unit,
     ) {
-        val capabilities = manager.getNetworkCapabilities(network)
-        val state = capabilities.toDownloadNetworkState()
+        val network = manager.activeNetwork
+        val capabilities = network?.let(manager::getNetworkCapabilities)
+        val state = capabilities.toDownloadNetworkState(isMetered = manager.isActiveNetworkMetered)
         DebugTelemetry.log(
             OAM_DOWNLOAD_TELEMETRY_TAG,
-            "event=network_available ${state.telemetryFields}",
+            "event=$event ${state.telemetryFields}",
         )
-        if (state.isValidatedWifi) {
-            onValidatedWifi()
-        }
+        onChanged(state)
     }
 
     private companion object {

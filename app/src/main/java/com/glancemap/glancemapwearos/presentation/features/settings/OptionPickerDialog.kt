@@ -33,14 +33,10 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.presentation.ui.WearLazyListScreenEdgeScrollIndicator
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.material.ToggleChip
-import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import kotlin.math.abs
 
 private const val PICKER_DRAG_DISMISS_PX = 55f
 
-@OptIn(ExperimentalHorologistApi::class)
 @Composable
 internal fun <T> OptionPickerDialog(
     visible: Boolean,
@@ -134,20 +130,17 @@ internal fun <T> OptionPickerDialog(
                 }
 
                 items(options) { (value, label) ->
-                    ToggleChip(
-                        modifier = Modifier.fillMaxWidth(),
-                        checked = value == selectedValue,
-                        onCheckedChanged = { checked ->
+                    OptionPickerChoiceRow(
+                        label = label,
+                        selected = value == selectedValue,
+                        onSelect = {
                             if (value == selectedValue) {
                                 onDismiss()
-                                return@ToggleChip
+                            } else {
+                                onSelect(value)
+                                onDismiss()
                             }
-                            if (!checked) return@ToggleChip
-                            onSelect(value)
-                            onDismiss()
                         },
-                        label = label,
-                        toggleControl = ToggleChipToggleControl.Radio,
                     )
                 }
             }

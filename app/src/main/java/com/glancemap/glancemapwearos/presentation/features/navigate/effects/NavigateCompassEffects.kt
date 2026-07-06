@@ -91,6 +91,16 @@ internal fun NavigateCompassEffects(
                             )
                         ) {
                             startCompassForNavigate()
+                        } else if (
+                            shouldDeferNavigateCompassStopOnResume(
+                                screenState = latestScreenState.value,
+                                isOfflineMode = latestIsOfflineMode.value,
+                            )
+                        ) {
+                            logNavigateCompassEffect(
+                                "ui_resume_wait screenState=${latestScreenState.value.name} " +
+                                    "reason=await_interactive_state provider=${compassProviderType.name}",
+                            )
                         } else {
                             stopCompass(
                                 immediate =
@@ -200,6 +210,11 @@ internal fun shouldStopNavigateCompassImmediately(
     screenState: LocationScreenState,
     isOfflineMode: Boolean,
 ): Boolean = screenState.isNonInteractive || isOfflineMode
+
+internal fun shouldDeferNavigateCompassStopOnResume(
+    screenState: LocationScreenState,
+    isOfflineMode: Boolean,
+): Boolean = !isOfflineMode && screenState.isNonInteractive
 
 internal fun resolveNavigateCompassStopReason(
     isResumed: Boolean,

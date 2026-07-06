@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,13 +35,9 @@ fun PoiSettingsScreen(
     val poiTapToCenterEnabled by viewModel.poiTapToCenterEnabled.collectAsState()
     val poiPopupTimeoutSeconds by viewModel.poiPopupTimeoutSeconds.collectAsState()
     val poiPopupManualCloseOnly by viewModel.poiPopupManualCloseOnly.collectAsState()
-    var showIconSizePicker by remember { mutableStateOf(false) }
-    var showMarkerStylePicker by remember { mutableStateOf(false) }
-    var showTapActionPicker by remember { mutableStateOf(false) }
     val iconSizeOptions =
         remember {
             listOf(
-                SettingsRepository.POI_ICON_SIZE_DEFAULT_PX to "Default",
                 SettingsRepository.POI_ICON_SIZE_SMALL_PX to "Small",
                 SettingsRepository.POI_ICON_SIZE_MEDIUM_PX to "Medium",
                 SettingsRepository.POI_ICON_SIZE_LARGE_PX to "Big",
@@ -68,32 +63,35 @@ fun PoiSettingsScreen(
             GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "POI icon size",
+                selectedValue = poiIconSizePx,
+                options = iconSizeOptions,
                 secondaryLabel = poiIconSizeLabel(poiIconSizePx),
-                iconImageVector = Icons.Filled.UnfoldMore,
-                onClick = { showIconSizePicker = true },
+                onSelect = viewModel::setPoiIconSizePx,
             )
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "POI marker style",
+                selectedValue = poiMarkerStyle,
+                options = markerStyleOptions,
                 secondaryLabel = poiMarkerStyleLabel(poiMarkerStyle),
-                iconImageVector = Icons.Filled.UnfoldMore,
-                onClick = { showMarkerStylePicker = true },
+                onSelect = viewModel::setPoiMarkerStyle,
             )
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 label = "POI list tap action",
+                selectedValue = poiTapToCenterEnabled,
+                options = tapActionOptions,
                 secondaryLabel =
                     if (poiTapToCenterEnabled) {
                         "Open Navigate at POI"
                     } else {
                         "Disabled"
                     },
-                iconImageVector = Icons.Filled.UnfoldMore,
-                onClick = { showTapActionPicker = true },
+                onSelect = viewModel::setPoiTapToCenterEnabled,
             )
         }
         item {
@@ -115,31 +113,6 @@ fun PoiSettingsScreen(
             )
         }
     }
-
-    OptionPickerDialog(
-        visible = showIconSizePicker,
-        title = "POI icon size",
-        selectedValue = poiIconSizePx,
-        options = iconSizeOptions,
-        onDismiss = { showIconSizePicker = false },
-        onSelect = { selected -> viewModel.setPoiIconSizePx(selected) },
-    )
-    OptionPickerDialog(
-        visible = showMarkerStylePicker,
-        title = "POI marker style",
-        selectedValue = poiMarkerStyle,
-        options = markerStyleOptions,
-        onDismiss = { showMarkerStylePicker = false },
-        onSelect = { selected -> viewModel.setPoiMarkerStyle(selected) },
-    )
-    OptionPickerDialog(
-        visible = showTapActionPicker,
-        title = "POI list tap action",
-        selectedValue = poiTapToCenterEnabled,
-        options = tapActionOptions,
-        onDismiss = { showTapActionPicker = false },
-        onSelect = { selected -> viewModel.setPoiTapToCenterEnabled(selected) },
-    )
 }
 
 private fun poiIconSizeLabel(sizePx: Int): String =
@@ -147,7 +120,7 @@ private fun poiIconSizeLabel(sizePx: Int): String =
         SettingsRepository.POI_ICON_SIZE_SMALL_PX -> "Small"
         SettingsRepository.POI_ICON_SIZE_MEDIUM_PX -> "Medium"
         SettingsRepository.POI_ICON_SIZE_LARGE_PX -> "Big"
-        else -> "Default"
+        else -> "Medium"
     }
 
 private fun poiMarkerStyleLabel(style: String): String =

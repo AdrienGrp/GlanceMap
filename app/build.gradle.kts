@@ -73,7 +73,7 @@ if (releaseArtifactTaskRequested && !hasReleaseSigning) {
 
 android {
     namespace = "com.glancemap.glancemapwearos"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.glancemap.glancemapwearos"

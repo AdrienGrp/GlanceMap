@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,7 +43,11 @@ fun MapSettingsScreen(
     val scope = rememberCoroutineScope()
     var showDemSetupDialog by remember { mutableStateOf(false) }
     var demSetupReason by remember { mutableStateOf(DemSetupReason.GENERIC) }
-    var showMarkerPositionPicker by remember { mutableStateOf(false) }
+    val markerPositionOptions =
+        listOf(
+            SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER to "Middle",
+            SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER to "Bottom",
+        )
     val hillShadingEnabled =
         remember(themeItems) {
             themeItems
@@ -92,17 +95,18 @@ fun MapSettingsScreen(
             GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
         }
         item {
-            SettingsPickerChip(
+            SettingsOptionPickerRow(
                 modifier = Modifier.fillMaxWidth(),
                 label = "Position marker",
-                iconImageVector = Icons.Filled.UnfoldMore,
+                selectedValue = navigationMarkerAnchorMode,
+                options = markerPositionOptions,
                 secondaryLabel =
                     if (navigationMarkerAnchorMode == SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER) {
                         "Bottom"
                     } else {
                         "Middle"
                     },
-                onClick = { showMarkerPositionPicker = true },
+                onSelect = viewModel::setNavigationMarkerAnchorMode,
             )
         }
         item {
@@ -221,19 +225,6 @@ fun MapSettingsScreen(
             )
         }
     }
-
-    OptionPickerDialog(
-        visible = showMarkerPositionPicker,
-        title = "Position marker",
-        selectedValue = navigationMarkerAnchorMode,
-        options =
-            listOf(
-                SettingsRepository.NAVIGATION_MARKER_ANCHOR_CENTER to "Middle",
-                SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER to "Bottom",
-            ),
-        onDismiss = { showMarkerPositionPicker = false },
-        onSelect = { anchorMode -> viewModel.setNavigationMarkerAnchorMode(anchorMode) },
-    )
 }
 
 @Composable

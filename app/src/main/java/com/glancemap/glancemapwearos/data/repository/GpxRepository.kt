@@ -13,6 +13,8 @@ interface GpxRepository {
 
     suspend fun deleteGpxFile(path: String)
 
+    suspend fun absolutePathForFileName(fileName: String): String
+
     suspend fun saveGpxFileAtomic(
         fileName: String,
         inputStream: InputStream,

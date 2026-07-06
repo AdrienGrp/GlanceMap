@@ -2,8 +2,9 @@ package com.glancemap.glancemapwearos.presentation.features.settings
 
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Gavel
-import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -11,6 +12,7 @@ import androidx.navigation.NavHostController
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.transfer.storage.StalePartialTransferCleaner
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
@@ -20,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
@@ -32,7 +35,13 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listTokens = rememberSettingsListTokens()
-    var showUnitsPicker by remember { mutableStateOf(false) }
+    val settingsUiPrefs =
+        remember {
+            context.getSharedPreferences(SETTINGS_UI_PREFS, android.content.Context.MODE_PRIVATE)
+        }
+    var advancedSettingsExpanded by remember {
+        mutableStateOf(settingsUiPrefs.getBoolean(ADVANCED_SETTINGS_EXPANDED_KEY, false))
+    }
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showClearPartialTransfersDialog by remember { mutableStateOf(false) }
     var isClearingCache by remember { mutableStateOf(false) }
@@ -42,14 +51,11 @@ fun SettingsScreen(
         mutableStateOf(StalePartialTransferCleaner.PartialFilesSummary(count = 0, totalBytes = 0L))
     }
     val isMetric by viewModel.isMetric.collectAsState()
+    val activityProfile by viewModel.activityProfile.collectAsState()
+    val userWeightKg by viewModel.userWeightKg.collectAsState()
+    val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
+    val bikeWeightKg by viewModel.bikeWeightKg.collectAsState()
     val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
-    val unitOptions =
-        remember {
-            listOf(
-                true to "Metric",
-                false to "Imperial",
-            )
-        }
 
     fun refreshPartialSummary() {
         scope.launch {
@@ -84,11 +90,24 @@ fun SettingsScreen(
             )
         }
         item {
-            SettingsPickerChip(
-                label = "Units",
-                secondaryLabel = if (isMetric) "Metric" else "Imperial",
-                iconImageVector = Icons.Filled.UnfoldMore,
-                onClick = { showUnitsPicker = true },
+            SettingsSectionChip(
+                label = "User profile",
+                secondaryLabel =
+                    formatUserProfileSummary(
+                        activityProfile = activityProfile,
+                        isMetric = isMetric,
+                        userWeightKg = userWeightKg,
+                        backpackWeightKg = backpackWeightKg,
+                        bikeWeightKg = bikeWeightKg,
+                    ),
+                compactRoundWidthFraction = 0.86f,
+                onClick = { navController.navigate(WatchRoutes.USER_PROFILE_SETTINGS) },
+            )
+        }
+        item {
+            SettingsSectionChip(
+                label = "REC settings",
+                onClick = { navController.navigate(WatchRoutes.RECORDING_SETTINGS) },
             )
         }
         item {
@@ -129,63 +148,83 @@ fun SettingsScreen(
             )
         }
 
-        item { Text("Advanced settings", style = MaterialTheme.typography.titleMedium) }
-        item {
-            SettingsSectionChip(
-                label = "Debugging",
-                onClick = { navController.navigate(WatchRoutes.DEBUG_SETTINGS) },
-            )
-        }
-        item {
-            SettingsToggleChip(
-                checked = backButtonExitsNavigation,
-                onCheckedChanged = viewModel::setBackButtonExitsNavigation,
-                label = "Exit back button",
-                secondaryLabel = "For compatible watches",
-            )
-        }
         item {
             SettingsPickerChip(
-                label = if (isClearingCache) "Clearing cache..." else "Clear cache",
-                iconImageVector = null,
-                onClick = {
-                    if (!isClearingCache) {
-                        showClearCacheDialog = true
-                    }
-                },
-            )
-        }
-        item {
-            SettingsPickerChip(
-                label =
-                    if (isClearingPartialFiles) {
-                        "Clearing partial transfer..."
+                label = "Advanced settings",
+                secondaryLabel = if (advancedSettingsExpanded) "Hide advanced options" else "Show advanced options",
+                iconImageVector =
+                    if (advancedSettingsExpanded) {
+                        Icons.Filled.KeyboardArrowDown
                     } else {
-                        "Clear partial transfer"
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight
                     },
-                secondaryLabel = partialSummaryText,
-                iconImageVector = null,
                 onClick = {
-                    if (isClearingPartialFiles) return@SettingsPickerChip
-                    if (partialSummary.count <= 0) {
-                        Toast
-                            .makeText(
-                                context,
-                                "No partial transfer files",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                    } else {
-                        showClearPartialTransfersDialog = true
-                    }
+                    advancedSettingsExpanded = !advancedSettingsExpanded
+                    settingsUiPrefs
+                        .edit()
+                        .putBoolean(ADVANCED_SETTINGS_EXPANDED_KEY, advancedSettingsExpanded)
+                        .apply()
                 },
             )
         }
-        item {
-            SettingsPickerChip(
-                label = "Reset to Default",
-                iconImageVector = null,
-                onClick = { navController.navigate(WatchRoutes.RESET_DEFAULTS_CONFIRM) },
-            )
+        if (advancedSettingsExpanded) {
+            item {
+                SettingsToggleChip(
+                    checked = backButtonExitsNavigation,
+                    onCheckedChanged = viewModel::setBackButtonExitsNavigation,
+                    label = "Exit back button",
+                    secondaryLabel = "For compatible watches",
+                )
+            }
+            item {
+                SettingsPickerChip(
+                    label = if (isClearingCache) "Clearing cache..." else "Clear cache",
+                    iconImageVector = null,
+                    onClick = {
+                        if (!isClearingCache) {
+                            showClearCacheDialog = true
+                        }
+                    },
+                )
+            }
+            item {
+                SettingsPickerChip(
+                    label =
+                        if (isClearingPartialFiles) {
+                            "Clearing partial transfer..."
+                        } else {
+                            "Clear partial transfer"
+                        },
+                    secondaryLabel = partialSummaryText,
+                    iconImageVector = null,
+                    onClick = {
+                        if (isClearingPartialFiles) return@SettingsPickerChip
+                        if (partialSummary.count <= 0) {
+                            Toast
+                                .makeText(
+                                    context,
+                                    "No partial transfer files",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                        } else {
+                            showClearPartialTransfersDialog = true
+                        }
+                    },
+                )
+            }
+            item {
+                SettingsPickerChip(
+                    label = "Reset to Default",
+                    iconImageVector = null,
+                    onClick = { navController.navigate(WatchRoutes.RESET_DEFAULTS_CONFIRM) },
+                )
+            }
+            item {
+                SettingsSectionChip(
+                    label = "Debugging",
+                    onClick = { navController.navigate(WatchRoutes.DEBUG_SETTINGS) },
+                )
+            }
         }
         item {
             SettingsSectionChip(
@@ -195,15 +234,6 @@ fun SettingsScreen(
             )
         }
     }
-
-    OptionPickerDialog(
-        visible = showUnitsPicker,
-        title = "Units",
-        selectedValue = isMetric,
-        options = unitOptions,
-        onDismiss = { showUnitsPicker = false },
-        onSelect = { selectedMetric -> viewModel.setMetric(selectedMetric) },
-    )
 
     WearActionDialog(
         visible = showClearCacheDialog,
@@ -321,3 +351,40 @@ private fun formatStorageSize(bytes: Long): String {
         else -> "${bytes.coerceAtLeast(0L)} B"
     }
 }
+
+private fun formatSettingsUserWeight(
+    weightKg: Float,
+    isMetric: Boolean,
+): String =
+    if (isMetric) {
+        "${weightKg.roundToInt()} kg"
+    } else {
+        "${(weightKg * SETTINGS_KG_TO_LB).roundToInt()} lb"
+    }
+
+private fun formatUserProfileSummary(
+    activityProfile: String,
+    isMetric: Boolean,
+    userWeightKg: Float,
+    backpackWeightKg: Float,
+    bikeWeightKg: Float,
+): String {
+    val isBike = activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
+    val parts =
+        mutableListOf(
+            if (isBike) "Bike" else "Hike",
+            if (isMetric) "Metric" else "Imperial",
+            formatSettingsUserWeight(userWeightKg, isMetric),
+        )
+    if (backpackWeightKg.roundToInt() > 0) {
+        parts += "pack ${formatSettingsUserWeight(backpackWeightKg, isMetric)}"
+    }
+    if (isBike) {
+        parts += "bike ${formatSettingsUserWeight(bikeWeightKg, isMetric)}"
+    }
+    return parts.joinToString(" · ")
+}
+
+private const val SETTINGS_KG_TO_LB = 2.2046226218f
+private const val SETTINGS_UI_PREFS = "settings_screen_ui_prefs"
+private const val ADVANCED_SETTINGS_EXPANDED_KEY = "advanced_settings_expanded"

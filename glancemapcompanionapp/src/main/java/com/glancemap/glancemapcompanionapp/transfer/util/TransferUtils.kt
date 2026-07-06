@@ -8,6 +8,7 @@ import android.os.SystemClock
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
+import com.glancemap.glancemapcompanionapp.isGpxMimeType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
@@ -104,8 +105,7 @@ object TransferUtils {
     ): String {
         val name = rawName.trim()
         val lowerName = name.lowercase(Locale.ROOT)
-        val lowerMime = mimeType.orEmpty().lowercase(Locale.ROOT)
-        if (lowerMime == "application/gpx+xml" && !lowerName.endsWith(".gpx")) {
+        if (isGpxMimeType(mimeType) && !lowerName.endsWith(".gpx")) {
             return "${name.ifBlank { "shared-route" }}.gpx"
         }
         return name

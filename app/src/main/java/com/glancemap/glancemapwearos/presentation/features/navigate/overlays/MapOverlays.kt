@@ -4,6 +4,7 @@ import android.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import com.glancemap.glancemapwearos.data.repository.PoiType
@@ -21,6 +22,7 @@ import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.maps.mutateLayers
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlaySource
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
+import com.glancemap.glancemapwearos.presentation.features.recording.RecordingTraceOverlayEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
@@ -42,9 +44,9 @@ private const val ELEVATION_TRACK_OUTLINE_WIDTH_EXTRA_PX = 3f
 private const val ROUTE_TOOL_PREVIEW_ALPHA = 228
 private const val ROUTE_TOOL_CREATE_PREVIEW_ALPHA = 238
 private const val ROUTE_TOOL_DRAFT_ALPHA = 170
-private const val ROUTE_TOOL_AMBER_RED = 247
-private const val ROUTE_TOOL_AMBER_GREEN = 201
-private const val ROUTE_TOOL_AMBER_BLUE = 72
+private const val ROUTE_TOOL_PREVIEW_RED = 0
+private const val ROUTE_TOOL_PREVIEW_GREEN = 217
+private const val ROUTE_TOOL_PREVIEW_BLUE = 232
 
 @Composable
 @OptIn(FlowPreview::class)
@@ -53,6 +55,7 @@ internal fun MapOverlays(
     mapHolder: MapHolder,
     activeGpxDetails: List<GpxTrackDetails>,
     routeToolPreviewPoints: List<LatLong>,
+    recordingTraceSegments: List<List<LatLong>>,
     routeToolCreatePreviewActive: Boolean,
     routeToolDraftPoints: List<LatLong>,
     poiViewModel: PoiViewModel,
@@ -238,6 +241,11 @@ internal fun MapOverlays(
         requestMapRedraw = requestMapRedraw,
     )
 
+    RecordingTraceOverlayEffect(
+        mapView = mapView,
+        segments = recordingTraceSegments,
+    )
+
     inspectionUiState?.let { ui ->
         when (ui) {
             is InspectionAUiState ->
@@ -338,22 +346,14 @@ private fun CompassConeLayerEffect(
         showCompassConeOverlay &&
             locationMarker != null &&
             (navMode == NavMode.COMPASS_FOLLOW || navMode == NavMode.NORTH_UP_FOLLOW)
+    val coneHeadingDeg =
+        when (navMode) {
+            NavMode.COMPASS_FOLLOW -> 0f
+            NavMode.NORTH_UP_FOLLOW -> renderedHeadingDeg
+            NavMode.PANNING -> 0f
+        }
 
-    LaunchedEffect(
-        mapView,
-        navMode,
-        showCompassConeOverlay,
-        compassConeBaseSizePx,
-        compassQuality,
-        compassHeadingErrorDeg,
-        compassRenderStateFlow,
-        gpsFixAccuracyM,
-        gpsFixFresh,
-        gpsFixSpeedMps,
-        gpsFixBearingDeg,
-        renderedHeadingDeg,
-        locationMarker,
-    ) {
+    SideEffect {
         coneTelemetryLogger.log(
             ConeTelemetryDecision(
                 navMode = navMode,
@@ -380,6 +380,17 @@ private fun CompassConeLayerEffect(
                     ),
             ),
         )
+    }
+
+    LaunchedEffect(
+        mapView,
+        shouldShow,
+        compassConeBaseSizePx,
+        compassQuality,
+        compassHeadingErrorDeg,
+        coneHeadingDeg,
+        locationMarker,
+    ) {
         mapView.mutateLayers { layers ->
             val hasLayer = layers.contains(coneLayer)
             if (!hasLayer) {
@@ -389,19 +400,10 @@ private fun CompassConeLayerEffect(
             coneLayer.baseMarkerSizePx = compassConeBaseSizePx
             coneLayer.quality = compassQuality
             coneLayer.headingErrorDeg = compassHeadingErrorDeg
-            coneLayer.headingDeg =
-                when (navMode) {
-                    NavMode.COMPASS_FOLLOW -> 0f
-                    NavMode.NORTH_UP_FOLLOW -> renderedHeadingDeg
-                    NavMode.PANNING -> 0f
-                }
+            coneLayer.headingDeg = coneHeadingDeg
             coneLayer.isVisible = shouldShow
-            val reordered = topOverlayCoordinator.sync(layers)
-            if (!hasLayer || reordered) {
-                requestMapRedraw()
-            } else {
-                mapView.requestLayerRedrawSafely()
-            }
+            topOverlayCoordinator.sync(layers)
+            requestMapRedraw()
         }
     }
 
@@ -410,7 +412,7 @@ private fun CompassConeLayerEffect(
             mapView.mutateLayers {
                 coneLayer.anchorMarker = null
                 coneLayer.isVisible = false
-                mapView.requestLayerRedrawSafely()
+                requestMapRedraw()
             }
         }
     }
@@ -419,6 +421,17 @@ private fun CompassConeLayerEffect(
 private fun findExistingCompassConeLayer(mapView: MapView): CompassConeLayer? =
     mapView.layerManager.layers
         .firstOrNull { it is CompassConeLayer } as? CompassConeLayer
+
+private fun effectivePoiMarkerSizePx(
+    baseSizePx: Int,
+    zoomLevel: Int,
+): Int =
+    baseSizePx +
+        when {
+            zoomLevel >= 17 -> 8
+            zoomLevel >= 15 -> 4
+            else -> 0
+        }
 
 @Composable
 @OptIn(FlowPreview::class)
@@ -435,22 +448,9 @@ private fun PoiOverlayEffect(
     topOverlayCoordinator: MapTopOverlayCoordinator,
 ) {
     val markersByKey = remember(mapView) { mutableMapOf<String, PoiMarkerEntry>() }
-    val iconSizePx =
-        remember(poiMarkerSizePx) {
-            (poiMarkerSizePx * 0.72f).toInt().coerceAtLeast(12)
-        }
-    val markerBitmapByType =
-        remember(mapView, poiMarkerSizePx, iconSizePx, poiMarkerStyle) {
-            PoiType.entries.associateWith { type ->
-                val osmIcon = loadOsmPoiIconBitmapOrNull(mapView, type, sizePx = iconSizePx)
-                AndroidBitmap(
-                    if (poiMarkerStyle == SettingsRepository.POI_MARKER_STYLE_THEME_ICON) {
-                        createPoiThemeIconMarkerBitmap(osmIcon, poiMarkerSizePx, fallbackType = type)
-                    } else {
-                        createPoiTypeMarkerBitmap(type, osmIcon, sizePx = poiMarkerSizePx)
-                    },
-                )
-            }
+    val markerBitmapCache =
+        remember(mapView, poiMarkerStyle) {
+            mutableMapOf<Pair<Int, String>, Map<PoiType, AndroidBitmap>>()
         }
     val latestSources = rememberUpdatedState(activePoiOverlaySources)
     val querySignals =
@@ -533,6 +533,21 @@ private fun PoiOverlayEffect(
                 val zoom =
                     mapView.model.mapViewPosition.zoomLevel
                         .toInt()
+                val effectiveMarkerSizePx = effectivePoiMarkerSizePx(poiMarkerSizePx, zoom)
+                val markerBitmapByType =
+                    markerBitmapCache.getOrPut(effectiveMarkerSizePx to poiMarkerStyle) {
+                        val iconSizePx = (effectiveMarkerSizePx * 0.72f).toInt().coerceAtLeast(12)
+                        PoiType.entries.associateWith { type ->
+                            val osmIcon = loadOsmPoiIconBitmapOrNull(mapView, type, sizePx = iconSizePx)
+                            AndroidBitmap(
+                                if (poiMarkerStyle == SettingsRepository.POI_MARKER_STYLE_THEME_ICON) {
+                                    createPoiThemeIconMarkerBitmap(osmIcon, effectiveMarkerSizePx, fallbackType = type)
+                                } else {
+                                    createPoiTypeMarkerBitmap(type, osmIcon, sizePx = effectiveMarkerSizePx)
+                                },
+                            )
+                        }
+                    }
 
                 val markers =
                     withContext(Dispatchers.IO) {
@@ -573,7 +588,7 @@ private fun PoiOverlayEffect(
                                 PoiMarkerEntry(
                                     marker = marker,
                                     type = point.type,
-                                    markerSizePx = poiMarkerSizePx,
+                                    markerSizePx = effectiveMarkerSizePx,
                                     markerStyle = poiMarkerStyle,
                                 )
                             layers.add(marker)
@@ -581,7 +596,7 @@ private fun PoiOverlayEffect(
                         } else {
                             if (
                                 existing.type != point.type ||
-                                existing.markerSizePx != poiMarkerSizePx ||
+                                existing.markerSizePx != effectiveMarkerSizePx ||
                                 existing.markerStyle != poiMarkerStyle
                             ) {
                                 layers.remove(existing.marker)
@@ -590,7 +605,7 @@ private fun PoiOverlayEffect(
                                     PoiMarkerEntry(
                                         marker = marker,
                                         type = point.type,
-                                        markerSizePx = poiMarkerSizePx,
+                                        markerSizePx = effectiveMarkerSizePx,
                                         markerStyle = poiMarkerStyle,
                                     )
                                 layers.add(marker)
@@ -715,25 +730,25 @@ private fun GpxAndInspectionOverlayEffect(
             if (routeToolCreatePreviewActive) {
                 Color.argb(
                     ROUTE_TOOL_CREATE_PREVIEW_ALPHA,
-                    ROUTE_TOOL_AMBER_RED,
-                    ROUTE_TOOL_AMBER_GREEN,
-                    ROUTE_TOOL_AMBER_BLUE,
+                    ROUTE_TOOL_PREVIEW_RED,
+                    ROUTE_TOOL_PREVIEW_GREEN,
+                    ROUTE_TOOL_PREVIEW_BLUE,
                 )
             } else {
                 Color.argb(
                     ROUTE_TOOL_PREVIEW_ALPHA,
-                    ROUTE_TOOL_AMBER_RED,
-                    ROUTE_TOOL_AMBER_GREEN,
-                    ROUTE_TOOL_AMBER_BLUE,
+                    ROUTE_TOOL_PREVIEW_RED,
+                    ROUTE_TOOL_PREVIEW_GREEN,
+                    ROUTE_TOOL_PREVIEW_BLUE,
                 )
             }
         previewPaint.strokeWidth = maxOf(gpxTrackWidth + 2f, 6f)
         draftPaint.color =
             Color.argb(
                 ROUTE_TOOL_DRAFT_ALPHA,
-                ROUTE_TOOL_AMBER_RED,
-                ROUTE_TOOL_AMBER_GREEN,
-                ROUTE_TOOL_AMBER_BLUE,
+                ROUTE_TOOL_PREVIEW_RED,
+                ROUTE_TOOL_PREVIEW_GREEN,
+                ROUTE_TOOL_PREVIEW_BLUE,
             )
         draftPaint.strokeWidth = maxOf(gpxTrackWidth, 4f)
         requestMapRedraw()

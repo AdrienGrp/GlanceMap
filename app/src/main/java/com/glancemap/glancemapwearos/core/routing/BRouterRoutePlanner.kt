@@ -6,6 +6,7 @@ import btools.router.OsmNodeNamed
 import btools.router.RoutingContext
 import btools.router.RoutingEngine
 import btools.util.CheapRuler
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -37,11 +38,28 @@ private val LOOKUP_VERSION_MISMATCH_REGEX =
 internal fun cityLoopRetryDirections(): List<Int> = LOOP_DIAGONAL_START_DIRECTIONS
 
 internal fun cityLoopRetryPreset(basePreset: RoutePlannerPreset): RoutePlannerPreset =
-    if (basePreset == RoutePlannerPreset.PREFER_EASIEST) {
-        basePreset
-    } else {
-        RoutePlannerPreset.PREFER_EASIEST
+    when {
+        basePreset.isBikePreset -> basePreset
+        basePreset == RoutePlannerPreset.PREFER_EASIEST -> basePreset
+        else -> RoutePlannerPreset.PREFER_EASIEST
     }
+
+private val RoutePlannerPreset.isBikePreset: Boolean
+    get() =
+        when (this) {
+            RoutePlannerPreset.BIKE_TOURING,
+            RoutePlannerPreset.BIKE_ROAD,
+            RoutePlannerPreset.BIKE_QUIET_ROAD,
+            RoutePlannerPreset.BIKE_GRAVEL,
+            RoutePlannerPreset.BIKE_MTB,
+            -> true
+
+            RoutePlannerPreset.BALANCED_HIKE,
+            RoutePlannerPreset.PREFER_TRAILS,
+            RoutePlannerPreset.PREFER_EASIEST,
+            RoutePlannerPreset.CUSTOM_HIKE,
+            -> false
+        }
 
 internal fun <T> rotateLoopVariants(
     values: List<T>,
@@ -207,6 +225,11 @@ internal fun normalizeRoutingErrorMessage(message: String): String =
             normalizeLookupVersionMismatch(message)
         }
 
+        message.contains("checksum error", ignoreCase = true) ||
+            message.contains("checksum failed", ignoreCase = true) -> {
+            "Routing data is damaged. Open Downloads, check the bundle for updates, then choose Refresh to repair it."
+        }
+
         message.contains("dummy.brf", ignoreCase = true) -> {
             "Routing profiles missing. Reopen route tools and try again."
         }
@@ -263,6 +286,13 @@ class BRouterRoutePlanner(
             try {
                 ensureBundledProfilesInstalled()
                 val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+                logRoutePlannerRequest(
+                    kind = "route",
+                    preset = request.preset,
+                    useElevation = request.useElevation,
+                    allowFerries = request.allowFerries,
+                    customHikeParams = request.customHikeParams,
+                )
                 val routedAttempt = executeRoutingRequest(request)
                 buildRoutePlannerOutput(
                     routingContext = routedAttempt.routingContext,
@@ -282,6 +312,13 @@ class BRouterRoutePlanner(
         return withContext(Dispatchers.IO) {
             try {
                 ensureBundledProfilesInstalled()
+                logRoutePlannerRequest(
+                    kind = "loop",
+                    preset = request.preset,
+                    useElevation = request.useElevation,
+                    allowFerries = request.allowFerries,
+                    customHikeParams = request.customHikeParams,
+                )
 
                 val searchCoverageRadiusMeters =
                     estimateLoopCoverageRadiusMeters(
@@ -440,15 +477,17 @@ class BRouterRoutePlanner(
         request: RoundTripPlannerRequest,
         spec: LoopAttemptSpec,
     ): LoopAttemptResult {
+        val effectivePreset = spec.presetOverride ?: request.preset
         val routingContext =
             RoutingContext().apply {
-                localFunction = defaultRoutingProfileFile(context).absolutePath
+                localFunction = routingProfileFileFor(effectivePreset).absolutePath
                 outputFormat = "gpx"
                 keyValues =
                     buildProfileParams(
-                        preset = spec.presetOverride ?: request.preset,
+                        preset = effectivePreset,
                         useElevation = request.useElevation,
                         allowFerries = request.allowFerries,
+                        customHikeParams = request.customHikeParams,
                     )
                 roundTripDistance = spec.searchRadiusMeters
                 roundTripPoints = spec.pointCount
@@ -492,6 +531,7 @@ class BRouterRoutePlanner(
                 preset = spec.presetOverride ?: request.preset,
                 useElevation = request.useElevation,
                 allowFerries = request.allowFerries,
+                customHikeParams = request.customHikeParams,
             ),
             loopSpec = spec,
             timeoutMs = LOOP_FALLBACK_TIMEOUT_MS,
@@ -512,13 +552,14 @@ class BRouterRoutePlanner(
 
         val routingContext =
             RoutingContext().apply {
-                localFunction = defaultRoutingProfileFile(context).absolutePath
+                localFunction = routingProfileFileFor(request.preset).absolutePath
                 outputFormat = "gpx"
                 keyValues =
                     buildProfileParams(
                         preset = request.preset,
                         useElevation = request.useElevation,
                         allowFerries = request.allowFerries,
+                        customHikeParams = request.customHikeParams,
                     )
             }
 
@@ -931,11 +972,41 @@ class BRouterRoutePlanner(
             targetFile = defaultRoutingProfileFile(context),
         )
         copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_TOURING_PROFILE_FILE_NAME",
+            targetFile = bikeTouringRoutingProfileFile(context),
+        )
+        copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_ROAD_PROFILE_FILE_NAME",
+            targetFile = bikeRoadRoutingProfileFile(context),
+        )
+        copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_QUIET_ROAD_PROFILE_FILE_NAME",
+            targetFile = bikeQuietRoadRoutingProfileFile(context),
+        )
+        copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_GRAVEL_PROFILE_FILE_NAME",
+            targetFile = bikeGravelRoutingProfileFile(context),
+        )
+        copyAsset(
+            assetPath = "brouter/profiles2/$ROUTING_BIKE_MTB_PROFILE_FILE_NAME",
+            targetFile = bikeMtbRoutingProfileFile(context),
+        )
+        copyAsset(
             assetPath = "brouter/profiles2/$ROUTING_DEFAULT_PROFILE_FILE_NAME",
             targetFile = dummyRoutingProfileFile(context),
         )
         routingSegmentsDir(context)
     }
+
+    private fun routingProfileFileFor(preset: RoutePlannerPreset): File =
+        when (preset) {
+            RoutePlannerPreset.BIKE_TOURING -> bikeTouringRoutingProfileFile(context)
+            RoutePlannerPreset.BIKE_ROAD -> bikeRoadRoutingProfileFile(context)
+            RoutePlannerPreset.BIKE_QUIET_ROAD -> bikeQuietRoadRoutingProfileFile(context)
+            RoutePlannerPreset.BIKE_GRAVEL -> bikeGravelRoutingProfileFile(context)
+            RoutePlannerPreset.BIKE_MTB -> bikeMtbRoutingProfileFile(context)
+            else -> defaultRoutingProfileFile(context)
+        }
 
     private fun copyAsset(
         assetPath: String,
@@ -953,10 +1024,17 @@ class BRouterRoutePlanner(
         preset: RoutePlannerPreset,
         useElevation: Boolean,
         allowFerries: Boolean,
+        customHikeParams: HikeRouteProfileParams? = null,
     ): HashMap<String, String> =
         hashMapOf<String, String>().apply {
             put("allow_ferries", allowFerries.toProfileNumber())
             put("consider_elevation", useElevation.toProfileNumber())
+            if (!preset.isBikePreset) {
+                put(
+                    "consider_forest",
+                    (customHikeParams?.considerForest ?: false).toProfileNumber(),
+                )
+            }
             when (preset) {
                 RoutePlannerPreset.BALANCED_HIKE -> {
                     put("hiking_routes_preference", "0.20")
@@ -970,7 +1048,6 @@ class BRouterRoutePlanner(
                     put("path_preference", "20.0")
                     put("SAC_scale_limit", "3")
                     put("SAC_scale_preferred", "2")
-                    put("consider_forest", "1")
                 }
 
                 RoutePlannerPreset.PREFER_EASIEST -> {
@@ -979,8 +1056,67 @@ class BRouterRoutePlanner(
                     put("SAC_scale_limit", "1")
                     put("SAC_scale_preferred", "1")
                 }
+
+                RoutePlannerPreset.CUSTOM_HIKE -> {
+                    val params = customHikeParams ?: defaultCustomHikeProfileParams()
+                    put("hiking_routes_preference", params.hikingRoutesPreference.toProfileNumber())
+                    put("path_preference", params.pathPreference.toProfileNumber())
+                    put("SAC_scale_limit", params.sacScaleLimit.toString())
+                    put("SAC_scale_preferred", params.sacScalePreferred.toString())
+                }
+
+                RoutePlannerPreset.BIKE_TOURING -> {
+                    put("allow_steps", "0")
+                    put("consider_noise", "1")
+                    put("consider_traffic", "1")
+                    put("avoid_unsafe", "1")
+                }
+
+                RoutePlannerPreset.BIKE_ROAD,
+                RoutePlannerPreset.BIKE_QUIET_ROAD,
+                -> {
+                    put("allow_steps", "0")
+                }
+
+                RoutePlannerPreset.BIKE_GRAVEL -> {
+                    put("avoid_steep_inclines", useElevation.toProfileNumber())
+                }
+
+                RoutePlannerPreset.BIKE_MTB -> {
+                    put("allow_steps", "0")
+                }
             }
         }
+
+    private fun logRoutePlannerRequest(
+        kind: String,
+        preset: RoutePlannerPreset,
+        useElevation: Boolean,
+        allowFerries: Boolean,
+        customHikeParams: HikeRouteProfileParams?,
+    ) {
+        val profileFile = routingProfileFileFor(preset).name
+        val params =
+            buildProfileParams(
+                preset = preset,
+                useElevation = useElevation,
+                allowFerries = allowFerries,
+                customHikeParams = customHikeParams,
+            ).toSortedMap()
+        DebugTelemetry.log(
+            "RouteTools",
+            "event=planner_request kind=$kind preset=$preset profile=$profileFile params=$params",
+        )
+    }
+
+    private fun defaultCustomHikeProfileParams(): HikeRouteProfileParams =
+        HikeRouteProfileParams(
+            hikingRoutesPreference = 0.20f,
+            pathPreference = 0f,
+            sacScaleLimit = 3,
+            sacScalePreferred = 1,
+            considerForest = false,
+        )
 
     private fun findMissingSegments(
         origin: LatLong,
@@ -1075,6 +1211,8 @@ class BRouterRoutePlanner(
         }
 
     private fun Boolean.toProfileNumber(): String = if (this) "1" else "0"
+
+    private fun Float.toProfileNumber(): String = toString()
 
     private companion object {
         const val B_ROUTER_COORDINATE_SCALE = 1_000_000.0

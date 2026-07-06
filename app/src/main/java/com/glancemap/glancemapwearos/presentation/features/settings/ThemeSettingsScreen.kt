@@ -6,17 +6,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -145,11 +141,6 @@ fun ThemeSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val themeItems by themeViewModel.themeItems.collectAsState()
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
-    var showThemePicker by remember { mutableStateOf(false) }
-    var showStylePicker by remember { mutableStateOf(false) }
-    var showOsMapModePicker by remember { mutableStateOf(false) }
-    var showOsMapVariantPicker by remember { mutableStateOf(false) }
-
     val selectedStyle =
         themeItems
             .filterIsInstance<ThemeListItem.Style>()
@@ -190,6 +181,8 @@ fun ThemeSettingsScreen(
     val bundledThemeSelected = MapsforgeThemeCatalog.isBundledAssetTheme(selectedThemeId)
     val styleSelectionAvailable = hasMeaningfulStyleSelection(styleOptions)
     val canToggleOverlays = bundledThemeSelected && selectedStyleId != null
+    val selectedThemeValue = selectedTheme?.id ?: themeOptions.firstOrNull()?.id
+    val selectedStyleValue = selectedStyleId ?: styleOptions.firstOrNull()?.id
 
     DisposableEffect(mapViewModel) {
         mapViewModel.setThemeRenderingDeferred(true)
@@ -262,23 +255,29 @@ fun ThemeSettingsScreen(
                 )
             }
             item {
-                SettingsPickerChip(
-                    label = "Map theme",
-                    secondaryLabel = selectedTheme?.name?.ifBlank { selectedTheme.id } ?: "-",
-                    iconImageVector = Icons.Filled.UnfoldMore,
-                    onClick = { showThemePicker = true },
-                )
+                selectedThemeValue?.let {
+                    SettingsOptionPickerRow(
+                        label = "Map theme",
+                        dialogTitle = "Theme",
+                        selectedValue = it,
+                        options = themePickerOptions,
+                        secondaryLabel = selectedTheme?.name?.ifBlank { selectedTheme.id } ?: "-",
+                        onSelect = themeViewModel::setTheme,
+                    )
+                }
             }
         }
 
         if (nightModeToggle?.enabled != true && styleSelectionAvailable) {
             if (osMapStyleUi != null) {
                 item {
-                    SettingsPickerChip(
+                    SettingsOptionPickerRow(
                         label = "Mode",
+                        dialogTitle = "OS Map mode",
+                        selectedValue = osMapStyleUi.selectedModeValue,
+                        options = osMapStyleUi.modeOptions,
                         secondaryLabel = osMapStyleUi.selectedModeLabel,
-                        iconImageVector = Icons.Filled.UnfoldMore,
-                        onClick = { showOsMapModePicker = true },
+                        onSelect = themeViewModel::setMapStyle,
                     )
                 }
                 item {
@@ -291,21 +290,27 @@ fun ThemeSettingsScreen(
                     )
                 }
                 item {
-                    SettingsPickerChip(
+                    SettingsOptionPickerRow(
                         label = "Map style",
+                        dialogTitle = "OS Map style",
+                        selectedValue = osMapStyleUi.selectedVariantValue,
+                        options = osMapStyleUi.variantOptions,
                         secondaryLabel = osMapStyleUi.selectedVariantLabel,
-                        iconImageVector = Icons.Filled.UnfoldMore,
-                        onClick = { showOsMapVariantPicker = true },
+                        onSelect = themeViewModel::setMapStyle,
                     )
                 }
             } else {
                 item {
-                    SettingsPickerChip(
-                        label = "Style",
-                        secondaryLabel = selectedStyle?.name?.ifBlank { selectedStyle.id } ?: "-",
-                        iconImageVector = Icons.Filled.UnfoldMore,
-                        onClick = { showStylePicker = true },
-                    )
+                    selectedStyleValue?.let {
+                        SettingsOptionPickerRow(
+                            label = "Style",
+                            dialogTitle = "Theme style",
+                            selectedValue = it,
+                            options = stylePickerOptions,
+                            secondaryLabel = selectedStyle?.name?.ifBlank { selectedStyle.id } ?: "-",
+                            onSelect = themeViewModel::setMapStyle,
+                        )
+                    }
                 }
             }
         }
@@ -363,48 +368,6 @@ fun ThemeSettingsScreen(
                 }
             }
         }
-    }
-
-    val selectedThemeValue = selectedTheme?.id ?: themeOptions.firstOrNull()?.id
-    if (selectedThemeValue != null && themePickerOptions.isNotEmpty()) {
-        OptionPickerDialog(
-            visible = showThemePicker,
-            title = "Theme",
-            selectedValue = selectedThemeValue,
-            options = themePickerOptions,
-            onDismiss = { showThemePicker = false },
-            onSelect = { selected -> themeViewModel.setTheme(selected) },
-        )
-    }
-
-    val selectedStyleValue = selectedStyleId ?: styleOptions.firstOrNull()?.id
-    if (selectedStyleValue != null && styleSelectionAvailable && stylePickerOptions.isNotEmpty()) {
-        OptionPickerDialog(
-            visible = showStylePicker && osMapStyleUi == null,
-            title = "Theme style",
-            selectedValue = selectedStyleValue,
-            options = stylePickerOptions,
-            onDismiss = { showStylePicker = false },
-            onSelect = { selected -> themeViewModel.setMapStyle(selected) },
-        )
-    }
-    if (osMapStyleUi != null) {
-        OptionPickerDialog(
-            visible = showOsMapModePicker,
-            title = "OS Map mode",
-            selectedValue = osMapStyleUi.selectedModeValue,
-            options = osMapStyleUi.modeOptions,
-            onDismiss = { showOsMapModePicker = false },
-            onSelect = { selected -> themeViewModel.setMapStyle(selected) },
-        )
-        OptionPickerDialog(
-            visible = showOsMapVariantPicker,
-            title = "OS Map style",
-            selectedValue = osMapStyleUi.selectedVariantValue,
-            options = osMapStyleUi.variantOptions,
-            onDismiss = { showOsMapVariantPicker = false },
-            onSelect = { selected -> themeViewModel.setMapStyle(selected) },
-        )
     }
 }
 

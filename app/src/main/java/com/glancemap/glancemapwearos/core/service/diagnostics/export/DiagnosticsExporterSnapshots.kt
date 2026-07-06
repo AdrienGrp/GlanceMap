@@ -17,7 +17,6 @@ import com.google.android.gms.wearable.Wearable
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 private val diagnosticsExporterTimestampFormatter: DateTimeFormatter =
@@ -417,7 +416,7 @@ internal fun formatExitReason(reason: Int): String =
         else -> "REASON_$reason"
     }
 
-internal fun formatBytesToMb(bytes: Long): String = "%.1f".format(Locale.US, bytes.toDouble() / (1024.0 * 1024.0))
+internal fun formatBytesToMb(bytes: Long): String = TelemetryFormatters.bytesToMb(bytes)
 
 internal fun formatNullableBytesToMb(bytes: Long?): String = bytes?.let { formatBytesToMb(it) } ?: "na"
 
@@ -455,9 +454,9 @@ internal fun formatSensorDescriptor(sensor: Sensor?): String {
         append(",minDelayUs=").append(sensor.minDelay)
         append(",maxDelayUs=").append(sensor.maxDelay)
         append(",reportingMode=").append(reportingMode)
-        append(",powerMa=").append(if (powerMa.isFinite()) "%.3f".format(powerMa) else "na")
-        append(",maxRange=").append(if (maxRange.isFinite()) "%.3f".format(maxRange) else "na")
-        append(",resolution=").append(if (resolution.isFinite()) "%.3f".format(resolution) else "na")
+        append(",powerMa=").append(if (powerMa.isFinite()) TelemetryFormatters.decimal(powerMa, 3) else "na")
+        append(",maxRange=").append(if (maxRange.isFinite()) TelemetryFormatters.decimal(maxRange, 3) else "na")
+        append(",resolution=").append(if (resolution.isFinite()) TelemetryFormatters.decimal(resolution, 3) else "na")
     }
 }
 

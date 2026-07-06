@@ -203,6 +203,13 @@ internal fun createPoiThemeIconMarkerBitmap(
             sizePx * 0.92f,
             sizePx * 0.92f,
         )
+    val starOutlineRect =
+        RectF(
+            sizePx * 0.02f,
+            sizePx * 0.02f,
+            sizePx * 0.98f,
+            sizePx * 0.98f,
+        )
     val iconRect =
         RectF(
             sizePx * 0.12f,
@@ -210,6 +217,15 @@ internal fun createPoiThemeIconMarkerBitmap(
             sizePx * 0.88f,
             sizePx * 0.88f,
         )
+    val starOutlinePaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            alpha = 230
+            colorFilter =
+                android.graphics.PorterDuffColorFilter(
+                    android.graphics.Color.BLACK,
+                    android.graphics.PorterDuff.Mode.SRC_IN,
+                )
+        }
     val haloPaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             alpha = 235
@@ -237,6 +253,9 @@ internal fun createPoiThemeIconMarkerBitmap(
                     android.graphics.PorterDuff.Mode.SRC_IN,
                 )
         }
+    if (fallbackType == PoiType.CUSTOM) {
+        canvas.drawBitmap(iconBitmap, null, starOutlineRect, starOutlinePaint)
+    }
     canvas.drawBitmap(iconBitmap, null, shadowRect, haloPaint)
     canvas.drawBitmap(iconBitmap, null, iconRect.offsetCopy(dx = sizePx * 0.04f, dy = sizePx * 0.05f), shadowPaint)
     canvas.drawBitmap(iconBitmap, null, iconRect, iconPaint)

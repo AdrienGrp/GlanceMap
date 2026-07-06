@@ -9,9 +9,6 @@ import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,7 +20,7 @@ import androidx.wear.compose.material3.SwitchButtonDefaults
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.presentation.features.settings.GeneralSettingsShortcutChip
-import com.glancemap.glancemapwearos.presentation.features.settings.OptionPickerDialog
+import com.glancemap.glancemapwearos.presentation.features.settings.SettingsOptionPickerHost
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsToggleChip
 import com.glancemap.glancemapwearos.presentation.features.settings.WearSettingsListScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsListTokens
@@ -36,23 +33,7 @@ fun DownloadSettingsScreen(
     onOpenGeneralSettings: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val listTokens =
-        rememberSettingsListTokens(
-            compactTop = 40.dp,
-            standardTop = 44.dp,
-            expandedTop = 48.dp,
-        )
-    var showDemSourcePicker by remember { mutableStateOf(false) }
-
-    OptionPickerDialog(
-        visible = showDemSourcePicker,
-        title = "Elevation quality",
-        selectedValue = uiState.selection.demSource,
-        options = DemSource.entries.map { source -> source to source.displayName },
-        onDismiss = { showDemSourcePicker = false },
-        onSelect = viewModel::setDemSource,
-    )
-
+    val listTokens = rememberSettingsListTokens()
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
         item {
             GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
@@ -82,12 +63,19 @@ fun DownloadSettingsScreen(
             )
         }
         item {
-            ElevationDownloadSetting(
-                checked = uiState.selection.includeDem,
-                source = uiState.selection.demSource,
-                onCheckedChanged = viewModel::setIncludeDem,
-                onPickSource = { showDemSourcePicker = true },
-            )
+            SettingsOptionPickerHost(
+                title = "Elevation quality",
+                selectedValue = uiState.selection.demSource,
+                options = DemSource.entries.map { source -> source to source.displayName },
+                onSelect = viewModel::setDemSource,
+            ) { openPicker ->
+                ElevationDownloadSetting(
+                    checked = uiState.selection.includeDem,
+                    source = uiState.selection.demSource,
+                    onCheckedChanged = viewModel::setIncludeDem,
+                    onPickSource = openPicker,
+                )
+            }
         }
         item {
             SettingsToggleChip(

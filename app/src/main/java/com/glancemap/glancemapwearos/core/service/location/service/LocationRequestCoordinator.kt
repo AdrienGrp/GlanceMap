@@ -12,6 +12,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.isInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationRuntimeMode
 import com.glancemap.glancemapwearos.core.service.location.policy.LocationSourceMode
+import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
 import com.glancemap.glancemapwearos.core.service.location.telemetry.LocationServiceTelemetry
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CancellationException
@@ -30,6 +31,7 @@ internal data class RequestUpdateState(
     val watchOnlyEffective: Boolean,
     val screenState: LocationScreenState,
     val backgroundGps: Boolean,
+    val runtimeReason: String,
     val passiveLocationExperiment: Boolean,
     val userIntervalMs: Long,
     val ambientIntervalMs: Long,
@@ -214,6 +216,7 @@ internal class LocationRequestCoordinator(
                         trackingEnabled = appliedPlan.state.tracking,
                         interactive = appliedPlan.interactiveTracking,
                         screenState = appliedPlan.state.screenState.name,
+                        runtimeReason = appliedPlan.state.runtimeReason,
                         hasFinePermission = permissions.hasFinePermission,
                         hasCoarsePermission = permissions.hasCoarsePermission,
                         passivePriority = requestSpec.priority == Priority.PRIORITY_PASSIVE,
@@ -228,6 +231,7 @@ internal class LocationRequestCoordinator(
                             "backend=${requestSpec.sourceMode.telemetryValue} mode=${requestSpec.mode.name} " +
                             "interactive=${appliedPlan.interactiveTracking} " +
                             "screenState=${appliedPlan.state.screenState.name} " +
+                            "reason=${appliedPlan.state.runtimeReason} " +
                             "passivePriority=${requestSpec.priority == Priority.PRIORITY_PASSIVE}",
                     )
                 } catch (cancelled: CancellationException) {
@@ -287,10 +291,19 @@ internal class LocationRequestCoordinator(
         state: RequestUpdateState,
         permissions: LocationPermissionSnapshot,
     ): ResolvedRequestPlan {
+        val explicitBackgroundTracking = state.tracking && state.screenState.isNonInteractive && state.backgroundGps
+        val activeBackgroundTracking =
+            explicitBackgroundTracking &&
+                (
+                    state.runtimeReason == NavigationRuntimeDemandReason.RECORDING ||
+                        state.runtimeReason == NavigationRuntimeDemandReason.RECORDING_GUIDANCE ||
+                        state.runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_AMBIENT ||
+                        state.runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND
+                )
         val passiveExperimentListening =
             state.passiveLocationExperiment && !state.watchOnlyEffective && state.keepOpen
         val passiveTracking =
-            (state.tracking && state.screenState.isNonInteractive && state.backgroundGps) ||
+            explicitBackgroundTracking ||
                 passiveExperimentListening
         val interactiveTracking = state.tracking && state.screenState.isInteractive
         val spec =
@@ -299,9 +312,15 @@ internal class LocationRequestCoordinator(
                 passiveTracking = passiveTracking,
                 watchOnly = state.watchOnlyEffective,
                 hasFinePermission = permissions.hasFinePermission,
-                passiveLocationExperiment = state.passiveLocationExperiment,
+                passiveLocationExperiment = state.passiveLocationExperiment && !explicitBackgroundTracking,
+                activeBackgroundTracking = activeBackgroundTracking,
                 userIntervalMs = state.userIntervalMs,
-                ambientIntervalMs = state.ambientIntervalMs,
+                ambientIntervalMs =
+                    if (explicitBackgroundTracking) {
+                        minOf(state.ambientIntervalMs, state.userIntervalMs)
+                    } else {
+                        state.ambientIntervalMs
+                    },
             )
         return ResolvedRequestPlan(
             state = state,

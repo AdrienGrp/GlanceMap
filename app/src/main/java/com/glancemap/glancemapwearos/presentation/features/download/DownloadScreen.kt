@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -66,6 +65,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.SettingsList
 import com.glancemap.glancemapwearos.presentation.features.settings.rememberSettingsScalingLazyListState
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListScaffold
 import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
@@ -101,6 +101,10 @@ fun DownloadScreen(
     var showOamInfoDialog by remember { mutableStateOf(false) }
     var deleteMode by remember { mutableStateOf(false) }
     var refreshMode by remember { mutableStateOf(false) }
+    val effectiveRefreshMode =
+        refreshMode &&
+            !uiState.isDownloading &&
+            uiState.pausedOperation != DownloadOperation.REFRESH
     var showAreaSearchDialog by remember { mutableStateOf(false) }
     val infoPrefs =
         remember(context) {
@@ -250,6 +254,9 @@ fun DownloadScreen(
             onLibraryChanged()
         }
     }
+    LaunchedEffect(Unit) {
+        viewModel.refreshInstalledBundles()
+    }
     LaunchedEffect(infoPrefs) {
         if (!infoPrefs.getBoolean(DOWNLOAD_INFO_SHOWN_KEY, false)) {
             showOamInfoDialog = true
@@ -260,6 +267,13 @@ fun DownloadScreen(
             deleteMode = false
             refreshMode = false
             viewModel.clearRefreshBundleSelection()
+        }
+    }
+    LaunchedEffect(uiState.isDownloading) {
+        if (uiState.isDownloading) {
+            refreshMode = false
+            deleteMode = false
+            onAreaPickerOpenChange(false)
         }
     }
     LaunchedEffect(showAreaPicker) {
@@ -328,15 +342,12 @@ fun DownloadScreen(
     )
 
     ScreenScaffold(scrollState = listState) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+        FeatureListScaffold {
             DownloadHeader(
                 isDownloading = uiState.isDownloading,
                 isCheckingUpdates = uiState.isCheckingUpdates,
                 hasInstalledBundles = uiState.installedBundles.isNotEmpty(),
-                refreshMode = refreshMode,
+                refreshMode = effectiveRefreshMode,
                 deleteMode = deleteMode,
                 selectedRefreshBundleCount = uiState.selectedRefreshBundleIds.size,
                 useLargeFontHeader = adaptive.isRound && adaptive.fontScale > 1f,
@@ -349,7 +360,7 @@ fun DownloadScreen(
                 verticalSpacing = headerVerticalSpacing,
                 onInfoClick = { showOamInfoDialog = true },
                 onRefreshModeClick = {
-                    val nextRefreshMode = !refreshMode
+                    val nextRefreshMode = !effectiveRefreshMode
                     refreshMode = nextRefreshMode
                     if (!nextRefreshMode) {
                         viewModel.clearRefreshBundleSelection()
@@ -399,7 +410,7 @@ fun DownloadScreen(
                         onToggleArea = viewModel::toggleArea,
                     )
                 } else {
-                    if (!refreshMode) {
+                    if (!effectiveRefreshMode) {
                         item {
                             DownloadChip(
                                 label = selectedAreaLabel,
@@ -452,7 +463,7 @@ fun DownloadScreen(
                                 DownloadActionButton(
                                     label = if (uiState.isPausedDownload) "Resume" else "Download",
                                     icon = Icons.Filled.Download,
-                                    enabled = uiState.selection.canDownload && selectedAreas.isNotEmpty(),
+                                    enabled = uiState.canStartOrResumeDownload,
                                     height = actionButtonHeight,
                                     iconSize = actionButtonIconSize,
                                     onClick = viewModel::downloadSelectedBundle,
@@ -461,7 +472,7 @@ fun DownloadScreen(
                         }
                     }
 
-                    if (!refreshMode) {
+                    if (!effectiveRefreshMode) {
                         item {
                             Text(
                                 text = "Installed bundles",
@@ -483,40 +494,16 @@ fun DownloadScreen(
                             )
                         }
                     } else {
-                        if (
-                            refreshMode &&
-                            (
-                                uiState.selectedRefreshBundleIds.isNotEmpty() ||
-                                    uiState.isCheckingUpdates
-                            )
-                        ) {
-                            item {
-                                DownloadActionButton(
-                                    label =
-                                        if (uiState.isCheckingUpdates) {
-                                            "Checking updates..."
-                                        } else {
-                                            refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size)
-                                        },
-                                    icon = Icons.Filled.Update,
-                                    enabled =
-                                        uiState.selectedRefreshBundleIds.isNotEmpty() &&
-                                            !uiState.isCheckingUpdates,
-                                    height = actionButtonHeight,
-                                    iconSize = actionButtonIconSize,
-                                    onClick = viewModel::checkSelectedBundlesForRefresh,
-                                )
-                            }
-                        }
                         uiState.installedBundles.forEach { bundle ->
                             item {
                                 InstalledBundleRow(
                                     bundle = bundle,
-                                    refreshMode = refreshMode,
+                                    needsRepair = uiState.bundleHealthByAreaId[bundle.areaId]?.needsRepair == true,
+                                    refreshMode = effectiveRefreshMode,
                                     refreshSelected = bundle.areaId in uiState.selectedRefreshBundleIds,
                                     deleteMode = deleteMode,
                                     onRefresh = {
-                                        if (!uiState.isDownloading && refreshMode) {
+                                        if (!uiState.isDownloading && effectiveRefreshMode) {
                                             viewModel.toggleRefreshBundleSelection(bundle.areaId)
                                         }
                                     },
@@ -586,74 +573,101 @@ fun DownloadScreen(
                     }
                 }
             } else {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = bottomActionBottomPadding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                if (effectiveRefreshMode && uiState.installedBundles.isNotEmpty()) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = listHorizontalPadding)
+                                .padding(bottom = bottomActionBottomPadding),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Spacer(modifier = Modifier.size(48.dp))
-                        CompactIconHitTargetButton(
-                            onClick = onOpenSettings,
-                            enabled = !uiState.isDownloading,
-                            visualSize = settingsButtonSize,
-                            visualOffsetY = bottomActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.8f),
-                            contentColor = Color.White,
-                            disabledContainerColor = Color.Black.copy(alpha = 0.32f),
-                            disabledContentColor = Color.White.copy(alpha = 0.38f),
-                        ) {
-                            Material3Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = "Bundle settings",
-                            )
-                        }
-                        if (uiState.installedBundles.isNotEmpty()) {
-                            CompactIconHitTargetButton(
-                                onClick = {
-                                    val nextDeleteMode = !deleteMode
-                                    deleteMode = nextDeleteMode
-                                    if (nextDeleteMode) {
-                                        refreshMode = false
-                                        viewModel.clearRefreshBundleSelection()
-                                    }
+                        DownloadActionButton(
+                            label =
+                                if (uiState.isCheckingUpdates) {
+                                    "Checking updates..."
+                                } else {
+                                    refreshSelectionButtonLabel(uiState.selectedRefreshBundleIds.size)
                                 },
+                            icon = Icons.Filled.Update,
+                            enabled =
+                                uiState.selectedRefreshBundleIds.isNotEmpty() &&
+                                    !uiState.isCheckingUpdates,
+                            height = actionButtonHeight,
+                            iconSize = actionButtonIconSize,
+                            onClick = viewModel::checkSelectedBundlesForRefresh,
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = bottomActionBottomPadding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Spacer(modifier = Modifier.size(48.dp))
+                            CompactIconHitTargetButton(
+                                onClick = onOpenSettings,
                                 enabled = !uiState.isDownloading,
-                                visualSize = headerActionButtonSize,
+                                visualSize = settingsButtonSize,
                                 visualOffsetY = bottomActionVisualOffsetY,
-                                containerColor =
-                                    if (deleteMode) {
-                                        MaterialTheme.colorScheme.errorContainer
-                                    } else {
-                                        Color.Black.copy(alpha = 0.8f)
-                                    },
-                                contentColor =
-                                    if (deleteMode) {
-                                        MaterialTheme.colorScheme.onErrorContainer
-                                    } else {
-                                        Color.White
-                                    },
+                                containerColor = Color.Black.copy(alpha = 0.8f),
+                                contentColor = Color.White,
                                 disabledContainerColor = Color.Black.copy(alpha = 0.32f),
                                 disabledContentColor = Color.White.copy(alpha = 0.38f),
                             ) {
                                 Material3Icon(
-                                    imageVector = if (deleteMode) Icons.Filled.Close else Icons.Filled.Delete,
-                                    contentDescription =
-                                        if (deleteMode) {
-                                            "Exit delete mode"
-                                        } else {
-                                            "Enter delete mode"
-                                        },
-                                    modifier = Modifier.size(headerActionIconSize),
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = "Bundle settings",
                                 )
                             }
-                        } else {
-                            Spacer(modifier = Modifier.size(48.dp))
+                            if (uiState.installedBundles.isNotEmpty()) {
+                                CompactIconHitTargetButton(
+                                    onClick = {
+                                        val nextDeleteMode = !deleteMode
+                                        deleteMode = nextDeleteMode
+                                        if (nextDeleteMode) {
+                                            refreshMode = false
+                                            viewModel.clearRefreshBundleSelection()
+                                        }
+                                    },
+                                    enabled = !uiState.isDownloading,
+                                    visualSize = headerActionButtonSize,
+                                    visualOffsetY = bottomActionVisualOffsetY,
+                                    containerColor =
+                                        if (deleteMode) {
+                                            MaterialTheme.colorScheme.errorContainer
+                                        } else {
+                                            Color.Black.copy(alpha = 0.8f)
+                                        },
+                                    contentColor =
+                                        if (deleteMode) {
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        } else {
+                                            Color.White
+                                        },
+                                    disabledContainerColor = Color.Black.copy(alpha = 0.32f),
+                                    disabledContentColor = Color.White.copy(alpha = 0.38f),
+                                ) {
+                                    Material3Icon(
+                                        imageVector = if (deleteMode) Icons.Filled.Close else Icons.Filled.Delete,
+                                        contentDescription =
+                                            if (deleteMode) {
+                                                "Exit delete mode"
+                                            } else {
+                                                "Enter delete mode"
+                                            },
+                                        modifier = Modifier.size(headerActionIconSize),
+                                    )
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.size(48.dp))
+                            }
                         }
                     }
                 }
@@ -905,6 +919,7 @@ private fun DownloadProgress(uiState: DownloadUiState) {
 @Composable
 private fun InstalledBundleRow(
     bundle: OamInstalledBundle,
+    needsRepair: Boolean,
     refreshMode: Boolean,
     refreshSelected: Boolean,
     deleteMode: Boolean,
@@ -913,7 +928,12 @@ private fun InstalledBundleRow(
 ) {
     DownloadChip(
         label = bundle.areaLabel,
-        secondaryLabel = installedBundleSubtitle(bundle),
+        secondaryLabel =
+            if (needsRepair) {
+                "Repair needed · ${installedBundleSubtitle(bundle)}"
+            } else {
+                installedBundleSubtitle(bundle)
+            },
         secondaryMarquee = true,
         icon =
             when {
@@ -923,6 +943,7 @@ private fun InstalledBundleRow(
                 else -> Icons.Filled.Check
             },
         selected = (refreshMode && refreshSelected) || (!deleteMode && !refreshMode),
+        warning = needsRepair,
         onClick =
             when {
                 refreshMode -> onRefresh
@@ -1044,6 +1065,7 @@ internal fun DownloadChip(
     icon: ImageVector,
     onClick: () -> Unit,
     selected: Boolean = false,
+    warning: Boolean = false,
     secondaryMarquee: Boolean = false,
 ) {
     Chip(
@@ -1072,10 +1094,20 @@ internal fun DownloadChip(
         },
         colors =
             ChipDefaults.secondaryChipColors(
-                backgroundColor = if (selected) SelectedChipBackground else ChipBackground,
+                backgroundColor =
+                    when {
+                        warning -> WarningChipBackground
+                        selected -> SelectedChipBackground
+                        else -> ChipBackground
+                    },
                 contentColor = ChipContent,
                 secondaryContentColor = ChipSecondaryContent,
-                iconColor = if (selected) SelectedChipIcon else ChipIcon,
+                iconColor =
+                    when {
+                        warning -> WarningChipIcon
+                        selected -> SelectedChipIcon
+                        else -> ChipIcon
+                    },
             ),
         onClick = onClick,
     )
@@ -1099,6 +1131,8 @@ private val ChipContent = Color(0xFFF4F7FB)
 private val ChipSecondaryContent = Color(0xFFC7D2DE)
 private val ChipIcon = Color(0xFF9DB1C7)
 private val SelectedChipIcon = Color(0xFF7FE4C8)
+private val WarningChipBackground = Color(0xFF5A3B16)
+private val WarningChipIcon = Color(0xFFFFB95C)
 
 private const val DOWNLOAD_INFO_PREFS = "download_screen_info_prefs"
 private const val DOWNLOAD_INFO_SHOWN_KEY = "oam_info_shown"

@@ -45,7 +45,9 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.GnssDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
+import com.glancemap.glancemapwearos.presentation.features.recording.external.ExternalSensorSimulation
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolBusySpinner
+import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearInfoDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
@@ -92,6 +94,40 @@ fun DebuggingSettingsScreen(
     val gpsPassiveLocationExperiment by viewModel.gpsPassiveLocationExperiment.collectAsState()
     val backButtonExitsNavigation by viewModel.backButtonExitsNavigation.collectAsState()
     val gpsDebugTelemetryPopupEnabled by viewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
+    val turnByTurnGuidanceSource by viewModel.turnByTurnGuidanceSource.collectAsState()
+    val turnByTurnHapticsEnabled by viewModel.turnByTurnHapticsEnabled.collectAsState()
+    val turnByTurnVoiceGuidanceEnabled by viewModel.turnByTurnVoiceGuidanceEnabled.collectAsState()
+    val turnByTurnTurnAlertsMode by viewModel.turnByTurnTurnAlertsMode.collectAsState()
+    val turnByTurnOffRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
+    val turnByTurnCompactPopupEnabled by viewModel.turnByTurnCompactPopupEnabled.collectAsState()
+    val turnByTurnOffRouteThresholdMeters by viewModel.turnByTurnOffRouteAlertThresholdMeters.collectAsState()
+    val turnByTurnOffRouteRepeatSeconds by viewModel.turnByTurnOffRouteRepeatSeconds.collectAsState()
+    val turnByTurnGpsInAmbientMode by viewModel.turnByTurnGpsInAmbientMode.collectAsState()
+    val turnByTurnGpsIntervalSeconds by viewModel.turnByTurnGpsIntervalSeconds.collectAsState()
+    val turnByTurnScreenOffGpsIntervalSeconds by viewModel.turnByTurnScreenOffGpsIntervalSeconds.collectAsState()
+    val turnByTurnBrouterGuideBackEnabled by viewModel.turnByTurnBrouterGuideBackEnabled.collectAsState()
+    val turnByTurnRouteStartBehavior by viewModel.turnByTurnRouteStartBehavior.collectAsState()
+    val turnByTurnReverseSuggestionMode by viewModel.turnByTurnReverseSuggestionMode.collectAsState()
+    val recordingSampleIntervalSeconds by viewModel.recordingSampleIntervalSeconds.collectAsState()
+    val recordingScreenOffSampleIntervalSeconds by viewModel.recordingScreenOffSampleIntervalSeconds.collectAsState()
+    val recordingAutoPauseMode by viewModel.recordingAutoPauseMode.collectAsState()
+    val recordingElevationSource by viewModel.recordingElevationSource.collectAsState()
+    val recordingHeartRateSource by viewModel.recordingHeartRateSource.collectAsState()
+    val recordingCadenceSource by viewModel.recordingCadenceSource.collectAsState()
+    val recordingSpeedSource by viewModel.recordingSpeedSource.collectAsState()
+    val recordingDistanceSource by viewModel.recordingDistanceSource.collectAsState()
+    val recordingStepsSource by viewModel.recordingStepsSource.collectAsState()
+    val recordingShowSavedGpxOnMap by viewModel.recordingShowSavedGpxOnMap.collectAsState()
+    val recordingStartWithTurnByTurn by viewModel.recordingStartWithTurnByTurn.collectAsState()
+    val recordingExternalHeartRateAddress by viewModel.recordingExternalHeartRateAddress.collectAsState()
+    val recordingExternalHeartRateName by viewModel.recordingExternalHeartRateName.collectAsState()
+    val recordingExternalRunPodAddress by viewModel.recordingExternalRunPodAddress.collectAsState()
+    val recordingExternalRunPodName by viewModel.recordingExternalRunPodName.collectAsState()
+    val externalSensorSimulationEnabled by ExternalSensorSimulation.enabled.collectAsState()
+    val activityProfile by viewModel.activityProfile.collectAsState()
+    val userWeightKg by viewModel.userWeightKg.collectAsState()
+    val backpackWeightKg by viewModel.backpackWeightKg.collectAsState()
+    val bikeWeightKg by viewModel.bikeWeightKg.collectAsState()
     var diagnosticsExportStatus by remember {
         mutableStateOf(DIAGNOSTICS_DEFAULT_STATUS)
     }
@@ -209,7 +245,10 @@ fun DebuggingSettingsScreen(
         }
 
         item {
-            GeneralSettingsShortcutChip(onClick = onOpenGeneralSettings)
+            GeneralSettingsShortcutChip(
+                onClick = onOpenGeneralSettings,
+                applyTopPadding = false,
+            )
         }
 
         item {
@@ -294,6 +333,37 @@ fun DebuggingSettingsScreen(
             }
         }
 
+        if (BuildConfig.DEBUG) {
+            item {
+                ToggleChip(
+                    checked = externalSensorSimulationEnabled,
+                    onCheckedChanged = { enabled ->
+                        ExternalSensorSimulation.setEnabled(enabled)
+                        if (!enabled) {
+                            if (recordingExternalHeartRateAddress == ExternalSensorSimulation.HEART_RATE_ADDRESS) {
+                                viewModel.setRecordingExternalHeartRateDevice(null, null)
+                            }
+                            if (recordingExternalRunPodAddress == ExternalSensorSimulation.RUN_POD_ADDRESS) {
+                                viewModel.setRecordingExternalRunPodDevice(null, null)
+                            }
+                        }
+                        DebugTelemetry.log(
+                            "ExternalSensors",
+                            "event=simulation_toggle enabled=$enabled",
+                        )
+                    },
+                    label = "Simulated BLE sensors",
+                    secondaryLabel =
+                        if (externalSensorSimulationEnabled) {
+                            "HR strap and run pod available"
+                        } else {
+                            "Debug testing only"
+                        },
+                    toggleControl = ToggleChipToggleControl.Switch,
+                )
+            }
+        }
+
         item {
             Chip(
                 label =
@@ -351,6 +421,49 @@ fun DebuggingSettingsScreen(
                                                 gpsDebugTelemetry = captureWasEnabled,
                                                 gpsPassiveLocationExperiment = gpsPassiveLocationExperiment,
                                                 backButtonExitsNavigation = backButtonExitsNavigation,
+                                                recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
+                                                recordingScreenOffSampleIntervalSeconds =
+                                                recordingScreenOffSampleIntervalSeconds,
+                                                recordingAutoPauseMode = recordingAutoPauseMode,
+                                                recordingElevationSource = recordingElevationSource,
+                                                recordingHeartRateSource = recordingHeartRateSource,
+                                                recordingCadenceSource = recordingCadenceSource,
+                                                recordingSpeedSource = recordingSpeedSource,
+                                                recordingDistanceSource = recordingDistanceSource,
+                                                recordingStepsSource = recordingStepsSource,
+                                                recordingShowSavedGpxOnMap = recordingShowSavedGpxOnMap,
+                                                recordingStartWithTurnByTurn = recordingStartWithTurnByTurn,
+                                                recordingExternalHeartRateLinked =
+                                                    !recordingExternalHeartRateAddress.isNullOrBlank(),
+                                                recordingExternalHeartRateName = recordingExternalHeartRateName,
+                                                recordingExternalHeartRateAddressSuffix =
+                                                    recordingExternalHeartRateAddress?.takeLast(5),
+                                                recordingExternalRunPodLinked =
+                                                    !recordingExternalRunPodAddress.isNullOrBlank(),
+                                                recordingExternalRunPodName = recordingExternalRunPodName,
+                                                recordingExternalRunPodAddressSuffix =
+                                                    recordingExternalRunPodAddress?.takeLast(5),
+                                                activityProfile = activityProfile,
+                                                userWeightKg = userWeightKg,
+                                                backpackWeightKg = backpackWeightKg,
+                                                bikeWeightKg = bikeWeightKg,
+                                                turnByTurnGuidanceSource = turnByTurnGuidanceSource,
+                                                turnByTurnGpsIntervalSeconds = turnByTurnGpsIntervalSeconds,
+                                                turnByTurnScreenOffGpsIntervalSeconds =
+                                                turnByTurnScreenOffGpsIntervalSeconds,
+                                                turnByTurnHapticsEnabled = turnByTurnHapticsEnabled,
+                                                turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
+                                                turnByTurnTurnAlertsMode = turnByTurnTurnAlertsMode,
+                                                turnByTurnOffRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
+                                                turnByTurnCompactPopupEnabled = turnByTurnCompactPopupEnabled,
+                                                turnByTurnOffRouteAlertThresholdMeters =
+                                                turnByTurnOffRouteThresholdMeters,
+                                                turnByTurnOffRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
+                                                turnByTurnGpsInAmbientMode = turnByTurnGpsInAmbientMode,
+                                                turnByTurnBrouterGuideBackEnabled =
+                                                turnByTurnBrouterGuideBackEnabled,
+                                                turnByTurnRouteStartBehavior = turnByTurnRouteStartBehavior,
+                                                turnByTurnReverseSuggestionMode = turnByTurnReverseSuggestionMode,
                                             ),
                                         reuseLatestIfAvailable = !captureWasEnabled,
                                     )
@@ -527,24 +640,17 @@ private fun DiagnosticsExportInfoDialog(
     visible: Boolean,
     onDismiss: () -> Unit,
 ) {
-    if (!visible) return
-
-    WearInfoDialog(
+    WearHelpDialog(
         visible = visible,
         title = "Diagnostics Export",
         onDismiss = onDismiss,
-    ) {
-        item {
-            Text(
-                text =
-                    "After export, check your phone.\n" +
-                        "It opens the email draft with diagnostics attached.\n" +
-                        "If you closed the phone prompt, come back here and tap Resend.",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
+        lines =
+            listOf(
+                "After export, check your phone.\n" +
+                    "It opens the email draft with diagnostics attached.\n" +
+                    "If you closed the phone prompt, come back here and tap Resend.",
+            ),
+    )
 }
 
 private fun buildRetryReadyLabel(count: Int): String {

@@ -11,8 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 
 /**
  * A composable that remembers the state of location permissions.
@@ -125,3 +127,53 @@ data class NotificationPermissionState(
     val isPermissionRequired: Boolean,
     val launchPermissionRequest: () -> Unit,
 )
+
+@Composable
+internal fun rememberRecordingStartWithActivityPermission(
+    context: Context,
+    onStartRecording: () -> Unit,
+): () -> Unit {
+    val currentOnStartRecording by rememberUpdatedState(onStartRecording)
+    val permissionRequired = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    val requestPreferences =
+        remember(context) {
+            context.getSharedPreferences(RECORDING_PERMISSION_PREFS, Context.MODE_PRIVATE)
+        }
+    var requestInProgress by remember { mutableStateOf(false) }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                requestInProgress = false
+                DebugTelemetry.log(
+                    "TraceRecordingSensors",
+                    "event=activity_permission_result granted=$granted source=first_recording_start",
+                )
+                currentOnStartRecording()
+            },
+        )
+
+    return {
+        val permissionGranted =
+            !permissionRequired ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACTIVITY_RECOGNITION,
+                ) == PackageManager.PERMISSION_GRANTED
+        val alreadyRequested = requestPreferences.getBoolean(RECORDING_ACTIVITY_PERMISSION_REQUESTED, false)
+        if (permissionGranted || alreadyRequested) {
+            currentOnStartRecording()
+        } else if (!requestInProgress) {
+            requestInProgress = true
+            requestPreferences.edit().putBoolean(RECORDING_ACTIVITY_PERMISSION_REQUESTED, true).apply()
+            DebugTelemetry.log(
+                "TraceRecordingSensors",
+                "event=activity_permission_request source=first_recording_start",
+            )
+            permissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
+    }
+}
+
+private const val RECORDING_PERMISSION_PREFS = "recording_permission_prefs"
+private const val RECORDING_ACTIVITY_PERMISSION_REQUESTED = "activity_recognition_requested"

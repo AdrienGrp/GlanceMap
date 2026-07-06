@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.data.repository
 import android.content.Context
 import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private const val RECORDING_DASHBOARD_SLOT_SEPARATOR = ","
 
 class SettingsRepositoryImpl private constructor(
     private val context: Context,
@@ -37,6 +39,15 @@ class SettingsRepositoryImpl private constructor(
     private val debugHelpPrefs by lazy {
         context.getSharedPreferences(DEBUG_HELP_PREFS_NAME, Context.MODE_PRIVATE)
     }
+    private val gpxHelpPrefs by lazy {
+        context.getSharedPreferences(GPX_HELP_PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    private val poiHelpPrefs by lazy {
+        context.getSharedPreferences(POI_HELP_PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    private val downloadInfoPrefs by lazy {
+        context.getSharedPreferences(DOWNLOAD_INFO_PREFS_NAME, Context.MODE_PRIVATE)
+    }
 
     private object PrefKeys {
         val GPS_INTERVAL = longPreferencesKey("gps_interval")
@@ -46,6 +57,56 @@ class SettingsRepositoryImpl private constructor(
         val GPS_DEBUG_TELEMETRY = booleanPreferencesKey("gps_debug_telemetry")
         val GPS_PASSIVE_LOCATION_EXPERIMENT = booleanPreferencesKey("gps_passive_location_experiment")
         val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
+        val RECORDING_SAMPLE_INTERVAL_SECONDS = intPreferencesKey("recording_sample_interval_seconds")
+        val RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS =
+            intPreferencesKey("recording_screen_off_sample_interval_seconds")
+        val RECORDING_AUTO_PAUSE_MODE = stringPreferencesKey("recording_auto_pause_mode")
+        val RECORDING_AUTO_PAUSE_MODE_HIKE = stringPreferencesKey("recording_auto_pause_mode_hike")
+        val RECORDING_AUTO_PAUSE_MODE_BIKE = stringPreferencesKey("recording_auto_pause_mode_bike")
+        val RECORDING_ELEVATION_SOURCE = stringPreferencesKey("recording_elevation_source")
+        val RECORDING_HEART_RATE_SOURCE = stringPreferencesKey("recording_heart_rate_source")
+        val RECORDING_CADENCE_SOURCE = stringPreferencesKey("recording_cadence_source")
+        val RECORDING_SPEED_SOURCE = stringPreferencesKey("recording_speed_source")
+        val RECORDING_DISTANCE_SOURCE = stringPreferencesKey("recording_distance_source")
+        val RECORDING_STEPS_SOURCE = stringPreferencesKey("recording_steps_source")
+        val RECORDING_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("recording_dashboard_metric_slots")
+        val RECORDING_SHOW_SAVED_GPX_ON_MAP = booleanPreferencesKey("recording_show_saved_gpx_on_map")
+        val RECORDING_START_WITH_TURN_BY_TURN = booleanPreferencesKey("recording_start_with_turn_by_turn")
+        val RECORDING_EXTERNAL_HEART_RATE_ADDRESS = stringPreferencesKey("recording_external_heart_rate_address")
+        val RECORDING_EXTERNAL_HEART_RATE_NAME = stringPreferencesKey("recording_external_heart_rate_name")
+        val RECORDING_EXTERNAL_RUN_POD_ADDRESS = stringPreferencesKey("recording_external_run_pod_address")
+        val RECORDING_EXTERNAL_RUN_POD_NAME = stringPreferencesKey("recording_external_run_pod_name")
+        val ACTIVITY_PROFILE = stringPreferencesKey("activity_profile")
+        val USER_WEIGHT_KG = floatPreferencesKey("user_weight_kg")
+        val BACKPACK_WEIGHT_KG = floatPreferencesKey("backpack_weight_kg")
+        val BIKE_WEIGHT_KG = floatPreferencesKey("bike_weight_kg")
+        val CYCLING_WHEEL_CIRCUMFERENCE_METERS = floatPreferencesKey("cycling_wheel_circumference_meters")
+        val TURN_BY_TURN_GUIDANCE_SOURCE = stringPreferencesKey("turn_by_turn_guidance_source")
+        val TURN_BY_TURN_HAPTICS_ENABLED = booleanPreferencesKey("turn_by_turn_haptics_enabled")
+        val TURN_BY_TURN_VOICE_GUIDANCE_ENABLED = booleanPreferencesKey("turn_by_turn_voice_guidance_enabled")
+        val TURN_BY_TURN_TURN_ALERTS_MODE = stringPreferencesKey("turn_by_turn_turn_alerts_mode")
+        val TURN_BY_TURN_OFF_ROUTE_ALERTS_ENABLED =
+            booleanPreferencesKey("turn_by_turn_off_route_alerts_enabled")
+        val TURN_BY_TURN_COMPACT_POPUP_ENABLED =
+            booleanPreferencesKey("turn_by_turn_compact_popup_enabled")
+        val TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS =
+            intPreferencesKey("turn_by_turn_off_route_alert_threshold_meters")
+        val TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS =
+            intPreferencesKey("turn_by_turn_off_route_repeat_seconds")
+        val TURN_BY_TURN_GPS_IN_AMBIENT_MODE =
+            booleanPreferencesKey("turn_by_turn_gps_in_ambient_mode")
+        val TURN_BY_TURN_GPS_INTERVAL_SECONDS =
+            intPreferencesKey("turn_by_turn_gps_interval_seconds")
+        val TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS =
+            intPreferencesKey("turn_by_turn_screen_off_gps_interval_seconds")
+        val TURN_BY_TURN_BROUTER_GUIDE_BACK_ENABLED =
+            booleanPreferencesKey("turn_by_turn_brouter_guide_back_enabled")
+        val TURN_BY_TURN_ROUTE_START_BEHAVIOR = stringPreferencesKey("turn_by_turn_route_start_behavior")
+        val TURN_BY_TURN_REVERSE_SUGGESTION_MODE = stringPreferencesKey("turn_by_turn_reverse_suggestion_mode")
+        val TURN_BY_TURN_DASHBOARD_METRIC_SLOTS = stringPreferencesKey("turn_by_turn_dashboard_metric_slots")
+        val TURN_BY_TURN_ACTIVE_TRACK_PATH = stringPreferencesKey("turn_by_turn_active_track_path")
+        val TURN_BY_TURN_ACTIVE_TRACK_REVERSED = booleanPreferencesKey("turn_by_turn_active_track_reversed")
+        val TURN_BY_TURN_START_REACHED = booleanPreferencesKey("turn_by_turn_start_reached")
         val PROMPT_FOR_CALIBRATION = booleanPreferencesKey("prompt_for_calibration")
         val SHOW_TIME_IN_NAVIGATE = booleanPreferencesKey("show_time_in_navigate")
         val NAVIGATE_TIME_FORMAT = stringPreferencesKey("navigate_time_format")
@@ -66,7 +127,6 @@ class SettingsRepositoryImpl private constructor(
             booleanPreferencesKey("compass_cone_accuracy_colors_enabled")
         val NAVIGATION_MARKER_STYLE = stringPreferencesKey("navigation_marker_style")
         val NAVIGATION_MARKER_ANCHOR_MODE = stringPreferencesKey("navigation_marker_anchor_mode")
-        val MAP_DOUBLE_TAP_ACTION = stringPreferencesKey("map_double_tap_action")
         val LIVE_ELEVATION = booleanPreferencesKey("live_elevation")
         val LIVE_DISTANCE = booleanPreferencesKey("live_distance")
         val OFFLINE_MODE = booleanPreferencesKey("offline_mode")
@@ -88,6 +148,7 @@ class SettingsRepositoryImpl private constructor(
         val GPX_INSPECTION_ENABLED = booleanPreferencesKey("gpx_inspection_enabled")
         val GPX_FLAT_SPEED_MPS = floatPreferencesKey("gpx_flat_speed_mps")
         val GPX_ADVANCED_ETA_ENABLED = booleanPreferencesKey("gpx_advanced_eta_enabled")
+        val GPX_STAMINA_ADJUSTMENT_ENABLED = booleanPreferencesKey("gpx_stamina_adjustment_enabled")
         val GPX_UPHILL_VERTICAL_METERS_PER_HOUR =
             floatPreferencesKey("gpx_uphill_vertical_meters_per_hour")
         val GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR =
@@ -100,6 +161,17 @@ class SettingsRepositoryImpl private constructor(
             floatPreferencesKey("gpx_elevation_trend_activation_threshold_meters")
         val GPX_ELEVATION_AUTO_ADJUST_PER_GPX =
             booleanPreferencesKey("gpx_elevation_auto_adjust_per_gpx")
+        val GPX_TOOL_ROUTE_STYLE = stringPreferencesKey("gpx_tool_route_style")
+        val GPX_TOOL_HIKE_ROUTE_STYLE = stringPreferencesKey("gpx_tool_hike_route_style")
+        val GPX_TOOL_BIKE_ROUTE_STYLE = stringPreferencesKey("gpx_tool_bike_route_style")
+        val GPX_TOOL_USE_ELEVATION = booleanPreferencesKey("gpx_tool_use_elevation")
+        val GPX_TOOL_ALLOW_FERRIES = booleanPreferencesKey("gpx_tool_allow_ferries")
+        val GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE =
+            floatPreferencesKey("gpx_tool_hike_hiking_routes_preference")
+        val GPX_TOOL_HIKE_PATH_PREFERENCE = floatPreferencesKey("gpx_tool_hike_path_preference")
+        val GPX_TOOL_HIKE_SAC_SCALE_LIMIT = intPreferencesKey("gpx_tool_hike_sac_scale_limit")
+        val GPX_TOOL_HIKE_SAC_SCALE_PREFERRED = intPreferencesKey("gpx_tool_hike_sac_scale_preferred")
+        val GPX_TOOL_HIKE_CONSIDER_FOREST = booleanPreferencesKey("gpx_tool_hike_consider_forest")
         val IS_METRIC = booleanPreferencesKey("is_metric")
         val BACK_BUTTON_EXITS_NAVIGATION = booleanPreferencesKey("back_button_exits_navigation")
         val POI_ICON_SIZE_PX = intPreferencesKey("poi_icon_size_px")
@@ -128,10 +200,12 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit { it[PrefKeys.WATCH_GPS_ONLY] = isOnly }
     }
 
-    override val gpsInAmbientMode: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.GPS_IN_AMBIENT_MODE] ?: false }
+    // Fixed product choice: screen-off GPS is disabled by default and only feature-specific
+    // overrides, such as active REC or TBT screen-off guidance, may keep GPS running.
+    override val gpsInAmbientMode: Flow<Boolean> = flowOf(false)
 
     override suspend fun setGpsInAmbientMode(enabled: Boolean) {
-        context.dataStore.edit { it[PrefKeys.GPS_IN_AMBIENT_MODE] = enabled }
+        context.dataStore.edit { it.remove(PrefKeys.GPS_IN_AMBIENT_MODE) }
     }
 
     override val gpsDebugTelemetry: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.GPS_DEBUG_TELEMETRY] ?: false }
@@ -152,6 +226,644 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] = enabled }
+    }
+
+    override val recordingSampleIntervalSeconds: Flow<Int> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_SAMPLE_INTERVAL_SECONDS]
+                .takeIf { seconds -> seconds in allowedScreenOnGpsIntervalsSeconds }
+                ?: defaultRecordingSampleIntervalSecondsForProfile(
+                    sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE]),
+                )
+        }
+
+    override suspend fun setRecordingSampleIntervalSeconds(seconds: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_SAMPLE_INTERVAL_SECONDS] =
+                if (seconds in allowedScreenOnGpsIntervalsSeconds) {
+                    seconds
+                } else {
+                    SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
+                }
+        }
+    }
+
+    override val recordingScreenOffSampleIntervalSeconds: Flow<Int> =
+        context.dataStore.data.map {
+            sanitizeScreenOffGpsIntervalSeconds(
+                it[PrefKeys.RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS],
+                SettingsRepository.DEFAULT_RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS,
+            )
+        }
+
+    override suspend fun setRecordingScreenOffSampleIntervalSeconds(seconds: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS] =
+                sanitizeScreenOffGpsIntervalSeconds(
+                    seconds,
+                    SettingsRepository.DEFAULT_RECORDING_SCREEN_OFF_SAMPLE_INTERVAL_SECONDS,
+                )
+        }
+    }
+
+    override val recordingAutoPauseMode: Flow<String> =
+        context.dataStore.data.map {
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            sanitizeRecordingAutoPauseMode(
+                mode = it[autoPauseModeKeyFor(profile)],
+                legacyMode = it[PrefKeys.RECORDING_AUTO_PAUSE_MODE],
+                profile = profile,
+            )
+        }
+
+    override suspend fun setRecordingAutoPauseMode(mode: String) {
+        context.dataStore.edit {
+            val profile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            it[autoPauseModeKeyFor(profile)] = sanitizeRecordingAutoPauseMode(mode)
+        }
+    }
+
+    override val recordingElevationSource: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_ELEVATION_SOURCE]
+                .takeIf { source -> source in allowedRecordingElevationSources }
+                ?: SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
+        }
+
+    override suspend fun setRecordingElevationSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_ELEVATION_SOURCE] =
+                source.takeIf { candidate -> candidate in allowedRecordingElevationSources }
+                    ?: SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
+        }
+    }
+
+    override val recordingHeartRateSource: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_HEART_RATE_SOURCE]
+                .takeIf { source -> source in allowedRecordingHeartRateSources }
+                ?: SettingsRepository.DEFAULT_RECORDING_HEART_RATE_SOURCE
+        }
+
+    override suspend fun setRecordingHeartRateSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_HEART_RATE_SOURCE] =
+                source.takeIf { candidate -> candidate in allowedRecordingHeartRateSources }
+                    ?: SettingsRepository.DEFAULT_RECORDING_HEART_RATE_SOURCE
+        }
+    }
+
+    override val recordingCadenceSource: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeRecordingSensorSource(
+                source = it[PrefKeys.RECORDING_CADENCE_SOURCE],
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE,
+            )
+        }
+
+    override suspend fun setRecordingCadenceSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_CADENCE_SOURCE] =
+                sanitizeRecordingSensorSource(source, SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE)
+        }
+    }
+
+    override val recordingSpeedSource: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeRecordingSensorSource(
+                source = it[PrefKeys.RECORDING_SPEED_SOURCE],
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE,
+            )
+        }
+
+    override suspend fun setRecordingSpeedSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_SPEED_SOURCE] =
+                sanitizeRecordingSensorSource(source, SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE)
+        }
+    }
+
+    override val recordingDistanceSource: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeRecordingSensorSource(
+                source = it[PrefKeys.RECORDING_DISTANCE_SOURCE],
+                defaultSource = SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE,
+            )
+        }
+
+    override suspend fun setRecordingDistanceSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_DISTANCE_SOURCE] =
+                sanitizeRecordingSensorSource(source, SettingsRepository.DEFAULT_RECORDING_DISTANCE_SOURCE)
+        }
+    }
+
+    override val recordingStepsSource: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeRecordingStepsSource(it[PrefKeys.RECORDING_STEPS_SOURCE])
+        }
+
+    override suspend fun setRecordingStepsSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_STEPS_SOURCE] =
+                sanitizeRecordingStepsSource(source)
+        }
+    }
+
+    override val recordingDashboardMetricSlots: Flow<List<String>> =
+        context.dataStore.data.map {
+            sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+        }
+
+    override suspend fun setRecordingDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    ) {
+        context.dataStore.edit {
+            val current = sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+            val sanitizedMetric =
+                metricId.takeIf { candidate -> candidate in allowedRecordingDashboardMetricIds }
+                    ?: SettingsRepository.RECORDING_METRIC_DISTANCE
+            val next =
+                current
+                    .toMutableList()
+                    .also { slots ->
+                        if (slotIndex in slots.indices) {
+                            slots[slotIndex] = sanitizedMetric
+                        }
+                    }
+            it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] = next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override suspend fun addRecordingDashboardPage() {
+        context.dataStore.edit {
+            val current = sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+            if (current.size >= RECORDING_DASHBOARD_MAX_SLOT_COUNT) return@edit
+            val next = current + SettingsRepository.DEFAULT_RECORDING_DASHBOARD_NEW_PAGE_METRICS
+            it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] =
+                next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override suspend fun deleteRecordingDashboardPage(pageIndex: Int) {
+        context.dataStore.edit {
+            val current = sanitizeRecordingDashboardMetricSlots(it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+            val pageCount = current.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+            if (pageCount <= RECORDING_DASHBOARD_MIN_PAGE_COUNT || pageIndex !in 0 until pageCount) return@edit
+            val startIndex = pageIndex * RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+            val next =
+                current.filterIndexed { index, _ ->
+                    index !in startIndex until startIndex + RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+                }
+            it[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] =
+                next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override val recordingShowSavedGpxOnMap: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_SHOW_SAVED_GPX_ON_MAP]
+                ?: SettingsRepository.DEFAULT_RECORDING_SHOW_SAVED_GPX_ON_MAP
+        }
+
+    override suspend fun setRecordingShowSavedGpxOnMap(enabled: Boolean) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_SHOW_SAVED_GPX_ON_MAP] = enabled
+        }
+    }
+
+    override val recordingStartWithTurnByTurn: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_START_WITH_TURN_BY_TURN]
+                ?: SettingsRepository.DEFAULT_RECORDING_START_WITH_TURN_BY_TURN
+        }
+
+    override suspend fun setRecordingStartWithTurnByTurn(enabled: Boolean) {
+        context.dataStore.edit {
+            it[PrefKeys.RECORDING_START_WITH_TURN_BY_TURN] = enabled
+        }
+    }
+
+    override val recordingExternalHeartRateAddress: Flow<String?> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_EXTERNAL_HEART_RATE_ADDRESS]?.takeIf(String::isNotBlank)
+        }
+
+    override val recordingExternalHeartRateName: Flow<String?> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_EXTERNAL_HEART_RATE_NAME]?.takeIf(String::isNotBlank)
+        }
+
+    override suspend fun setRecordingExternalHeartRateDevice(
+        address: String?,
+        name: String?,
+    ) {
+        context.dataStore.edit {
+            val sanitizedAddress = address?.trim()?.takeIf(String::isNotBlank)
+            if (sanitizedAddress == null) {
+                it.remove(PrefKeys.RECORDING_EXTERNAL_HEART_RATE_ADDRESS)
+                it.remove(PrefKeys.RECORDING_EXTERNAL_HEART_RATE_NAME)
+            } else {
+                it[PrefKeys.RECORDING_EXTERNAL_HEART_RATE_ADDRESS] = sanitizedAddress
+                val sanitizedName = name?.trim()?.takeIf(String::isNotBlank)
+                if (sanitizedName == null) {
+                    it.remove(PrefKeys.RECORDING_EXTERNAL_HEART_RATE_NAME)
+                } else {
+                    it[PrefKeys.RECORDING_EXTERNAL_HEART_RATE_NAME] = sanitizedName
+                }
+            }
+        }
+    }
+
+    override val recordingExternalRunPodAddress: Flow<String?> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_EXTERNAL_RUN_POD_ADDRESS]?.takeIf(String::isNotBlank)
+        }
+
+    override val recordingExternalRunPodName: Flow<String?> =
+        context.dataStore.data.map {
+            it[PrefKeys.RECORDING_EXTERNAL_RUN_POD_NAME]?.takeIf(String::isNotBlank)
+        }
+
+    override suspend fun setRecordingExternalRunPodDevice(
+        address: String?,
+        name: String?,
+    ) {
+        context.dataStore.edit {
+            val sanitizedAddress = address?.trim()?.takeIf(String::isNotBlank)
+            if (sanitizedAddress == null) {
+                it.remove(PrefKeys.RECORDING_EXTERNAL_RUN_POD_ADDRESS)
+                it.remove(PrefKeys.RECORDING_EXTERNAL_RUN_POD_NAME)
+            } else {
+                it[PrefKeys.RECORDING_EXTERNAL_RUN_POD_ADDRESS] = sanitizedAddress
+                val sanitizedName = name?.trim()?.takeIf(String::isNotBlank)
+                if (sanitizedName == null) {
+                    it.remove(PrefKeys.RECORDING_EXTERNAL_RUN_POD_NAME)
+                } else {
+                    it[PrefKeys.RECORDING_EXTERNAL_RUN_POD_NAME] = sanitizedName
+                }
+            }
+        }
+    }
+
+    override val activityProfile: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+        }
+
+    override suspend fun setActivityProfile(profile: String) {
+        context.dataStore.edit {
+            val previousProfile = sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE])
+            val nextProfile = sanitizeActivityProfile(profile)
+            it[PrefKeys.ACTIVITY_PROFILE] = nextProfile
+            if (previousProfile == nextProfile) return@edit
+
+            applyProfileDefaultIfUncustomized(
+                preferences = it,
+                previousProfile = previousProfile,
+                nextProfile = nextProfile,
+            )
+        }
+    }
+
+    override val userWeightKg: Flow<Float> =
+        context.dataStore.data.map {
+            sanitizeUserWeightKg(it[PrefKeys.USER_WEIGHT_KG])
+        }
+
+    override suspend fun setUserWeightKg(weightKg: Float) {
+        context.dataStore.edit {
+            it[PrefKeys.USER_WEIGHT_KG] = sanitizeUserWeightKg(weightKg)
+        }
+    }
+
+    override val backpackWeightKg: Flow<Float> =
+        context.dataStore.data.map {
+            sanitizeBackpackWeightKg(it[PrefKeys.BACKPACK_WEIGHT_KG])
+        }
+
+    override suspend fun setBackpackWeightKg(weightKg: Float) {
+        context.dataStore.edit {
+            it[PrefKeys.BACKPACK_WEIGHT_KG] = sanitizeBackpackWeightKg(weightKg)
+        }
+    }
+
+    override val bikeWeightKg: Flow<Float> =
+        context.dataStore.data.map {
+            sanitizeBikeWeightKg(it[PrefKeys.BIKE_WEIGHT_KG])
+        }
+
+    override suspend fun setBikeWeightKg(weightKg: Float) {
+        context.dataStore.edit {
+            it[PrefKeys.BIKE_WEIGHT_KG] = sanitizeBikeWeightKg(weightKg)
+        }
+    }
+
+    override val cyclingWheelCircumferenceMeters: Flow<Float> =
+        context.dataStore.data.map {
+            sanitizeCyclingWheelCircumferenceMeters(it[PrefKeys.CYCLING_WHEEL_CIRCUMFERENCE_METERS])
+        }
+
+    override suspend fun setCyclingWheelCircumferenceMeters(meters: Float) {
+        context.dataStore.edit {
+            it[PrefKeys.CYCLING_WHEEL_CIRCUMFERENCE_METERS] = sanitizeCyclingWheelCircumferenceMeters(meters)
+        }
+    }
+
+    override val turnByTurnGuidanceSource: Flow<String> =
+        context.dataStore.data.map { SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT }
+
+    override suspend fun setTurnByTurnGuidanceSource(source: String) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_GUIDANCE_SOURCE] = SettingsRepository.TURN_BY_TURN_SOURCE_GPX_EXACT
+        }
+    }
+
+    override val turnByTurnHapticsEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_HAPTICS_ENABLED] ?: true }
+
+    override suspend fun setTurnByTurnHapticsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_HAPTICS_ENABLED] = enabled }
+    }
+
+    override val turnByTurnVoiceGuidanceEnabled: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_VOICE_GUIDANCE_ENABLED]
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_VOICE_GUIDANCE_ENABLED
+        }
+
+    override suspend fun setTurnByTurnVoiceGuidanceEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_VOICE_GUIDANCE_ENABLED] = enabled }
+    }
+
+    override val turnByTurnTurnAlertsMode: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_TURN_ALERTS_MODE]
+                .takeIf { mode -> mode in allowedTurnByTurnTurnAlertModes }
+                ?: SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT
+        }
+
+    override suspend fun setTurnByTurnTurnAlertsMode(mode: String) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_TURN_ALERTS_MODE] =
+                if (mode in allowedTurnByTurnTurnAlertModes) {
+                    mode
+                } else {
+                    SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT
+                }
+        }
+    }
+
+    override val turnByTurnOffRouteAlertsEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERTS_ENABLED] ?: true }
+
+    override suspend fun setTurnByTurnOffRouteAlertsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERTS_ENABLED] = enabled }
+    }
+
+    override val turnByTurnCompactPopupEnabled: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_COMPACT_POPUP_ENABLED]
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_COMPACT_POPUP_ENABLED
+        }
+
+    override suspend fun setTurnByTurnCompactPopupEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_COMPACT_POPUP_ENABLED] = enabled }
+    }
+
+    override val turnByTurnOffRouteAlertThresholdMeters: Flow<Int> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS]
+                .takeIf { threshold -> threshold in allowedTurnByTurnOffRouteThresholdMeters }
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS
+        }
+
+    override suspend fun setTurnByTurnOffRouteAlertThresholdMeters(thresholdMeters: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS] =
+                if (thresholdMeters in allowedTurnByTurnOffRouteThresholdMeters) {
+                    thresholdMeters
+                } else {
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_ALERT_THRESHOLD_METERS
+                }
+        }
+    }
+
+    override val turnByTurnOffRouteRepeatSeconds: Flow<Int> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS]
+                .takeIf { seconds -> seconds in allowedTurnByTurnOffRouteRepeatSeconds }
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS
+        }
+
+    override suspend fun setTurnByTurnOffRouteRepeatSeconds(seconds: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS] =
+                if (seconds in allowedTurnByTurnOffRouteRepeatSeconds) {
+                    seconds
+                } else {
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_OFF_ROUTE_REPEAT_SECONDS
+                }
+        }
+    }
+
+    override val turnByTurnGpsInAmbientMode: Flow<Boolean> =
+        context.dataStore.data.map {
+            val screenOnSeconds =
+                sanitizeScreenOnGpsIntervalSeconds(
+                    it[PrefKeys.TURN_BY_TURN_GPS_INTERVAL_SECONDS],
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS,
+                )
+            when (sanitizeTurnByTurnScreenOffGpsIntervalSeconds(it)) {
+                SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS ->
+                    screenOnSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                else -> true
+            }
+        }
+
+    override suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean) {
+        context.dataStore.edit {
+            val screenOnSeconds =
+                sanitizeScreenOnGpsIntervalSeconds(
+                    it[PrefKeys.TURN_BY_TURN_GPS_INTERVAL_SECONDS],
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS,
+                )
+            it[PrefKeys.TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS] =
+                if (enabled) {
+                    if (screenOnSeconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) {
+                        SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS
+                    } else {
+                        SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
+                    }
+                } else {
+                    SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+                }
+            it[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE] = enabled
+        }
+    }
+
+    override val turnByTurnGpsIntervalSeconds: Flow<Int> =
+        context.dataStore.data.map {
+            sanitizeScreenOnGpsIntervalSeconds(
+                it[PrefKeys.TURN_BY_TURN_GPS_INTERVAL_SECONDS],
+                SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS,
+            )
+        }
+
+    override suspend fun setTurnByTurnGpsIntervalSeconds(seconds: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_GPS_INTERVAL_SECONDS] =
+                sanitizeScreenOnGpsIntervalSeconds(
+                    seconds,
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS,
+                )
+        }
+    }
+
+    override val turnByTurnScreenOffGpsIntervalSeconds: Flow<Int> =
+        context.dataStore.data.map(::sanitizeTurnByTurnScreenOffGpsIntervalSeconds)
+
+    override suspend fun setTurnByTurnScreenOffGpsIntervalSeconds(seconds: Int) {
+        context.dataStore.edit {
+            val sanitized =
+                sanitizeScreenOffGpsIntervalSeconds(
+                    seconds,
+                    SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS,
+                )
+            it[PrefKeys.TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS] = sanitized
+            it[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE] =
+                sanitized != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+        }
+    }
+
+    override val turnByTurnBrouterGuideBackEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_BROUTER_GUIDE_BACK_ENABLED] ?: false }
+
+    override suspend fun setTurnByTurnBrouterGuideBackEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_BROUTER_GUIDE_BACK_ENABLED] = enabled }
+    }
+
+    override val turnByTurnRouteStartBehavior: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_ROUTE_START_BEHAVIOR]
+                .takeIf { behavior -> behavior in allowedTurnByTurnRouteStartBehaviors }
+                ?: SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START
+        }
+
+    override suspend fun setTurnByTurnRouteStartBehavior(behavior: String) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_ROUTE_START_BEHAVIOR] =
+                if (behavior in allowedTurnByTurnRouteStartBehaviors) {
+                    behavior
+                } else {
+                    SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START
+                }
+        }
+    }
+
+    override val turnByTurnReverseSuggestionMode: Flow<String> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_REVERSE_SUGGESTION_MODE]
+                .takeIf { mode -> mode in allowedTurnByTurnReverseSuggestionModes }
+                ?: SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK
+        }
+
+    override suspend fun setTurnByTurnReverseSuggestionMode(mode: String) {
+        context.dataStore.edit {
+            it[PrefKeys.TURN_BY_TURN_REVERSE_SUGGESTION_MODE] =
+                if (mode in allowedTurnByTurnReverseSuggestionModes) {
+                    mode
+                } else {
+                    SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK
+                }
+        }
+    }
+
+    override val turnByTurnDashboardMetricSlots: Flow<List<String>> =
+        context.dataStore.data.map {
+            sanitizeTurnByTurnDashboardMetricSlots(it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
+        }
+
+    override suspend fun setTurnByTurnDashboardMetricSlot(
+        slotIndex: Int,
+        metricId: String,
+    ) {
+        context.dataStore.edit {
+            val current = sanitizeTurnByTurnDashboardMetricSlots(it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
+            if (slotIndex !in current.indices) return@edit
+            val sanitizedMetric =
+                metricId.takeIf { candidate -> candidate in allowedTurnByTurnDashboardMetricIds }
+                    ?: SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DISTANCE
+            val next = current.toMutableList().also { slots -> slots[slotIndex] = sanitizedMetric }
+            it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS] =
+                next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override suspend fun addTurnByTurnDashboardPage() {
+        context.dataStore.edit {
+            val current = sanitizeTurnByTurnDashboardMetricSlots(it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
+            if (current.size >= TURN_BY_TURN_DASHBOARD_MAX_SLOT_COUNT) return@edit
+            it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS] =
+                (current + SettingsRepository.DEFAULT_TURN_BY_TURN_DASHBOARD_NEW_PAGE_METRICS)
+                    .joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override suspend fun deleteTurnByTurnDashboardPage(pageIndex: Int) {
+        context.dataStore.edit {
+            val current = sanitizeTurnByTurnDashboardMetricSlots(it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
+            val pageCount = current.size / TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
+            if (pageCount <= TURN_BY_TURN_DASHBOARD_MIN_PAGE_COUNT || pageIndex !in 0 until pageCount) return@edit
+            val startIndex = pageIndex * TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
+            it[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS] =
+                current
+                    .filterIndexed { index, _ ->
+                        index !in startIndex until startIndex + TURN_BY_TURN_DASHBOARD_PAGE_SLOT_COUNT
+                    }.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+    }
+
+    override val turnByTurnActiveTrackPath: Flow<String?> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_PATH] }
+
+    override suspend fun setTurnByTurnActiveTrackPath(path: String?) {
+        context.dataStore.edit {
+            if (path.isNullOrBlank()) {
+                it.remove(PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_PATH)
+            } else {
+                it[PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_PATH] = path
+            }
+        }
+    }
+
+    override val turnByTurnActiveTrackReversed: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_REVERSED] ?: false }
+
+    override suspend fun setTurnByTurnActiveTrackReversed(reversed: Boolean) {
+        context.dataStore.edit {
+            if (reversed) {
+                it[PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_REVERSED] = true
+            } else {
+                it.remove(PrefKeys.TURN_BY_TURN_ACTIVE_TRACK_REVERSED)
+            }
+        }
+    }
+
+    override val turnByTurnStartReached: Flow<Boolean> =
+        context.dataStore.data.map { it[PrefKeys.TURN_BY_TURN_START_REACHED] ?: false }
+
+    override suspend fun setTurnByTurnStartReached(reached: Boolean) {
+        context.dataStore.edit {
+            if (reached) {
+                it[PrefKeys.TURN_BY_TURN_START_REACHED] = true
+            } else {
+                it.remove(PrefKeys.TURN_BY_TURN_START_REACHED)
+            }
+        }
     }
 
     override val promptForCalibration: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.PROMPT_FOR_CALIBRATION] ?: false }
@@ -412,12 +1124,6 @@ class SettingsRepositoryImpl private constructor(
         }
     }
 
-    override val mapDoubleTapAction: Flow<String> = context.dataStore.data.map { it[PrefKeys.MAP_DOUBLE_TAP_ACTION] ?: "zoom_in" }
-
-    override suspend fun setMapDoubleTapAction(action: String) {
-        context.dataStore.edit { it[PrefKeys.MAP_DOUBLE_TAP_ACTION] = action }
-    }
-
     override val liveElevation: Flow<Boolean> =
         context.dataStore.data.map {
             it[PrefKeys.LIVE_ELEVATION] ?: false
@@ -576,8 +1282,12 @@ class SettingsRepositoryImpl private constructor(
 
     override val gpxFlatSpeedMps: Flow<Float> =
         context.dataStore.data.map {
-            (it[PrefKeys.GPX_FLAT_SPEED_MPS] ?: SettingsRepository.DEFAULT_GPX_FLAT_SPEED_MPS)
-                .coerceIn(0f, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS)
+            (
+                it[PrefKeys.GPX_FLAT_SPEED_MPS]
+                    ?: defaultGpxFlatSpeedMpsForProfile(
+                        sanitizeActivityProfile(it[PrefKeys.ACTIVITY_PROFILE]),
+                    )
+            ).coerceIn(0f, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS)
         }
 
     override suspend fun setGpxFlatSpeedMps(speedMps: Float) {
@@ -594,6 +1304,16 @@ class SettingsRepositoryImpl private constructor(
 
     override suspend fun setGpxAdvancedEtaEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.GPX_ADVANCED_ETA_ENABLED] = enabled }
+    }
+
+    override val gpxStaminaAdjustmentEnabled: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.GPX_STAMINA_ADJUSTMENT_ENABLED]
+                ?: SettingsRepository.DEFAULT_GPX_STAMINA_ADJUSTMENT_ENABLED
+        }
+
+    override suspend fun setGpxStaminaAdjustmentEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.GPX_STAMINA_ADJUSTMENT_ENABLED] = enabled }
     }
 
     override val gpxUphillVerticalMetersPerHour: Flow<Float> =
@@ -681,6 +1401,142 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit { it[PrefKeys.GPX_ELEVATION_AUTO_ADJUST_PER_GPX] = enabled }
     }
 
+    override val gpxToolRouteStyle: Flow<String> =
+        context.dataStore.data.map { preferences ->
+            val profile = sanitizeActivityProfile(preferences[PrefKeys.ACTIVITY_PROFILE])
+            sanitizeGpxToolRouteStyleForProfile(
+                profile = profile,
+                style =
+                    preferences[gpxToolRouteStyleKeyForProfile(profile)]
+                        ?: preferences[PrefKeys.GPX_TOOL_ROUTE_STYLE],
+            )
+        }
+
+    override suspend fun setGpxToolRouteStyle(style: String) {
+        context.dataStore.edit { preferences ->
+            val profile = sanitizeActivityProfile(preferences[PrefKeys.ACTIVITY_PROFILE])
+            preferences[gpxToolRouteStyleKeyForProfile(profile)] =
+                sanitizeGpxToolRouteStyleForProfile(profile, style)
+        }
+    }
+
+    override val gpxToolUseElevation: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.GPX_TOOL_USE_ELEVATION] ?: SettingsRepository.DEFAULT_GPX_TOOL_USE_ELEVATION
+        }
+
+    override suspend fun setGpxToolUseElevation(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.GPX_TOOL_USE_ELEVATION] = enabled }
+    }
+
+    override val gpxToolAllowFerries: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.GPX_TOOL_ALLOW_FERRIES] ?: SettingsRepository.DEFAULT_GPX_TOOL_ALLOW_FERRIES
+        }
+
+    override suspend fun setGpxToolAllowFerries(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.GPX_TOOL_ALLOW_FERRIES] = enabled }
+    }
+
+    override val gpxToolHikeHikingRoutesPreference: Flow<Float> =
+        context.dataStore.data.map {
+            sanitizeGpxToolHikeHikingRoutesPreference(
+                it[PrefKeys.GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE],
+            )
+        }
+
+    override suspend fun setGpxToolHikeHikingRoutesPreference(preference: Float) {
+        context.dataStore.edit {
+            it[PrefKeys.GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE] =
+                sanitizeGpxToolHikeHikingRoutesPreference(preference)
+            it[PrefKeys.GPX_TOOL_HIKE_ROUTE_STYLE] = SettingsRepository.GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE
+        }
+    }
+
+    override val gpxToolHikePathPreference: Flow<Float> =
+        context.dataStore.data.map {
+            sanitizeGpxToolHikePathPreference(
+                it[PrefKeys.GPX_TOOL_HIKE_PATH_PREFERENCE],
+            )
+        }
+
+    override suspend fun setGpxToolHikePathPreference(preference: Float) {
+        context.dataStore.edit {
+            it[PrefKeys.GPX_TOOL_HIKE_PATH_PREFERENCE] = sanitizeGpxToolHikePathPreference(preference)
+            it[PrefKeys.GPX_TOOL_HIKE_ROUTE_STYLE] = SettingsRepository.GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE
+        }
+    }
+
+    override val gpxToolHikeSacScaleLimit: Flow<Int> =
+        context.dataStore.data.map {
+            sanitizeGpxToolHikeSacScale(
+                it[PrefKeys.GPX_TOOL_HIKE_SAC_SCALE_LIMIT],
+                SettingsRepository.DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_LIMIT,
+            )
+        }
+
+    override suspend fun setGpxToolHikeSacScaleLimit(scale: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.GPX_TOOL_HIKE_SAC_SCALE_LIMIT] =
+                sanitizeGpxToolHikeSacScale(scale, SettingsRepository.DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_LIMIT)
+            it[PrefKeys.GPX_TOOL_HIKE_ROUTE_STYLE] = SettingsRepository.GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE
+        }
+    }
+
+    override val gpxToolHikeSacScalePreferred: Flow<Int> =
+        context.dataStore.data.map {
+            sanitizeGpxToolHikeSacScale(
+                it[PrefKeys.GPX_TOOL_HIKE_SAC_SCALE_PREFERRED],
+                SettingsRepository.DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_PREFERRED,
+            )
+        }
+
+    override suspend fun setGpxToolHikeSacScalePreferred(scale: Int) {
+        context.dataStore.edit {
+            it[PrefKeys.GPX_TOOL_HIKE_SAC_SCALE_PREFERRED] =
+                sanitizeGpxToolHikeSacScale(scale, SettingsRepository.DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_PREFERRED)
+            it[PrefKeys.GPX_TOOL_HIKE_ROUTE_STYLE] = SettingsRepository.GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE
+        }
+    }
+
+    override val gpxToolHikeConsiderForest: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.GPX_TOOL_HIKE_CONSIDER_FOREST]
+                ?: SettingsRepository.DEFAULT_GPX_TOOL_HIKE_CONSIDER_FOREST
+        }
+
+    override suspend fun setGpxToolHikeConsiderForest(enabled: Boolean) {
+        context.dataStore.edit {
+            it[PrefKeys.GPX_TOOL_HIKE_CONSIDER_FOREST] = enabled
+        }
+    }
+
+    override suspend fun setGpxToolCustomHikeProfile(
+        hikingRoutesPreference: Float,
+        pathPreference: Float,
+        sacScaleLimit: Int,
+        sacScalePreferred: Int,
+        considerForest: Boolean,
+    ) {
+        context.dataStore.edit {
+            it[PrefKeys.GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE] =
+                sanitizeGpxToolHikeHikingRoutesPreference(hikingRoutesPreference)
+            it[PrefKeys.GPX_TOOL_HIKE_PATH_PREFERENCE] = sanitizeGpxToolHikePathPreference(pathPreference)
+            it[PrefKeys.GPX_TOOL_HIKE_SAC_SCALE_LIMIT] =
+                sanitizeGpxToolHikeSacScale(
+                    sacScaleLimit,
+                    SettingsRepository.DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_LIMIT,
+                )
+            it[PrefKeys.GPX_TOOL_HIKE_SAC_SCALE_PREFERRED] =
+                sanitizeGpxToolHikeSacScale(
+                    sacScalePreferred,
+                    SettingsRepository.DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_PREFERRED,
+                )
+            it[PrefKeys.GPX_TOOL_HIKE_CONSIDER_FOREST] = considerForest
+            it[PrefKeys.GPX_TOOL_HIKE_ROUTE_STYLE] = SettingsRepository.GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE
+        }
+    }
+
     override val isMetric: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.IS_METRIC] ?: true }
 
     override suspend fun setMetric(isMetric: Boolean) {
@@ -696,18 +1552,13 @@ class SettingsRepositoryImpl private constructor(
 
     override val poiIconSizePx: Flow<Int> =
         context.dataStore.data.map {
-            val stored = it[PrefKeys.POI_ICON_SIZE_PX]
-            if (stored != null && stored in allowedPoiIconSizesPx) {
-                stored
-            } else {
-                SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
-            }
+            sanitizePoiIconSizePx(it[PrefKeys.POI_ICON_SIZE_PX])
         }
 
     override suspend fun setPoiIconSizePx(sizePx: Int) {
         context.dataStore.edit {
             it[PrefKeys.POI_ICON_SIZE_PX] =
-                if (sizePx in allowedPoiIconSizesPx) sizePx else SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
+                sanitizePoiIconSizePx(sizePx)
         }
     }
 
@@ -761,6 +1612,9 @@ class SettingsRepositoryImpl private constructor(
         markerStyleCachePrefs.edit().remove(CACHE_KEY_NAVIGATION_MARKER_STYLE).apply()
         mapsHelpPrefs.edit().clear().apply()
         debugHelpPrefs.edit().clear().apply()
+        gpxHelpPrefs.edit().clear().apply()
+        poiHelpPrefs.edit().clear().apply()
+        downloadInfoPrefs.edit().clear().apply()
     }
 
     private fun Preferences.mapZoomScaleMeters(
@@ -824,13 +1678,138 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.COMPASS_HEADING_SOURCE_ROTATION_VECTOR,
                 SettingsRepository.COMPASS_HEADING_SOURCE_MAGNETOMETER,
             )
+        private val allowedTurnByTurnTurnAlertModes =
+            setOf(
+                SettingsRepository.TURN_BY_TURN_TURN_ALERTS_OFF,
+                SettingsRepository.TURN_BY_TURN_TURN_ALERTS_IMPORTANT,
+                SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL,
+            )
+        private val allowedTurnByTurnOffRouteThresholdMeters =
+            setOf(20, 40, 60, 80, 100)
+        private val allowedTurnByTurnOffRouteRepeatSeconds =
+            setOf(30, 60, 120)
+        private val allowedTurnByTurnRouteStartBehaviors =
+            setOf(
+                SettingsRepository.TURN_BY_TURN_ROUTE_START_GO_TO_START,
+                SettingsRepository.TURN_BY_TURN_ROUTE_START_NEAREST_POINT,
+                SettingsRepository.TURN_BY_TURN_ROUTE_START_ASK,
+            )
+        private val allowedTurnByTurnReverseSuggestionModes =
+            setOf(
+                SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_ASK,
+                SettingsRepository.TURN_BY_TURN_REVERSE_SUGGESTION_NEVER,
+            )
+        private val allowedActivityProfiles =
+            setOf(
+                SettingsRepository.ACTIVITY_PROFILE_HIKE,
+                SettingsRepository.ACTIVITY_PROFILE_WALK_HIKE,
+                SettingsRepository.ACTIVITY_PROFILE_BIKE,
+            )
+        private val allowedRecordingDashboardMetricIds =
+            setOf(
+                SettingsRepository.RECORDING_METRIC_DISTANCE,
+                SettingsRepository.RECORDING_METRIC_DURATION,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
+                SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
+                SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
+                SettingsRepository.RECORDING_METRIC_MAX_SPEED,
+                SettingsRepository.RECORDING_METRIC_CURRENT_PACE,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_PACE,
+                SettingsRepository.RECORDING_METRIC_MAX_PACE,
+                SettingsRepository.RECORDING_METRIC_HEART_RATE,
+                SettingsRepository.RECORDING_METRIC_MAX_HEART_RATE,
+                SettingsRepository.RECORDING_METRIC_STEPS,
+                SettingsRepository.RECORDING_METRIC_CADENCE,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_CADENCE,
+                SettingsRepository.RECORDING_METRIC_MAX_CADENCE,
+                SettingsRepository.RECORDING_METRIC_POWER,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_POWER,
+                SettingsRepository.RECORDING_METRIC_MAX_POWER,
+                SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
+                SettingsRepository.RECORDING_METRIC_CALORIES,
+                SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,
+                SettingsRepository.RECORDING_METRIC_RESTING_CALORIES,
+            )
+        private val LEGACY_RECORDING_DASHBOARD_ALL_METRICS =
+            listOf(
+                SettingsRepository.RECORDING_METRIC_DISTANCE,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
+                SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
+                SettingsRepository.RECORDING_METRIC_DURATION,
+                SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
+                SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
+                SettingsRepository.RECORDING_METRIC_CURRENT_PACE,
+            )
+        private val LEGACY_BIKE_RECORDING_DASHBOARD_METRICS =
+            listOf(
+                SettingsRepository.RECORDING_METRIC_DISTANCE,
+                SettingsRepository.RECORDING_METRIC_DURATION,
+                SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
+                SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
+                SettingsRepository.RECORDING_METRIC_HEART_RATE,
+                SettingsRepository.RECORDING_METRIC_CADENCE,
+                SettingsRepository.RECORDING_METRIC_POWER,
+                SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
+            )
+        private val allowedTurnByTurnDashboardMetricIds =
+            setOf(
+                SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DISTANCE,
+                SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_ASCENT,
+                SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_DESCENT,
+                SettingsRepository.TURN_BY_TURN_METRIC_ETA,
+                SettingsRepository.TURN_BY_TURN_METRIC_REMAINING_TIME,
+                SettingsRepository.TURN_BY_TURN_METRIC_PROGRESS,
+                SettingsRepository.TURN_BY_TURN_METRIC_DISTANCE_COVERED,
+                SettingsRepository.TURN_BY_TURN_METRIC_CURRENT_ALTITUDE,
+            )
+        private val allowedRecordingElevationSources =
+            setOf(
+                SettingsRepository.RECORDING_ELEVATION_SOURCE_GPS,
+                SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
+                SettingsRepository.RECORDING_ELEVATION_SOURCE_AUTO,
+                SettingsRepository.RECORDING_SOURCE_DISABLED,
+            )
+        private val allowedRecordingHeartRateSources =
+            setOf(
+                SettingsRepository.RECORDING_HEART_RATE_SOURCE_WATCH,
+                SettingsRepository.RECORDING_HEART_RATE_SOURCE_STRAP,
+                SettingsRepository.RECORDING_SOURCE_DISABLED,
+            )
+        private val allowedRecordingSensorSources =
+            setOf(
+                SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
+                SettingsRepository.RECORDING_SENSOR_SOURCE_POD,
+                SettingsRepository.RECORDING_SOURCE_DISABLED,
+            )
+        private val allowedRecordingStepsSources =
+            setOf(
+                SettingsRepository.RECORDING_SENSOR_SOURCE_WATCH_GPS,
+                SettingsRepository.RECORDING_SOURCE_DISABLED,
+            )
+        private val allowedRecordingAutoPauseModes =
+            setOf(
+                SettingsRepository.RECORDING_AUTO_PAUSE_OFF,
+                SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS,
+            )
         private val allowedPoiIconSizesPx =
             setOf(
                 SettingsRepository.POI_ICON_SIZE_SMALL_PX,
-                SettingsRepository.POI_ICON_SIZE_DEFAULT_PX,
                 SettingsRepository.POI_ICON_SIZE_MEDIUM_PX,
                 SettingsRepository.POI_ICON_SIZE_LARGE_PX,
             )
+
+        private fun sanitizePoiIconSizePx(sizePx: Int?): Int =
+            when (sizePx) {
+                18 -> SettingsRepository.POI_ICON_SIZE_SMALL_PX
+                22, 24 -> SettingsRepository.POI_ICON_SIZE_MEDIUM_PX
+                26 -> SettingsRepository.POI_ICON_SIZE_LARGE_PX
+                in allowedPoiIconSizesPx -> sizePx ?: SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
+                else -> SettingsRepository.POI_ICON_SIZE_DEFAULT_PX
+            }
+
         private val allowedPoiMarkerStyles =
             setOf(
                 SettingsRepository.POI_MARKER_STYLE_BADGE,
@@ -841,11 +1820,45 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.GPX_TRACK_COLOR_MODE_SOLID,
                 SettingsRepository.GPX_TRACK_COLOR_MODE_ELEVATION,
             )
+        private val allowedGpxToolRouteStyles =
+            setOf(
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_TOURING,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_ROAD,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_QUIET_ROAD,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_GRAVEL,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_MTB,
+            )
+        private val allowedHikeGpxToolRouteStyles =
+            setOf(
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE,
+            )
+        private val allowedBikeGpxToolRouteStyles =
+            setOf(
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_TOURING,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_ROAD,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_QUIET_ROAD,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_GRAVEL,
+                SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_MTB,
+            )
+        private val allowedScreenOnGpsIntervalsSeconds =
+            setOf(SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS) + (1..60) + setOf(90, 120)
+        private val allowedScreenOffGpsIntervalsSeconds =
+            allowedScreenOnGpsIntervalsSeconds + SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
         private const val LEGACY_ZOOM_BUTTONS_HIDE_MINUS = "HIDE_MINUS"
         private const val CACHE_PREFS_NAME = "settings_runtime_cache"
         private const val CACHE_KEY_NAVIGATION_MARKER_STYLE = "navigation_marker_style"
         private const val MAPS_HELP_PREFS_NAME = "maps_screen_help_prefs"
         private const val DEBUG_HELP_PREFS_NAME = "debug_settings_help_prefs"
+        private const val GPX_HELP_PREFS_NAME = "gpx_screen_help_prefs"
+        private const val POI_HELP_PREFS_NAME = "poi_screen_help_prefs"
+        private const val DOWNLOAD_INFO_PREFS_NAME = "download_screen_info_prefs"
 
         @Volatile
         private var INSTANCE: SettingsRepository? = null
@@ -895,6 +1908,210 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.MAX_GPX_DOWNHILL_VERTICAL_METERS_PER_HOUR,
             )
 
+        private fun sanitizeGpxToolRouteStyle(style: String?): String =
+            style
+                ?.takeIf { it in allowedGpxToolRouteStyles }
+                ?: SettingsRepository.DEFAULT_GPX_TOOL_ROUTE_STYLE
+
+        private fun sanitizeGpxToolRouteStyleForProfile(
+            profile: String,
+            style: String?,
+        ): String {
+            val normalized = sanitizeGpxToolRouteStyle(style)
+            return if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                normalized
+                    .takeIf { it in allowedBikeGpxToolRouteStyles }
+                    ?: SettingsRepository.DEFAULT_BIKE_GPX_TOOL_ROUTE_STYLE
+            } else {
+                normalized
+                    .takeIf { it in allowedHikeGpxToolRouteStyles }
+                    ?: SettingsRepository.DEFAULT_GPX_TOOL_ROUTE_STYLE
+            }
+        }
+
+        private fun sanitizeGpxToolHikeHikingRoutesPreference(preference: Float?): Float =
+            (preference ?: SettingsRepository.DEFAULT_GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE)
+                .coerceIn(
+                    SettingsRepository.MIN_GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE,
+                    SettingsRepository.MAX_GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE,
+                )
+
+        private fun sanitizeGpxToolHikePathPreference(preference: Float?): Float =
+            (preference ?: SettingsRepository.DEFAULT_GPX_TOOL_HIKE_PATH_PREFERENCE)
+                .coerceIn(
+                    SettingsRepository.MIN_GPX_TOOL_HIKE_PATH_PREFERENCE,
+                    SettingsRepository.MAX_GPX_TOOL_HIKE_PATH_PREFERENCE,
+                )
+
+        private fun sanitizeGpxToolHikeSacScale(
+            scale: Int?,
+            default: Int,
+        ): Int =
+            (scale ?: default)
+                .coerceIn(
+                    SettingsRepository.MIN_GPX_TOOL_HIKE_SAC_SCALE,
+                    SettingsRepository.MAX_GPX_TOOL_HIKE_SAC_SCALE,
+                )
+
+        private fun gpxToolRouteStyleKeyForProfile(profile: String): Preferences.Key<String> =
+            if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                PrefKeys.GPX_TOOL_BIKE_ROUTE_STYLE
+            } else {
+                PrefKeys.GPX_TOOL_HIKE_ROUTE_STYLE
+            }
+
+        private fun sanitizeActivityProfile(profile: String?): String =
+            when (profile?.takeIf { it in allowedActivityProfiles }) {
+                SettingsRepository.ACTIVITY_PROFILE_WALK_HIKE -> SettingsRepository.ACTIVITY_PROFILE_HIKE
+                SettingsRepository.ACTIVITY_PROFILE_BIKE -> SettingsRepository.ACTIVITY_PROFILE_BIKE
+                else -> SettingsRepository.DEFAULT_ACTIVITY_PROFILE
+            }
+
+        private fun defaultGpxFlatSpeedMpsForProfile(profile: String): Float =
+            when (profile) {
+                SettingsRepository.ACTIVITY_PROFILE_BIKE -> SettingsRepository.DEFAULT_BIKE_GPX_FLAT_SPEED_MPS
+                else -> SettingsRepository.DEFAULT_GPX_FLAT_SPEED_MPS
+            }
+
+        private fun defaultRecordingSampleIntervalSecondsForProfile(profile: String): Int =
+            when (profile) {
+                SettingsRepository.ACTIVITY_PROFILE_BIKE ->
+                    SettingsRepository.DEFAULT_BIKE_RECORDING_SAMPLE_INTERVAL_SECONDS
+                else -> SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
+            }
+
+        private fun sanitizeScreenOnGpsIntervalSeconds(
+            seconds: Int?,
+            defaultSeconds: Int,
+        ): Int =
+            seconds
+                ?.takeIf { it in allowedScreenOnGpsIntervalsSeconds }
+                ?: defaultSeconds
+
+        private fun sanitizeScreenOffGpsIntervalSeconds(
+            seconds: Int?,
+            defaultSeconds: Int,
+        ): Int =
+            seconds
+                ?.takeIf { it in allowedScreenOffGpsIntervalsSeconds }
+                ?: defaultSeconds
+
+        private fun sanitizeRecordingAutoPauseMode(mode: String?): String =
+            mode
+                ?.takeIf { it in allowedRecordingAutoPauseModes }
+                ?: SettingsRepository.DEFAULT_RECORDING_AUTO_PAUSE_MODE
+
+        private fun sanitizeRecordingAutoPauseMode(
+            mode: String?,
+            legacyMode: String?,
+            profile: String,
+        ): String =
+            mode
+                ?.let(::sanitizeRecordingAutoPauseMode)
+                ?: legacyRecordingAutoPauseModeForProfile(
+                    legacyMode = legacyMode,
+                    profile = profile,
+                )
+
+        private fun legacyRecordingAutoPauseModeForProfile(
+            legacyMode: String?,
+            profile: String,
+        ): String =
+            when (legacyMode) {
+                SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS -> SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS
+                SettingsRepository.RECORDING_AUTO_PAUSE_BIKE_ONLY ->
+                    if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                        SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS
+                    } else {
+                        SettingsRepository.RECORDING_AUTO_PAUSE_OFF
+                    }
+                else -> SettingsRepository.DEFAULT_RECORDING_AUTO_PAUSE_MODE
+            }
+
+        private fun autoPauseModeKeyFor(profile: String): Preferences.Key<String> =
+            if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                PrefKeys.RECORDING_AUTO_PAUSE_MODE_BIKE
+            } else {
+                PrefKeys.RECORDING_AUTO_PAUSE_MODE_HIKE
+            }
+
+        private fun sanitizeTurnByTurnScreenOffGpsIntervalSeconds(preferences: Preferences): Int {
+            preferences[PrefKeys.TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS]
+                ?.takeIf { it in allowedScreenOffGpsIntervalsSeconds }
+                ?.let { return it }
+            preferences[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE]?.let { legacyEnabled ->
+                return if (legacyEnabled) {
+                    SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
+                } else {
+                    SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+                }
+            }
+            return SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS
+        }
+
+        private fun sanitizeRecordingSensorSource(
+            source: String?,
+            defaultSource: String,
+        ): String =
+            source
+                ?.takeIf { it in allowedRecordingSensorSources }
+                ?: defaultSource
+
+        private fun sanitizeRecordingStepsSource(source: String?): String =
+            source
+                ?.takeIf { it in allowedRecordingStepsSources }
+                ?: SettingsRepository.DEFAULT_RECORDING_STEPS_SOURCE
+
+        private fun sanitizeRecordingDashboardMetricSlots(raw: String?): List<String> {
+            val parsed =
+                raw
+                    ?.split(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+                    ?.mapNotNull { value ->
+                        value.trim().takeIf { it in allowedRecordingDashboardMetricIds }
+                    }.orEmpty()
+            if (parsed == LEGACY_RECORDING_DASHBOARD_ALL_METRICS || parsed == LEGACY_BIKE_RECORDING_DASHBOARD_METRICS) {
+                return SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+            }
+            return normalizeRecordingDashboardMetricSlots(parsed)
+        }
+
+        private fun sanitizeTurnByTurnDashboardMetricSlots(raw: String?): List<String> {
+            val parsed =
+                raw
+                    ?.split(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+                    ?.mapNotNull { value ->
+                        value.trim().takeIf { it in allowedTurnByTurnDashboardMetricIds }
+                    }.orEmpty()
+            return normalizeTurnByTurnDashboardMetricSlots(parsed)
+        }
+
+        private fun sanitizeUserWeightKg(weightKg: Float?): Float =
+            weightKg
+                ?.takeIf { it.isFinite() }
+                ?.coerceIn(SettingsRepository.MIN_USER_WEIGHT_KG, SettingsRepository.MAX_USER_WEIGHT_KG)
+                ?: SettingsRepository.DEFAULT_USER_WEIGHT_KG
+
+        private fun sanitizeBackpackWeightKg(weightKg: Float?): Float =
+            weightKg
+                ?.takeIf { it.isFinite() }
+                ?.coerceIn(SettingsRepository.MIN_BACKPACK_WEIGHT_KG, SettingsRepository.MAX_BACKPACK_WEIGHT_KG)
+                ?: SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG
+
+        private fun sanitizeBikeWeightKg(weightKg: Float?): Float =
+            weightKg
+                ?.takeIf { it.isFinite() }
+                ?.coerceIn(SettingsRepository.MIN_BIKE_WEIGHT_KG, SettingsRepository.MAX_BIKE_WEIGHT_KG)
+                ?: SettingsRepository.DEFAULT_BIKE_WEIGHT_KG
+
+        private fun sanitizeCyclingWheelCircumferenceMeters(meters: Float?): Float =
+            meters
+                ?.takeIf { it.isFinite() }
+                ?.coerceIn(
+                    SettingsRepository.MIN_CYCLING_WHEEL_CIRCUMFERENCE_METERS,
+                    SettingsRepository.MAX_CYCLING_WHEEL_CIRCUMFERENCE_METERS,
+                )
+                ?: SettingsRepository.DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS
+
         private fun legacyZoomScaleMeters(zoom: Int): Int =
             scaleMetersForZoomLevel(
                 zoom = zoom,
@@ -902,6 +2119,77 @@ class SettingsRepositoryImpl private constructor(
                 latitudeDegrees = MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES,
             ).roundToInt()
     }
+
+    private fun applyProfileDefaultIfUncustomized(
+        preferences: MutablePreferences,
+        previousProfile: String,
+        nextProfile: String,
+    ) {
+        val nextRecordingDashboard =
+            if (nextProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                SettingsRepository.DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS
+            } else {
+                SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+            }
+        val nextTurnByTurnDashboard =
+            if (nextProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+                SettingsRepository.DEFAULT_BIKE_TURN_BY_TURN_DASHBOARD_METRICS
+            } else {
+                SettingsRepository.DEFAULT_TURN_BY_TURN_DASHBOARD_METRICS
+            }
+        val previousFlatSpeed = defaultGpxFlatSpeedMpsForProfile(previousProfile)
+        val nextFlatSpeed = defaultGpxFlatSpeedMpsForProfile(nextProfile)
+        val nextRecordingSampleInterval = defaultRecordingSampleIntervalSecondsForProfile(nextProfile)
+
+        val currentRecordingDashboard =
+            sanitizeRecordingDashboardMetricSlots(preferences[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS])
+        val currentTurnByTurnDashboard =
+            sanitizeTurnByTurnDashboardMetricSlots(preferences[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS])
+        val currentFlatSpeed =
+            preferences[PrefKeys.GPX_FLAT_SPEED_MPS]
+                ?.takeIf { it.isFinite() }
+                ?.coerceIn(0f, SettingsRepository.MAX_GPX_FLAT_SPEED_MPS)
+
+        if (currentRecordingDashboard.isProfileDefaultRecordingDashboard()) {
+            preferences[PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS] =
+                nextRecordingDashboard.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+        if (currentTurnByTurnDashboard.isProfileDefaultTurnByTurnDashboard()) {
+            preferences[PrefKeys.TURN_BY_TURN_DASHBOARD_METRIC_SLOTS] =
+                nextTurnByTurnDashboard.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
+        }
+        if (currentFlatSpeed == null || currentFlatSpeed.isProfileManagedFlatSpeed(previousFlatSpeed, nextFlatSpeed)) {
+            preferences[PrefKeys.GPX_FLAT_SPEED_MPS] = nextFlatSpeed
+        }
+        val currentRecordingSampleInterval = preferences[PrefKeys.RECORDING_SAMPLE_INTERVAL_SECONDS]
+        if (currentRecordingSampleInterval == null ||
+            currentRecordingSampleInterval == SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS ||
+            currentRecordingSampleInterval == SettingsRepository.DEFAULT_BIKE_RECORDING_SAMPLE_INTERVAL_SECONDS
+        ) {
+            preferences[PrefKeys.RECORDING_SAMPLE_INTERVAL_SECONDS] = nextRecordingSampleInterval
+        }
+    }
+
+    private fun List<String>.isProfileDefaultRecordingDashboard(): Boolean =
+        this == SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS ||
+            this == SettingsRepository.DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS ||
+            this == LEGACY_RECORDING_DASHBOARD_ALL_METRICS ||
+            this == LEGACY_BIKE_RECORDING_DASHBOARD_METRICS
+
+    private fun List<String>.isProfileDefaultTurnByTurnDashboard(): Boolean =
+        this == SettingsRepository.DEFAULT_TURN_BY_TURN_DASHBOARD_METRICS ||
+            this == SettingsRepository.DEFAULT_BIKE_TURN_BY_TURN_DASHBOARD_METRICS
+
+    private fun Float.isProfileManagedFlatSpeed(
+        previousFlatSpeed: Float,
+        nextFlatSpeed: Float,
+    ): Boolean =
+        approximatelyEquals(previousFlatSpeed) ||
+            approximatelyEquals(nextFlatSpeed) ||
+            approximatelyEquals(SettingsRepository.DEFAULT_GPX_FLAT_SPEED_MPS) ||
+            approximatelyEquals(SettingsRepository.DEFAULT_BIKE_GPX_FLAT_SPEED_MPS)
+
+    private fun Float.approximatelyEquals(other: Float): Boolean = kotlin.math.abs(this - other) < 0.001f
 
     private fun readCachedNavigationMarkerStyle(): String {
         val cached = markerStyleCachePrefs.getString(CACHE_KEY_NAVIGATION_MARKER_STYLE, null)

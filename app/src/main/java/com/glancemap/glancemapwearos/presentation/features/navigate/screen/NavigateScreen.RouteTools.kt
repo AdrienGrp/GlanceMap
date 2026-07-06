@@ -11,7 +11,6 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteSaveBehavior
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
@@ -22,6 +21,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolS
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildLoopRetryOptions
 import com.glancemap.glancemapwearos.presentation.features.routetools.preflightStart
+import com.glancemap.glancemapwearos.presentation.features.routetools.previewBeforeSaving
 import com.glancemap.glancemapwearos.presentation.features.routetools.withVisibleLoopDefaults
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -58,6 +58,7 @@ internal fun rememberNavigateRouteToolActions(
     selectedMapPath: String?,
     triggerHaptic: () -> Unit,
     routeToolOptions: RouteToolOptions,
+    routeToolDefaultOptions: RouteToolOptions,
     setRouteToolOptions: (RouteToolOptions) -> Unit,
     routeToolSession: RouteToolSession?,
     setRouteToolSession: (RouteToolSession?) -> Unit,
@@ -141,7 +142,7 @@ internal fun rememberNavigateRouteToolActions(
                 }.onFailure { error ->
                     val message =
                         error.localizedMessage?.takeIf { it.isNotBlank() }
-                            ?: "Failed to preview the reshaped GPX."
+                            ?: "Failed to preview the edited GPX."
                     setRouteToolExecutionMessage(message)
                     setRouteToolPreview(null)
                     setCompletedRouteToolDraft(draft)
@@ -226,7 +227,11 @@ internal fun rememberNavigateRouteToolActions(
         setPoiCreationSelectionActive(false)
         setRouteToolOptions(
             routeToolOptions
-                .withVisibleLoopDefaults()
+                .copy(
+                    routeStyle = routeToolDefaultOptions.routeStyle,
+                    useElevation = routeToolDefaultOptions.useElevation,
+                    allowFerries = routeToolDefaultOptions.allowFerries,
+                ).withVisibleLoopDefaults()
                 .copy(saveBehavior = RouteSaveBehavior.SAVE_AS_NEW),
         )
         clearRouteToolExecutionFeedback()
@@ -363,7 +368,7 @@ internal fun rememberNavigateRouteToolActions(
 
                 session.options.saveBehavior == RouteSaveBehavior.SAVE_AS_NEW -> {
                     setRouteToolSession(null)
-                    if (session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE) {
+                    if (session.options.modifyMode.previewBeforeSaving) {
                         previewModifyDraft(session, true)
                         return
                     }
@@ -597,7 +602,7 @@ internal fun rememberNavigateRouteToolActions(
                     executeCreateDraft(updated, true)
                 }
 
-                updated.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE -> {
+                updated.options.modifyMode.previewBeforeSaving -> {
                     setRouteToolSession(null)
                     previewModifyDraft(updated, true)
                 }

@@ -1,8 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
-import android.hardware.SensorManager
 import android.os.SystemClock
-import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -10,7 +8,6 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -20,60 +17,50 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.glancemap.glancemapwearos.core.maps.MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES
-import com.glancemap.glancemapwearos.core.maps.mapZoomLevelsForScaleSettings
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
-import com.glancemap.glancemapwearos.core.service.location.model.isInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
-import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
+import com.glancemap.glancemapwearos.data.repository.PoiType
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
-import com.glancemap.glancemapwearos.domain.sensors.CompassHeadingSourceMode
-import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
-import com.glancemap.glancemapwearos.domain.sensors.NorthReferenceMode
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapHolder
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
+import com.glancemap.glancemapwearos.presentation.features.navigate.UI_RECORDING_WAKE_REFRESH_SOURCE
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCalibrationEffects
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassEffects
+import com.glancemap.glancemapwearos.presentation.features.navigate.effects.NavigateCompassWakeTelemetry
 import com.glancemap.glancemapwearos.presentation.features.navigate.effects.rememberNavigateLocationUiState
-import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
-import com.glancemap.glancemapwearos.presentation.features.offline.OfflineStartCenteringEffect
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiNavigateTarget
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiOverlayMarker
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiViewModel
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteCreateMode
+import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingViewModel
+import com.glancemap.glancemapwearos.presentation.features.recording.recordedTraceSegments
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteModifyMode
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolKind
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolLoopRetryOption
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
-import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolProgressDialog
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
+import com.glancemap.glancemapwearos.presentation.features.routetools.previewBeforeSaving
+import com.glancemap.glancemapwearos.presentation.features.routetools.routeStylePresetFromSettingsValue
 import com.glancemap.glancemapwearos.presentation.features.routetools.routeToolMultiPointDraftConnectorPoints
 import com.glancemap.glancemapwearos.presentation.features.routetools.visibleRouteToolCreatePreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.withVisibleLoopDefaults
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsViewModel
-import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidBitmap
-import kotlin.math.abs
 
 @Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "LongParameterList")
 @Composable
@@ -83,11 +70,19 @@ fun NavigateScreen(
     poiViewModel: PoiViewModel,
     settingsViewModel: SettingsViewModel,
     locationViewModel: LocationViewModel,
+    traceRecordingViewModel: TraceRecordingViewModel,
     isAmbient: Boolean,
     isDeviceInteractive: Boolean,
     ambientTickMs: Long,
     onNavigateTimeSuppressedChange: (Boolean) -> Unit = {},
+    showNavigateTime: Boolean = true,
+    navigateTimeFormat: String = SettingsRepository.TIME_FORMAT_24_HOUR,
+    recordingDashboardExpandRequestToken: Long = 0L,
+    recordingActionPromptRequestToken: Long = 0L,
+    onRecordingTimeTap: () -> Unit = {},
+    onRecordingTimeLongPress: () -> Unit = {},
     onMenuClick: () -> Unit,
+    onOpenGpxToolsSettings: () -> Unit = {},
     compassViewModel: CompassViewModel = viewModel(),
     navigateViewModel: NavigateViewModel =
         viewModel(
@@ -105,44 +100,18 @@ fun NavigateScreen(
     val screenSize = rememberWearScreenSize()
     val density = LocalDensity.current
     val focusRequester = remember { FocusRequester() }
-    val lifecycleOwner = LocalLifecycleOwner.current
     SideEffect {
         BenchmarkTrace.mark("recompose.NavigateScreen")
     }
-    var isScreenResumed by remember(lifecycleOwner) {
-        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
-    }
-    var lastScreenResumeElapsedMs by remember(lifecycleOwner) {
-        mutableLongStateOf(SystemClock.elapsedRealtime())
-    }
-    var menuClickGuardUntilElapsedMs by remember(lifecycleOwner) {
-        mutableLongStateOf(lastScreenResumeElapsedMs + NAVIGATE_MENU_CLICK_RESUME_GUARD_MS)
-    }
-
-    DisposableEffect(lifecycleOwner) {
-        val observer =
-            LifecycleEventObserver { _, event ->
-                when (event) {
-                    Lifecycle.Event.ON_RESUME -> {
-                        val nowElapsedMs = SystemClock.elapsedRealtime()
-                        isScreenResumed = true
-                        lastScreenResumeElapsedMs = nowElapsedMs
-                        menuClickGuardUntilElapsedMs = nowElapsedMs + NAVIGATE_MENU_CLICK_RESUME_GUARD_MS
-                    }
-                    Lifecycle.Event.ON_PAUSE -> isScreenResumed = false
-                    else -> Unit
-                }
-            }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    LaunchedEffect(isScreenResumed, isDeviceInteractive) {
-        if (isScreenResumed && isDeviceInteractive) {
-            val nowElapsedMs = SystemClock.elapsedRealtime()
-            lastScreenResumeElapsedMs = nowElapsedMs
-            menuClickGuardUntilElapsedMs = nowElapsedMs + NAVIGATE_MENU_CLICK_RESUME_GUARD_MS
-        }
-    }
+    val lifecycleState = rememberNavigateScreenLifecycleState(isDeviceInteractive = isDeviceInteractive)
+    val isScreenResumed = lifecycleState.isScreenResumed
+    val lastScreenResumeElapsedMs = lifecycleState.lastScreenResumeElapsedMs
+    val startRecordingWithActivityPermission =
+        rememberRecordingStartWithActivityPermission(
+            context = context,
+            onStartRecording = traceRecordingViewModel::startRecording,
+        )
+    val menuClickGuardUntilElapsedMs = lifecycleState.menuClickGuardUntilElapsedMs
 
     // ---- UI STATE ----
     val uiState by navigateViewModel.uiState.collectAsState()
@@ -191,1137 +160,1016 @@ fun NavigateScreen(
         )
 
     // ---- SETTINGS ----
-    val zoomDefaultScaleMeters by settingsViewModel.mapZoomDefaultScaleMeters.collectAsState()
-    val zoomMinScaleMeters by settingsViewModel.mapZoomMinScaleMeters.collectAsState()
-    val zoomMaxScaleMeters by settingsViewModel.mapZoomMaxScaleMeters.collectAsState()
-    val northIndicatorMode by settingsViewModel.northIndicatorMode.collectAsState()
-    val northReferenceMode by settingsViewModel.northReferenceMode.collectAsState(
-        initial = SettingsRepository.NORTH_REFERENCE_TRUE,
-    )
-    val compassProviderMode by settingsViewModel.compassProviderMode.collectAsState(
-        initial = SettingsRepository.COMPASS_PROVIDER_GOOGLE_FUSED,
-    )
-    val headingSourceMode by settingsViewModel.compassHeadingSourceMode.collectAsState(
-        initial = SettingsRepository.COMPASS_HEADING_SOURCE_AUTO,
-    )
-    val gpxTrackColor by settingsViewModel.gpxTrackColor.collectAsState()
-    val gpxTrackColorMode by settingsViewModel.gpxTrackColorMode.collectAsState()
-    val gpxTrackWidth by settingsViewModel.gpxTrackWidth.collectAsState()
-    val gpxTrackOpacityPercent by settingsViewModel.gpxTrackOpacityPercent.collectAsState()
-    val gpxTrackDirectionArrowsEnabled by settingsViewModel.gpxTrackDirectionArrowsEnabled.collectAsState()
-    val autoRecenterEnabled by settingsViewModel.autoRecenterEnabled.collectAsState()
-    val autoRecenterDelay by settingsViewModel.autoRecenterDelay.collectAsState(initial = 5)
-    val promptForCalibration by settingsViewModel.promptForCalibration.collectAsState(initial = false)
-    val keepGpsInAmbient by settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
-    val crownZoomEnabled by settingsViewModel.crownZoomEnabled.collectAsState(initial = true)
-    val crownZoomInverted by settingsViewModel.crownZoomInverted.collectAsState(initial = true)
-    val navigateTimeFormat by settingsViewModel.navigateTimeFormat.collectAsState()
-    val mapZoomButtonsMode by settingsViewModel.mapZoomButtonsMode.collectAsState()
-    val navigationMarkerStyleSetting by settingsViewModel.navigationMarkerStyle.collectAsState()
-    val navigationMarkerAnchorMode by settingsViewModel.navigationMarkerAnchorMode.collectAsState()
-    val gpsAccuracyCircleEnabled by settingsViewModel.gpsAccuracyCircleEnabled.collectAsState(initial = false)
-    val liveElevationEnabled by settingsViewModel.liveElevation.collectAsState(initial = false)
-    val liveDistanceEnabled by settingsViewModel.liveDistance.collectAsState(initial = false)
-    val offlineMode by settingsViewModel.offlineMode.collectAsState(initial = false)
-    val gpsDebugTelemetry by settingsViewModel.gpsDebugTelemetry.collectAsState()
-    val gpsDebugTelemetryPopupEnabled by settingsViewModel.gpsDebugTelemetryPopupEnabled.collectAsState(initial = true)
-    val isGpxInspectionEnabled by settingsViewModel.isGpxInspectionEnabled.collectAsState()
-    val isMetric by settingsViewModel.isMetric.collectAsState()
-    val backButtonExitsNavigation by settingsViewModel.backButtonExitsNavigation.collectAsState()
-    val poiIconSizePx by settingsViewModel.poiIconSizePx.collectAsState()
-    val poiMarkerStyle by settingsViewModel.poiMarkerStyle.collectAsState()
-    val poiPopupTimeoutSeconds by settingsViewModel.poiPopupTimeoutSeconds.collectAsState(
-        initial = SettingsRepository.POI_POPUP_TIMEOUT_DEFAULT_SECONDS,
-    )
-    val poiPopupManualCloseOnly by settingsViewModel.poiPopupManualCloseOnly.collectAsState(initial = false)
-    val compassConeAccuracyColorsEnabled by settingsViewModel.compassConeAccuracyColorsEnabled.collectAsState(
-        initial = true,
-    )
-
-    // ---- VMS ----
-    val selectedMapPath by mapViewModel.selectedMapPath.collectAsState()
-    val activeGpxDetails by gpxViewModel.activeGpxDetails.collectAsState()
-    val activePoiOverlaySources by poiViewModel.activeOverlaySources.collectAsState()
-    val navigateTarget by poiViewModel.navigateTarget.collectAsState()
-    val offlinePoiSearchUiState by poiViewModel.offlineSearchUiState.collectAsState()
-
-    val fallbackMapViewportWidthPx =
-        remember(configuration.screenWidthDp, density.density) {
-            with(density) {
-                configuration.screenWidthDp.dp
-                    .toPx()
-                    .toDouble()
+    val navigateSettings = collectNavigateSettingsState(settingsViewModel)
+    with<NavigateSettingsState, Unit>(navigateSettings) {
+        // ---- VMS ----
+        val selectedMapPath by mapViewModel.selectedMapPath.collectAsState()
+        val activeGpxDetails by gpxViewModel.activeGpxDetails.collectAsState()
+        val turnByTurnGuidanceSession by gpxViewModel.turnByTurnGuidanceSession.collectAsState()
+        val turnByTurnGuidancePaused by gpxViewModel.turnByTurnGuidancePaused.collectAsState()
+        val activeTurnByTurnGuidanceSession =
+            if (turnByTurnGuidancePaused) {
+                null
+            } else {
+                turnByTurnGuidanceSession
             }
-        }
-    var zoomReferenceLatitude by remember {
-        mutableStateOf(MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES)
-    }
-    var zoomViewportWidthPx by remember { mutableStateOf(0) }
-    val mapZoomLevels =
-        remember(
-            zoomDefaultScaleMeters,
-            zoomMinScaleMeters,
-            zoomMaxScaleMeters,
-            fallbackMapViewportWidthPx,
-            zoomReferenceLatitude,
-            zoomViewportWidthPx,
-        ) {
-            mapZoomLevelsForScaleSettings(
-                defaultScaleMeters = zoomDefaultScaleMeters,
-                minScaleMeters = zoomMinScaleMeters,
-                maxScaleMeters = zoomMaxScaleMeters,
-                viewportWidthPx =
-                    zoomViewportWidthPx
-                        .takeIf { it > 0 }
-                        ?.toDouble()
-                        ?: fallbackMapViewportWidthPx,
-                latitudeDegrees = zoomReferenceLatitude,
+        val effectiveNavigationMarkerAnchorMode =
+            if (turnByTurnGuidanceSession != null) {
+                SettingsRepository.NAVIGATION_MARKER_ANCHOR_LOWER
+            } else {
+                navigationMarkerAnchorMode
+            }
+        val activePoiOverlaySources by poiViewModel.activeOverlaySources.collectAsState()
+        val navigateTarget by poiViewModel.navigateTarget.collectAsState()
+        val offlinePoiSearchUiState by poiViewModel.offlineSearchUiState.collectAsState()
+        val traceRecordingState by traceRecordingViewModel.uiState.collectAsState()
+        val recordingSampleIntervalSeconds by settingsViewModel.recordingSampleIntervalSeconds.collectAsState()
+        val recordingScreenOffSampleIntervalSeconds by settingsViewModel.recordingScreenOffSampleIntervalSeconds.collectAsState()
+        val turnByTurnGpsIntervalSeconds by settingsViewModel.turnByTurnGpsIntervalSeconds.collectAsState()
+        val turnByTurnScreenOffGpsIntervalSeconds by settingsViewModel.turnByTurnScreenOffGpsIntervalSeconds.collectAsState()
+        val recordingScreenOnGpsEnabled =
+            recordingSampleIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+        val recordingScreenOffGpsEnabled =
+            when (recordingScreenOffSampleIntervalSeconds) {
+                SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> recordingScreenOnGpsEnabled
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                else -> true
+            }
+        val turnByTurnScreenOnGpsEnabled =
+            turnByTurnGpsIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+        val turnByTurnScreenOffGpsEnabled =
+            when (turnByTurnScreenOffGpsIntervalSeconds) {
+                SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> turnByTurnScreenOnGpsEnabled
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                else -> true
+            }
+        val recordingTraceSegments =
+            remember(traceRecordingState.points) {
+                recordedTraceSegments(traceRecordingState.points)
+                    .map { segment -> segment.map { it.latLong } }
+            }
+        val recordingStatusMessage =
+            rememberRecordingStatusMessage(
+                state = traceRecordingState,
+                traceRecordingViewModel = traceRecordingViewModel,
             )
+
+        val mapZoomState =
+            rememberNavigateMapZoomState(
+                configuration = configuration,
+                density = density,
+                zoomDefaultScaleMeters = zoomDefaultScaleMeters,
+                zoomMinScaleMeters = zoomMinScaleMeters,
+                zoomMaxScaleMeters = zoomMaxScaleMeters,
+            )
+        val zoomDefault = mapZoomState.default
+        val zoomMin = mapZoomState.min
+        val zoomMax = mapZoomState.max
+
+        // Inspection UI state
+        val inspectionUiState by gpxViewModel.inspectionUiState.collectAsState()
+
+        // A/B marker points
+        val selectedPointA by gpxViewModel.selectedPointA.collectAsState()
+        val selectedPointB by gpxViewModel.selectedPointB.collectAsState()
+        val selectingGpxPointB by gpxViewModel.selectingPointB.collectAsState()
+        var shortcutTrayExpanded by rememberSaveable { mutableStateOf(false) }
+        var showRouteToolsPanel by rememberSaveable { mutableStateOf(false) }
+        var routeToolOptions by rememberSaveable(stateSaver = routeToolOptionsSaver) {
+            mutableStateOf(RouteToolOptions())
         }
-    val zoomDefault = mapZoomLevels.default
-    val zoomMin = mapZoomLevels.min
-    val zoomMax = mapZoomLevels.max
+        var routeToolSession by rememberSaveable(stateSaver = routeToolSessionSaver) {
+            mutableStateOf<RouteToolSession?>(null)
+        }
+        var poiCreationSelectionActive by rememberSaveable { mutableStateOf(false) }
+        var completedRouteToolDraft by remember { mutableStateOf<RouteToolSession?>(null) }
+        var routeToolExecutionInProgress by remember { mutableStateOf(false) }
+        var routeToolExecutionStatus by remember { mutableStateOf<String?>(null) }
+        var routeToolExecutionMessage by remember { mutableStateOf<String?>(null) }
+        var routeToolLoopRetryOptions by remember { mutableStateOf<List<RouteToolLoopRetryOption>>(emptyList()) }
+        var routeToolResult by remember { mutableStateOf<RouteToolSaveResult?>(null) }
+        var routeToolRenameInProgress by remember { mutableStateOf(false) }
+        var routeToolRenameError by remember { mutableStateOf<String?>(null) }
+        var routeToolPreview by remember { mutableStateOf<RouteToolModifyPreview?>(null) }
+        var routeToolCreatePreview by remember { mutableStateOf<RouteToolCreatePreview?>(null) }
+        var routeToolCreatePreviewInProgress by remember { mutableStateOf(false) }
+        var routeToolCreatePreviewMessage by remember { mutableStateOf<String?>(null) }
+        var routeToolPreflightMessage by remember { mutableStateOf<String?>(null) }
+        var createdPoiCreateInProgress by remember { mutableStateOf(false) }
+        var createdPoiPendingRename by remember { mutableStateOf<UserPoiRecord?>(null) }
+        var showCreatedPoiRenameDialog by remember { mutableStateOf(false) }
+        var createdPoiRenameInProgress by remember { mutableStateOf(false) }
+        var createdPoiRenameError by remember { mutableStateOf<String?>(null) }
+        val scope = rememberCoroutineScope()
 
-    // Inspection UI state
-    val inspectionUiState by gpxViewModel.inspectionUiState.collectAsState()
-
-    // A/B marker points
-    val selectedPointA by gpxViewModel.selectedPointA.collectAsState()
-    val selectedPointB by gpxViewModel.selectedPointB.collectAsState()
-    val selectingGpxPointB by gpxViewModel.selectingPointB.collectAsState()
-    var shortcutTrayExpanded by rememberSaveable { mutableStateOf(false) }
-    var showRouteToolsPanel by rememberSaveable { mutableStateOf(false) }
-    var routeToolOptions by rememberSaveable(stateSaver = routeToolOptionsSaver) {
-        mutableStateOf(RouteToolOptions())
-    }
-    var routeToolSession by rememberSaveable(stateSaver = routeToolSessionSaver) {
-        mutableStateOf<RouteToolSession?>(null)
-    }
-    var poiCreationSelectionActive by rememberSaveable { mutableStateOf(false) }
-    var completedRouteToolDraft by remember { mutableStateOf<RouteToolSession?>(null) }
-    var routeToolExecutionInProgress by remember { mutableStateOf(false) }
-    var routeToolExecutionStatus by remember { mutableStateOf<String?>(null) }
-    var routeToolExecutionMessage by remember { mutableStateOf<String?>(null) }
-    var routeToolLoopRetryOptions by remember { mutableStateOf<List<RouteToolLoopRetryOption>>(emptyList()) }
-    var routeToolResult by remember { mutableStateOf<RouteToolSaveResult?>(null) }
-    var routeToolRenameInProgress by remember { mutableStateOf(false) }
-    var routeToolRenameError by remember { mutableStateOf<String?>(null) }
-    var routeToolPreview by remember { mutableStateOf<RouteToolModifyPreview?>(null) }
-    var routeToolCreatePreview by remember { mutableStateOf<RouteToolCreatePreview?>(null) }
-    var routeToolCreatePreviewInProgress by remember { mutableStateOf(false) }
-    var routeToolCreatePreviewMessage by remember { mutableStateOf<String?>(null) }
-    var routeToolPreflightMessage by remember { mutableStateOf<String?>(null) }
-    var createdPoiCreateInProgress by remember { mutableStateOf(false) }
-    var createdPoiPendingRename by remember { mutableStateOf<UserPoiRecord?>(null) }
-    var showCreatedPoiRenameDialog by remember { mutableStateOf(false) }
-    var createdPoiRenameInProgress by remember { mutableStateOf(false) }
-    var createdPoiRenameError by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-    val screenState =
-        remember(isAmbient, isDeviceInteractive) {
-            resolveLocationScreenState(
+        // ---- Should track location? ----
+        val runtimeState =
+            rememberNavigateRuntimeState(
                 isAmbient = isAmbient,
                 isDeviceInteractive = isDeviceInteractive,
+                isScreenResumed = isScreenResumed,
+                hasLocationPermission = locationPermissionState.hasLocationPermission,
+                offlineMode = offlineMode,
+                generalGpsInAmbient = keepGpsInAmbient,
+                traceRecordingState = traceRecordingState,
+                recordingScreenOnGpsEnabled = recordingScreenOnGpsEnabled,
+                recordingScreenOffGpsEnabled = recordingScreenOffGpsEnabled,
+                turnByTurnScreenOnGpsEnabled = turnByTurnScreenOnGpsEnabled,
+                turnByTurnScreenOffGpsEnabled = turnByTurnScreenOffGpsEnabled,
+                turnByTurnActive = turnByTurnGuidanceSession != null,
+                turnByTurnPaused = turnByTurnGuidancePaused,
+                turnByTurnGpsInAmbient = turnByTurnScreenOffGpsEnabled,
+                locationViewModel = locationViewModel,
+                traceRecordingViewModel = traceRecordingViewModel,
             )
-        }
-
-    // ---- Should track location? ----
-    val backgroundGpsModeActive = keepGpsInAmbient && screenState.isNonInteractive
-    val shouldTrackLocation =
-        locationPermissionState.hasLocationPermission &&
-            !offlineMode &&
-            (isScreenResumed || backgroundGpsModeActive)
-    val effectiveNavMode = if (offlineMode) NavMode.PANNING else navMode
-    val effectiveCompassProviderMode = compassProviderMode
-    val selectedCompassProviderType =
-        when (effectiveCompassProviderMode) {
-            SettingsRepository.COMPASS_PROVIDER_SENSOR_MANAGER ->
-                CompassProviderType.SENSOR_MANAGER
-            else -> CompassProviderType.GOOGLE_FUSED
-        }
-    val effectiveHeadingSourceMode =
-        if (
-            effectiveCompassProviderMode == SettingsRepository.COMPASS_PROVIDER_SENSOR_MANAGER
-        ) {
-            headingSourceMode
-        } else {
-            SettingsRepository.COMPASS_HEADING_SOURCE_AUTO
-        }
-
-    // ---- Heading + Accuracy ----
-    val compassRenderState by compassViewModel.renderState.collectAsState()
-    val compassAccuracy = compassRenderState.accuracy
-    val magneticInterference = compassRenderState.magneticInterference
-    val liveCompassQualityReading =
-        compassQualityReadingFromRenderState(
-            renderState = compassRenderState,
-            nowElapsedMs = SystemClock.elapsedRealtime(),
-        )
-    val navigationMarkerStyle =
-        remember(navigationMarkerStyleSetting) {
-            navigationMarkerStyleFromSetting(navigationMarkerStyleSetting)
-        }
-    var displayedCompassQualityName by rememberSaveable {
-        mutableStateOf(CompassMarkerQuality.MEDIUM.name)
-    }
-    val displayedCompassQuality =
-        remember(displayedCompassQualityName) {
-            runCatching { CompassMarkerQuality.valueOf(displayedCompassQualityName) }
-                .getOrDefault(CompassMarkerQuality.MEDIUM)
-        }
-    var compassQualityWarmupUntilMs by rememberSaveable { mutableLongStateOf(0L) }
-    LaunchedEffect(isScreenResumed, screenState, offlineMode) {
-        if (isScreenResumed && screenState.isInteractive && !offlineMode) {
-            compassQualityWarmupUntilMs =
-                SystemClock.elapsedRealtime() + COMPASS_QUALITY_STARTUP_GRACE_MS
-        }
-    }
-    LaunchedEffect(compassQualityWarmupUntilMs, compassAccuracy) {
-        val nowElapsedMs = SystemClock.elapsedRealtime()
-        if (
-            compassAccuracy == SensorManager.SENSOR_STATUS_UNRELIABLE &&
-            compassQualityWarmupUntilMs > nowElapsedMs
-        ) {
-            delay(compassQualityWarmupUntilMs - nowElapsedMs)
-            compassQualityWarmupUntilMs = 0L
-        }
-    }
-    var lastCalibrationConfirmedAtMs by rememberSaveable { mutableLongStateOf(0L) }
-    LaunchedEffect(
-        liveCompassQualityReading.quality,
-        liveCompassQualityReading.hasQualitySample,
-        liveCompassQualityReading.isStale,
-        lastCalibrationConfirmedAtMs,
-        compassQualityWarmupUntilMs,
-    ) {
-        val nowElapsedMs = SystemClock.elapsedRealtime()
-        val rawQuality = liveCompassQualityReading.quality ?: CompassMarkerQuality.UNRELIABLE
-        val effectiveRawQuality =
-            applyCompassStartupWarmupGuard(
-                rawQuality = rawQuality,
-                displayedQuality = displayedCompassQuality,
-                nowElapsedMs = nowElapsedMs,
-                warmupUntilElapsedMs = compassQualityWarmupUntilMs,
-            )
-        val targetQuality =
-            displayTargetCompassQuality(
-                rawQuality = effectiveRawQuality,
-                nowElapsedMs = nowElapsedMs,
-                lastCalibrationConfirmedAtElapsedMs = lastCalibrationConfirmedAtMs,
-            )
-        if (targetQuality == displayedCompassQuality) return@LaunchedEffect
-        val holdMs =
-            compassQualityTransitionHoldMs(
-                from = displayedCompassQuality,
-                to = targetQuality,
-            )
-        if (holdMs > 0L) {
-            delay(holdMs)
-        }
-        val refreshedNowElapsedMs = SystemClock.elapsedRealtime()
-        val refreshedReading =
-            compassQualityReadingFromRenderState(
-                renderState = compassRenderState,
-                nowElapsedMs = refreshedNowElapsedMs,
-            )
-        val refreshedRawQuality = refreshedReading.quality ?: CompassMarkerQuality.UNRELIABLE
-        val refreshedEffectiveRawQuality =
-            applyCompassStartupWarmupGuard(
-                rawQuality = refreshedRawQuality,
-                displayedQuality = displayedCompassQuality,
-                nowElapsedMs = refreshedNowElapsedMs,
-                warmupUntilElapsedMs = compassQualityWarmupUntilMs,
-            )
-        val refreshedTargetQuality =
-            displayTargetCompassQuality(
-                rawQuality = refreshedEffectiveRawQuality,
-                nowElapsedMs = refreshedNowElapsedMs,
-                lastCalibrationConfirmedAtElapsedMs = lastCalibrationConfirmedAtMs,
-            )
-        if (refreshedTargetQuality == targetQuality) {
-            displayedCompassQualityName = targetQuality.name
-        }
-    }
-    val navigationMarkerSizePx =
-        when (navigationMarkerStyle) {
-            NavigationMarkerStyle.DOT -> 50
-            NavigationMarkerStyle.TRIANGLE -> 50
-        }
-    val showCompassConeOverlay = navigationMarkerStyle == NavigationMarkerStyle.DOT
-    val effectiveCompassConeAccuracyColorsEnabled =
-        compassConeAccuracyColorsEnabled &&
-            selectedCompassProviderType == CompassProviderType.SENSOR_MANAGER
-    val compassConeQuality =
-        if (effectiveCompassConeAccuracyColorsEnabled) {
-            displayedCompassQuality
-        } else {
-            CompassMarkerQuality.GOOD
-        }
-    val compassConeHeadingErrorDeg =
-        if (
-            effectiveCompassConeAccuracyColorsEnabled &&
-            liveCompassQualityReading.hasQualitySample &&
-            !liveCompassQualityReading.isStale
-        ) {
-            liveCompassQualityReading.headingErrorDeg
-        } else {
-            null
-        }
-    val compassConeBaseSizePx =
-        with(density) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 64.dp.roundToPx()
-                WearScreenSize.MEDIUM -> 58.dp.roundToPx()
-                WearScreenSize.SMALL -> 52.dp.roundToPx()
-            }
-        }
-
-    LaunchedEffect(northReferenceMode, isScreenResumed) {
-        if (!isScreenResumed) return@LaunchedEffect
-        val mode =
-            if (northReferenceMode == SettingsRepository.NORTH_REFERENCE_MAGNETIC) {
-                NorthReferenceMode.MAGNETIC
-            } else {
-                NorthReferenceMode.TRUE
-            }
-        compassViewModel.setNorthReferenceMode(mode)
-    }
-    LaunchedEffect(effectiveCompassProviderMode) {
-        compassViewModel.setProviderType(selectedCompassProviderType)
-    }
-    LaunchedEffect(effectiveHeadingSourceMode, isScreenResumed) {
-        if (!isScreenResumed) return@LaunchedEffect
-        val mode =
-            when (effectiveHeadingSourceMode) {
-                SettingsRepository.COMPASS_HEADING_SOURCE_TYPE_HEADING ->
-                    CompassHeadingSourceMode.TYPE_HEADING
-                SettingsRepository.COMPASS_HEADING_SOURCE_ROTATION_VECTOR ->
-                    CompassHeadingSourceMode.ROTATION_VECTOR
-                SettingsRepository.COMPASS_HEADING_SOURCE_MAGNETOMETER ->
-                    CompassHeadingSourceMode.MAGNETOMETER
-                else -> CompassHeadingSourceMode.AUTO
-            }
-        compassViewModel.setHeadingSourceMode(mode)
-    }
-
-    // ---- MAP OBJECTS ----
-    val mapHolder: MapHolder =
-        remember(zoomDefault, zoomMin, zoomMax) {
-            mapViewModel.getOrCreateMapHolder(
-                context = context,
-                zoomDefault = zoomDefault,
-                zoomMin = zoomMin,
-                zoomMax = zoomMax,
-            )
-        }
-
-    LaunchedEffect(mapHolder) {
-        mapViewModel.setMapRenderer(mapHolder.renderer)
-    }
-
-    LaunchedEffect(mapHolder, selectedMapPath) {
-        val mapView = mapHolder.mapView
-        val center = mapView.model.mapViewPosition.center
-        val nextLatitude = center.latitude.coerceIn(-85.0, 85.0)
-        if (shouldUpdateZoomReferenceLatitude(zoomReferenceLatitude, nextLatitude)) {
-            zoomReferenceLatitude = nextLatitude
-        }
-        if (mapView.width > 0 && mapView.width != zoomViewportWidthPx) {
-            zoomViewportWidthPx = mapView.width
-        }
-    }
-
-    LaunchedEffect(mapHolder, northReferenceMode) {
-        if (northReferenceMode != SettingsRepository.NORTH_REFERENCE_TRUE) return@LaunchedEffect
-        val center = mapHolder.mapView.model.mapViewPosition.center
-        compassViewModel.primeDeclinationFromApproximateLocation(
-            latitude = center.latitude,
-            longitude = center.longitude,
-        )
-    }
-
-    val navigationMarkerBitmap =
-        remember(navigationMarkerStyle, navigationMarkerSizePx) {
-            val bitmap =
-                createNavigationMarkerBitmap(
-                    style = navigationMarkerStyle,
-                    sizePx = navigationMarkerSizePx,
+        val screenState = runtimeState.screenState
+        val shouldTrackLocation = runtimeState.shouldTrackLocation
+        val expectedMarkerGpsIntervalMs =
+            remember(
+                runtimeState.reason,
+                screenState,
+                recordingSampleIntervalSeconds,
+                recordingScreenOffSampleIntervalSeconds,
+                turnByTurnGpsIntervalSeconds,
+                turnByTurnScreenOffGpsIntervalSeconds,
+            ) {
+                expectedMarkerGpsIntervalMs(
+                    runtimeReason = runtimeState.reason,
+                    screenState = screenState,
+                    recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
+                    recordingScreenOffSampleIntervalSeconds = recordingScreenOffSampleIntervalSeconds,
+                    turnByTurnGpsIntervalSeconds = turnByTurnGpsIntervalSeconds,
+                    turnByTurnScreenOffGpsIntervalSeconds = turnByTurnScreenOffGpsIntervalSeconds,
                 )
-            AndroidBitmap(bitmap)
+            }
+        val effectiveNavMode = if (offlineMode) NavMode.PANNING else navMode
+        // ---- Heading + Accuracy ----
+        val compassUiState =
+            rememberNavigateCompassUiState(
+                compassViewModel = compassViewModel,
+                screenState = screenState,
+                isScreenResumed = isScreenResumed,
+                offlineMode = offlineMode,
+                northReferenceMode = northReferenceMode,
+                compassProviderMode = compassProviderMode,
+                headingSourceMode = headingSourceMode,
+                navigationMarkerStyleSetting = navigationMarkerStyleSetting,
+                compassConeAccuracyColorsEnabled = compassConeAccuracyColorsEnabled,
+                density = density,
+                screenSize = screenSize,
+            )
+        val compassRenderState = compassUiState.renderState
+        val compassAccuracy = compassUiState.accuracy
+        val magneticInterference = compassUiState.magneticInterference
+        val selectedCompassProviderType = compassUiState.providerType
+        val navigationMarkerStyle = compassUiState.markerStyle
+        val navigationMarkerSizePx = compassUiState.markerSizePx
+        val showCompassConeOverlay = compassUiState.showCompassConeOverlay
+        val compassConeBaseSizePx = compassUiState.coneBaseSizePx
+        val compassConeQuality = compassUiState.coneQuality
+        val compassConeHeadingErrorDeg = compassUiState.coneHeadingErrorDeg
+
+        // ---- MAP OBJECTS ----
+        val mapHolder: MapHolder =
+            remember(zoomDefault, zoomMin, zoomMax) {
+                mapViewModel.getOrCreateMapHolder(
+                    context = context,
+                    zoomDefault = zoomDefault,
+                    zoomMin = zoomMin,
+                    zoomMax = zoomMax,
+                )
+            }
+
+        LaunchedEffect(mapHolder) {
+            mapViewModel.setMapRenderer(mapHolder.renderer)
         }
 
-    NavigateCompassEffects(
-        compassViewModel = compassViewModel,
-        compassProviderType = selectedCompassProviderType,
-        screenState = screenState,
-        isOfflineMode = offlineMode,
-    )
-
-    // ---- Drive foreground pinning from keepAppOpen ----
-    // Keep-app-open controls foreground pinning only; GPS runtime is gated by shouldTrackLocation.
-    LaunchedEffect(keepAppOpen) {
-        if (!hasAppliedInitialKeepAppOpenSync) {
-            hasAppliedInitialKeepAppOpenSync = true
-            if (!keepAppOpen) return@LaunchedEffect
+        LaunchedEffect(mapHolder, selectedMapPath) {
+            val mapView = mapHolder.mapView
+            val center = mapView.model.mapViewPosition.center
+            mapZoomState.updateReference(center, mapView.width)
         }
-        locationViewModel.setKeepAppOpen(keepAppOpen)
-    }
 
-    // In follow modes, keep user location centered at all times.
-    // autoRecenterEnabled only controls whether we exit panning automatically.
-    val shouldFollowPosition = effectiveNavMode != NavMode.PANNING
-
-    // Ensure zoom initialised once
-    LaunchedEffect(zoomDefault) {
-        navigateViewModel.initZoom(zoomDefault)
-    }
-
-    // Keep service runtime state in sync with one combined update so
-    // screen-state transitions do not trigger back-to-back request recomputes.
-    LaunchedEffect(screenState, shouldTrackLocation) {
-        locationViewModel.syncRuntimeState(
-            screenState = screenState,
-            trackingEnabled = shouldTrackLocation,
-        )
-    }
-    // isScreenResumed already reflects lifecycle resume, so one state-driven wake reacquire
-    // effect is enough for both plain resume and ambient exit.
-    LaunchedEffect(screenState, isScreenResumed, offlineMode, locationPermissionState.hasLocationPermission) {
-        if (
-            isScreenResumed &&
-            screenState == LocationScreenState.INTERACTIVE &&
-            !offlineMode &&
-            locationPermissionState.hasLocationPermission
-        ) {
-            locationViewModel.requestImmediateLocation(
-                source = NAVIGATE_WAKE_REACQUIRE_AMBIENT_EXIT_SOURCE,
+        LaunchedEffect(mapHolder, northReferenceMode) {
+            if (northReferenceMode != SettingsRepository.NORTH_REFERENCE_TRUE) return@LaunchedEffect
+            val center = mapHolder.mapView.model.mapViewPosition.center
+            compassViewModel.primeDeclinationFromApproximateLocation(
+                latitude = center.latitude,
+                longitude = center.longitude,
             )
         }
-    }
-    DisposableEffect(locationViewModel) {
-        onDispose {
-            // Leaving Navigate resets runtime state to the safe baseline in one pass.
-            locationViewModel.syncRuntimeState(
-                screenState = LocationScreenState.INTERACTIVE,
-                trackingEnabled = false,
-            )
-        }
-    }
 
-    NavigateCalibrationEffects(
-        compassViewModel = compassViewModel,
-        compassProviderType = selectedCompassProviderType,
-        compassAccuracy = compassAccuracy,
-        magneticInterference = magneticInterference,
-        navMode = effectiveNavMode,
-        isAmbient = isAmbient,
-        promptForCalibration = promptForCalibration,
-        showCalibrationDialog = showCalibrationDialog,
-        onShowCalibrationDialog = { navigateViewModel.showCalibrationDialog() },
-        onHideCalibrationDialog = { navigateViewModel.hideCalibrationDialog() },
-        onApplyRecalibration = { compassViewModel.recalibrate() },
-        onRecalibrationSucceeded = { lastCalibrationConfirmedAtMs = SystemClock.elapsedRealtime() },
-    )
+        val navigationMarkerBitmap =
+            remember(navigationMarkerStyle, navigationMarkerSizePx) {
+                val bitmap =
+                    createNavigationMarkerBitmap(
+                        style = navigationMarkerStyle,
+                        sizePx = navigationMarkerSizePx,
+                    )
+                AndroidBitmap(bitmap)
+            }
 
-    val screenActions =
-        rememberNavigateScreenActions(
-            context = context,
-            settingsViewModel = settingsViewModel,
-            locationPermissionState = locationPermissionState,
-            notificationPermissionState = notificationPermissionPromptState,
-            keepAppOpen = keepAppOpen,
-            keepAppOpenTipShown = keepAppOpenTipShown,
-            offlineMode = offlineMode,
-            setPendingKeepAppOpen = { pendingKeepAppOpen = it },
-            setShowKeepAppOpenInfoDialog = { showKeepAppOpenInfoDialog = it },
-            setShortcutTrayExpanded = { shortcutTrayExpanded = it },
-            isShortcutTrayExpanded = shortcutTrayExpanded,
-        )
-
-    // ---- Auto-recenter timer ----
-    LaunchedEffect(effectiveNavMode, autoRecenterEnabled, autoRecenterDelay, offlineMode) {
-        if (!offlineMode && effectiveNavMode == NavMode.PANNING && autoRecenterEnabled) {
-            delay(autoRecenterDelay.toLong() * 1000L)
-            navigateViewModel.onRecenterRequested()
-        }
-    }
-
-    if (isAmbient) {
-        AmbientScreen(
-            ambientTick = ambientTickMs,
-            timeFormat = navigateTimeFormat,
-        )
-        return
-    }
-
-    var pendingPoiFocusTarget by remember { mutableStateOf<PoiNavigateTarget?>(null) }
-    var markerMotionDebugOverlayLabel by remember { mutableStateOf<String?>(null) }
-
-    val mapView = mapHolder.mapView
-
-    LaunchedEffect(gpsDebugTelemetry, gpsDebugTelemetryPopupEnabled, offlineMode) {
-        if (!gpsDebugTelemetry || !gpsDebugTelemetryPopupEnabled || offlineMode) {
-            markerMotionDebugOverlayLabel = null
-            return@LaunchedEffect
-        }
-
-        while (isActive) {
-            markerMotionDebugOverlayLabel = MarkerMotionTelemetry.latestSnapshot().overlayLabel()
-            delay(250L)
-        }
-    }
-
-    LaunchedEffect(navigateTarget, mapView, zoomMin, zoomMax) {
-        val target = navigateTarget ?: return@LaunchedEffect
-        navigateViewModel.onUserPanStarted()
-        mapView.setCenter(LatLong(target.lat, target.lon))
-        val focusZoom =
-            poiFocusZoomLevel(
-                mapView = mapView,
-                latitude = target.lat,
-                minZoom = zoomMin,
-                maxZoom = zoomMax,
-            )
-        mapView.model.mapViewPosition.setZoomLevel(focusZoom.toByte(), false)
-        navigateViewModel.onZoomChanged(focusZoom)
-        pendingPoiFocusTarget = target
-        poiViewModel.consumeNavigateTarget()
-    }
-
-    val locationUiState =
-        rememberNavigateLocationUiState(
-            mapView = mapView,
-            locationViewModel = locationViewModel,
+        NavigateCompassEffects(
             compassViewModel = compassViewModel,
-            navigateViewModel = navigateViewModel,
-            shouldTrackLocation = shouldTrackLocation,
-            shouldFollowPosition = shouldFollowPosition,
+            compassProviderType = selectedCompassProviderType,
             screenState = screenState,
-            // Keep marker-motion timing stable; the 1s wake burst is a service detail.
-            expectedGpsIntervalMs = SettingsRepository.DEFAULT_GPS_INTERVAL_MS,
-            navigationMarkerBitmap = navigationMarkerBitmap,
-            suppressLocationMarker = offlineMode,
-            navigationMarkerAnchorMode = navigationMarkerAnchorMode,
+            isOfflineMode = offlineMode,
         )
 
-    val locationMarker = locationUiState.locationMarker
-    val gpsIndicatorState = locationUiState.gpsIndicatorState
-    val effectiveGpsIndicatorState =
-        if (offlineMode) {
-            GpsFixIndicatorState.UNAVAILABLE
-        } else {
-            gpsIndicatorState
+        // ---- Drive foreground pinning from keepAppOpen ----
+        // Keep-app-open controls foreground pinning only; GPS runtime is gated by shouldTrackLocation.
+        LaunchedEffect(keepAppOpen) {
+            if (!hasAppliedInitialKeepAppOpenSync) {
+                hasAppliedInitialKeepAppOpenSync = true
+                if (!keepAppOpen) return@LaunchedEffect
+            }
+            locationViewModel.setKeepAppOpen(keepAppOpen)
         }
-    val gpsSignalSnapshot by locationViewModel.gpsSignalSnapshot.collectAsState()
-    val gpsFixFreshForAccuracyCircle =
-        gpsSignalSnapshot.isLocationAvailable &&
-            gpsSignalSnapshot.lastFixElapsedRealtimeMs > 0L &&
-            gpsSignalSnapshot.lastFixAgeMs in 0..gpsSignalSnapshot.lastFixFreshMaxAgeMs
-    val watchGpsDegradedWarning = locationUiState.watchGpsDegradedWarning
-    val gpsEnvironmentWarning = locationUiState.gpsEnvironmentWarning
-    val mapAppearanceApplyInProgress by mapViewModel.mapAppearanceApplyInProgress.collectAsState()
-    val slopeOverlayToggleEnabled by mapViewModel.reliefOverlayToggleEnabled.collectAsState()
-    var slopeOverlayState by remember {
-        mutableStateOf(
-            MapRenderer.ReliefOverlayState(
-                enabled = false,
-                processing = false,
-                progressPercent = null,
-            ),
+
+        // In follow modes, keep user location centered at all times.
+        // autoRecenterEnabled only controls whether we exit panning automatically.
+        val shouldFollowPosition = effectiveNavMode != NavMode.PANNING
+
+        // Ensure zoom initialised once
+        LaunchedEffect(zoomDefault) {
+            navigateViewModel.initZoom(zoomDefault)
+        }
+
+        NavigateCalibrationEffects(
+            compassViewModel = compassViewModel,
+            compassProviderType = selectedCompassProviderType,
+            compassAccuracy = compassAccuracy,
+            magneticInterference = magneticInterference,
+            navMode = effectiveNavMode,
+            isAmbient = isAmbient,
+            promptForCalibration = promptForCalibration,
+            showCalibrationDialog = showCalibrationDialog,
+            onShowCalibrationDialog = { navigateViewModel.showCalibrationDialog() },
+            onHideCalibrationDialog = { navigateViewModel.hideCalibrationDialog() },
+            onApplyRecalibration = { compassViewModel.recalibrate() },
+            onRecalibrationSucceeded = compassUiState.onCalibrationSucceeded,
         )
-    }
 
-    DisposableEffect(mapHolder) {
-        val listener: (MapRenderer.ReliefOverlayState) -> Unit = { state ->
-            slopeOverlayState = state
-        }
-        mapHolder.renderer.addReliefOverlayStateListener(listener)
-        onDispose {
-            mapHolder.renderer.removeReliefOverlayStateListener(listener)
-        }
-    }
+        val screenActions =
+            rememberNavigateScreenActions(
+                context = context,
+                settingsViewModel = settingsViewModel,
+                locationPermissionState = locationPermissionState,
+                notificationPermissionState = notificationPermissionPromptState,
+                keepAppOpen = keepAppOpen,
+                keepAppOpenTipShown = keepAppOpenTipShown,
+                offlineMode = offlineMode,
+                setPendingKeepAppOpen = { pendingKeepAppOpen = it },
+                setShowKeepAppOpenInfoDialog = { showKeepAppOpenInfoDialog = it },
+                setShortcutTrayExpanded = { shortcutTrayExpanded = it },
+                isShortcutTrayExpanded = shortcutTrayExpanded,
+            )
 
-    // All overlays + popups + yellow A/B markers
-    var renderedMapRotationDeg by remember { mutableFloatStateOf(0f) }
-    var renderedCompassHeadingDeg by
-        remember {
-            mutableFloatStateOf(
-                resolveNavigateInitialRenderedHeadingDeg(
-                    renderState = compassRenderState,
-                    nowElapsedMs = SystemClock.elapsedRealtime(),
+        // ---- Auto-recenter timer ----
+        LaunchedEffect(effectiveNavMode, autoRecenterEnabled, autoRecenterDelay, offlineMode) {
+            if (!offlineMode && effectiveNavMode == NavMode.PANNING && autoRecenterEnabled) {
+                delay(autoRecenterDelay.toLong() * 1000L)
+                navigateViewModel.onRecenterRequested()
+            }
+        }
+
+        if (isAmbient) {
+            AmbientScreen(
+                ambientTick = ambientTickMs,
+                timeFormat = navigateTimeFormat,
+            )
+            return
+        }
+
+        var pendingPoiFocusTarget by remember { mutableStateOf<PoiNavigateTarget?>(null) }
+        val markerMotionDebugOverlayLabel =
+            rememberMarkerMotionDebugOverlayLabel(
+                gpsDebugTelemetry = gpsDebugTelemetry,
+                gpsDebugTelemetryPopupEnabled = gpsDebugTelemetryPopupEnabled,
+                offlineMode = offlineMode,
+            )
+
+        val mapView = mapHolder.mapView
+
+        LaunchedEffect(navigateTarget, mapView, zoomMin, zoomMax) {
+            val target = navigateTarget ?: return@LaunchedEffect
+            navigateViewModel.onUserPanStarted()
+            mapView.setCenter(LatLong(target.lat, target.lon))
+            val focusZoom =
+                poiFocusZoomLevel(
+                    mapView = mapView,
+                    latitude = target.lat,
+                    minZoom = zoomMin,
+                    maxZoom = zoomMax,
+                )
+            mapView.model.mapViewPosition.setZoomLevel(focusZoom.toByte(), false)
+            navigateViewModel.onZoomChanged(focusZoom)
+            pendingPoiFocusTarget = target
+            poiViewModel.consumeNavigateTarget()
+        }
+
+        val locationUiState =
+            rememberNavigateLocationUiState(
+                mapView = mapView,
+                locationViewModel = locationViewModel,
+                compassViewModel = compassViewModel,
+                navigateViewModel = navigateViewModel,
+                shouldTrackLocation = shouldTrackLocation,
+                shouldFollowPosition = shouldFollowPosition,
+                screenState = screenState,
+                expectedGpsIntervalMs = expectedMarkerGpsIntervalMs,
+                navigationMarkerBitmap = navigationMarkerBitmap,
+                suppressLocationMarker = offlineMode,
+                navigationMarkerAnchorMode = effectiveNavigationMarkerAnchorMode,
+            )
+
+        val locationMarker = locationUiState.locationMarker
+        val gpsIndicatorState = locationUiState.gpsIndicatorState
+        val effectiveGpsIndicatorState =
+            if (offlineMode) {
+                GpsFixIndicatorState.UNAVAILABLE
+            } else {
+                gpsIndicatorState
+            }
+        val gpsSignalSnapshot by locationViewModel.gpsSignalSnapshot.collectAsState()
+        LaunchedEffect(routeToolPreflightMessage, gpsSignalSnapshot.lastFixFresh) {
+            if (routeToolPreflightMessage == "Waiting for GPS" && gpsSignalSnapshot.lastFixFresh) {
+                routeToolPreflightMessage = null
+            }
+        }
+        val rawCurrentLocation by locationViewModel.currentLocation.collectAsState()
+        val gpsFixFreshForAccuracyCircle =
+            gpsSignalSnapshot.isLocationAvailable &&
+                gpsSignalSnapshot.lastFixElapsedRealtimeMs > 0L &&
+                gpsSignalSnapshot.lastFixAgeMs in 0..gpsSignalSnapshot.lastFixFreshMaxAgeMs
+        val watchGpsDegradedWarning = locationUiState.watchGpsDegradedWarning
+        val gpsEnvironmentWarning = locationUiState.gpsEnvironmentWarning
+        val mapAppearanceApplyInProgress by mapViewModel.mapAppearanceApplyInProgress.collectAsState()
+        val slopeOverlayToggleEnabled by mapViewModel.reliefOverlayToggleEnabled.collectAsState()
+        var slopeOverlayState by remember {
+            mutableStateOf(
+                MapRenderer.ReliefOverlayState(
+                    enabled = false,
+                    processing = false,
+                    progressPercent = null,
                 ),
             )
         }
-    var visiblePoiMarkers by remember { mutableStateOf<List<PoiOverlayMarker>>(emptyList()) }
-    val displayedRouteToolCreatePreview =
-        visibleRouteToolCreatePreview(
-            session = routeToolSession,
-            createPreview = routeToolCreatePreview,
-            createPreviewInProgress = routeToolCreatePreviewInProgress,
-        )
-    val routeToolDraftConnectorPoints =
-        routeToolMultiPointDraftConnectorPoints(
-            session = routeToolSession,
-            visibleCreatePreview = displayedRouteToolCreatePreview,
-            createPreviewInProgress = routeToolCreatePreviewInProgress,
-        )
-    MapOverlays(
-        mapHolder = mapHolder,
-        activeGpxDetails = activeGpxDetails,
-        routeToolPreviewPoints =
-            routeToolPreview?.previewPoints
-                ?: displayedRouteToolCreatePreview?.previewPoints
-                ?: emptyList(),
-        routeToolCreatePreviewActive = displayedRouteToolCreatePreview != null,
-        routeToolDraftPoints = routeToolDraftConnectorPoints,
-        poiViewModel = poiViewModel,
-        activePoiOverlaySources = activePoiOverlaySources,
-        poiMarkerSizePx = poiIconSizePx,
-        poiMarkerStyle = poiMarkerStyle,
-        gpxTrackColor = gpxTrackColor,
-        gpxTrackColorMode = gpxTrackColorMode,
-        gpxTrackWidth = gpxTrackWidth,
-        gpxTrackOpacityPercent = gpxTrackOpacityPercent,
-        gpxTrackDirectionArrowsEnabled = gpxTrackDirectionArrowsEnabled,
-        compassRenderStateFlow = compassViewModel.renderState,
-        navMode = effectiveNavMode,
-        forceNorthUpInPanning = offlineMode,
-        showRealMarkerInCompassMode = true,
-        showCompassConeOverlay = showCompassConeOverlay,
-        compassConeBaseSizePx = compassConeBaseSizePx,
-        compassQuality = compassConeQuality,
-        compassHeadingErrorDeg = compassConeHeadingErrorDeg,
-        gpsAccuracyCircleEnabled = gpsAccuracyCircleEnabled && !offlineMode,
-        gpsFixAccuracyM = gpsSignalSnapshot.lastFixAccuracyM,
-        gpsFixFresh = gpsFixFreshForAccuracyCircle,
-        gpsFixSpeedMps = locationUiState.lastFixSpeedMps,
-        gpsFixBearingDeg = locationUiState.lastFixBearingDeg,
-        renderedHeadingDeg = renderedCompassHeadingDeg,
-        locationMarker = locationMarker,
-        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
-        inspectionUiState = inspectionUiState,
-        selectedPointA = selectedPointA,
-        selectedPointB = selectedPointB,
-        onDismissInspection = { gpxViewModel.dismissInspection() },
-        onStartSelectB = { gpxViewModel.startSelectingB() },
-        isMetric = isMetric,
-        onRenderedHeadingChanged = { renderedCompassHeadingDeg = it },
-        onRenderedMapRotationChanged = { renderedMapRotationDeg = it },
-        onPoiMarkersSnapshotChanged = { markers -> visiblePoiMarkers = markers },
-    )
 
-    BackHandler(enabled = true) {
-        when {
-            createdPoiCreateInProgress -> Unit
-            completedRouteToolDraft != null -> {
-                if (!routeToolExecutionInProgress) {
-                    completedRouteToolDraft = null
-                    routeToolPreview = null
-                }
+        DisposableEffect(mapHolder) {
+            val listener: (MapRenderer.ReliefOverlayState) -> Unit = { state ->
+                slopeOverlayState = state
             }
-            routeToolSession != null -> {
+            mapHolder.renderer.addReliefOverlayStateListener(listener)
+            onDispose {
+                mapHolder.renderer.removeReliefOverlayStateListener(listener)
+            }
+        }
+
+        // All overlays + popups + yellow A/B markers
+        var renderedMapRotationDeg by remember { mutableFloatStateOf(0f) }
+        var renderedCompassHeadingDeg by
+            remember {
+                mutableFloatStateOf(
+                    resolveNavigateInitialRenderedHeadingDeg(
+                        renderState = compassRenderState,
+                        nowElapsedMs = SystemClock.elapsedRealtime(),
+                    ),
+                )
+            }
+        var visiblePoiMarkers by remember { mutableStateOf<List<PoiOverlayMarker>>(emptyList()) }
+        val displayedRouteToolCreatePreview =
+            visibleRouteToolCreatePreview(
+                session = routeToolSession,
+                createPreview = routeToolCreatePreview,
+                createPreviewInProgress = routeToolCreatePreviewInProgress,
+            )
+        val routeToolDraftConnectorPoints =
+            routeToolMultiPointDraftConnectorPoints(
+                session = routeToolSession,
+                visibleCreatePreview = displayedRouteToolCreatePreview,
+                createPreviewInProgress = routeToolCreatePreviewInProgress,
+            )
+        MapOverlays(
+            mapHolder = mapHolder,
+            activeGpxDetails = activeGpxDetails,
+            routeToolPreviewPoints =
+                routeToolPreview?.previewPoints
+                    ?: displayedRouteToolCreatePreview?.previewPoints
+                    ?: emptyList(),
+            recordingTraceSegments = recordingTraceSegments,
+            routeToolCreatePreviewActive = displayedRouteToolCreatePreview != null,
+            routeToolDraftPoints = routeToolDraftConnectorPoints,
+            poiViewModel = poiViewModel,
+            activePoiOverlaySources = activePoiOverlaySources,
+            poiMarkerSizePx = poiIconSizePx,
+            poiMarkerStyle = poiMarkerStyle,
+            gpxTrackColor = gpxTrackColor,
+            gpxTrackColorMode = gpxTrackColorMode,
+            gpxTrackWidth = gpxTrackWidth,
+            gpxTrackOpacityPercent = gpxTrackOpacityPercent,
+            gpxTrackDirectionArrowsEnabled = gpxTrackDirectionArrowsEnabled,
+            compassRenderStateFlow = compassViewModel.renderState,
+            navMode = effectiveNavMode,
+            forceNorthUpInPanning = offlineMode,
+            showRealMarkerInCompassMode = true,
+            showCompassConeOverlay = showCompassConeOverlay,
+            compassConeBaseSizePx = compassConeBaseSizePx,
+            compassQuality = compassConeQuality,
+            compassHeadingErrorDeg = compassConeHeadingErrorDeg,
+            gpsAccuracyCircleEnabled = gpsAccuracyCircleEnabled && !offlineMode,
+            gpsFixAccuracyM = gpsSignalSnapshot.lastFixAccuracyM,
+            gpsFixFresh = gpsFixFreshForAccuracyCircle,
+            gpsFixSpeedMps = locationUiState.lastFixSpeedMps,
+            gpsFixBearingDeg = locationUiState.lastFixBearingDeg,
+            renderedHeadingDeg = renderedCompassHeadingDeg,
+            locationMarker = locationMarker,
+            navigationMarkerAnchorMode = effectiveNavigationMarkerAnchorMode,
+            inspectionUiState = inspectionUiState,
+            selectedPointA = selectedPointA,
+            selectedPointB = selectedPointB,
+            onDismissInspection = { gpxViewModel.dismissInspection() },
+            onStartSelectB = { gpxViewModel.startSelectingB() },
+            isMetric = isMetric,
+            onRenderedHeadingChanged = { renderedCompassHeadingDeg = it },
+            onRenderedMapRotationChanged = { renderedMapRotationDeg = it },
+            onPoiMarkersSnapshotChanged = { markers -> visiblePoiMarkers = markers },
+        )
+        NavigateCompassWakeTelemetry(
+            isScreenResumed = isScreenResumed,
+            screenState = screenState,
+            isOfflineMode = offlineMode,
+            renderState = compassRenderState,
+            renderedHeadingDeg = renderedCompassHeadingDeg,
+            renderedMapRotationDeg = renderedMapRotationDeg,
+        )
+
+        NavigateBackHandler(
+            createdPoiCreateInProgress = createdPoiCreateInProgress,
+            completedRouteToolDraftActive = completedRouteToolDraft != null,
+            routeToolExecutionInProgress = routeToolExecutionInProgress,
+            routeToolSessionActive = routeToolSession != null,
+            showCreatedPoiRenameDialog = showCreatedPoiRenameDialog,
+            createdPoiRenameInProgress = createdPoiRenameInProgress,
+            poiCreationSelectionActive = poiCreationSelectionActive,
+            showRouteToolsPanel = showRouteToolsPanel,
+            shortcutTrayExpanded = shortcutTrayExpanded,
+            backButtonExitsNavigation = backButtonExitsNavigation,
+            onDismissCompletedRouteToolDraft = {
+                completedRouteToolDraft = null
+                routeToolPreview = null
+            },
+            onCancelRouteToolSession = {
                 routeToolSession = null
                 routeToolCreatePreview = null
                 routeToolCreatePreviewMessage = null
                 routeToolCreatePreviewInProgress = false
-            }
-            showCreatedPoiRenameDialog -> {
-                if (!createdPoiRenameInProgress) {
-                    showCreatedPoiRenameDialog = false
-                    createdPoiPendingRename = null
-                    createdPoiRenameError = null
-                    poiCreationSelectionActive = false
-                }
-            }
-            poiCreationSelectionActive -> {
+            },
+            onDismissCreatedPoiRename = {
+                showCreatedPoiRenameDialog = false
+                createdPoiPendingRename = null
+                createdPoiRenameError = null
                 poiCreationSelectionActive = false
-            }
-            showRouteToolsPanel -> {
+            },
+            onCancelPoiCreation = {
+                poiCreationSelectionActive = false
+            },
+            onDismissRouteToolsPanel = {
                 showRouteToolsPanel = false
                 routeToolPreview = null
                 routeToolCreatePreview = null
                 routeToolCreatePreviewMessage = null
                 routeToolCreatePreviewInProgress = false
                 poiViewModel.clearOfflinePoiSearch()
-            }
-            shortcutTrayExpanded -> shortcutTrayExpanded = false
-            else -> {
-                if (backButtonExitsNavigation) {
-                    DebugTelemetry.log(
-                        "NavigationTelemetry",
-                        "event=navigate_back_to_menu route=navigate_screen reason=no_overlay_open compat=true",
-                    )
-                    onMenuClick()
-                } else {
-                    DebugTelemetry.log(
-                        "NavigationTelemetry",
-                        "event=navigate_back_ignored route=navigate_screen reason=no_overlay_open compat=false",
-                    )
-                }
-            }
-        }
-    }
-
-    val reshapePreviewInspectDraft =
-        completedRouteToolDraft?.takeIf { draft ->
-            draft.options.toolKind == RouteToolKind.MODIFY &&
-                draft.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE &&
-                routeToolPreview != null
-        }
-    val reshapePreviewInspectMode = reshapePreviewInspectDraft != null
-    val gpsStartupMapCenteringPending =
-        !offlineMode &&
-            shouldTrackLocation &&
-            locationMarker == null &&
-            uiState.lastKnownLocation == null
-    var gpsStartupMapFallbackAllowed by remember { mutableStateOf(false) }
-    LaunchedEffect(gpsStartupMapCenteringPending) {
-        gpsStartupMapFallbackAllowed = false
-        if (gpsStartupMapCenteringPending) {
-            delay(NORMAL_STARTUP_MAP_FALLBACK_GRACE_MS)
-            gpsStartupMapFallbackAllowed = true
-        }
-    }
-    val gpsStartupMapCenteringActive =
-        gpsStartupMapCenteringPending &&
-            gpsStartupMapFallbackAllowed
-    val gpsStartupLastKnownCenter =
-        uiState.lastKnownLocation.takeIf {
-            !offlineMode &&
-                shouldTrackLocation &&
-                locationMarker == null &&
-                navigateTarget == null &&
-                pendingPoiFocusTarget == null
-        }
-
-    LaunchedEffect(gpsStartupLastKnownCenter, mapView, navigationMarkerAnchorMode) {
-        gpsStartupLastKnownCenter?.let {
-            mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode)
-        }
-    }
-
-    OfflineStartCenteringEffect(
-        isOfflineMode = offlineMode,
-        mapView = mapView,
-        mapViewModel = mapViewModel,
-        selectedMapPath = selectedMapPath,
-        activeGpxDetails = activeGpxDetails,
-        skipInitialCentering = navigateTarget != null || pendingPoiFocusTarget != null,
-        enabled = offlineMode || gpsStartupMapCenteringActive,
-    )
-
-    val recenterTarget: LatLong? =
-        if (offlineMode) {
-            null
-        } else {
-            locationMarker?.latLong ?: uiState.lastKnownLocation
-        }
-
-    LaunchedEffect(
-        navigationMarkerAnchorMode,
-        effectiveNavMode,
-        recenterTarget,
-        mapView,
-    ) {
-        if (!offlineMode && effectiveNavMode != NavMode.PANNING) {
-            recenterTarget?.let { mapView.setCenterForNavigationMarker(it, navigationMarkerAnchorMode) }
-        }
-    }
-
-    val routeToolActions =
-        rememberNavigateRouteToolActions(
-            context = context,
-            scope = scope,
-            mapView = mapView,
-            gpxViewModel = gpxViewModel,
-            poiViewModel = poiViewModel,
-            locationViewModel = locationViewModel,
-            recenterTarget = recenterTarget,
-            gpsSignalSnapshot = gpsSignalSnapshot,
-            offlineMode = offlineMode,
-            activeGpxDetailsCount = activeGpxDetails.size,
-            selectedMapPath = selectedMapPath,
-            triggerHaptic = screenActions.triggerHaptic,
-            routeToolOptions = routeToolOptions,
-            setRouteToolOptions = { routeToolOptions = it },
-            routeToolSession = routeToolSession,
-            setRouteToolSession = { routeToolSession = it },
-            completedRouteToolDraft = completedRouteToolDraft,
-            setCompletedRouteToolDraft = { completedRouteToolDraft = it },
-            routeToolExecutionInProgress = routeToolExecutionInProgress,
-            setRouteToolExecutionInProgress = { routeToolExecutionInProgress = it },
-            setRouteToolExecutionStatus = { routeToolExecutionStatus = it },
-            setRouteToolExecutionMessage = { routeToolExecutionMessage = it },
-            setRouteToolLoopRetryOptions = { routeToolLoopRetryOptions = it },
-            setRouteToolResult = { routeToolResult = it },
-            setRouteToolRenameInProgress = { routeToolRenameInProgress = it },
-            setRouteToolRenameError = { routeToolRenameError = it },
-            routeToolPreview = routeToolPreview,
-            setRouteToolPreview = { routeToolPreview = it },
-            routeToolCreatePreview = routeToolCreatePreview,
-            setRouteToolCreatePreview = { routeToolCreatePreview = it },
-            routeToolCreatePreviewInProgress = routeToolCreatePreviewInProgress,
-            setRouteToolCreatePreviewInProgress = { routeToolCreatePreviewInProgress = it },
-            routeToolCreatePreviewMessage = routeToolCreatePreviewMessage,
-            setRouteToolCreatePreviewMessage = { routeToolCreatePreviewMessage = it },
-            setRouteToolPreflightMessage = { routeToolPreflightMessage = it },
-            setShortcutTrayExpanded = { shortcutTrayExpanded = it },
-            setShowRouteToolsPanel = { showRouteToolsPanel = it },
-            setPoiCreationSelectionActive = { poiCreationSelectionActive = it },
-            createdPoiCreateInProgress = createdPoiCreateInProgress,
-            setCreatedPoiCreateInProgress = { createdPoiCreateInProgress = it },
-            setCreatedPoiPendingRename = { createdPoiPendingRename = it },
-            setCreatedPoiRenameError = { createdPoiRenameError = it },
-            setShowCreatedPoiRenameDialog = { showCreatedPoiRenameDialog = it },
+            },
+            onDismissShortcutTray = { shortcutTrayExpanded = false },
+            onMenuClick = onMenuClick,
         )
 
-    NavigateKeepAppOpenDialog(
-        visible = showKeepAppOpenInfoDialog,
-        helpDialogMaxHeight = adaptive.helpDialogMaxHeight,
-        onContinue = {
-            showKeepAppOpenInfoDialog = false
-            screenActions.continueKeepAppOpenEnableFlow()
-        },
-        onDismiss = {
-            showKeepAppOpenInfoDialog = false
-            pendingKeepAppOpen = false
-        },
-    )
-
-    NavigateNotificationPermissionDialog(
-        visible = showNotificationPermissionDialog,
-        onContinue = {
-            showNotificationPermissionDialog = false
-            notificationPermissionState.launchPermissionRequest()
-        },
-        onDismiss = {
-            showNotificationPermissionDialog = false
-            pendingKeepAppOpen = false
-        },
-    )
-
-    NavigateCreatedPoiRenameDialog(
-        visible = showCreatedPoiRenameDialog,
-        pendingRename = createdPoiPendingRename,
-        isSaving = createdPoiRenameInProgress,
-        error = createdPoiRenameError,
-        onDismiss = {
-            if (!createdPoiRenameInProgress) {
-                showCreatedPoiRenameDialog = false
-                createdPoiPendingRename = null
-                createdPoiRenameError = null
-                poiCreationSelectionActive = false
+        val reshapePreviewInspectDraft =
+            completedRouteToolDraft?.takeIf { draft ->
+                draft.options.toolKind == RouteToolKind.MODIFY &&
+                    draft.options.modifyMode.previewBeforeSaving &&
+                    routeToolPreview != null
             }
-        },
-        onConfirm = { newName ->
-            val target = createdPoiPendingRename ?: return@NavigateCreatedPoiRenameDialog
-            if (createdPoiRenameInProgress) return@NavigateCreatedPoiRenameDialog
-            createdPoiRenameInProgress = true
-            createdPoiRenameError = null
-            scope.launch {
-                runCatching {
-                    poiViewModel.renameMyCreationPoi(target.id, newName)
-                }.onSuccess {
-                    createdPoiRenameInProgress = false
+        val reshapePreviewInspectMode = reshapePreviewInspectDraft != null
+        val routeModifyPreviewTitle =
+            reshapePreviewInspectDraft?.options?.modifyMode?.let { mode ->
+                when (mode) {
+                    RouteModifyMode.RESHAPE_ROUTE -> "Reshape preview"
+                    RouteModifyMode.TRIM_START_TO_HERE -> "Change start preview"
+                    RouteModifyMode.TRIM_END_FROM_HERE -> "Change end preview"
+                    else -> "GPX preview"
+                }
+            } ?: "GPX preview"
+        val routeModifyPreviewInstruction =
+            reshapePreviewInspectDraft?.options?.modifyMode?.let { mode ->
+                when (mode) {
+                    RouteModifyMode.RESHAPE_ROUTE -> "Inspect the reroute, then save."
+                    RouteModifyMode.TRIM_START_TO_HERE -> "Inspect the new start, then save."
+                    RouteModifyMode.TRIM_END_FROM_HERE -> "Inspect the new end, then save."
+                    else -> "Inspect the edit, then save."
+                }
+            } ?: "Inspect the edit, then save."
+        val recenterTarget: LatLong? =
+            NavigateStartupCenteringEffects(
+                offlineMode = offlineMode,
+                shouldTrackLocation = shouldTrackLocation,
+                locationMarkerLatLong = locationMarker?.latLong,
+                lastKnownLocation = uiState.lastKnownLocation,
+                navigateTarget = navigateTarget,
+                pendingPoiFocusTarget = pendingPoiFocusTarget,
+                mapView = mapView,
+                mapViewModel = mapViewModel,
+                selectedMapPath = selectedMapPath,
+                activeGpxDetails = activeGpxDetails,
+                navigationMarkerAnchorMode = effectiveNavigationMarkerAnchorMode,
+            )
+        val guidanceRuntime =
+            rememberNavigateGuidanceRuntime(
+                context = context,
+                gpxViewModel = gpxViewModel,
+                activeSession = activeTurnByTurnGuidanceSession,
+                session = turnByTurnGuidanceSession,
+                paused = turnByTurnGuidancePaused,
+                rawCurrentLocation = rawCurrentLocation,
+                recenterTarget = recenterTarget,
+                offlineMode = offlineMode,
+                routeStartBehavior = turnByTurnRouteStartBehavior,
+                reverseSuggestionMode = turnByTurnReverseSuggestionMode,
+                offRouteThresholdMeters = turnByTurnOffRouteThresholdMeters,
+                hapticsEnabled = turnByTurnHapticsEnabled,
+                voiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
+                turnAlertsMode = turnByTurnTurnAlertsMode,
+                offRouteAlertsEnabled = turnByTurnOffRouteAlertsEnabled,
+                offRouteRepeatSeconds = turnByTurnOffRouteRepeatSeconds,
+                guidanceGpsInAmbient = turnByTurnGpsInAmbient,
+                brouterGuideBackEnabled = true,
+                lastScreenResumeElapsedMs = lastScreenResumeElapsedMs,
+                isMetric = isMetric,
+                activityProfile = activityProfile,
+                userWeightKg = userWeightKg,
+                backpackWeightKg = backpackWeightKg,
+                bikeWeightKg = bikeWeightKg,
+                recordingActive = traceRecordingState.active,
+                recordingSampleIntervalSeconds = recordingSampleIntervalSeconds,
+                gpxFlatSpeedMps = gpxFlatSpeedMps,
+                gpxAdvancedEtaEnabled = gpxAdvancedEtaEnabled,
+                gpxStaminaAdjustmentEnabled = gpxStaminaAdjustmentEnabled,
+                gpxUphillVerticalMetersPerHour = gpxUphillVerticalMetersPerHour,
+                gpxDownhillVerticalMetersPerHour = gpxDownhillVerticalMetersPerHour,
+            )
+
+        LaunchedEffect(
+            effectiveNavigationMarkerAnchorMode,
+            effectiveNavMode,
+            recenterTarget,
+            mapView,
+        ) {
+            if (!offlineMode && effectiveNavMode != NavMode.PANNING) {
+                recenterTarget?.let { mapView.setCenterForNavigationMarker(it, effectiveNavigationMarkerAnchorMode) }
+            }
+        }
+
+        val defaultRouteToolOptions =
+            remember(
+                gpxToolRouteStyle,
+                gpxToolUseElevation,
+                gpxToolAllowFerries,
+                gpxToolCustomHikeParams,
+            ) {
+                RouteToolOptions(
+                    routeStyle = routeStylePresetFromSettingsValue(gpxToolRouteStyle),
+                    useElevation = gpxToolUseElevation,
+                    allowFerries = gpxToolAllowFerries,
+                    customHikeParams = gpxToolCustomHikeParams,
+                )
+            }
+
+        val routeToolActions =
+            rememberNavigateRouteToolActions(
+                context = context,
+                scope = scope,
+                mapView = mapView,
+                gpxViewModel = gpxViewModel,
+                poiViewModel = poiViewModel,
+                locationViewModel = locationViewModel,
+                recenterTarget = recenterTarget,
+                gpsSignalSnapshot = gpsSignalSnapshot,
+                offlineMode = offlineMode,
+                activeGpxDetailsCount = activeGpxDetails.size,
+                selectedMapPath = selectedMapPath,
+                triggerHaptic = screenActions.triggerHaptic,
+                routeToolOptions = routeToolOptions,
+                routeToolDefaultOptions = defaultRouteToolOptions,
+                setRouteToolOptions = { routeToolOptions = it },
+                routeToolSession = routeToolSession,
+                setRouteToolSession = { routeToolSession = it },
+                completedRouteToolDraft = completedRouteToolDraft,
+                setCompletedRouteToolDraft = { completedRouteToolDraft = it },
+                routeToolExecutionInProgress = routeToolExecutionInProgress,
+                setRouteToolExecutionInProgress = { routeToolExecutionInProgress = it },
+                setRouteToolExecutionStatus = { routeToolExecutionStatus = it },
+                setRouteToolExecutionMessage = { routeToolExecutionMessage = it },
+                setRouteToolLoopRetryOptions = { routeToolLoopRetryOptions = it },
+                setRouteToolResult = { routeToolResult = it },
+                setRouteToolRenameInProgress = { routeToolRenameInProgress = it },
+                setRouteToolRenameError = { routeToolRenameError = it },
+                routeToolPreview = routeToolPreview,
+                setRouteToolPreview = { routeToolPreview = it },
+                routeToolCreatePreview = routeToolCreatePreview,
+                setRouteToolCreatePreview = { routeToolCreatePreview = it },
+                routeToolCreatePreviewInProgress = routeToolCreatePreviewInProgress,
+                setRouteToolCreatePreviewInProgress = { routeToolCreatePreviewInProgress = it },
+                routeToolCreatePreviewMessage = routeToolCreatePreviewMessage,
+                setRouteToolCreatePreviewMessage = { routeToolCreatePreviewMessage = it },
+                setRouteToolPreflightMessage = { routeToolPreflightMessage = it },
+                setShortcutTrayExpanded = { shortcutTrayExpanded = it },
+                setShowRouteToolsPanel = { showRouteToolsPanel = it },
+                setPoiCreationSelectionActive = { poiCreationSelectionActive = it },
+                createdPoiCreateInProgress = createdPoiCreateInProgress,
+                setCreatedPoiCreateInProgress = { createdPoiCreateInProgress = it },
+                setCreatedPoiPendingRename = { createdPoiPendingRename = it },
+                setCreatedPoiRenameError = { createdPoiRenameError = it },
+                setShowCreatedPoiRenameDialog = { showCreatedPoiRenameDialog = it },
+            )
+
+        NavigateScreenDialogsHost(
+            showKeepAppOpenInfoDialog = showKeepAppOpenInfoDialog,
+            helpDialogMaxHeight = adaptive.helpDialogMaxHeight,
+            onContinueKeepAppOpen = {
+                showKeepAppOpenInfoDialog = false
+                screenActions.continueKeepAppOpenEnableFlow()
+            },
+            onDismissKeepAppOpen = {
+                showKeepAppOpenInfoDialog = false
+                pendingKeepAppOpen = false
+            },
+            showNotificationPermissionDialog = showNotificationPermissionDialog,
+            onContinueNotificationPermission = {
+                showNotificationPermissionDialog = false
+                notificationPermissionState.launchPermissionRequest()
+            },
+            onDismissNotificationPermission = {
+                showNotificationPermissionDialog = false
+                pendingKeepAppOpen = false
+            },
+            showCreatedPoiRenameDialog = showCreatedPoiRenameDialog,
+            createdPoiPendingRename = createdPoiPendingRename,
+            createdPoiRenameInProgress = createdPoiRenameInProgress,
+            createdPoiRenameError = createdPoiRenameError,
+            onDismissCreatedPoiRename = {
+                if (!createdPoiRenameInProgress) {
+                    createdPoiPendingRename?.let { createdPoi ->
+                        pendingPoiFocusTarget =
+                            PoiNavigateTarget(
+                                lat = createdPoi.lat,
+                                lon = createdPoi.lon,
+                                label = createdPoi.name,
+                                type = PoiType.CUSTOM,
+                                details = createdPoi.details,
+                            )
+                    }
                     showCreatedPoiRenameDialog = false
                     createdPoiPendingRename = null
                     createdPoiRenameError = null
                     poiCreationSelectionActive = false
-                }.onFailure { error ->
-                    createdPoiRenameInProgress = false
-                    createdPoiRenameError = error.localizedMessage?.takeIf { it.isNotBlank() }
-                        ?: "Failed to rename the POI."
                 }
-            }
-        },
-    )
-
-    RouteToolProgressDialog(
-        visible = createdPoiCreateInProgress,
-        message = "Saving POI...",
-        fullScreenBackground = true,
-    )
-
-    NavigateRouteToolDialogs(
-        showRouteToolsPanel = showRouteToolsPanel,
-        canModifyActiveGpx = activeGpxDetails.size == 1,
-        coordinateSeed = mapView.model.mapViewPosition.center,
-        poiSearchState = offlinePoiSearchUiState,
-        options = routeToolOptions,
-        preflightMessage = routeToolPreflightMessage,
-        onOptionsChange = {
-            routeToolPreflightMessage = null
-            routeToolOptions = it.withVisibleLoopDefaults()
-        },
-        onSearchPoi = { query -> poiViewModel.searchOfflinePoi(query) },
-        onClearPoiSearch = { poiViewModel.clearOfflinePoiSearch() },
-        onDismissRouteToolsPanel = {
-            showRouteToolsPanel = false
-            routeToolPreflightMessage = null
-            poiViewModel.clearOfflinePoiSearch()
-        },
-        onStartRouteToolSelection = routeToolActions.startRouteToolSelection,
-        completedRouteToolDraft = if (reshapePreviewInspectMode) null else completedRouteToolDraft,
-        routeToolExecutionInProgress = routeToolExecutionInProgress,
-        routeToolExecutionMessage = routeToolExecutionMessage,
-        routeToolLoopRetryOptions = routeToolLoopRetryOptions,
-        onDismissDraftSummary = {
-            if (!routeToolExecutionInProgress) {
-                completedRouteToolDraft = null
-                routeToolExecutionMessage = null
-                routeToolLoopRetryOptions = emptyList()
-                routeToolPreview = null
-            }
-        },
-        onConfirmCreateDraft =
-            completedRouteToolDraft
-                ?.takeIf { it.options.toolKind == RouteToolKind.CREATE }
-                ?.let { draft ->
-                    {
-                        routeToolLoopRetryOptions = emptyList()
-                        if (draft.options.createMode == RouteCreateMode.LOOP_AROUND_HERE) {
-                            routeToolActions.startRouteToolSelection(draft)
-                        } else {
-                            routeToolActions.executeCreateDraft(draft, false)
-                        }
-                    }
-                },
-        onConfirmModifyDraft =
-            completedRouteToolDraft
-                ?.takeIf { it.options.toolKind == RouteToolKind.MODIFY }
-                ?.let { draft ->
-                    {
-                        routeToolActions.executeModifyDraft(draft, false)
-                    }
-                },
-        onSelectLoopRetryOption = { retryOption ->
-            val draft = completedRouteToolDraft ?: return@NavigateRouteToolDialogs
-            routeToolExecutionMessage = null
-            routeToolLoopRetryOptions = emptyList()
-            routeToolOptions = retryOption.options.withVisibleLoopDefaults()
-            routeToolActions.startRouteToolSelection(
-                draft.copy(
-                    options = retryOption.options,
-                    loopVariationIndex = 0,
-                ),
-            )
-        },
-        routeToolProgressVisible =
-            routeToolExecutionInProgress &&
-                completedRouteToolDraft == null &&
-                routeToolExecutionStatus != null,
-        routeToolProgressMessage = routeToolExecutionStatus ?: "Working...",
-        routeToolResult = routeToolResult,
-        isMetric = isMetric,
-        routeToolRenameInProgress = routeToolRenameInProgress,
-        routeToolRenameError = routeToolRenameError,
-        onDismissRouteToolResult = {
-            if (!routeToolRenameInProgress) {
-                routeToolResult = null
-                routeToolRenameError = null
-            }
-        },
-        onDeleteRouteToolResult = {
-            val currentResult = routeToolResult ?: return@NavigateRouteToolDialogs
-            if (routeToolRenameInProgress) return@NavigateRouteToolDialogs
-            gpxViewModel.deleteGpxFile(currentResult.filePath)
-            routeToolResult = null
-            routeToolRenameError = null
-        },
-        onOpenRouteToolRename = {
-            routeToolRenameError = null
-        },
-        onConfirmRouteToolRename = { newName ->
-            val currentResult = routeToolResult ?: return@NavigateRouteToolDialogs
-            if (routeToolRenameInProgress) return@NavigateRouteToolDialogs
-            routeToolRenameInProgress = true
-            routeToolRenameError = null
-            gpxViewModel.renameRouteToolResult(
-                filePath = currentResult.filePath,
-                newName = newName,
-            ) { result ->
-                routeToolRenameInProgress = false
-                result
-                    .onSuccess { updatedResult ->
-                        routeToolRenameError = null
-                        routeToolResult = updatedResult
+            },
+            onConfirmCreatedPoiRename = { newName ->
+                val target = createdPoiPendingRename ?: return@NavigateScreenDialogsHost
+                if (createdPoiRenameInProgress) return@NavigateScreenDialogsHost
+                createdPoiRenameInProgress = true
+                createdPoiRenameError = null
+                scope.launch {
+                    runCatching {
+                        poiViewModel.renameMyCreationPoi(target.id, newName)
+                    }.onSuccess {
+                        pendingPoiFocusTarget =
+                            PoiNavigateTarget(
+                                lat = target.lat,
+                                lon = target.lon,
+                                label = newName.trim().ifBlank { target.name },
+                                type = PoiType.CUSTOM,
+                                details = target.details,
+                            )
+                        createdPoiRenameInProgress = false
+                        showCreatedPoiRenameDialog = false
+                        createdPoiPendingRename = null
+                        createdPoiRenameError = null
+                        poiCreationSelectionActive = false
                     }.onFailure { error ->
-                        routeToolRenameError = error.localizedMessage?.takeIf { it.isNotBlank() }
-                            ?: "Failed to rename the GPX."
+                        createdPoiRenameInProgress = false
+                        createdPoiRenameError = error.localizedMessage?.takeIf { it.isNotBlank() }
+                            ?: "Failed to rename the POI."
                     }
-            }
-        },
-    )
-
-    NavigateContent(
-        hasLocationPermission = locationPermissionState.hasLocationPermission || offlineMode,
-        focusRequester = focusRequester,
-        mapHolder = mapHolder,
-        onMapHolderChange = { /* no-op */ },
-        onMapViewReadyForRendering = { mapViewModel.onMapViewReadyForRendering() },
-        onNavigateTimeSuppressedChange = onNavigateTimeSuppressedChange,
-        mapAppearanceApplyInProgress = mapAppearanceApplyInProgress,
-        slopeOverlayToggleEnabled = slopeOverlayToggleEnabled,
-        slopeOverlayEnabled = slopeOverlayState.enabled,
-        slopeOverlayProcessing = slopeOverlayState.processing,
-        slopeOverlayProgressPercent = slopeOverlayState.progressPercent,
-        zoomDefault = zoomDefault,
-        zoomMin = zoomMin,
-        zoomMax = zoomMax,
-        crownZoomEnabled = crownZoomEnabled,
-        crownZoomInverted = crownZoomInverted,
-        mapZoomButtonsMode = mapZoomButtonsMode,
-        northIndicatorMode = northIndicatorMode,
-        currentZoomLevel = currentZoomLevel,
-        onZoomLevelChange = { newZoom -> navigateViewModel.onZoomChanged(newZoom) },
-        onViewportChanged = { center, zoomLevel ->
-            val nextLatitude = center.latitude.coerceIn(-85.0, 85.0)
-            if (shouldUpdateZoomReferenceLatitude(zoomReferenceLatitude, nextLatitude)) {
-                zoomReferenceLatitude = nextLatitude
-            }
-            if (mapView.width > 0 && mapView.width != zoomViewportWidthPx) {
-                zoomViewportWidthPx = mapView.width
-            }
-            if (offlineMode) {
-                mapViewModel.saveOfflineViewport(
-                    selectedMapPath = selectedMapPath,
-                    activeGpxDetails = activeGpxDetails,
-                    center = center,
-                    zoomLevel = zoomLevel,
-                )
-            }
-        },
-        isMetric = isMetric,
-        navMode = effectiveNavMode,
-        locationMarker = locationMarker,
-        lastKnownLocation = recenterTarget,
-        onToggleOrientation = {
-            if (!offlineMode) {
-                navigateViewModel.onToggleOrientation()
-            }
-        },
-        onUserPanStarted = { navigateViewModel.onUserPanStarted() },
-        onRecenter = { navigateViewModel.onRecenterRequested() },
-        onRecenterRequested = {
-            if (!offlineMode) {
-                locationViewModel.requestImmediateLocation(source = "ui_recenter_from_panning")
-            }
-        },
-        triggerHaptic = screenActions.triggerHaptic,
-        onMenuClick = {
-            val nowElapsedMs = SystemClock.elapsedRealtime()
-            if (nowElapsedMs < menuClickGuardUntilElapsedMs) {
+                }
+            },
+            createdPoiCreateInProgress = createdPoiCreateInProgress,
+            showRouteToolsPanel = showRouteToolsPanel,
+            activeGpxDetailsCount = activeGpxDetails.size,
+            coordinateSeed = mapView.model.mapViewPosition.center,
+            poiSearchState = offlinePoiSearchUiState,
+            routeToolOptions = routeToolOptions,
+            routeToolPreflightMessage = routeToolPreflightMessage,
+            onRouteToolOptionsChange = {
+                routeToolPreflightMessage = null
+                routeToolOptions = it.withVisibleLoopDefaults()
+            },
+            poiViewModel = poiViewModel,
+            routeToolActions = routeToolActions,
+            completedRouteToolDraft = completedRouteToolDraft,
+            reshapePreviewInspectMode = reshapePreviewInspectMode,
+            routeToolExecutionInProgress = routeToolExecutionInProgress,
+            routeToolExecutionMessage = routeToolExecutionMessage,
+            routeToolExecutionStatus = routeToolExecutionStatus,
+            routeToolLoopRetryOptions = routeToolLoopRetryOptions,
+            onDismissDraftSummary = {
+                if (!routeToolExecutionInProgress) {
+                    completedRouteToolDraft = null
+                    routeToolExecutionMessage = null
+                    routeToolLoopRetryOptions = emptyList()
+                    routeToolPreview = null
+                }
+            },
+            onSetRouteToolOptions = { routeToolOptions = it },
+            onClearRouteToolExecutionMessage = { routeToolExecutionMessage = null },
+            onClearRouteToolLoopRetryOptions = { routeToolLoopRetryOptions = emptyList() },
+            routeToolResult = routeToolResult,
+            routeToolRenameInProgress = routeToolRenameInProgress,
+            routeToolRenameError = routeToolRenameError,
+            isMetric = isMetric,
+            recordingGpsEnabled = recordingScreenOnGpsEnabled,
+            gpxViewModel = gpxViewModel,
+            onSetRouteToolResult = { routeToolResult = it },
+            onSetRouteToolRenameInProgress = { routeToolRenameInProgress = it },
+            onSetRouteToolRenameError = { routeToolRenameError = it },
+            onRouteToolGuidanceStarted = {
+                navigateViewModel.onRecenterRequested()
+                locationViewModel.requestImmediateLocation(source = "ui_route_tool_guidance_start")
                 DebugTelemetry.log(
                     "NavigationTelemetry",
-                    "event=menu_click_ignored route=navigate_screen reason=recent_resume " +
-                        "ageMs=${nowElapsedMs - lastScreenResumeElapsedMs} " +
-                        "remainingMs=${menuClickGuardUntilElapsedMs - nowElapsedMs}",
+                    "event=recenter reason=route_tool_guidance_start",
                 )
-            } else {
-                onMenuClick()
-            }
-        },
-        onPermissionLaunch = { locationPermissionState.launchPermissions() },
-        mapRotationDeg = renderedMapRotationDeg,
-        navigationMarkerAnchorMode = navigationMarkerAnchorMode,
-        compassHeadingDeg = renderedCompassHeadingDeg,
-        liveElevationEnabled = liveElevationEnabled,
-        liveDistanceEnabled = liveDistanceEnabled && !offlineMode,
-        keepAppOpen = keepAppOpen,
-        onKeepAppOpenToggle = screenActions.toggleKeepAppOpen,
-        shortcutTrayExpanded = shortcutTrayExpanded,
-        onShortcutTrayToggle = screenActions.toggleShortcutTray,
-        onShortcutTrayDismiss = { shortcutTrayExpanded = false },
-        onOpenGpxTools = routeToolActions.openRouteToolsPanel,
-        onStartPoiCreation = routeToolActions.startPoiCreationSelection,
-        gpsIndicatorState = effectiveGpsIndicatorState,
-        gpsEnvironmentWarning = gpsEnvironmentWarning,
-        watchGpsDegradedWarning = watchGpsDegradedWarning,
-        isOfflineMode = offlineMode,
-        isGpxInspectionEnabled = isGpxInspectionEnabled,
-        selectingGpxPointB = selectingGpxPointB,
-        onCancelSelectingGpxPointB = { gpxViewModel.cancelSelectingB() },
-        activeGpxDetails = activeGpxDetails,
-        gpxTrackColor = gpxTrackColor,
-        routeToolSession = routeToolSession,
-        crosshairSelectionActive = poiCreationSelectionActive,
-        crosshairSelectionTitle = "+ POI",
-        crosshairSelectionInstruction = "Move map, then check.",
-        crosshairSelectionBusy = createdPoiCreateInProgress,
-        crosshairSelectionBusyMessage = "Saving POI...",
-        routeToolCreatePreview = displayedRouteToolCreatePreview,
-        routeToolDraftConnectorPoints = routeToolDraftConnectorPoints,
-        routeToolCreatePreviewInProgress = routeToolCreatePreviewInProgress,
-        routeToolCreatePreviewMessage = routeToolCreatePreviewMessage,
-        reshapePreviewInspectMode = reshapePreviewInspectMode,
-        reshapePreviewPoints = routeToolPreview?.previewPoints ?: emptyList(),
-        reshapePreviewBusy = routeToolExecutionInProgress,
-        reshapePreviewBusyMessage = routeToolExecutionStatus,
-        reshapePreviewMessage = routeToolExecutionMessage,
-        onRouteToolPickHere = routeToolActions.captureRouteToolPoint,
-        onRouteToolUndoLastPoint = routeToolActions.undoRouteToolPoint,
-        onRouteToolSaveCreatePreview = routeToolActions.saveCreatePreview,
-        onRouteToolRefreshCreatePreview = routeToolActions.refreshLoopPreview,
-        onCancelRouteToolMode = {
-            routeToolSession = null
-            routeToolCreatePreview = null
-            routeToolCreatePreviewMessage = null
-            routeToolCreatePreviewInProgress = false
-        },
-        onDismissReshapePreview = {
-            if (!routeToolExecutionInProgress) {
-                completedRouteToolDraft = null
-                routeToolExecutionMessage = null
-                routeToolLoopRetryOptions = emptyList()
-                routeToolPreview = null
-            }
-        },
-        onSaveReshapePreview = {
-            reshapePreviewInspectDraft?.let { draft ->
-                routeToolActions.executeModifyDraft(draft, false)
-            }
-        },
-        onCrosshairSelectionPickHere = routeToolActions.savePoiAt,
-        onCancelCrosshairSelection = { poiCreationSelectionActive = false },
-        onInspectTrack = { latLong -> gpxViewModel.onMapLongPress(latLong) },
-        visiblePoiMarkers = visiblePoiMarkers,
-        poiFocusTarget = pendingPoiFocusTarget,
-        onPoiFocusTargetConsumed = { pendingPoiFocusTarget = null },
-        onPoiTapCreateGpx = routeToolActions.createRouteToPoi,
-        poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
-        poiPopupManualCloseOnly = poiPopupManualCloseOnly,
-        markerMotionDebugOverlayLabel = markerMotionDebugOverlayLabel,
-    )
+            },
+            onDismissRouteToolsPanel = {
+                showRouteToolsPanel = false
+                routeToolPreflightMessage = null
+                poiViewModel.clearOfflinePoiSearch()
+            },
+            onOpenGpxToolsSettings = {
+                showRouteToolsPanel = false
+                routeToolPreflightMessage = null
+                poiViewModel.clearOfflinePoiSearch()
+                onOpenGpxToolsSettings()
+            },
+        )
 
-    LaunchedEffect(isScreenResumed) {
-        if (isScreenResumed) {
-            focusRequester.requestFocus()
+        NavigateContent(
+            hasLocationPermission = locationPermissionState.hasLocationPermission || offlineMode,
+            focusRequester = focusRequester,
+            mapHolder = mapHolder,
+            onMapHolderChange = { /* no-op */ },
+            onMapViewReadyForRendering = { mapViewModel.onMapViewReadyForRendering() },
+            onNavigateTimeSuppressedChange = onNavigateTimeSuppressedChange,
+            showNavigateTime = showNavigateTime,
+            navigateTimeFormat = navigateTimeFormat,
+            mapAppearanceApplyInProgress = mapAppearanceApplyInProgress,
+            slopeOverlayToggleEnabled = slopeOverlayToggleEnabled,
+            slopeOverlayEnabled = slopeOverlayState.enabled,
+            slopeOverlayProcessing = slopeOverlayState.processing,
+            slopeOverlayProgressPercent = slopeOverlayState.progressPercent,
+            zoomDefault = zoomDefault,
+            zoomMin = zoomMin,
+            zoomMax = zoomMax,
+            crownZoomEnabled = crownZoomEnabled,
+            crownZoomInverted = crownZoomInverted,
+            mapZoomButtonsMode = mapZoomButtonsMode,
+            northIndicatorMode = northIndicatorMode,
+            currentZoomLevel = currentZoomLevel,
+            onZoomLevelChange = { newZoom -> navigateViewModel.onZoomChanged(newZoom) },
+            onViewportChanged = { center, zoomLevel ->
+                mapZoomState.updateReference(center, mapView.width)
+                if (offlineMode) {
+                    mapViewModel.saveOfflineViewport(
+                        selectedMapPath = selectedMapPath,
+                        activeGpxDetails = activeGpxDetails,
+                        center = center,
+                        zoomLevel = zoomLevel,
+                    )
+                }
+            },
+            isMetric = isMetric,
+            navMode = effectiveNavMode,
+            locationMarker = locationMarker,
+            lastKnownLocation = recenterTarget,
+            onToggleOrientation = {
+                if (!offlineMode) {
+                    navigateViewModel.onToggleOrientation()
+                }
+            },
+            onUserPanStarted = { navigateViewModel.onUserPanStarted() },
+            onRecenter = { navigateViewModel.onRecenterRequested() },
+            onRecenterRequested = {
+                if (!offlineMode) {
+                    locationViewModel.requestImmediateLocation(source = "ui_recenter_from_panning")
+                }
+            },
+            triggerHaptic = screenActions.triggerHaptic,
+            onMenuClick = {
+                val nowElapsedMs = SystemClock.elapsedRealtime()
+                if (nowElapsedMs < menuClickGuardUntilElapsedMs) {
+                    DebugTelemetry.log(
+                        "NavigationTelemetry",
+                        "event=menu_click_ignored route=navigate_screen reason=recent_resume " +
+                            "ageMs=${nowElapsedMs - lastScreenResumeElapsedMs} " +
+                            "remainingMs=${menuClickGuardUntilElapsedMs - nowElapsedMs}",
+                    )
+                } else {
+                    onMenuClick()
+                }
+            },
+            onPermissionLaunch = { locationPermissionState.launchPermissions() },
+            mapRotationDeg = renderedMapRotationDeg,
+            navigationMarkerAnchorMode = effectiveNavigationMarkerAnchorMode,
+            compassHeadingDeg = renderedCompassHeadingDeg,
+            liveElevationEnabled = liveElevationEnabled,
+            liveDistanceEnabled = liveDistanceEnabled && !offlineMode,
+            keepAppOpen = keepAppOpen,
+            onKeepAppOpenToggle = screenActions.toggleKeepAppOpen,
+            backButtonExitsNavigation = backButtonExitsNavigation,
+            traceRecordingState = traceRecordingState,
+            recordingStatusMessage = recordingStatusMessage,
+            recordingDashboardMetricSlots = recordingDashboardMetricSlots,
+            turnByTurnDashboardMetricSlots = turnByTurnDashboardMetricSlots,
+            userWeightKg = userWeightKg,
+            backpackWeightKg = backpackWeightKg,
+            bikeWeightKg = bikeWeightKg,
+            activityProfile = activityProfile,
+            recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
+            recordingActionPromptRequestToken = recordingActionPromptRequestToken,
+            onRecordingTimeTap = onRecordingTimeTap,
+            onRecordingTimeLongPress = onRecordingTimeLongPress,
+            onStartRecording = {
+                shortcutTrayExpanded = false
+                startRecordingWithActivityPermission()
+            },
+            onPauseRecording = traceRecordingViewModel::pauseRecording,
+            onResumeRecording = traceRecordingViewModel::resumeRecording,
+            onFinishRecording = traceRecordingViewModel::finishAndSaveRecording,
+            onDiscardRecording = traceRecordingViewModel::discardRecording,
+            onRecordingMetricSelected = settingsViewModel::setRecordingDashboardMetricSlot,
+            onTurnByTurnMetricSelected = settingsViewModel::setTurnByTurnDashboardMetricSlot,
+            shortcutTrayExpanded = shortcutTrayExpanded,
+            onShortcutTrayToggle = screenActions.toggleShortcutTray,
+            onShortcutTrayDismiss = { shortcutTrayExpanded = false },
+            onOpenGpxTools = routeToolActions.openRouteToolsPanel,
+            onStartPoiCreation = routeToolActions.startPoiCreationSelection,
+            gpsIndicatorState = effectiveGpsIndicatorState,
+            gpsEnvironmentWarning = gpsEnvironmentWarning,
+            watchGpsDegradedWarning = watchGpsDegradedWarning,
+            isOfflineMode = offlineMode,
+            isGpxInspectionEnabled = isGpxInspectionEnabled,
+            selectingGpxPointB = selectingGpxPointB,
+            onCancelSelectingGpxPointB = { gpxViewModel.cancelSelectingB() },
+            turnByTurnGuidanceState = guidanceRuntime.state,
+            turnByTurnGuidancePaused = turnByTurnGuidancePaused,
+            turnByTurnPausedTrackTitle = turnByTurnGuidanceSession?.trackTitle,
+            turnByTurnVoiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
+            turnByTurnCompactPopupEnabled = turnByTurnCompactPopupEnabled,
+            onTurnByTurnVoiceGuidanceChange = settingsViewModel::setTurnByTurnVoiceGuidanceEnabled,
+            guideBackToRouteActive = guidanceRuntime.guideBackToRouteActive,
+            showGuideBackPrompt = guidanceRuntime.showGuideBackPrompt,
+            startDecisionPrompt = guidanceRuntime.startDecisionPrompt,
+            onPauseTurnByTurnGuidance = { gpxViewModel.pauseTurnByTurnGuidance() },
+            onResumeTurnByTurnGuidance = { gpxViewModel.resumeTurnByTurnGuidance() },
+            onStopTurnByTurnGuidance = { gpxViewModel.stopTurnByTurnGuidance() },
+            onGuideBackToRoute = guidanceRuntime.onGuideBackToRoute,
+            onDismissGuideBackPrompt = guidanceRuntime.onDismissGuideBackPrompt,
+            onAcceptStartDecisionPrompt = guidanceRuntime.onAcceptStartDecisionPrompt,
+            onDismissStartDecisionPrompt = guidanceRuntime.onDismissStartDecisionPrompt,
+            activeGpxDetails = activeGpxDetails,
+            gpxTrackColor = gpxTrackColor,
+            routeToolSession = routeToolSession,
+            crosshairSelectionActive = poiCreationSelectionActive,
+            crosshairSelectionTitle = "+ POI",
+            crosshairSelectionInstruction = "Move map, then check.",
+            crosshairSelectionBusy = createdPoiCreateInProgress,
+            crosshairSelectionBusyMessage = "Saving POI...",
+            routeToolCreatePreview = displayedRouteToolCreatePreview,
+            routeToolDraftConnectorPoints = routeToolDraftConnectorPoints,
+            routeToolCreatePreviewInProgress = routeToolCreatePreviewInProgress,
+            routeToolCreatePreviewMessage = routeToolCreatePreviewMessage,
+            reshapePreviewInspectMode = reshapePreviewInspectMode,
+            reshapePreviewPoints = routeToolPreview?.previewPoints ?: emptyList(),
+            reshapePreviewTitle = routeModifyPreviewTitle,
+            reshapePreviewInstruction = routeModifyPreviewInstruction,
+            reshapePreviewBusy = routeToolExecutionInProgress,
+            reshapePreviewBusyMessage = routeToolExecutionStatus,
+            reshapePreviewMessage = routeToolExecutionMessage,
+            onRouteToolPickHere = routeToolActions.captureRouteToolPoint,
+            onRouteToolUndoLastPoint = routeToolActions.undoRouteToolPoint,
+            onRouteToolSaveCreatePreview = routeToolActions.saveCreatePreview,
+            onRouteToolRefreshCreatePreview = routeToolActions.refreshLoopPreview,
+            onCancelRouteToolMode = {
+                routeToolSession = null
+                routeToolCreatePreview = null
+                routeToolCreatePreviewMessage = null
+                routeToolCreatePreviewInProgress = false
+            },
+            onDismissReshapePreview = {
+                if (!routeToolExecutionInProgress) {
+                    completedRouteToolDraft = null
+                    routeToolExecutionMessage = null
+                    routeToolLoopRetryOptions = emptyList()
+                    routeToolPreview = null
+                }
+            },
+            onSaveReshapePreview = {
+                reshapePreviewInspectDraft?.let { draft ->
+                    routeToolActions.executeModifyDraft(draft, false)
+                }
+            },
+            onCrosshairSelectionPickHere = routeToolActions.savePoiAt,
+            onCancelCrosshairSelection = { poiCreationSelectionActive = false },
+            onInspectTrack = { latLong -> gpxViewModel.onMapLongPress(latLong) },
+            visiblePoiMarkers = visiblePoiMarkers,
+            poiFocusTarget = pendingPoiFocusTarget,
+            onPoiFocusTargetConsumed = { pendingPoiFocusTarget = null },
+            onPoiTapCreateGpx = routeToolActions.createRouteToPoi,
+            poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
+            poiPopupManualCloseOnly = poiPopupManualCloseOnly,
+            markerMotionDebugOverlayLabel = markerMotionDebugOverlayLabel,
+        )
+
+        LaunchedEffect(isScreenResumed) {
+            if (isScreenResumed) {
+                focusRequester.requestFocus()
+            }
         }
-    }
 
-    DisposableEffect(mapView, offlineMode, selectedMapPath, activeGpxDetails) {
-        onDispose {
-            if (offlineMode) {
-                mapViewModel.saveOfflineViewport(
-                    selectedMapPath = selectedMapPath,
-                    activeGpxDetails = activeGpxDetails,
-                    center = mapView.model.mapViewPosition.center,
-                    zoomLevel =
-                        mapView.model.mapViewPosition.zoomLevel
-                            .toInt(),
-                )
+        DisposableEffect(mapView, offlineMode, selectedMapPath, activeGpxDetails) {
+            onDispose {
+                if (offlineMode) {
+                    mapViewModel.saveOfflineViewport(
+                        selectedMapPath = selectedMapPath,
+                        activeGpxDetails = activeGpxDetails,
+                        center = mapView.model.mapViewPosition.center,
+                        zoomLevel =
+                            mapView.model.mapViewPosition.zoomLevel
+                                .toInt(),
+                    )
+                }
             }
         }
     }
 }
 
-private fun shouldUpdateZoomReferenceLatitude(
-    currentLatitude: Double,
-    nextLatitude: Double,
-): Boolean =
-    !currentLatitude.isFinite() ||
-        abs(currentLatitude - nextLatitude) >= MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES
+private fun expectedMarkerGpsIntervalMs(
+    runtimeReason: String,
+    screenState: LocationScreenState,
+    recordingSampleIntervalSeconds: Int,
+    recordingScreenOffSampleIntervalSeconds: Int,
+    turnByTurnGpsIntervalSeconds: Int,
+    turnByTurnScreenOffGpsIntervalSeconds: Int,
+): Long {
+    val recordingScreenOnMs = gpsIntervalMsOrDefault(recordingSampleIntervalSeconds)
+    val recordingScreenOffMs =
+        screenOffGpsIntervalMs(
+            screenOnIntervalMs = recordingScreenOnMs,
+            screenOffSeconds = recordingScreenOffSampleIntervalSeconds,
+        )
+    val turnByTurnScreenOnMs = gpsIntervalMsOrDefault(turnByTurnGpsIntervalSeconds)
+    val turnByTurnScreenOffMs =
+        screenOffGpsIntervalMs(
+            screenOnIntervalMs = turnByTurnScreenOnMs,
+            screenOffSeconds = turnByTurnScreenOffGpsIntervalSeconds,
+        )
+    return when (runtimeReason) {
+        NavigationRuntimeDemandReason.RECORDING ->
+            if (screenState.isNonInteractive) recordingScreenOffMs else recordingScreenOnMs
+        NavigationRuntimeDemandReason.GUIDANCE_VISIBLE,
+        NavigationRuntimeDemandReason.GUIDANCE_AMBIENT,
+        NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND,
+        -> if (screenState.isNonInteractive) turnByTurnScreenOffMs else turnByTurnScreenOnMs
+        else -> SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+    }
+}
 
-private const val MAP_ZOOM_LATITUDE_UPDATE_THRESHOLD_DEGREES = 0.25
-private const val NORMAL_STARTUP_MAP_FALLBACK_GRACE_MS = 15_000L
-private const val NAVIGATE_MENU_CLICK_RESUME_GUARD_MS = 1_500L
+private fun screenOffGpsIntervalMs(
+    screenOnIntervalMs: Long,
+    screenOffSeconds: Int,
+): Long =
+    when (screenOffSeconds) {
+        SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> screenOnIntervalMs
+        SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+        else -> gpsIntervalMsOrDefault(screenOffSeconds)
+    }
+
+private fun gpsIntervalMsOrDefault(seconds: Int): Long =
+    when (seconds) {
+        SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+        else -> seconds.coerceAtLeast(1) * 1_000L
+    }
+
+private const val RECORDING_STATUS_MESSAGE_DURATION_MS = 1_200L

@@ -166,4 +166,14 @@ class BRouterRoutePlannerHelpersTest {
 
         assertEquals("Missing routing data: E0_N40.rd5", message)
     }
+
+    @Test
+    fun routingChecksumErrorExplainsHowToRepairTheBundle() {
+        val message = normalizeRoutingErrorMessage("java.io.IOException: top index checksum error")
+
+        assertEquals(
+            "Routing data is damaged. Open Downloads, check the bundle for updates, then choose Refresh to repair it.",
+            message,
+        )
+    }
 }

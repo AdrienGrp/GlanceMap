@@ -45,6 +45,8 @@ class LocationViewModel(
     private var intervalJob: Job? = null
     private var desiredKeepAppOpen: Boolean = false
     private var desiredScreenState: LocationScreenState = LocationScreenState.INTERACTIVE
+    private var desiredBackgroundGpsEnabled: Boolean = false
+    private var desiredRuntimeReason: String = "idle"
     private var pendingImmediateLocationRequestSource: String? = null
     private var lastImmediateRequestAtMs: Long = Long.MIN_VALUE
     private var lastStartupImmediateRequestAtMs: Long = Long.MIN_VALUE
@@ -95,6 +97,8 @@ class LocationViewModel(
                 locationService?.setRuntimeState(
                     screenState = desiredScreenState,
                     trackingEnabled = isTrackingEnabled,
+                    backgroundGpsEnabled = desiredBackgroundGpsEnabled,
+                    runtimeReason = desiredRuntimeReason,
                 )
                 pendingImmediateLocationRequestSource?.let { pendingSource ->
                     if (isTrackingEnabled) {
@@ -131,10 +135,14 @@ class LocationViewModel(
     fun syncRuntimeState(
         screenState: LocationScreenState,
         trackingEnabled: Boolean,
+        backgroundGpsEnabled: Boolean = desiredBackgroundGpsEnabled,
+        runtimeReason: String = desiredRuntimeReason,
     ) {
         val screenStateChanged = desiredScreenState != screenState
         val trackingChanged = isTrackingEnabled != trackingEnabled
-        if (!screenStateChanged && !trackingChanged) return
+        val backgroundGpsChanged = desiredBackgroundGpsEnabled != backgroundGpsEnabled
+        val runtimeReasonChanged = desiredRuntimeReason != runtimeReason
+        if (!screenStateChanged && !trackingChanged && !backgroundGpsChanged && !runtimeReasonChanged) return
 
         if (screenStateChanged) {
             updateScreenOffTelemetryState(
@@ -145,11 +153,15 @@ class LocationViewModel(
         }
 
         desiredScreenState = screenState
+        desiredBackgroundGpsEnabled = backgroundGpsEnabled
+        desiredRuntimeReason = runtimeReason.ifBlank { "idle" }
 
         if (!trackingChanged) {
             locationService?.setRuntimeState(
                 screenState = screenState,
                 trackingEnabled = trackingEnabled,
+                backgroundGpsEnabled = backgroundGpsEnabled,
+                runtimeReason = desiredRuntimeReason,
             )
             return
         }
@@ -162,6 +174,8 @@ class LocationViewModel(
             locationService?.setRuntimeState(
                 screenState = screenState,
                 trackingEnabled = true,
+                backgroundGpsEnabled = backgroundGpsEnabled,
+                runtimeReason = desiredRuntimeReason,
             )
             dispatchPendingImmediateLocationRequestIfTrackingEnabled(suffix = "after_tracking_enable")
             ensureConnectionWatchdog()
@@ -169,6 +183,8 @@ class LocationViewModel(
             locationService?.setRuntimeState(
                 screenState = screenState,
                 trackingEnabled = false,
+                backgroundGpsEnabled = backgroundGpsEnabled,
+                runtimeReason = desiredRuntimeReason,
             )
             pendingImmediateLocationRequestSource = null
             if (desiredKeepAppOpen && locationService == null) {
@@ -220,7 +236,7 @@ class LocationViewModel(
     fun requestImmediateLocation(source: String = "ui_unknown") {
         val now = SystemClock.elapsedRealtime()
         val forceImmediateRequest = shouldForceUiImmediateLocationRequest(source)
-        if (lastImmediateRequestAtMs != Long.MIN_VALUE) {
+        if (!forceImmediateRequest && lastImmediateRequestAtMs != Long.MIN_VALUE) {
             val elapsedSinceLastRequestMs = (now - lastImmediateRequestAtMs).coerceAtLeast(0L)
             if (elapsedSinceLastRequestMs < UI_IMMEDIATE_REQUEST_DEBOUNCE_MS) {
                 return
@@ -387,11 +403,37 @@ class LocationViewModel(
             intent.putExtra(LocationService.EXTRA_KEEP_APP_OPEN, keepAppOpen)
             intent.putExtra(LocationService.EXTRA_TRACKING_ENABLED, trackingEnabled)
             intent.putExtra(LocationService.EXTRA_SCREEN_STATE, desiredScreenState.name)
-            val shouldUseForegroundStart = keepAppOpen && trackingEnabled
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldUseForegroundStart) {
-                ContextCompat.startForegroundService(app, intent)
-            } else {
-                app.startService(intent)
+            intent.putExtra(LocationService.EXTRA_BACKGROUND_GPS_ENABLED, desiredBackgroundGpsEnabled)
+            intent.putExtra(LocationService.EXTRA_RUNTIME_REASON, desiredRuntimeReason)
+            val shouldUseForegroundStart = trackingEnabled && (keepAppOpen || desiredBackgroundGpsEnabled)
+            val startResult =
+                runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldUseForegroundStart) {
+                        ContextCompat.startForegroundService(app, intent)
+                    } else {
+                        app.startService(intent)
+                    }
+                }
+            if (startResult.isFailure) {
+                val error = startResult.exceptionOrNull()
+                DebugTelemetry.log(
+                    CONNECTION_TELEMETRY_TAG,
+                    "serviceStartFailed foreground=$shouldUseForegroundStart tracking=$trackingEnabled " +
+                        "keepOpen=$keepAppOpen backgroundGps=$desiredBackgroundGpsEnabled " +
+                        "error=${error?.javaClass?.simpleName ?: "unknown"} " +
+                        "message=${error?.localizedMessage?.sanitizeTelemetryValue() ?: "na"}",
+                )
+                if (shouldUseForegroundStart) {
+                    runCatching { app.startService(intent) }
+                        .onFailure { fallbackError ->
+                            DebugTelemetry.log(
+                                CONNECTION_TELEMETRY_TAG,
+                                "serviceStartFallbackFailed tracking=$trackingEnabled " +
+                                    "error=${fallbackError.javaClass.simpleName} " +
+                                    "message=${fallbackError.localizedMessage?.sanitizeTelemetryValue() ?: "na"}",
+                            )
+                        }
+                }
             }
         }
     }
@@ -497,6 +539,7 @@ class LocationViewModel(
 
 internal fun shouldForceUiImmediateLocationRequest(source: String): Boolean =
     source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX) ||
+        source == UI_RECORDING_WAKE_REFRESH_SOURCE ||
         source == UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
 
 private data class WakeBurstSkipCandidate(
@@ -551,12 +594,17 @@ private fun Long?.telemetryValue(): String = this?.telemetryValue() ?: "na"
 
 private fun Float?.telemetryValue(): String = this?.let { "%.1f".format(it) } ?: "na"
 
+private fun String.sanitizeTelemetryValue(): String =
+    replace(Regex("\\s+"), "_")
+        .take(80)
+
 private const val UI_IMMEDIATE_REQUEST_DEBOUNCE_MS = 1_500L
 
 // Keep wake startup responsive while still avoiding repeated duplicate bursts.
 private const val UI_STARTUP_IMMEDIATE_REQUEST_COOLDOWN_MS = 6_000L
 private const val UI_STARTUP_REQUEST_SOURCE_PREFIX = "ui_startup_fresh_fix"
 internal const val UI_WAKE_REACQUIRE_TIMEOUT_SOURCE = "ui_wake_reacquire_timeout"
+internal const val UI_RECORDING_WAKE_REFRESH_SOURCE = "ui_recording_wake_refresh"
 private const val WAKE_BURST_SKIP_FIX_MAX_AGE_MS = 2_000L
 private const val WAKE_BURST_SKIP_MAX_ACCURACY_M = 35f
 private const val WAKE_BURST_SKIP_SCREEN_OFF_MAX_MS = 10_000L

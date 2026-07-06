@@ -320,6 +320,28 @@ internal class SelfHealFailoverCoordinator(
             }
         if (sinceLastHealMs < SELF_HEAL_COOLDOWN_MS) return
 
+        val currentSourceMode = engine.currentSourceModeOrNull()
+        if (
+            maybeSkipWatchGpsFirstCallbackSelfHeal(
+                sourceMode = currentSourceMode,
+                nowElapsedMs = nowElapsedMs,
+                fixGapMs = fixGapMs,
+                staleThresholdMs = staleThresholdMs,
+                expectedIntervalMs = expectedIntervalMs,
+                phase = "interactive",
+            )
+        ) {
+            return
+        }
+
+        logWatchGpsSelfHealRestartIfNeeded(
+            sourceMode = currentSourceMode,
+            nowElapsedMs = nowElapsedMs,
+            fixGapMs = fixGapMs,
+            staleThresholdMs = staleThresholdMs,
+            expectedIntervalMs = expectedIntervalMs,
+            phase = "interactive",
+        )
         lastSelfHealAtElapsedMs = nowElapsedMs
         telemetry.logSelfHealTriggered(
             fixGapMs = fixGapMs,
@@ -354,6 +376,27 @@ internal class SelfHealFailoverCoordinator(
                 sinceLastHealMs >= SELF_HEAL_COOLDOWN_MS
         if (!shouldRefresh) return false
 
+        if (
+            maybeSkipWatchGpsFirstCallbackSelfHeal(
+                sourceMode = currentSourceMode,
+                nowElapsedMs = nowElapsedMs,
+                fixGapMs = fixGapMs,
+                staleThresholdMs = thresholdMs,
+                expectedIntervalMs = expectedIntervalMs,
+                phase = "burst",
+            )
+        ) {
+            return true
+        }
+
+        logWatchGpsSelfHealRestartIfNeeded(
+            sourceMode = currentSourceMode,
+            nowElapsedMs = nowElapsedMs,
+            fixGapMs = fixGapMs,
+            staleThresholdMs = thresholdMs,
+            expectedIntervalMs = expectedIntervalMs,
+            phase = "burst",
+        )
         lastSelfHealAtElapsedMs = nowElapsedMs
         telemetry.logSelfHealTriggered(
             fixGapMs = fixGapMs,
@@ -373,6 +416,57 @@ internal class SelfHealFailoverCoordinator(
             -> true
             else -> false
         }
+
+    private fun maybeSkipWatchGpsFirstCallbackSelfHeal(
+        sourceMode: LocationSourceMode?,
+        nowElapsedMs: Long,
+        fixGapMs: Long,
+        staleThresholdMs: Long,
+        expectedIntervalMs: Long,
+        phase: String,
+    ): Boolean {
+        if (sourceMode != LocationSourceMode.WATCH_GPS) return false
+        if (lastCallbackAcceptedFixAtElapsedMs() > 0L) return false
+        val requestAppliedAt = lastRequestAppliedAtElapsedMs()
+        if (requestAppliedAt <= 0L) return false
+        val searchAgeMs = (nowElapsedMs - requestAppliedAt).coerceAtLeast(0L)
+        if (searchAgeMs >= WATCH_GPS_FIRST_CALLBACK_SELF_HEAL_GRACE_MS) return false
+
+        lastSelfHealAtElapsedMs = nowElapsedMs
+        telemetry.logWatchGpsSelfHealSkipped(
+            phase = phase,
+            searchAgeMs = searchAgeMs,
+            graceMs = WATCH_GPS_FIRST_CALLBACK_SELF_HEAL_GRACE_MS,
+            fixGapMs = fixGapMs,
+            staleThresholdMs = staleThresholdMs,
+            expectedIntervalMs = expectedIntervalMs,
+            activityState = engine.activityState(),
+        )
+        return true
+    }
+
+    private fun logWatchGpsSelfHealRestartIfNeeded(
+        sourceMode: LocationSourceMode?,
+        nowElapsedMs: Long,
+        fixGapMs: Long,
+        staleThresholdMs: Long,
+        expectedIntervalMs: Long,
+        phase: String,
+    ) {
+        if (sourceMode != LocationSourceMode.WATCH_GPS) return
+        if (lastCallbackAcceptedFixAtElapsedMs() > 0L) return
+        val requestAppliedAt = lastRequestAppliedAtElapsedMs()
+        if (requestAppliedAt <= 0L) return
+        telemetry.logWatchGpsSelfHealRestarting(
+            phase = phase,
+            searchAgeMs = (nowElapsedMs - requestAppliedAt).coerceAtLeast(0L),
+            graceMs = WATCH_GPS_FIRST_CALLBACK_SELF_HEAL_GRACE_MS,
+            fixGapMs = fixGapMs,
+            staleThresholdMs = staleThresholdMs,
+            expectedIntervalMs = expectedIntervalMs,
+            activityState = engine.activityState(),
+        )
+    }
 
     private fun maybeTriggerPassiveExperimentNoFixFailover(): Boolean {
         if (!passiveLocationExperiment() || watchGpsOnly()) return false
@@ -641,6 +735,7 @@ private const val DISCONNECTED_PHONE_RECOVERY_CHECK_COOLDOWN_MS = 10_000L
 private const val AUTO_FUSED_RECOVERY_GRACE_MS = 15_000L
 private const val PASSIVE_EXPERIMENT_NO_FIX_FAILOVER_MAX_GAP_MS = 8_000L
 private const val GPS_SEARCH_REFRESH_MIN_GAP_MS = 15_000L
+private const val WATCH_GPS_FIRST_CALLBACK_SELF_HEAL_GRACE_MS = 120_000L
 private const val AUTO_FUSED_NO_FIX_RECOVERY_PROBE_GRACE_MS = 4_000L
 private const val AUTO_FUSED_NO_FIX_RECOVERY_CLEAR_ACCURACY_M = 65f
 private const val AUTO_FUSED_NO_FIX_RECOVERY_SOURCE = "auto_fused_no_fix_recovery"

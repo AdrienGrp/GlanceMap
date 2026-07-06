@@ -84,9 +84,17 @@ data class OamRemoteFileMetadata(
 )
 
 enum class OamBundleUpdateStatus {
+    REPAIR_NEEDED,
     UPDATE_AVAILABLE,
     UP_TO_DATE,
     UNKNOWN,
+}
+
+data class OamBundleLocalHealth(
+    val repairFileNames: List<String> = emptyList(),
+) {
+    val needsRepair: Boolean
+        get() = repairFileNames.isNotEmpty()
 }
 
 data class OamBundleUpdateCheck(
@@ -94,6 +102,7 @@ data class OamBundleUpdateCheck(
     val status: OamBundleUpdateStatus,
     val checkedFileCount: Int,
     val changedFileNames: List<String> = emptyList(),
+    val repairFileNames: List<String> = emptyList(),
     val unknownFileNames: List<String> = emptyList(),
 )
 
@@ -109,11 +118,18 @@ data class OamBundleRefreshSummary(
     val updateAvailableCount: Int
         get() = checks.count { it.status == OamBundleUpdateStatus.UPDATE_AVAILABLE }
 
+    val repairNeededCount: Int
+        get() = checks.count { it.status == OamBundleUpdateStatus.REPAIR_NEEDED }
+
     val unknownCount: Int
         get() = checks.count { it.status == OamBundleUpdateStatus.UNKNOWN }
 
     val checksToRefresh: List<OamBundleUpdateCheck>
-        get() = checks.filter { it.status == OamBundleUpdateStatus.UPDATE_AVAILABLE }
+        get() =
+            checks.filter {
+                it.status == OamBundleUpdateStatus.UPDATE_AVAILABLE ||
+                    it.status == OamBundleUpdateStatus.REPAIR_NEEDED
+            }
 
     val bundlesToRefresh: List<OamInstalledBundle>
         get() = checksToRefresh.map { it.bundle }
@@ -122,15 +138,17 @@ data class OamBundleRefreshSummary(
 internal data class OamBundleRefreshForces(
     val forceMap: Boolean = false,
     val forcePoi: Boolean = false,
+    val forceRefugesInfo: Boolean = false,
     val forceRoutingFileNames: Set<String> = emptySet(),
     val forceDemTileIds: Set<String> = emptySet(),
 )
 
 internal fun OamBundleUpdateCheck.refreshForces(area: OamDownloadArea): OamBundleRefreshForces {
-    val changedNames = changedFileNames.map { File(it).name }.toSet()
+    val changedNames = (changedFileNames + repairFileNames).map { File(it).name }.toSet()
     return OamBundleRefreshForces(
         forceMap = oamRemoteFileName(area.mapZipUrl) in changedNames,
         forcePoi = oamRemoteFileName(area.poiZipUrl) in changedNames,
+        forceRefugesInfo = bundle.refugesInfoFileName?.let { File(it).name in changedNames } == true,
         forceRoutingFileNames =
             bundle.routingFileNames
                 .map { File(it).name }

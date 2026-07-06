@@ -69,6 +69,8 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolB
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListHeader
+import com.glancemap.glancemapwearos.presentation.ui.FeatureListScaffold
 import com.glancemap.glancemapwearos.presentation.ui.RenameValueDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
 import com.glancemap.glancemapwearos.presentation.ui.WearDataDialog
@@ -226,6 +228,10 @@ fun MapsScreen(
                 )
             },
         )
+
+    LaunchedEffect(Unit) {
+        columnState.state.scrollToItem(0)
+    }
 
     LaunchedEffect(helpPrefs) {
         if (!helpPrefs.getBoolean(MAPS_HELP_SHOWN_KEY, false)) {
@@ -423,18 +429,34 @@ fun MapsScreen(
             bottomAction =
                 if (routingPackFiles.isNotEmpty()) {
                     {
-                        CompactIconHitTargetButton(
+                        Button(
                             onClick = { showDeleteAllRoutingDialog = true },
-                            visualSize = 32.dp,
-                            visualOffsetY = (-2).dp,
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier =
+                                Modifier
+                                    .wrapContentWidth()
+                                    .height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                ),
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete all routing packs",
-                                modifier = Modifier.size(15.dp),
-                            )
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                )
+                                Spacer(modifier = Modifier.size(4.dp))
+                                Text(
+                                    text = "Delete all",
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
                         }
                     }
                 } else {
@@ -449,16 +471,7 @@ fun MapsScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            if (routingPackFiles.isEmpty()) {
-                item {
-                    Text(
-                        text = "No routing packs installed on the watch.",
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            } else {
+            if (routingPackFiles.isNotEmpty()) {
                 foundationItems(routingPackFiles) { pack ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -663,94 +676,75 @@ fun MapsScreen(
                 )
             }
         }
-        Column(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            // Header + actions
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = headerTopSafePadding, bottom = headerBottomPadding),
-                contentAlignment = Alignment.Center,
+        FeatureListScaffold(horizontalAlignment = Alignment.Start) {
+            FeatureListHeader(
+                title = "Maps",
+                topPadding = headerTopSafePadding,
+                bottomPadding = headerBottomPadding,
+                actionSpacing = headerActionSpacing,
+                verticalSpacing = headerVerticalSpacing,
+                statusText =
+                    when {
+                        isRenameMode -> "Rename mode"
+                        isDeleteMode -> "Delete mode"
+                        else -> null
+                    },
+                statusColor =
+                    if (isDeleteMode) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(headerVerticalSpacing),
+                CompactIconHitTargetButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showHelpDialog = true
+                    },
+                    visualSize = headerActionButtonSize,
+                    visualOffsetY = headerActionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
                 ) {
-                    Text(
-                        text = "Maps",
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center,
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Map actions help",
+                        modifier = Modifier.size(headerActionIconSize),
                     )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(headerActionSpacing),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CompactIconHitTargetButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showHelpDialog = true
-                            },
-                            visualSize = headerActionButtonSize,
-                            visualOffsetY = headerActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = Color.White,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "Map actions help",
-                                modifier = Modifier.size(headerActionIconSize),
-                            )
-                        }
-                        CompactIconHitTargetButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                mapViewModel.loadDemTileFiles()
-                                showDemDataDialog = true
-                            },
-                            visualSize = headerActionButtonSize,
-                            visualOffsetY = headerActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = Color.White,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Landscape,
-                                contentDescription = "DEM data",
-                                modifier = Modifier.size(headerActionIconSize),
-                            )
-                        }
-                        CompactIconHitTargetButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                mapViewModel.loadRoutingPackFiles()
-                                showRoutingDataDialog = true
-                            },
-                            visualSize = headerActionButtonSize,
-                            visualOffsetY = headerActionVisualOffsetY,
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            contentColor = Color.White,
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.CallSplit,
-                                contentDescription = "Routing data",
-                                modifier = Modifier.size(headerActionIconSize),
-                            )
-                        }
-                    }
-                    if (isRenameMode) {
-                        Text(
-                            text = "Rename mode",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    } else if (isDeleteMode) {
-                        Text(
-                            text = "Delete mode",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
+                }
+                CompactIconHitTargetButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        mapViewModel.loadDemTileFiles()
+                        showDemDataDialog = true
+                    },
+                    visualSize = headerActionButtonSize,
+                    visualOffsetY = headerActionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Landscape,
+                        contentDescription = "DEM data",
+                        modifier = Modifier.size(headerActionIconSize),
+                    )
+                }
+                CompactIconHitTargetButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        mapViewModel.loadRoutingPackFiles()
+                        showRoutingDataDialog = true
+                    },
+                    visualSize = headerActionButtonSize,
+                    visualOffsetY = headerActionVisualOffsetY,
+                    containerColor = Color.Black.copy(alpha = 0.7f),
+                    contentColor = Color.White,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.CallSplit,
+                        contentDescription = "Routing data",
+                        modifier = Modifier.size(headerActionIconSize),
+                    )
                 }
             }
 

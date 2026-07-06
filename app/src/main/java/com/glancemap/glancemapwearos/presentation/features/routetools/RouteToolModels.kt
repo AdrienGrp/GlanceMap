@@ -1,5 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
+import com.glancemap.glancemapwearos.core.routing.HikeRouteProfileParams
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPosition
 import org.mapsforge.core.model.LatLong
 
@@ -76,6 +78,20 @@ internal enum class RouteModifyMode(
     ),
 }
 
+internal val RouteModifyMode.previewBeforeSaving: Boolean
+    get() =
+        when (this) {
+            RouteModifyMode.RESHAPE_ROUTE,
+            RouteModifyMode.TRIM_START_TO_HERE,
+            RouteModifyMode.TRIM_END_FROM_HERE,
+            -> true
+
+            RouteModifyMode.REPLACE_SECTION_A_TO_B,
+            RouteModifyMode.KEEP_ONLY_A_TO_B,
+            RouteModifyMode.REVERSE_GPX,
+            -> false
+        }
+
 internal enum class RouteStylePreset(
     val title: String,
     val summary: String,
@@ -92,7 +108,89 @@ internal enum class RouteStylePreset(
         title = "Prefer easiest",
         summary = "Avoids harder terrain when possible and prefers simpler route choices.",
     ),
+    CUSTOM_HIKE(
+        title = "Custom hike",
+        summary = "Uses your advanced hike routing choices.",
+    ),
+    BIKE_TOURING(
+        title = "Touring bike",
+        summary = "Uses BRouter trekking routing for efficient, calmer bike touring.",
+    ),
+    BIKE_ROAD(
+        title = "Roadbike",
+        summary = "Uses BRouter fastbike routing for faster road cycling.",
+    ),
+    BIKE_QUIET_ROAD(
+        title = "Roadbike Low-traffic",
+        summary = "Uses BRouter fastbike low-traffic routing for quieter roads.",
+    ),
+    BIKE_GRAVEL(
+        title = "Gravel",
+        summary = "Uses BRouter gravel routing for mixed paved and unpaved surfaces.",
+    ),
+    BIKE_MTB(
+        title = "MTB",
+        summary = "Uses BRouter MTB routing for mountain-bike oriented routes.",
+    ),
 }
+
+internal val RouteStylePreset.settingsValue: String
+    get() =
+        when (this) {
+            RouteStylePreset.BALANCED_HIKE -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE
+            RouteStylePreset.PREFER_TRAILS -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS
+            RouteStylePreset.PREFER_EASIEST -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST
+            RouteStylePreset.CUSTOM_HIKE -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE
+            RouteStylePreset.BIKE_TOURING -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_TOURING
+            RouteStylePreset.BIKE_ROAD -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_ROAD
+            RouteStylePreset.BIKE_QUIET_ROAD -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_QUIET_ROAD
+            RouteStylePreset.BIKE_GRAVEL -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_GRAVEL
+            RouteStylePreset.BIKE_MTB -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_MTB
+        }
+
+internal val hikeRouteStylePresets: List<RouteStylePreset> =
+    listOf(
+        RouteStylePreset.BALANCED_HIKE,
+        RouteStylePreset.PREFER_TRAILS,
+        RouteStylePreset.PREFER_EASIEST,
+        RouteStylePreset.CUSTOM_HIKE,
+    )
+
+internal val bikeRouteStylePresets: List<RouteStylePreset> =
+    listOf(
+        RouteStylePreset.BIKE_TOURING,
+        RouteStylePreset.BIKE_ROAD,
+        RouteStylePreset.BIKE_QUIET_ROAD,
+        RouteStylePreset.BIKE_GRAVEL,
+        RouteStylePreset.BIKE_MTB,
+    )
+
+internal fun routeStylePickerOptionsFor(selected: RouteStylePreset): List<Pair<RouteStylePreset, String>> =
+    if (selected in bikeRouteStylePresets) {
+        bikeRouteStylePresets
+    } else {
+        hikeRouteStylePresets
+    }.map { preset -> preset to preset.title }
+
+internal val routeStyleSettingsOptions: List<Pair<String, String>> =
+    RouteStylePreset.entries.map { preset -> preset.settingsValue to preset.title }
+
+internal fun routeStyleSettingsOptionsForActivityProfile(activityProfile: String): List<Pair<String, String>> =
+    if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        bikeRouteStylePresets
+    } else {
+        hikeRouteStylePresets
+    }.map { preset -> preset.settingsValue to preset.title }
+
+internal fun routeStylePresetFromSettingsValue(value: String): RouteStylePreset = RouteStylePreset.entries.firstOrNull { it.settingsValue == value } ?: RouteStylePreset.BALANCED_HIKE
+
+internal fun routeStylePresetFromSavedName(name: String): RouteStylePreset =
+    when (name) {
+        "BIKE" -> RouteStylePreset.BIKE_TOURING
+        else -> RouteStylePreset.entries.firstOrNull { it.name == name } ?: RouteStylePreset.BALANCED_HIKE
+    }
+
+internal fun routeStyleTitleForSettingsValue(value: String): String = routeStyleSettingsOptions.firstOrNull { it.first == value }?.second ?: RouteStylePreset.BALANCED_HIKE.title
 
 internal enum class RouteSaveBehavior(
     val title: String,
@@ -143,6 +241,7 @@ internal data class RouteToolOptions(
     val coordinateLongitude: Double? = null,
     val useElevation: Boolean = true,
     val allowFerries: Boolean = false,
+    val customHikeParams: HikeRouteProfileParams? = null,
     val showAdvancedOptions: Boolean = false,
     val saveBehavior: RouteSaveBehavior = RouteSaveBehavior.SAVE_AS_NEW,
 ) {
@@ -337,7 +436,7 @@ internal data class RouteToolSession(
     val instructionText: String
         get() =
             when (currentSelectionTarget) {
-                RouteSelectionTarget.RESHAPE_POINT -> "Place route point, then check."
+                RouteSelectionTarget.RESHAPE_POINT -> "Pick point to move"
                 RouteSelectionTarget.DESTINATION ->
                     when {
                         isMultiPointCreate && chainPoints.isEmpty() -> "Place start, then check."
@@ -345,7 +444,7 @@ internal data class RouteToolSession(
                         isMultiPointCreate -> "Add point, then check."
                         options.toolKind == RouteToolKind.MODIFY &&
                             options.modifyMode == RouteModifyMode.RESHAPE_ROUTE -> {
-                            "Place replacement point, then check."
+                            "Pick new point"
                         }
 
                         else -> {
@@ -361,12 +460,22 @@ internal data class RouteToolSession(
                         "Place start, then check."
                     } else if (options.toolKind == RouteToolKind.CREATE) {
                         "Place start, then check."
+                    } else if (
+                        options.toolKind == RouteToolKind.MODIFY &&
+                        options.modifyMode == RouteModifyMode.TRIM_START_TO_HERE
+                    ) {
+                        "Pick new start"
                     } else {
                         "Place A, then check."
                     }
                 RouteSelectionTarget.POINT_B ->
                     if (options.toolKind == RouteToolKind.CREATE) {
                         "Place end, then check."
+                    } else if (
+                        options.toolKind == RouteToolKind.MODIFY &&
+                        options.modifyMode == RouteModifyMode.TRIM_END_FROM_HERE
+                    ) {
+                        "Pick new end"
                     } else {
                         "Place B, then check."
                     }

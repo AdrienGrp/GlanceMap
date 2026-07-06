@@ -154,6 +154,91 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals("fused", insights.passiveExternalLastProvider)
     }
 
+    @Test
+    fun watchGpsSelfHealFirstCallbackGraceTelemetryIsSummarized() {
+        val lines =
+            listOf(
+                "2026-04-20 20:07:12.000 [LocTelemetry] watchGpsSelfHeal: skipped " +
+                    "phase=burst reason=await_first_callback searchAgeMs=16000 graceMs=120000 " +
+                    "fixGapMs=16000 staleThresholdMs=12000 expectedIntervalMs=3000 state=ACTIVE",
+                "2026-04-20 20:09:22.000 [LocTelemetry] watchGpsSelfHeal: restarting " +
+                    "phase=burst reason=first_callback_grace_expired searchAgeMs=129000 " +
+                    "graceMs=120000 fixGapMs=129000 staleThresholdMs=12000 " +
+                    "expectedIntervalMs=3000 state=ACTIVE",
+            )
+
+        val insights =
+            deriveTelemetryInsights(
+                lines = lines,
+                captureWindowEndEpochMs = epochMs("2026-04-20T20:09:29"),
+            )
+
+        assertEquals(1, insights.watchGpsSelfHealSkippedCount)
+        assertEquals(1, insights.watchGpsSelfHealRestartCount)
+        assertEquals(129_000L, insights.watchGpsSelfHealMaxSearchAgeMs)
+    }
+
+    @Test
+    fun recordingPointSampleCountFallsBackToObservedRecordingPointTotals() {
+        val lines =
+            listOf(
+                "2026-04-20 20:07:12.000 [TraceRecording] event=point " +
+                    "points=1 distanceMeters=0 accuracyMeters=125",
+                "2026-04-20 20:07:32.000 [TraceRecording] event=pause " +
+                    "points=6 distanceMeters=34 gpsDistanceMeters=34 displayDistanceMeters=34",
+                "2026-04-20 20:07:34.000 [TraceRecording] event=save_success " +
+                    "points=6 distanceMeters=34 gpsDistanceMeters=34 displayDistanceMeters=34",
+                "2026-04-20 20:07:34.100 [TraceRecording] event=saved_gpx_verified " +
+                    "writtenPoints=6 parsedPoints=6 summaryPoints=6 summaryDistanceMeters=34",
+            )
+
+        val insights =
+            deriveTelemetryInsights(
+                lines = lines,
+                captureWindowEndEpochMs = epochMs("2026-04-20T20:07:39"),
+            )
+
+        assertEquals(6, insights.recordingPointSampleCount)
+        assertEquals(6, insights.recordingMaxPointCount)
+        assertEquals(6, insights.recordingSavedGpxWrittenPoints)
+    }
+
+    @Test
+    fun compassStartupExperienceTelemetryIsSummarized() {
+        val lines =
+            listOf(
+                "2026-04-20 20:07:12.000 [CompassTelemetry] wake_session stage=startup_summary " +
+                    "id=1 windowMs=5000 samples=140 headingSpanDeg=286.0 maxJumpDeg=74.0 " +
+                    "cumulativeHeadingRotationDeg=721.0 directionReversals=8 cumulativeMapRotationDeg=610.0 " +
+                    "renderErrorAvgDeg=2.4 renderErrorMaxDeg=18.0 stable3Ms=na stable5Ms=4300 fusedReadyMs=450",
+                "2026-04-20 20:07:13.000 [CompassTelemetry] google_fused startup_overlap_summary " +
+                    "reason=start confirmed=true samples=10 avgDeltaDeg=52.0 maxDeltaDeg=138.0 " +
+                    "firstDeltaDeg=20.0 finalDeltaDeg=64.0 previousFinalDeltaDeg=na restartDeltaChangeDeg=na",
+                "2026-04-20 20:07:14.000 [CompassTelemetry] wake_session stage=startup_summary " +
+                    "id=2 windowMs=5000 samples=150 headingSpanDeg=42.0 maxJumpDeg=12.0 " +
+                    "cumulativeHeadingRotationDeg=90.0 directionReversals=2 cumulativeMapRotationDeg=80.0 " +
+                    "renderErrorAvgDeg=0.8 renderErrorMaxDeg=3.0 stable3Ms=1600 stable5Ms=1200 fusedReadyMs=420",
+                "2026-04-20 20:07:15.000 [CompassTelemetry] google_fused startup_overlap_summary " +
+                    "reason=start confirmed=true samples=9 avgDeltaDeg=8.0 maxDeltaDeg=16.0 " +
+                    "firstDeltaDeg=12.0 finalDeltaDeg=6.0 previousFinalDeltaDeg=64.0 restartDeltaChangeDeg=-58.0",
+                "2026-04-20 20:07:16.000 [CompassTelemetry] user_report heading_looks_wrong " +
+                    "source=google_fused heading=220.0 rendered=219.0 mapRotation=-219.0 accuracy=1",
+            )
+
+        val insights = deriveCompassTelemetryInsights(lines)
+
+        assertEquals(2, insights.startupSummaryCount)
+        assertEquals(286f, insights.startupHeadingSpanMaxDeg)
+        assertEquals(74f, insights.startupMaxJumpMaxDeg)
+        assertEquals(1, insights.startupStable3Count)
+        assertEquals(2, insights.startupStable5Count)
+        assertEquals(2, insights.startupOverlapSummaryCount)
+        assertEquals(35f, insights.startupOverlapFinalDeltaAvgDeg)
+        assertEquals(1, insights.startupOverlapRestartComparisonCount)
+        assertEquals(1, insights.startupOverlapRestartImprovedCount)
+        assertEquals(1, insights.headingLooksWrongReportCount)
+    }
+
     private fun epochMs(localDateTime: String): Long =
         LocalDateTime
             .parse(localDateTime)

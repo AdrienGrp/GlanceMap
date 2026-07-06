@@ -202,8 +202,8 @@ internal fun RouteToolDraftSummaryDialog(
                 when {
                     executionMessage != null -> executionMessage
                     isCreate -> "Ready to generate the GPX."
-                    session.options.modifyMode == RouteModifyMode.RESHAPE_ROUTE ->
-                        "Preview the rerouted section, then save."
+                    session.options.modifyMode.previewBeforeSaving ->
+                        "Preview the edit, then save."
                     isReplaceCurrent -> "This will replace the active GPX."
                     else -> "Ready to save the GPX edit."
                 },
@@ -518,6 +518,8 @@ internal fun LoopStartModeSelector(
 internal fun RouteSettingRow(
     title: String,
     value: String,
+    icon: ImageVector? = null,
+    iconTint: Color = Color.White,
     onClick: () -> Unit,
 ) {
     Button(
@@ -529,9 +531,23 @@ internal fun RouteSettingRow(
                 contentColor = Color.White,
             ),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = title, style = MaterialTheme.typography.labelMedium)
-            Text(text = value, style = MaterialTheme.typography.bodySmall)
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp),
+                )
+                Box(modifier = Modifier.width(8.dp))
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = title, style = MaterialTheme.typography.labelMedium)
+                Text(text = value, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
@@ -620,9 +636,9 @@ internal fun RouteStylePreset.next(): RouteStylePreset {
 
 internal fun visibleModifyModes(): List<RouteModifyMode> =
     listOf(
-        RouteModifyMode.RESHAPE_ROUTE,
         RouteModifyMode.TRIM_START_TO_HERE,
         RouteModifyMode.TRIM_END_FROM_HERE,
+        RouteModifyMode.RESHAPE_ROUTE,
         RouteModifyMode.REVERSE_GPX,
     )
 

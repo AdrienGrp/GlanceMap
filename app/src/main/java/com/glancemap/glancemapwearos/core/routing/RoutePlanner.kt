@@ -6,7 +6,21 @@ enum class RoutePlannerPreset {
     BALANCED_HIKE,
     PREFER_TRAILS,
     PREFER_EASIEST,
+    CUSTOM_HIKE,
+    BIKE_TOURING,
+    BIKE_ROAD,
+    BIKE_QUIET_ROAD,
+    BIKE_GRAVEL,
+    BIKE_MTB,
 }
+
+data class HikeRouteProfileParams(
+    val hikingRoutesPreference: Float,
+    val pathPreference: Float,
+    val sacScaleLimit: Int,
+    val sacScalePreferred: Int,
+    val considerForest: Boolean,
+)
 
 data class RoutePlannerRequest(
     val origin: LatLong,
@@ -15,6 +29,7 @@ data class RoutePlannerRequest(
     val preset: RoutePlannerPreset = RoutePlannerPreset.BALANCED_HIKE,
     val useElevation: Boolean = true,
     val allowFerries: Boolean = false,
+    val customHikeParams: HikeRouteProfileParams? = null,
 )
 
 data class RoundTripPlannerRequest(
@@ -24,6 +39,7 @@ data class RoundTripPlannerRequest(
     val preset: RoutePlannerPreset = RoutePlannerPreset.BALANCED_HIKE,
     val useElevation: Boolean = true,
     val allowFerries: Boolean = false,
+    val customHikeParams: HikeRouteProfileParams? = null,
     val allowOutAndBack: Boolean = false,
     val pointCount: Int = 5,
     val variationIndex: Int = 0,

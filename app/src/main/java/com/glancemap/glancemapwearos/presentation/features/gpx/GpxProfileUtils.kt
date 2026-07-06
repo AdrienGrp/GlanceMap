@@ -7,6 +7,7 @@ import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.File
 import java.io.FileInputStream
+import java.time.Instant
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -32,6 +33,37 @@ internal data class ParsedGpxData(
     val title: String?,
     val points: List<TrackPoint>,
     val totalDistance: Double,
+    val isActivity: Boolean = false,
+    val activityDurationSec: Double? = null,
+    val activitySummary: GpxActivitySummary? = null,
+)
+
+internal data class GpxActivitySummary(
+    val activityProfile: String?,
+    val durationSeconds: Double?,
+    val distanceMeters: Double?,
+    val elevationGainMeters: Double?,
+    val elevationLossMeters: Double?,
+    val currentElevationMeters: Double?,
+    val currentSpeedMps: Float?,
+    val averageSpeedMps: Double?,
+    val gpsAccuracyMeters: Float?,
+    val pointCount: Int?,
+    val gpsActiveDurationSeconds: Double?,
+    val recordingGapCount: Int?,
+    val recordingMaxGapSeconds: Double?,
+    val caloriesGrossKcal: Double?,
+    val caloriesActiveKcal: Double?,
+    val caloriesRestingKcal: Double?,
+    val calorieModel: String?,
+    val cyclingMechanicalKj: Double?,
+    val cyclingPowerSampleSegments: Int?,
+    val cyclingPhysicsSegments: Int?,
+    val heartRateBpm: Int?,
+    val stepCount: Int?,
+    val cadenceSpm: Int?,
+    val powerWatts: Int?,
+    val barometricPressureHpa: Double?,
 )
 
 private val B_ROUTER_DISPLAY_REGEX = Regex("brouter", RegexOption.IGNORE_CASE)
@@ -116,14 +148,55 @@ internal fun parseGpxData(file: File): ParsedGpxData {
 
     var inTrk = false
     var inMetadata = false
+    var inMetadataExtensions = false
     var trkDepth = -1
     var metadataDepth = -1
+    var metadataExtensionsDepth = -1
+    var isActivity = false
+    var summaryActivityProfile: String? = null
+    var firstTimestampMillis: Long? = null
+    var lastTimestampMillis: Long? = null
+    var summaryDurationSeconds: Double? = null
+    var summaryDistanceMeters: Double? = null
+    var summaryElevationGainMeters: Double? = null
+    var summaryElevationLossMeters: Double? = null
+    var summaryCurrentElevationMeters: Double? = null
+    var summaryCurrentSpeedMps: Float? = null
+    var summaryAverageSpeedMps: Double? = null
+    var summaryGpsAccuracyMeters: Float? = null
+    var summaryPointCount: Int? = null
+    var summaryGpsActiveDurationSeconds: Double? = null
+    var summaryRecordingGapCount: Int? = null
+    var summaryRecordingMaxGapSeconds: Double? = null
+    var summaryCaloriesGrossKcal: Double? = null
+    var summaryCaloriesActiveKcal: Double? = null
+    var summaryCaloriesRestingKcal: Double? = null
+    var summaryCalorieModel: String? = null
+    var summaryCyclingMechanicalKj: Double? = null
+    var summaryCyclingPowerSampleSegments: Int? = null
+    var summaryCyclingPhysicsSegments: Int? = null
+    var summaryHeartRateBpm: Int? = null
+    var summaryStepCount: Int? = null
+    var summaryCadenceSpm: Int? = null
+    var summaryPowerWatts: Int? = null
+    var summaryPressureHpa: Double? = null
 
     var inTrackPoint = false
     var currentLat: Double? = null
     var currentLon: Double? = null
     var currentElevation: Double? = null
     var currentHasTimestamp = false
+    var currentTimestampMillis: Long? = null
+    var currentAccuracyMeters: Float? = null
+    var currentSpeedMps: Float? = null
+    var currentHeartRateBpm: Int? = null
+    var currentStepCount: Int? = null
+    var currentCadenceSpm: Int? = null
+    var currentPowerWatts: Int? = null
+    var currentPressureHpa: Double? = null
+    var currentDesc: String? = null
+    var currentSym: String? = null
+    var currentBrouterVoiceHint: String? = null
 
     return try {
         val parser = XmlPullParserFactory.newInstance().newPullParser()
@@ -134,7 +207,8 @@ internal fun parseGpxData(file: File): ParsedGpxData {
             while (event != XmlPullParser.END_DOCUMENT) {
                 when (event) {
                     XmlPullParser.START_TAG -> {
-                        when (parser.name) {
+                        val tagName = parser.name
+                        when (tagName.localXmlName()) {
                             "trk" -> {
                                 inTrk = true
                                 trkDepth = parser.depth
@@ -142,6 +216,85 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                             "metadata" -> {
                                 inMetadata = true
                                 metadataDepth = parser.depth
+                            }
+                            "extensions" -> {
+                                if (inMetadata && parser.depth == metadataDepth + 1) {
+                                    inMetadataExtensions = true
+                                    metadataExtensionsDepth = parser.depth
+                                }
+                            }
+                            "activityType" -> {
+                                if (inMetadataExtensions) {
+                                    isActivity =
+                                        parser
+                                            .nextText()
+                                            ?.trim()
+                                            ?.equals("recording", ignoreCase = true) == true
+                                }
+                            }
+                            "activityProfile" -> {
+                                if (inMetadataExtensions) {
+                                    summaryActivityProfile = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
+                                }
+                            }
+                            "durationSeconds" -> {
+                                if (inMetadataExtensions) summaryDurationSeconds = parser.nextTextDouble()
+                            }
+                            "distanceMeters" -> {
+                                if (inMetadataExtensions) summaryDistanceMeters = parser.nextTextDouble()
+                            }
+                            "elevationGainMeters" -> {
+                                if (inMetadataExtensions) summaryElevationGainMeters = parser.nextTextDouble()
+                            }
+                            "elevationLossMeters" -> {
+                                if (inMetadataExtensions) summaryElevationLossMeters = parser.nextTextDouble()
+                            }
+                            "currentElevationMeters" -> {
+                                if (inMetadataExtensions) summaryCurrentElevationMeters = parser.nextTextDouble()
+                            }
+                            "currentSpeedMps" -> {
+                                if (inMetadataExtensions) summaryCurrentSpeedMps = parser.nextTextFloat()
+                            }
+                            "averageSpeedMps" -> {
+                                if (inMetadataExtensions) summaryAverageSpeedMps = parser.nextTextDouble()
+                            }
+                            "gpsAccuracyMeters" -> {
+                                if (inMetadataExtensions) summaryGpsAccuracyMeters = parser.nextTextFloat()
+                            }
+                            "pointCount" -> {
+                                if (inMetadataExtensions) summaryPointCount = parser.nextTextInt()
+                            }
+                            "gpsActiveDurationSeconds" -> {
+                                if (inMetadataExtensions) summaryGpsActiveDurationSeconds = parser.nextTextDouble()
+                            }
+                            "recordingGapCount" -> {
+                                if (inMetadataExtensions) summaryRecordingGapCount = parser.nextTextInt()
+                            }
+                            "recordingMaxGapSeconds" -> {
+                                if (inMetadataExtensions) summaryRecordingMaxGapSeconds = parser.nextTextDouble()
+                            }
+                            "caloriesGrossKcal" -> {
+                                if (inMetadataExtensions) summaryCaloriesGrossKcal = parser.nextTextDouble()
+                            }
+                            "caloriesActiveKcal" -> {
+                                if (inMetadataExtensions) summaryCaloriesActiveKcal = parser.nextTextDouble()
+                            }
+                            "caloriesRestingKcal" -> {
+                                if (inMetadataExtensions) summaryCaloriesRestingKcal = parser.nextTextDouble()
+                            }
+                            "calorieModel" -> {
+                                if (inMetadataExtensions) {
+                                    summaryCalorieModel = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
+                                }
+                            }
+                            "cyclingMechanicalKj" -> {
+                                if (inMetadataExtensions) summaryCyclingMechanicalKj = parser.nextTextDouble()
+                            }
+                            "cyclingPowerSampleSegments" -> {
+                                if (inMetadataExtensions) summaryCyclingPowerSampleSegments = parser.nextTextInt()
+                            }
+                            "cyclingPhysicsSegments" -> {
+                                if (inMetadataExtensions) summaryCyclingPhysicsSegments = parser.nextTextInt()
                             }
                             "name" -> {
                                 val depth = parser.depth
@@ -161,24 +314,112 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 currentLon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
                                 currentElevation = null
                                 currentHasTimestamp = false
+                                currentTimestampMillis = null
+                                currentAccuracyMeters = null
+                                currentSpeedMps = null
+                                currentHeartRateBpm = null
+                                currentStepCount = null
+                                currentCadenceSpm = null
+                                currentPowerWatts = null
+                                currentPressureHpa = null
+                                currentDesc = null
+                                currentSym = null
+                                currentBrouterVoiceHint = null
                             }
                             "ele" -> {
                                 if (inTrackPoint) {
                                     currentElevation = parser.nextText()?.trim()?.toDoubleOrNull()
                                 }
                             }
+                            "desc" -> {
+                                if (inTrackPoint) {
+                                    currentDesc = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
+                                }
+                            }
+                            "sym" -> {
+                                if (inTrackPoint) {
+                                    currentSym = parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
+                                }
+                            }
+                            "voicehint" -> {
+                                val isBrouterVoiceHint =
+                                    parser.namespace?.contains("brouter", ignoreCase = true) == true ||
+                                        parser.prefix?.equals("brouter", ignoreCase = true) == true ||
+                                        tagName?.startsWith("brouter:", ignoreCase = true) == true
+                                if (inTrackPoint && isBrouterVoiceHint) {
+                                    currentBrouterVoiceHint =
+                                        parser.nextText()?.trim()?.takeIf { it.isNotBlank() }
+                                }
+                            }
                             "time" -> {
                                 if (inTrackPoint) {
-                                    currentHasTimestamp = !parser.nextText().isNullOrBlank()
+                                    val timeText = parser.nextText()?.trim()
+                                    currentHasTimestamp = !timeText.isNullOrBlank()
+                                    currentTimestampMillis =
+                                        timeText
+                                            ?.takeIf { it.isNotBlank() }
+                                            ?.let { value ->
+                                                runCatching { Instant.parse(value).toEpochMilli() }.getOrNull()
+                                            }
+                                }
+                            }
+                            "accuracyMeters" -> {
+                                if (inTrackPoint) {
+                                    currentAccuracyMeters = parser.nextText()?.trim()?.toFloatOrNull()
+                                }
+                            }
+                            "speedMps" -> {
+                                if (inTrackPoint) {
+                                    currentSpeedMps = parser.nextText()?.trim()?.toFloatOrNull()
+                                }
+                            }
+                            "heartRateBpm" -> {
+                                if (inMetadataExtensions) {
+                                    summaryHeartRateBpm = parser.nextTextInt()
+                                } else if (inTrackPoint) {
+                                    currentHeartRateBpm = parser.nextText()?.trim()?.toIntOrNull()
+                                }
+                            }
+                            "stepCount" -> {
+                                if (inMetadataExtensions) {
+                                    summaryStepCount = parser.nextTextInt()
+                                } else if (inTrackPoint) {
+                                    currentStepCount = parser.nextText()?.trim()?.toIntOrNull()
+                                }
+                            }
+                            "cadenceSpm" -> {
+                                if (inMetadataExtensions) {
+                                    summaryCadenceSpm = parser.nextTextInt()
+                                } else if (inTrackPoint) {
+                                    currentCadenceSpm = parser.nextText()?.trim()?.toIntOrNull()
+                                }
+                            }
+                            "powerWatts" -> {
+                                if (inMetadataExtensions) {
+                                    summaryPowerWatts = parser.nextTextInt()
+                                } else if (inTrackPoint) {
+                                    currentPowerWatts = parser.nextText()?.trim()?.toIntOrNull()
+                                }
+                            }
+                            "pressureHpa" -> {
+                                if (inMetadataExtensions) {
+                                    summaryPressureHpa = parser.nextTextDouble()
+                                } else if (inTrackPoint) {
+                                    currentPressureHpa = parser.nextText()?.trim()?.toDoubleOrNull()
                                 }
                             }
                         }
                     }
 
                     XmlPullParser.END_TAG -> {
-                        when (parser.name) {
+                        when (parser.name.localXmlName()) {
                             "trk" -> inTrk = false
                             "metadata" -> inMetadata = false
+                            "extensions" -> {
+                                if (inMetadataExtensions && parser.depth == metadataExtensionsDepth) {
+                                    inMetadataExtensions = false
+                                }
+                            }
                             "trkpt" -> {
                                 if (inTrackPoint) {
                                     val lat = currentLat
@@ -190,6 +431,20 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                                 latLong = latLong,
                                                 elevation = currentElevation,
                                                 hasTimestamp = currentHasTimestamp,
+                                                timeMillis = currentTimestampMillis,
+                                                accuracyMeters = currentAccuracyMeters,
+                                                speedMps = currentSpeedMps,
+                                                heartRateBpm = currentHeartRateBpm,
+                                                stepCount = currentStepCount,
+                                                cadenceSpm = currentCadenceSpm,
+                                                powerWatts = currentPowerWatts,
+                                                barometricPressureHpa = currentPressureHpa,
+                                                guidanceHint =
+                                                    parseGpxGuidanceHint(
+                                                        desc = currentDesc,
+                                                        sym = currentSym,
+                                                        brouterVoiceHint = currentBrouterVoiceHint,
+                                                    ),
                                             )
 
                                         lastPoint?.let { previous ->
@@ -202,6 +457,12 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                                 )
                                         }
                                         lastPoint = latLong
+                                        currentTimestampMillis?.let { timestampMillis ->
+                                            if (firstTimestampMillis == null) {
+                                                firstTimestampMillis = timestampMillis
+                                            }
+                                            lastTimestampMillis = timestampMillis
+                                        }
                                     }
                                 }
 
@@ -210,6 +471,17 @@ internal fun parseGpxData(file: File): ParsedGpxData {
                                 currentLon = null
                                 currentElevation = null
                                 currentHasTimestamp = false
+                                currentTimestampMillis = null
+                                currentAccuracyMeters = null
+                                currentSpeedMps = null
+                                currentHeartRateBpm = null
+                                currentStepCount = null
+                                currentCadenceSpm = null
+                                currentPowerWatts = null
+                                currentPressureHpa = null
+                                currentDesc = null
+                                currentSym = null
+                                currentBrouterVoiceHint = null
                             }
                         }
                     }
@@ -222,15 +494,168 @@ internal fun parseGpxData(file: File): ParsedGpxData {
             title = normalizeUserFacingGpxText(trkName ?: metaName),
             points = points,
             totalDistance = totalDistance,
+            isActivity = isActivity || file.name.startsWith("Recording-", ignoreCase = true),
+            activityDurationSec =
+                firstTimestampMillis?.let { first ->
+                    lastTimestampMillis
+                        ?.let { last -> ((last - first).coerceAtLeast(0L) / 1000.0) }
+                        ?.takeIf { it > 0.0 }
+                },
+            activitySummary =
+                buildGpxActivitySummary(
+                    activityProfile = summaryActivityProfile,
+                    durationSeconds = summaryDurationSeconds,
+                    distanceMeters = summaryDistanceMeters,
+                    elevationGainMeters = summaryElevationGainMeters,
+                    elevationLossMeters = summaryElevationLossMeters,
+                    currentElevationMeters = summaryCurrentElevationMeters,
+                    currentSpeedMps = summaryCurrentSpeedMps,
+                    averageSpeedMps = summaryAverageSpeedMps,
+                    gpsAccuracyMeters = summaryGpsAccuracyMeters,
+                    pointCount = summaryPointCount,
+                    gpsActiveDurationSeconds = summaryGpsActiveDurationSeconds,
+                    recordingGapCount = summaryRecordingGapCount,
+                    recordingMaxGapSeconds = summaryRecordingMaxGapSeconds,
+                    caloriesGrossKcal = summaryCaloriesGrossKcal,
+                    caloriesActiveKcal = summaryCaloriesActiveKcal,
+                    caloriesRestingKcal = summaryCaloriesRestingKcal,
+                    calorieModel = summaryCalorieModel,
+                    cyclingMechanicalKj = summaryCyclingMechanicalKj,
+                    cyclingPowerSampleSegments = summaryCyclingPowerSampleSegments,
+                    cyclingPhysicsSegments = summaryCyclingPhysicsSegments,
+                    heartRateBpm = summaryHeartRateBpm,
+                    stepCount = summaryStepCount,
+                    cadenceSpm = summaryCadenceSpm,
+                    powerWatts = summaryPowerWatts,
+                    barometricPressureHpa = summaryPressureHpa,
+                ),
         )
     } catch (_: Exception) {
         ParsedGpxData(
             title = null,
             points = emptyList(),
             totalDistance = 0.0,
+            isActivity = file.name.startsWith("Recording-", ignoreCase = true),
+            activityDurationSec = null,
+            activitySummary = null,
         )
     }
 }
+
+private fun buildGpxActivitySummary(
+    activityProfile: String?,
+    durationSeconds: Double?,
+    distanceMeters: Double?,
+    elevationGainMeters: Double?,
+    elevationLossMeters: Double?,
+    currentElevationMeters: Double?,
+    currentSpeedMps: Float?,
+    averageSpeedMps: Double?,
+    gpsAccuracyMeters: Float?,
+    pointCount: Int?,
+    gpsActiveDurationSeconds: Double?,
+    recordingGapCount: Int?,
+    recordingMaxGapSeconds: Double?,
+    caloriesGrossKcal: Double?,
+    caloriesActiveKcal: Double?,
+    caloriesRestingKcal: Double?,
+    calorieModel: String?,
+    cyclingMechanicalKj: Double?,
+    cyclingPowerSampleSegments: Int?,
+    cyclingPhysicsSegments: Int?,
+    heartRateBpm: Int?,
+    stepCount: Int?,
+    cadenceSpm: Int?,
+    powerWatts: Int?,
+    barometricPressureHpa: Double?,
+): GpxActivitySummary? {
+    if (
+        durationSeconds == null &&
+        distanceMeters == null &&
+        elevationGainMeters == null &&
+        elevationLossMeters == null &&
+        caloriesGrossKcal == null
+    ) {
+        return null
+    }
+    return GpxActivitySummary(
+        activityProfile = activityProfile,
+        durationSeconds = durationSeconds,
+        distanceMeters = distanceMeters,
+        elevationGainMeters = elevationGainMeters,
+        elevationLossMeters = elevationLossMeters,
+        currentElevationMeters = currentElevationMeters,
+        currentSpeedMps = currentSpeedMps,
+        averageSpeedMps = averageSpeedMps,
+        gpsAccuracyMeters = gpsAccuracyMeters,
+        pointCount = pointCount,
+        gpsActiveDurationSeconds = gpsActiveDurationSeconds,
+        recordingGapCount = recordingGapCount,
+        recordingMaxGapSeconds = recordingMaxGapSeconds,
+        caloriesGrossKcal = caloriesGrossKcal,
+        caloriesActiveKcal = caloriesActiveKcal,
+        caloriesRestingKcal = caloriesRestingKcal,
+        calorieModel = calorieModel,
+        cyclingMechanicalKj = cyclingMechanicalKj,
+        cyclingPowerSampleSegments = cyclingPowerSampleSegments,
+        cyclingPhysicsSegments = cyclingPhysicsSegments,
+        heartRateBpm = heartRateBpm,
+        stepCount = stepCount,
+        cadenceSpm = cadenceSpm,
+        powerWatts = powerWatts,
+        barometricPressureHpa = barometricPressureHpa,
+    )
+}
+
+private fun XmlPullParser.nextTextDouble(): Double? =
+    nextText()
+        ?.trim()
+        ?.toDoubleOrNull()
+        ?.takeIf { it.isFinite() }
+
+private fun XmlPullParser.nextTextFloat(): Float? =
+    nextText()
+        ?.trim()
+        ?.toFloatOrNull()
+        ?.takeIf { it.isFinite() }
+
+private fun XmlPullParser.nextTextInt(): Int? = nextText()?.trim()?.toIntOrNull()
+
+private fun String?.localXmlName(): String = this?.substringAfter(':').orEmpty()
+
+private fun parseGpxGuidanceHint(
+    desc: String?,
+    sym: String?,
+    brouterVoiceHint: String?,
+): GpxGuidanceHint? {
+    val brouterCommand = brouterVoiceHint?.substringBefore(';')?.trim()?.takeIf { it.isNotBlank() }
+    if (brouterCommand != null) {
+        return GpxGuidanceHint(
+            commandCode = brouterCommand,
+            message = desc?.guidanceHintMessage(),
+            source = GpxGuidanceHintSource.BROUTER,
+        )
+    }
+
+    val symbolCommand =
+        sym
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.takeUnless { it.equals("pass_place", ignoreCase = true) }
+    if (symbolCommand != null) {
+        return GpxGuidanceHint(
+            commandCode = symbolCommand,
+            message = desc?.guidanceHintMessage(),
+            source = GpxGuidanceHintSource.GPX_SYMBOL,
+        )
+    }
+    return null
+}
+
+private fun String.guidanceHintMessage(): String? =
+    trim()
+        .takeIf { it.isNotBlank() }
+        ?.takeUnless { it.equals("start", ignoreCase = true) || it.equals("end", ignoreCase = true) }
 
 internal val TrackProfile.totalDistance: Double
     get() = cumDist.lastOrNull() ?: 0.0

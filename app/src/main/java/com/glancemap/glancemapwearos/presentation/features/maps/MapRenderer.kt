@@ -6,6 +6,7 @@ import android.os.Process
 import android.util.Log
 import com.glancemap.glancemapwearos.core.maps.Dem3CoverageUtils
 import com.glancemap.glancemapwearos.core.maps.DemSignatureStore
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,6 @@ import org.mapsforge.map.android.util.AndroidUtil
 import org.mapsforge.map.android.view.MapView
 import org.mapsforge.map.datastore.MapDataStore
 import org.mapsforge.map.layer.cache.TileCache
-import org.mapsforge.map.layer.hills.DemFolderFS
 import org.mapsforge.map.layer.hills.HillsRenderConfig
 import org.mapsforge.map.layer.hills.MemoryCachingHgtReaderTileSource
 import org.mapsforge.map.layer.hills.SimpleShadingAlgorithm
@@ -101,6 +101,7 @@ class MapRenderer(
         private const val STARTUP_PREWARM_ZOOM_STEPS = 2
         private const val STARTUP_PREWARM_TILE_MARGIN = 1
         private const val STARTUP_PREWARM_DURATION_MS = 8_000L
+        private const val STARTUP_PREWARM_ARM_DELAY_MS = 1_500L
         private const val CONSTRAINED_STARTUP_PREWARM_ZOOM_STEPS = 2
         private const val CONSTRAINED_STARTUP_PREWARM_TILE_MARGIN = 0
         private const val CONSTRAINED_STARTUP_PREWARM_DURATION_MS = 4_000L
@@ -115,18 +116,17 @@ class MapRenderer(
     private var currentBundledThemeId: String = MapsforgeThemeCatalog.ELEVATE_THEME_ID
     private var currentHillShadingEnabled: Boolean = true
     private var currentReliefOverlayEnabled: Boolean = false
+    private var currentDemSource: DemSource = DemSource.DEFAULT
     private var currentElevationLabelsMetric: Boolean = true
 
     // Signature to detect changes even if same File path is reused
     private var currentThemeSignature: String = ""
     private var currentDemSignature: String? = null
 
-    private val demRootDir: File by lazy {
-        Dem3CoverageUtils.demRootDir(context)
-    }
-    private val demRootDirs: List<File> by lazy {
-        Dem3CoverageUtils.demRootDirs(context)
-    }
+    private val demRootDir: File
+        get() = Dem3CoverageUtils.demRootDir(context, currentDemSource)
+    private val demRootDirs: List<File>
+        get() = listOf(demRootDir)
     private val reliefOverlayCacheRootDir: File by lazy {
         val root = context.externalCacheDir ?: context.cacheDir
         File(root, RELIEF_OVERLAY_CACHE_DIR_NAME)
@@ -285,6 +285,7 @@ class MapRenderer(
         bundledThemeId: String,
         hillShadingEnabled: Boolean,
         reliefOverlayEnabled: Boolean,
+        demSource: DemSource = DemSource.DEFAULT,
     ): ThemeApplyResult {
         val timingMarker = MapHotPathDiagnostics.begin("mapRenderer.setThemeConfig")
         var timingStatus = "ok"
@@ -303,13 +304,14 @@ class MapRenderer(
                 MapsforgeThemeCatalog.ELEVATE_THEME_ID
             }
         val reliefOverlayChanged = currentReliefOverlayEnabled != reliefOverlayEnabled
+        val demSourceChanged = currentDemSource != demSource
         val newSignature =
             computeMapRendererThemeSignature(
                 file = themeFile,
                 mapsforgeThemeName = normalizedMapsforge,
                 bundledThemeId = normalizedBundledThemeId,
                 hillShadingEnabled = hillShadingEnabled,
-            )
+            ) + "|DEM:${demSource.id}"
         // Avoid unnecessary work
         if (currentThemeSignature == newSignature) {
             timingStatus = if (reliefOverlayChanged) "relief_overlay_only" else "no_change"
@@ -350,8 +352,9 @@ class MapRenderer(
             currentBundledThemeId = normalizedBundledThemeId
             currentHillShadingEnabled = hillShadingEnabled
             currentReliefOverlayEnabled = reliefOverlayEnabled
+            currentDemSource = demSource
             currentThemeSignature = newSignature
-            if (!currentHillShadingEnabled) {
+            if (!currentHillShadingEnabled || demSourceChanged) {
                 destroyHillsRenderConfig()
             }
 
@@ -392,6 +395,8 @@ class MapRenderer(
                         append("mapsforge=").append(normalizedMapsforge != null)
                         append(" hill=").append(hillShadingEnabled)
                         append(" relief=").append(reliefOverlayEnabled)
+                        append(" demSource=").append(demSource.id)
+                        append(" demSourceChanged=").append(demSourceChanged)
                         append(" demChanged=").append(demChanged)
                         append(" lightweight=").append(usedLightweightReload)
                     },
@@ -784,19 +789,25 @@ class MapRenderer(
             return
         }
 
-        // Warm adjacent zoom levels once on startup so first manual zoom feels immediate.
-        layer.setCacheZoomPlus(config.startupPrewarmZoomPlus)
-        layer.setCacheZoomMinus(config.startupPrewarmZoomMinus)
-        layer.setCacheTileMargin(config.startupPrewarmTileMargin)
-
         mapView.postDelayed(
             {
                 if (currentLayer !== layer) return@postDelayed
-                layer.setCacheZoomPlus(0)
-                layer.setCacheZoomMinus(0)
-                layer.setCacheTileMargin(0)
+                // Warm adjacent zoom levels once startup rendering has had a chance to settle.
+                layer.setCacheZoomPlus(config.startupPrewarmZoomPlus)
+                layer.setCacheZoomMinus(config.startupPrewarmZoomMinus)
+                layer.setCacheTileMargin(config.startupPrewarmTileMargin)
+
+                mapView.postDelayed(
+                    {
+                        if (currentLayer !== layer) return@postDelayed
+                        layer.setCacheZoomPlus(0)
+                        layer.setCacheZoomMinus(0)
+                        layer.setCacheTileMargin(0)
+                    },
+                    config.startupPrewarmDurationMs,
+                )
             },
-            config.startupPrewarmDurationMs,
+            STARTUP_PREWARM_ARM_DELAY_MS,
         )
     }
 
@@ -812,7 +823,7 @@ class MapRenderer(
                 timingStatus = "missing_dem"
                 Log.d(
                     TAG,
-                    "Hill shading enabled but no DEM files found in ${demRootDir.absolutePath}.",
+                    "Hill shading enabled but no DEM files found in ${demRootDirs.joinToString { it.absolutePath }}.",
                 )
                 destroyHillsRenderConfig()
                 return null
@@ -828,7 +839,7 @@ class MapRenderer(
 
             val config =
                 runCatching {
-                    val demFolder = DemFolderFS(demRootDir)
+                    val demFolder = MapsforgeHillshadeDemFolder(demRootDirs)
                     val tileSource =
                         MemoryCachingHgtReaderTileSource(
                             demFolder,
@@ -840,7 +851,11 @@ class MapRenderer(
                         .indexOnThread()
                 }.getOrElse { e ->
                     timingStatus = "error_${e.javaClass.simpleName}"
-                    Log.w(TAG, "Failed to initialize DEM hillshading from ${demRootDir.absolutePath}", e)
+                    Log.w(
+                        TAG,
+                        "Failed to initialize DEM hillshading from ${demRootDirs.joinToString { it.absolutePath }}",
+                        e,
+                    )
                     return null
                 }
 

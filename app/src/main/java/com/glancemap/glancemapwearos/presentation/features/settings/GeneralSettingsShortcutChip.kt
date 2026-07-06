@@ -8,7 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Shortcut
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
@@ -22,30 +23,42 @@ import com.google.android.horologist.compose.material.Chip
 internal fun GeneralSettingsShortcutChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    applyTopPadding: Boolean = true,
+) {
+    AdaptiveSettingsShortcutChip(
+        standardLabel = "General Settings",
+        compactLabel = "General",
+        standardSecondaryLabel = "Back to settings menu",
+        compactSecondaryLabel = "Settings menu",
+        iconImageVector = Icons.AutoMirrored.Filled.Shortcut,
+        applyTopPadding = applyTopPadding,
+        compactRoundWidthFraction = 0.78f,
+        modifier = modifier,
+        onClick = onClick,
+    )
+}
+
+@OptIn(ExperimentalHorologistApi::class)
+@Composable
+internal fun AdaptiveSettingsShortcutChip(
+    standardLabel: String,
+    compactLabel: String,
+    standardSecondaryLabel: String,
+    compactSecondaryLabel: String,
+    iconImageVector: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    applyTopPadding: Boolean = false,
+    compactRoundWidthFraction: Float = 1f,
+    standardMinHeight: Dp = 52.dp,
+    compactMinHeight: Dp = 84.dp,
 ) {
     val adaptive = rememberWearAdaptiveSpec()
     val useCompactLabels = adaptive.windowClass == WearWindowClass.COMPACT || adaptive.fontScale >= 1.25f
-    val minHeight =
-        when {
-            useCompactLabels -> 84.dp
-            else -> 52.dp
-        }
-    val topPadding = rememberSettingsFirstItemTopPadding()
-    val label =
-        if (useCompactLabels) {
-            "General"
-        } else {
-            "General Settings"
-        }
-    val secondaryLabel =
-        if (useCompactLabels) {
-            "Settings menu"
-        } else {
-            "Back to settings menu"
-        }
+    val topPadding = if (applyTopPadding) rememberSettingsFirstItemTopPadding() else 0.dp
     val widthFraction =
         if (adaptive.isRound && useCompactLabels) {
-            0.78f
+            compactRoundWidthFraction
         } else {
             1f
         }
@@ -55,22 +68,22 @@ internal fun GeneralSettingsShortcutChip(
             modifier
                 .padding(top = topPadding)
                 .fillMaxWidth(widthFraction)
-                .heightIn(min = minHeight),
-        label = label,
-        secondaryLabel = secondaryLabel,
+                .heightIn(min = if (useCompactLabels) compactMinHeight else standardMinHeight),
+        label = if (useCompactLabels) compactLabel else standardLabel,
+        secondaryLabel = if (useCompactLabels) compactSecondaryLabel else standardSecondaryLabel,
         icon = {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.Shortcut,
+                imageVector = iconImageVector,
                 contentDescription = null,
                 modifier = Modifier.size(ChipDefaults.IconSize),
             )
         },
         colors =
             ChipDefaults.secondaryChipColors(
-                backgroundColor = Color(0xFF1F3554),
-                contentColor = Color(0xFFF4F7FB),
-                secondaryContentColor = Color(0xFFC9D7EA),
-                iconColor = Color(0xFFF6C453),
+                backgroundColor = SectionChipBackground,
+                contentColor = SectionChipContent,
+                secondaryContentColor = SectionChipSecondary,
+                iconColor = SectionChipIcon,
             ),
         onClick = onClick,
     )

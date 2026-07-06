@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.core.service.diagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.AcceptedFixSummaries
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.AcceptedFixSummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.CompassTelemetryInsights
+import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.FixGapBuckets
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.GnssInsights
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.ObservedFixQualitySummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter.TelemetryInsights
@@ -10,7 +11,7 @@ import java.io.BufferedWriter
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import kotlin.math.roundToInt
 
 private val telemetryLineTimestampFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
@@ -108,6 +109,9 @@ internal fun deriveTelemetryInsights(
     var watchGpsDegradedClearedCount = 0
     var watchGpsDegradedSampleCount = 0
     var watchGpsDegradedLastObserved: Boolean? = null
+    var watchGpsSelfHealSkippedCount = 0
+    var watchGpsSelfHealRestartCount = 0
+    var watchGpsSelfHealMaxSearchAgeMs: Long? = null
     var batchEventCount = 0
     var batchOriginAutoFusedCount = 0
     var batchOriginPassiveExternalCount = 0
@@ -137,6 +141,172 @@ internal fun deriveTelemetryInsights(
     var screenOnFixGapSampleCount = 0
     var screenOnFixGapSumMs = 0L
     var screenOnFixGapMaxMs = 0L
+    var interactiveFixGapSampleCount = 0
+    var interactiveFixGapSumMs = 0L
+    var interactiveFixGapMaxMs = 0L
+    var nonInteractiveFixGapSampleCount = 0
+    var nonInteractiveFixGapSumMs = 0L
+    var nonInteractiveFixGapMaxMs = 0L
+    var unknownScreenFixGapSampleCount = 0
+    var unknownScreenFixGapSumMs = 0L
+    var unknownScreenFixGapMaxMs = 0L
+    var delayedFixGapCount = 0
+    var turnByTurnSampleCount = 0
+    var turnByTurnActiveSampleCount = 0
+    var turnByTurnPausedSampleCount = 0
+    var turnByTurnOffRouteSampleCount = 0
+    var turnByTurnGuideBackActiveSampleCount = 0
+    var turnByTurnGuideBackPromptSampleCount = 0
+    var turnByTurnStartHereDecisionCount = 0
+    var turnByTurnReverseDecisionCount = 0
+    var turnByTurnGeometryInstructionSampleCount = 0
+    var turnByTurnBrouterHintInstructionSampleCount = 0
+    var turnByTurnTurnHapticCount = 0
+    var turnByTurnOffRouteHapticCount = 0
+    var turnByTurnMaxDistanceToRouteMeters: Int? = null
+    var recordingStartCount = 0
+    var recordingRecoveredCount = 0
+    var recordingPauseCount = 0
+    var recordingResumeCount = 0
+    var recordingPointSampleCount = 0
+    var recordingSaveStartCount = 0
+    var recordingSaveSuccessCount = 0
+    var recordingSaveFailureCount = 0
+    var recordingDiscardCount = 0
+    var recordingDraftFailureCount = 0
+    var recordingDraftClearFailureCount = 0
+    var recordingLastUiAction: String? = null
+    var recordingLastEndReason: String? = null
+    var recordingLastPointCount: Int? = null
+    var recordingMaxPointCount: Int? = null
+    var recordingLastDistanceMeters: Int? = null
+    var recordingMaxDistanceMeters: Int? = null
+    var recordingGpsDistanceMeters: Int? = null
+    var recordingDisplayDistanceMeters: Int? = null
+    var recordingPodSessionDistanceMeters: Int? = null
+    var recordingPodIntegratedDistanceMeters: Int? = null
+    var recordingSavedGpxWrittenPoints: Int? = null
+    var recordingSavedGpxParsedPoints: Int? = null
+    var recordingSavedGpxSummaryPoints: Int? = null
+    var recordingSavedGpxSummaryDistanceMeters: Int? = null
+    var recordingLastDurationMs: Long? = null
+    var recordingMaxDurationMs: Long? = null
+    var recordingLastPausedMs: Long? = null
+    var recordingMaxPausedMs: Long? = null
+    var recordingGpsActiveDurationMs: Long? = null
+    var recordingExpectedPointCount: Int? = null
+    var recordingAveragePointIntervalMs: Long? = null
+    var recordingPointCaptureRatePercent: Int? = null
+    var recordingGapCount: Int? = null
+    var recordingGapEventCount = 0
+    var recordingMaxGapMs: Long? = null
+    var recordingLastPointAgeMs: Long? = null
+    var recordingForcedAcceptCount: Int? = null
+    var recordingGapRecoveryAcceptCount: Int? = null
+    var recordingLastSkippedIntervalElapsedMs: Long? = null
+    var recordingMaxSkippedIntervalElapsedMs: Long? = null
+    var recordingLastLiveProvider: String? = null
+    var recordingLastLiveAccuracyMeters: Int? = null
+    var recordingSkippedIntervalCount: Int? = null
+    var recordingSkippedPausedCount: Int? = null
+    var recordingSkippedUnusableCount: Int? = null
+    var recordingElevationSource: String? = null
+    var recordingDemHitCount: Int? = null
+    var recordingDemMissCount: Int? = null
+    var recordingGpsElevationUsedCount: Int? = null
+    var recordingAccuracySampleCount: Int? = null
+    var recordingAccuracyAvgMeters: Int? = null
+    var recordingAccuracyMinMeters: Int? = null
+    var recordingAccuracyMaxMeters: Int? = null
+    var recordingElevationGainMeters: Int? = null
+    var recordingElevationLossMeters: Int? = null
+    var recordingLiveHeartRateBpm: Int? = null
+    var recordingAverageHeartRateBpm: Int? = null
+    var recordingLiveStepCount: Int? = null
+    var recordingLiveCadenceSpm: Int? = null
+    var recordingLiveExternalSpeedMps: String? = null
+    var recordingLiveExternalRawDistanceUnits: Long? = null
+    var recordingLiveExternalDistanceMeters: Int? = null
+    var recordingLiveExternalSessionDistanceMeters: Int? = null
+    var recordingLiveExternalIntegratedDistanceMeters: Int? = null
+    var recordingLivePressureHpa: Int? = null
+    var recordingHeartRateAgeMs: Long? = null
+    var recordingStepCountAgeMs: Long? = null
+    var recordingCadenceAgeMs: Long? = null
+    var recordingExternalSpeedAgeMs: Long? = null
+    var recordingExternalDistanceAgeMs: Long? = null
+    var recordingPressureAgeMs: Long? = null
+    var recordingHeartRateSensorEventCount: Int? = null
+    var recordingStepSensorEventCount: Int? = null
+    var recordingCadenceSensorEventCount: Int? = null
+    var recordingPressureSensorEventCount: Int? = null
+    var recordingSensorRegisterCount = 0
+    var recordingSensorRequested: String? = null
+    var recordingSensorRegistered: String? = null
+    var recordingSensorAvailable: String? = null
+    var recordingBodySensorsGranted: Boolean? = null
+    var recordingActivityRecognitionGranted: Boolean? = null
+    var externalSensorScanStartCount = 0
+    var externalSensorScanStopCount = 0
+    var externalSensorScanFailedCount = 0
+    var externalSensorLastScanDeviceCount: Int? = null
+    var externalSensorLastScanSummary: String? = null
+    var externalSensorLastScanFailureReason: String? = null
+    var externalHeartRateBridgeStartCount = 0
+    var externalHeartRateBridgeStopCount = 0
+    var externalHeartRateConnectRequestedCount = 0
+    var externalHeartRateConnectSkippedCount = 0
+    var externalHeartRateLastConnectSkippedReason: String? = null
+    var externalHeartRateConnectedCount = 0
+    var externalHeartRateDisconnectedCount = 0
+    var externalHeartRateReconnectScheduledCount = 0
+    var externalHeartRateReconnectAttemptCount = 0
+    var externalHeartRateNotifyRequestedCount = 0
+    var externalHeartRateNotifyFailedCount = 0
+    var externalHeartRateServiceFailureCount = 0
+    var externalHeartRateMeasurementMissingCount = 0
+    var externalHeartRateSampleCount = 0
+    var externalHeartRateLastBpm: Int? = null
+    var externalHeartRateMinBpm: Int? = null
+    var externalHeartRateMaxBpm: Int? = null
+    var externalHeartRateLastSampleAtMs: Long? = null
+    var externalRunPodBridgeStartCount = 0
+    var externalRunPodBridgeStopCount = 0
+    var externalRunPodConnectRequestedCount = 0
+    var externalRunPodConnectSkippedCount = 0
+    var externalRunPodLastConnectSkippedReason: String? = null
+    var externalRunPodConnectedCount = 0
+    var externalRunPodDisconnectedCount = 0
+    var externalRunPodNotifyRequestedCount = 0
+    var externalRunPodNotifyFailedCount = 0
+    var externalRunPodServiceFailureCount = 0
+    var externalRunPodMeasurementMissingCount = 0
+    var externalRunPodSampleCount = 0
+    var externalRunPodLastCadenceSpm: Int? = null
+    var externalRunPodLastPowerWatts: Int? = null
+    var externalRunPodLastBatteryPercent: Int? = null
+    var externalRunPodLastSpeedMps: String? = null
+    var externalRunPodLastRawDistanceUnits: Long? = null
+    var externalRunPodLastDistanceMeters: Int? = null
+    var externalRunPodLastSampleAtMs: Long? = null
+    var recordingCalorieModel: String? = null
+    var recordingCaloriesGrossKcal: Int? = null
+    var recordingCaloriesActiveKcal: Int? = null
+    var recordingCaloriesRestingKcal: Int? = null
+    var recordingPandolfBaseGrossKcal: Int? = null
+    var recordingPandolfBaseActiveKcal: Int? = null
+    var recordingPandolfBaseRestingKcal: Int? = null
+    var recordingCalorieCompareModel: String? = null
+    var recordingLcdaGrossKcal: Int? = null
+    var recordingLcdaActiveKcal: Int? = null
+    var recordingLcdaRestingKcal: Int? = null
+    var recordingLastSavedByteSize: Int? = null
+    var locationServiceStartFailureCount = 0
+    var locationServiceStartFallbackFailureCount = 0
+    var locationStartForegroundFailureCount = 0
+    var thermalStatusEventCount = 0
+    var thermalMaxStatus: Int? = null
+    var thermalLastStatusLabel: String? = null
     var screenActive = false
     var pendingScreenPauseTrackingDisable = false
     var lastScreenFixAtMs: Long? = null
@@ -222,6 +392,38 @@ internal fun deriveTelemetryInsights(
                 "gps" -> fixProviderGpsCount += 1
                 "fused" -> fixProviderFusedCount += 1
             }
+            val acceptedGapMs = parseLongToken(line, "gapMs=")
+            if (acceptedGapMs != null) {
+                when (extractTokenValue(line, "screenState=")) {
+                    "INTERACTIVE" -> {
+                        interactiveFixGapSampleCount += 1
+                        interactiveFixGapSumMs += acceptedGapMs
+                        if (acceptedGapMs > interactiveFixGapMaxMs) interactiveFixGapMaxMs = acceptedGapMs
+                    }
+                    "SCREEN_OFF",
+                    "AMBIENT",
+                    -> {
+                        nonInteractiveFixGapSampleCount += 1
+                        nonInteractiveFixGapSumMs += acceptedGapMs
+                        if (acceptedGapMs > nonInteractiveFixGapMaxMs) {
+                            nonInteractiveFixGapMaxMs = acceptedGapMs
+                        }
+                    }
+                    else -> {
+                        unknownScreenFixGapSampleCount += 1
+                        unknownScreenFixGapSumMs += acceptedGapMs
+                        if (acceptedGapMs > unknownScreenFixGapMaxMs) {
+                            unknownScreenFixGapMaxMs = acceptedGapMs
+                        }
+                    }
+                }
+                parseLongToken(line, "expectedIntervalMs=")?.takeIf { it > 0L }?.let { expectedIntervalMs ->
+                    val delayedThresholdMs = maxOf(expectedIntervalMs * 2L, expectedIntervalMs + 2_000L)
+                    if (acceptedGapMs > delayedThresholdMs) {
+                        delayedFixGapCount += 1
+                    }
+                }
+            }
             if (screenActive && lineEpochMs != null) {
                 lastScreenFixAtMs?.let { previousFixAtMs ->
                     val gapMs = (lineEpochMs - previousFixAtMs).coerceAtLeast(0L)
@@ -270,6 +472,415 @@ internal fun deriveTelemetryInsights(
                     watchGpsDegradedLastObserved = true
                 }
                 "false" -> watchGpsDegradedLastObserved = false
+            }
+        }
+
+        if ("[TurnByTurn]" in line) {
+            when (extractTokenValue(line, "haptic=")) {
+                "turn" -> turnByTurnTurnHapticCount += 1
+                "off_route" -> turnByTurnOffRouteHapticCount += 1
+            }
+            if (" active=" in line || line.contains("[TurnByTurn] active=")) {
+                turnByTurnSampleCount += 1
+                if (parseBooleanToken(line, "active=") == true) {
+                    turnByTurnActiveSampleCount += 1
+                }
+                if (parseBooleanToken(line, "paused=") == true) {
+                    turnByTurnPausedSampleCount += 1
+                }
+                if (parseBooleanToken(line, "offRoute=") == true) {
+                    turnByTurnOffRouteSampleCount += 1
+                }
+                if (parseBooleanToken(line, "guideBackActive=") == true) {
+                    turnByTurnGuideBackActiveSampleCount += 1
+                }
+                if (parseBooleanToken(line, "guideBackPrompt=") == true) {
+                    turnByTurnGuideBackPromptSampleCount += 1
+                }
+                when (extractTokenValue(line, "startDecision=")) {
+                    "START_HERE" -> turnByTurnStartHereDecisionCount += 1
+                    "REVERSE_ROUTE" -> turnByTurnReverseDecisionCount += 1
+                }
+                when (extractTokenValue(line, "nextSource=")) {
+                    "GPX_GEOMETRY" -> turnByTurnGeometryInstructionSampleCount += 1
+                    "BROUTER_HINT" -> turnByTurnBrouterHintInstructionSampleCount += 1
+                }
+                parseFloatToken(line, "distToRouteM=")?.roundToInt()?.let { distance ->
+                    turnByTurnMaxDistanceToRouteMeters =
+                        maxOf(turnByTurnMaxDistanceToRouteMeters ?: distance, distance)
+                }
+            }
+        }
+
+        if ("[TraceRecording]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "start" -> recordingStartCount += 1
+                "recovered" -> recordingRecoveredCount += 1
+                "pause" -> recordingPauseCount += 1
+                "resume" -> recordingResumeCount += 1
+                "point" -> recordingPointSampleCount += 1
+                "gap" -> recordingGapEventCount += 1
+                "gap_recovery_accept" -> {
+                    parseIntToken(line, "gapRecoveryAcceptCount=")?.let { count ->
+                        recordingGapRecoveryAcceptCount = maxOf(recordingGapRecoveryAcceptCount ?: count, count)
+                    }
+                }
+                "save_start" -> recordingSaveStartCount += 1
+                "save_success" -> recordingSaveSuccessCount += 1
+                "save_failure" -> recordingSaveFailureCount += 1
+                "discard" -> recordingDiscardCount += 1
+                "draft_failure" -> recordingDraftFailureCount += 1
+                "draft_clear_failure" -> recordingDraftClearFailureCount += 1
+            }
+            if (extractTokenValue(line, "event=") == "saved_gpx_verified") {
+                parseIntToken(line, "writtenPoints=")?.takeIf { it >= 0 }?.let {
+                    recordingSavedGpxWrittenPoints = it
+                }
+                parseIntToken(line, "parsedPoints=")?.takeIf { it >= 0 }?.let {
+                    recordingSavedGpxParsedPoints = it
+                }
+                parseIntToken(line, "summaryPoints=")?.takeIf { it >= 0 }?.let {
+                    recordingSavedGpxSummaryPoints = it
+                }
+                parseIntToken(line, "summaryDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                    recordingSavedGpxSummaryDistanceMeters = it
+                }
+            }
+            extractTokenValue(line, "lastUiAction=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                recordingLastUiAction = it
+            }
+            extractTokenValue(line, "endReason=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                recordingLastEndReason = it
+            }
+            parseIntToken(line, "points=")?.let { points ->
+                recordingLastPointCount = points
+                recordingMaxPointCount = maxOf(recordingMaxPointCount ?: points, points)
+            }
+            parseIntToken(line, "distanceMeters=")?.let { distance ->
+                recordingLastDistanceMeters = distance
+                recordingMaxDistanceMeters = maxOf(recordingMaxDistanceMeters ?: distance, distance)
+            }
+            parseIntToken(line, "gpsDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingGpsDistanceMeters = it
+            }
+            parseIntToken(line, "displayDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingDisplayDistanceMeters = it
+            }
+            parseIntToken(line, "podSessionDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingPodSessionDistanceMeters = it
+            }
+            parseIntToken(line, "podIntegratedDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingPodIntegratedDistanceMeters = it
+            }
+            parseLongToken(line, "durationMs=")?.let { duration ->
+                recordingLastDurationMs = duration
+                recordingMaxDurationMs = maxOf(recordingMaxDurationMs ?: duration, duration)
+            }
+            parseLongToken(line, "pausedMs=")?.let { paused ->
+                recordingLastPausedMs = paused
+                recordingMaxPausedMs = maxOf(recordingMaxPausedMs ?: paused, paused)
+            }
+            parseLongToken(line, "gpsActiveDurationMs=")?.let { duration ->
+                recordingGpsActiveDurationMs = maxOf(recordingGpsActiveDurationMs ?: duration, duration)
+            }
+            parseIntToken(line, "expectedPointCount=")?.let { count ->
+                recordingExpectedPointCount = maxOf(recordingExpectedPointCount ?: count, count)
+            }
+            parseLongToken(line, "averagePointIntervalMs=")?.takeIf { it >= 0L }?.let { interval ->
+                recordingAveragePointIntervalMs = interval
+            }
+            parseIntToken(line, "pointCaptureRatePercent=")?.takeIf { it >= 0 }?.let { rate ->
+                recordingPointCaptureRatePercent = rate
+            }
+            parseIntToken(line, "recordingGapCount=")?.let { count ->
+                recordingGapCount = maxOf(recordingGapCount ?: count, count)
+            }
+            parseLongToken(line, "recordingMaxGapMs=")?.let { gap ->
+                recordingMaxGapMs = maxOf(recordingMaxGapMs ?: gap, gap)
+            }
+            parseLongToken(line, "lastPointAgeMs=")?.takeIf { it >= 0L }?.let { age ->
+                recordingLastPointAgeMs = age
+            }
+            parseIntToken(line, "forcedAcceptCount=")?.let { count ->
+                recordingForcedAcceptCount = maxOf(recordingForcedAcceptCount ?: count, count)
+            }
+            parseIntToken(line, "gapRecoveryAcceptCount=")?.let { count ->
+                recordingGapRecoveryAcceptCount = maxOf(recordingGapRecoveryAcceptCount ?: count, count)
+            }
+            parseLongToken(line, "lastSkippedIntervalElapsedMs=")?.takeIf { it >= 0L }?.let { elapsed ->
+                recordingLastSkippedIntervalElapsedMs = elapsed
+            }
+            parseLongToken(line, "maxSkippedIntervalElapsedMs=")?.takeIf { it >= 0L }?.let { elapsed ->
+                recordingMaxSkippedIntervalElapsedMs = maxOf(recordingMaxSkippedIntervalElapsedMs ?: elapsed, elapsed)
+            }
+            extractTokenValue(line, "lastLiveProvider=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                recordingLastLiveProvider = it
+            }
+            parseIntToken(line, "lastLiveAccuracyMeters=")?.takeIf { it >= 0 }?.let {
+                recordingLastLiveAccuracyMeters = it
+            }
+            parseIntToken(line, "skippedInterval=")?.let { skipped ->
+                recordingSkippedIntervalCount = maxOf(recordingSkippedIntervalCount ?: skipped, skipped)
+            }
+            parseIntToken(line, "skippedPaused=")?.let { skipped ->
+                recordingSkippedPausedCount = maxOf(recordingSkippedPausedCount ?: skipped, skipped)
+            }
+            parseIntToken(line, "skippedUnusable=")?.let { skipped ->
+                recordingSkippedUnusableCount = maxOf(recordingSkippedUnusableCount ?: skipped, skipped)
+            }
+            extractTokenValue(line, "elevationSource=")?.takeIf { it.isNotBlank() }?.let {
+                recordingElevationSource = it
+            }
+            parseIntToken(line, "demHits=")?.let { hits ->
+                recordingDemHitCount = maxOf(recordingDemHitCount ?: hits, hits)
+            }
+            parseIntToken(line, "demMisses=")?.let { misses ->
+                recordingDemMissCount = maxOf(recordingDemMissCount ?: misses, misses)
+            }
+            parseIntToken(line, "gpsElevationUsed=")?.let { count ->
+                recordingGpsElevationUsedCount = maxOf(recordingGpsElevationUsedCount ?: count, count)
+            }
+            parseIntToken(line, "accuracySamples=")?.let { recordingAccuracySampleCount = it }
+            parseIntToken(line, "accuracyAvgMeters=")?.takeIf { it >= 0 }?.let {
+                recordingAccuracyAvgMeters = it
+            }
+            parseIntToken(line, "accuracyMinMeters=")?.takeIf { it >= 0 }?.let {
+                recordingAccuracyMinMeters = it
+            }
+            parseIntToken(line, "accuracyMaxMeters=")?.takeIf { it >= 0 }?.let {
+                recordingAccuracyMaxMeters = it
+            }
+            parseIntToken(line, "elevationGainMeters=")?.let { recordingElevationGainMeters = it }
+            parseIntToken(line, "elevationLossMeters=")?.let { recordingElevationLossMeters = it }
+            parseIntToken(line, "liveHeartRateBpm=")?.takeIf { it >= 0 }?.let {
+                recordingLiveHeartRateBpm = it
+            }
+            parseIntToken(line, "averageHeartRateBpm=")?.takeIf { it >= 0 }?.let {
+                recordingAverageHeartRateBpm = it
+            }
+            parseIntToken(line, "liveStepCount=")?.takeIf { it >= 0 }?.let {
+                recordingLiveStepCount = it
+            }
+            parseIntToken(line, "liveCadenceSpm=")?.takeIf { it >= 0 }?.let {
+                recordingLiveCadenceSpm = it
+            }
+            extractTokenValue(line, "liveExternalSpeedMps=")
+                ?.takeIf { value ->
+                    value.isNotBlank() && value != "-1.0" && value != "-1"
+                }?.let {
+                    recordingLiveExternalSpeedMps = it
+                }
+            parseLongToken(line, "liveExternalRawDistanceUnits=")?.takeIf { it >= 0 }?.let {
+                recordingLiveExternalRawDistanceUnits = it
+            }
+            parseIntToken(line, "liveExternalDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingLiveExternalDistanceMeters = it
+            }
+            parseIntToken(line, "liveExternalSessionDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingLiveExternalSessionDistanceMeters = it
+            }
+            parseIntToken(line, "liveExternalIntegratedDistanceMeters=")?.takeIf { it >= 0 }?.let {
+                recordingLiveExternalIntegratedDistanceMeters = it
+            }
+            parseIntToken(line, "livePressureHpa=")?.takeIf { it >= 0 }?.let {
+                recordingLivePressureHpa = it
+            }
+            parseLongToken(line, "heartRateAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingHeartRateAgeMs = it
+            }
+            parseLongToken(line, "stepCountAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingStepCountAgeMs = it
+            }
+            parseLongToken(line, "cadenceAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingCadenceAgeMs = it
+            }
+            parseLongToken(line, "externalSpeedAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingExternalSpeedAgeMs = it
+            }
+            parseLongToken(line, "externalDistanceAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingExternalDistanceAgeMs = it
+            }
+            parseLongToken(line, "pressureAgeMs=")?.takeIf { it >= 0L }?.let {
+                recordingPressureAgeMs = it
+            }
+            parseIntToken(line, "heartRateSensorEvents=")?.let {
+                recordingHeartRateSensorEventCount = maxOf(recordingHeartRateSensorEventCount ?: it, it)
+            }
+            parseIntToken(line, "stepSensorEvents=")?.let {
+                recordingStepSensorEventCount = maxOf(recordingStepSensorEventCount ?: it, it)
+            }
+            parseIntToken(line, "cadenceSensorEvents=")?.let {
+                recordingCadenceSensorEventCount = maxOf(recordingCadenceSensorEventCount ?: it, it)
+            }
+            parseIntToken(line, "pressureSensorEvents=")?.let {
+                recordingPressureSensorEventCount = maxOf(recordingPressureSensorEventCount ?: it, it)
+            }
+            extractTokenValue(line, "calorieModel=")?.takeIf { it.isNotBlank() }?.let {
+                recordingCalorieModel = it
+            }
+            parseIntToken(line, "caloriesGrossKcal=")?.let { recordingCaloriesGrossKcal = it }
+            parseIntToken(line, "caloriesActiveKcal=")?.let { recordingCaloriesActiveKcal = it }
+            parseIntToken(line, "caloriesRestingKcal=")?.let { recordingCaloriesRestingKcal = it }
+            parseIntToken(line, "pandolfBaseGrossKcal=")?.let { recordingPandolfBaseGrossKcal = it }
+            parseIntToken(line, "pandolfBaseActiveKcal=")?.let { recordingPandolfBaseActiveKcal = it }
+            parseIntToken(line, "pandolfBaseRestingKcal=")?.let { recordingPandolfBaseRestingKcal = it }
+            extractTokenValue(line, "calorieCompareModel=")?.takeIf { it.isNotBlank() }?.let {
+                recordingCalorieCompareModel = it
+            }
+            parseIntToken(line, "lcdaGrossKcal=")?.let { recordingLcdaGrossKcal = it }
+            parseIntToken(line, "lcdaActiveKcal=")?.let { recordingLcdaActiveKcal = it }
+            parseIntToken(line, "lcdaRestingKcal=")?.let { recordingLcdaRestingKcal = it }
+            parseIntToken(line, "byteSize=")?.takeIf { it >= 0 }?.let {
+                recordingLastSavedByteSize = it
+            }
+        }
+
+        if ("[TraceRecordingSensors]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "register" -> recordingSensorRegisterCount += 1
+            }
+            extractTokenValue(line, "requested=")?.takeIf { it.isNotBlank() && it != "unknown" }?.let {
+                recordingSensorRequested = it
+            }
+            extractTokenValue(line, "registered=")?.takeIf { it.isNotBlank() && it != "unknown" }?.let {
+                recordingSensorRegistered = it
+            }
+            extractTokenValue(line, "available=")?.takeIf { it.isNotBlank() }?.let {
+                recordingSensorAvailable = it
+            }
+            parseBooleanToken(line, "bodySensorsGranted=")?.let {
+                recordingBodySensorsGranted = it
+            }
+            parseBooleanToken(line, "activityRecognitionGranted=")?.let {
+                recordingActivityRecognitionGranted = it
+            }
+        }
+
+        if ("[ExternalSensors]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "scan_started" -> externalSensorScanStartCount += 1
+                "scan_summary" -> {
+                    if (extractTokenValue(line, "outcome=") == "stopped") {
+                        externalSensorScanStopCount += 1
+                    }
+                    externalSensorLastScanSummary =
+                        line.substringAfter("event=scan_summary ", "").takeIf { it.isNotBlank() }
+                }
+                "scan_failed",
+                "scan_start_failed",
+                -> externalSensorScanFailedCount += 1
+                "scan_unavailable" -> {
+                    externalSensorScanFailedCount += 1
+                    extractTokenValue(line, "reason=")?.takeIf { it.isNotBlank() }?.let {
+                        externalSensorLastScanFailureReason = it
+                    }
+                }
+            }
+            parseIntToken(line, "devices=")?.takeIf { it >= 0 }?.let {
+                externalSensorLastScanDeviceCount = it
+            }
+            extractTokenValue(line, "error=")?.takeIf { it.isNotBlank() }?.let {
+                externalSensorLastScanFailureReason = it
+            }
+            parseIntToken(line, "code=")?.let {
+                externalSensorLastScanFailureReason = "code_$it"
+            }
+        }
+
+        if ("[ExternalHeartRate]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "bridge_start" -> externalHeartRateBridgeStartCount += 1
+                "bridge_stop" -> externalHeartRateBridgeStopCount += 1
+                "connect_requested" -> externalHeartRateConnectRequestedCount += 1
+                "connect_skipped" -> {
+                    externalHeartRateConnectSkippedCount += 1
+                    extractTokenValue(line, "reason=")?.takeIf { it.isNotBlank() }?.let {
+                        externalHeartRateLastConnectSkippedReason = it
+                    }
+                }
+                "connected" -> externalHeartRateConnectedCount += 1
+                "disconnected" -> externalHeartRateDisconnectedCount += 1
+                "reconnect_scheduled" -> externalHeartRateReconnectScheduledCount += 1
+                "reconnect_attempt" -> externalHeartRateReconnectAttemptCount += 1
+                "notify_requested" -> externalHeartRateNotifyRequestedCount += 1
+                "notify_failed" -> externalHeartRateNotifyFailedCount += 1
+                "services_failed" -> externalHeartRateServiceFailureCount += 1
+                "measurement_missing" -> externalHeartRateMeasurementMissingCount += 1
+                "sample" -> {
+                    externalHeartRateSampleCount += 1
+                    parseIntToken(line, "bpm=")?.takeIf { it > 0 }?.let { bpm ->
+                        externalHeartRateLastBpm = bpm
+                        externalHeartRateMinBpm = minOf(externalHeartRateMinBpm ?: bpm, bpm)
+                        externalHeartRateMaxBpm = maxOf(externalHeartRateMaxBpm ?: bpm, bpm)
+                    }
+                    lineEpochMs?.let { externalHeartRateLastSampleAtMs = it }
+                }
+            }
+        }
+
+        if ("[ExternalRunPod]" in line) {
+            when (extractTokenValue(line, "event=")) {
+                "bridge_start" -> externalRunPodBridgeStartCount += 1
+                "bridge_stop" -> externalRunPodBridgeStopCount += 1
+                "connect_requested" -> externalRunPodConnectRequestedCount += 1
+                "connect_skipped" -> {
+                    externalRunPodConnectSkippedCount += 1
+                    extractTokenValue(line, "reason=")?.takeIf { it.isNotBlank() }?.let {
+                        externalRunPodLastConnectSkippedReason = it
+                    }
+                }
+                "connected" -> externalRunPodConnectedCount += 1
+                "disconnected" -> externalRunPodDisconnectedCount += 1
+                "notify_requested" -> externalRunPodNotifyRequestedCount += 1
+                "notify_failed" -> externalRunPodNotifyFailedCount += 1
+                "services_failed" -> externalRunPodServiceFailureCount += 1
+                "measurement_missing" -> externalRunPodMeasurementMissingCount += 1
+                "sample" -> {
+                    externalRunPodSampleCount += 1
+                    parseIntToken(line, "cadenceSpm=")?.takeIf { it > 0 }?.let {
+                        externalRunPodLastCadenceSpm = it
+                    }
+                    extractTokenValue(line, "speedMps=")?.takeIf { it.isNotBlank() && it != "na" }?.let {
+                        externalRunPodLastSpeedMps = it
+                    }
+                    parseLongToken(line, "rawDistanceUnits=")?.takeIf { it >= 0 }?.let {
+                        externalRunPodLastRawDistanceUnits = it
+                    }
+                    parseFloatToken(line, "distanceMeters=")?.takeIf { it >= 0f }?.let {
+                        externalRunPodLastDistanceMeters = it.roundToInt()
+                    }
+                    lineEpochMs?.let { externalRunPodLastSampleAtMs = it }
+                }
+                "power_sample" -> {
+                    parseIntToken(line, "powerWatts=")?.takeIf { it >= 0 }?.let {
+                        externalRunPodLastPowerWatts = it
+                    }
+                    lineEpochMs?.let { externalRunPodLastSampleAtMs = it }
+                }
+                "battery" -> {
+                    parseIntToken(line, "levelPercent=")?.takeIf { it in 0..100 }?.let {
+                        externalRunPodLastBatteryPercent = it
+                    }
+                }
+            }
+        }
+
+        if ("serviceStartFailed" in line) {
+            locationServiceStartFailureCount += 1
+        }
+        if ("serviceStartFallbackFailed" in line) {
+            locationServiceStartFallbackFailureCount += 1
+        }
+        if ("startForegroundFailed" in line) {
+            locationStartForegroundFailureCount += 1
+        }
+        if ("[ThermalTelemetry]" in line) {
+            thermalStatusEventCount += 1
+            parseIntToken(line, "status=")?.let { status ->
+                thermalMaxStatus = maxOf(thermalMaxStatus ?: status, status)
+            }
+            extractTokenValue(line, "label=")?.takeIf { it.isNotBlank() }?.let { label ->
+                thermalLastStatusLabel = label
             }
         }
 
@@ -333,6 +944,20 @@ internal fun deriveTelemetryInsights(
                 watchGpsDegradedClearedCount += 1
                 watchGpsDegradedLastObserved = false
             }
+            "watchGpsSelfHeal: skipped" in line -> {
+                watchGpsSelfHealSkippedCount += 1
+                parseLongToken(line, "searchAgeMs=")?.let { searchAgeMs ->
+                    watchGpsSelfHealMaxSearchAgeMs =
+                        maxOf(watchGpsSelfHealMaxSearchAgeMs ?: searchAgeMs, searchAgeMs)
+                }
+            }
+            "watchGpsSelfHeal: restarting" in line -> {
+                watchGpsSelfHealRestartCount += 1
+                parseLongToken(line, "searchAgeMs=")?.let { searchAgeMs ->
+                    watchGpsSelfHealMaxSearchAgeMs =
+                        maxOf(watchGpsSelfHealMaxSearchAgeMs ?: searchAgeMs, searchAgeMs)
+                }
+            }
         }
     }
 
@@ -347,6 +972,14 @@ internal fun deriveTelemetryInsights(
             samples = backendSamples,
             requestStopSamples = requestStopSamples,
             captureWindowEndEpochMs = captureWindowEndEpochMs,
+        )
+    val recordingObservedPointCount =
+        maxOf(
+            recordingPointSampleCount,
+            recordingMaxPointCount ?: 0,
+            recordingSavedGpxWrittenPoints ?: 0,
+            recordingSavedGpxParsedPoints ?: 0,
+            recordingSavedGpxSummaryPoints ?: 0,
         )
 
     return TelemetryInsights(
@@ -436,7 +1069,203 @@ internal fun deriveTelemetryInsights(
                 null
             },
         screenOnFixGapMaxMs = screenOnFixGapMaxMs,
-    )
+        turnByTurnSampleCount = turnByTurnSampleCount,
+        turnByTurnActiveSampleCount = turnByTurnActiveSampleCount,
+        turnByTurnPausedSampleCount = turnByTurnPausedSampleCount,
+        turnByTurnOffRouteSampleCount = turnByTurnOffRouteSampleCount,
+        turnByTurnGuideBackActiveSampleCount = turnByTurnGuideBackActiveSampleCount,
+        turnByTurnGuideBackPromptSampleCount = turnByTurnGuideBackPromptSampleCount,
+        turnByTurnStartHereDecisionCount = turnByTurnStartHereDecisionCount,
+        turnByTurnReverseDecisionCount = turnByTurnReverseDecisionCount,
+        turnByTurnGeometryInstructionSampleCount = turnByTurnGeometryInstructionSampleCount,
+        turnByTurnBrouterHintInstructionSampleCount = turnByTurnBrouterHintInstructionSampleCount,
+        turnByTurnTurnHapticCount = turnByTurnTurnHapticCount,
+        turnByTurnOffRouteHapticCount = turnByTurnOffRouteHapticCount,
+        turnByTurnMaxDistanceToRouteMeters = turnByTurnMaxDistanceToRouteMeters,
+        recordingStartCount = recordingStartCount,
+        recordingRecoveredCount = recordingRecoveredCount,
+        recordingPauseCount = recordingPauseCount,
+        recordingResumeCount = recordingResumeCount,
+        recordingPointSampleCount = recordingObservedPointCount,
+        recordingSaveStartCount = recordingSaveStartCount,
+        recordingSaveSuccessCount = recordingSaveSuccessCount,
+        recordingSaveFailureCount = recordingSaveFailureCount,
+        recordingDiscardCount = recordingDiscardCount,
+        recordingDraftFailureCount = recordingDraftFailureCount,
+        recordingDraftClearFailureCount = recordingDraftClearFailureCount,
+        recordingLastUiAction = recordingLastUiAction,
+        recordingLastEndReason = recordingLastEndReason,
+        recordingLastPointCount = recordingLastPointCount,
+        recordingMaxPointCount = recordingMaxPointCount,
+        recordingLastDistanceMeters = recordingLastDistanceMeters,
+        recordingMaxDistanceMeters = recordingMaxDistanceMeters,
+        recordingGpsDistanceMeters = recordingGpsDistanceMeters,
+        recordingDisplayDistanceMeters = recordingDisplayDistanceMeters,
+        recordingPodSessionDistanceMeters = recordingPodSessionDistanceMeters,
+        recordingPodIntegratedDistanceMeters = recordingPodIntegratedDistanceMeters,
+        recordingSavedGpxWrittenPoints = recordingSavedGpxWrittenPoints,
+        recordingSavedGpxParsedPoints = recordingSavedGpxParsedPoints,
+        recordingSavedGpxSummaryPoints = recordingSavedGpxSummaryPoints,
+        recordingSavedGpxSummaryDistanceMeters = recordingSavedGpxSummaryDistanceMeters,
+        recordingLastDurationMs = recordingLastDurationMs,
+        recordingMaxDurationMs = recordingMaxDurationMs,
+        recordingLastPausedMs = recordingLastPausedMs,
+        recordingMaxPausedMs = recordingMaxPausedMs,
+        recordingGpsActiveDurationMs = recordingGpsActiveDurationMs,
+        recordingExpectedPointCount = recordingExpectedPointCount,
+        recordingAveragePointIntervalMs = recordingAveragePointIntervalMs,
+        recordingPointCaptureRatePercent = recordingPointCaptureRatePercent,
+        recordingGapCount = recordingGapCount,
+        recordingGapEventCount = recordingGapEventCount,
+        recordingMaxGapMs = recordingMaxGapMs,
+        recordingLastPointAgeMs = recordingLastPointAgeMs,
+        recordingForcedAcceptCount = recordingForcedAcceptCount,
+        recordingGapRecoveryAcceptCount = recordingGapRecoveryAcceptCount,
+        recordingLastSkippedIntervalElapsedMs = recordingLastSkippedIntervalElapsedMs,
+        recordingMaxSkippedIntervalElapsedMs = recordingMaxSkippedIntervalElapsedMs,
+        recordingLastLiveProvider = recordingLastLiveProvider,
+        recordingLastLiveAccuracyMeters = recordingLastLiveAccuracyMeters,
+        recordingSkippedIntervalCount = recordingSkippedIntervalCount,
+        recordingSkippedPausedCount = recordingSkippedPausedCount,
+        recordingSkippedUnusableCount = recordingSkippedUnusableCount,
+        recordingElevationSource = recordingElevationSource,
+        recordingDemHitCount = recordingDemHitCount,
+        recordingDemMissCount = recordingDemMissCount,
+        recordingGpsElevationUsedCount = recordingGpsElevationUsedCount,
+        recordingAccuracySampleCount = recordingAccuracySampleCount,
+        recordingAccuracyAvgMeters = recordingAccuracyAvgMeters,
+        recordingAccuracyMinMeters = recordingAccuracyMinMeters,
+        recordingAccuracyMaxMeters = recordingAccuracyMaxMeters,
+        recordingElevationGainMeters = recordingElevationGainMeters,
+        recordingElevationLossMeters = recordingElevationLossMeters,
+        recordingLiveHeartRateBpm = recordingLiveHeartRateBpm,
+        recordingAverageHeartRateBpm = recordingAverageHeartRateBpm,
+        recordingLiveStepCount = recordingLiveStepCount,
+        recordingLiveCadenceSpm = recordingLiveCadenceSpm,
+        recordingLiveExternalSpeedMps = recordingLiveExternalSpeedMps,
+        recordingLiveExternalRawDistanceUnits = recordingLiveExternalRawDistanceUnits,
+        recordingLiveExternalDistanceMeters = recordingLiveExternalDistanceMeters,
+        recordingLiveExternalSessionDistanceMeters = recordingLiveExternalSessionDistanceMeters,
+        recordingLiveExternalIntegratedDistanceMeters = recordingLiveExternalIntegratedDistanceMeters,
+        recordingLivePressureHpa = recordingLivePressureHpa,
+        recordingHeartRateAgeMs = recordingHeartRateAgeMs,
+        recordingStepCountAgeMs = recordingStepCountAgeMs,
+        recordingCadenceAgeMs = recordingCadenceAgeMs,
+        recordingExternalSpeedAgeMs = recordingExternalSpeedAgeMs,
+        recordingExternalDistanceAgeMs = recordingExternalDistanceAgeMs,
+        recordingPressureAgeMs = recordingPressureAgeMs,
+        recordingHeartRateSensorEventCount = recordingHeartRateSensorEventCount,
+        recordingStepSensorEventCount = recordingStepSensorEventCount,
+        recordingCadenceSensorEventCount = recordingCadenceSensorEventCount,
+        recordingPressureSensorEventCount = recordingPressureSensorEventCount,
+        recordingSensorRegisterCount = recordingSensorRegisterCount,
+        recordingSensorRequested = recordingSensorRequested,
+        recordingSensorRegistered = recordingSensorRegistered,
+        recordingSensorAvailable = recordingSensorAvailable,
+        recordingBodySensorsGranted = recordingBodySensorsGranted,
+        recordingActivityRecognitionGranted = recordingActivityRecognitionGranted,
+        externalSensorScanStartCount = externalSensorScanStartCount,
+        externalSensorScanStopCount = externalSensorScanStopCount,
+        externalSensorScanFailedCount = externalSensorScanFailedCount,
+        externalSensorLastScanDeviceCount = externalSensorLastScanDeviceCount,
+        externalSensorLastScanSummary = externalSensorLastScanSummary,
+        externalSensorLastScanFailureReason = externalSensorLastScanFailureReason,
+        externalHeartRateBridgeStartCount = externalHeartRateBridgeStartCount,
+        externalHeartRateBridgeStopCount = externalHeartRateBridgeStopCount,
+        externalHeartRateConnectRequestedCount = externalHeartRateConnectRequestedCount,
+        externalHeartRateConnectSkippedCount = externalHeartRateConnectSkippedCount,
+        externalHeartRateLastConnectSkippedReason = externalHeartRateLastConnectSkippedReason,
+        externalHeartRateConnectedCount = externalHeartRateConnectedCount,
+        externalHeartRateDisconnectedCount = externalHeartRateDisconnectedCount,
+        externalHeartRateNotifyRequestedCount = externalHeartRateNotifyRequestedCount,
+        externalHeartRateNotifyFailedCount = externalHeartRateNotifyFailedCount,
+        externalHeartRateServiceFailureCount = externalHeartRateServiceFailureCount,
+        externalHeartRateMeasurementMissingCount = externalHeartRateMeasurementMissingCount,
+        externalHeartRateSampleCount = externalHeartRateSampleCount,
+        externalHeartRateLastBpm = externalHeartRateLastBpm,
+        externalHeartRateMinBpm = externalHeartRateMinBpm,
+        externalHeartRateMaxBpm = externalHeartRateMaxBpm,
+        externalHeartRateLastSampleAgeMs =
+            externalHeartRateLastSampleAtMs?.let { sampleAt ->
+                val end = captureWindowEndEpochMs ?: sampleAt
+                (end - sampleAt).coerceAtLeast(0L)
+            },
+        externalRunPodBridgeStartCount = externalRunPodBridgeStartCount,
+        externalRunPodBridgeStopCount = externalRunPodBridgeStopCount,
+        externalRunPodConnectRequestedCount = externalRunPodConnectRequestedCount,
+        externalRunPodConnectSkippedCount = externalRunPodConnectSkippedCount,
+        externalRunPodLastConnectSkippedReason = externalRunPodLastConnectSkippedReason,
+        externalRunPodConnectedCount = externalRunPodConnectedCount,
+        externalRunPodDisconnectedCount = externalRunPodDisconnectedCount,
+        externalRunPodNotifyRequestedCount = externalRunPodNotifyRequestedCount,
+        externalRunPodNotifyFailedCount = externalRunPodNotifyFailedCount,
+        externalRunPodServiceFailureCount = externalRunPodServiceFailureCount,
+        externalRunPodMeasurementMissingCount = externalRunPodMeasurementMissingCount,
+        externalRunPodSampleCount = externalRunPodSampleCount,
+        externalRunPodLastCadenceSpm = externalRunPodLastCadenceSpm,
+        externalRunPodLastPowerWatts = externalRunPodLastPowerWatts,
+        externalRunPodLastBatteryPercent = externalRunPodLastBatteryPercent,
+        externalRunPodLastSpeedMps = externalRunPodLastSpeedMps,
+        externalRunPodLastRawDistanceUnits = externalRunPodLastRawDistanceUnits,
+        externalRunPodLastDistanceMeters = externalRunPodLastDistanceMeters,
+        externalRunPodLastSampleAgeMs =
+            externalRunPodLastSampleAtMs?.let { sampleAt ->
+                val end = captureWindowEndEpochMs ?: sampleAt
+                (end - sampleAt).coerceAtLeast(0L)
+            },
+        recordingCalorieModel = recordingCalorieModel,
+        recordingCaloriesGrossKcal = recordingCaloriesGrossKcal,
+        recordingCaloriesActiveKcal = recordingCaloriesActiveKcal,
+        recordingCaloriesRestingKcal = recordingCaloriesRestingKcal,
+        recordingPandolfBaseGrossKcal = recordingPandolfBaseGrossKcal,
+        recordingPandolfBaseActiveKcal = recordingPandolfBaseActiveKcal,
+        recordingPandolfBaseRestingKcal = recordingPandolfBaseRestingKcal,
+        recordingCalorieCompareModel = recordingCalorieCompareModel,
+        recordingLcdaGrossKcal = recordingLcdaGrossKcal,
+        recordingLcdaActiveKcal = recordingLcdaActiveKcal,
+        recordingLcdaRestingKcal = recordingLcdaRestingKcal,
+        recordingLastSavedByteSize = recordingLastSavedByteSize,
+        locationServiceStartFailureCount = locationServiceStartFailureCount,
+        locationServiceStartFallbackFailureCount = locationServiceStartFallbackFailureCount,
+        locationStartForegroundFailureCount = locationStartForegroundFailureCount,
+        thermalStatusEventCount = thermalStatusEventCount,
+        thermalMaxStatus = thermalMaxStatus,
+        thermalLastStatusLabel = thermalLastStatusLabel,
+    ).also { insights ->
+        insights.watchGpsSelfHealSkippedCount = watchGpsSelfHealSkippedCount
+        insights.watchGpsSelfHealRestartCount = watchGpsSelfHealRestartCount
+        insights.watchGpsSelfHealMaxSearchAgeMs = watchGpsSelfHealMaxSearchAgeMs
+        insights.fixGapBuckets =
+            FixGapBuckets(
+                interactiveSampleCount = interactiveFixGapSampleCount,
+                interactiveAvgMs =
+                    if (interactiveFixGapSampleCount > 0) {
+                        interactiveFixGapSumMs / interactiveFixGapSampleCount
+                    } else {
+                        null
+                    },
+                interactiveMaxMs = interactiveFixGapMaxMs,
+                nonInteractiveSampleCount = nonInteractiveFixGapSampleCount,
+                nonInteractiveAvgMs =
+                    if (nonInteractiveFixGapSampleCount > 0) {
+                        nonInteractiveFixGapSumMs / nonInteractiveFixGapSampleCount
+                    } else {
+                        null
+                    },
+                nonInteractiveMaxMs = nonInteractiveFixGapMaxMs,
+                unknownScreenSampleCount = unknownScreenFixGapSampleCount,
+                unknownScreenAvgMs =
+                    if (unknownScreenFixGapSampleCount > 0) {
+                        unknownScreenFixGapSumMs / unknownScreenFixGapSampleCount
+                    } else {
+                        null
+                    },
+                unknownScreenMaxMs = unknownScreenFixGapMaxMs,
+                delayedCount = delayedFixGapCount,
+            )
+        insights.externalHeartRateReconnectScheduledCount = externalHeartRateReconnectScheduledCount
+        insights.externalHeartRateReconnectAttemptCount = externalHeartRateReconnectAttemptCount
+    }
 }
 
 internal fun resolveCaptureWindowEndEpochMs(
@@ -489,6 +1318,34 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var largeJumpWithinManagerStart500MsCount = 0
     var sampleAfterStopScheduledCount = 0
     var sampleAfterStopRequestedCount = 0
+    var startupSummaryCount = 0
+    var startupHeadingSpanMaxDeg: Float? = null
+    var startupMaxJumpMaxDeg: Float? = null
+    var startupStable3Count = 0
+    var startupStable5Count = 0
+    var startupOverlapSummaryCount = 0
+    var startupOverlapFinalDeltaTotalDeg = 0f
+    var startupOverlapFinalDeltaCount = 0
+    var startupOverlapRestartComparisonCount = 0
+    var startupOverlapRestartImprovedCount = 0
+    var headingLooksWrongReportCount = 0
+    var fusedPerfEventCount = 0
+    var fusedPerfCallbackCount = 0
+    var fusedPerfConfirmedCount = 0
+    var fusedPerfUnusableCount = 0
+    var fusedPerfHeadingPublishCount = 0
+    var fusedPerfCallbackHzMax: Float? = null
+    var fusedPerfPublishHzMax: Float? = null
+    var renderPerfEventCount = 0
+    var renderPerfFrameCount = 0
+    var renderPerfTargetUpdateCount = 0
+    var renderPerfHeadingRenderCount = 0
+    var renderPerfRotationAppliedCount = 0
+    var renderPerfRotationSkippedCount = 0
+    var renderPerfMarkerUpdateCount = 0
+    var renderPerfRedrawCount = 0
+    var renderPerfFrameHzMax: Float? = null
+    var renderPerfRenderHzMax: Float? = null
     var lastManagerStartAtMs: Long? = null
     var lastStopScheduledAtMs: Long? = null
     var lastStopRequestedAtMs: Long? = null
@@ -537,6 +1394,62 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         if ("sample_stale" in line) {
             staleSampleCount += 1
         }
+        if ("wake_session stage=startup_summary" in line) {
+            startupSummaryCount += 1
+            parseFloatToken(line, "headingSpanDeg=")?.let { value ->
+                startupHeadingSpanMaxDeg = maxOf(startupHeadingSpanMaxDeg ?: value, value)
+            }
+            parseFloatToken(line, "maxJumpDeg=")?.let { value ->
+                startupMaxJumpMaxDeg = maxOf(startupMaxJumpMaxDeg ?: value, value)
+            }
+            if (extractTokenValue(line, "stable3Ms=") != "na") startupStable3Count += 1
+            if (extractTokenValue(line, "stable5Ms=") != "na") startupStable5Count += 1
+        }
+        if ("google_fused startup_overlap_summary" in line) {
+            startupOverlapSummaryCount += 1
+            parseFloatToken(line, "finalDeltaDeg=")?.let { value ->
+                startupOverlapFinalDeltaTotalDeg += value
+                startupOverlapFinalDeltaCount += 1
+            }
+            parseFloatToken(line, "restartDeltaChangeDeg=")?.let { value ->
+                startupOverlapRestartComparisonCount += 1
+                if (value <= -STARTUP_OVERLAP_MEANINGFUL_IMPROVEMENT_DEG) {
+                    startupOverlapRestartImprovedCount += 1
+                }
+            }
+        }
+        if ("user_report heading_looks_wrong" in line) {
+            headingLooksWrongReportCount += 1
+        }
+        if ("google_fused perf" in line) {
+            fusedPerfEventCount += 1
+            fusedPerfCallbackCount += parseIntToken(line, "callbacks=") ?: 0
+            fusedPerfConfirmedCount += parseIntToken(line, "confirmed=") ?: 0
+            fusedPerfUnusableCount += parseIntToken(line, "unusable=") ?: 0
+            fusedPerfHeadingPublishCount += parseIntToken(line, "headingPublishes=") ?: 0
+            parseFloatToken(line, "callbackHz=")?.let { value ->
+                fusedPerfCallbackHzMax = maxOf(fusedPerfCallbackHzMax ?: value, value)
+            }
+            parseFloatToken(line, "publishHz=")?.let { value ->
+                fusedPerfPublishHzMax = maxOf(fusedPerfPublishHzMax ?: value, value)
+            }
+        }
+        if ("compass_render perf" in line) {
+            renderPerfEventCount += 1
+            renderPerfFrameCount += parseIntToken(line, "frames=") ?: 0
+            renderPerfTargetUpdateCount += parseIntToken(line, "targetUpdates=") ?: 0
+            renderPerfHeadingRenderCount += parseIntToken(line, "headingRenders=") ?: 0
+            renderPerfRotationAppliedCount += parseIntToken(line, "rotationApplied=") ?: 0
+            renderPerfRotationSkippedCount += parseIntToken(line, "rotationSkipped=") ?: 0
+            renderPerfMarkerUpdateCount += parseIntToken(line, "markerUpdates=") ?: 0
+            renderPerfRedrawCount += parseIntToken(line, "redraws=") ?: 0
+            parseFloatToken(line, "frameHz=")?.let { value ->
+                renderPerfFrameHzMax = maxOf(renderPerfFrameHzMax ?: value, value)
+            }
+            parseFloatToken(line, "renderHz=")?.let { value ->
+                renderPerfRenderHzMax = maxOf(renderPerfRenderHzMax ?: value, value)
+            }
+        }
         if (largeJump && lineEpochMs != null) {
             val startAtMs = lastManagerStartAtMs
             if (startAtMs != null && lineEpochMs - startAtMs in 0L..500L) {
@@ -556,8 +1469,42 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         largeJumpWithinManagerStart500MsCount = largeJumpWithinManagerStart500MsCount,
         sampleAfterStopScheduledCount = sampleAfterStopScheduledCount,
         sampleAfterStopRequestedCount = sampleAfterStopRequestedCount,
+        startupSummaryCount = startupSummaryCount,
+        startupHeadingSpanMaxDeg = startupHeadingSpanMaxDeg,
+        startupMaxJumpMaxDeg = startupMaxJumpMaxDeg,
+        startupStable3Count = startupStable3Count,
+        startupStable5Count = startupStable5Count,
+        startupOverlapSummaryCount = startupOverlapSummaryCount,
+        startupOverlapFinalDeltaAvgDeg =
+            if (startupOverlapFinalDeltaCount > 0) {
+                startupOverlapFinalDeltaTotalDeg / startupOverlapFinalDeltaCount
+            } else {
+                null
+            },
+        startupOverlapRestartComparisonCount = startupOverlapRestartComparisonCount,
+        startupOverlapRestartImprovedCount = startupOverlapRestartImprovedCount,
+        headingLooksWrongReportCount = headingLooksWrongReportCount,
+        fusedPerfEventCount = fusedPerfEventCount,
+        fusedPerfCallbackCount = fusedPerfCallbackCount,
+        fusedPerfConfirmedCount = fusedPerfConfirmedCount,
+        fusedPerfUnusableCount = fusedPerfUnusableCount,
+        fusedPerfHeadingPublishCount = fusedPerfHeadingPublishCount,
+        fusedPerfCallbackHzMax = fusedPerfCallbackHzMax,
+        fusedPerfPublishHzMax = fusedPerfPublishHzMax,
+        renderPerfEventCount = renderPerfEventCount,
+        renderPerfFrameCount = renderPerfFrameCount,
+        renderPerfTargetUpdateCount = renderPerfTargetUpdateCount,
+        renderPerfHeadingRenderCount = renderPerfHeadingRenderCount,
+        renderPerfRotationAppliedCount = renderPerfRotationAppliedCount,
+        renderPerfRotationSkippedCount = renderPerfRotationSkippedCount,
+        renderPerfMarkerUpdateCount = renderPerfMarkerUpdateCount,
+        renderPerfRedrawCount = renderPerfRedrawCount,
+        renderPerfFrameHzMax = renderPerfFrameHzMax,
+        renderPerfRenderHzMax = renderPerfRenderHzMax,
     )
 }
+
+private const val STARTUP_OVERLAP_MEANINGFUL_IMPROVEMENT_DEG = 15f
 
 private fun parseRequestMode(line: String): LocationRequestMode? {
     if ("requestUpdates applied:" !in line && "reason=gps_request_applied" !in line) return null
@@ -656,27 +1603,6 @@ private fun parseLongToken(
     key: String,
 ): Long? = extractTokenValue(line, key)?.toLongOrNull()
 
-internal fun formatBooleanToken(value: Boolean?): String = value?.toString() ?: "na"
-
-internal fun formatAverage(
-    total: Int,
-    count: Int,
-): String {
-    if (count <= 0) return "na"
-    return "%.2f".format(total.toDouble() / count.toDouble())
-}
-
-internal fun formatRatePercent(
-    numerator: Int,
-    denominator: Int,
-): String {
-    if (denominator <= 0) return "na"
-    val pct = numerator.toDouble() * 100.0 / denominator.toDouble()
-    return "%.2f".format(pct)
-}
-
-private fun formatOneDecimalOrNa(value: Number?): String = value?.let { String.format(Locale.US, "%.1f", it.toDouble()) } ?: "na"
-
 internal fun writeAcceptedFixQualitySection(
     writer: BufferedWriter,
     prefix: String,
@@ -688,10 +1614,10 @@ internal fun writeAcceptedFixQualitySection(
     writer.appendLine("${prefix}ImmediateFixCount=${summary.immediateFixCount}")
     writer.appendLine("${prefix}ProviderGpsCount=${summary.providerGpsCount}")
     writer.appendLine("${prefix}ProviderFusedCount=${summary.providerFusedCount}")
-    writer.appendLine("${prefix}ReportedAccuracyMedianM=${formatOneDecimalOrNa(summary.reportedAccuracyMedianM)}")
-    writer.appendLine("${prefix}ReportedAccuracyP90M=${formatOneDecimalOrNa(summary.reportedAccuracyP90M)}")
-    writer.appendLine("${prefix}ReportedAccuracyMinM=${formatOneDecimalOrNa(summary.reportedAccuracyMinM)}")
-    writer.appendLine("${prefix}ReportedAccuracyMaxM=${formatOneDecimalOrNa(summary.reportedAccuracyMaxM)}")
+    writer.appendLine("${prefix}ReportedAccuracyMedianM=${TelemetryFormatters.decimalOrNa(summary.reportedAccuracyMedianM, 1)}")
+    writer.appendLine("${prefix}ReportedAccuracyP90M=${TelemetryFormatters.decimalOrNa(summary.reportedAccuracyP90M, 1)}")
+    writer.appendLine("${prefix}ReportedAccuracyMinM=${TelemetryFormatters.decimalOrNa(summary.reportedAccuracyMinM, 1)}")
+    writer.appendLine("${prefix}ReportedAccuracyMaxM=${TelemetryFormatters.decimalOrNa(summary.reportedAccuracyMaxM, 1)}")
     writer.appendLine("${prefix}ReportedAccuracyDistinctCount=${summary.reportedAccuracyDistinctCount}")
     writer.appendLine("${prefix}ReportedAccuracyAllSame=${summary.reportedAccuracyAllSame}")
     writer.appendLine("${prefix}AcceptedFixAgeMedianMs=${summary.ageMedianMs?.toString() ?: "na"}")
@@ -850,8 +1776,8 @@ private fun buildObservedFixQualityReason(
     }
     val gnssSupport =
         buildString {
-            append("gnss usedInFixAvg=").append("%.1f".format(gnssInsights.usedInFixAvg))
-            append(" cn0AvgDbHz=").append(gnssInsights.cn0AvgDbHz?.let { "%.1f".format(it) } ?: "na")
+            append("gnss usedInFixAvg=").append(TelemetryFormatters.decimal(gnssInsights.usedInFixAvg, 1))
+            append(" cn0AvgDbHz=").append(TelemetryFormatters.decimalOrNa(gnssInsights.cn0AvgDbHz, 1))
             append(" firstFixCount=").append(gnssInsights.firstFixCount)
         }
     return if (reportedAccuracyReliability == "suspect_constant_watch_gps") {

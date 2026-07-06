@@ -1,9 +1,11 @@
 package com.glancemap.glancemapwearos.presentation
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -11,25 +13,30 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.wear.ambient.AmbientLifecycleObserver
-import androidx.wear.compose.foundation.CurvedTextStyle
-import androidx.wear.compose.material3.TimeText
-import androidx.wear.compose.material3.TimeTextDefaults
-import androidx.wear.compose.material3.timeTextCurvedText
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
+import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
+import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.policy.navigationRuntimeDemand
+import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
 import com.glancemap.glancemapwearos.presentation.features.download.DownloadScreen
 import com.glancemap.glancemapwearos.presentation.features.download.DownloadSettingsScreen
@@ -37,23 +44,40 @@ import com.glancemap.glancemapwearos.presentation.features.gpx.GpxScreen
 import com.glancemap.glancemapwearos.presentation.features.home.MainScreen
 import com.glancemap.glancemapwearos.presentation.features.maps.MapsScreen
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateScreen
-import com.glancemap.glancemapwearos.presentation.features.navigate.navigateTimePattern
 import com.glancemap.glancemapwearos.presentation.features.poi.PoiScreen
+import com.glancemap.glancemapwearos.presentation.features.recording.sensors.RecordingSensorBridge
 import com.glancemap.glancemapwearos.presentation.features.settings.CompassSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.DebuggingSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpsSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.GpxAppearanceSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.GpxSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.GpxToolsSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.LicensesScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapDisplaySettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.MapZoomSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.PoiSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingBikeSensorSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingDashboardSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingExternalSensorsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.RecordingSourceSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefaultsConfirmScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnAlertsSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnBackgroundSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnDashboardSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnFeedbackSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnGuidanceSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.UserProfileSettingsScreen
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
-import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
+import com.glancemap.glancemapwearos.presentation.ui.WearActionButtonRole
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialog
+import com.glancemap.glancemapwearos.presentation.ui.WearActionDialogButton
 import com.google.android.horologist.compose.layout.AppScaffold
+import kotlinx.coroutines.launch
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
 class MainActivity : ComponentActivity() {
@@ -63,6 +87,7 @@ class MainActivity : ComponentActivity() {
 
     @Volatile
     private var activeRoute: String? = null
+    private var thermalStatusListener: PowerManager.OnThermalStatusChangedListener? = null
 
     private val screenStateReceiver =
         object : BroadcastReceiver() {
@@ -91,6 +116,7 @@ class MainActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             registerReceiver(screenStateReceiver, screenStateFilter)
         }
+        registerThermalTelemetry()
 
         val ambientObserver =
             AmbientLifecycleObserver(
@@ -123,17 +149,100 @@ class MainActivity : ComponentActivity() {
                 .collectAsState(initial = true)
             val navigateTimeFormat by appContainer.settingsViewModel.navigateTimeFormat.collectAsState()
             val isMetric by appContainer.settingsViewModel.isMetric.collectAsState()
+            val traceRecordingState by appContainer.traceRecordingViewModel.uiState.collectAsState()
+            val recordingStartWarning by appContainer.traceRecordingViewModel.startWarning.collectAsState()
+            val turnByTurnGuidanceSession by appContainer.gpxViewModel.turnByTurnGuidanceSession.collectAsState()
+            val turnByTurnGuidancePaused by appContainer.gpxViewModel.turnByTurnGuidancePaused.collectAsState()
+            val gpsInAmbientMode by appContainer.settingsViewModel.gpsInAmbientMode.collectAsState(initial = false)
+            val offlineMode by appContainer.settingsViewModel.offlineMode.collectAsState(initial = false)
+            val recordingDashboardMetricSlots by appContainer.settingsViewModel.recordingDashboardMetricSlots.collectAsState()
+            val recordingStartWithTurnByTurn by appContainer.settingsViewModel.recordingStartWithTurnByTurn.collectAsState()
+            val recordingSampleIntervalSeconds by appContainer.settingsViewModel.recordingSampleIntervalSeconds.collectAsState()
+            val recordingScreenOffSampleIntervalSeconds by appContainer.settingsViewModel.recordingScreenOffSampleIntervalSeconds.collectAsState()
+            val turnByTurnGpsIntervalSeconds by appContainer.settingsViewModel.turnByTurnGpsIntervalSeconds.collectAsState()
+            val turnByTurnScreenOffGpsIntervalSeconds by appContainer.settingsViewModel.turnByTurnScreenOffGpsIntervalSeconds.collectAsState()
+            val recordingHeartRateSource by appContainer.settingsViewModel.recordingHeartRateSource.collectAsState()
+            val recordingCadenceSource by appContainer.settingsViewModel.recordingCadenceSource.collectAsState()
+            val recordingSpeedSource by appContainer.settingsViewModel.recordingSpeedSource.collectAsState()
+            val recordingDistanceSource by appContainer.settingsViewModel.recordingDistanceSource.collectAsState()
+            val recordingStepsSource by appContainer.settingsViewModel.recordingStepsSource.collectAsState()
+            val recordingExternalHeartRateAddress by appContainer.settingsViewModel.recordingExternalHeartRateAddress.collectAsState()
+            val recordingExternalRunPodAddress by appContainer.settingsViewModel.recordingExternalRunPodAddress.collectAsState()
+            val cyclingWheelCircumferenceMeters by appContainer.settingsViewModel.cyclingWheelCircumferenceMeters.collectAsState()
 
             val isAmbient = _isAmbient
             val ambientTickMs = _ambientTickMs
             val isDeviceInteractive = _isDeviceInteractive
+            val activityLocationScreenState =
+                remember(isAmbient, isDeviceInteractive) {
+                    resolveLocationScreenState(
+                        isAmbient = isAmbient,
+                        isDeviceInteractive = isDeviceInteractive,
+                    )
+                }
 
             GlanceMapTheme {
                 val navController = rememberNavController()
+                val appScope = rememberCoroutineScope()
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val route = backStackEntry?.destination?.route
                 val routeLabel = route ?: WatchRoutes.NAVIGATE
+                val compositionContext = LocalContext.current
+                RecordingSensorBridge(
+                    active = traceRecordingState.active,
+                    paused = traceRecordingState.paused,
+                    selectedMetricIds = recordingDashboardMetricSlots,
+                    heartRateSource = recordingHeartRateSource,
+                    cadenceSource = recordingCadenceSource,
+                    speedSource = recordingSpeedSource,
+                    distanceSource = recordingDistanceSource,
+                    stepsSource = recordingStepsSource,
+                    externalHeartRateAddress = recordingExternalHeartRateAddress,
+                    externalRunPodAddress = recordingExternalRunPodAddress,
+                    cyclingWheelCircumferenceMeters = cyclingWheelCircumferenceMeters,
+                    onMetrics = appContainer.traceRecordingViewModel::onSensorMetrics,
+                )
+                val locationPermissionGranted =
+                    ContextCompat.checkSelfPermission(
+                        compositionContext,
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                    ) == PackageManager.PERMISSION_GRANTED ||
+                        ContextCompat.checkSelfPermission(
+                            compositionContext,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ) == PackageManager.PERMISSION_GRANTED
+                val recordingScreenOnGpsEnabled =
+                    recordingSampleIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+                val recordingScreenOffGpsEnabled =
+                    when (recordingScreenOffSampleIntervalSeconds) {
+                        SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> recordingScreenOnGpsEnabled
+                        SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                        else -> true
+                    }
+                val recordingGpsEnabled =
+                    if (activityLocationScreenState.isNonInteractive) {
+                        recordingScreenOffGpsEnabled
+                    } else {
+                        recordingScreenOnGpsEnabled
+                    }
+                val turnByTurnScreenOnGpsEnabled =
+                    turnByTurnGpsIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+                val turnByTurnScreenOffGpsEnabled =
+                    when (turnByTurnScreenOffGpsIntervalSeconds) {
+                        SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> turnByTurnScreenOnGpsEnabled
+                        SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                        else -> true
+                    }
+                val turnByTurnGpsEnabled =
+                    if (activityLocationScreenState.isNonInteractive) {
+                        turnByTurnScreenOffGpsEnabled
+                    } else {
+                        turnByTurnScreenOnGpsEnabled
+                    }
+                val recordingRuntimePaused = traceRecordingState.paused && !traceRecordingState.autoPaused
                 var suppressNavigateTime by remember { mutableStateOf(false) }
+                var recordingDashboardExpandRequestToken by remember { mutableLongStateOf(0L) }
+                var recordingActionPromptRequestToken by remember { mutableLongStateOf(0L) }
                 LaunchedEffect(routeLabel) {
                     activeRoute = routeLabel
                     logNavigationTelemetry(event = "route_visible", route = routeLabel)
@@ -143,6 +252,54 @@ class MainActivity : ComponentActivity() {
                     if (!isNavigateScreen) {
                         suppressNavigateTime = false
                     }
+                }
+                LaunchedEffect(
+                    isNavigateScreen,
+                    traceRecordingState.active,
+                    recordingRuntimePaused,
+                    recordingGpsEnabled,
+                    turnByTurnGuidanceSession,
+                    turnByTurnGuidancePaused,
+                    turnByTurnGpsEnabled,
+                    gpsInAmbientMode,
+                    turnByTurnScreenOffGpsEnabled,
+                    offlineMode,
+                    activityLocationScreenState,
+                    locationPermissionGranted,
+                ) {
+                    if (isNavigateScreen) return@LaunchedEffect
+                    val runtimeDemand =
+                        navigationRuntimeDemand(
+                            isNavigateScreen = false,
+                            screenState = activityLocationScreenState,
+                            isScreenResumed = true,
+                            hasLocationPermission = locationPermissionGranted,
+                            offlineMode = offlineMode,
+                            generalGpsInAmbient = gpsInAmbientMode,
+                            recordingActive = traceRecordingState.active,
+                            recordingPaused = recordingRuntimePaused,
+                            recordingGpsEnabled = recordingGpsEnabled,
+                            turnByTurnActive = turnByTurnGuidanceSession != null,
+                            turnByTurnPaused = turnByTurnGuidancePaused,
+                            turnByTurnGpsEnabled = turnByTurnGpsEnabled,
+                            turnByTurnGpsInAmbient = turnByTurnScreenOffGpsEnabled,
+                        )
+                    appContainer.locationViewModel.syncRuntimeState(
+                        screenState = activityLocationScreenState,
+                        trackingEnabled = runtimeDemand.trackingEnabled,
+                        backgroundGpsEnabled = runtimeDemand.backgroundGpsEnabled,
+                        runtimeReason = runtimeDemand.reason,
+                    )
+                    DebugTelemetry.log(
+                        "NavigationRuntime",
+                        "event=activity_runtime_sync active=${traceRecordingState.active} " +
+                            "paused=${traceRecordingState.paused} autoPaused=${traceRecordingState.autoPaused} " +
+                            "recordingGps=$recordingGpsEnabled " +
+                            "guidance=${turnByTurnGuidanceSession != null} " +
+                            "guidancePaused=$turnByTurnGuidancePaused tracking=${runtimeDemand.trackingEnabled} " +
+                            "backgroundGps=${runtimeDemand.backgroundGpsEnabled} reason=${runtimeDemand.reason} " +
+                            "route=$routeLabel",
+                    )
                 }
                 val navigateViaSwipeLeft: () -> Unit = {
                     val popped = navController.popBackStack(WatchRoutes.NAVIGATE, inclusive = false)
@@ -157,31 +314,23 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                val onRecordingTimeTap = {
+                    DebugTelemetry.log(
+                        "TraceRecording",
+                        "event=time_chip_tap debugCapture=${DebugTelemetry.isEnabled()}",
+                    )
+                    recordingDashboardExpandRequestToken += 1L
+                }
+                val onRecordingTimeLongPress = {
+                    DebugTelemetry.log(
+                        "TraceRecording",
+                        "event=time_chip_long_press debugCapture=${DebugTelemetry.isEnabled()}",
+                    )
+                    recordingActionPromptRequestToken += 1L
+                }
 
                 AppScaffold(
-                    timeText = {
-                        val canShowNavigateTime = showTimeInNavigate && isNavigateScreen && !isAmbient
-                        if (canShowNavigateTime && !suppressNavigateTime) {
-                            cappedFontScale(maxFontScale = 1f) {
-                                val context = LocalContext.current
-                                TimeText(
-                                    modifier = Modifier.padding(top = 2.dp),
-                                    timeSource =
-                                        TimeTextDefaults.rememberTimeSource(
-                                            navigateTimePattern(context, navigateTimeFormat),
-                                        ),
-                                ) { time ->
-                                    timeTextCurvedText(
-                                        time = time,
-                                        style =
-                                            CurvedTextStyle(
-                                                color = Color.White,
-                                            ),
-                                    )
-                                }
-                            }
-                        }
-                    },
+                    timeText = {},
                 ) {
                     NavHost(
                         navController = navController,
@@ -209,10 +358,17 @@ class MainActivity : ComponentActivity() {
                                 compassViewModel = appContainer.compassViewModel,
                                 settingsViewModel = appContainer.settingsViewModel,
                                 locationViewModel = appContainer.locationViewModel,
+                                traceRecordingViewModel = appContainer.traceRecordingViewModel,
                                 isAmbient = isAmbient,
                                 isDeviceInteractive = isDeviceInteractive,
                                 ambientTickMs = ambientTickMs,
                                 onNavigateTimeSuppressedChange = { suppressNavigateTime = it },
+                                showNavigateTime = showTimeInNavigate && !suppressNavigateTime,
+                                navigateTimeFormat = navigateTimeFormat,
+                                recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
+                                recordingActionPromptRequestToken = recordingActionPromptRequestToken,
+                                onRecordingTimeTap = onRecordingTimeTap,
+                                onRecordingTimeLongPress = onRecordingTimeLongPress,
                                 onMenuClick = {
                                     logNavigationTelemetry(
                                         event = "menu_click",
@@ -221,6 +377,11 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(WatchRoutes.MAIN_MENU) {
                                         launchSingleTop = true
                                         restoreState = true
+                                    }
+                                },
+                                onOpenGpxToolsSettings = {
+                                    navController.navigate(WatchRoutes.GPX_TOOLS_SETTINGS) {
+                                        launchSingleTop = true
                                     }
                                 },
                             )
@@ -247,7 +408,14 @@ class MainActivity : ComponentActivity() {
                                 onDismiss = { navController.popBackStack() },
                                 onSwipeLeftNavigate = navigateViaSwipeLeft,
                             ) {
-                                GpxScreen(navController, appContainer.gpxViewModel, isMetric)
+                                GpxScreen(
+                                    navController = navController,
+                                    gpxViewModel = appContainer.gpxViewModel,
+                                    isMetric = isMetric,
+                                    autoStartRecordingWithGuidance = recordingStartWithTurnByTurn,
+                                    recordingActiveOrSaving = traceRecordingState.active || traceRecordingState.saving,
+                                    onStartRecording = appContainer.traceRecordingViewModel::startRecording,
+                                )
                             }
                         }
 
@@ -306,7 +474,7 @@ class MainActivity : ComponentActivity() {
                                     onLibraryChanged = {
                                         appContainer.mapViewModel.loadMapFiles()
                                         appContainer.mapViewModel.loadRoutingPackFiles()
-                                        appContainer.poiViewModel.loadPoiFiles()
+                                        appContainer.poiViewModel.loadPoiFiles(forceRefresh = true)
                                     },
                                     onOpenSettings = {
                                         navController.navigate(WatchRoutes.DOWNLOAD_SETTINGS)
@@ -372,12 +540,16 @@ class MainActivity : ComponentActivity() {
                                 ResetDefaultsConfirmScreen(
                                     onCancel = { navController.popBackStack() },
                                     onConfirmReset = {
-                                        appContainer.settingsViewModel.resetToDefaults()
-                                        appContainer.themeViewModel.resetToDefaults()
-                                        navController.navigate(WatchRoutes.SETTINGS) {
-                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
-                                            launchSingleTop = true
-                                            restoreState = true
+                                        appScope.launch {
+                                            appContainer.settingsViewModel.resetToDefaultsAndWait()
+                                            appContainer.themeViewModel.resetToDefaultsAndWait()
+                                            appContainer.gpxViewModel.resetActiveGpxFilesAndWait()
+                                            appContainer.poiViewModel.resetPoiVisibilityAndWait()
+                                            navController.navigate(WatchRoutes.SETTINGS) {
+                                                popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
                                         }
                                     },
                                 )
@@ -398,6 +570,208 @@ class MainActivity : ComponentActivity() {
                                             restoreState = true
                                         }
                                     },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.USER_PROFILE_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                UserProfileSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    onOpenSourceSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_SOURCE_SETTINGS)
+                                    },
+                                    onOpenExternalSensors = {
+                                        navController.navigate(WatchRoutes.RECORDING_EXTERNAL_SENSORS)
+                                    },
+                                    onOpenDashboardSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_DASHBOARD_SETTINGS)
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_SOURCE_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingSourceSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenRecordingSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_SETTINGS) {
+                                            popUpTo(WatchRoutes.RECORDING_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    onOpenBikeSensorSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_BIKE_SENSOR_SETTINGS) {
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_BIKE_SENSOR_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingBikeSensorSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenRecordingSourceSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_SOURCE_SETTINGS) {
+                                            popUpTo(WatchRoutes.RECORDING_SOURCE_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_DASHBOARD_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingDashboardSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenRecordingSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_SETTINGS) {
+                                            popUpTo(WatchRoutes.RECORDING_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.RECORDING_EXTERNAL_SENSORS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                RecordingExternalSensorsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    connectLinkedSensors =
+                                        !traceRecordingState.active || traceRecordingState.paused,
+                                    onOpenRecordingSettings = {
+                                        navController.navigate(WatchRoutes.RECORDING_SETTINGS) {
+                                            popUpTo(WatchRoutes.RECORDING_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.TURN_BY_TURN_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                TurnByTurnSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGeneralSettings = {
+                                        navController.navigate(WatchRoutes.SETTINGS) {
+                                            popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    onOpenGuidanceSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_GUIDANCE_SETTINGS)
+                                    },
+                                    onOpenAlertsSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_ALERTS_SETTINGS)
+                                    },
+                                    onOpenDashboardSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_DASHBOARD_SETTINGS)
+                                    },
+                                )
+                            }
+                        }
+
+                        val openTurnByTurnSettings = {
+                            navController.navigate(WatchRoutes.TURN_BY_TURN_SETTINGS) {
+                                popUpTo(WatchRoutes.TURN_BY_TURN_SETTINGS) { inclusive = false }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                        val turnByTurnCategoryScreens: List<Pair<String, @Composable () -> Unit>> =
+                            listOf(
+                                WatchRoutes.TURN_BY_TURN_GUIDANCE_SETTINGS to {
+                                    TurnByTurnGuidanceSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                                WatchRoutes.TURN_BY_TURN_ALERTS_SETTINGS to {
+                                    TurnByTurnAlertsSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                                WatchRoutes.TURN_BY_TURN_FEEDBACK_SETTINGS to {
+                                    TurnByTurnFeedbackSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                                WatchRoutes.TURN_BY_TURN_BACKGROUND_SETTINGS to {
+                                    TurnByTurnBackgroundSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                                WatchRoutes.TURN_BY_TURN_DASHBOARD_SETTINGS to {
+                                    TurnByTurnDashboardSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
+                            )
+                        turnByTurnCategoryScreens.forEach { (route, screen) ->
+                            composable(route) {
+                                DismissableScreen(
+                                    onDismiss = { navController.popBackStack() },
+                                    onSwipeLeftNavigate = navigateViaSwipeLeft,
+                                    content = screen,
                                 )
                             }
                         }
@@ -431,6 +805,51 @@ class MainActivity : ComponentActivity() {
                                     onOpenGeneralSettings = {
                                         navController.navigate(WatchRoutes.SETTINGS) {
                                             popUpTo(WatchRoutes.SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    onOpenTurnByTurnSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_SETTINGS)
+                                    },
+                                    onOpenGpxToolsSettings = {
+                                        navController.navigate(WatchRoutes.GPX_TOOLS_SETTINGS)
+                                    },
+                                    onOpenGpxAppearanceSettings = {
+                                        navController.navigate(WatchRoutes.GPX_APPEARANCE_SETTINGS)
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.GPX_APPEARANCE_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                GpxAppearanceSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGpxSettings = {
+                                        navController.navigate(WatchRoutes.GPX_SETTINGS) {
+                                            popUpTo(WatchRoutes.GPX_SETTINGS) { inclusive = false }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        composable(WatchRoutes.GPX_TOOLS_SETTINGS) {
+                            DismissableScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onSwipeLeftNavigate = navigateViaSwipeLeft,
+                            ) {
+                                GpxToolsSettingsScreen(
+                                    viewModel = appContainer.settingsViewModel,
+                                    onOpenGpxSettings = {
+                                        navController.navigate(WatchRoutes.GPX_SETTINGS) {
+                                            popUpTo(WatchRoutes.GPX_SETTINGS) { inclusive = false }
                                             launchSingleTop = true
                                             restoreState = true
                                         }
@@ -556,6 +975,50 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                WearActionDialog(
+                    visible = recordingStartWarning != null,
+                    title = "External sensors unavailable",
+                    onDismissRequest = appContainer.traceRecordingViewModel::cancelStartRecordingWithUnavailableSensors,
+                    buttons =
+                        listOf(
+                            WearActionDialogButton(
+                                text = "Use watch sensors",
+                                onClick = {
+                                    appContainer.traceRecordingViewModel
+                                        .switchUnavailableSensorSourcesToWatchAndStartRecording()
+                                },
+                            ),
+                            WearActionDialogButton(
+                                text = "Record anyway",
+                                onClick = appContainer.traceRecordingViewModel::confirmStartRecordingWithUnavailableSensors,
+                                role = WearActionButtonRole.Secondary,
+                            ),
+                            WearActionDialogButton(
+                                text = "Sources",
+                                icon = Icons.Filled.Folder,
+                                iconTint = Color(0xFFFFD54F),
+                                onClick = {
+                                    appContainer.traceRecordingViewModel.cancelStartRecordingWithUnavailableSensors()
+                                    navController.navigate(WatchRoutes.RECORDING_SOURCE_SETTINGS) {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                role = WearActionButtonRole.Secondary,
+                            ),
+                            WearActionDialogButton(
+                                text = "Cancel",
+                                onClick = appContainer.traceRecordingViewModel::cancelStartRecordingWithUnavailableSensors,
+                                role = WearActionButtonRole.Secondary,
+                            ),
+                        ),
+                ) {
+                    Text(
+                        text = recordingStartWarning?.message.orEmpty(),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
     }
@@ -574,11 +1037,123 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(screenStateReceiver) }
+        unregisterThermalTelemetry()
         val appContainer = (application as GlanceMapWearApp).container
         appContainer.mapViewModel.destroyMapHolder()
-        appContainer.locationViewModel.setTrackingEnabled(false)
+        val locationPermissionGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ) == PackageManager.PERMISSION_GRANTED
+        val traceRecordingState = appContainer.traceRecordingViewModel.uiState.value
+        val destroyScreenState =
+            resolveLocationScreenState(
+                isAmbient = _isAmbient,
+                isDeviceInteractive = _isDeviceInteractive,
+            )
+        val destroyRecordingScreenOnGpsEnabled =
+            appContainer.settingsViewModel.recordingSampleIntervalSeconds.value !=
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+        val destroyRecordingScreenOffGpsEnabled =
+            when (appContainer.settingsViewModel.recordingScreenOffSampleIntervalSeconds.value) {
+                SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> destroyRecordingScreenOnGpsEnabled
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                else -> true
+            }
+        val destroyRecordingGpsEnabled =
+            if (destroyScreenState.isNonInteractive) {
+                destroyRecordingScreenOffGpsEnabled
+            } else {
+                destroyRecordingScreenOnGpsEnabled
+            }
+        val destroyTurnByTurnScreenOnGpsEnabled =
+            appContainer.settingsViewModel.turnByTurnGpsIntervalSeconds.value !=
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+        val destroyTurnByTurnScreenOffGpsEnabled =
+            when (appContainer.settingsViewModel.turnByTurnScreenOffGpsIntervalSeconds.value) {
+                SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS -> destroyTurnByTurnScreenOnGpsEnabled
+                SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> false
+                else -> true
+            }
+        val destroyTurnByTurnGpsEnabled =
+            if (destroyScreenState.isNonInteractive) {
+                destroyTurnByTurnScreenOffGpsEnabled
+            } else {
+                destroyTurnByTurnScreenOnGpsEnabled
+            }
+        val runtimeDemand =
+            navigationRuntimeDemand(
+                isNavigateScreen = false,
+                screenState = destroyScreenState,
+                isScreenResumed = false,
+                hasLocationPermission = locationPermissionGranted,
+                offlineMode = appContainer.settingsViewModel.offlineMode.value,
+                generalGpsInAmbient = appContainer.settingsViewModel.gpsInAmbientMode.value,
+                recordingActive = traceRecordingState.active,
+                recordingPaused = traceRecordingState.paused && !traceRecordingState.autoPaused,
+                recordingGpsEnabled = destroyRecordingGpsEnabled,
+                turnByTurnActive = appContainer.gpxViewModel.turnByTurnGuidanceSession.value != null,
+                turnByTurnPaused = appContainer.gpxViewModel.turnByTurnGuidancePaused.value,
+                turnByTurnGpsEnabled = destroyTurnByTurnGpsEnabled,
+                turnByTurnGpsInAmbient = destroyTurnByTurnScreenOffGpsEnabled,
+            )
+        if (runtimeDemand.trackingEnabled) {
+            DebugTelemetry.log(
+                "NavigationRuntime",
+                "event=activity_destroy_retaining_gps tracking=true backgroundGps=${runtimeDemand.backgroundGpsEnabled} " +
+                    "reason=${runtimeDemand.reason}",
+            )
+        } else {
+            appContainer.locationViewModel.setTrackingEnabled(false)
+        }
         super.onDestroy()
     }
+
+    private fun registerThermalTelemetry() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val powerManager = getSystemService(PowerManager::class.java) ?: return
+        val listener =
+            PowerManager.OnThermalStatusChangedListener { status ->
+                logThermalTelemetry(event = "status", status = status)
+            }
+        thermalStatusListener = listener
+        powerManager.addThermalStatusListener(mainExecutor, listener)
+        logThermalTelemetry(event = "initial", status = powerManager.currentThermalStatus)
+    }
+
+    private fun unregisterThermalTelemetry() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val listener = thermalStatusListener ?: return
+        getSystemService(PowerManager::class.java)?.removeThermalStatusListener(listener)
+        thermalStatusListener = null
+    }
+
+    private fun logThermalTelemetry(
+        event: String,
+        status: Int,
+    ) {
+        DebugTelemetry.log(
+            "ThermalTelemetry",
+            "event=$event status=$status label=${thermalStatusLabel(status)} " +
+                "route=${activeRoute ?: "unknown"} ambient=$_isAmbient interactive=$_isDeviceInteractive",
+        )
+    }
+
+    private fun thermalStatusLabel(status: Int): String =
+        when (status) {
+            PowerManager.THERMAL_STATUS_NONE -> "none"
+            PowerManager.THERMAL_STATUS_LIGHT -> "light"
+            PowerManager.THERMAL_STATUS_MODERATE -> "moderate"
+            PowerManager.THERMAL_STATUS_SEVERE -> "severe"
+            PowerManager.THERMAL_STATUS_CRITICAL -> "critical"
+            PowerManager.THERMAL_STATUS_EMERGENCY -> "emergency"
+            PowerManager.THERMAL_STATUS_SHUTDOWN -> "shutdown"
+            else -> "unknown"
+        }
 
     private fun logScreenTelemetry(event: String) {
         val interactive = getSystemService(PowerManager::class.java)?.isInteractive

@@ -95,6 +95,11 @@ class GpxRepositoryImpl(
             File(gpxDir, ".${file.name}.part").delete()
         }
 
+    override suspend fun absolutePathForFileName(fileName: String): String =
+        withContext(Dispatchers.IO) {
+            File(gpxDir, File(fileName).name).absolutePath
+        }
+
     override fun getActiveGpxFiles(): Flow<Set<String>> =
         callbackFlow {
             val listener =

@@ -41,7 +41,12 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
+import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.TurnByTurnGuidanceState
+import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingDashboardOverlay
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteShortcutTray
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolInlineProgressBanner
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
@@ -66,6 +71,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
     slopeOverlayProgressPercent: Int?,
     navMode: NavMode,
     screenSize: WearScreenSize,
+    isMetric: Boolean,
     liveElevationEnabled: Boolean,
     liveElevationLabel: String?,
     liveDistanceEnabled: Boolean,
@@ -109,6 +115,22 @@ internal fun BoxScope.NavigateOverlaysLayer(
     onCreatePoiClick: () -> Unit,
     keepAppOpen: Boolean,
     onKeepAppOpenToggle: () -> Unit,
+    traceRecordingState: TraceRecordingUiState,
+    recordingDashboardMetricSlots: List<String>,
+    turnByTurnDashboardMetricSlots: List<String>,
+    userWeightKg: Float,
+    backpackWeightKg: Float,
+    bikeWeightKg: Float,
+    activityProfile: String,
+    recordingDashboardExpandRequestToken: Long,
+    recordingActionPromptRequestToken: Long,
+    onRecordingClick: () -> Unit,
+    onPauseRecording: () -> Unit,
+    onResumeRecording: () -> Unit,
+    onFinishRecording: (String?) -> Unit,
+    onDiscardRecording: () -> Unit,
+    onRecordingMetricSelected: (Int, String) -> Unit,
+    onTurnByTurnMetricSelected: (Int, String) -> Unit,
     gpsIndicatorState: GpsFixIndicatorState,
     watchGpsDegradedWarning: Boolean,
     navButtonBottomPadding: Dp,
@@ -122,11 +144,35 @@ internal fun BoxScope.NavigateOverlaysLayer(
     isOfflineMode: Boolean,
     selectingGpxPointB: Boolean,
     onCancelSelectingGpxPointB: () -> Unit,
+    turnByTurnGuidanceState: TurnByTurnGuidanceState,
+    turnByTurnGuidancePaused: Boolean,
+    turnByTurnPausedTrackTitle: String?,
+    turnByTurnVoiceGuidanceEnabled: Boolean,
+    turnByTurnCompactPopupEnabled: Boolean,
+    onTurnByTurnVoiceGuidanceChange: (Boolean) -> Unit,
+    turnByTurnFullScreenExpanded: Boolean,
+    recordingDashboardFullScreenExpanded: Boolean,
+    guideBackToRouteActive: Boolean,
+    showGuideBackPrompt: Boolean,
+    startDecisionPrompt: GuidanceDecisionPrompt?,
+    onPauseTurnByTurnGuidance: () -> Unit,
+    onResumeTurnByTurnGuidance: () -> Unit,
+    onStopTurnByTurnGuidance: () -> Unit,
+    onTurnByTurnExpandedChange: (Boolean) -> Unit,
+    onRecordingExpandedChange: (Boolean) -> Unit,
+    onGuideBackToRoute: () -> Unit,
+    onDismissGuideBackPrompt: () -> Unit,
+    onAcceptStartDecisionPrompt: () -> Unit,
+    onDismissStartDecisionPrompt: () -> Unit,
 ) {
     var liveDistanceLineStart by
         remember(mapView, locationMarker, lastKnownLocation) {
             mutableStateOf<Offset?>(null)
         }
+    var combinedGuidanceRecordingFullScreenExpanded by remember { mutableStateOf(false) }
+    var showRouteCompleteRecordingPrompt by remember(traceRecordingState.startedAtMillis) {
+        mutableStateOf(false)
+    }
     val slopeIndicatorButtonSize =
         when (screenSize) {
             WearScreenSize.LARGE -> 28.dp
@@ -147,6 +193,33 @@ internal fun BoxScope.NavigateOverlaysLayer(
             0.dp
         }
     val suppressLiveMetricsForPoi = poiTapMessage != null
+    val suppressGuidanceForPanning = navMode == NavMode.PANNING
+    val hasTurnByTurnDecisionPrompt = startDecisionPrompt != null || showGuideBackPrompt
+    val combinedGuidanceRecordingActive =
+        traceRecordingState.active &&
+            (turnByTurnGuidanceState.active || turnByTurnGuidancePaused) &&
+            !hasTurnByTurnDecisionPrompt
+    val suppressMapControlsForGuidance =
+        (turnByTurnGuidanceState.active && turnByTurnFullScreenExpanded) ||
+            (traceRecordingState.active && recordingDashboardFullScreenExpanded) ||
+            combinedGuidanceRecordingFullScreenExpanded
+    LaunchedEffect(
+        turnByTurnGuidanceState.mode,
+        turnByTurnGuidanceState.trackTitle,
+        traceRecordingState.active,
+    ) {
+        if (
+            turnByTurnGuidanceState.mode == GuidanceMode.FINISHED &&
+            traceRecordingState.active
+        ) {
+            showRouteCompleteRecordingPrompt = true
+            DebugTelemetry.log(
+                "TurnByTurn",
+                "event=route_complete guidanceAction=auto_stop recordingAction=keep_active",
+            )
+            onStopTurnByTurnGuidance()
+        }
+    }
 
     LaunchedEffect(shortcutTrayExpanded, routeToolModeActive) {
         if (!shortcutTrayExpanded || routeToolModeActive) return@LaunchedEffect
@@ -226,16 +299,18 @@ internal fun BoxScope.NavigateOverlaysLayer(
         navButtonSize = navButtonSize,
     )
 
-    NorthIndicatorOverlay(
-        northIndicatorMode = northIndicatorMode,
-        navMode = navMode,
-        mapRotationDeg = mapRotationDeg,
-        compassHeadingDeg = compassHeadingDeg,
-        indicatorButtonSize = northIndicatorButtonSize,
-        indicatorIconSize = northIndicatorIconSize,
-    )
+    if (!suppressMapControlsForGuidance) {
+        NorthIndicatorOverlay(
+            northIndicatorMode = northIndicatorMode,
+            navMode = navMode,
+            mapRotationDeg = mapRotationDeg,
+            compassHeadingDeg = compassHeadingDeg,
+            indicatorButtonSize = northIndicatorButtonSize,
+            indicatorIconSize = northIndicatorIconSize,
+        )
+    }
 
-    if (showZoomPlusButton) {
+    if (!suppressMapControlsForGuidance && showZoomPlusButton) {
         CurvedLayout(
             modifier = Modifier.fillMaxSize(),
             anchor = 320f,
@@ -278,7 +353,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         }
     }
 
-    if (showZoomMinusButton) {
+    if (!suppressMapControlsForGuidance && showZoomMinusButton) {
         CurvedLayout(
             modifier = Modifier.fillMaxSize(),
             anchor = 338f,
@@ -321,36 +396,38 @@ internal fun BoxScope.NavigateOverlaysLayer(
         }
     }
 
-    scaleIndicator?.let { indicator ->
-        val scaleFontScale = LocalDensity.current.fontScale
-        val scaleTopPadding = zoomLabelTopPadding + if (scaleFontScale > 1f) 4.dp else 0.dp
-        AnimatedVisibility(
-            visible = showScaleBar,
-            enter = fadeIn(tween(180)),
-            exit = fadeOut(tween(220)),
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = scaleTopPadding),
-        ) {
-            cappedFontScale(maxFontScale = 1f) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = indicator.label,
-                        modifier =
-                            Modifier
-                                .padding(top = 2.dp)
-                                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(5.dp))
-                                .padding(horizontal = 5.dp, vertical = 1.dp),
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 10.sp,
-                        lineHeight = 10.sp,
-                    )
-                    StandardScaleBar(
-                        width = zoomScaleBarWidth,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
+    if (!suppressMapControlsForGuidance) {
+        scaleIndicator?.let { indicator ->
+            val scaleFontScale = LocalDensity.current.fontScale
+            val scaleTopPadding = zoomLabelTopPadding + if (scaleFontScale > 1f) 4.dp else 0.dp
+            AnimatedVisibility(
+                visible = showScaleBar,
+                enter = fadeIn(tween(180)),
+                exit = fadeOut(tween(220)),
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = scaleTopPadding),
+            ) {
+                cappedFontScale(maxFontScale = 1f) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = indicator.label,
+                            modifier =
+                                Modifier
+                                    .padding(top = 2.dp)
+                                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(5.dp))
+                                    .padding(horizontal = 5.dp, vertical = 1.dp),
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 10.sp,
+                            lineHeight = 10.sp,
+                        )
+                        StandardScaleBar(
+                            width = zoomScaleBarWidth,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
                 }
             }
         }
@@ -396,7 +473,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
         Icon(Icons.Default.Menu, "Menu", Modifier.size(sideButtonIconSize))
     }
 
-    if (!routeToolModeActive) {
+    if (!suppressMapControlsForGuidance && !routeToolModeActive) {
         RouteShortcutTray(
             expanded = shortcutTrayExpanded,
             keepAppOpen = keepAppOpen,
@@ -409,6 +486,10 @@ internal fun BoxScope.NavigateOverlaysLayer(
             onKeepAppOpenClick = onKeepAppOpenToggle,
             onGpxToolsClick = onGpxToolsClick,
             onCreatePoiClick = onCreatePoiClick,
+            recordingActive = traceRecordingState.active,
+            recordingPaused = traceRecordingState.paused,
+            recordingSaving = traceRecordingState.saving,
+            onRecordingClick = onRecordingClick,
         )
     }
 
@@ -427,5 +508,106 @@ internal fun BoxScope.NavigateOverlaysLayer(
         onRecenterRequested = onRecenterRequested,
         onToggleOrientation = onToggleOrientation,
         navigationMarkerAnchorMode = navigationMarkerAnchorMode,
+    )
+
+    TurnByTurnGuidanceOverlay(
+        state = turnByTurnGuidanceState,
+        paused = turnByTurnGuidancePaused,
+        pausedTrackTitle = turnByTurnPausedTrackTitle,
+        dashboardMetricSlots = turnByTurnDashboardMetricSlots,
+        voiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
+        screenSize = screenSize,
+        isMetric = isMetric,
+        compassHeadingDeg = compassHeadingDeg,
+        guideBackToRouteActive = guideBackToRouteActive,
+        showGuideBackPrompt = showGuideBackPrompt,
+        startDecisionPrompt = startDecisionPrompt,
+        expandRequestToken = recordingDashboardExpandRequestToken,
+        actionPromptRequestToken = recordingActionPromptRequestToken,
+        compactPopupEnabled = turnByTurnCompactPopupEnabled,
+        suppressed =
+            poiTapMessage != null ||
+                suppressGuidanceForPanning ||
+                recordingDashboardFullScreenExpanded ||
+                combinedGuidanceRecordingActive,
+        onPause = onPauseTurnByTurnGuidance,
+        onResume = onResumeTurnByTurnGuidance,
+        onStop = onStopTurnByTurnGuidance,
+        onVoiceGuidanceChange = onTurnByTurnVoiceGuidanceChange,
+        onDashboardMetricSelected = onTurnByTurnMetricSelected,
+        onExpandedChange = onTurnByTurnExpandedChange,
+        onGuideBackToRoute = onGuideBackToRoute,
+        onDismissGuideBackPrompt = onDismissGuideBackPrompt,
+        onAcceptStartDecisionPrompt = onAcceptStartDecisionPrompt,
+        onDismissStartDecisionPrompt = onDismissStartDecisionPrompt,
+    )
+
+    RecordingDashboardOverlay(
+        state = traceRecordingState,
+        metricSlots = recordingDashboardMetricSlots,
+        userWeightKg = userWeightKg,
+        backpackWeightKg = backpackWeightKg,
+        bikeWeightKg = bikeWeightKg,
+        activityProfile = activityProfile,
+        screenSize = screenSize,
+        isMetric = isMetric,
+        showRouteCompletePrompt = showRouteCompleteRecordingPrompt,
+        onRouteCompletePromptDismiss = {
+            showRouteCompleteRecordingPrompt = false
+        },
+        suppressed =
+            poiTapMessage != null ||
+                turnByTurnFullScreenExpanded ||
+                combinedGuidanceRecordingActive,
+        onPause = onPauseRecording,
+        onResume = onResumeRecording,
+        onStopConfirmed = onFinishRecording,
+        onDiscard = onDiscardRecording,
+        onMetricSelected = onRecordingMetricSelected,
+        expandRequestToken = recordingDashboardExpandRequestToken,
+        actionPromptRequestToken = recordingActionPromptRequestToken,
+        onExpandedChange = onRecordingExpandedChange,
+    )
+
+    CombinedGuidanceRecordingOverlay(
+        guidanceState = turnByTurnGuidanceState,
+        guidancePaused = turnByTurnGuidancePaused,
+        voiceGuidanceEnabled = turnByTurnVoiceGuidanceEnabled,
+        recordingState = traceRecordingState,
+        metricSlots = recordingDashboardMetricSlots,
+        guidanceMetricSlots = turnByTurnDashboardMetricSlots,
+        userWeightKg = userWeightKg,
+        backpackWeightKg = backpackWeightKg,
+        bikeWeightKg = bikeWeightKg,
+        activityProfile = activityProfile,
+        screenSize = screenSize,
+        isMetric = isMetric,
+        compassHeadingDeg = compassHeadingDeg,
+        guideBackToRouteActive = guideBackToRouteActive,
+        showGuideBackPrompt = showGuideBackPrompt,
+        expandRequestToken = recordingDashboardExpandRequestToken,
+        actionPromptRequestToken = recordingActionPromptRequestToken,
+        compactPopupEnabled = turnByTurnCompactPopupEnabled,
+        suppressed =
+            poiTapMessage != null ||
+                suppressGuidanceForPanning ||
+                !combinedGuidanceRecordingActive,
+        onPauseGuidance = onPauseTurnByTurnGuidance,
+        onResumeGuidance = onResumeTurnByTurnGuidance,
+        onStopGuidance = onStopTurnByTurnGuidance,
+        onVoiceGuidanceChange = onTurnByTurnVoiceGuidanceChange,
+        onGuideBackToRoute = onGuideBackToRoute,
+        onDismissGuideBackPrompt = onDismissGuideBackPrompt,
+        onPauseRecording = onPauseRecording,
+        onResumeRecording = onResumeRecording,
+        onFinishRecording = onFinishRecording,
+        onDiscardRecording = onDiscardRecording,
+        onMetricSelected = onRecordingMetricSelected,
+        onGuidanceMetricSelected = onTurnByTurnMetricSelected,
+        onExpandedChange = { expanded ->
+            combinedGuidanceRecordingFullScreenExpanded = expanded
+            onTurnByTurnExpandedChange(expanded)
+            onRecordingExpandedChange(expanded)
+        },
     )
 }
