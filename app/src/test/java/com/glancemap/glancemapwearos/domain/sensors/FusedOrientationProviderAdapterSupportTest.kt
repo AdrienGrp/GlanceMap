@@ -155,6 +155,56 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
+    fun timeoutConfirmedStartupIsUnstableWhenReseedHistoryIsChaotic() {
+        val decision =
+            resolveFusedRestartHeadingDecision(
+                pendingHeadingDeg = 271.9f,
+                displayHeadingDeg = 271.9f,
+                pendingAtElapsedMs = 100L,
+                nowElapsedMs = 280L,
+                pendingSampleCount = 9,
+                timeoutMs = 160L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
+        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
+        assertTrue(
+            isUnstableFusedStartup(
+                decision = decision,
+                overlapMaxDeltaDeg = 155.9f,
+                reseedCount = 5,
+                maxReseedDeltaDeg = 160.8f,
+            ),
+        )
+    }
+
+    @Test
+    fun timeoutConfirmedStartupIsNotUnstableForSingleCoherentCluster() {
+        val decision =
+            resolveFusedRestartHeadingDecision(
+                pendingHeadingDeg = 107.1f,
+                displayHeadingDeg = 119.4f,
+                pendingAtElapsedMs = 100L,
+                nowElapsedMs = 280L,
+                pendingSampleCount = 9,
+                timeoutMs = 160L,
+                headingErrorDeg = 25f,
+                conservativeHeadingErrorDeg = 180f,
+            )
+
+        assertEquals(FusedRestartHeadingAction.CONFIRM, decision.action)
+        assertFalse(
+            isUnstableFusedStartup(
+                decision = decision,
+                overlapMaxDeltaDeg = 95.5f,
+                reseedCount = 1,
+                maxReseedDeltaDeg = 102.8f,
+            ),
+        )
+    }
+
+    @Test
     fun unusableRestartSamplesStayPendingEvenAfterConfirmationBudget() {
         val decision =
             resolveFusedRestartHeadingDecision(

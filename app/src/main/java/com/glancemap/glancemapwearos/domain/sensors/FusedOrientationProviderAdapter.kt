@@ -215,6 +215,14 @@ internal class FusedOrientationProviderAdapter(
 
     @Volatile private var previousStartupOverlapFinalDeltaDeg: Float? = null
 
+    @Volatile private var startupRestartReseedCount = 0
+
+    @Volatile private var startupRestartMaxReseedDeltaDeg = 0f
+
+    @Volatile private var unstableStartupRestartAttempted = false
+
+    @Volatile private var startupBootstrapHoldUntilElapsedMs = 0L
+
     @Volatile private var consecutiveUnusableFusedSamples = 0
 
     @Volatile private var firstUnusableFusedSampleAtElapsedMs = 0L
@@ -270,6 +278,8 @@ internal class FusedOrientationProviderAdapter(
         lowPowerMode = lowPower
         started = true
         startAtMs = SystemClock.elapsedRealtime()
+        unstableStartupRestartAttempted = false
+        startupBootstrapHoldUntilElapsedMs = 0L
         declinationController.maybeInitializeFromCache()
         declinationController.maybeInitializeFromLastKnownLocation()
         publishNorthReferenceStatus()
@@ -308,6 +318,8 @@ internal class FusedOrientationProviderAdapter(
         recalibrationBoostGeneration += 1L
         lastOrientationRequestAtElapsedMs = 0L
         lastOrientationRequestReason = "idle"
+        unstableStartupRestartAttempted = false
+        startupBootstrapHoldUntilElapsedMs = 0L
         awaitingFirstOrientationSample = false
         clearRestartHeadingConfirmationState()
         lastFusedSampleLogAtElapsedMs = 0L
@@ -417,6 +429,7 @@ internal class FusedOrientationProviderAdapter(
         pendingRestartHeadingAtElapsedMs = 0L
         pendingRestartHeadingSampleCount = 0
         lastFusedSampleLogAtElapsedMs = 0L
+        startupBootstrapHoldUntilElapsedMs = 0L
         resetStartupOverlapMetrics()
         resetUnusableFusedSampleState()
 
@@ -551,6 +564,11 @@ internal class FusedOrientationProviderAdapter(
                         previousPendingHeading != null &&
                             decision.nextPendingSampleCount == 1 &&
                             decision.nextPendingHeadingDeg != previousPendingHeading
+                    if (reseededPendingHeading) {
+                        startupRestartReseedCount += 1
+                        startupRestartMaxReseedDeltaDeg =
+                            maxOf(startupRestartMaxReseedDeltaDeg, decision.deltaDeg)
+                    }
                     pendingRestartHeading = decision.nextPendingHeadingDeg
                     pendingRestartHeadingAtElapsedMs = decision.nextPendingAtElapsedMs
                     pendingRestartHeadingSampleCount = decision.nextPendingSampleCount
@@ -582,9 +600,38 @@ internal class FusedOrientationProviderAdapter(
 
                 FusedRestartHeadingAction.CONFIRM -> {
                     val pendingHeading = pendingRestartHeading
+                    val unstableStartup =
+                        isUnstableFusedStartup(
+                            decision = decision,
+                            overlapMaxDeltaDeg = startupOverlapMaxDeltaDeg,
+                            reseedCount = startupRestartReseedCount,
+                            maxReseedDeltaDeg = startupRestartMaxReseedDeltaDeg,
+                        )
+                    if (unstableStartup && !unstableStartupRestartAttempted) {
+                        unstableStartupRestartAttempted = true
+                        logStartupOverlapSummary(reason = lastOrientationRequestReason, confirmed = false)
+                        logDiagnostics(
+                            "google_fused startup_unstable_restart reason=$lastOrientationRequestReason " +
+                                "confirmedHeading=${displayHeading.format(1)} " +
+                                "ignoredHeading=${pendingHeading.formatOrNA(1)} " +
+                                "stableAgeMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs " +
+                                "stableSamples=${decision.sampleCount} " +
+                                "reseedCount=$startupRestartReseedCount " +
+                                "maxReseedDeltaDeg=${startupRestartMaxReseedDeltaDeg.format(1)} " +
+                                "overlapMaxDeltaDeg=${startupOverlapMaxDeltaDeg.format(1)} " +
+                                "errorDeg=${headingErrorDeg.formatOrNA(1)} " +
+                                "conservativeErrorDeg=${conservativeHeadingErrorDeg.formatOrNA(1)}",
+                        )
+                        restartOrientationAfterUnstableStartup()
+                        return
+                    }
                     clearRestartHeadingConfirmationState()
                     logStartupOverlapSummary(reason = lastOrientationRequestReason, confirmed = true)
-                    stopBootstrapFallbackProvider(reason = "fused_confirmed")
+                    if (unstableStartup) {
+                        holdBootstrapFallbackProvider(reason = "unstable_fused_confirmed")
+                    } else {
+                        stopBootstrapFallbackProvider(reason = "fused_confirmed")
+                    }
                     logDiagnostics(
                         "google_fused restart_heading_confirmed reason=$lastOrientationRequestReason " +
                             "confirmReason=${decision.confirmReason} " +
@@ -819,6 +866,43 @@ internal class FusedOrientationProviderAdapter(
         _useBootstrapFallbackProvider.value = false
         fallbackProvider.stop()
         logDiagnostics("google_fused bootstrap stop reason=$reason")
+    }
+
+    private fun holdBootstrapFallbackProvider(reason: String) {
+        if (!_useBootstrapFallbackProvider.value || _useFallbackProvider.value) return
+        val untilElapsedMs = SystemClock.elapsedRealtime() + FUSED_UNSTABLE_STARTUP_BOOTSTRAP_HOLD_MS
+        startupBootstrapHoldUntilElapsedMs = maxOf(startupBootstrapHoldUntilElapsedMs, untilElapsedMs)
+        logDiagnostics(
+            "google_fused bootstrap hold reason=$reason " +
+                "durationMs=$FUSED_UNSTABLE_STARTUP_BOOTSTRAP_HOLD_MS",
+        )
+        val stopRunnable =
+            Runnable {
+                val nowElapsedMs = SystemClock.elapsedRealtime()
+                if (started && nowElapsedMs < startupBootstrapHoldUntilElapsedMs) return@Runnable
+                startupBootstrapHoldUntilElapsedMs = 0L
+                stopBootstrapFallbackProvider(reason = "${reason}_hold_elapsed")
+            }
+        if (callbackHandler?.postDelayed(stopRunnable, FUSED_UNSTABLE_STARTUP_BOOTSTRAP_HOLD_MS) != true) {
+            stopRunnable.run()
+        }
+    }
+
+    private fun restartOrientationAfterUnstableStartup() {
+        clearRestartHeadingConfirmationState()
+        fusedPendingJumpHeading = null
+        fusedPendingJumpAtMs = 0L
+        val restartRunnable =
+            Runnable {
+                if (!started || _useFallbackProvider.value) return@Runnable
+                requestOrientationUpdates(
+                    forceRestart = true,
+                    reason = "startup_unstable_restart",
+                )
+            }
+        if (callbackHandler?.post(restartRunnable) != true) {
+            restartRunnable.run()
+        }
     }
 
     private fun stopOrientationUpdates() {
@@ -1205,6 +1289,10 @@ private const val FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG = 45f
 private const val FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MIN_CONFIRM_AGE_MS = 120L
 private const val FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MAX_DELTA_DEG = 18f
 private const val FUSED_LARGE_JUMP_ABSOLUTE_TIMEOUT_MS = 500L
+private const val FUSED_UNSTABLE_STARTUP_RESEED_COUNT = 4
+private const val FUSED_UNSTABLE_STARTUP_RESEED_DELTA_DEG = 150f
+private const val FUSED_UNSTABLE_STARTUP_OVERLAP_DELTA_DEG = 150f
+private const val FUSED_UNSTABLE_STARTUP_BOOTSTRAP_HOLD_MS = 1_000L
 
 internal enum class FusedRestartHeadingAction {
     IGNORE_FIRST,
@@ -1318,6 +1406,18 @@ internal fun resolveFusedRestartHeadingDecision(
         pendingAgeMs = pendingAgeMs,
         confirmReason = null,
     )
+}
+
+internal fun isUnstableFusedStartup(
+    decision: FusedRestartHeadingDecision,
+    overlapMaxDeltaDeg: Float,
+    reseedCount: Int,
+    maxReseedDeltaDeg: Float,
+): Boolean {
+    if (decision.confirmReason != "timeout") return false
+    return reseedCount >= FUSED_UNSTABLE_STARTUP_RESEED_COUNT ||
+        maxReseedDeltaDeg >= FUSED_UNSTABLE_STARTUP_RESEED_DELTA_DEG ||
+        overlapMaxDeltaDeg >= FUSED_UNSTABLE_STARTUP_OVERLAP_DELTA_DEG
 }
 
 internal fun resolveFusedLargeJumpAction(
