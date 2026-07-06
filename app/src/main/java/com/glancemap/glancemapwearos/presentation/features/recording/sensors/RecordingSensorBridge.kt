@@ -146,13 +146,13 @@ fun RecordingSensorBridge(
         externalRunPodLinked && speedSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
     val useExternalDistance =
         externalRunPodLinked && distanceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
+    val powerMetricSelected =
+        SettingsRepository.RECORDING_METRIC_POWER in selectedMetricIds ||
+            SettingsRepository.RECORDING_METRIC_AVERAGE_POWER in selectedMetricIds ||
+            SettingsRepository.RECORDING_METRIC_MAX_POWER in selectedMetricIds
     val useExternalPower =
         externalRunPodLinked &&
-            (
-                SettingsRepository.RECORDING_METRIC_POWER in selectedMetricIds ||
-                    SettingsRepository.RECORDING_METRIC_AVERAGE_POWER in selectedMetricIds ||
-                    SettingsRepository.RECORDING_METRIC_MAX_POWER in selectedMetricIds
-            )
+            (useExternalCadence || useExternalSpeed || useExternalDistance || powerMetricSelected)
     val useExternalRunPod =
         useExternalCadence || useExternalSpeed || useExternalDistance || useExternalPower
     val collectBarometricPressure = active
@@ -314,6 +314,7 @@ fun RecordingSensorBridge(
         stepsSource,
         useExternalHeartRate,
         useExternalCadence,
+        useExternalPower,
         useExternalRunPod,
     ) {
         if (!active) return@LaunchedEffect
@@ -333,6 +334,7 @@ fun RecordingSensorBridge(
                 distanceSource = distanceSource,
                 stepsSource = stepsSource,
                 useExternalCadence = useExternalCadence,
+                useExternalPower = useExternalPower,
                 useExternalRunPod = useExternalRunPod,
                 paused = paused,
                 event = "status",
@@ -517,6 +519,7 @@ fun RecordingSensorBridge(
             distanceSource = distanceSource,
             stepsSource = stepsSource,
             useExternalCadence = useExternalCadence,
+            useExternalPower = useExternalPower,
             useExternalRunPod = useExternalRunPod,
             registered = registered,
             paused = paused,
@@ -532,6 +535,7 @@ fun RecordingSensorBridge(
     }
 }
 
+@Suppress("LongParameterList")
 private fun logRecordingSensorStatus(
     context: Context,
     sensorManager: SensorManager,
@@ -546,6 +550,7 @@ private fun logRecordingSensorStatus(
     distanceSource: String,
     stepsSource: String,
     useExternalCadence: Boolean,
+    useExternalPower: Boolean,
     useExternalRunPod: Boolean,
     registered: List<String>? = null,
     paused: Boolean,
@@ -571,6 +576,7 @@ private fun logRecordingSensorStatus(
             "distanceSource=$distanceSource " +
             "stepsSource=$stepsSource " +
             "externalCadenceActive=$useExternalCadence " +
+            "externalPowerActive=$useExternalPower " +
             "externalRunPodActive=$useExternalRunPod " +
             "paused=$paused " +
             "bodySensorsGranted=$bodySensorsGranted " +
