@@ -732,11 +732,17 @@ fun NavigateScreen(
         }
 
         val defaultRouteToolOptions =
-            remember(gpxToolRouteStyle, gpxToolUseElevation, gpxToolAllowFerries) {
+            remember(
+                gpxToolRouteStyle,
+                gpxToolUseElevation,
+                gpxToolAllowFerries,
+                gpxToolCustomHikeParams,
+            ) {
                 RouteToolOptions(
                     routeStyle = routeStylePresetFromSettingsValue(gpxToolRouteStyle),
                     useElevation = gpxToolUseElevation,
                     allowFerries = gpxToolAllowFerries,
+                    customHikeParams = gpxToolCustomHikeParams,
                 )
             }
 

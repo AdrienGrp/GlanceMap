@@ -57,6 +57,7 @@ private val RoutePlannerPreset.isBikePreset: Boolean
             RoutePlannerPreset.BALANCED_HIKE,
             RoutePlannerPreset.PREFER_TRAILS,
             RoutePlannerPreset.PREFER_EASIEST,
+            RoutePlannerPreset.CUSTOM_HIKE,
             -> false
         }
 
@@ -285,7 +286,13 @@ class BRouterRoutePlanner(
             try {
                 ensureBundledProfilesInstalled()
                 val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-                logRoutePlannerRequest(kind = "route", preset = request.preset, request.useElevation, request.allowFerries)
+                logRoutePlannerRequest(
+                    kind = "route",
+                    preset = request.preset,
+                    useElevation = request.useElevation,
+                    allowFerries = request.allowFerries,
+                    customHikeParams = request.customHikeParams,
+                )
                 val routedAttempt = executeRoutingRequest(request)
                 buildRoutePlannerOutput(
                     routingContext = routedAttempt.routingContext,
@@ -305,7 +312,13 @@ class BRouterRoutePlanner(
         return withContext(Dispatchers.IO) {
             try {
                 ensureBundledProfilesInstalled()
-                logRoutePlannerRequest(kind = "loop", preset = request.preset, request.useElevation, request.allowFerries)
+                logRoutePlannerRequest(
+                    kind = "loop",
+                    preset = request.preset,
+                    useElevation = request.useElevation,
+                    allowFerries = request.allowFerries,
+                    customHikeParams = request.customHikeParams,
+                )
 
                 val searchCoverageRadiusMeters =
                     estimateLoopCoverageRadiusMeters(
@@ -474,6 +487,7 @@ class BRouterRoutePlanner(
                         preset = effectivePreset,
                         useElevation = request.useElevation,
                         allowFerries = request.allowFerries,
+                        customHikeParams = request.customHikeParams,
                     )
                 roundTripDistance = spec.searchRadiusMeters
                 roundTripPoints = spec.pointCount
@@ -517,6 +531,7 @@ class BRouterRoutePlanner(
                 preset = spec.presetOverride ?: request.preset,
                 useElevation = request.useElevation,
                 allowFerries = request.allowFerries,
+                customHikeParams = request.customHikeParams,
             ),
             loopSpec = spec,
             timeoutMs = LOOP_FALLBACK_TIMEOUT_MS,
@@ -544,6 +559,7 @@ class BRouterRoutePlanner(
                         preset = request.preset,
                         useElevation = request.useElevation,
                         allowFerries = request.allowFerries,
+                        customHikeParams = request.customHikeParams,
                     )
             }
 
@@ -1008,10 +1024,17 @@ class BRouterRoutePlanner(
         preset: RoutePlannerPreset,
         useElevation: Boolean,
         allowFerries: Boolean,
+        customHikeParams: HikeRouteProfileParams? = null,
     ): HashMap<String, String> =
         hashMapOf<String, String>().apply {
             put("allow_ferries", allowFerries.toProfileNumber())
             put("consider_elevation", useElevation.toProfileNumber())
+            if (!preset.isBikePreset) {
+                put(
+                    "consider_forest",
+                    (customHikeParams?.considerForest ?: false).toProfileNumber(),
+                )
+            }
             when (preset) {
                 RoutePlannerPreset.BALANCED_HIKE -> {
                     put("hiking_routes_preference", "0.20")
@@ -1025,7 +1048,6 @@ class BRouterRoutePlanner(
                     put("path_preference", "20.0")
                     put("SAC_scale_limit", "3")
                     put("SAC_scale_preferred", "2")
-                    put("consider_forest", "1")
                 }
 
                 RoutePlannerPreset.PREFER_EASIEST -> {
@@ -1033,6 +1055,14 @@ class BRouterRoutePlanner(
                     put("path_preference", "0.0")
                     put("SAC_scale_limit", "1")
                     put("SAC_scale_preferred", "1")
+                }
+
+                RoutePlannerPreset.CUSTOM_HIKE -> {
+                    val params = customHikeParams ?: defaultCustomHikeProfileParams()
+                    put("hiking_routes_preference", params.hikingRoutesPreference.toProfileNumber())
+                    put("path_preference", params.pathPreference.toProfileNumber())
+                    put("SAC_scale_limit", params.sacScaleLimit.toString())
+                    put("SAC_scale_preferred", params.sacScalePreferred.toString())
                 }
 
                 RoutePlannerPreset.BIKE_TOURING -> {
@@ -1063,6 +1093,7 @@ class BRouterRoutePlanner(
         preset: RoutePlannerPreset,
         useElevation: Boolean,
         allowFerries: Boolean,
+        customHikeParams: HikeRouteProfileParams?,
     ) {
         val profileFile = routingProfileFileFor(preset).name
         val params =
@@ -1070,12 +1101,22 @@ class BRouterRoutePlanner(
                 preset = preset,
                 useElevation = useElevation,
                 allowFerries = allowFerries,
+                customHikeParams = customHikeParams,
             ).toSortedMap()
         DebugTelemetry.log(
             "RouteTools",
             "event=planner_request kind=$kind preset=$preset profile=$profileFile params=$params",
         )
     }
+
+    private fun defaultCustomHikeProfileParams(): HikeRouteProfileParams =
+        HikeRouteProfileParams(
+            hikingRoutesPreference = 0.20f,
+            pathPreference = 0f,
+            sacScaleLimit = 3,
+            sacScalePreferred = 1,
+            considerForest = false,
+        )
 
     private fun findMissingSegments(
         origin: LatLong,
@@ -1170,6 +1211,8 @@ class BRouterRoutePlanner(
         }
 
     private fun Boolean.toProfileNumber(): String = if (this) "1" else "0"
+
+    private fun Float.toProfileNumber(): String = toString()
 
     private companion object {
         const val B_ROUTER_COORDINATE_SCALE = 1_000_000.0

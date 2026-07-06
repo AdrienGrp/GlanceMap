@@ -1,5 +1,6 @@
 package com.glancemap.glancemapwearos.presentation.features.routetools
 
+import com.glancemap.glancemapwearos.core.routing.HikeRouteProfileParams
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPosition
 import org.mapsforge.core.model.LatLong
@@ -107,16 +108,20 @@ internal enum class RouteStylePreset(
         title = "Prefer easiest",
         summary = "Avoids harder terrain when possible and prefers simpler route choices.",
     ),
+    CUSTOM_HIKE(
+        title = "Custom hike",
+        summary = "Uses your advanced hike routing choices.",
+    ),
     BIKE_TOURING(
         title = "Touring bike",
         summary = "Uses BRouter trekking routing for efficient, calmer bike touring.",
     ),
     BIKE_ROAD(
-        title = "Road bike",
+        title = "Roadbike",
         summary = "Uses BRouter fastbike routing for faster road cycling.",
     ),
     BIKE_QUIET_ROAD(
-        title = "Quiet road bike",
+        title = "Roadbike Low-traffic",
         summary = "Uses BRouter fastbike low-traffic routing for quieter roads.",
     ),
     BIKE_GRAVEL(
@@ -135,6 +140,7 @@ internal val RouteStylePreset.settingsValue: String
             RouteStylePreset.BALANCED_HIKE -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE
             RouteStylePreset.PREFER_TRAILS -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS
             RouteStylePreset.PREFER_EASIEST -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST
+            RouteStylePreset.CUSTOM_HIKE -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE
             RouteStylePreset.BIKE_TOURING -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_TOURING
             RouteStylePreset.BIKE_ROAD -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_ROAD
             RouteStylePreset.BIKE_QUIET_ROAD -> SettingsRepository.GPX_TOOL_ROUTE_STYLE_BIKE_QUIET_ROAD
@@ -147,6 +153,7 @@ internal val hikeRouteStylePresets: List<RouteStylePreset> =
         RouteStylePreset.BALANCED_HIKE,
         RouteStylePreset.PREFER_TRAILS,
         RouteStylePreset.PREFER_EASIEST,
+        RouteStylePreset.CUSTOM_HIKE,
     )
 
 internal val bikeRouteStylePresets: List<RouteStylePreset> =
@@ -234,6 +241,7 @@ internal data class RouteToolOptions(
     val coordinateLongitude: Double? = null,
     val useElevation: Boolean = true,
     val allowFerries: Boolean = false,
+    val customHikeParams: HikeRouteProfileParams? = null,
     val showAdvancedOptions: Boolean = false,
     val saveBehavior: RouteSaveBehavior = RouteSaveBehavior.SAVE_AS_NEW,
 ) {

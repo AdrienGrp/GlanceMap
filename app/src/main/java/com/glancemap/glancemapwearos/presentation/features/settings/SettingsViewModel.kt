@@ -1005,6 +1005,87 @@ class SettingsViewModel(
             settingsRepository.setGpxToolAllowFerries(enabled)
         }
 
+    val gpxToolHikeHikingRoutesPreference: StateFlow<Float> =
+        settingsRepository.gpxToolHikeHikingRoutesPreference
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE,
+            )
+
+    fun setGpxToolHikeHikingRoutesPreference(preference: Float) =
+        viewModelScope.launch {
+            settingsRepository.setGpxToolHikeHikingRoutesPreference(preference)
+        }
+
+    val gpxToolHikePathPreference: StateFlow<Float> =
+        settingsRepository.gpxToolHikePathPreference
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TOOL_HIKE_PATH_PREFERENCE,
+            )
+
+    fun setGpxToolHikePathPreference(preference: Float) =
+        viewModelScope.launch {
+            settingsRepository.setGpxToolHikePathPreference(preference)
+        }
+
+    val gpxToolHikeSacScaleLimit: StateFlow<Int> =
+        settingsRepository.gpxToolHikeSacScaleLimit
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_LIMIT,
+            )
+
+    fun setGpxToolHikeSacScaleLimit(scale: Int) =
+        viewModelScope.launch {
+            settingsRepository.setGpxToolHikeSacScaleLimit(scale)
+        }
+
+    val gpxToolHikeSacScalePreferred: StateFlow<Int> =
+        settingsRepository.gpxToolHikeSacScalePreferred
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_PREFERRED,
+            )
+
+    fun setGpxToolHikeSacScalePreferred(scale: Int) =
+        viewModelScope.launch {
+            settingsRepository.setGpxToolHikeSacScalePreferred(scale)
+        }
+
+    val gpxToolHikeConsiderForest: StateFlow<Boolean> =
+        settingsRepository.gpxToolHikeConsiderForest
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_GPX_TOOL_HIKE_CONSIDER_FOREST,
+            )
+
+    fun setGpxToolHikeConsiderForest(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setGpxToolHikeConsiderForest(enabled)
+        }
+
+    fun setGpxToolCustomHikeProfile(
+        hikingRoutesPreference: Float,
+        pathPreference: Float,
+        sacScaleLimit: Int,
+        sacScalePreferred: Int,
+        considerForest: Boolean,
+    ) = viewModelScope.launch {
+        settingsRepository.setGpxToolCustomHikeProfile(
+            hikingRoutesPreference = hikingRoutesPreference,
+            pathPreference = pathPreference,
+            sacScaleLimit = sacScaleLimit,
+            sacScalePreferred = sacScalePreferred,
+            considerForest = considerForest,
+        )
+    }
+
     val activityProfile: StateFlow<String> =
         settingsRepository.activityProfile
             .stateIn(

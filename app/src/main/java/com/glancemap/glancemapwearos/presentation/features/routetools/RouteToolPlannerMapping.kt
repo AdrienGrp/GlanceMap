@@ -29,6 +29,7 @@ internal fun RouteToolSession.toRoutePlannerRequest(
                 preset = options.routeStyle.toPlannerPreset(),
                 useElevation = options.useElevation,
                 allowFerries = options.allowFerries,
+                customHikeParams = options.customHikeParams,
             )
 
         RouteCreateMode.MULTI_POINT_CHAIN -> {
@@ -42,6 +43,7 @@ internal fun RouteToolSession.toRoutePlannerRequest(
                 preset = options.routeStyle.toPlannerPreset(),
                 useElevation = options.useElevation,
                 allowFerries = options.allowFerries,
+                customHikeParams = options.customHikeParams,
             )
         }
 
@@ -58,6 +60,7 @@ internal fun RouteToolSession.toRoutePlannerRequest(
                 preset = options.routeStyle.toPlannerPreset(),
                 useElevation = options.useElevation,
                 allowFerries = options.allowFerries,
+                customHikeParams = options.customHikeParams,
             )
 
         RouteCreateMode.POINT_A_TO_B ->
@@ -73,6 +76,7 @@ internal fun RouteToolSession.toRoutePlannerRequest(
                 preset = options.routeStyle.toPlannerPreset(),
                 useElevation = options.useElevation,
                 allowFerries = options.allowFerries,
+                customHikeParams = options.customHikeParams,
             )
 
         RouteCreateMode.SEARCH ->
@@ -88,6 +92,7 @@ internal fun RouteToolSession.toRoutePlannerRequest(
                 preset = options.routeStyle.toPlannerPreset(),
                 useElevation = options.useElevation,
                 allowFerries = options.allowFerries,
+                customHikeParams = options.customHikeParams,
             )
 
         RouteCreateMode.COORDINATES ->
@@ -103,6 +108,7 @@ internal fun RouteToolSession.toRoutePlannerRequest(
                 preset = options.routeStyle.toPlannerPreset(),
                 useElevation = options.useElevation,
                 allowFerries = options.allowFerries,
+                customHikeParams = options.customHikeParams,
             )
 
         RouteCreateMode.LOOP_AROUND_HERE -> {
@@ -145,6 +151,7 @@ internal fun RouteToolSession.toRoundTripPlannerRequest(
         preset = options.routeStyle.toPlannerPreset(),
         useElevation = options.useElevation,
         allowFerries = options.allowFerries,
+        customHikeParams = options.customHikeParams,
         allowOutAndBack = options.loopShapeMode == LoopShapeMode.ALLOW_OUT_AND_BACK,
         pointCount = options.loopPointCount(),
         variationIndex = loopVariationIndex,
@@ -156,6 +163,7 @@ internal fun RouteStylePreset.toPlannerPreset(): RoutePlannerPreset =
         RouteStylePreset.BALANCED_HIKE -> RoutePlannerPreset.BALANCED_HIKE
         RouteStylePreset.PREFER_TRAILS -> RoutePlannerPreset.PREFER_TRAILS
         RouteStylePreset.PREFER_EASIEST -> RoutePlannerPreset.PREFER_EASIEST
+        RouteStylePreset.CUSTOM_HIKE -> RoutePlannerPreset.CUSTOM_HIKE
         RouteStylePreset.BIKE_TOURING -> RoutePlannerPreset.BIKE_TOURING
         RouteStylePreset.BIKE_ROAD -> RoutePlannerPreset.BIKE_ROAD
         RouteStylePreset.BIKE_QUIET_ROAD -> RoutePlannerPreset.BIKE_QUIET_ROAD
@@ -206,6 +214,7 @@ private fun RouteToolOptions.estimatedLoopSpeedKmPerHour(etaModelConfig: GpxEtaM
             RouteStylePreset.BALANCED_HIKE -> if (useElevation) 4.0 else 4.5
             RouteStylePreset.PREFER_TRAILS -> if (useElevation) 3.5 else 4.0
             RouteStylePreset.PREFER_EASIEST -> if (useElevation) 4.5 else 5.0
+            RouteStylePreset.CUSTOM_HIKE -> if (useElevation) 4.0 else 4.5
             RouteStylePreset.BIKE_TOURING -> 15.0
             RouteStylePreset.BIKE_ROAD -> 22.0
             RouteStylePreset.BIKE_QUIET_ROAD -> 20.0

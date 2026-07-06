@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.presentation.features.navigate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.glancemap.glancemapwearos.core.routing.HikeRouteProfileParams
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsViewModel
 
@@ -59,6 +60,7 @@ internal data class NavigateSettingsState(
     val gpxToolRouteStyle: String,
     val gpxToolUseElevation: Boolean,
     val gpxToolAllowFerries: Boolean,
+    val gpxToolCustomHikeParams: HikeRouteProfileParams,
     val gpxFlatSpeedMps: Float,
     val gpxAdvancedEtaEnabled: Boolean,
     val gpxStaminaAdjustmentEnabled: Boolean,
@@ -152,6 +154,11 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
     val gpxToolRouteStyle by settingsViewModel.gpxToolRouteStyle.collectAsState()
     val gpxToolUseElevation by settingsViewModel.gpxToolUseElevation.collectAsState()
     val gpxToolAllowFerries by settingsViewModel.gpxToolAllowFerries.collectAsState()
+    val gpxToolHikeHikingRoutesPreference by settingsViewModel.gpxToolHikeHikingRoutesPreference.collectAsState()
+    val gpxToolHikePathPreference by settingsViewModel.gpxToolHikePathPreference.collectAsState()
+    val gpxToolHikeSacScaleLimit by settingsViewModel.gpxToolHikeSacScaleLimit.collectAsState()
+    val gpxToolHikeSacScalePreferred by settingsViewModel.gpxToolHikeSacScalePreferred.collectAsState()
+    val gpxToolHikeConsiderForest by settingsViewModel.gpxToolHikeConsiderForest.collectAsState()
     val gpxFlatSpeedMps by settingsViewModel.gpxFlatSpeedMps.collectAsState()
     val gpxAdvancedEtaEnabled by settingsViewModel.gpxAdvancedEtaEnabled.collectAsState()
     val gpxStaminaAdjustmentEnabled by settingsViewModel.gpxStaminaAdjustmentEnabled.collectAsState()
@@ -217,6 +224,14 @@ internal fun collectNavigateSettingsState(settingsViewModel: SettingsViewModel):
         gpxToolRouteStyle = gpxToolRouteStyle,
         gpxToolUseElevation = gpxToolUseElevation,
         gpxToolAllowFerries = gpxToolAllowFerries,
+        gpxToolCustomHikeParams =
+            HikeRouteProfileParams(
+                hikingRoutesPreference = gpxToolHikeHikingRoutesPreference,
+                pathPreference = gpxToolHikePathPreference,
+                sacScaleLimit = gpxToolHikeSacScaleLimit,
+                sacScalePreferred = gpxToolHikeSacScalePreferred,
+                considerForest = gpxToolHikeConsiderForest,
+            ),
         gpxFlatSpeedMps = gpxFlatSpeedMps,
         gpxAdvancedEtaEnabled = gpxAdvancedEtaEnabled,
         gpxStaminaAdjustmentEnabled = gpxStaminaAdjustmentEnabled,

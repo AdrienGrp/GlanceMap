@@ -71,6 +71,7 @@ private fun estimateLoopDurationMinutes(
             RouteStylePreset.BALANCED_HIKE -> if (base.useElevation) 4.0 else 4.5
             RouteStylePreset.PREFER_TRAILS -> if (base.useElevation) 3.5 else 4.0
             RouteStylePreset.PREFER_EASIEST -> if (base.useElevation) 4.5 else 5.0
+            RouteStylePreset.CUSTOM_HIKE -> if (base.useElevation) 4.0 else 4.5
             RouteStylePreset.BIKE_TOURING -> 15.0
             RouteStylePreset.BIKE_ROAD -> 22.0
             RouteStylePreset.BIKE_QUIET_ROAD -> 20.0

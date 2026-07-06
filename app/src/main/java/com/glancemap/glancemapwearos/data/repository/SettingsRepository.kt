@@ -202,6 +202,7 @@ interface SettingsRepository {
         const val GPX_TOOL_ROUTE_STYLE_BALANCED_HIKE = "BALANCED_HIKE"
         const val GPX_TOOL_ROUTE_STYLE_PREFER_TRAILS = "PREFER_TRAILS"
         const val GPX_TOOL_ROUTE_STYLE_PREFER_EASIEST = "PREFER_EASIEST"
+        const val GPX_TOOL_ROUTE_STYLE_CUSTOM_HIKE = "CUSTOM_HIKE"
         const val GPX_TOOL_ROUTE_STYLE_BIKE_TOURING = "BIKE_TOURING"
         const val GPX_TOOL_ROUTE_STYLE_BIKE_ROAD = "BIKE_ROAD"
         const val GPX_TOOL_ROUTE_STYLE_BIKE_QUIET_ROAD = "BIKE_QUIET_ROAD"
@@ -212,6 +213,17 @@ interface SettingsRepository {
         const val DEFAULT_BIKE_GPX_TOOL_ROUTE_STYLE = GPX_TOOL_ROUTE_STYLE_BIKE_TOURING
         const val DEFAULT_GPX_TOOL_USE_ELEVATION = true
         const val DEFAULT_GPX_TOOL_ALLOW_FERRIES = false
+        const val DEFAULT_GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE = 0.20f
+        const val MIN_GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE = 0f
+        const val MAX_GPX_TOOL_HIKE_HIKING_ROUTES_PREFERENCE = 1f
+        const val DEFAULT_GPX_TOOL_HIKE_PATH_PREFERENCE = 0f
+        const val MIN_GPX_TOOL_HIKE_PATH_PREFERENCE = 0f
+        const val MAX_GPX_TOOL_HIKE_PATH_PREFERENCE = 20f
+        const val DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_LIMIT = 3
+        const val MIN_GPX_TOOL_HIKE_SAC_SCALE = 1
+        const val MAX_GPX_TOOL_HIKE_SAC_SCALE = 4
+        const val DEFAULT_GPX_TOOL_HIKE_SAC_SCALE_PREFERRED = 1
+        const val DEFAULT_GPX_TOOL_HIKE_CONSIDER_FOREST = false
 
         const val POI_ICON_SIZE_SMALL_PX = 20
         const val POI_ICON_SIZE_MEDIUM_PX = 28
@@ -627,6 +639,34 @@ interface SettingsRepository {
     val gpxToolAllowFerries: Flow<Boolean>
 
     suspend fun setGpxToolAllowFerries(enabled: Boolean)
+
+    val gpxToolHikeHikingRoutesPreference: Flow<Float>
+
+    suspend fun setGpxToolHikeHikingRoutesPreference(preference: Float)
+
+    val gpxToolHikePathPreference: Flow<Float>
+
+    suspend fun setGpxToolHikePathPreference(preference: Float)
+
+    val gpxToolHikeSacScaleLimit: Flow<Int>
+
+    suspend fun setGpxToolHikeSacScaleLimit(scale: Int)
+
+    val gpxToolHikeSacScalePreferred: Flow<Int>
+
+    suspend fun setGpxToolHikeSacScalePreferred(scale: Int)
+
+    val gpxToolHikeConsiderForest: Flow<Boolean>
+
+    suspend fun setGpxToolHikeConsiderForest(enabled: Boolean)
+
+    suspend fun setGpxToolCustomHikeProfile(
+        hikingRoutesPreference: Float,
+        pathPreference: Float,
+        sacScaleLimit: Int,
+        sacScalePreferred: Int,
+        considerForest: Boolean,
+    )
 
     val isMetric: Flow<Boolean>
 
