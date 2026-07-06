@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming")
+
 package com.glancemap.glancemapwearos.presentation.features.recording.external
 
 import androidx.compose.runtime.Composable

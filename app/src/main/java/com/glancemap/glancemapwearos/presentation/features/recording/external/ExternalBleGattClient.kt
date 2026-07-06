@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList")
+
 package com.glancemap.glancemapwearos.presentation.features.recording.external
 
 import android.Manifest
@@ -37,6 +39,7 @@ internal class ExternalBleGattClient(
 
     private val callback =
         object : BluetoothGattCallback() {
+            @SuppressLint("MissingPermission")
             override fun onConnectionStateChange(
                 gatt: BluetoothGatt,
                 status: Int,

@@ -30,9 +30,13 @@ internal class LocationServiceTelemetry(
     private var interactiveFixGapStats = FixGapStats()
     private var nonInteractiveFixGapStats = FixGapStats()
     private var unknownScreenFixGapStats = FixGapStats()
+
     @Volatile private var latestScreenState: String = "UNKNOWN"
+
     @Volatile private var latestExpectedIntervalMs: Long = 0L
+
     @Volatile private var latestTrackingEnabled: Boolean = false
+
     @Volatile private var latestBackgroundGpsEnabled: Boolean = false
 
     fun updateFixContext(
@@ -795,6 +799,5 @@ private data class FixGapSummary(
     val avgMs: Long?,
     val maxMs: Long?,
 ) {
-    fun telemetryValue(): String =
-        "count:$count,avgMs:${avgMs ?: "na"},maxMs:${maxMs ?: "na"}"
+    fun telemetryValue(): String = "count:$count,avgMs:${avgMs ?: "na"},maxMs:${maxMs ?: "na"}"
 }

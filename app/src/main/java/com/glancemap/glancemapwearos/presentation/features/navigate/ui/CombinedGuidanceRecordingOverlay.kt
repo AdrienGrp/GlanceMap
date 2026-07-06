@@ -1,3 +1,9 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "FunctionNaming",
+    "LongMethod",
+    "LongParameterList",
+)
 @file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.glancemap.glancemapwearos.presentation.features.navigate
@@ -761,7 +767,7 @@ private fun CombinedGuidancePage(
                     showGuideBackShortcutConfirm = false
                     DebugTelemetry.log(
                         "TurnByTurn",
-                        "event=guide_back_dashboard_confirm mode=combined prompt=${showGuideBackPrompt}",
+                        "event=guide_back_dashboard_confirm mode=combined prompt=$showGuideBackPrompt",
                     )
                     onGuideBackToRoute()
                 },
@@ -769,7 +775,7 @@ private fun CombinedGuidancePage(
                     showGuideBackShortcutConfirm = false
                     DebugTelemetry.log(
                         "TurnByTurn",
-                        "event=guide_back_dashboard_cancel mode=combined prompt=${showGuideBackPrompt}",
+                        "event=guide_back_dashboard_cancel mode=combined prompt=$showGuideBackPrompt",
                     )
                     if (showGuideBackPrompt) {
                         onDismissGuideBackPrompt()

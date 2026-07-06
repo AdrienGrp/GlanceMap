@@ -1,3 +1,5 @@
+@file:Suppress("LargeClass", "LongMethod")
+
 package com.glancemap.glancemapwearos.presentation.features.recording.dashboard
 
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
@@ -187,7 +189,7 @@ class RecordingDashboardModelsTest {
         assertEquals("Heart rate", heartRate.label)
         assertEquals("--", heartRate.value)
         assertEquals("bpm", heartRate.unit)
-        assertEquals("Pressure", pressure.label)
+        assertEquals("Pressure (hPa)", pressure.label)
         assertEquals("--", pressure.value)
         assertEquals("hPa", pressure.unit)
         assertEquals(

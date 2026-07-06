@@ -446,22 +446,23 @@ internal fun rememberNavigateGuidanceRuntime(
                     origin = origin,
                     destination = destination,
                 ) { result ->
-                    result.onSuccess { route ->
-                        DebugTelemetry.log(
-                            "TurnByTurn",
-                            "event=guide_back_route_success points=${route.size} " +
-                                "distanceM=${route.sumRouteDistanceMeters().toInt()}",
-                        )
-                        if (guideBackToRouteActive) {
-                            brouterGuideBackRoute = route
+                    result
+                        .onSuccess { route ->
+                            DebugTelemetry.log(
+                                "TurnByTurn",
+                                "event=guide_back_route_success points=${route.size} " +
+                                    "distanceM=${route.sumRouteDistanceMeters().toInt()}",
+                            )
+                            if (guideBackToRouteActive) {
+                                brouterGuideBackRoute = route
+                            }
+                        }.onFailure { error ->
+                            DebugTelemetry.log(
+                                "TurnByTurn",
+                                "event=guide_back_route_failure error=${error.javaClass.simpleName} " +
+                                    "message=${error.localizedMessage?.take(80)?.replace(' ', '_') ?: "na"}",
+                            )
                         }
-                    }.onFailure { error ->
-                        DebugTelemetry.log(
-                            "TurnByTurn",
-                            "event=guide_back_route_failure error=${error.javaClass.simpleName} " +
-                                "message=${error.localizedMessage?.take(80)?.replace(' ', '_') ?: "na"}",
-                        )
-                    }
                 }
             } else if (!brouterGuideBackEnabled) {
                 DebugTelemetry.log("TurnByTurn", "event=guide_back_route_skipped reason=disabled")
@@ -489,7 +490,9 @@ internal fun rememberNavigateGuidanceRuntime(
 }
 
 private fun List<LatLong>.sumRouteDistanceMeters(): Double =
-    zipWithNext().sumOf { (start, end) -> haversineMeters(start, end) }
+    zipWithNext().sumOf { (start, end) ->
+        haversineMeters(start, end)
+    }
 
 private fun expectedGuidanceGpsIntervalMs(
     recordingActive: Boolean,

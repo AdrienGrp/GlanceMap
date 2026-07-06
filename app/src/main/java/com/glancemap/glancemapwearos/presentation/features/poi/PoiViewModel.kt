@@ -234,7 +234,8 @@ class PoiViewModel(
         if (!forceRefresh && hasLoadedPoiFiles && _poiFiles.value.isNotEmpty()) {
             DebugTelemetry.log(
                 "POI",
-                "event=reload_skip reason=$reason skipReason=cached collapseAll=$collapseAll files=${_poiFiles.value.size}",
+                "event=reload_skip reason=$reason skipReason=cached collapseAll=$collapseAll " +
+                    "files=${_poiFiles.value.size}",
             )
             return
         }
@@ -838,10 +839,12 @@ class PoiViewModel(
             hasLoadedPoiFiles = true
         } finally {
             _isLoadingPoiFiles.value = false
+            val durationMs = SystemClock.elapsedRealtime() - startedAtElapsedMs
             DebugTelemetry.log(
                 "POI",
-                "event=reload_complete reason=$reason durationMs=${SystemClock.elapsedRealtime() - startedAtElapsedMs} " +
-                    "listedFiles=$listedFileCount importedFiles=$importedFileCount visibleFiles=${_poiFiles.value.size}",
+                "event=reload_complete reason=$reason durationMs=$durationMs " +
+                    "listedFiles=$listedFileCount importedFiles=$importedFileCount " +
+                    "visibleFiles=${_poiFiles.value.size}",
             )
         }
     }
