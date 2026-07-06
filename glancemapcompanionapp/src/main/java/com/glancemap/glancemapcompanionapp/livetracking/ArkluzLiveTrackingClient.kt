@@ -7,6 +7,7 @@ import android.os.BatteryManager
 import com.glancemap.glancemapcompanionapp.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -56,8 +57,27 @@ internal data class ArkluzLocationUpdate(
     val stuckAlarmMinutes: String,
     val start: Boolean,
     val stop: Boolean,
+    val pause: Boolean = false,
+    val resume: Boolean = false,
+    val dateId: String? = null,
 ) {
-    fun asStoredGpsPoint(): ArkluzLocationUpdate = copy(start = false, stop = false)
+    fun asStoredGpsPoint(): ArkluzLocationUpdate =
+        copy(
+            start = false,
+            stop = false,
+            pause = false,
+            resume = false,
+            dateId = null,
+        )
+}
+
+internal data class ArkluzRecordedGpxDownload(
+    val cacheFile: File,
+    val suggestedFileName: String,
+) {
+    fun delete() {
+        cacheFile.delete()
+    }
 }
 
 enum class ArkluzTrackingEndpoint(
@@ -65,7 +85,6 @@ enum class ArkluzTrackingEndpoint(
     val url: String,
 ) {
     PRODUCTION("Production", "https://arkluz.com/trk"),
-    DEVELOPMENT("Development", "https://arkluz.com/dev/trk"),
     ;
 
     companion object {
@@ -199,8 +218,8 @@ internal class ArkluzLiveTrackingClient(
     suspend fun downloadRecordedGpx(
         settings: LiveTrackingSettings,
         userOnly: Boolean,
-        outputUri: Uri,
-    ): ArkluzServerResult =
+        fallbackFileName: String,
+    ): ArkluzRecordedGpxDownload =
         withContext(Dispatchers.IO) {
             val urlBuilder =
                 settings.trackingUrl
@@ -224,8 +243,24 @@ internal class ArkluzLiveTrackingClient(
                         .url(urlBuilder.build())
                         .get()
                         .build(),
-                outputUri = outputUri,
+                fallbackFileName = fallbackFileName,
             )
+        }
+
+    suspend fun saveRecordedGpx(
+        download: ArkluzRecordedGpxDownload,
+        outputUri: Uri,
+    ): ArkluzServerResult =
+        withContext(Dispatchers.IO) {
+            try {
+                appContext.contentResolver.openOutputStream(outputUri, "wt").use { output ->
+                    requireNotNull(output) { "Unable to open destination file" }
+                    download.cacheFile.inputStream().use { input -> input.copyTo(output) }
+                }
+                ArkluzServerResult("Recorded GPX downloaded")
+            } finally {
+                download.delete()
+            }
         }
 
     suspend fun saveSettings(settings: LiveTrackingSettings): ArkluzServerResult =
@@ -269,11 +304,15 @@ internal class ArkluzLiveTrackingClient(
         stop: Boolean,
     ): ArkluzServerResult = sendLocationUpdate(buildLocationUpdate(settings, location, start, stop))
 
+    @Suppress("LongParameterList")
     fun buildLocationUpdate(
         settings: LiveTrackingSettings,
         location: Location,
         start: Boolean,
         stop: Boolean,
+        pause: Boolean = false,
+        resume: Boolean = false,
+        dateId: String? = null,
     ): ArkluzLocationUpdate =
         ArkluzLocationUpdate(
             trackingUrl = settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.defaultUrl },
@@ -293,52 +332,17 @@ internal class ArkluzLiveTrackingClient(
             stuckAlarmMinutes = settings.stuckAlarmMinutes.trim(),
             start = start,
             stop = stop,
+            pause = pause,
+            resume = resume,
+            dateId = dateId,
         )
 
     suspend fun sendLocationUpdate(update: ArkluzLocationUpdate): ArkluzServerResult =
         withContext(Dispatchers.IO) {
-            val urlBuilder =
-                update.trackingUrl
-                    .trim()
-                    .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
-                    .toHttpUrl()
-                    .newBuilder()
-                    .addQueryParameter("lat", update.latitude.toString())
-                    .addQueryParameter("lon", update.longitude.toString())
-                    .addQueryParameter("acc", update.accuracyMeters.toString())
-                    .addQueryParameter("time", update.epochSeconds.toString())
-                    .addQueryParameter("battery", update.batteryPercent.toString())
-                    .addQueryParameter("gsm_signal", update.gsmSignalPercent.toString())
-                    .addQueryParameter("group", update.group)
-                    .addQueryParameter("pass", update.participantPassword)
-                    .addQueryParameter("user", update.userName)
-
-            update.altitudeMeters?.let { altitude ->
-                urlBuilder.addQueryParameter("alt", altitude.toString())
-            }
-            update.speedMetersPerSecond?.let { speed ->
-                urlBuilder.addQueryParameter("speed", speed.toString())
-            }
-            update.notificationEmails.takeIf { it.isNotBlank() }?.let { emails ->
-                urlBuilder.addQueryParameter("email", emails)
-            }
-            update.alertEmails.takeIf { it.isNotBlank() }?.let { emails ->
-                urlBuilder.addQueryParameter("alert", emails)
-            }
-            update.stuckAlarmMinutes.takeIf { it.isNotBlank() }?.let { alarm ->
-                urlBuilder.addQueryParameter("alarm", alarm)
-            }
-            if (update.start) {
-                urlBuilder.addEncodedQueryParameter("start", null)
-            }
-            if (update.stop) {
-                urlBuilder.addEncodedQueryParameter("stop", null)
-            }
-
             execute(
                 Request
                     .Builder()
-                    .url(urlBuilder.build())
+                    .url(buildArkluzLocationUrl(update))
                     .get()
                     .build(),
             )
@@ -360,10 +364,11 @@ internal class ArkluzLiveTrackingClient(
         }
     }
 
+    @Suppress("NestedBlockDepth", "ThrowsCount", "TooGenericExceptionCaught")
     private fun executeGpxDownload(
         request: Request,
-        outputUri: Uri,
-    ): ArkluzServerResult {
+        fallbackFileName: String,
+    ): ArkluzRecordedGpxDownload {
         httpClient.newCall(request).execute().use { response ->
             val body = response.body
             val contentType = body.contentType()?.toString().orEmpty()
@@ -378,11 +383,22 @@ internal class ArkluzLiveTrackingClient(
                 throw IllegalStateException(serverMessage.ifBlank { "Server did not return a GPX file" })
             }
 
-            appContext.contentResolver.openOutputStream(outputUri, "wt").use { output ->
-                requireNotNull(output) { "Unable to open destination file" }
-                body.byteStream().use { input -> input.copyTo(output) }
+            val suggestedFileName =
+                contentDispositionFileName(response.header("Content-Disposition"))
+                    ?: fallbackFileName
+            val cacheFile = File.createTempFile("arkluz-recorded-", ".gpx", appContext.cacheDir)
+            try {
+                cacheFile.outputStream().use { output ->
+                    body.byteStream().use { input -> input.copyTo(output) }
+                }
+            } catch (error: Throwable) {
+                cacheFile.delete()
+                throw error
             }
-            return ArkluzServerResult("Recorded GPX downloaded")
+            return ArkluzRecordedGpxDownload(
+                cacheFile = cacheFile,
+                suggestedFileName = suggestedFileName,
+            )
         }
     }
 
@@ -412,6 +428,36 @@ internal class ArkluzLiveTrackingClient(
 }
 
 private fun todayForArkluz(): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+
+internal fun buildArkluzLocationUrl(update: ArkluzLocationUpdate): HttpUrl {
+    val urlBuilder =
+        update.trackingUrl
+            .trim()
+            .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
+            .toHttpUrl()
+            .newBuilder()
+            .addQueryParameter("lat", update.latitude.toString())
+            .addQueryParameter("lon", update.longitude.toString())
+            .addQueryParameter("acc", update.accuracyMeters.toString())
+            .addQueryParameter("time", update.epochSeconds.toString())
+            .addQueryParameter("battery", update.batteryPercent.toString())
+            .addQueryParameter("gsm_signal", update.gsmSignalPercent.toString())
+            .addQueryParameter("group", update.group)
+            .addQueryParameter("pass", update.participantPassword)
+            .addQueryParameter("user", update.userName)
+
+    update.altitudeMeters?.let { urlBuilder.addQueryParameter("alt", it.toString()) }
+    update.speedMetersPerSecond?.let { urlBuilder.addQueryParameter("speed", it.toString()) }
+    update.notificationEmails.takeIf(String::isNotBlank)?.let { urlBuilder.addQueryParameter("email", it) }
+    update.alertEmails.takeIf(String::isNotBlank)?.let { urlBuilder.addQueryParameter("alert", it) }
+    update.stuckAlarmMinutes.takeIf(String::isNotBlank)?.let { urlBuilder.addQueryParameter("alarm", it) }
+    if (update.start) urlBuilder.addEncodedQueryParameter("start", null)
+    if (update.stop) urlBuilder.addEncodedQueryParameter("stop", null)
+    if (update.pause) urlBuilder.addEncodedQueryParameter("pause", null)
+    if (update.resume) urlBuilder.addEncodedQueryParameter("resume", null)
+    update.dateId?.takeIf(String::isNotBlank)?.let { urlBuilder.addQueryParameter("date_id", it) }
+    return urlBuilder.build()
+}
 
 internal class ArkluzHttpException(
     val code: Int,
@@ -444,9 +490,15 @@ private fun arkluzUtcTimestamp(): String =
 
 data class ArkluzServerResult(
     val message: String,
-    val viewerPassword: String? = null,
+    val responseValue: String? = null,
     val groupAvailable: Boolean = false,
-)
+) {
+    val viewerPassword: String?
+        get() = responseValue
+
+    val dateId: String?
+        get() = responseValue
+}
 
 private fun String.toReadableServerMessage(): String =
     replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
@@ -480,14 +532,14 @@ private fun String.toUserFacingServerMessage(): String =
 
 private fun String.toArkluzServerResult(): ArkluzServerResult {
     val lines = lines().map { it.trim() }.filter { it.isNotBlank() }
-    val viewerPassword =
+    val responseValue =
         lines
             .drop(1)
             .firstOrNull()
             ?.takeIf { lines.firstOrNull()?.equals("OK", ignoreCase = true) == true }
     return ArkluzServerResult(
         message = toUserFacingServerMessage(),
-        viewerPassword = viewerPassword,
+        responseValue = responseValue,
         groupAvailable = equals("group available", ignoreCase = true),
     )
 }

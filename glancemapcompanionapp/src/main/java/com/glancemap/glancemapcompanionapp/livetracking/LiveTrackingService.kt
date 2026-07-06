@@ -45,6 +45,7 @@ class LiveTrackingService : Service() {
     private var settings: LiveTrackingSettings? = null
     private var lastLocation: Location? = null
     private var sentStart = false
+    private var dateId: String? = null
     private var isPaused = false
     private var isStopping = false
     private val sendMutex = Mutex()
@@ -97,8 +98,10 @@ class LiveTrackingService : Service() {
                 } else {
                     settings = parsedSettings
                     sentStart = false
+                    dateId = null
                     isPaused = false
                     isStopping = false
+                    LiveTrackingControlQueue.clear(this)
                     LiveTrackingSessionStore.setStarting()
                     startForegroundNotification("Starting live tracking")
                     startTracking(parsedSettings)
@@ -164,6 +167,7 @@ class LiveTrackingService : Service() {
         sendLocation(location = location, start = !sentStart, stop = false)
     }
 
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     private suspend fun sendLocation(
         location: Location,
         start: Boolean,
@@ -180,9 +184,13 @@ class LiveTrackingService : Service() {
             )
         sendMutex.withLock {
             runCatching {
+                flushPendingSessionControlsLocked()
                 arkluzClient.sendLocationUpdate(update)
             }.onSuccess { result ->
-                if (start) sentStart = true
+                if (start) {
+                    sentStart = true
+                    result.dateId?.let { dateId = it }
+                }
                 val serverMessage = result.message.takeUnless { it == "Server accepted request" }
                 val status =
                     serverMessage ?: when {
@@ -212,11 +220,20 @@ class LiveTrackingService : Service() {
                         updateNotification("Stored GPS points still waiting")
                     }
             }.onFailure { error ->
+                val controlsPending = LiveTrackingControlQueue.load(this@LiveTrackingService).isNotEmpty()
                 if (!stop && error.isRetryableArkluzFailure()) {
                     val queueSize = LiveTrackingPositionQueue.enqueue(this@LiveTrackingService, update)
-                    val message = "GPS stored for retry ($queueSize waiting): ${error.toLiveTrackingErrorText()}"
-                    LiveTrackingSessionStore.setError(message)
-                    updateNotification("GPS stored for retry ($queueSize waiting)")
+                    if (controlsPending) {
+                        LiveTrackingSessionStore.setActive(
+                            status = "GPS stored for retry ($queueSize waiting)",
+                            serverSyncPending = true,
+                        )
+                        updateNotification("Tracking active; Arkluz notification pending")
+                    } else {
+                        val message = "GPS stored for retry ($queueSize waiting): ${error.toLiveTrackingErrorText()}"
+                        LiveTrackingSessionStore.setError(message)
+                        updateNotification("GPS stored for retry ($queueSize waiting)")
+                    }
                 } else {
                     LiveTrackingSessionStore.setError(error.message ?: "Unable to send position")
                     updateNotification("Unable to send position")
@@ -262,16 +279,37 @@ class LiveTrackingService : Service() {
         locationClient.requestLocationUpdates(request, locationCallback, mainLooper)
     }
 
+    @Suppress("ReturnCount")
     private fun pauseTracking() {
-        if (settings == null || isPaused || isStopping) return
+        val activeSettings = settings ?: return
+        val location =
+            lastLocation ?: run {
+                LiveTrackingSessionStore.setError("Wait for the first GPS position before pausing")
+                return
+            }
+        if (isPaused || isStopping || !sentStart) return
         runCatching { locationClient.removeLocationUpdates(locationCallback) }
         isPaused = true
-        LiveTrackingSessionStore.setStatus("Paused")
-        updateNotification("Live tracking paused")
+        LiveTrackingControlQueue.enqueue(
+            this,
+            buildSessionControl(
+                settings = activeSettings,
+                location = location,
+                pause = true,
+            ),
+        )
+        LiveTrackingSessionStore.setPaused(serverSyncPending = true)
+        updateNotification("Paused on phone; notifying Arkluz")
+        serviceScope.launch {
+            runCatching { flushPendingSessionControls() }
+            updateControlSyncStatus()
+            retryPendingControlsWhilePaused()
+        }
     }
 
     private fun resumeTracking() {
-        if (settings == null) return
+        val activeSettings = settings ?: return
+        val location = lastLocation ?: return
         if (!isPaused || isStopping) return
         if (!hasLocationPermission()) {
             LiveTrackingSessionStore.setStopped("Location permission is required")
@@ -280,11 +318,91 @@ class LiveTrackingService : Service() {
             return
         }
         isPaused = false
-        LiveTrackingSessionStore.setStatus("Waiting for GPS fix")
-        updateNotification("Waiting for GPS fix")
+        LiveTrackingControlQueue.enqueue(
+            this,
+            buildSessionControl(
+                settings = activeSettings,
+                location = location,
+                resume = true,
+            ),
+        )
+        LiveTrackingSessionStore.setActive(
+            status = "Waiting for GPS fix",
+            serverSyncPending = true,
+        )
+        updateNotification("Tracking resumed; notifying Arkluz")
         startLocationUpdates()
         serviceScope.launch {
-            sendLastKnownLocationIfAvailable()
+            runCatching { flushPendingSessionControls() }
+            updateControlSyncStatus()
+        }
+    }
+
+    private fun buildSessionControl(
+        settings: LiveTrackingSettings,
+        location: Location,
+        pause: Boolean = false,
+        resume: Boolean = false,
+    ): ArkluzLocationUpdate =
+        arkluzClient.buildLocationUpdate(
+            settings = settings,
+            location = location,
+            start = false,
+            stop = false,
+            pause = pause,
+            resume = resume,
+            dateId = dateId,
+        )
+
+    private suspend fun flushPendingSessionControls() {
+        sendMutex.withLock {
+            flushPendingSessionControlsLocked()
+        }
+    }
+
+    private suspend fun flushPendingSessionControlsLocked(): Int {
+        var sentCount = 0
+        while (true) {
+            val update = LiveTrackingControlQueue.load(this).firstOrNull() ?: break
+            arkluzClient.sendLocationUpdate(update)
+            LiveTrackingControlQueue.removeFirst(this)
+            sentCount += 1
+        }
+        return sentCount
+    }
+
+    private suspend fun retryPendingControlsWhilePaused() {
+        while (isPaused && !isStopping && LiveTrackingControlQueue.load(this).isNotEmpty()) {
+            delay(CONTROL_RETRY_DELAY_MS)
+            if (!isPaused || isStopping) return
+            runCatching { flushPendingSessionControls() }
+            updateControlSyncStatus()
+        }
+    }
+
+    private fun updateControlSyncStatus() {
+        val serverSyncPending = LiveTrackingControlQueue.load(this).isNotEmpty()
+        if (isPaused) {
+            LiveTrackingSessionStore.setPaused(serverSyncPending)
+            updateNotification(
+                if (serverSyncPending) {
+                    "Paused on phone; Arkluz notification pending"
+                } else {
+                    "Live tracking paused"
+                },
+            )
+        } else {
+            LiveTrackingSessionStore.setActive(
+                status = "Tracking active",
+                serverSyncPending = serverSyncPending,
+            )
+            updateNotification(
+                if (serverSyncPending) {
+                    "Tracking active; Arkluz notification pending"
+                } else {
+                    "Live tracking active"
+                },
+            )
         }
     }
 
@@ -348,11 +466,13 @@ class LiveTrackingService : Service() {
                 stop = true,
             )
         sendMutex.withLock {
+            flushPendingSessionControlsLocked()
             arkluzClient.sendLocationUpdate(update)
         }
     }
 
     private fun finishStopped(status: String) {
+        LiveTrackingControlQueue.clear(this)
         LiveTrackingSessionStore.setStopped(status)
         ServiceCompat.stopForeground(this@LiveTrackingService, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -401,7 +521,7 @@ class LiveTrackingService : Service() {
                     .setAction(if (isPaused) ACTION_RESUME else ACTION_PAUSE),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-        val pauseResumeLabel = if (isPaused) "Start" else "Pause"
+        val pauseResumeLabel = if (isPaused) "Resume" else "Pause"
         val builder =
             NotificationCompat
                 .Builder(this, CHANNEL_ID)
@@ -447,6 +567,7 @@ class LiveTrackingService : Service() {
         private const val MIN_UPDATE_INTERVAL_SECONDS = 15
         private const val MAX_UPDATE_INTERVAL_SECONDS = 600
         private const val STOP_RETRY_DELAY_MS = 30_000L
+        private const val CONTROL_RETRY_DELAY_MS = 30_000L
         private const val ACTION_STOP = "com.glancemap.glancemapcompanionapp.livetracking.STOP"
         private const val ACTION_PAUSE = "com.glancemap.glancemapcompanionapp.livetracking.PAUSE"
         private const val ACTION_RESUME = "com.glancemap.glancemapcompanionapp.livetracking.RESUME"
@@ -488,6 +609,18 @@ class LiveTrackingService : Service() {
         fun stop(context: Context) {
             context.startService(
                 Intent(context, LiveTrackingService::class.java).setAction(ACTION_STOP),
+            )
+        }
+
+        fun pause(context: Context) {
+            context.startService(
+                Intent(context, LiveTrackingService::class.java).setAction(ACTION_PAUSE),
+            )
+        }
+
+        fun resume(context: Context) {
+            context.startService(
+                Intent(context, LiveTrackingService::class.java).setAction(ACTION_RESUME),
             )
         }
 

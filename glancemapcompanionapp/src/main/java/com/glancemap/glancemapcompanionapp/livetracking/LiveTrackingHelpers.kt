@@ -9,6 +9,7 @@ import android.os.Build
 import android.provider.ContactsContract
 import android.util.Patterns
 import androidx.core.content.ContextCompat
+import java.io.ByteArrayOutputStream
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,14 +42,24 @@ internal fun validateStartSettings(
     participantPassword: String,
     followerPassword: String,
     userName: String,
+    stuckAlarmMinutes: String,
 ): String? =
     when {
         group.isBlank() -> "Private group is required."
         participantPassword.isBlank() -> "Participant password is required."
         followerPassword.isBlank() -> "Create / Join in settings first."
         userName.isBlank() -> "Participant name is required."
+        else -> validateNoMovementAlertMinutes(stuckAlarmMinutes)
+    }
+
+internal fun validateNoMovementAlertMinutes(minutes: String): String? {
+    val value = minutes.trim().toIntOrNull()
+    return when {
+        value == -1 -> null
+        value == null || value < 10 -> "No-movement alert must be at least 10 minutes, or disabled."
         else -> null
     }
+}
 
 internal fun validateRecordedTrackDownloadSettings(
     group: String,
@@ -127,6 +138,66 @@ internal fun recordedTrackDownloadFilename(
             .ifBlank { target.name.lowercase() }
     return "$day-$safeName.gpx"
 }
+
+@Suppress("ReturnCount")
+internal fun contentDispositionFileName(header: String?): String? {
+    if (header.isNullOrBlank()) return null
+    val extendedValue =
+        Regex("""(?i)(?:^|;)\s*filename\*\s*=\s*("[^"]*"|[^;]*)""")
+            .find(header)
+            ?.groupValues
+            ?.get(1)
+            ?.trim()
+            ?.removeSurrounding("\"")
+    val extendedFileName =
+        extendedValue
+            ?.split('\'', limit = 3)
+            ?.takeIf { it.size == 3 && it[0].equals("UTF-8", ignoreCase = true) }
+            ?.get(2)
+            ?.decodeRfc5987Utf8()
+            ?.safeDownloadFileName()
+    if (!extendedFileName.isNullOrBlank()) return extendedFileName
+
+    return Regex("""(?i)(?:^|;)\s*filename\s*=\s*("(?:\\.|[^"])*"|[^;]*)""")
+        .find(header)
+        ?.groupValues
+        ?.get(1)
+        ?.trim()
+        ?.removeSurrounding("\"")
+        ?.replace("\\\"", "\"")
+        ?.replace("\\\\", "\\")
+        ?.safeDownloadFileName()
+        ?.takeIf { it.isNotBlank() }
+}
+
+private fun String.decodeRfc5987Utf8(): String? =
+    runCatching {
+        val bytes = ByteArrayOutputStream(length)
+        var index = 0
+        while (index < length) {
+            if (this[index] == '%' && index + 2 < length) {
+                val value = substring(index + 1, index + 3).toIntOrNull(16)
+                if (value != null) {
+                    bytes.write(value)
+                    index += 3
+                    continue
+                }
+            }
+            this[index]
+                .toString()
+                .toByteArray(Charsets.UTF_8)
+                .forEach { byte -> bytes.write(byte.toInt()) }
+            index += 1
+        }
+        bytes.toByteArray().toString(Charsets.UTF_8)
+    }.getOrNull()
+
+private fun String.safeDownloadFileName(): String =
+    substringAfterLast('/')
+        .substringAfterLast('\\')
+        .replace("\r", "")
+        .replace("\n", "")
+        .trim()
 
 internal fun editableSettingsSnapshot(
     group: String,

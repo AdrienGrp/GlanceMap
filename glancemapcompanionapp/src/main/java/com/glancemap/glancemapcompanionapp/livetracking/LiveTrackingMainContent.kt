@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
@@ -69,6 +70,8 @@ internal fun ColumnScope.MainTrackingContent(
     validationMessage: String?,
     sendStatusMessage: String?,
     onStart: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onStop: () -> Unit,
     userName: String,
     groupTrackUrl: String,
@@ -148,17 +151,34 @@ internal fun ColumnScope.MainTrackingContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
-                    onClick = onStart,
-                    enabled = !sessionState.isTracking && !isStartingSession,
+                    onClick =
+                        when {
+                            sessionState.isPaused -> onResume
+                            sessionState.isTracking -> onPause
+                            else -> onStart
+                        },
+                    enabled = !isStartingSession,
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.PlayArrow,
+                        imageVector =
+                            if (sessionState.isTracking && !sessionState.isPaused) {
+                                Icons.Filled.Pause
+                            } else {
+                                Icons.Filled.PlayArrow
+                            },
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.size(6.dp))
-                    Text(if (isStartingSession) "Starting" else "Start")
+                    Text(
+                        when {
+                            isStartingSession -> "Starting"
+                            sessionState.isPaused -> "Resume"
+                            sessionState.isTracking -> "Pause"
+                            else -> "Start"
+                        },
+                    )
                 }
                 OutlinedButton(
                     onClick = onStop,
@@ -179,6 +199,13 @@ internal fun ColumnScope.MainTrackingContent(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (sessionState.status.contains("Arkluz notification pending")) {
+                Text(
+                    text = "Arkluz has not been notified yet. No-movement alerts may still be triggered.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             validationMessage?.let { message ->
                 Text(
                     text = message,
