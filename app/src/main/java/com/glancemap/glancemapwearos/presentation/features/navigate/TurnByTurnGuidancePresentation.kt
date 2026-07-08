@@ -15,7 +15,7 @@ internal fun guidanceShowsCurrentStraight(state: TurnByTurnGuidanceState): Boole
 
 internal fun guidanceInstructionPrimaryText(state: TurnByTurnGuidanceState): String =
     if (guidanceShowsCurrentStraight(state)) {
-        "Continue straight"
+        "Go straight"
     } else {
         state.nextInstruction?.message ?: "Continue"
     }

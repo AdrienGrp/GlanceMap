@@ -388,6 +388,10 @@ fun GpxElevationProfileDialog(
                                     formatElevationScaleTick(it, isMetric)
                                 } ?: "--"
                             }
+                        val visualElevationBounds =
+                            remember(samples) {
+                                elevationVisualBounds(samples)
+                            }
 
                         ElevationProfileChart(
                             samples = samples,
@@ -399,8 +403,8 @@ fun GpxElevationProfileDialog(
                             modifier = Modifier.fillMaxSize(),
                         )
                         ElevationLeftScale(
-                            minElevationMeters = profile.minElevation,
-                            maxElevationMeters = profile.maxElevation,
+                            minElevationMeters = visualElevationBounds.minElevation,
+                            maxElevationMeters = visualElevationBounds.maxElevation,
                             isMetric = isMetric,
                             textSize = sizing.yScaleTextSize,
                             modifier =

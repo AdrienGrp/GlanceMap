@@ -44,6 +44,8 @@ internal const val SwipeDismissThresholdPx = 48f
 internal const val RotaryZoomThresholdPx = 36f
 internal const val ProfileZoomStepFactor = 0.82
 internal const val ProfileMinVisibleSampleCount = 24
+internal const val ProfileMinVisualElevationRangeMeters = 50.0
+internal const val ProfileFlatSegmentElevationNoiseMeters = 2.0
 
 private enum class ProfileSegmentType {
     FLAT,
@@ -66,6 +68,14 @@ internal data class ElevationViewport(
 ) {
     val span: Double
         get() = (endDistance - startDistance).coerceAtLeast(0.0)
+}
+
+internal data class ElevationVisualBounds(
+    val minElevation: Double,
+    val maxElevation: Double,
+) {
+    val range: Double
+        get() = (maxElevation - minElevation).coerceAtLeast(1.0)
 }
 
 @Composable
@@ -292,11 +302,11 @@ internal fun ElevationProfileChart(
 
         val minDistance = viewport.startDistance
         val maxDistance = viewport.endDistance
-        val minElevation = samples.minOf { it.elevation }
-        val maxElevation = samples.maxOf { it.elevation }
+        val elevationBounds = elevationVisualBounds(samples)
+        val minElevation = elevationBounds.minElevation
+        val elevationRange = elevationBounds.range
 
         val distanceRange = (maxDistance - minDistance).takeIf { it > 0.0 } ?: 1.0
-        val elevationRange = (maxElevation - minElevation).takeIf { it > 0.0 } ?: 1.0
         val topInsetPx = plotTopInset.toPx()
         val bottomInsetPx = plotBottomInset.toPx()
         val plotTopY = topInsetPx.coerceAtLeast(0f)
@@ -404,7 +414,12 @@ private fun classifySegment(
     val distanceDelta = (to.distance - from.distance).coerceAtLeast(0.0)
     if (distanceDelta <= 0.0) return ProfileSegmentType.FLAT
 
-    val gradePercent = ((to.elevation - from.elevation) / distanceDelta) * 100.0
+    val elevationDelta = to.elevation - from.elevation
+    if (kotlin.math.abs(elevationDelta) < ProfileFlatSegmentElevationNoiseMeters) {
+        return ProfileSegmentType.FLAT
+    }
+
+    val gradePercent = (elevationDelta / distanceDelta) * 100.0
     return when {
         gradePercent >= 8.0 -> ProfileSegmentType.CLIMB
         gradePercent >= 2.0 -> ProfileSegmentType.UPHILL
@@ -432,9 +447,9 @@ internal fun selectedElevationBiasY(
 ): Float {
     if (samples.isEmpty() || chartHeightPx <= 0f) return 0f
 
-    val minElevation = samples.minOf { it.elevation }
-    val maxElevation = samples.maxOf { it.elevation }
-    val range = (maxElevation - minElevation).takeIf { it > 0.0 } ?: 1.0
+    val elevationBounds = elevationVisualBounds(samples)
+    val minElevation = elevationBounds.minElevation
+    val range = elevationBounds.range
     val selected = samples[selectedIndex.coerceIn(0, samples.lastIndex)].elevation
 
     val plotTopY = plotTopInsetPx.coerceAtLeast(0f)
@@ -449,6 +464,22 @@ internal fun selectedElevationBiasY(
         )
 
     return ((y / chartHeightPx) * 2f - 1f).coerceIn(-1f, 1f)
+}
+
+internal fun elevationVisualBounds(samples: List<ElevationSample>): ElevationVisualBounds {
+    if (samples.isEmpty()) {
+        return ElevationVisualBounds(minElevation = 0.0, maxElevation = ProfileMinVisualElevationRangeMeters)
+    }
+    val minElevation = samples.minOf { it.elevation }
+    val maxElevation = samples.maxOf { it.elevation }
+    val actualRange = (maxElevation - minElevation).coerceAtLeast(0.0)
+    val visualRange = actualRange.coerceAtLeast(ProfileMinVisualElevationRangeMeters)
+    val center = (minElevation + maxElevation) / 2.0
+    val halfRange = visualRange / 2.0
+    return ElevationVisualBounds(
+        minElevation = center - halfRange,
+        maxElevation = center + halfRange,
+    )
 }
 
 internal fun computeElevationProgress(
