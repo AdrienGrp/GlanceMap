@@ -169,6 +169,7 @@ class MainActivity : ComponentActivity() {
             val recordingExternalHeartRateAddress by appContainer.settingsViewModel.recordingExternalHeartRateAddress.collectAsState()
             val recordingExternalRunPodAddress by appContainer.settingsViewModel.recordingExternalRunPodAddress.collectAsState()
             val cyclingWheelCircumferenceMeters by appContainer.settingsViewModel.cyclingWheelCircumferenceMeters.collectAsState()
+            val activityProfile by appContainer.settingsViewModel.activityProfile.collectAsState()
 
             val isAmbient = _isAmbient
             val ambientTickMs = _ambientTickMs
@@ -200,6 +201,7 @@ class MainActivity : ComponentActivity() {
                     externalHeartRateAddress = recordingExternalHeartRateAddress,
                     externalRunPodAddress = recordingExternalRunPodAddress,
                     cyclingWheelCircumferenceMeters = cyclingWheelCircumferenceMeters,
+                    activityProfile = activityProfile,
                     onMetrics = appContainer.traceRecordingViewModel::onSensorMetrics,
                 )
                 val locationPermissionGranted =

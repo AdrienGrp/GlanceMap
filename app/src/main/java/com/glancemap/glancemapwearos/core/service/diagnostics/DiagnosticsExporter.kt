@@ -1982,6 +1982,10 @@ object DiagnosticsExporter {
     ): String =
         when {
             !settings.recordingExternalRunPodLinked -> "not_linked"
+            settings.recordingCadenceSource != SettingsRepository.RECORDING_SENSOR_SOURCE_POD &&
+                settings.recordingSpeedSource != SettingsRepository.RECORDING_SENSOR_SOURCE_POD &&
+                settings.recordingDistanceSource != SettingsRepository.RECORDING_SENSOR_SOURCE_POD &&
+                insights.externalRunPodBridgeStartCount == 0 -> "linked_not_selected"
             insights.externalRunPodBridgeStartCount == 0 -> "linked_not_started"
             insights.externalRunPodConnectSkippedCount > 0 ->
                 "connect_skipped_${insights.externalRunPodLastConnectSkippedReason ?: "unknown"}"
