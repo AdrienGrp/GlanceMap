@@ -153,7 +153,19 @@ class TraceRecordingViewModel(
             .onEach { bikeWeightKg = it }
             .launchIn(viewModelScope)
         settingsRepository.activityProfile
-            .onEach { activityProfile = it }
+            .onEach { nextProfile ->
+                val previousProfile = activityProfile
+                activityProfile = nextProfile
+                if (previousProfile != nextProfile && _uiState.value.active) {
+                    DebugTelemetry.log(
+                        "TraceRecording",
+                        "event=activity_profile_changed_during_rec " +
+                            "from=$previousProfile to=$nextProfile " +
+                            "sampleIntervalSeconds=$sampleIntervalSeconds " +
+                            "reason=affects_gps_timing_calories_dashboard_defaults",
+                    )
+                }
+            }
             .launchIn(viewModelScope)
         settingsRepository.recordingShowSavedGpxOnMap
             .onEach { showSavedGpxOnMap = it }
@@ -1441,12 +1453,14 @@ private fun RecordingDashboardSnapshot.toRecordedTraceSummary(activityProfile: S
     RecordedTraceSummary(
         activityProfile = activityProfile,
         durationSeconds = durationSeconds,
+        totalDurationSeconds = totalDurationSeconds,
         distanceMeters = distanceMeters,
         elevationGainMeters = elevationGainMeters,
         elevationLossMeters = elevationLossMeters,
         currentElevationMeters = currentElevationMeters,
         currentSpeedMps = currentSpeedMps,
         averageSpeedMps = averageSpeedMps,
+        fastestSpeedMps = fastestSpeedMps,
         gpsAccuracyMeters = gpsAccuracyMeters,
         pointCount = pointCount,
         gpsActiveDurationSeconds = gpsActiveDurationSeconds,
@@ -1460,9 +1474,15 @@ private fun RecordingDashboardSnapshot.toRecordedTraceSummary(activityProfile: S
         cyclingPowerSampleSegments = calorieEstimate.cyclingPowerSampleSegments,
         cyclingPhysicsSegments = calorieEstimate.cyclingPhysicsSegments,
         heartRateBpm = averageHeartRateBpm ?: heartRateBpm,
+        averageHeartRateBpm = averageHeartRateBpm,
+        maxHeartRateBpm = maxHeartRateBpm,
         stepCount = stepCount,
         cadenceSpm = cadenceSpm,
+        averageCadenceSpm = averageCadenceSpm,
+        maxCadenceSpm = maxCadenceSpm,
         powerWatts = powerWatts,
+        averagePowerWatts = averagePowerWatts,
+        maxPowerWatts = maxPowerWatts,
         barometricPressureHpa = barometricPressureHpa,
     )
 

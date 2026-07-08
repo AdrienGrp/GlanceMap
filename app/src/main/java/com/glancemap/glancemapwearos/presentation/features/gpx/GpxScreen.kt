@@ -930,52 +930,7 @@ private fun activityDetailsMetrics(
         )
     }
 
-    val metrics = recordingRecapMetricsForSnapshot(summary, isMetric)
-    val isBike = gpxFile.activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE
-    return if (isBike) {
-        metrics.inLabelOrder(
-            "Distance",
-            "Speed (Avg)",
-            "Time (Total)",
-            "Time (Active)",
-            "Elev +",
-            "Elev -",
-            "Max speed",
-            "HR (Avg)",
-            "Max HR",
-            "Power (Avg)",
-            "Max Power",
-            "Cal (Total)",
-            "Cal (Active)",
-            "Cal (Rest)",
-        )
-    } else {
-        metrics.moveLabelAfter(
-            label = "Steps",
-            afterLabel = "Distance",
-        )
-    }
-}
-
-private fun List<RecordingRecapMetric>.inLabelOrder(vararg labels: String): List<RecordingRecapMetric> {
-    val byLabel = associateBy { it.label }
-    return labels.mapNotNull(byLabel::get)
-}
-
-private fun List<RecordingRecapMetric>.moveLabelAfter(
-    label: String,
-    afterLabel: String,
-): List<RecordingRecapMetric> {
-    val moved = firstOrNull { it.label == label } ?: return this
-    val withoutMoved = filterNot { it.label == label }
-    val afterIndex = withoutMoved.indexOfFirst { it.label == afterLabel }
-    if (afterIndex < 0) return this
-    return buildList {
-        withoutMoved.forEachIndexed { index, metric ->
-            add(metric)
-            if (index == afterIndex) add(moved)
-        }
-    }
+    return recordingRecapMetricsForSnapshot(summary, isMetric)
 }
 
 private const val GPX_HELP_PREFS = "gpx_screen_help_prefs"

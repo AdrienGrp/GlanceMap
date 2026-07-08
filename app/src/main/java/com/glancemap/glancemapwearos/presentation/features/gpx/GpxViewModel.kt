@@ -670,7 +670,9 @@ class GpxViewModel(
             }
 
         return RecordingDashboardSnapshot(
+            activityProfile = parsed.activitySummary?.activityProfile?.resolvedActivityProfile() ?: activeActivityProfile,
             durationSeconds = durationSeconds ?: 0.0,
+            totalDurationSeconds = durationSeconds ?: 0.0,
             distanceMeters = profile.totalDistance,
             elevationGainMeters = profile.totalAscent,
             elevationLossMeters = profile.totalDescent,
@@ -730,7 +732,9 @@ class GpxViewModel(
                 null
             }
         return RecordingDashboardSnapshot(
+            activityProfile = activityProfile.resolvedActivityProfile(),
             durationSeconds = duration,
+            totalDurationSeconds = totalDurationSeconds ?: duration,
             distanceMeters = distance,
             elevationGainMeters =
                 if (shouldUseRecoveredElevation) {
@@ -751,7 +755,7 @@ class GpxViewModel(
                     ?: duration
                         .takeIf { it > 0.0 }
                         ?.let { distance / it },
-            fastestSpeedMps = fallbackPoints.fastestSpeedMps(),
+            fastestSpeedMps = fastestSpeedMps ?: fallbackPoints.fastestSpeedMps(),
             gpsAccuracyMeters = gpsAccuracyMeters ?: fallbackPoints.lastMappedNotNull { it.accuracyMeters },
             pointCount = pointCount ?: fallbackPoints.size,
             gpsActiveDurationSeconds = gpsActiveDurationSeconds ?: duration,
@@ -771,15 +775,15 @@ class GpxViewModel(
                         cyclingPhysicsSegments = cyclingPhysicsSegments ?: 0,
                     ),
             heartRateBpm = fallbackPoints.lastMappedNotNull { it.heartRateBpm },
-            averageHeartRateBpm = heartRateBpm ?: fallbackPoints.averageHeartRateBpm(),
-            maxHeartRateBpm = fallbackPoints.maxHeartRateBpm() ?: heartRateBpm,
+            averageHeartRateBpm = averageHeartRateBpm ?: heartRateBpm ?: fallbackPoints.averageHeartRateBpm(),
+            maxHeartRateBpm = maxHeartRateBpm ?: fallbackPoints.maxHeartRateBpm() ?: heartRateBpm,
             stepCount = stepCount ?: fallbackPoints.lastMappedNotNull { it.stepCount },
             cadenceSpm = cadenceSpm ?: fallbackPoints.lastMappedNotNull { it.cadenceSpm },
-            averageCadenceSpm = fallbackPoints.averageCadenceSpm(),
-            maxCadenceSpm = fallbackPoints.maxCadenceSpm() ?: cadenceSpm,
+            averageCadenceSpm = averageCadenceSpm ?: fallbackPoints.averageCadenceSpm(),
+            maxCadenceSpm = maxCadenceSpm ?: fallbackPoints.maxCadenceSpm() ?: cadenceSpm,
             powerWatts = powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts },
-            averagePowerWatts = fallbackPoints.averagePowerWatts(),
-            maxPowerWatts = fallbackPoints.maxPowerWatts() ?: powerWatts,
+            averagePowerWatts = averagePowerWatts ?: fallbackPoints.averagePowerWatts(),
+            maxPowerWatts = maxPowerWatts ?: fallbackPoints.maxPowerWatts() ?: powerWatts,
             powerFromBluetooth = (powerWatts ?: fallbackPoints.lastMappedNotNull { it.powerWatts }) != null,
             barometricPressureHpa = barometricPressureHpa ?: fallbackPoints.lastMappedNotNull { it.barometricPressureHpa },
             hasElevationData = fallbackHasElevationData || currentElevationMeters != null,

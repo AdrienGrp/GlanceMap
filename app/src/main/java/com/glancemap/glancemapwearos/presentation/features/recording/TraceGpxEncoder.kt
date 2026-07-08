@@ -62,12 +62,14 @@ internal fun recordedTraceSegments(points: List<RecordedTracePoint>): List<List<
 data class RecordedTraceSummary(
     val activityProfile: String?,
     val durationSeconds: Double,
+    val totalDurationSeconds: Double,
     val distanceMeters: Double,
     val elevationGainMeters: Double,
     val elevationLossMeters: Double,
     val currentElevationMeters: Double?,
     val currentSpeedMps: Float?,
     val averageSpeedMps: Double?,
+    val fastestSpeedMps: Double?,
     val gpsAccuracyMeters: Float?,
     val pointCount: Int,
     val gpsActiveDurationSeconds: Double,
@@ -81,9 +83,15 @@ data class RecordedTraceSummary(
     val cyclingPowerSampleSegments: Int,
     val cyclingPhysicsSegments: Int,
     val heartRateBpm: Int?,
+    val averageHeartRateBpm: Int?,
+    val maxHeartRateBpm: Int?,
     val stepCount: Int?,
     val cadenceSpm: Int?,
+    val averageCadenceSpm: Int?,
+    val maxCadenceSpm: Int?,
     val powerWatts: Int?,
+    val averagePowerWatts: Int?,
+    val maxPowerWatts: Int?,
     val barometricPressureHpa: Double?,
 )
 
@@ -92,6 +100,7 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
         textTag("gmap:activityProfile", it)
     }
     textTag("gmap:durationSeconds", formatDouble(summary.durationSeconds))
+    textTag("gmap:totalDurationSeconds", formatDouble(summary.totalDurationSeconds))
     textTag("gmap:distanceMeters", formatDouble(summary.distanceMeters))
     textTag("gmap:elevationGainMeters", formatDouble(summary.elevationGainMeters))
     textTag("gmap:elevationLossMeters", formatDouble(summary.elevationLossMeters))
@@ -103,6 +112,9 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     }
     summary.averageSpeedMps?.takeIf { it.isFinite() && it >= 0.0 }?.let {
         textTag("gmap:averageSpeedMps", formatDouble(it))
+    }
+    summary.fastestSpeedMps?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+        textTag("gmap:fastestSpeedMps", formatDouble(it))
     }
     summary.gpsAccuracyMeters?.takeIf { it.isFinite() && it >= 0f }?.let {
         textTag("gmap:gpsAccuracyMeters", formatFloat(it))
@@ -129,14 +141,32 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     summary.heartRateBpm?.takeIf { it > 0 }?.let {
         textTag("gmap:heartRateBpm", it.toString())
     }
+    summary.averageHeartRateBpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:averageHeartRateBpm", it.toString())
+    }
+    summary.maxHeartRateBpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:maxHeartRateBpm", it.toString())
+    }
     summary.stepCount?.takeIf { it >= 0 }?.let {
         textTag("gmap:stepCount", it.toString())
     }
     summary.cadenceSpm?.takeIf { it > 0 }?.let {
         textTag("gmap:cadenceSpm", it.toString())
     }
+    summary.averageCadenceSpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:averageCadenceSpm", it.toString())
+    }
+    summary.maxCadenceSpm?.takeIf { it > 0 }?.let {
+        textTag("gmap:maxCadenceSpm", it.toString())
+    }
     summary.powerWatts?.takeIf { it >= 0 }?.let {
         textTag("gmap:powerWatts", it.toString())
+    }
+    summary.averagePowerWatts?.takeIf { it >= 0 }?.let {
+        textTag("gmap:averagePowerWatts", it.toString())
+    }
+    summary.maxPowerWatts?.takeIf { it >= 0 }?.let {
+        textTag("gmap:maxPowerWatts", it.toString())
     }
     summary.barometricPressureHpa?.takeIf { it.isFinite() && it > 0.0 }?.let {
         textTag("gmap:pressureHpa", formatDouble(it))

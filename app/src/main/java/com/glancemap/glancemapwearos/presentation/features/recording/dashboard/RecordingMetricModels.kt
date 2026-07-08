@@ -51,6 +51,7 @@ data class RecordingCalorieEstimate(
 )
 
 data class RecordingDashboardSnapshot(
+    val activityProfile: String = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
     val durationSeconds: Double,
     val totalDurationSeconds: Double = durationSeconds,
     val distanceMeters: Double,
@@ -218,6 +219,7 @@ internal fun buildRecordingDashboardSnapshot(
         )
     val hasElevationData = state.points.any { it.elevationMeters?.isFinite() == true }
     return RecordingDashboardSnapshot(
+        activityProfile = activityProfile,
         durationSeconds = activeDurationSeconds,
         totalDurationSeconds = totalDurationSeconds,
         distanceMeters = displayDistanceMeters,

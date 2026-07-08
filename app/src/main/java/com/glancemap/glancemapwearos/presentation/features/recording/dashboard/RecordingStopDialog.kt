@@ -228,41 +228,90 @@ private fun RecordingMetricValue.toRecordingRecapMetric(): RecordingRecapMetric 
 internal fun recordingRecapMetricsForSnapshot(
     snapshot: RecordingDashboardSnapshot,
     isMetric: Boolean,
-): List<RecordingRecapMetric> =
-    listOf(
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DISTANCE, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_TOTAL_TIME, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DURATION, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        speedMetricValue("Max speed", snapshot.fastestSpeedMps, isMetric)
-            .toRecordingRecapMetric(),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_AVERAGE_PACE, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        paceMetricValue("Max pace", snapshot.fastestSpeedMps, isMetric)
-            .toRecordingRecapMetric(),
-        integerRecapMetric("HR (Avg)", snapshot.averageHeartRateBpm ?: snapshot.heartRateBpm, "bpm"),
-        integerRecapMetric("Max HR", snapshot.maxHeartRateBpm ?: snapshot.heartRateBpm, "bpm"),
-        integerRecapMetric("Power (Avg)", snapshot.averagePowerWatts ?: snapshot.powerWatts, "W"),
-        integerRecapMetric("Max Power", snapshot.maxPowerWatts ?: snapshot.powerWatts, "W"),
-        integerRecapMetric("Cadence (Avg)", snapshot.averageCadenceSpm ?: snapshot.cadenceSpm, "spm"),
-        integerRecapMetric("Max cad", snapshot.maxCadenceSpm ?: snapshot.cadenceSpm, "spm"),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_STEPS, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_CALORIES, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-        formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_RESTING_CALORIES, snapshot, isMetric)
-            .toRecordingRecapMetric(),
-    )
+): List<RecordingRecapMetric> {
+    val metrics =
+        listOf(
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DISTANCE, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_TOTAL_TIME, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_DURATION, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            speedMetricValue("Max speed", snapshot.fastestSpeedMps, isMetric)
+                .toRecordingRecapMetric(),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_AVERAGE_PACE, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            paceMetricValue("Max pace", snapshot.fastestSpeedMps, isMetric)
+                .toRecordingRecapMetric(),
+            integerRecapMetric("HR (Avg)", snapshot.averageHeartRateBpm ?: snapshot.heartRateBpm, "bpm"),
+            integerRecapMetric("Max HR", snapshot.maxHeartRateBpm ?: snapshot.heartRateBpm, "bpm"),
+            integerRecapMetric("Power (Avg)", snapshot.averagePowerWatts ?: snapshot.powerWatts, "W"),
+            integerRecapMetric("Max Power", snapshot.maxPowerWatts ?: snapshot.powerWatts, "W"),
+            integerRecapMetric("Cadence (Avg)", snapshot.averageCadenceSpm ?: snapshot.cadenceSpm, "spm"),
+            integerRecapMetric("Max cad", snapshot.maxCadenceSpm ?: snapshot.cadenceSpm, "spm"),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_STEPS, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_CALORIES, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+            formattedRecordingMetric(SettingsRepository.RECORDING_METRIC_RESTING_CALORIES, snapshot, isMetric)
+                .toRecordingRecapMetric(),
+        )
+    return metrics.orderedForActivityProfile(snapshot.activityProfile)
+}
+
+private fun List<RecordingRecapMetric>.orderedForActivityProfile(activityProfile: String): List<RecordingRecapMetric> =
+    if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        inLabelOrder(
+            "Distance",
+            "Speed (Avg)",
+            "Time (Total)",
+            "Time (Active)",
+            "Elev +",
+            "Elev -",
+            "Max speed",
+            "HR (Avg)",
+            "Max HR",
+            "Power (Avg)",
+            "Max Power",
+            "Cal (Total)",
+            "Cal (Active)",
+            "Cal (Rest)",
+        )
+    } else {
+        moveLabelAfter(
+            label = "Steps",
+            afterLabel = "Distance",
+        )
+    }
+
+private fun List<RecordingRecapMetric>.inLabelOrder(vararg labels: String): List<RecordingRecapMetric> {
+    val byLabel = associateBy { it.label }
+    return labels.mapNotNull(byLabel::get)
+}
+
+private fun List<RecordingRecapMetric>.moveLabelAfter(
+    label: String,
+    afterLabel: String,
+): List<RecordingRecapMetric> {
+    val moved = firstOrNull { it.label == label } ?: return this
+    val withoutMoved = filterNot { it.label == label }
+    val afterIndex = withoutMoved.indexOfFirst { it.label == afterLabel }
+    if (afterIndex < 0) return this
+    return buildList {
+        withoutMoved.forEachIndexed { index, metric ->
+            add(metric)
+            if (index == afterIndex) add(moved)
+        }
+    }
+}
 
 private fun integerRecapMetric(
     label: String,
