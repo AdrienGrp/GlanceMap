@@ -8,6 +8,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattConnectionSettings
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
@@ -18,6 +19,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import java.util.UUID
+import java.util.concurrent.Executor
 
 internal class ExternalBleGattClient(
     private val context: Context,
@@ -181,10 +183,10 @@ internal class ExternalBleGattClient(
                 }
         onConnecting()
         gatt =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+            if (Build.VERSION.SDK_INT >= ANDROID_API_LEVEL_37) {
+                device.connectGattApi37(callback)
             } else {
-                device.connectGatt(context, false, callback)
+                device.connectGattLegacy(context, callback)
             }
         DebugTelemetry.log(logTag, "event=connect_requested")
     }
@@ -290,6 +292,35 @@ internal fun hasConnectPermission(context: Context): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) ==
         PackageManager.PERMISSION_GRANTED
+
+@SuppressLint("NewApi")
+private fun BluetoothDevice.connectGattApi37(callback: BluetoothGattCallback): BluetoothGatt? {
+    val settings =
+        BluetoothGattConnectionSettings
+            .Builder()
+            .setAutoConnectEnabled(false)
+            .setTransport(BluetoothDevice.TRANSPORT_LE)
+            .build()
+    return connectGatt(
+        settings,
+        DIRECT_GATT_CALLBACK_EXECUTOR,
+        callback,
+    )
+}
+
+@Suppress("DEPRECATION")
+private fun BluetoothDevice.connectGattLegacy(
+    context: Context,
+    callback: BluetoothGattCallback,
+): BluetoothGatt? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+    } else {
+        connectGatt(context, false, callback)
+    }
+
+private val DIRECT_GATT_CALLBACK_EXECUTOR = Executor { runnable -> runnable.run() }
+private const val ANDROID_API_LEVEL_37 = 37
 
 internal object BluetoothUuid {
     fun service16(shortUuid: Int): UUID = bluetoothUuid(shortUuid)
