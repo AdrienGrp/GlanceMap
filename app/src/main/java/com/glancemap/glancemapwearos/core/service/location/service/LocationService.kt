@@ -23,6 +23,7 @@ import com.glancemap.glancemapwearos.core.service.location.adapters.LocationUpda
 import com.glancemap.glancemapwearos.core.service.location.adapters.PassiveExternalLocationGateway
 import com.glancemap.glancemapwearos.core.service.location.adapters.WatchGpsLocationGateway
 import com.glancemap.glancemapwearos.core.service.location.adapters.WearPhoneConnectionProbe
+import com.glancemap.glancemapwearos.core.service.location.config.AUTO_PAUSE_GPS_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_ACCURACY_COARSE_M
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_ACCURACY_M
 import com.glancemap.glancemapwearos.core.service.location.config.BIND_CACHED_FIX_MAX_MAX_AGE_MS
@@ -340,6 +341,15 @@ class LocationService : Service() {
                                 } else {
                                     latestRecordingIntervalMs
                                 }
+                            latestRuntimeReason == NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED ->
+                                maxOf(
+                                    if (latestScreenState.isNonInteractive) {
+                                        latestRecordingScreenOffIntervalMs
+                                    } else {
+                                        latestRecordingIntervalMs
+                                    },
+                                    AUTO_PAUSE_GPS_INTERVAL_MS,
+                                )
                             latestRuntimeReason.isGuidanceRuntimeReason() ->
                                 if (latestScreenState.isNonInteractive) {
                                     latestTurnByTurnScreenOffIntervalMs

@@ -17,6 +17,9 @@ internal const val MAX_USER_INTERVAL_MS = 120_000L
 internal const val FOREGROUND_MIN_DISTANCE_M = 1f
 internal const val BACKGROUND_MIN_DISTANCE_M = 5f
 
+// Keep auto-resume responsive without spending the normal REC cadence while stationary.
+internal const val AUTO_PAUSE_GPS_INTERVAL_MS = 5_000L
+
 internal const val HIGH_ACCURACY_BURST_DURATION = 8_000L
 internal const val HIGH_ACCURACY_BURST_INTERVAL = 1_000L
 internal const val HIGH_ACCURACY_BURST_EARLY_STOP_ACCURACY_M = 20f

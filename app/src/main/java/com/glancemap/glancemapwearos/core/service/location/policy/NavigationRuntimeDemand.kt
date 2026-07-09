@@ -19,6 +19,7 @@ fun navigationRuntimeDemand(
     generalGpsInAmbient: Boolean,
     recordingActive: Boolean,
     recordingPaused: Boolean,
+    recordingAutoPaused: Boolean,
     recordingGpsEnabled: Boolean,
     turnByTurnActive: Boolean,
     turnByTurnPaused: Boolean,
@@ -48,6 +49,7 @@ fun navigationRuntimeDemand(
     val reason =
         when {
             recordingDemand && guidanceDemand -> NavigationRuntimeDemandReason.RECORDING_GUIDANCE
+            recordingDemand && recordingAutoPaused -> NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED
             recordingDemand -> NavigationRuntimeDemandReason.RECORDING
             guidanceOutsideNavigateDemand -> NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND
             backgroundGpsModeActive && guidanceBackgroundDemand -> NavigationRuntimeDemandReason.GUIDANCE_AMBIENT
@@ -74,5 +76,6 @@ object NavigationRuntimeDemandReason {
     const val GUIDANCE_BACKGROUND = "guidance_background"
     const val GUIDANCE_VISIBLE = "guidance_visible"
     const val RECORDING = "recording"
+    const val RECORDING_AUTO_PAUSED = "recording_auto_paused"
     const val RECORDING_GUIDANCE = "recording_guidance"
 }

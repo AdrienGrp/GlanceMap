@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
+import com.glancemap.glancemapwearos.core.service.location.config.AUTO_PAUSE_GPS_INTERVAL_MS
 import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemandReason
@@ -1148,6 +1149,16 @@ private fun expectedMarkerGpsIntervalMs(
     return when (runtimeReason) {
         NavigationRuntimeDemandReason.RECORDING ->
             if (screenState.isNonInteractive) recordingScreenOffMs else recordingScreenOnMs
+        NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED ->
+            maxOf(
+                if (screenState.isNonInteractive) recordingScreenOffMs else recordingScreenOnMs,
+                AUTO_PAUSE_GPS_INTERVAL_MS,
+            )
+        NavigationRuntimeDemandReason.RECORDING_GUIDANCE ->
+            minOf(
+                if (screenState.isNonInteractive) recordingScreenOffMs else recordingScreenOnMs,
+                if (screenState.isNonInteractive) turnByTurnScreenOffMs else turnByTurnScreenOnMs,
+            )
         NavigationRuntimeDemandReason.GUIDANCE_VISIBLE,
         NavigationRuntimeDemandReason.GUIDANCE_AMBIENT,
         NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND,

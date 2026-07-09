@@ -233,13 +233,15 @@ class LocationViewModel(
         )
     }
 
-    fun requestImmediateLocation(source: String = "ui_unknown") {
+    internal fun requestImmediateLocation(
+        source: String = "ui_unknown",
+    ): ImmediateLocationRequestResult {
         val now = SystemClock.elapsedRealtime()
         val forceImmediateRequest = shouldForceUiImmediateLocationRequest(source)
         if (!forceImmediateRequest && lastImmediateRequestAtMs != Long.MIN_VALUE) {
             val elapsedSinceLastRequestMs = (now - lastImmediateRequestAtMs).coerceAtLeast(0L)
             if (elapsedSinceLastRequestMs < UI_IMMEDIATE_REQUEST_DEBOUNCE_MS) {
-                return
+                return ImmediateLocationRequestResult.SKIPPED_OTHER
             }
         }
 
@@ -248,30 +250,38 @@ class LocationViewModel(
             !forceImmediateRequest &&
             shouldSkipUiImmediateRequest(nowElapsedMs = now)
         ) {
-            return
+            return ImmediateLocationRequestResult.SKIPPED_OTHER
         }
 
         if (source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX)) {
             if (lastStartupImmediateRequestAtMs != Long.MIN_VALUE) {
                 val startupElapsedMs = (now - lastStartupImmediateRequestAtMs).coerceAtLeast(0L)
                 if (startupElapsedMs < UI_STARTUP_IMMEDIATE_REQUEST_COOLDOWN_MS) {
-                    return
+                    return ImmediateLocationRequestResult.SKIPPED_OTHER
                 }
+            }
+            val wakeBurstDecision =
+                logWakeBurstCandidateTelemetry(
+                    source = source,
+                    nowElapsedMs = now,
+                )
+            if (wakeBurstDecision.wouldSkip) {
+                DebugTelemetry.log(
+                    CONNECTION_TELEMETRY_TAG,
+                    "wakeBurst: skipped source=$source reason=${wakeBurstDecision.reason}",
+                )
+                return ImmediateLocationRequestResult.SKIPPED_FRESH_WAKE_FIX
             }
             lastStartupImmediateRequestAtMs = now
         }
 
-        logWakeBurstCandidateTelemetry(
-            source = source,
-            nowElapsedMs = now,
-        )
         FieldMarkerDiagnostics.recordMarker(type = "immediate_location", note = source)
 
         lastImmediateRequestAtMs = now
 
         if (!isTrackingEnabled) {
             pendingImmediateLocationRequestSource = source
-            return
+            return ImmediateLocationRequestResult.REQUESTED
         }
 
         val service = locationService
@@ -281,6 +291,7 @@ class LocationViewModel(
         } else {
             pendingImmediateLocationRequestSource = source
         }
+        return ImmediateLocationRequestResult.REQUESTED
     }
 
     private fun dispatchPendingImmediateLocationRequestIfTrackingEnabled(suffix: String) {
@@ -329,19 +340,21 @@ class LocationViewModel(
     private fun logWakeBurstCandidateTelemetry(
         source: String,
         nowElapsedMs: Long,
-    ) {
-        if (!source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX)) return
-
+    ): WakeBurstSkipCandidate {
         val snapshot = _gpsSignalSnapshot.value
         val fixAgeMs = snapshot.resolveLastFixAgeMs(nowElapsedMs = nowElapsedMs)
         val accuracyM = snapshot.lastFixAccuracyM.takeIf { it.isFinite() }
         val screenOffMs = lastScreenOffDurationMs
         val decision =
-            evaluateWakeBurstSkipCandidate(
-                fixAgeMs = fixAgeMs,
-                accuracyM = accuracyM,
-                screenOffMs = screenOffMs,
-            )
+            if (_currentLocation.value == null) {
+                WakeBurstSkipCandidate(wouldSkip = false, reason = "no_current_location")
+            } else {
+                evaluateWakeBurstSkipCandidate(
+                    fixAgeMs = fixAgeMs,
+                    accuracyM = accuracyM,
+                    screenOffMs = screenOffMs,
+                )
+            }
         DebugTelemetry.log(
             CONNECTION_TELEMETRY_TAG,
             "wakeBurstCandidate source=$source wouldSkip=${decision.wouldSkip} " +
@@ -351,6 +364,7 @@ class LocationViewModel(
                 "accuracyMaxM=${WAKE_BURST_SKIP_MAX_ACCURACY_M.telemetryValue()} " +
                 "screenOffMaxMs=$WAKE_BURST_SKIP_SCREEN_OFF_MAX_MS",
         )
+        return decision
     }
 
     private fun bindService() {
@@ -542,12 +556,18 @@ internal fun shouldForceUiImmediateLocationRequest(source: String): Boolean =
         source == UI_RECORDING_WAKE_REFRESH_SOURCE ||
         source == UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
 
-private data class WakeBurstSkipCandidate(
+internal enum class ImmediateLocationRequestResult {
+    REQUESTED,
+    SKIPPED_FRESH_WAKE_FIX,
+    SKIPPED_OTHER,
+}
+
+internal data class WakeBurstSkipCandidate(
     val wouldSkip: Boolean,
     val reason: String,
 )
 
-private fun evaluateWakeBurstSkipCandidate(
+internal fun evaluateWakeBurstSkipCandidate(
     fixAgeMs: Long,
     accuracyM: Float?,
     screenOffMs: Long?,

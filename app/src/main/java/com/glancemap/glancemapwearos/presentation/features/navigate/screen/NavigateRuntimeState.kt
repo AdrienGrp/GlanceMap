@@ -67,6 +67,7 @@ internal fun rememberNavigateRuntimeState(
             generalGpsInAmbient = generalGpsInAmbient,
             recordingActive = traceRecordingState.active,
             recordingPaused = recordingRuntimePaused,
+            recordingAutoPaused = traceRecordingState.autoPaused,
             recordingGpsEnabled = recordingGpsEnabled,
             turnByTurnActive = turnByTurnActive,
             turnByTurnPaused = turnByTurnPaused,

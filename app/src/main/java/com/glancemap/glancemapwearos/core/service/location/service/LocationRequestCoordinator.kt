@@ -296,6 +296,7 @@ internal class LocationRequestCoordinator(
             explicitBackgroundTracking &&
                 (
                     state.runtimeReason == NavigationRuntimeDemandReason.RECORDING ||
+                        state.runtimeReason == NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED ||
                         state.runtimeReason == NavigationRuntimeDemandReason.RECORDING_GUIDANCE ||
                         state.runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_AMBIENT ||
                         state.runtimeReason == NavigationRuntimeDemandReason.GUIDANCE_BACKGROUND

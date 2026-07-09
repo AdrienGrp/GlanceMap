@@ -163,6 +163,12 @@ internal class ImmediateLocationCoordinator(
             reason = "gps_burst_end",
             detail = "burstId=${endedBurst.burstId} source=${endedBurst.source} reason=$reason",
         )
+        telemetry.logBurstSummary(
+            burstId = endedBurst.burstId,
+            source = endedBurst.source,
+            reason = reason,
+            endedAtElapsedMs = SystemClock.elapsedRealtime(),
+        )
 
         if (requestLocationUpdate) {
             requestLocationUpdateIfNeeded()

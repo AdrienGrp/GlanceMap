@@ -23,6 +23,7 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.maps.mutateLayers
 import com.glancemap.glancemapwearos.presentation.features.navigate.GpsFixIndicatorState
+import com.glancemap.glancemapwearos.presentation.features.navigate.ImmediateLocationRequestResult
 import com.glancemap.glancemapwearos.presentation.features.navigate.LocationViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.NavigateViewModel
 import com.glancemap.glancemapwearos.presentation.features.navigate.UI_WAKE_REACQUIRE_TIMEOUT_SOURCE
@@ -248,8 +249,22 @@ internal fun rememberNavigateLocationUiState(
             nowElapsedMs = nowElapsedMs,
             reason = if (wakeAnchorSeeded) "seeded" else "no_anchor",
         )
+        val immediateRequestResult =
+            locationViewModel.requestImmediateLocation(source = "ui_startup_fresh_fix")
+        if (immediateRequestResult == ImmediateLocationRequestResult.SKIPPED_FRESH_WAKE_FIX) {
+            val skippedWakeSessionId = activeWakeSessionId
+            holdMarkerUntilFreshFix = false
+            holdMarkerStartedAtElapsedMs = 0L
+            activeWakeSessionId = 0L
+            logWakeSessionEvent(
+                stage = "reuse_fresh_fix",
+                sessionId = skippedWakeSessionId,
+                nowElapsedMs = nowElapsedMs,
+                reason = "fresh_existing_fix",
+            )
+            return@LaunchedEffect
+        }
         markerMotionController.requireFreshFixForPrediction()
-        locationViewModel.requestImmediateLocation(source = "ui_startup_fresh_fix")
     }
 
     LaunchedEffect(activeWakeSessionId, shouldTrackLocation, screenState, locationViewModel) {

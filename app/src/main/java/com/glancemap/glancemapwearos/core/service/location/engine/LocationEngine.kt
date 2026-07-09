@@ -309,6 +309,7 @@ internal class LocationEngine(
                     activeBurstSource = source
                 }
                 telemetry.onImmediateRequestStarted(
+                    nowElapsedMs = nowElapsedMs,
                     durationMs = HIGH_ACCURACY_BURST_DURATION,
                     burstId = decision.burstId,
                     source = source,

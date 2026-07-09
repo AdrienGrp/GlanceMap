@@ -69,6 +69,34 @@ class NavigationRuntimeDemandTest {
     }
 
     @Test
+    fun autoPausedRecordingUsesSlowerRecordingDemandWithoutTurnByTurn() {
+        val demand =
+            demand(
+                isNavigateScreen = false,
+                screenState = LocationScreenState.SCREEN_OFF,
+                isScreenResumed = false,
+                recordingActive = true,
+                recordingAutoPaused = true,
+            )
+
+        assertTrue(demand.trackingEnabled)
+        assertTrue(demand.backgroundGpsEnabled)
+        assertEquals(NavigationRuntimeDemandReason.RECORDING_AUTO_PAUSED, demand.reason)
+    }
+
+    @Test
+    fun autoPausedRecordingKeepsTurnByTurnAtFullDemand() {
+        val demand =
+            demand(
+                recordingActive = true,
+                recordingAutoPaused = true,
+                turnByTurnActive = true,
+            )
+
+        assertEquals(NavigationRuntimeDemandReason.RECORDING_GUIDANCE, demand.reason)
+    }
+
+    @Test
     fun recordingPausedFallsBackToDefault() {
         val demand =
             demand(
@@ -238,6 +266,7 @@ class NavigationRuntimeDemandTest {
         generalGpsInAmbient: Boolean = false,
         recordingActive: Boolean = false,
         recordingPaused: Boolean = false,
+        recordingAutoPaused: Boolean = false,
         recordingGpsEnabled: Boolean = true,
         turnByTurnActive: Boolean = false,
         turnByTurnPaused: Boolean = false,
@@ -253,6 +282,7 @@ class NavigationRuntimeDemandTest {
             generalGpsInAmbient = generalGpsInAmbient,
             recordingActive = recordingActive,
             recordingPaused = recordingPaused,
+            recordingAutoPaused = recordingAutoPaused,
             recordingGpsEnabled = recordingGpsEnabled,
             turnByTurnActive = turnByTurnActive,
             turnByTurnPaused = turnByTurnPaused,
