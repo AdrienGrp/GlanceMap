@@ -628,14 +628,18 @@ internal fun rememberNavigateLocationUiState(
     }
 
     // Motion prediction loop.
-    LaunchedEffect(mapView, markerMotionController) {
+    LaunchedEffect(mapView, markerMotionController, lastAcceptedLocationFixElapsedMs) {
         while (isActive) {
             val predictionActive =
                 latestShouldTrackLocation.value &&
                     !latestScreenState.value.isNonInteractive
             delay(
                 if (predictionActive) {
-                    markerMotionController.suggestedPredictionTickMs()
+                    markerMotionController.suggestedPredictionTickMs(
+                        nowElapsedMs = android.os.SystemClock.elapsedRealtime(),
+                        serviceFreshnessMaxAgeMs = indicatorFixFreshMaxAgeMs,
+                        watchGpsDegraded = indicatorWatchGpsDegraded,
+                    )
                 } else {
                     MARKER_PREDICTION_INACTIVE_TICK_MS
                 },

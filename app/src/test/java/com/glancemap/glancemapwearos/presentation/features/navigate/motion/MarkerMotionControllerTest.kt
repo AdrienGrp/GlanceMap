@@ -14,6 +14,65 @@ import kotlin.math.sqrt
 @Suppress("LargeClass")
 class MarkerMotionControllerTest {
     @Test
+    fun predictionTickSlowsUntilFreshMotionCanMoveTheMarker() {
+        val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)
+        val base = LatLong(48.8566, 2.3522)
+
+        assertEquals(
+            1_000L,
+            controller.suggestedPredictionTickMs(
+                nowElapsedMs = 10_000L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ),
+        )
+
+        controller.onGpsFix(
+            latLong = base,
+            nowElapsedMs = 20_000L,
+            fixElapsedMs = 20_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 0.1f,
+            rawBearingDeg = null,
+        )
+
+        assertEquals(
+            1_000L,
+            controller.suggestedPredictionTickMs(
+                nowElapsedMs = 20_500L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ),
+        )
+
+        controller.onGpsFix(
+            latLong = moveLatLong(base, bearing = 90f, distanceMeters = 4f),
+            nowElapsedMs = 23_000L,
+            fixElapsedMs = 23_000L,
+            accuracyM = 8f,
+            rawSpeedMps = 1.4f,
+            rawBearingDeg = 90f,
+        )
+
+        assertEquals(
+            250L,
+            controller.suggestedPredictionTickMs(
+                nowElapsedMs = 23_100L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ),
+        )
+        assertEquals(
+            1_000L,
+            controller.suggestedPredictionTickMs(
+                nowElapsedMs = 28_000L,
+                serviceFreshnessMaxAgeMs = 4_500L,
+                watchGpsDegraded = false,
+            ),
+        )
+    }
+
+    @Test
     fun predictsForwardFromDerivedMotionWhenRawSpeedIsMissing() {
         MarkerMotionTelemetry.clear()
         val controller = MarkerMotionController(predictionFreshnessMaxAgeMs = 4_500L, maxAcceptedFixAgeMs = 6_000L)

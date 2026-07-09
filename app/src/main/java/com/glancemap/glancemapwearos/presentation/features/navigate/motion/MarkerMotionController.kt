@@ -104,7 +104,51 @@ internal class MarkerMotionController(
         )
     }
 
-    fun suggestedPredictionTickMs(): Long = predictionTickMs
+    /**
+     * Keeps the marker smooth only while a fresh fix can actually drive a visible prediction.
+     * When the marker is stationary, stale, or otherwise blocked, checking four times per second
+     * cannot change the map, so use a quieter cadence until the next accepted GPS fix.
+     */
+    fun suggestedPredictionTickMs(
+        nowElapsedMs: Long,
+        serviceFreshnessMaxAgeMs: Long,
+        watchGpsDegraded: Boolean,
+    ): Long =
+        if (
+            hasActiveVisualMotion(
+                nowElapsedMs = nowElapsedMs,
+                serviceFreshnessMaxAgeMs = serviceFreshnessMaxAgeMs,
+                watchGpsDegraded = watchGpsDegraded,
+            )
+        ) {
+            predictionTickMs
+        } else {
+            IDLE_PREDICTION_TICK_MS
+        }
+
+    private fun hasActiveVisualMotion(
+        nowElapsedMs: Long,
+        serviceFreshnessMaxAgeMs: Long,
+        watchGpsDegraded: Boolean,
+    ): Boolean {
+        state.correctionBlend?.let { blend ->
+            val blendAgeMs = (nowElapsedMs - blend.startElapsedMs).coerceAtLeast(0L)
+            if (blendAgeMs < blend.durationMs) return true
+        }
+        if (watchGpsDegraded || state.predictionRequiresFreshFix) return false
+
+        val fix = state.lastAcceptedFix ?: return false
+        val freshnessMaxAgeMs =
+            minOf(
+                predictionFreshnessMaxAgeMs,
+                serviceFreshnessMaxAgeMs.takeIf { it > 0L } ?: Long.MAX_VALUE,
+            )
+        val fixAgeMs = (nowElapsedMs - fix.fixElapsedMs).coerceAtLeast(0L)
+        return fixAgeMs <= freshnessMaxAgeMs &&
+            fix.accuracyM <= maxPredictionAccuracyM &&
+            fix.bearingDeg != null &&
+            fix.speedMps >= minPredictionSpeedMps
+    }
 
     fun onGpsFix(fix: MarkerMotionGpsFix): LatLong = fixProcessor.onGpsFix(fix)
 
@@ -1081,6 +1125,7 @@ private const val WATCH_GPS_FLOOR_MOTION_ACCURACY_M = 18f
 private const val DEFAULT_MIN_PREDICTION_SPEED_MPS = 0.35f
 private const val DEFAULT_CORRECTION_BLEND_DURATION_MS = 350L
 private const val DEFAULT_PREDICTION_TICK_MS = 250L
+private const val IDLE_PREDICTION_TICK_MS = 1_000L
 private const val PREDICTION_START_DELAY_MS = 150L
 private const val PREDICTION_SPEED_SCALE = 0.9f
 private const val MIN_PREDICTION_DISTANCE_M = 0.35f
