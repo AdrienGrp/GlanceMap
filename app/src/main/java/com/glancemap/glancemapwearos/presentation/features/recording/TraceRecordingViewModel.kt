@@ -165,8 +165,7 @@ class TraceRecordingViewModel(
                             "reason=affects_gps_timing_calories_dashboard_defaults",
                     )
                 }
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
         settingsRepository.recordingShowSavedGpxOnMap
             .onEach { showSavedGpxOnMap = it }
             .launchIn(viewModelScope)
@@ -1496,7 +1495,7 @@ private const val RECORDING_GPS_ACTIVE_GAP_FLOOR_MS = 1_000L
 private const val RECORDING_GPS_ACTIVE_GAP_CAP_MS = 15_000L
 private const val RECORDING_FORCE_ACCEPT_MIN_AGE_MS = 2_000L
 private const val RECORDING_SAMPLE_ACCEPT_TOLERANCE_MS = 500L
-private const val RECORDING_MIN_SAMPLE_ACCEPT_THRESHOLD_MS = 1_000L
+private const val RECORDING_MIN_SAMPLE_ACCEPT_THRESHOLD_MS = 850L
 private const val EXTERNAL_SPEED_INTEGRATION_MAX_GAP_MS = 5_000L
 private const val SENSOR_SNAPSHOT_MAX_AGE_MS = 15_000L
 private const val MAX_RECORDING_TITLE_LENGTH = 64

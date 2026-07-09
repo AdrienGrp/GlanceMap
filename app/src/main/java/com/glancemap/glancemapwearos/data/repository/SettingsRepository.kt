@@ -103,7 +103,16 @@ interface SettingsRepository {
                 RECORDING_METRIC_HEART_RATE,
             )
         val DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS =
-            DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+            listOf(
+                RECORDING_METRIC_DISTANCE,
+                RECORDING_METRIC_DURATION,
+                RECORDING_METRIC_AVERAGE_SPEED,
+                RECORDING_METRIC_MAX_SPEED,
+                RECORDING_METRIC_HEART_RATE,
+                RECORDING_METRIC_ELEVATION_GAIN,
+                RECORDING_METRIC_ELEVATION_LOSS,
+                RECORDING_METRIC_ACTIVE_CALORIES,
+            )
 
         const val ZOOM_BUTTONS_BOTH = "BOTH"
         const val ZOOM_BUTTONS_HIDE_BOTH = "HIDE_BOTH"

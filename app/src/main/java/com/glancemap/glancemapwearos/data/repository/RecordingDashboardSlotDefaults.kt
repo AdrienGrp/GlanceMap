@@ -6,12 +6,15 @@ internal const val RECORDING_DASHBOARD_MAX_PAGE_COUNT = 5
 internal const val RECORDING_DASHBOARD_MAX_SLOT_COUNT =
     RECORDING_DASHBOARD_PAGE_SLOT_COUNT * RECORDING_DASHBOARD_MAX_PAGE_COUNT
 
-internal fun normalizeRecordingDashboardMetricSlots(metricSlots: List<String>): List<String> {
-    if (metricSlots.isEmpty()) return SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+internal fun normalizeRecordingDashboardMetricSlots(
+    metricSlots: List<String>,
+    defaultMetricSlots: List<String> = SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS,
+): List<String> {
+    if (metricSlots.isEmpty()) return defaultMetricSlots
     if (metricSlots.size == RECORDING_DASHBOARD_PAGE_SLOT_COUNT &&
         metricSlots == LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS
     ) {
-        return SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
+        return defaultMetricSlots
     }
 
     val boundedSlots = metricSlots.take(RECORDING_DASHBOARD_MAX_SLOT_COUNT)

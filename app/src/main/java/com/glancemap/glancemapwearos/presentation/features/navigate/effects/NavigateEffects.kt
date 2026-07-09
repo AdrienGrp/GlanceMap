@@ -13,6 +13,7 @@ import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
@@ -72,6 +73,7 @@ fun NavigationOrientationEffect(
     val displayedHeading = remember { mutableFloatStateOf(normalize360(renderStateFlow.value.headingDeg)) }
     val displayedMapRot = remember { mutableFloatStateOf(0f) }
     val frozenRotationDeg = remember { mutableFloatStateOf(0f) }
+    val lastMapsforgeRotationAppliedAtMs = remember(mv) { mutableLongStateOf(Long.MIN_VALUE) }
 
     fun syncDisplayedMapRotationFromMap(): Float {
         val actualRotationDeg = mv.mapRotation.degrees
@@ -98,8 +100,21 @@ fun NavigationOrientationEffect(
             onRenderedMapRotationChanged(currentRotationDeg)
             return
         }
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        if (
+            shouldThrottleMapsforgeRotation(
+                navMode = navMode,
+                nowElapsedMs = nowElapsedMs,
+                lastAppliedAtElapsedMs = lastMapsforgeRotationAppliedAtMs.longValue,
+            )
+        ) {
+            CompassRenderPerfTelemetry.recordRotationThrottled(navMode)
+            onRenderedMapRotationChanged(currentRotationDeg)
+            return
+        }
         val anchor = mv.resolveNavigationMarkerScreenAnchor(latestNavigationMarkerAnchorMode.value)
         if (mv.trySetMapsforgeRotation(targetRotationDeg, anchor)) {
+            lastMapsforgeRotationAppliedAtMs.longValue = nowElapsedMs
             CompassRenderPerfTelemetry.recordRotationApplied(navMode)
             val appliedRotationDeg = syncDisplayedMapRotationFromMap()
             onRenderedMapRotationChanged(appliedRotationDeg)
@@ -262,6 +277,7 @@ private object CompassRenderPerfTelemetry {
     private var headingRenderCount: Int = 0
     private var rotationAppliedCount: Int = 0
     private var rotationSkippedCount: Int = 0
+    private var rotationThrottledCount: Int = 0
     private var markerUpdateCount: Int = 0
     private var redrawCount: Int = 0
 
@@ -274,6 +290,8 @@ private object CompassRenderPerfTelemetry {
     fun recordRotationApplied(navMode: NavMode) = record(navMode) { rotationAppliedCount += 1 }
 
     fun recordRotationSkipped(navMode: NavMode) = record(navMode) { rotationSkippedCount += 1 }
+
+    fun recordRotationThrottled(navMode: NavMode) = record(navMode) { rotationThrottledCount += 1 }
 
     fun recordMarkerUpdate(navMode: NavMode) = record(navMode) { markerUpdateCount += 1 }
 
@@ -300,6 +318,7 @@ private object CompassRenderPerfTelemetry {
                 "targetUpdates=$targetUpdateCount headingRenders=$headingRenderCount " +
                 "renderHz=${(headingRenderCount / seconds).formatTelemetry(1)} " +
                 "rotationApplied=$rotationAppliedCount rotationSkipped=$rotationSkippedCount " +
+                "rotationThrottled=$rotationThrottledCount " +
                 "markerUpdates=$markerUpdateCount redraws=$redrawCount",
         )
         reset(now)
@@ -312,6 +331,7 @@ private object CompassRenderPerfTelemetry {
         headingRenderCount = 0
         rotationAppliedCount = 0
         rotationSkippedCount = 0
+        rotationThrottledCount = 0
         markerUpdateCount = 0
         redrawCount = 0
     }
@@ -405,9 +425,22 @@ internal fun resolveNavigateInitialRenderedHeadingDeg(
 
 private fun normalize360(deg: Float): Float = (deg % 360f + 360f) % 360f
 
+internal fun shouldThrottleMapsforgeRotation(
+    navMode: NavMode,
+    nowElapsedMs: Long,
+    lastAppliedAtElapsedMs: Long,
+): Boolean =
+    navMode == NavMode.COMPASS_FOLLOW &&
+        lastAppliedAtElapsedMs != Long.MIN_VALUE &&
+        nowElapsedMs - lastAppliedAtElapsedMs < MAP_ROTATION_MIN_APPLY_INTERVAL_MS
+
 // Small heading noise is visible as left/right map shimmer in compass-follow.
 // Keep the compass pipeline responsive, but avoid applying sub-degree Mapsforge rotations.
 private const val MAP_ROTATION_APPLY_EPSILON_DEG = 0.8f
+
+// Animate the Compose heading every display frame, but avoid asking Mapsforge to redraw/rotate
+// more than 30 times per second. This preserves the compass pipeline while reducing map work.
+private const val MAP_ROTATION_MIN_APPLY_INTERVAL_MS = 33L
 
 // Interpolation factor per display frame (~60fps). At 0.5, closes half the remaining
 // gap each frame: a 10° step reaches <0.1° in ~7 frames (~117ms). Tracks 50Hz sensor

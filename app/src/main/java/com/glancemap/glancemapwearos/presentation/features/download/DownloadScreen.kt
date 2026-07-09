@@ -256,6 +256,7 @@ fun DownloadScreen(
     }
     LaunchedEffect(Unit) {
         viewModel.refreshInstalledBundles()
+        listState.scrollToItem(0)
     }
     LaunchedEffect(infoPrefs) {
         if (!infoPrefs.getBoolean(DOWNLOAD_INFO_SHOWN_KEY, false)) {

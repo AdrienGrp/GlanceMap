@@ -474,7 +474,7 @@ class MainActivity : ComponentActivity() {
                                     areaSearchQuery = downloadAreaSearchQuery,
                                     onAreaSearchQueryChange = { downloadAreaSearchQuery = it },
                                     onLibraryChanged = {
-                                        appContainer.mapViewModel.loadMapFiles()
+                                        appContainer.mapViewModel.loadMapFiles(preserveExistingCoverage = false)
                                         appContainer.mapViewModel.loadRoutingPackFiles()
                                         appContainer.poiViewModel.loadPoiFiles(forceRefresh = true)
                                     },

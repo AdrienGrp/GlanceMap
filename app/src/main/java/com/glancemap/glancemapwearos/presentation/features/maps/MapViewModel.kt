@@ -230,7 +230,7 @@ class MapViewModel(
             .onEach { source ->
                 selectedDemSourceForCoverage = source
                 latestDemSource = source
-                loadMapFiles()
+                loadMapFiles(preserveExistingCoverage = false)
                 if (isMapViewRenderReady()) {
                     applyRendererConfigIfReady()
                 } else {
@@ -240,7 +240,7 @@ class MapViewModel(
 
         syncManager.mapSyncRequest
             .onEach {
-                loadMapFiles()
+                loadMapFiles(preserveExistingCoverage = false)
                 loadRoutingPackFiles()
             }.launchIn(viewModelScope)
 
@@ -495,6 +495,20 @@ class MapViewModel(
             path = file.absolutePath,
         )
 
+    private fun buildInitialMapFileState(
+        file: File,
+        previous: MapFileState?,
+        preserveExistingCoverage: Boolean,
+    ): MapFileState =
+        if (preserveExistingCoverage && previous != null) {
+            previous.copy(
+                name = file.name,
+                path = file.absolutePath,
+            )
+        } else {
+            buildLightMapFileState(file)
+        }
+
     private fun applyLatestZoomBounds(reason: String) {
         val zoomMin = latestZoomMin
         val zoomMax = latestZoomMax
@@ -580,13 +594,21 @@ class MapViewModel(
         schedulePendingRendererWorkIfReady()
     }
 
-    fun loadMapFiles() {
+    fun loadMapFiles(preserveExistingCoverage: Boolean = true) {
         viewModelScope.launch {
             val files = mapRepository.listMapFiles()
             val demSource = selectedDemSourceForCoverage
             val generation = ++mapMetadataLoadGeneration
             mapMetadataLoadJob?.cancel()
-            _mapFiles.value = files.map(::buildLightMapFileState)
+            val previousByPath = _mapFiles.value.associateBy { it.path }
+            _mapFiles.value =
+                files.map { file ->
+                    buildInitialMapFileState(
+                        file = file,
+                        previous = previousByPath[file.absolutePath],
+                        preserveExistingCoverage = preserveExistingCoverage,
+                    )
+                }
 
             val currentPath = selectedMapPath.value
             if (currentPath != null && files.none { it.absolutePath == currentPath }) {
@@ -690,7 +712,7 @@ class MapViewModel(
                     mapRenderer?.invalidateTileCache()
                 }
 
-                loadMapFiles()
+                loadMapFiles(preserveExistingCoverage = false)
             }
         }
     }
@@ -706,7 +728,7 @@ class MapViewModel(
             }
             RoutingCoverageUtils.clearCaches()
             loadRoutingPackFiles()
-            loadMapFiles()
+            loadMapFiles(preserveExistingCoverage = false)
         }
     }
 
@@ -723,7 +745,7 @@ class MapViewModel(
             }
             RoutingCoverageUtils.clearCaches()
             loadRoutingPackFiles()
-            loadMapFiles()
+            loadMapFiles(preserveExistingCoverage = false)
         }
     }
 
@@ -739,7 +761,7 @@ class MapViewModel(
             }
             Dem3CoverageUtils.clearCaches()
             loadDemTileFiles()
-            loadMapFiles()
+            loadMapFiles(preserveExistingCoverage = false)
             mapRenderer?.invalidateTileCache()
         }
     }
@@ -757,7 +779,7 @@ class MapViewModel(
             }
             Dem3CoverageUtils.clearCaches()
             loadDemTileFiles()
-            loadMapFiles()
+            loadMapFiles(preserveExistingCoverage = false)
             mapRenderer?.invalidateTileCache()
         }
     }
@@ -783,7 +805,7 @@ class MapViewModel(
                 } else {
                     mapRenderer?.invalidateTileCache()
                 }
-                loadMapFiles()
+                loadMapFiles(preserveExistingCoverage = false)
             }
 
             onComplete(result.map { })
@@ -809,7 +831,7 @@ class MapViewModel(
         RoutingCoverageUtils.clearCaches()
         requestExternalCacheClear()
         lastPrewarmedBundledThemeId = null
-        loadMapFiles()
+        loadMapFiles(preserveExistingCoverage = false)
         return result
     }
 

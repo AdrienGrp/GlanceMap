@@ -388,6 +388,7 @@ class RecordingDashboardModelsTest {
         assertEquals(
             listOf(
                 "Distance",
+                "Steps",
                 "Time (Total)",
                 "Time (Active)",
                 "Elev +",
@@ -402,7 +403,6 @@ class RecordingDashboardModelsTest {
                 "Max Power",
                 "Cadence (Avg)",
                 "Max cad",
-                "Steps",
                 "Cal (Total)",
                 "Cal (Active)",
                 "Cal (Rest)",

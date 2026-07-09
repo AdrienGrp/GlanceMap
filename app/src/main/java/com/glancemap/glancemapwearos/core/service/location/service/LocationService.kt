@@ -121,9 +121,12 @@ class LocationService : Service() {
             HandlerThread("LocationCallbackThread").apply { start() }
         }
     private val locationCallbackThread: HandlerThread by locationCallbackThreadDelegate
+    private val locationCallbackHandler by lazy { Handler(locationCallbackThread.looper) }
     private val locationCallbackExecutor by lazy {
         java.util.concurrent.Executor { command ->
-            Handler(locationCallbackThread.looper).post(command)
+            if (!locationCallbackHandler.post(command)) {
+                command.run()
+            }
         }
     }
 
@@ -224,7 +227,11 @@ class LocationService : Service() {
     override fun onCreate() {
         super.onCreate()
         val fused = LocationServices.getFusedLocationProviderClient(this)
-        fusedLocationGateway = FusedLocationGateway(fused)
+        fusedLocationGateway =
+            FusedLocationGateway(
+                client = fused,
+                callbackExecutor = locationCallbackExecutor,
+            )
         passiveExternalLocationGateway =
             PassiveExternalLocationGateway(
                 locationManager = requireNotNull(locationManager) { "location_manager_unavailable" },

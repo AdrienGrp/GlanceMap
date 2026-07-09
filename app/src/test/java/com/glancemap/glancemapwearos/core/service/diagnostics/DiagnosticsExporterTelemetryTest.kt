@@ -239,6 +239,24 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals(1, insights.headingLooksWrongReportCount)
     }
 
+    @Test
+    fun compassRenderTelemetryIncludesMapsforgeRotationThrottleCount() {
+        val insights =
+            deriveCompassTelemetryInsights(
+                listOf(
+                    "2026-07-09 09:00:00.000 [CompassTelemetry] compass_render perf " +
+                        "windowMs=5000 navMode=COMPASS_FOLLOW frames=250 frameHz=50.0 " +
+                        "targetUpdates=120 headingRenders=180 renderHz=36.0 rotationApplied=120 " +
+                        "rotationSkipped=40 rotationThrottled=60 markerUpdates=0 redraws=180",
+                ),
+            )
+
+        assertEquals(1, insights.renderPerfEventCount)
+        assertEquals(120, insights.renderPerfRotationAppliedCount)
+        assertEquals(40, insights.renderPerfRotationSkippedCount)
+        assertEquals(60, insights.renderPerfRotationThrottledCount)
+    }
+
     private fun epochMs(localDateTime: String): Long =
         LocalDateTime
             .parse(localDateTime)

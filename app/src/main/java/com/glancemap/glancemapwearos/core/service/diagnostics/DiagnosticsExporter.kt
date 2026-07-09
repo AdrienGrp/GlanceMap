@@ -379,6 +379,7 @@ object DiagnosticsExporter {
         val renderPerfHeadingRenderCount: Int = 0,
         val renderPerfRotationAppliedCount: Int = 0,
         val renderPerfRotationSkippedCount: Int = 0,
+        val renderPerfRotationThrottledCount: Int = 0,
         val renderPerfMarkerUpdateCount: Int = 0,
         val renderPerfRedrawCount: Int = 0,
         val renderPerfFrameHzMax: Float? = null,
@@ -1054,6 +1055,11 @@ object DiagnosticsExporter {
             )
             writer.appendLine(
                 "renderPerfRotationSkippedCount=${compassTelemetryInsights.renderPerfRotationSkippedCount}",
+            )
+            writer.appendLine(
+                "renderPerfRotationThrottledCount=${
+                    compassTelemetryInsights.renderPerfRotationThrottledCount
+                }",
             )
             writer.appendLine(
                 "renderPerfMarkerUpdateCount=${compassTelemetryInsights.renderPerfMarkerUpdateCount}",

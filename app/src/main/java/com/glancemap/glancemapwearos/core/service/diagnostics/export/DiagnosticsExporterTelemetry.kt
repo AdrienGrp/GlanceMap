@@ -1342,6 +1342,7 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var renderPerfHeadingRenderCount = 0
     var renderPerfRotationAppliedCount = 0
     var renderPerfRotationSkippedCount = 0
+    var renderPerfRotationThrottledCount = 0
     var renderPerfMarkerUpdateCount = 0
     var renderPerfRedrawCount = 0
     var renderPerfFrameHzMax: Float? = null
@@ -1441,6 +1442,7 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
             renderPerfHeadingRenderCount += parseIntToken(line, "headingRenders=") ?: 0
             renderPerfRotationAppliedCount += parseIntToken(line, "rotationApplied=") ?: 0
             renderPerfRotationSkippedCount += parseIntToken(line, "rotationSkipped=") ?: 0
+            renderPerfRotationThrottledCount += parseIntToken(line, "rotationThrottled=") ?: 0
             renderPerfMarkerUpdateCount += parseIntToken(line, "markerUpdates=") ?: 0
             renderPerfRedrawCount += parseIntToken(line, "redraws=") ?: 0
             parseFloatToken(line, "frameHz=")?.let { value ->
@@ -1497,6 +1499,7 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         renderPerfHeadingRenderCount = renderPerfHeadingRenderCount,
         renderPerfRotationAppliedCount = renderPerfRotationAppliedCount,
         renderPerfRotationSkippedCount = renderPerfRotationSkippedCount,
+        renderPerfRotationThrottledCount = renderPerfRotationThrottledCount,
         renderPerfMarkerUpdateCount = renderPerfMarkerUpdateCount,
         renderPerfRedrawCount = renderPerfRedrawCount,
         renderPerfFrameHzMax = renderPerfFrameHzMax,

@@ -25,6 +25,7 @@ internal fun RecordingDashboardPageSwitcher(
     pageIndex: Int,
     pageCount: Int,
     onClick: () -> Unit,
+    dashboardLabel: String = "",
     modifier: Modifier = Modifier,
 ) {
     val nextPageIndex = (pageIndex + 1) % pageCount
@@ -39,7 +40,7 @@ internal fun RecordingDashboardPageSwitcher(
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Text(
-            text = "Dashboard page",
+            text = dashboardLabel.takeIf(String::isNotBlank)?.let { "$it dashboard" } ?: "Dashboard page",
             style = MaterialTheme.typography.labelSmall,
             color = Color.White.copy(alpha = 0.72f),
             textAlign = TextAlign.Center,

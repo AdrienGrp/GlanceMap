@@ -208,4 +208,40 @@ class NavigateEffectsSupportTest {
             ) > 180f,
         )
     }
+
+    @Test
+    fun compassFollowLimitsMapsforgeRotationToThirtyHz() {
+        assertTrue(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_032L,
+                lastAppliedAtElapsedMs = 1_000L,
+            ),
+        )
+        assertFalse(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_033L,
+                lastAppliedAtElapsedMs = 1_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun northUpAndFirstRotationAreNotThrottled() {
+        assertFalse(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.NORTH_UP_FOLLOW,
+                nowElapsedMs = 1_001L,
+                lastAppliedAtElapsedMs = 1_000L,
+            ),
+        )
+        assertFalse(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_001L,
+                lastAppliedAtElapsedMs = Long.MIN_VALUE,
+            ),
+        )
+    }
 }

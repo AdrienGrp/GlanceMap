@@ -250,7 +250,7 @@ fun MapsScreen(
     }
     LaunchedEffect(demDownloadState.lastCompletedAtMillis) {
         if (demDownloadState.lastCompletedAtMillis <= 0L) return@LaunchedEffect
-        mapViewModel.loadMapFiles()
+        mapViewModel.loadMapFiles(preserveExistingCoverage = false)
         if (demDownloadState.downloadedTiles > 0) {
             mapViewModel.refreshMapLayer()
         }

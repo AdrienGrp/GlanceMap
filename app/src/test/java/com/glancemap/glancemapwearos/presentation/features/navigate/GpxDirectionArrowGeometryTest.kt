@@ -110,6 +110,39 @@ class GpxDirectionArrowGeometryTest {
     }
 
     @Test
+    fun cachedGeometryKeepsVisibleArrowResults() {
+        val points =
+            (0..400).map { index ->
+                trackPoint(
+                    lat = 45.0,
+                    lon = 6.0 + index * 0.000025,
+                )
+            }
+        val viewport =
+            BoundingBox(
+                44.9995,
+                6.003,
+                45.0005,
+                6.006,
+            )
+
+        val direct =
+            buildVisibleGpxDirectionArrows(
+                points = points,
+                zoom = 15,
+                tileSize = 256,
+                boundingBox = viewport,
+            )
+        val cached =
+            buildVisibleGpxDirectionArrows(
+                geometry = requireNotNull(buildGpxDirectionArrowGeometry(points, zoom = 15, tileSize = 256)),
+                boundingBox = viewport,
+            )
+
+        assertEquals(direct, cached)
+    }
+
+    @Test
     fun capsVisibleArrowsPerTrack() {
         val points =
             (0..2400).map { index ->

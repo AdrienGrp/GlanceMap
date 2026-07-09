@@ -448,6 +448,7 @@ private fun PoiOverlayEffect(
     topOverlayCoordinator: MapTopOverlayCoordinator,
 ) {
     val markersByKey = remember(mapView) { mutableMapOf<String, PoiMarkerEntry>() }
+    val viewportQueryCache = remember(mapView) { PoiOverlayViewportQueryCache() }
     val markerBitmapCache =
         remember(mapView, poiMarkerStyle) {
             mutableMapOf<Pair<Int, String>, Map<PoiType, AndroidBitmap>>()
@@ -479,6 +480,7 @@ private fun PoiOverlayEffect(
     }
 
     LaunchedEffect(activePoiOverlaySources, poiMarkerSizePx, poiMarkerStyle) {
+        viewportQueryCache.invalidate()
         if (activePoiOverlaySources.isEmpty()) {
             clearAllMarkers()
         } else {
@@ -515,6 +517,12 @@ private fun PoiOverlayEffect(
                 val height = mapView.height
                 if (width <= 0 || height <= 0) return@collect
 
+                val zoom =
+                    mapView.model.mapViewPosition.zoomLevel
+                        .toInt()
+                val center = mapView.model.mapViewPosition.center
+                if (!viewportQueryCache.shouldQuery(center, zoom)) return@collect
+
                 val corners =
                     listOf(
                         runCatching { mapView.mapViewProjection.fromPixels(0.0, 0.0) }.getOrNull(),
@@ -530,9 +538,13 @@ private fun PoiOverlayEffect(
                 val maxLat = corners.maxOf { it.latitude }
                 val minLon = corners.minOf { it.longitude }
                 val maxLon = corners.maxOf { it.longitude }
-                val zoom =
-                    mapView.model.mapViewPosition.zoomLevel
-                        .toInt()
+                val viewport =
+                    PoiViewport(
+                        minLat = minLat,
+                        maxLat = maxLat,
+                        minLon = minLon,
+                        maxLon = maxLon,
+                    )
                 val effectiveMarkerSizePx = effectivePoiMarkerSizePx(poiMarkerSizePx, zoom)
                 val markerBitmapByType =
                     markerBitmapCache.getOrPut(effectiveMarkerSizePx to poiMarkerStyle) {
@@ -552,16 +564,15 @@ private fun PoiOverlayEffect(
                 val markers =
                     withContext(Dispatchers.IO) {
                         poiViewModel.queryVisibleMarkers(
-                            viewport =
-                                PoiViewport(
-                                    minLat = minLat,
-                                    maxLat = maxLat,
-                                    minLon = minLon,
-                                    maxLon = maxLon,
-                                ),
+                            viewport = viewport,
                             zoomLevel = zoom,
                         )
                     }
+                viewportQueryCache.recordSuccessfulQuery(
+                    center = center,
+                    zoomLevel = zoom,
+                    viewport = viewport,
+                )
                 onPoiMarkersSnapshotChanged(markers)
 
                 mapView.mutateLayers { layers ->

@@ -271,12 +271,15 @@ private fun List<RecordingRecapMetric>.orderedForActivityProfile(activityProfile
     if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
         inLabelOrder(
             "Distance",
-            "Speed (Avg)",
-            "Time (Total)",
+            "Cal (Total)",
+            "Cal (Active)",
+            "Cal (Rest)",
             "Time (Active)",
+            "Time (Total)",
+            "Speed (Avg)",
+            "Max speed",
             "Elev +",
             "Elev -",
-            "Max speed",
             "HR (Avg)",
             "Max HR",
             "Power (Avg)",
