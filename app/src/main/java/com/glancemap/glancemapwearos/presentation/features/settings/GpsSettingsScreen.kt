@@ -26,6 +26,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onPreRotaryScrollEvent
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -33,6 +35,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
@@ -55,6 +58,7 @@ fun GpsSettingsScreen(
     val turnByTurnGpsIntervalSeconds by viewModel.turnByTurnGpsIntervalSeconds.collectAsState()
     val turnByTurnScreenOffGpsIntervalSeconds by viewModel.turnByTurnScreenOffGpsIntervalSeconds.collectAsState()
     val gpsDebugTelemetry by viewModel.gpsDebugTelemetry.collectAsState()
+    val diagnosticsCaptureMode by viewModel.diagnosticsCaptureMode.collectAsState()
     val gpsPassiveLocationExperiment by viewModel.gpsPassiveLocationExperiment.collectAsState()
     val recordingScreenOnDisabled =
         recordingSampleIntervalSeconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
@@ -82,11 +86,11 @@ fun GpsSettingsScreen(
             ToggleChip(
                 checked = isWatchGpsOnly,
                 onCheckedChanged = { viewModel.setWatchGpsOnly(it) },
-                label = "GPS Source",
+                label = stringResource(R.string.gps_source),
                 secondaryLabel =
                     when {
-                        isWatchGpsOnly -> "Watch Only (more ⚡)"
-                        else -> "Auto (Watch + Phone)"
+                        isWatchGpsOnly -> stringResource(R.string.gps_source_watch_only)
+                        else -> stringResource(R.string.gps_source_auto)
                     },
                 toggleControl = ToggleChipToggleControl.Switch,
             )
@@ -94,8 +98,8 @@ fun GpsSettingsScreen(
 
         item {
             GpsIntervalSummary(
-                primaryText = "Basic GPS uses 3s when the screen is on.",
-                secondaryText = "REC + TBT: shorter timing is used.",
+                primaryText = stringResource(R.string.gps_basic_interval_summary),
+                secondaryText = stringResource(R.string.gps_recording_guidance_interval_summary),
             )
         }
 
@@ -104,22 +108,22 @@ fun GpsSettingsScreen(
         }
         item {
             GpsIntervalSummary(
-                primaryText = "Hike: 3s. Bike: 1s.",
+                primaryText = stringResource(R.string.gps_recording_activity_summary),
             )
         }
         item {
             GpsTimingPickerRow(
-                label = "Screen on",
+                label = stringResource(R.string.screen_on),
                 selectedValue = recordingSampleIntervalSeconds,
                 options = REC_SCREEN_ON_OPTIONS_SECONDS,
                 secondaryLabel = gpsIntervalLabel(recordingSampleIntervalSeconds),
-                dialogTitle = "REC screen on",
+                dialogTitle = stringResource(R.string.gps_recording_screen_on),
                 onSelect = viewModel::setRecordingSampleIntervalSeconds,
             )
         }
         item {
             GpsTimingPickerRow(
-                label = "Screen off",
+                label = stringResource(R.string.screen_off),
                 selectedValue = recordingScreenOffSampleIntervalSeconds,
                 options = SCREEN_OFF_OPTIONS_SECONDS,
                 secondaryLabel =
@@ -127,22 +131,22 @@ fun GpsSettingsScreen(
                         seconds = recordingScreenOffSampleIntervalSeconds,
                         screenOnSeconds = recordingSampleIntervalSeconds,
                     ),
-                dialogTitle = "REC screen off",
+                dialogTitle = stringResource(R.string.gps_recording_screen_off),
                 screenOnSeconds = recordingSampleIntervalSeconds,
-                offWarningText = "REC can have gaps while the screen is off.",
+                offWarningText = stringResource(R.string.gps_recording_off_warning),
                 onSelect = viewModel::setRecordingScreenOffSampleIntervalSeconds,
             )
         }
         if (recordingScreenOffDisabled) {
             item {
                 GpsWarningText(
-                    text = "Screen-off REC GPS is off. Saved recordings can have gaps, and GPS may take a moment to catch up when you look at the watch.",
+                    text = stringResource(R.string.gps_recording_screen_off_disabled_warning),
                 )
             }
         }
         item {
             SettingsOptionPickerRow(
-                label = "Auto-pause",
+                label = stringResource(R.string.gps_auto_pause),
                 selectedValue = recordingAutoPauseMode,
                 options = AUTO_PAUSE_OPTIONS.map { it to autoPauseModeLabel(it) },
                 secondaryLabel = autoPauseModeLabel(recordingAutoPauseMode),
@@ -155,18 +159,18 @@ fun GpsSettingsScreen(
         }
         item {
             GpsTimingPickerRow(
-                label = "Screen on",
+                label = stringResource(R.string.screen_on),
                 selectedValue = turnByTurnGpsIntervalSeconds,
                 options = TBT_SCREEN_ON_OPTIONS_SECONDS,
                 secondaryLabel = gpsIntervalLabel(turnByTurnGpsIntervalSeconds),
-                dialogTitle = "TBT screen on",
-                offWarningText = "TBT will use normal map GPS only while the screen is on.",
+                dialogTitle = stringResource(R.string.gps_guidance_screen_on),
+                offWarningText = stringResource(R.string.gps_guidance_screen_on_off_warning),
                 onSelect = viewModel::setTurnByTurnGpsIntervalSeconds,
             )
         }
         item {
             GpsTimingPickerRow(
-                label = "Screen off",
+                label = stringResource(R.string.screen_off),
                 selectedValue = turnByTurnScreenOffGpsIntervalSeconds,
                 options = SCREEN_OFF_OPTIONS_SECONDS,
                 secondaryLabel =
@@ -174,38 +178,38 @@ fun GpsSettingsScreen(
                         seconds = turnByTurnScreenOffGpsIntervalSeconds,
                         screenOnSeconds = turnByTurnGpsIntervalSeconds,
                     ),
-                dialogTitle = "TBT screen off",
+                dialogTitle = stringResource(R.string.gps_guidance_screen_off),
                 screenOnSeconds = turnByTurnGpsIntervalSeconds,
-                offWarningText = "TBT alerts pause while the screen is off.",
+                offWarningText = stringResource(R.string.gps_guidance_screen_off_warning),
                 onSelect = viewModel::setTurnByTurnScreenOffGpsIntervalSeconds,
             )
         }
         if (turnByTurnScreenOffDisabled) {
             item {
                 GpsWarningText(
-                    text = "Screen-off TBT GPS is off. Alerts will not work while the screen is off, and GPS may take a moment to catch up when you look at the watch.",
+                    text = stringResource(R.string.gps_guidance_screen_off_disabled_warning),
                 )
             }
         }
         if (turnByTurnScreenOnDisabled) {
             item {
                 GpsWarningText(
-                    text = "Screen-on TBT GPS is off. TBT can still use normal map GPS when available.",
+                    text = stringResource(R.string.gps_guidance_screen_on_disabled_warning),
                 )
             }
         }
 
-        if (gpsDebugTelemetry) {
+        if (isFullDiagnosticsCapture(gpsDebugTelemetry, diagnosticsCaptureMode)) {
             item {
                 ToggleChip(
                     checked = gpsPassiveLocationExperiment,
                     onCheckedChanged = { viewModel.setGpsPassiveLocationExperiment(it) },
-                    label = "Use GPS from other apps",
+                    label = stringResource(R.string.gps_use_other_apps),
                     secondaryLabel =
                         if (gpsPassiveLocationExperiment) {
-                            "On during capture"
+                            stringResource(R.string.gps_other_apps_on_during_capture)
                         } else {
-                            "Off during capture"
+                            stringResource(R.string.gps_other_apps_off_during_capture)
                         },
                     toggleControl = ToggleChipToggleControl.Switch,
                 )
@@ -213,6 +217,11 @@ fun GpsSettingsScreen(
         }
     }
 }
+
+private fun isFullDiagnosticsCapture(
+    captureActive: Boolean,
+    captureMode: String,
+): Boolean = captureActive && captureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL
 
 @Composable
 private fun GpsTimingPickerRow(
@@ -450,7 +459,7 @@ private fun GpsTimingStepperValue(
                 onClick = onDecrease,
                 onLongClick = onLongDecrease,
                 icon = Icons.Filled.Remove,
-                contentDescription = "Decrease GPS timing",
+                contentDescription = stringResource(R.string.gps_decrease_timing),
             )
             Box(
                 modifier =
@@ -502,11 +511,18 @@ private fun GpsTimingStepperValue(
                 onClick = onIncrease,
                 onLongClick = onLongIncrease,
                 icon = Icons.Filled.Add,
-                contentDescription = "Increase GPS timing",
+                contentDescription = stringResource(R.string.gps_increase_timing),
             )
         }
         Text(
-            text = if (compactHighFontLayout) "Tap ±1s · hold ±5s" else "Tap ±1s · long press ±5s",
+            text =
+                stringResource(
+                    if (compactHighFontLayout) {
+                        R.string.gps_stepper_hint_compact
+                    } else {
+                        R.string.gps_stepper_hint
+                    },
+                ),
             style =
                 if (compactHighFontLayout) {
                     MaterialTheme.typography.labelSmall
@@ -638,28 +654,33 @@ private val AUTO_PAUSE_OPTIONS =
         SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS,
     )
 
+@Composable
 private fun autoPauseModeLabel(mode: String): String =
     when (mode) {
-        SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS -> "On"
-        else -> "Off"
+        SettingsRepository.RECORDING_AUTO_PAUSE_ALWAYS -> stringResource(R.string.state_on)
+        else -> stringResource(R.string.state_off)
     }
 
+@Composable
 private fun gpsScreenOffIntervalLabel(
     seconds: Int,
     screenOnSeconds: Int? = null,
 ): String =
     when (seconds) {
         SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS ->
-            screenOnSeconds?.let { "Same (${gpsIntervalLabel(it)})" } ?: "Same as screen on"
+            screenOnSeconds?.let {
+                stringResource(R.string.gps_same_with_value, gpsIntervalLabel(it))
+            } ?: stringResource(R.string.gps_same_as_screen_on)
 
         else -> gpsIntervalLabel(seconds)
     }
 
+@Composable
 private fun gpsIntervalLabel(seconds: Int): String =
     when {
-        seconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS -> "Off"
-        seconds <= 1 -> "1 second"
-        else -> "$seconds seconds"
+        seconds == SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS ->
+            stringResource(R.string.state_off)
+        else -> pluralStringResource(R.plurals.gps_interval_seconds, seconds, seconds)
     }
 
 private data class GpsTimingOption(
@@ -667,6 +688,7 @@ private data class GpsTimingOption(
     val detail: String? = null,
 )
 
+@Composable
 private fun gpsTimingOption(
     seconds: Int,
     screenOnSeconds: Int?,
@@ -674,23 +696,22 @@ private fun gpsTimingOption(
     when (seconds) {
         SettingsRepository.GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS ->
             GpsTimingOption(
-                label = "Same",
-                detail = screenOnSeconds?.let { "Screen on · ${gpsShortIntervalLabel(it)}" } ?: "Screen on",
+                label = stringResource(R.string.gps_same),
+                detail =
+                    screenOnSeconds?.let {
+                        stringResource(R.string.gps_screen_on_with_value, gpsShortLabel(it))
+                    } ?: stringResource(R.string.screen_on),
             )
 
         SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS ->
-            GpsTimingOption(label = "Off")
+            GpsTimingOption(label = stringResource(R.string.state_off))
 
         else ->
             GpsTimingOption(
-                label = gpsShortIntervalLabel(seconds),
+                label = gpsShortLabel(seconds),
                 detail = null,
             )
     }
 
-private fun gpsShortIntervalLabel(seconds: Int): String =
-    if (seconds <= 1) {
-        "1s"
-    } else {
-        "${seconds}s"
-    }
+@Composable
+private fun gpsShortLabel(seconds: Int) = stringResource(R.string.gps_short_interval_seconds, seconds.coerceAtLeast(1))

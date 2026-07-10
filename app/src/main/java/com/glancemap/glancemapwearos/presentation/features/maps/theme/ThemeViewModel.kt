@@ -412,7 +412,7 @@ class ThemeViewModel(
             Dem3CoverageUtils.isReadyForMap(
                 context = appContext,
                 mapPath = mapPath,
-                sources = listOf(demSource.value),
+                sources = demSource.value.readFallbackOrder(),
             )
         }
 

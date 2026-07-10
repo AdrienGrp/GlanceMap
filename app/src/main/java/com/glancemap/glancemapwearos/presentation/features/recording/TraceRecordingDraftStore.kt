@@ -99,7 +99,12 @@ class TraceRecordingDraftStore(
         metadataTempFile.writeText(json.toString())
         metadataTempFile.renameAtomicallyTo(metadataFile)
 
-        val title = buildRecordingTitle(state.startedAtMillis ?: System.currentTimeMillis())
+        val nowMillis = System.currentTimeMillis()
+        val title =
+            buildRecordingTitle(
+                startedAtMillis = state.startedAtMillis ?: nowMillis,
+                endedAtMillis = state.points.lastOrNull()?.timeMillis ?: nowMillis,
+            )
         gpxTempFile.writeBytes(encodeRecordedTraceAsGpx(title = title, points = state.points))
         gpxTempFile.renameAtomicallyTo(gpxFile)
     }

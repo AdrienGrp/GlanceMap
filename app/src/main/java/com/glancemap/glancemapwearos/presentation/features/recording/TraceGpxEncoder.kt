@@ -249,11 +249,20 @@ private fun StringWriter.textTag(
     append(">")
 }
 
-internal fun buildRecordingFileName(nowMillis: Long): String = "Recording-${RECORDING_FILE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}.gpx"
+internal fun buildRecordingFileName(
+    startedAtMillis: Long,
+    endedAtMillis: Long,
+): String = buildRecordingFileNameFromTitle(buildRecordingTitle(startedAtMillis, endedAtMillis))
 
 internal fun buildRecordingFileNameFromTitle(title: String): String = "${sanitizeRecordingFileStem(title)}.gpx"
 
-internal fun buildRecordingTitle(nowMillis: Long): String = "Recording ${RECORDING_TITLE_TIME_FORMAT.format(Instant.ofEpochMilli(nowMillis))}"
+internal fun buildRecordingTitle(
+    startedAtMillis: Long,
+    endedAtMillis: Long,
+): String =
+    "${RECORDING_TITLE_DATE_FORMAT.format(Instant.ofEpochMilli(startedAtMillis))} " +
+        "${RECORDING_TITLE_TIME_FORMAT.format(Instant.ofEpochMilli(startedAtMillis))} " +
+        RECORDING_TITLE_TIME_FORMAT.format(Instant.ofEpochMilli(endedAtMillis))
 
 private fun formatCoordinate(value: Double): String = String.format(Locale.US, "%.8f", value)
 
@@ -284,14 +293,14 @@ private fun sanitizeRecordingFileStem(input: String): String =
         .trim('-')
         .ifBlank { "Recording" }
 
-private val RECORDING_FILE_TIME_FORMAT: DateTimeFormatter =
-    DateTimeFormatter
-        .ofPattern("yyyyMMdd-HHmmss")
-        .withZone(java.time.ZoneId.systemDefault())
-
 private val RECORDING_TITLE_TIME_FORMAT: DateTimeFormatter =
     DateTimeFormatter
-        .ofPattern("yyyy-MM-dd HH:mm")
+        .ofPattern("HH:mm")
+        .withZone(java.time.ZoneId.systemDefault())
+
+private val RECORDING_TITLE_DATE_FORMAT: DateTimeFormatter =
+    DateTimeFormatter
+        .ofPattern("yyyy-MM-dd")
         .withZone(java.time.ZoneId.systemDefault())
 
 private const val GLANCEMAP_GPX_EXTENSION_NAMESPACE = "https://glancemap.app/gpx/extensions/1"

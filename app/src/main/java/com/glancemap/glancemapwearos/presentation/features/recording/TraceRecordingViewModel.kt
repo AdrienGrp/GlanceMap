@@ -4,6 +4,7 @@ import android.location.Location
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.glancemap.glancemapwearos.core.maps.DemSource
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.GpxRepository
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
@@ -48,6 +49,7 @@ class TraceRecordingViewModel(
 
     private var sampleIntervalSeconds = SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
     private var recordingElevationSource = SettingsRepository.DEFAULT_RECORDING_ELEVATION_SOURCE
+    private var selectedDemSource = DemSource.DEFAULT
     private var recordingHeartRateSource = SettingsRepository.DEFAULT_RECORDING_HEART_RATE_SOURCE
     private var recordingCadenceSource = SettingsRepository.DEFAULT_RECORDING_CADENCE_SOURCE
     private var recordingSpeedSource = SettingsRepository.DEFAULT_RECORDING_SPEED_SOURCE
@@ -69,6 +71,9 @@ class TraceRecordingViewModel(
     private var demElevationHitCount = 0
     private var demElevationMissCount = 0
     private var gpsElevationUsedCount = 0
+    private var lastDemTileId: String? = null
+    private var lastDemAxisLen: Int? = null
+    private var lastDemResolutionLabel: String? = null
     private var acceptedAccuracySumMeters = 0.0
     private var acceptedAccuracyCount = 0
     private var acceptedAccuracyMinMeters: Float? = null
@@ -113,6 +118,9 @@ class TraceRecordingViewModel(
             .launchIn(viewModelScope)
         settingsRepository.recordingElevationSource
             .onEach { recordingElevationSource = it }
+            .launchIn(viewModelScope)
+        settingsRepository.demSource
+            .onEach { selectedDemSource = it }
             .launchIn(viewModelScope)
         settingsRepository.recordingHeartRateSource
             .onEach { recordingHeartRateSource = it }
@@ -457,10 +465,14 @@ class TraceRecordingViewModel(
                         longitude = longitude,
                         gpsAltitudeMeters = gpsAltitudeMeters,
                         source = selectedElevationSource,
+                        demSource = selectedDemSource,
                     )
                 if (elevation.demAttempted) {
                     if (elevation.demHit) {
                         demElevationHitCount += 1
+                        lastDemTileId = elevation.demTileId
+                        lastDemAxisLen = elevation.demAxisLen
+                        lastDemResolutionLabel = elevation.demResolutionLabel
                     } else {
                         demElevationMissCount += 1
                     }
@@ -524,6 +536,8 @@ class TraceRecordingViewModel(
                             "elevationMeters=${point.elevationMeters?.toInt() ?: -1} " +
                             "elevationSource=${point.elevationSource ?: "na"} " +
                             "demHits=$demElevationHitCount demMisses=$demElevationMissCount " +
+                            "demResolution=${lastDemResolutionLabel ?: "na"} " +
+                            "demAxisLen=${lastDemAxisLen ?: -1} demTile=${lastDemTileId ?: "na"} " +
                             "gpsElevationUsed=$gpsElevationUsedCount " +
                             "gpsActiveDurationMs=$gpsActiveDurationMillis " +
                             "recordingGapCount=$recordingGapCount recordingMaxGapMs=$recordingMaxGapMillis " +
@@ -691,10 +705,17 @@ class TraceRecordingViewModel(
                 withContext(Dispatchers.IO) {
                     runCatching {
                         val customTitle = titleOverride?.trim()?.takeIf { it.isNotBlank() }?.take(MAX_RECORDING_TITLE_LENGTH)
-                        val title = customTitle ?: buildRecordingTitle(state.startedAtMillis ?: now)
+                        val startedAtMillis = state.startedAtMillis ?: now
+                        val title =
+                            customTitle
+                                ?: buildRecordingTitle(
+                                    startedAtMillis = startedAtMillis,
+                                    endedAtMillis = now,
+                                )
                         val fileName =
                             uniqueRecordingFileName(
-                                nowMillis = now,
+                                startedAtMillis = startedAtMillis,
+                                endedAtMillis = now,
                                 titleOverride = customTitle,
                             )
                         val summarySnapshot =
@@ -870,13 +891,17 @@ class TraceRecordingViewModel(
     }
 
     private suspend fun uniqueRecordingFileName(
-        nowMillis: Long,
+        startedAtMillis: Long,
+        endedAtMillis: Long,
         titleOverride: String?,
     ): String {
         val base =
             titleOverride
                 ?.let { buildRecordingFileNameFromTitle(it).removeSuffix(".gpx") }
-                ?: buildRecordingFileName(nowMillis).removeSuffix(".gpx")
+                ?: buildRecordingFileName(
+                    startedAtMillis = startedAtMillis,
+                    endedAtMillis = endedAtMillis,
+                ).removeSuffix(".gpx")
         var candidate = "$base.gpx"
         var index = 2
         while (gpxRepository.fileExists(candidate)) {
@@ -893,6 +918,9 @@ class TraceRecordingViewModel(
         demElevationHitCount = 0
         demElevationMissCount = 0
         gpsElevationUsedCount = 0
+        lastDemTileId = null
+        lastDemAxisLen = null
+        lastDemResolutionLabel = null
         acceptedAccuracySumMeters = 0.0
         acceptedAccuracyCount = 0
         acceptedAccuracyMinMeters = null
@@ -1360,6 +1388,8 @@ class TraceRecordingViewModel(
             "lastPointAgeMs=${lastPoint?.timeMillis?.let { nowMillis - it }?.coerceAtLeast(0L) ?: -1} " +
             "elevationGainMeters=${elevation.first.toInt()} elevationLossMeters=${elevation.second.toInt()} " +
             "elevationSource=$recordingElevationSource demHits=$demElevationHitCount " +
+            "demResolution=${lastDemResolutionLabel ?: "na"} " +
+            "demAxisLen=${lastDemAxisLen ?: -1} demTile=${lastDemTileId ?: "na"} " +
             "$sensorTokens " +
             "averageHeartRateBpm=${displaySnapshot.averageHeartRateBpm ?: -1} " +
             "lastHeartRateBpm=${lastPoint?.heartRateBpm ?: -1} lastStepCount=${lastPoint?.stepCount ?: -1} " +

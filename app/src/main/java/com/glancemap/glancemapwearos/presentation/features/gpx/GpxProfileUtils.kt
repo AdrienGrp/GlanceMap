@@ -772,6 +772,8 @@ private fun buildCanonicalElevationCumulative(
 
     val neutralThresholdMeters = effectiveFilter.neutralDiffThresholdMeters
     val trendActivationThresholdMeters = effectiveFilter.trendActivationThresholdMeters
+    val directionActivationThresholdMeters =
+        maxOf(neutralThresholdMeters, trendActivationThresholdMeters)
 
     var ascent = 0.0
     var descent = 0.0
@@ -789,33 +791,57 @@ private fun buildCanonicalElevationCumulative(
                 minimumGradePercent = effectiveFilter.minimumGradePercent,
             )
         when {
-            diff > neutralThresholdMeters -> {
-                pendingDescent = 0.0
-                descentActive = false
-                if (ascentActive) {
-                    ascent += diff
-                } else {
+            diff > 0.0 -> {
+                if (descentActive) {
                     pendingAscent += diff
-                    if (pendingAscent >= trendActivationThresholdMeters) {
+                    if (pendingAscent >= directionActivationThresholdMeters) {
                         ascent += pendingAscent
                         pendingAscent = 0.0
+                        pendingDescent = 0.0
+                        descentActive = false
                         ascentActive = true
+                    }
+                } else {
+                    val recoveredDescent = minOf(diff, pendingDescent)
+                    pendingDescent -= recoveredDescent
+                    val netRise = diff - recoveredDescent
+                    if (ascentActive) {
+                        ascent += netRise
+                    } else {
+                        pendingAscent += netRise
+                        if (pendingAscent >= directionActivationThresholdMeters) {
+                            ascent += pendingAscent
+                            pendingAscent = 0.0
+                            ascentActive = true
+                        }
                     }
                 }
             }
 
-            diff < -neutralThresholdMeters -> {
+            diff < 0.0 -> {
                 val loss = -diff
-                pendingAscent = 0.0
-                ascentActive = false
-                if (descentActive) {
-                    descent += loss
-                } else {
+                if (ascentActive) {
                     pendingDescent += loss
-                    if (pendingDescent >= trendActivationThresholdMeters) {
+                    if (pendingDescent >= directionActivationThresholdMeters) {
                         descent += pendingDescent
+                        pendingAscent = 0.0
                         pendingDescent = 0.0
+                        ascentActive = false
                         descentActive = true
+                    }
+                } else {
+                    val recoveredAscent = minOf(loss, pendingAscent)
+                    pendingAscent -= recoveredAscent
+                    val netLoss = loss - recoveredAscent
+                    if (descentActive) {
+                        descent += netLoss
+                    } else {
+                        pendingDescent += netLoss
+                        if (pendingDescent >= directionActivationThresholdMeters) {
+                            descent += pendingDescent
+                            pendingDescent = 0.0
+                            descentActive = true
+                        }
                     }
                 }
             }

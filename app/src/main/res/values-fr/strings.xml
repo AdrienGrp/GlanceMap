@@ -1,0 +1,63 @@
+<resources>
+    <string name="state_on">Activé</string>
+    <string name="state_off">Désactivé</string>
+    <string name="action_increase">Augmenter</string>
+    <string name="action_decrease">Diminuer</string>
+
+    <string name="marker_position_middle">Milieu</string>
+    <string name="marker_position_bottom">Bas</string>
+    <string name="map_position_marker">Position du marqueur</string>
+    <string name="map_auto_recenter">Recentrage automatique</string>
+    <string name="map_live_elevation">Altitude en direct</string>
+    <string name="map_live_distance">Distance en direct</string>
+    <string name="map_hill_shading">Ombrage du relief</string>
+    <string name="map_slope_overlay">Surcouche des pentes</string>
+    <string name="map_theme_not_supported">Non pris en charge par ce thème</string>
+    <string name="map_theme">Thème</string>
+    <string name="map_open_theme_settings">Ouvrir les réglages du thème</string>
+    <string name="map_display">Affichage</string>
+    <string name="map_open_display_settings">Ouvrir les réglages d’affichage</string>
+    <string name="map_zoom">Zoom</string>
+    <string name="map_open_zoom_settings">Ouvrir les réglages du zoom</string>
+    <string name="map_recenter_delay_seconds">Délai de recentrage : %1$d s</string>
+
+    <string name="navigation_updating_map">Mise à jour de la carte</string>
+    <string name="navigation_zoom_in">Zoom avant</string>
+    <string name="navigation_zoom_out">Zoom arrière</string>
+
+    <string name="gps_source">Source GPS</string>
+    <string name="gps_source_watch_only">Montre uniquement (batterie plus sollicitée)</string>
+    <string name="gps_source_auto">Auto (montre + téléphone)</string>
+    <string name="gps_basic_interval_summary">Le GPS de base utilise 3 s lorsque l’écran est allumé.</string>
+    <string name="gps_recording_guidance_interval_summary">REC + TBT : l’intervalle le plus court est utilisé.</string>
+    <string name="gps_recording_activity_summary">Randonnée : 3 s. Vélo : 1 s.</string>
+    <string name="screen_on">Écran allumé</string>
+    <string name="screen_off">Écran éteint</string>
+    <string name="gps_recording_screen_on">REC écran allumé</string>
+    <string name="gps_recording_screen_off">REC écran éteint</string>
+    <string name="gps_recording_off_warning">L’enregistrement peut comporter des interruptions lorsque l’écran est éteint.</string>
+    <string name="gps_recording_screen_off_disabled_warning">Le GPS REC est désactivé écran éteint. Les enregistrements peuvent comporter des interruptions et le GPS peut mettre un instant à se réactualiser lorsque vous consultez la montre.</string>
+    <string name="gps_auto_pause">Pause automatique</string>
+    <string name="gps_guidance_screen_on">TBT écran allumé</string>
+    <string name="gps_guidance_screen_off">TBT écran éteint</string>
+    <string name="gps_guidance_screen_on_off_warning">Le guidage utilise uniquement le GPS normal de la carte lorsque l’écran est allumé.</string>
+    <string name="gps_guidance_screen_off_warning">Les alertes TBT sont suspendues lorsque l’écran est éteint.</string>
+    <string name="gps_guidance_screen_off_disabled_warning">Le GPS TBT est désactivé écran éteint. Les alertes ne fonctionneront pas et le GPS peut mettre un instant à se réactualiser lorsque vous consultez la montre.</string>
+    <string name="gps_guidance_screen_on_disabled_warning">Le GPS TBT est désactivé écran allumé. Le guidage peut toujours utiliser le GPS normal de la carte lorsqu’il est disponible.</string>
+    <string name="gps_use_other_apps">Utiliser le GPS d’autres applications</string>
+    <string name="gps_other_apps_on_during_capture">Activé pendant l’enregistrement</string>
+    <string name="gps_other_apps_off_during_capture">Désactivé pendant l’enregistrement</string>
+    <string name="gps_decrease_timing">Réduire l’intervalle GPS</string>
+    <string name="gps_increase_timing">Augmenter l’intervalle GPS</string>
+    <string name="gps_stepper_hint_compact">Toucher ±1 s · maintenir ±5 s</string>
+    <string name="gps_stepper_hint">Toucher ±1 s · appui long ±5 s</string>
+    <string name="gps_same">Identique</string>
+    <string name="gps_same_with_value">Identique (%1$s)</string>
+    <string name="gps_same_as_screen_on">Identique à l’écran allumé</string>
+    <string name="gps_screen_on_with_value">Écran allumé · %1$s</string>
+    <string name="gps_short_interval_seconds">%1$d s</string>
+    <plurals name="gps_interval_seconds">
+        <item quantity="one">%1$d seconde</item>
+        <item quantity="other">%1$d secondes</item>
+    </plurals>
+</resources>

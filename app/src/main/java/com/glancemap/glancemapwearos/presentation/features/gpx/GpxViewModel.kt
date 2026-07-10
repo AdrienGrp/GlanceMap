@@ -605,6 +605,7 @@ class GpxViewModel(
         parsed: ParsedGpxData?,
     ): TrackProfile {
         if (profile.points.hasElevationData()) return profile
+        val selectedDemSource = settingsRepository.demSource.first()
         val recoveredPoints =
             profile.points.map { point ->
                 val demElevation =
@@ -614,6 +615,7 @@ class GpxViewModel(
                             longitude = point.latLong.longitude,
                             gpsAltitudeMeters = null,
                             source = SettingsRepository.RECORDING_ELEVATION_SOURCE_DEM,
+                            demSource = selectedDemSource,
                         ).elevationMeters
                 if (demElevation != null) point.copy(elevation = demElevation) else point
             }

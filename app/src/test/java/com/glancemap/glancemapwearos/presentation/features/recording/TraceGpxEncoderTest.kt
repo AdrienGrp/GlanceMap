@@ -6,8 +6,39 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mapsforge.core.model.LatLong
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 class TraceGpxEncoderTest {
+    @Test
+    fun defaultRecordingTitleContainsDateStartTimeAndEndTime() {
+        val startedAtMillis = localTime("2026-07-10T09:47:05")
+        val endedAtMillis = localTime("2026-07-10T10:12:49")
+
+        val title =
+            buildRecordingTitle(
+                startedAtMillis = startedAtMillis,
+                endedAtMillis = endedAtMillis,
+            )
+
+        assertEquals("2026-07-10 09:47 10:12", title)
+        assertFalse(title.contains("Recording", ignoreCase = true))
+    }
+
+    @Test
+    fun defaultRecordingFileNameContainsStartAndEndTime() {
+        val startedAtMillis = localTime("2026-07-10T09:47:05")
+        val endedAtMillis = localTime("2026-07-10T10:12:49")
+
+        assertEquals(
+            "2026-07-10-09-47-10-12.gpx",
+            buildRecordingFileName(
+                startedAtMillis = startedAtMillis,
+                endedAtMillis = endedAtMillis,
+            ),
+        )
+    }
+
     @Test
     fun encodeRecordedTraceAsGpxStartsNewTrackSegmentAfterResume() {
         val points =
@@ -190,4 +221,11 @@ class TraceGpxEncoderTest {
             speedMps = 1f,
             startsNewSegment = startsNewSegment,
         )
+
+    private fun localTime(value: String): Long =
+        LocalDateTime
+            .parse(value)
+            .atZone(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
 }

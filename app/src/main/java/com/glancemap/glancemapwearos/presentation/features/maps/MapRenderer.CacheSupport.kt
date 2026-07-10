@@ -140,12 +140,9 @@ internal fun resolveMapRendererReliefOverlayCacheNamespace(currentDemSignature: 
             append("RELIEF")
             append("|")
             append(demPart)
-            append("|MODEL:ALPINE_V2")
-            append("|STEP:12,10,8")
+            append("|")
+            append(ReliefOverlayAlgorithm.cacheSignature())
             append("|MIN_ZOOM:13")
-            append("|VOLUME:4,28")
-            append("|STEEP:21,48")
-            append("|RIDGE_GULLY:4,24")
         }
     val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray(Charsets.UTF_8))
     val shortHex =

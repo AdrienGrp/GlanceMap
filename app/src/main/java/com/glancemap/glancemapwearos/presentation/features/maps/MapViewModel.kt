@@ -460,7 +460,7 @@ class MapViewModel(
         demSource: DemSource,
     ): MapFileState {
         val coverage =
-            Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(demSource))
+            Dem3CoverageUtils.coverageForMap(context, file, sources = demSource.readFallbackOrder())
         val detailedCoverage =
             Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(DemSource.MAPZEN_SKADI_1S))
         val standardCoverage =

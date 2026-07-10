@@ -22,6 +22,7 @@ internal class MapsforgeHillshadeDemFolder(
             .filter { it.exists() && it.isDirectory }
             .flatMap { root -> root.walkTopDown().filter { it.isFile } }
             .mapNotNull(::toHillshadeDemFile)
+            .distinctBy { demFile -> demFile.name.uppercase(Locale.ROOT) }
             .toList()
 
     override fun subs(): Iterable<DemFolder> = emptyList()

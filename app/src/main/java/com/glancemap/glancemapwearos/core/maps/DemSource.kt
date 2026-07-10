@@ -45,6 +45,13 @@ enum class DemSource(
 
     fun localFileName(tileId: String): String = remoteFileName(tileId)
 
+    /** Read the selected terrain first, then standard terrain as the universal fallback. */
+    fun readFallbackOrder(): List<DemSource> =
+        when (this) {
+            MAPZEN_SKADI_1S -> listOf(MAPZEN_SKADI_1S, MAPSFORGE_DEM3)
+            MAPSFORGE_DEM3 -> listOf(MAPSFORGE_DEM3)
+        }
+
     fun remoteUrl(tileId: String): String {
         val safeTileId = tileId.uppercase(Locale.ROOT)
         return "${baseUrl.trimEnd('/')}/${folderForTile(safeTileId)}/${remoteFileName(safeTileId)}"

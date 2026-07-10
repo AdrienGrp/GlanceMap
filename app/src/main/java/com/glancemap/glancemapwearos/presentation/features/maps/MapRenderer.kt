@@ -126,7 +126,7 @@ class MapRenderer(
     private val demRootDir: File
         get() = Dem3CoverageUtils.demRootDir(context, currentDemSource)
     private val demRootDirs: List<File>
-        get() = listOf(demRootDir)
+        get() = currentDemSource.readFallbackOrder().map { source -> Dem3CoverageUtils.demRootDir(context, source) }
     private val reliefOverlayCacheRootDir: File by lazy {
         val root = context.externalCacheDir ?: context.cacheDir
         File(root, RELIEF_OVERLAY_CACHE_DIR_NAME)

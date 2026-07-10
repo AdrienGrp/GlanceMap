@@ -48,7 +48,11 @@ internal fun RecordingStopPromptCard(
         }
     val defaultTitle =
         remember(state.startedAtMillis) {
-            buildRecordingTitle(state.startedAtMillis ?: System.currentTimeMillis())
+            val stoppedAtMillis = System.currentTimeMillis()
+            buildRecordingTitle(
+                startedAtMillis = state.startedAtMillis ?: stoppedAtMillis,
+                endedAtMillis = stoppedAtMillis,
+            )
         }
     var draftTitle by remember(defaultTitle) { mutableStateOf(defaultTitle) }
     val shortRecording = isShortRecording(snapshot, state)
