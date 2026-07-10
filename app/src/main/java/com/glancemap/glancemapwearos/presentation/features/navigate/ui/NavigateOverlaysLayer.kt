@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.R
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.presentation.features.maps.RotatableMarker
 import com.glancemap.glancemapwearos.presentation.features.navigate.guidance.GuidanceMode
@@ -271,7 +273,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
 
     RouteToolInlineProgressBanner(
         visible = mapAppearanceApplyInProgress,
-        message = "Updating map",
+        message = stringResource(R.string.navigation_updating_map),
         startInset = sideButtonEdgePadding + sideButtonSize + 8.dp,
         endInset = sideButtonEdgePadding + sideButtonSize + routeShortcutAccessoryWidth + 8.dp,
     )
@@ -342,7 +344,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Zoom In",
+                        contentDescription = stringResource(R.string.navigation_zoom_in),
                         modifier =
                             Modifier
                                 .size(zoomIconSize)
@@ -385,7 +387,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Remove,
-                        contentDescription = "Zoom Out",
+                        contentDescription = stringResource(R.string.navigation_zoom_out),
                         modifier =
                             Modifier
                                 .size(zoomIconSize)

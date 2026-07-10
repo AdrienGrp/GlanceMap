@@ -92,6 +92,7 @@ internal fun rememberNavigateLocationUiState(
     val latestShouldTrackLocation = rememberUpdatedState(shouldTrackLocation)
     val latestScreenState = rememberUpdatedState(screenState)
     val latestNavigationMarkerAnchorMode = rememberUpdatedState(navigationMarkerAnchorMode)
+    val latestMarkerMotionController = rememberUpdatedState(markerMotionController)
 
     var locationMarker by remember { mutableStateOf<RotatableMarker?>(null) }
     var lastRenderedMarkerLatLong by remember { mutableStateOf<LatLong?>(null) }
@@ -420,7 +421,13 @@ internal fun rememberNavigateLocationUiState(
     }
 
     // Restores old working behavior: center only when shouldFollowPosition is true.
-    LaunchedEffect(locationViewModel, mapView) {
+    LaunchedEffect(
+        locationViewModel,
+        mapView,
+        markerMotionController,
+        expectedGpsIntervalMs,
+        navigationMarkerBitmap,
+    ) {
         locationViewModel.currentLocation
             .filterNotNull()
             .collect { loc ->
@@ -638,12 +645,12 @@ internal fun rememberNavigateLocationUiState(
             lastInteractiveStaleRefreshStateLabel = null
             activeWakeSessionId = 0L
             wakeAnchorSeeded = false
-            markerMotionController.reset(reason = "dispose")
+            latestMarkerMotionController.value.reset(reason = "dispose")
         }
     }
 
     // Motion prediction loop.
-    LaunchedEffect(mapView, markerMotionController, lastAcceptedLocationFixElapsedMs) {
+    LaunchedEffect(mapView, markerMotionController) {
         while (isActive) {
             val predictionActive =
                 latestShouldTrackLocation.value &&

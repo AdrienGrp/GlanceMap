@@ -244,4 +244,31 @@ class NavigateEffectsSupportTest {
             ),
         )
     }
+
+    @Test
+    fun rapidHeadingChangesEnableFastTurnRendering() {
+        assertTrue(
+            isFastHeadingTurn(
+                previousHeadingDeg = 350f,
+                nextHeadingDeg = 10f,
+                elapsedMs = 100L,
+            ),
+        )
+        assertFalse(
+            isFastHeadingTurn(
+                previousHeadingDeg = 350f,
+                nextHeadingDeg = 352f,
+                elapsedMs = 100L,
+            ),
+        )
+    }
+
+    @Test
+    fun fastTurnAnimationClosesHeadingErrorMoreAggressively() {
+        val normalAlpha = resolveHeadingAnimationAlpha(diffDeg = 40f, fastTurn = false)
+        val fastAlpha = resolveHeadingAnimationAlpha(diffDeg = 40f, fastTurn = true)
+
+        assertTrue(fastAlpha > normalAlpha)
+        assertTrue(fastAlpha >= 0.85f)
+    }
 }

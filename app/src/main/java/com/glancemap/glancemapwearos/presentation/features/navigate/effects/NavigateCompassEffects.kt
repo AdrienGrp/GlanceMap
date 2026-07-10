@@ -53,6 +53,10 @@ internal fun NavigateCompassEffects(
                 "ui_stop immediate=true reason=$reason screenState=${latestScreenState.value.name} " +
                     "delayMs=$delayMs provider=${compassProviderType.name}",
             )
+            if (delayMs > 0L) {
+                // Preserve a short warm-return window without running high-rate sensors in ambient.
+                compassViewModel.setLowPowerMode(enabled = true)
+            }
             compassViewModel.stop(reason = reason, delayMs = delayMs)
             return
         }
@@ -256,5 +260,5 @@ private fun logNavigateCompassEffect(message: String) {
 }
 
 private const val NAVIGATE_COMPASS_STOP_DEBOUNCE_MS = 2_500L
-private const val GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS = 10_000L
+private const val GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS = 2_500L
 private const val NAVIGATE_COMPASS_EFFECT_DISPOSE_REASON = "effect_dispose"

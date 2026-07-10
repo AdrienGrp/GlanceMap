@@ -158,7 +158,7 @@ class NavigateCompassEffectsStateTest {
             ),
         )
         assertEquals(
-            10_000L,
+            2_500L,
             resolveNavigateCompassImmediateStopDelayMs(
                 compassProviderType = CompassProviderType.GOOGLE_FUSED,
                 screenState = LocationScreenState.AMBIENT,

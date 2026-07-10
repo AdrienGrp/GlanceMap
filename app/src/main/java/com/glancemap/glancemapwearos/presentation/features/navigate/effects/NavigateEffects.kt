@@ -220,6 +220,8 @@ fun NavigationOrientationEffect(
         // Local var: safe because both coroutines run on Main (single-threaded).
         var liveTarget = normalize360(renderStateFlow.value.headingDeg)
         var latestRenderState = renderStateFlow.value
+        var lastTargetUpdateAtElapsedMs = SystemClock.elapsedRealtime()
+        var fastTurnUntilElapsedMs = 0L
 
         // Keep liveTarget current without blocking the animation loop.
         launch {
@@ -230,7 +232,18 @@ fun NavigationOrientationEffect(
                 }.distinctUntilChanged()
                 .collect { heading ->
                     if (shouldDriveHeadingForNavMode(navMode, latestRenderState)) {
+                        val nowElapsedMs = SystemClock.elapsedRealtime()
+                        if (
+                            isFastHeadingTurn(
+                                previousHeadingDeg = liveTarget,
+                                nextHeadingDeg = heading,
+                                elapsedMs = nowElapsedMs - lastTargetUpdateAtElapsedMs,
+                            )
+                        ) {
+                            fastTurnUntilElapsedMs = nowElapsedMs + FAST_TURN_RENDER_HOLD_MS
+                        }
                         liveTarget = heading
+                        lastTargetUpdateAtElapsedMs = nowElapsedMs
                         CompassRenderPerfTelemetry.recordTargetUpdate(navMode)
                     }
                 }
@@ -248,7 +261,12 @@ fun NavigationOrientationEffect(
                 val diff = angleDeltaDeg(liveTarget, current)
                 if (abs(diff) < HEADING_ANIMATION_DONE_DEG) return@withFrameNanos
 
-                val next = normalize360(current + diff * HEADING_ANIMATION_ALPHA)
+                val animationAlpha =
+                    resolveHeadingAnimationAlpha(
+                        diffDeg = diff,
+                        fastTurn = SystemClock.elapsedRealtime() <= fastTurnUntilElapsedMs,
+                    )
+                val next = normalize360(current + diff * animationAlpha)
                 displayedHeading.floatValue = next
                 onRenderedHeadingChanged(next)
                 CompassRenderPerfTelemetry.recordHeadingRender(navMode)
@@ -434,6 +452,29 @@ internal fun shouldThrottleMapsforgeRotation(
         lastAppliedAtElapsedMs != Long.MIN_VALUE &&
         nowElapsedMs - lastAppliedAtElapsedMs < MAP_ROTATION_MIN_APPLY_INTERVAL_MS
 
+internal fun isFastHeadingTurn(
+    previousHeadingDeg: Float,
+    nextHeadingDeg: Float,
+    elapsedMs: Long,
+): Boolean {
+    if (!previousHeadingDeg.isFinite() || !nextHeadingDeg.isFinite()) return false
+    if (elapsedMs <= 0L || elapsedMs > FAST_TURN_MAX_SAMPLE_GAP_MS) return false
+    val rotationRateDegPerSec =
+        abs(angleDeltaDeg(nextHeadingDeg, previousHeadingDeg)) * 1_000f / elapsedMs.toFloat()
+    return rotationRateDegPerSec >= FAST_TURN_MIN_RATE_DEG_PER_SEC
+}
+
+internal fun resolveHeadingAnimationAlpha(
+    diffDeg: Float,
+    fastTurn: Boolean,
+): Float =
+    when {
+        !diffDeg.isFinite() -> 0f
+        fastTurn && abs(diffDeg) >= FAST_TURN_LARGE_ERROR_DEG -> FAST_TURN_LARGE_ERROR_ALPHA
+        fastTurn -> FAST_TURN_ANIMATION_ALPHA
+        else -> HEADING_ANIMATION_ALPHA
+    }
+
 // Small heading noise is visible as left/right map shimmer in compass-follow.
 // Keep the compass pipeline responsive, but avoid applying sub-degree Mapsforge rotations.
 private const val MAP_ROTATION_APPLY_EPSILON_DEG = 0.8f
@@ -446,6 +487,12 @@ private const val MAP_ROTATION_MIN_APPLY_INTERVAL_MS = 33L
 // gap each frame: a 10° step reaches <0.1° in ~7 frames (~117ms). Tracks 50Hz sensor
 // updates with at most 1-2 frames of visual lag.
 private const val HEADING_ANIMATION_ALPHA = 0.5f
+private const val FAST_TURN_ANIMATION_ALPHA = 0.78f
+private const val FAST_TURN_LARGE_ERROR_ALPHA = 0.9f
+private const val FAST_TURN_LARGE_ERROR_DEG = 25f
+private const val FAST_TURN_MIN_RATE_DEG_PER_SEC = 55f
+private const val FAST_TURN_MAX_SAMPLE_GAP_MS = 250L
+private const val FAST_TURN_RENDER_HOLD_MS = 180L
 
 // Stop animating when within this threshold — below the useful visual precision of a watch map.
 private const val HEADING_ANIMATION_DONE_DEG = 0.2f
