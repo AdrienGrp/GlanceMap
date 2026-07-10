@@ -55,6 +55,7 @@ class SettingsRepositoryImpl private constructor(
         val WATCH_GPS_ONLY = booleanPreferencesKey("watch_gps_only")
         val GPS_IN_AMBIENT_MODE = booleanPreferencesKey("gps_in_ambient_mode")
         val GPS_DEBUG_TELEMETRY = booleanPreferencesKey("gps_debug_telemetry")
+        val DIAGNOSTICS_CAPTURE_MODE = stringPreferencesKey("diagnostics_capture_mode")
         val GPS_PASSIVE_LOCATION_EXPERIMENT = booleanPreferencesKey("gps_passive_location_experiment")
         val GPS_DEBUG_TELEMETRY_POPUP_ENABLED = booleanPreferencesKey("gps_debug_telemetry_popup_enabled")
         val RECORDING_SAMPLE_INTERVAL_SECONDS = intPreferencesKey("recording_sample_interval_seconds")
@@ -97,6 +98,8 @@ class SettingsRepositoryImpl private constructor(
             intPreferencesKey("turn_by_turn_off_route_repeat_seconds")
         val TURN_BY_TURN_GPS_IN_AMBIENT_MODE =
             booleanPreferencesKey("turn_by_turn_gps_in_ambient_mode")
+        val TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED =
+            booleanPreferencesKey("turn_by_turn_screen_off_batching_enabled")
         val TURN_BY_TURN_GPS_INTERVAL_SECONDS =
             intPreferencesKey("turn_by_turn_gps_interval_seconds")
         val TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS =
@@ -216,6 +219,17 @@ class SettingsRepositoryImpl private constructor(
         context.dataStore.edit { it[PrefKeys.GPS_DEBUG_TELEMETRY] = enabled }
     }
 
+    override val diagnosticsCaptureMode: Flow<String> =
+        context.dataStore.data.map {
+            sanitizeDiagnosticsCaptureMode(it[PrefKeys.DIAGNOSTICS_CAPTURE_MODE])
+        }
+
+    override suspend fun setDiagnosticsCaptureMode(mode: String) {
+        context.dataStore.edit {
+            it[PrefKeys.DIAGNOSTICS_CAPTURE_MODE] = sanitizeDiagnosticsCaptureMode(mode)
+        }
+    }
+
     override val gpsPassiveLocationExperiment: Flow<Boolean> =
         context.dataStore.data.map { it[PrefKeys.GPS_PASSIVE_LOCATION_EXPERIMENT] ?: false }
 
@@ -224,7 +238,12 @@ class SettingsRepositoryImpl private constructor(
     }
 
     override val gpsDebugTelemetryPopupEnabled: Flow<Boolean> =
-        context.dataStore.data.map { it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] ?: true }
+        context.dataStore.data.map {
+            val fullDiagnostics =
+                sanitizeDiagnosticsCaptureMode(it[PrefKeys.DIAGNOSTICS_CAPTURE_MODE]) ==
+                    SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL
+            fullDiagnostics && (it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] ?: true)
+        }
 
     override suspend fun setGpsDebugTelemetryPopupEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PrefKeys.GPS_DEBUG_TELEMETRY_POPUP_ENABLED] = enabled }
@@ -725,6 +744,16 @@ class SettingsRepositoryImpl private constructor(
                 }
             it[PrefKeys.TURN_BY_TURN_GPS_IN_AMBIENT_MODE] = enabled
         }
+    }
+
+    override val turnByTurnScreenOffBatchingEnabled: Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PrefKeys.TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED]
+                ?: SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED
+        }
+
+    override suspend fun setTurnByTurnScreenOffBatchingEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PrefKeys.TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED] = enabled }
     }
 
     override val turnByTurnGpsIntervalSeconds: Flow<Int> =
@@ -2093,6 +2122,13 @@ class SettingsRepositoryImpl private constructor(
             source
                 ?.takeIf { it in allowedRecordingSensorSources }
                 ?: defaultSource
+
+        private fun sanitizeDiagnosticsCaptureMode(mode: String?): String =
+            mode
+                ?.takeIf {
+                    it == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_FULL ||
+                        it == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY
+                } ?: SettingsRepository.DEFAULT_DIAGNOSTICS_CAPTURE_MODE
 
         private fun sanitizeRecordingStepsSource(source: String?): String =
             source

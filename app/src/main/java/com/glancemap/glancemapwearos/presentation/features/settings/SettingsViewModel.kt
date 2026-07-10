@@ -64,6 +64,19 @@ class SettingsViewModel(
             settingsRepository.setGpsDebugTelemetry(enabled)
         }
 
+    val diagnosticsCaptureMode: StateFlow<String> =
+        settingsRepository.diagnosticsCaptureMode
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_DIAGNOSTICS_CAPTURE_MODE,
+            )
+
+    fun setDiagnosticsCaptureMode(mode: String) =
+        viewModelScope.launch {
+            settingsRepository.setDiagnosticsCaptureMode(mode)
+        }
+
     val gpsPassiveLocationExperiment: StateFlow<Boolean> =
         settingsRepository.gpsPassiveLocationExperiment
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -412,6 +425,19 @@ class SettingsViewModel(
     fun setTurnByTurnGpsInAmbientMode(enabled: Boolean) =
         viewModelScope.launch {
             settingsRepository.setTurnByTurnGpsInAmbientMode(enabled)
+        }
+
+    val turnByTurnScreenOffBatchingEnabled: StateFlow<Boolean> =
+        settingsRepository.turnByTurnScreenOffBatchingEnabled
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED,
+            )
+
+    fun setTurnByTurnScreenOffBatchingEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setTurnByTurnScreenOffBatchingEnabled(enabled)
         }
 
     val turnByTurnGpsIntervalSeconds: StateFlow<Int> =

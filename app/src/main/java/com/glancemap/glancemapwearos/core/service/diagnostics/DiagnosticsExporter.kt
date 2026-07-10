@@ -44,6 +44,7 @@ data class DiagnosticsSettingsSnapshot(
     val keepAppOpen: Boolean,
     val gpsInAmbientMode: Boolean,
     val gpsDebugTelemetry: Boolean,
+    val diagnosticsCaptureMode: String = SettingsRepository.DEFAULT_DIAGNOSTICS_CAPTURE_MODE,
     val gpsPassiveLocationExperiment: Boolean,
     val backButtonExitsNavigation: Boolean,
     val recordingSampleIntervalSeconds: Int = 0,
@@ -78,6 +79,8 @@ data class DiagnosticsSettingsSnapshot(
     val turnByTurnOffRouteAlertThresholdMeters: Int = 0,
     val turnByTurnOffRouteRepeatSeconds: Int = 0,
     val turnByTurnGpsInAmbientMode: Boolean = SettingsRepository.DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE,
+    val turnByTurnScreenOffBatchingEnabled: Boolean =
+        SettingsRepository.DEFAULT_TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED,
     val turnByTurnBrouterGuideBackEnabled: Boolean = false,
     val turnByTurnRouteStartBehavior: String = "na",
     val turnByTurnReverseSuggestionMode: String = "na",
@@ -658,6 +661,7 @@ object DiagnosticsExporter {
             writer.appendLine("keepAppOpen=${settings.keepAppOpen}")
             writer.appendLine("gpsInAmbientMode=${settings.gpsInAmbientMode}")
             writer.appendLine("gpsDebugTelemetry=${settings.gpsDebugTelemetry}")
+            writer.appendLine("diagnosticsCaptureMode=${settings.diagnosticsCaptureMode}")
             writer.appendLine("gpsPassiveLocationExperiment=${settings.gpsPassiveLocationExperiment}")
             writer.appendLine("backButtonExitsNavigation=${settings.backButtonExitsNavigation}")
             writer.appendLine("recordingSampleIntervalSeconds=${settings.recordingSampleIntervalSeconds}")
@@ -708,6 +712,9 @@ object DiagnosticsExporter {
             )
             writer.appendLine("turnByTurnOffRouteRepeatSeconds=${settings.turnByTurnOffRouteRepeatSeconds}")
             writer.appendLine("turnByTurnGpsInAmbientMode=${settings.turnByTurnGpsInAmbientMode}")
+            writer.appendLine(
+                "turnByTurnScreenOffBatchingEnabled=${settings.turnByTurnScreenOffBatchingEnabled}",
+            )
             writer.appendLine("turnByTurnBrouterGuideBackEnabled=${settings.turnByTurnBrouterGuideBackEnabled}")
             writer.appendLine("turnByTurnRouteStartBehavior=${settings.turnByTurnRouteStartBehavior}")
             writer.appendLine("turnByTurnReverseSuggestionMode=${settings.turnByTurnReverseSuggestionMode}")

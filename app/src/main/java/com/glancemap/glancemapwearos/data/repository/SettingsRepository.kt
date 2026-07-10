@@ -11,6 +11,9 @@ interface SettingsRepository {
 
         const val DEFAULT_GPS_INTERVAL_MS = 3000L
         const val DEFAULT_AMBIENT_GPS_INTERVAL_MS = 60_000L
+        const val DIAGNOSTICS_CAPTURE_MODE_FULL = "FULL"
+        const val DIAGNOSTICS_CAPTURE_MODE_BATTERY = "BATTERY"
+        const val DEFAULT_DIAGNOSTICS_CAPTURE_MODE = DIAGNOSTICS_CAPTURE_MODE_FULL
         const val MIN_AMBIENT_GPS_INTERVAL_MS = 1_000L
         const val MAX_AMBIENT_GPS_INTERVAL_MS = 120_000L
         const val RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS = -1
@@ -147,6 +150,7 @@ interface SettingsRepository {
         const val DEFAULT_TURN_BY_TURN_GPS_INTERVAL_SECONDS = 3
         const val DEFAULT_TURN_BY_TURN_SCREEN_OFF_GPS_INTERVAL_SECONDS = GPS_INTERVAL_SAME_AS_SCREEN_ON_SECONDS
         const val DEFAULT_TURN_BY_TURN_GPS_IN_AMBIENT_MODE = true
+        const val DEFAULT_TURN_BY_TURN_SCREEN_OFF_BATCHING_ENABLED = false
         const val TURN_BY_TURN_METRIC_REMAINING_DISTANCE = "remaining_distance"
         const val TURN_BY_TURN_METRIC_REMAINING_ASCENT = "remaining_ascent"
         const val TURN_BY_TURN_METRIC_REMAINING_DESCENT = "remaining_descent"
@@ -269,6 +273,10 @@ interface SettingsRepository {
     val gpsDebugTelemetry: Flow<Boolean>
 
     suspend fun setGpsDebugTelemetry(enabled: Boolean)
+
+    val diagnosticsCaptureMode: Flow<String>
+
+    suspend fun setDiagnosticsCaptureMode(mode: String)
 
     val gpsPassiveLocationExperiment: Flow<Boolean>
 
@@ -406,6 +414,10 @@ interface SettingsRepository {
     val turnByTurnGpsInAmbientMode: Flow<Boolean>
 
     suspend fun setTurnByTurnGpsInAmbientMode(enabled: Boolean)
+
+    val turnByTurnScreenOffBatchingEnabled: Flow<Boolean>
+
+    suspend fun setTurnByTurnScreenOffBatchingEnabled(enabled: Boolean)
 
     val turnByTurnGpsIntervalSeconds: Flow<Int>
 

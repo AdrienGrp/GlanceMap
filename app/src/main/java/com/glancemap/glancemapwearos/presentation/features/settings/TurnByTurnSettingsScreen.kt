@@ -22,6 +22,7 @@ fun TurnByTurnSettingsScreen(
     val voiceGuidanceEnabled by viewModel.turnByTurnVoiceGuidanceEnabled.collectAsState()
     val offRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
     val compactPopupEnabled by viewModel.turnByTurnCompactPopupEnabled.collectAsState()
+    val screenOffBatchingEnabled by viewModel.turnByTurnScreenOffBatchingEnabled.collectAsState()
     var showInfoDialog by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -43,6 +44,19 @@ fun TurnByTurnSettingsScreen(
                 onCheckedChanged = viewModel::setTurnByTurnHapticsEnabled,
                 label = "Guidance haptics",
                 secondaryLabel = if (hapticsEnabled) "Vibrate for guidance cues" else "Silent guidance",
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = screenOffBatchingEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnScreenOffBatchingEnabled,
+                label = "Batch screen-off GPS",
+                secondaryLabel =
+                    if (screenOffBatchingEnabled) {
+                        "Lower wakeups · alerts may be delayed"
+                    } else {
+                        "Immediate TBT alerts"
+                    },
             )
         }
         item {
@@ -112,6 +126,7 @@ fun TurnByTurnSettingsScreen(
                 "Tap the speaker icon in the full turn view to switch voice guidance on or off.",
                 "Amber guidance means you are off route. The distance shows how far you are from the GPX.",
                 "Set TBT GPS timing in GPS settings. Faster timing gives more reliable alerts but uses more battery.",
+                "Screen-off GPS batching can save wakeups, but turn and off-route alerts may arrive later.",
                 "Turn instructions depend on the GPX geometry or routing hints available in the file.",
             ),
         onDismiss = { showInfoDialog = false },

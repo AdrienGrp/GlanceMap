@@ -2,6 +2,9 @@ package com.glancemap.glancemapwearos.core.service.diagnostics
 
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -11,6 +14,7 @@ class EnergyDiagnosticsTest {
         DebugTelemetry.setEnabled(false)
         DebugTelemetry.clear()
         EnergyDiagnostics.clear()
+        EnergyDiagnostics.setEnabled(false)
     }
 
     @After
@@ -18,6 +22,7 @@ class EnergyDiagnosticsTest {
         DebugTelemetry.setEnabled(false)
         DebugTelemetry.clear()
         EnergyDiagnostics.clear()
+        EnergyDiagnostics.setEnabled(false)
     }
 
     @Test
@@ -28,6 +33,7 @@ class EnergyDiagnosticsTest {
                     "reason=gps_request_applied mode=BURST level=70 tempC=29.0 curNowUa=-200000",
                     "reason=periodic burst=true tracking=true level=69 tempC=29.5 curNowUa=-100000",
                     "reason=periodic screenState=SCREEN_OFF tracking=false level=68 tempC=28.0 curNowUa=-2000",
+                    "reason=periodic burst=true interactive=false level=67 tempC=28.0 curNowUa=-4000",
                 ),
             )
         val burst = checkNotNull(summary.modes["burst"])
@@ -35,12 +41,93 @@ class EnergyDiagnosticsTest {
 
         assertEquals(2, burst.sampleCount)
         assertEquals(-150000L, burst.avgCurrentNowUa)
+        assertEquals(150000L, burst.medianAbsCurrentNowUa)
         assertEquals(69, burst.minLevelPct)
         assertEquals(70, burst.maxLevelPct)
 
-        assertEquals(1, screenOff.sampleCount)
-        assertEquals(-2000L, screenOff.avgCurrentNowUa)
-        assertEquals(68, screenOff.minLevelPct)
+        assertEquals(2, screenOff.sampleCount)
+        assertEquals(-3000L, screenOff.avgCurrentNowUa)
+        assertEquals(3000L, screenOff.medianAbsCurrentNowUa)
+        assertEquals(67, screenOff.minLevelPct)
         assertEquals(68, screenOff.maxLevelPct)
     }
+
+    @Test
+    fun batteryCaptureGateIsIndependentFromVerboseTelemetry() {
+        assertFalse(DebugTelemetry.isEnabled())
+
+        EnergyDiagnostics.setEnabled(true)
+
+        assertTrue(EnergyDiagnostics.isEnabled())
+        assertFalse(DebugTelemetry.isEnabled())
+    }
+
+    @Test
+    fun batteryBenchmarkUsesOnlyFixedCadenceSamples() {
+        EnergyDiagnostics.configure(captureActive = true, fullDiagnostics = false)
+
+        assertTrue(EnergyDiagnostics.shouldRecordSample("periodic"))
+        assertTrue(EnergyDiagnostics.shouldRecordSample("capture_toggle_on"))
+        assertTrue(EnergyDiagnostics.shouldRecordSample("capture_toggle_off"))
+        assertFalse(EnergyDiagnostics.shouldRecordSample("gps_burst_start"))
+        assertFalse(EnergyDiagnostics.shouldRecordSample("http_transfer_start"))
+    }
+
+    @Test
+    fun chargeCounterIsPrimaryBatteryConsumptionMeasurement() {
+        val summary =
+            EnergyDiagnostics.summarizeLines(
+                listOf(
+                    batteryLine(atMs = 1_000L, currentUa = -100_000, chargeCounterUah = 400_000),
+                    batteryLine(atMs = 3_601_000L, currentUa = -200_000, chargeCounterUah = 250_000),
+                ),
+            )
+
+        val batteryUse = checkNotNull(summary.batteryUse)
+        assertEquals(150.0, batteryUse.consumedMah, 0.001)
+        assertEquals(150.0, batteryUse.averageDrawMa, 0.001)
+        assertEquals("charge_counter", batteryUse.measurement)
+        assertEquals("high", batteryUse.confidence)
+        assertNull(batteryUse.integratedCurrentMah)
+    }
+
+    @Test
+    fun integratedCurrentIsFallbackWhenChargeCounterIsUnavailable() {
+        val summary =
+            EnergyDiagnostics.summarizeLines(
+                listOf(
+                    batteryLine(atMs = 1_000L, currentUa = -100_000),
+                    batteryLine(atMs = 61_000L, currentUa = -200_000),
+                ),
+            )
+
+        val batteryUse = checkNotNull(summary.batteryUse)
+        assertEquals(2.5, batteryUse.consumedMah, 0.001)
+        assertEquals(150.0, batteryUse.averageDrawMa, 0.001)
+        assertEquals("integrated_current", batteryUse.measurement)
+        assertEquals("medium", batteryUse.confidence)
+    }
+
+    @Test
+    fun chargingSamplesAreExcludedFromBatteryConsumption() {
+        val summary =
+            EnergyDiagnostics.summarizeLines(
+                listOf(
+                    batteryLine(atMs = 1_000L, currentUa = 100_000, status = "charging", plugged = "wireless"),
+                    batteryLine(atMs = 61_000L, currentUa = 100_000, status = "charging", plugged = "wireless"),
+                ),
+            )
+
+        assertNull(summary.batteryUse)
+    }
+
+    private fun batteryLine(
+        atMs: Long,
+        currentUa: Int,
+        chargeCounterUah: Int? = null,
+        status: String = "discharging",
+        plugged: String = "battery",
+    ): String =
+        "atMs=$atMs reason=periodic status=$status plugged=$plugged " +
+            "curNowUa=$currentUa chargeCounterUah=${chargeCounterUah ?: "na"} level=50 tempC=30.0"
 }

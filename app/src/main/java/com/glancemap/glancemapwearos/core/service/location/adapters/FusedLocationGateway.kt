@@ -90,7 +90,7 @@ internal class FusedLocationGateway(
                         )
                     }
                 }
-            val locationRequest =
+            val locationRequestBuilder =
                 LocationRequest
                     .Builder(request.priority, request.intervalMs)
                     .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
@@ -98,7 +98,8 @@ internal class FusedLocationGateway(
                     .setMinUpdateDistanceMeters(request.minDistanceMeters)
                     .setWaitForAccurateLocation(request.waitForAccurateLocation)
                     .setMaxUpdateDelayMillis(request.maxUpdateDelayMs)
-                    .build()
+            request.durationMs?.let(locationRequestBuilder::setDurationMillis)
+            val locationRequest = locationRequestBuilder.build()
             registeringCallback = callback
             try {
                 client.requestLocationUpdates(locationRequest, callbackExecutor, callback).await()
@@ -125,6 +126,10 @@ internal class FusedLocationGateway(
         requestMutex.withLock {
             removeLocationUpdatesLocked()
         }
+    }
+
+    override suspend fun flushLocations() {
+        client.flushLocations().await()
     }
 
     private suspend fun removeLocationUpdatesLocked() {

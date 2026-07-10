@@ -21,26 +21,53 @@ internal fun Appendable.writeLineDumpSection(
 
 internal fun Appendable.writeEnergyByModeSummarySection(energySummary: EnergyDiagnostics.Summary) {
     appendLine()
+    writeBatteryConsumptionSummary(energySummary.batteryUse)
+    appendLine()
     appendLine("Energy By Mode Summary")
     if (energySummary.modes.isEmpty()) {
         appendLine("No energy diagnostics samples yet.")
     } else {
         energySummary.modes.forEach { (mode, stats) ->
-            appendLine(
-                "mode[$mode]=samples=${stats.sampleCount} currentSamples=${stats.currentSampleCount} " +
-                    "avgCurNowUa=${stats.avgCurrentNowUa?.toString() ?: "na"} " +
-                    "minCurNowUa=${stats.minCurrentNowUa?.toString() ?: "na"} " +
-                    "maxCurNowUa=${stats.maxCurrentNowUa?.toString() ?: "na"} " +
-                    "levelMin=${stats.minLevelPct?.toString() ?: "na"} " +
-                    "levelMax=${stats.maxLevelPct?.toString() ?: "na"} " +
-                    "levelAvg=${TelemetryFormatters.decimalOrNa(stats.avgLevelPct, 1)} " +
-                    "tempMinC=${TelemetryFormatters.decimalOrNa(stats.minTempC, 1)} " +
-                    "tempMaxC=${TelemetryFormatters.decimalOrNa(stats.maxTempC, 1)} " +
-                    "tempAvgC=${TelemetryFormatters.decimalOrNa(stats.avgTempC, 1)}",
-            )
+            writeEnergyModeStats(mode, stats)
         }
     }
 }
+
+private fun Appendable.writeBatteryConsumptionSummary(batteryUse: EnergyDiagnostics.BatteryUseStats?) {
+    appendLine("Battery Consumption Summary")
+    batteryUse?.let {
+        appendLine("batteryUsedMah=${TelemetryFormatters.decimal(batteryUse.consumedMah, 2)}")
+        appendLine("averageDrawMa=${TelemetryFormatters.decimal(batteryUse.averageDrawMa, 1)}")
+        appendLine("durationMs=${batteryUse.durationMs}")
+        appendLine("measurement=${batteryUse.measurement}")
+        appendLine("confidence=${batteryUse.confidence}")
+        appendLine("medianDrawMa=${TelemetryFormatters.decimalOrNa(batteryUse.medianDrawMa, 1)}")
+        appendLine("p90DrawMa=${TelemetryFormatters.decimalOrNa(batteryUse.p90DrawMa, 1)}")
+        appendLine("integratedCurrentMah=${TelemetryFormatters.decimalOrNa(batteryUse.integratedCurrentMah, 2)}")
+        appendLine("chargeCounterStartUah=${batteryUse.chargeCounterStartUah?.toString() ?: "na"}")
+        appendLine("chargeCounterEndUah=${batteryUse.chargeCounterEndUah?.toString() ?: "na"}")
+    } ?: appendLine("No complete unplugged battery measurement yet.")
+}
+
+private fun Appendable.writeEnergyModeStats(
+    mode: String,
+    stats: EnergyDiagnostics.ModeStats,
+) = appendLine(
+    "mode[$mode]=samples=${stats.sampleCount} currentSamples=${stats.currentSampleCount} " +
+        "avgCurNowUa=${stats.avgCurrentNowUa?.toString() ?: "na"} " +
+        "medianAbsCurNowUa=${stats.medianAbsCurrentNowUa?.toString() ?: "na"} " +
+        "medianAbsCurNowMa=${
+            stats.medianAbsCurrentNowUa?.let { TelemetryFormatters.decimal(it / 1_000.0, 1) } ?: "na"
+        } " +
+        "minCurNowUa=${stats.minCurrentNowUa?.toString() ?: "na"} " +
+        "maxCurNowUa=${stats.maxCurrentNowUa?.toString() ?: "na"} " +
+        "levelMin=${stats.minLevelPct?.toString() ?: "na"} " +
+        "levelMax=${stats.maxLevelPct?.toString() ?: "na"} " +
+        "levelAvg=${TelemetryFormatters.decimalOrNa(stats.avgLevelPct, 1)} " +
+        "tempMinC=${TelemetryFormatters.decimalOrNa(stats.minTempC, 1)} " +
+        "tempMaxC=${TelemetryFormatters.decimalOrNa(stats.maxTempC, 1)} " +
+        "tempAvgC=${TelemetryFormatters.decimalOrNa(stats.avgTempC, 1)}",
+)
 
 internal fun Appendable.writeDemDownloadSections(
     demDownloadSummary: DemDownloadSummary,

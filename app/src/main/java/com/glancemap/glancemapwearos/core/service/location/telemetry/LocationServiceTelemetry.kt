@@ -622,6 +622,19 @@ internal class LocationServiceTelemetry(
         )
     }
 
+    fun logImmediateRequestSkippedFreshStream(
+        source: String,
+        runtimeReason: String,
+        intervalMs: Long,
+        fixAgeMs: Long,
+        accuracyM: Float,
+    ) {
+        log(
+            "immediateRequest: skippedFreshStream source=$source reason=$runtimeReason " +
+                "intervalMs=$intervalMs fixAgeMs=$fixAgeMs accuracyM=${accuracyM.format(1)}",
+        )
+    }
+
     fun logActivityTransition(
         from: LocationActivityState,
         to: LocationActivityState,
