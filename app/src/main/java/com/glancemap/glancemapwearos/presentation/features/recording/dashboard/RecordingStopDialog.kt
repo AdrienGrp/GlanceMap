@@ -284,9 +284,6 @@ private fun List<RecordingRecapMetric>.orderedForActivityProfile(activityProfile
             "Max HR",
             "Power (Avg)",
             "Max Power",
-            "Cal (Total)",
-            "Cal (Active)",
-            "Cal (Rest)",
         )
     } else {
         moveLabelAfter(
