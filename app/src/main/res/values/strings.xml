@@ -20,19 +20,19 @@
     <string name="map_open_display_settings">Open display settings</string>
     <string name="map_zoom">Zoom</string>
     <string name="map_open_zoom_settings">Open zoom settings</string>
-    <string name="map_recenter_delay_seconds">Recenter delay: %1$d s</string>
+    <string name="map_recenter_delay_seconds">Recenter Delay: %1$ds</string>
     <string name="map_dem_download_progress">Elevation %1$d%% · %2$d/%3$d</string>
 
     <string name="navigation_updating_map">Updating map</string>
     <string name="navigation_zoom_in">Zoom in</string>
     <string name="navigation_zoom_out">Zoom out</string>
 
-    <string name="gps_source">GPS source</string>
-    <string name="gps_source_watch_only">Watch only (higher battery use)</string>
-    <string name="gps_source_auto">Auto (watch + phone)</string>
-    <string name="gps_basic_interval_summary">Basic GPS uses 3 s when the screen is on.</string>
+    <string name="gps_source">GPS Source</string>
+    <string name="gps_source_watch_only">Watch Only (more ⚡)</string>
+    <string name="gps_source_auto">Auto (Watch + Phone)</string>
+    <string name="gps_basic_interval_summary">Basic GPS uses 3s when the screen is on.</string>
     <string name="gps_recording_guidance_interval_summary">REC + TBT: shorter timing is used.</string>
-    <string name="gps_recording_activity_summary">Hike: 3 s. Bike: 1 s.</string>
+    <string name="gps_recording_activity_summary">Hike: 3s. Bike: 1s.</string>
     <string name="screen_on">Screen on</string>
     <string name="screen_off">Screen off</string>
     <string name="gps_recording_screen_on">REC screen on</string>
@@ -51,13 +51,13 @@
     <string name="gps_other_apps_off_during_capture">Off during capture</string>
     <string name="gps_decrease_timing">Decrease GPS timing</string>
     <string name="gps_increase_timing">Increase GPS timing</string>
-    <string name="gps_stepper_hint_compact">Tap ±1 s · hold ±5 s</string>
-    <string name="gps_stepper_hint">Tap ±1 s · long press ±5 s</string>
+    <string name="gps_stepper_hint_compact">Tap ±1s · hold ±5s</string>
+    <string name="gps_stepper_hint">Tap ±1s · long press ±5s</string>
     <string name="gps_same">Same</string>
     <string name="gps_same_with_value">Same (%1$s)</string>
     <string name="gps_same_as_screen_on">Same as screen on</string>
     <string name="gps_screen_on_with_value">Screen on · %1$s</string>
-    <string name="gps_short_interval_seconds">%1$d s</string>
+    <string name="gps_short_interval_seconds">%1$ds</string>
     <plurals name="gps_interval_seconds">
         <item quantity="one">%1$d second</item>
         <item quantity="other">%1$d seconds</item>
