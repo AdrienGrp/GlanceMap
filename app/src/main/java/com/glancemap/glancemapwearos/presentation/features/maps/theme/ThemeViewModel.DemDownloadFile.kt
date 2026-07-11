@@ -27,6 +27,7 @@ internal fun downloadDemFile(
     demRoot: File,
     userAgent: String,
     onConnectionOpened: (HttpURLConnection) -> Unit = {},
+    onProgress: (bytesDone: Long, totalBytes: Long?) -> Unit = { _, _ -> },
 ) {
     val context = buildDemDownloadContext(url = url, target = target)
     recordResumeAttempt(context)
@@ -34,7 +35,14 @@ internal fun downloadDemFile(
     onConnectionOpened(connection)
     try {
         val response = prepareDemResponse(connection = connection, context = context, demRoot = demRoot)
-        copyDemResponse(connection = connection, context = context, response = response)
+        val startingBytes = if (response.append) context.resumeOffset else 0L
+        onProgress(startingBytes, response.expectedTotalBytes)
+        copyDemResponse(
+            connection = connection,
+            context = context,
+            response = response,
+            onProgress = onProgress,
+        )
         promoteAndValidateDemPart(context)
         recordSavedDemTile(context = context, response = response)
     } finally {

@@ -21,6 +21,7 @@
     <string name="map_zoom">Zoom</string>
     <string name="map_open_zoom_settings">Open zoom settings</string>
     <string name="map_recenter_delay_seconds">Recenter delay: %1$d s</string>
+    <string name="map_dem_download_progress">Elevation %1$d%% · %2$d/%3$d</string>
 
     <string name="navigation_updating_map">Updating map</string>
     <string name="navigation_zoom_in">Zoom in</string>

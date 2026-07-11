@@ -20,6 +20,7 @@
     <string name="map_zoom">Zoom</string>
     <string name="map_open_zoom_settings">Ouvrir les réglages du zoom</string>
     <string name="map_recenter_delay_seconds">Délai de recentrage : %1$d s</string>
+    <string name="map_dem_download_progress">Altitude %1$d%% · %2$d/%3$d</string>
 
     <string name="navigation_updating_map">Mise à jour de la carte</string>
     <string name="navigation_zoom_in">Zoom avant</string>

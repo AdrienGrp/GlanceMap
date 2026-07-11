@@ -11,13 +11,30 @@ internal fun copyDemResponse(
     connection: HttpURLConnection,
     context: DemDownloadContext,
     response: DemDownloadResponse,
+    onProgress: (bytesDone: Long, totalBytes: Long?) -> Unit = { _, _ -> },
 ) {
+    var bytesDone = if (response.append) context.resumeOffset else 0L
+    var lastReportedBytes = bytesDone
     connection.inputStream.use { input ->
         FileOutputStream(context.part, response.append).use { out ->
-            input.copyTo(out)
+            val buffer = ByteArray(DEM_DOWNLOAD_BUFFER_SIZE_BYTES)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                out.write(buffer, 0, read)
+                bytesDone += read
+                val isComplete = response.expectedTotalBytes?.let { bytesDone >= it } == true
+                if (bytesDone - lastReportedBytes >= DEM_PROGRESS_STEP_BYTES || isComplete) {
+                    onProgress(bytesDone, response.expectedTotalBytes)
+                    lastReportedBytes = bytesDone
+                }
+            }
             out.flush()
             runCatching { out.fd.sync() }
         }
+    }
+    if (bytesDone != lastReportedBytes) {
+        onProgress(bytesDone, response.expectedTotalBytes)
     }
     requireCompleteDemPart(context = context, expectedTotalBytes = response.expectedTotalBytes)
 }
@@ -90,3 +107,6 @@ private fun recordDemValidationFailure(
                 "error=${error.javaClass.simpleName} message=${error.message.orEmpty().demDiagValue()}",
     )
 }
+
+private const val DEM_DOWNLOAD_BUFFER_SIZE_BYTES = 32 * 1024
+private const val DEM_PROGRESS_STEP_BYTES = 64 * 1024L
