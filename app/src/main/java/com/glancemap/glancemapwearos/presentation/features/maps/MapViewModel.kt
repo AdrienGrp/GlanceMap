@@ -459,8 +459,11 @@ class MapViewModel(
         file: File,
         demSource: DemSource,
     ): MapFileState {
+        // Download status must represent the selected quality only. Runtime consumers use
+        // readFallbackOrder(), but treating Standard as "Detailed ready" here would turn the map
+        // icon green and prevent the user from downloading the selected Detailed terrain.
         val coverage =
-            Dem3CoverageUtils.coverageForMap(context, file, sources = demSource.readFallbackOrder())
+            Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(demSource))
         val detailedCoverage =
             Dem3CoverageUtils.coverageForMap(context, file, sources = listOf(DemSource.MAPZEN_SKADI_1S))
         val standardCoverage =
