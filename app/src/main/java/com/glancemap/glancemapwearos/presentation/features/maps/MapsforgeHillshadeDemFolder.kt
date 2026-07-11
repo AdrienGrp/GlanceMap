@@ -38,6 +38,33 @@ internal class MapsforgeHillshadeDemFolder(
     }
 }
 
+/**
+ * Keeps Mapsforge's hillshade index focused on roots that contain real elevation data.
+ *
+ * A DEM root can exist with only partial downloads or `.missing` markers. Passing that root to
+ * Mapsforge makes it look like the preferred source is available even though there is nothing it
+ * can render. In particular, Detailed selected with only Standard installed must use the exact
+ * same single-root path as Standard selected.
+ */
+internal fun resolveHillshadeDemRootDirs(demRootDirs: List<File>): List<File> = demRootDirs.filter(::containsHillshadeDemFile)
+
+private fun containsHillshadeDemFile(root: File): Boolean {
+    if (!root.exists() || !root.isDirectory) return false
+    return root
+        .walkTopDown()
+        .maxDepth(HILLSHADE_DEM_SCAN_MAX_DEPTH)
+        .any { file ->
+            file.isFile && file.name.isHillshadeDemFileName()
+        }
+}
+
+private fun String.isHillshadeDemFileName(): Boolean {
+    val lowerName = lowercase(Locale.ROOT)
+    return lowerName.endsWith(".hgt") ||
+        lowerName.endsWith(".hgt.zip") ||
+        lowerName.endsWith(".hgt.gz")
+}
+
 private class ZipHgtDemFile(
     private val file: File,
 ) : DemFile {
@@ -123,3 +150,4 @@ private fun readGzipUncompressedSize(file: File): Long {
 }
 
 private const val GZIP_FOOTER_SIZE_BYTES = 4
+private const val HILLSHADE_DEM_SCAN_MAX_DEPTH = 6

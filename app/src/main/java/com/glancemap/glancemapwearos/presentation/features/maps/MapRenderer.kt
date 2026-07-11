@@ -839,7 +839,17 @@ class MapRenderer(
 
             val config =
                 runCatching {
-                    val demFolder = MapsforgeHillshadeDemFolder(demRootDirs)
+                    val effectiveDemRootDirs = resolveHillshadeDemRootDirs(demRootDirs)
+                    if (effectiveDemRootDirs.isEmpty()) {
+                        timingStatus = "missing_renderable_dem"
+                        Log.d(
+                            TAG,
+                            "Hill shading enabled but no renderable DEM files found in " +
+                                demRootDirs.joinToString { it.absolutePath },
+                        )
+                        return null
+                    }
+                    val demFolder = MapsforgeHillshadeDemFolder(effectiveDemRootDirs)
                     val tileSource =
                         MemoryCachingHgtReaderTileSource(
                             demFolder,
