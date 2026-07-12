@@ -54,7 +54,6 @@ object ExternalSensorConnectionStatus {
     ): Boolean {
         val normalizedAddress = normalizeAddress(address) ?: return false
         if (normalizedAddress in _connectedAddresses.value) return true
-        if (normalizedAddress in _connectingAddresses.value) return true
         val lastConnectedAt = lastConnectedAtElapsedMs[normalizedAddress] ?: return false
         return nowElapsedMs - lastConnectedAt in 0L..recentWindowMs
     }

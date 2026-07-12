@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming")
+
 package com.glancemap.glancemapwearos.presentation.features.recording.external
 
 import androidx.compose.runtime.Composable
@@ -10,12 +12,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
 @Composable
+@Suppress("LongMethod", "LongParameterList")
 fun ExternalRunPodSensorBridge(
     active: Boolean,
     paused: Boolean,
     address: String?,
     wheelCircumferenceMeters: Float = SettingsRepository.DEFAULT_CYCLING_WHEEL_CIRCUMFERENCE_METERS,
     onMeasurement: (ExternalRunPodMeasurement) -> Unit,
+    onUnavailable: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val simulated = ExternalSensorSimulation.isSimulatedAddress(address)
@@ -73,6 +77,8 @@ fun ExternalRunPodSensorBridge(
                 address = linkedAddress,
                 wheelCircumferenceMeters = wheelCircumferenceMeters.toDouble(),
                 onMeasurement = onMeasurement,
+                onUnavailable = onUnavailable,
+                autoReconnect = active && !paused,
             )
         DebugTelemetry.log("ExternalRunPod", "event=bridge_start address=${linkedAddress.takeLast(5)}")
         client.connect()

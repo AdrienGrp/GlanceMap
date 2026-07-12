@@ -59,6 +59,23 @@ data class RecordingSensorMetrics(
     val heartRateFromBluetooth: Boolean = false,
 )
 
+internal fun RecordingSensorMetrics.withExternalRunPodUnavailable(
+    clearCadence: Boolean,
+    clearPower: Boolean,
+): RecordingSensorMetrics =
+    copy(
+        cadenceSpm = if (clearCadence) null else cadenceSpm,
+        cadenceUpdatedAtMillis = if (clearCadence) 0L else cadenceUpdatedAtMillis,
+        cadenceFromBluetooth = if (clearCadence) true else cadenceFromBluetooth,
+        externalSpeedMps = null,
+        externalSpeedUpdatedAtMillis = 0L,
+        externalDistanceRawUnits = null,
+        externalDistanceMeters = null,
+        externalDistanceUpdatedAtMillis = 0L,
+        externalPowerWatts = if (clearPower) null else externalPowerWatts,
+        externalPowerUpdatedAtMillis = if (clearPower) 0L else externalPowerUpdatedAtMillis,
+    )
+
 private data class StepCounterReading(
     val steps: Int,
     val cadenceSpm: Int?,
@@ -289,6 +306,15 @@ fun RecordingSensorBridge(
                         } else {
                             metrics.externalBatteryUpdatedAtMillis
                         },
+                )
+            onMetrics(metrics)
+        },
+        onUnavailable = {
+            DebugTelemetry.log("TraceRecordingSensors", "event=external_run_pod_unavailable")
+            metrics =
+                metrics.withExternalRunPodUnavailable(
+                    clearCadence = useExternalCadence,
+                    clearPower = useExternalPower,
                 )
             onMetrics(metrics)
         },

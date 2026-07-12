@@ -9,6 +9,8 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
@@ -25,6 +27,9 @@ class ExternalSensorScanner(
     private val _status = MutableStateFlow(ExternalSensorScanStatus.IDLE)
     private var scanStartedAtElapsedMs = 0L
     private var scanResultCount = 0
+    private var scanActive = false
+    private val handler = Handler(Looper.getMainLooper())
+    private val scanTimeoutRunnable = Runnable { stopScan(outcome = "timeout") }
 
     val devices: StateFlow<List<ExternalSensorDevice>> = _devices.asStateFlow()
     val status: StateFlow<ExternalSensorScanStatus> = _status.asStateFlow()
@@ -45,6 +50,8 @@ class ExternalSensorScanner(
             }
 
             override fun onScanFailed(errorCode: Int) {
+                scanActive = false
+                handler.removeCallbacks(scanTimeoutRunnable)
                 _status.value = ExternalSensorScanStatus.SCAN_FAILED
                 DebugTelemetry.log("ExternalSensors", "event=scan_failed code=$errorCode")
                 logScanSummary(outcome = "failed")
@@ -53,6 +60,7 @@ class ExternalSensorScanner(
 
     @SuppressLint("MissingPermission")
     fun startScan() {
+        if (scanActive) return
         if (!hasRequiredPermissions(context)) {
             _status.value = ExternalSensorScanStatus.PERMISSION_MISSING
             DebugTelemetry.log("ExternalSensors", "event=scan_unavailable reason=permission_missing")
@@ -91,7 +99,10 @@ class ExternalSensorScanner(
                 callback,
             )
         }.onSuccess {
+            scanActive = true
             _status.value = ExternalSensorScanStatus.SCANNING
+            handler.removeCallbacks(scanTimeoutRunnable)
+            handler.postDelayed(scanTimeoutRunnable, SCAN_TIMEOUT_MS)
             DebugTelemetry.log("ExternalSensors", "event=scan_started")
         }.onFailure { error ->
             _status.value = ExternalSensorScanStatus.SCAN_FAILED
@@ -102,6 +113,14 @@ class ExternalSensorScanner(
 
     @SuppressLint("MissingPermission")
     fun stopScan() {
+        stopScan(outcome = "stopped")
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun stopScan(outcome: String) {
+        if (!scanActive) return
+        scanActive = false
+        handler.removeCallbacks(scanTimeoutRunnable)
         val adapter =
             (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)
                 ?.adapter
@@ -110,7 +129,7 @@ class ExternalSensorScanner(
         if (_status.value == ExternalSensorScanStatus.SCANNING) {
             _status.value = ExternalSensorScanStatus.IDLE
         }
-        logScanSummary(outcome = "stopped")
+        logScanSummary(outcome = outcome)
     }
 
     private fun mergeResult(result: ScanResult) {
@@ -170,11 +189,13 @@ class ExternalSensorScanner(
         val heartRateCount = devices.count { ExternalSensorKind.HEART_RATE in it.kinds }
         val runPodCount = devices.count { ExternalSensorKind.RUNNING_SPEED_CADENCE in it.kinds }
         val cyclingCount = devices.count { ExternalSensorKind.CYCLING_SPEED_CADENCE in it.kinds }
+        val cyclingPowerCount = devices.count { ExternalSensorKind.CYCLING_POWER in it.kinds }
         DebugTelemetry.log(
             "ExternalSensors",
             "event=scan_summary outcome=$outcome durationMs=$durationMs resultCount=$scanResultCount " +
                 "devices=${devices.size} supported=$supportedCount unknown=${devices.size - supportedCount} " +
-                "heartRate=$heartRateCount runPod=$runPodCount cyclingSpeedCadence=$cyclingCount",
+                "heartRate=$heartRateCount runPod=$runPodCount cyclingSpeedCadence=$cyclingCount " +
+                "cyclingPower=$cyclingPowerCount",
         )
     }
 
@@ -191,6 +212,8 @@ class ExternalSensorScanner(
     private fun safeAddress(result: ScanResult): String? = runCatching { result.device.address }.getOrNull()
 
     companion object {
+        private const val SCAN_TIMEOUT_MS = 10_000L
+
         fun requiredPermissions(): List<String> =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 listOf(

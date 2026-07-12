@@ -18,6 +18,10 @@ enum class ExternalSensorKind(
         label = "Cycling speed/cadence",
         serviceUuid = UUID.fromString("00001816-0000-1000-8000-00805f9b34fb"),
     ),
+    CYCLING_POWER(
+        label = "Cycling power",
+        serviceUuid = UUID.fromString("00001818-0000-1000-8000-00805f9b34fb"),
+    ),
 }
 
 data class ExternalSensorDevice(

@@ -807,7 +807,10 @@ internal fun deriveTelemetryInsights(
                 "services_failed" -> externalHeartRateServiceFailureCount += 1
                 "measurement_missing" -> externalHeartRateMeasurementMissingCount += 1
                 "sample" -> {
-                    externalHeartRateSampleCount += 1
+                    externalHeartRateSampleCount =
+                        parseIntToken(line, "count=")
+                            ?.let { maxOf(externalHeartRateSampleCount, it) }
+                            ?: (externalHeartRateSampleCount + 1)
                     parseIntToken(line, "bpm=")?.takeIf { it > 0 }?.let { bpm ->
                         externalHeartRateLastBpm = bpm
                         externalHeartRateMinBpm = minOf(externalHeartRateMinBpm ?: bpm, bpm)
@@ -836,7 +839,10 @@ internal fun deriveTelemetryInsights(
                 "services_failed" -> externalRunPodServiceFailureCount += 1
                 "measurement_missing" -> externalRunPodMeasurementMissingCount += 1
                 "sample" -> {
-                    externalRunPodSampleCount += 1
+                    externalRunPodSampleCount =
+                        parseIntToken(line, "count=")
+                            ?.let { maxOf(externalRunPodSampleCount, it) }
+                            ?: (externalRunPodSampleCount + 1)
                     parseIntToken(line, "cadenceSpm=")?.takeIf { it > 0 }?.let {
                         externalRunPodLastCadenceSpm = it
                     }
