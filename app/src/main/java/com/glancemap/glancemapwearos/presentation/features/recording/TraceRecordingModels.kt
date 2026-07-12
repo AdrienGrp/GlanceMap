@@ -55,3 +55,32 @@ data class TraceRecordingUiState(
 ) {
     val pointCount: Int get() = points.size
 }
+
+internal data class ExternalDistanceSessionState(
+    val baseMeters: Double,
+    val sessionMeters: Double,
+)
+
+internal fun advanceExternalDistanceSession(
+    totalDistanceMeters: Double,
+    baseMeters: Double?,
+    previousSessionMeters: Double?,
+): ExternalDistanceSessionState? {
+    if (!totalDistanceMeters.isFinite() || totalDistanceMeters < 0.0) return null
+    val previousSession = previousSessionMeters?.takeIf { it.isFinite() }?.coerceAtLeast(0.0) ?: 0.0
+    val proposedBase = baseMeters?.takeIf { it.isFinite() } ?: (totalDistanceMeters - previousSession)
+    val proposedSession = (totalDistanceMeters - proposedBase).coerceAtLeast(0.0)
+    return if (proposedSession + EXTERNAL_DISTANCE_RESET_TOLERANCE_METERS < previousSession) {
+        ExternalDistanceSessionState(
+            baseMeters = totalDistanceMeters - previousSession,
+            sessionMeters = previousSession,
+        )
+    } else {
+        ExternalDistanceSessionState(
+            baseMeters = proposedBase,
+            sessionMeters = maxOf(previousSession, proposedSession),
+        )
+    }
+}
+
+private const val EXTERNAL_DISTANCE_RESET_TOLERANCE_METERS = 0.5

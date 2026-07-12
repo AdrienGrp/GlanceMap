@@ -63,6 +63,9 @@ class TraceRecordingDraftStore(
                     gpsActiveDurationMillis = json.optLong("gpsActiveDurationMillis", 0L).coerceAtLeast(0L),
                     recordingGapCount = json.optInt("recordingGapCount", 0).coerceAtLeast(0),
                     recordingMaxGapMillis = json.optLong("recordingMaxGapMillis", 0L).coerceAtLeast(0L),
+                    externalRawDistanceUnits = json.optionalLong("externalRawDistanceUnits"),
+                    externalDistanceMeters = json.optionalDouble("externalDistanceMeters"),
+                    externalIntegratedDistanceMeters = json.optionalDouble("externalIntegratedDistanceMeters"),
                     lastUiAction = json.optionalString("lastUiAction"),
                     points = points,
                 )
@@ -89,6 +92,9 @@ class TraceRecordingDraftStore(
                 .put("gpsActiveDurationMillis", state.gpsActiveDurationMillis)
                 .put("recordingGapCount", state.recordingGapCount)
                 .put("recordingMaxGapMillis", state.recordingMaxGapMillis)
+                .put("externalRawDistanceUnits", state.externalRawDistanceUnits ?: JSONObject.NULL)
+                .put("externalDistanceMeters", state.externalDistanceMeters ?: JSONObject.NULL)
+                .put("externalIntegratedDistanceMeters", state.externalIntegratedDistanceMeters ?: JSONObject.NULL)
                 .put("lastUiAction", lastUiAction ?: JSONObject.NULL)
                 .put(
                     "points",
@@ -134,6 +140,9 @@ data class TraceRecordingDraft(
     val gpsActiveDurationMillis: Long,
     val recordingGapCount: Int,
     val recordingMaxGapMillis: Long,
+    val externalRawDistanceUnits: Long?,
+    val externalDistanceMeters: Double?,
+    val externalIntegratedDistanceMeters: Double?,
     val lastUiAction: String?,
     val points: List<RecordedTracePoint>,
 )
@@ -168,6 +177,13 @@ private fun JSONObject.optionalInt(key: String): Int? =
         null
     } else {
         optInt(key).takeIf { it >= 0 }
+    }
+
+private fun JSONObject.optionalLong(key: String): Long? =
+    if (isNull(key)) {
+        null
+    } else {
+        optLong(key).takeIf { it >= 0L }
     }
 
 private fun JSONObject.optionalString(key: String): String? =

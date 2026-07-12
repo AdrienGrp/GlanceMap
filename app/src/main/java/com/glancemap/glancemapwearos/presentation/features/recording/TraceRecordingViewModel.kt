@@ -562,12 +562,19 @@ class TraceRecordingViewModel(
         updateSensorEventTelemetry(previous = latestSensorMetrics, next = metrics)
         latestSensorMetrics = metrics
         val integratedDistanceMeters = updateExternalSpeedIntegration(metrics)
-        val externalDistanceMeters =
+        val externalDistanceUpdate =
             metrics.externalDistanceMeters?.let { distance ->
-                val base = externalDistanceBaseMeters ?: distance.also { externalDistanceBaseMeters = it }
-                (distance - base).coerceAtLeast(0.0)
+                advanceExternalDistanceSession(
+                    totalDistanceMeters = distance,
+                    baseMeters = externalDistanceBaseMeters,
+                    previousSessionMeters = externalSessionDistanceMeters,
+                )
             }
-        externalDistanceMeters?.let { externalSessionDistanceMeters = it }
+        externalDistanceUpdate?.let { update ->
+            externalDistanceBaseMeters = update.baseMeters
+            externalSessionDistanceMeters = update.sessionMeters
+        }
+        val externalDistanceMeters = externalDistanceUpdate?.sessionMeters
         val nextState =
             state.copy(
                 heartRateBpm = metrics.heartRateBpm,
@@ -828,6 +835,11 @@ class TraceRecordingViewModel(
             gpsActiveDurationMillis = draft.gpsActiveDurationMillis
             recordingGapCount = draft.recordingGapCount
             recordingMaxGapMillis = draft.recordingMaxGapMillis
+            externalDistanceBaseMeters = null
+            externalSessionDistanceMeters = draft.externalDistanceMeters
+            externalIntegratedDistanceMeters = draft.externalIntegratedDistanceMeters
+            externalSpeedIntegrationLastTimeMillis = null
+            externalSpeedIntegrationLastMps = null
             rebuildTelemetryFromPoints(draft.points)
             _uiState.value =
                 TraceRecordingUiState(
@@ -845,6 +857,9 @@ class TraceRecordingViewModel(
                     gpsActiveDurationMillis = draft.gpsActiveDurationMillis,
                     recordingGapCount = draft.recordingGapCount,
                     recordingMaxGapMillis = draft.recordingMaxGapMillis,
+                    externalRawDistanceUnits = draft.externalRawDistanceUnits,
+                    externalDistanceMeters = draft.externalDistanceMeters,
+                    externalIntegratedDistanceMeters = draft.externalIntegratedDistanceMeters,
                     message = "REC recovered",
                 )
             DebugTelemetry.log(
