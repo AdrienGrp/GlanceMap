@@ -1321,6 +1321,10 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var startupSummaryCount = 0
     var startupHeadingSpanMaxDeg: Float? = null
     var startupMaxJumpMaxDeg: Float? = null
+    var startupVisibleHeadingJumpMaxDeg: Float? = null
+    var startupVisibleMapRotationJumpMaxDeg: Float? = null
+    var startupSourceHandoffCount = 0
+    var startupSourceHandoffMaxJumpDeg: Float? = null
     var startupStable3Count = 0
     var startupStable5Count = 0
     var startupOverlapSummaryCount = 0
@@ -1392,7 +1396,7 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         if ("large_jump accepted" in line) {
             largeJumpAcceptedCount += 1
         }
-        if ("sample_stale" in line) {
+        if ("google_fused sample_stale ageMs=" in line) {
             staleSampleCount += 1
         }
         if ("wake_session stage=startup_summary" in line) {
@@ -1402,6 +1406,19 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
             }
             parseFloatToken(line, "maxJumpDeg=")?.let { value ->
                 startupMaxJumpMaxDeg = maxOf(startupMaxJumpMaxDeg ?: value, value)
+            }
+            parseFloatToken(line, "visibleHeadingMaxJumpDeg=")?.let { value ->
+                startupVisibleHeadingJumpMaxDeg =
+                    maxOf(startupVisibleHeadingJumpMaxDeg ?: value, value)
+            }
+            parseFloatToken(line, "visibleMapRotationMaxJumpDeg=")?.let { value ->
+                startupVisibleMapRotationJumpMaxDeg =
+                    maxOf(startupVisibleMapRotationJumpMaxDeg ?: value, value)
+            }
+            startupSourceHandoffCount += parseIntToken(line, "sourceHandoffs=") ?: 0
+            parseFloatToken(line, "sourceHandoffMaxJumpDeg=")?.let { value ->
+                startupSourceHandoffMaxJumpDeg =
+                    maxOf(startupSourceHandoffMaxJumpDeg ?: value, value)
             }
             if (extractTokenValue(line, "stable3Ms=") != "na") startupStable3Count += 1
             if (extractTokenValue(line, "stable5Ms=") != "na") startupStable5Count += 1
@@ -1465,6 +1482,7 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         managerStopScheduledCount = managerStopScheduledCount,
         managerStopRequestedCount = managerStopRequestedCount,
         headingSampleCount = headingSampleCount,
+        headingDiagnosticSampleCount = headingSampleCount,
         largeJumpPendingCount = largeJumpPendingCount,
         largeJumpAcceptedCount = largeJumpAcceptedCount,
         staleSampleCount = staleSampleCount,
@@ -1474,6 +1492,10 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         startupSummaryCount = startupSummaryCount,
         startupHeadingSpanMaxDeg = startupHeadingSpanMaxDeg,
         startupMaxJumpMaxDeg = startupMaxJumpMaxDeg,
+        startupVisibleHeadingJumpMaxDeg = startupVisibleHeadingJumpMaxDeg,
+        startupVisibleMapRotationJumpMaxDeg = startupVisibleMapRotationJumpMaxDeg,
+        startupSourceHandoffCount = startupSourceHandoffCount,
+        startupSourceHandoffMaxJumpDeg = startupSourceHandoffMaxJumpDeg,
         startupStable3Count = startupStable3Count,
         startupStable5Count = startupStable5Count,
         startupOverlapSummaryCount = startupOverlapSummaryCount,

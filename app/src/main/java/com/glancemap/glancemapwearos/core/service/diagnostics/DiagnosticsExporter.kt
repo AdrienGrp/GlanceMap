@@ -353,6 +353,7 @@ object DiagnosticsExporter {
         val managerStopScheduledCount: Int = 0,
         val managerStopRequestedCount: Int = 0,
         val headingSampleCount: Int = 0,
+        val headingDiagnosticSampleCount: Int = 0,
         val largeJumpPendingCount: Int = 0,
         val largeJumpAcceptedCount: Int = 0,
         val staleSampleCount: Int = 0,
@@ -362,6 +363,10 @@ object DiagnosticsExporter {
         val startupSummaryCount: Int = 0,
         val startupHeadingSpanMaxDeg: Float? = null,
         val startupMaxJumpMaxDeg: Float? = null,
+        val startupVisibleHeadingJumpMaxDeg: Float? = null,
+        val startupVisibleMapRotationJumpMaxDeg: Float? = null,
+        val startupSourceHandoffCount: Int = 0,
+        val startupSourceHandoffMaxJumpDeg: Float? = null,
         val startupStable3Count: Int = 0,
         val startupStable5Count: Int = 0,
         val startupOverlapSummaryCount: Int = 0,
@@ -957,6 +962,10 @@ object DiagnosticsExporter {
             writer.appendLine("managerStopScheduledCount=${compassTelemetryInsights.managerStopScheduledCount}")
             writer.appendLine("managerStopRequestedCount=${compassTelemetryInsights.managerStopRequestedCount}")
             writer.appendLine("headingSampleCount=${compassTelemetryInsights.headingSampleCount}")
+            writer.appendLine(
+                "headingDiagnosticSampleCount=${compassTelemetryInsights.headingDiagnosticSampleCount}",
+            )
+            writer.appendLine("headingSampleCountScope=throttled_debug_lines_not_sensor_callbacks")
             writer.appendLine("largeJumpPendingCount=${compassTelemetryInsights.largeJumpPendingCount}")
             writer.appendLine("largeJumpAcceptedCount=${compassTelemetryInsights.largeJumpAcceptedCount}")
             writer.appendLine(
@@ -999,6 +1008,30 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "startupMaxJumpMaxDeg=${
                     compassTelemetryInsights.startupMaxJumpMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "startupVisibleHeadingJumpMaxDeg=${
+                    compassTelemetryInsights.startupVisibleHeadingJumpMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "startupVisibleMapRotationJumpMaxDeg=${
+                    compassTelemetryInsights.startupVisibleMapRotationJumpMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "startupSourceHandoffCount=${compassTelemetryInsights.startupSourceHandoffCount}",
+            )
+            writer.appendLine(
+                "startupSourceHandoffMaxJumpDeg=${
+                    compassTelemetryInsights.startupSourceHandoffMaxJumpDeg?.let {
                         TelemetryFormatters.decimal(it, 1)
                     } ?: "na"
                 }",

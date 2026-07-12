@@ -31,6 +31,7 @@ internal fun NavigateCompassEffects(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    val latestCompassProviderType = rememberUpdatedState(compassProviderType)
     val latestScreenState = rememberUpdatedState(screenState)
     val latestIsOfflineMode = rememberUpdatedState(isOfflineMode)
     var pendingStopJob by remember { mutableStateOf<Job?>(null) }
@@ -44,16 +45,16 @@ internal fun NavigateCompassEffects(
             pendingStopJob = null
             val delayMs =
                 resolveNavigateCompassImmediateStopDelayMs(
-                    compassProviderType = compassProviderType,
+                    compassProviderType = latestCompassProviderType.value,
                     screenState = latestScreenState.value,
                     isOfflineMode = latestIsOfflineMode.value,
                     reason = reason,
                 )
             logNavigateCompassEffect(
                 "ui_stop immediate=true reason=$reason screenState=${latestScreenState.value.name} " +
-                    "delayMs=$delayMs provider=${compassProviderType.name}",
+                    "delayMs=$delayMs provider=${latestCompassProviderType.value.name}",
             )
-            if (delayMs > 0L) {
+            if (delayMs > 0L && latestScreenState.value.isNonInteractive) {
                 // Preserve a short warm-return window without running high-rate sensors in ambient.
                 compassViewModel.setLowPowerMode(enabled = true)
             }
@@ -103,7 +104,8 @@ internal fun NavigateCompassEffects(
                         ) {
                             logNavigateCompassEffect(
                                 "ui_resume_wait screenState=${latestScreenState.value.name} " +
-                                    "reason=await_interactive_state provider=${compassProviderType.name}",
+                                    "reason=await_interactive_state " +
+                                    "provider=${latestCompassProviderType.value.name}",
                             )
                         } else {
                             stopCompass(
@@ -233,7 +235,6 @@ internal fun resolveNavigateCompassStopReason(
         else -> "resume_guard"
     }
 
-@Suppress("UnusedParameter")
 internal fun resolveNavigateCompassImmediateStopDelayMs(
     compassProviderType: CompassProviderType,
     screenState: LocationScreenState,
@@ -247,7 +248,11 @@ internal fun resolveNavigateCompassImmediateStopDelayMs(
             LocationScreenState.SCREEN_OFF -> 0L
             LocationScreenState.AMBIENT -> GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS
             LocationScreenState.INTERACTIVE ->
-                0L
+                if (reason == NAVIGATE_COMPASS_EFFECT_DISPOSE_REASON) {
+                    GOOGLE_FUSED_TRANSIENT_STOP_GRACE_MS
+                } else {
+                    0L
+                }
         }
     } else {
         0L

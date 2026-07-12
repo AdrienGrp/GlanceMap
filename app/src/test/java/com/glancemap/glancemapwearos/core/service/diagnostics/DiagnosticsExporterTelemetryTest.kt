@@ -210,6 +210,8 @@ class DiagnosticsExporterTelemetryTest {
                 "2026-04-20 20:07:12.000 [CompassTelemetry] wake_session stage=startup_summary " +
                     "id=1 windowMs=5000 samples=140 headingSpanDeg=286.0 maxJumpDeg=74.0 " +
                     "cumulativeHeadingRotationDeg=721.0 directionReversals=8 cumulativeMapRotationDeg=610.0 " +
+                    "visibleHeadingMaxJumpDeg=68.0 visibleMapRotationMaxJumpDeg=63.0 " +
+                    "sourceHandoffs=2 sourceHandoffMaxJumpDeg=52.0 " +
                     "renderErrorAvgDeg=2.4 renderErrorMaxDeg=18.0 stable3Ms=na stable5Ms=4300 fusedReadyMs=450",
                 "2026-04-20 20:07:13.000 [CompassTelemetry] google_fused startup_overlap_summary " +
                     "reason=start confirmed=true samples=10 avgDeltaDeg=52.0 maxDeltaDeg=138.0 " +
@@ -217,6 +219,8 @@ class DiagnosticsExporterTelemetryTest {
                 "2026-04-20 20:07:14.000 [CompassTelemetry] wake_session stage=startup_summary " +
                     "id=2 windowMs=5000 samples=150 headingSpanDeg=42.0 maxJumpDeg=12.0 " +
                     "cumulativeHeadingRotationDeg=90.0 directionReversals=2 cumulativeMapRotationDeg=80.0 " +
+                    "visibleHeadingMaxJumpDeg=9.0 visibleMapRotationMaxJumpDeg=11.0 " +
+                    "sourceHandoffs=1 sourceHandoffMaxJumpDeg=8.0 " +
                     "renderErrorAvgDeg=0.8 renderErrorMaxDeg=3.0 stable3Ms=1600 stable5Ms=1200 fusedReadyMs=420",
                 "2026-04-20 20:07:15.000 [CompassTelemetry] google_fused startup_overlap_summary " +
                     "reason=start confirmed=true samples=9 avgDeltaDeg=8.0 maxDeltaDeg=16.0 " +
@@ -230,6 +234,10 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals(2, insights.startupSummaryCount)
         assertEquals(286f, insights.startupHeadingSpanMaxDeg)
         assertEquals(74f, insights.startupMaxJumpMaxDeg)
+        assertEquals(68f, insights.startupVisibleHeadingJumpMaxDeg)
+        assertEquals(63f, insights.startupVisibleMapRotationJumpMaxDeg)
+        assertEquals(3, insights.startupSourceHandoffCount)
+        assertEquals(52f, insights.startupSourceHandoffMaxJumpDeg)
         assertEquals(1, insights.startupStable3Count)
         assertEquals(2, insights.startupStable5Count)
         assertEquals(2, insights.startupOverlapSummaryCount)
@@ -255,6 +263,28 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals(120, insights.renderPerfRotationAppliedCount)
         assertEquals(40, insights.renderPerfRotationSkippedCount)
         assertEquals(60, insights.renderPerfRotationThrottledCount)
+    }
+
+    @Test
+    fun compassHeadingSampleCountIsExplicitlyDiagnosticOnly() {
+        val insights =
+            deriveCompassTelemetryInsights(
+                listOf(
+                    "2026-07-09 09:00:00.000 [CompassTelemetry] heading raw=1.0 smoothed=1.0",
+                    "2026-07-09 09:00:05.000 [CompassTelemetry] google_fused sample heading=2.0",
+                    "2026-07-09 09:00:05.000 [CompassTelemetry] google_fused perf " +
+                        "windowMs=5000 callbacks=250 confirmed=245 unusable=0 headingPublishes=120",
+                    "2026-07-09 09:00:06.000 [CompassTelemetry] google_fused sample_stale " +
+                        "ageMs=1500 recoveryAttempted=false",
+                    "2026-07-09 09:00:06.010 [CompassTelemetry] google_fused bootstrap activate " +
+                        "reason=sample_stale_retry",
+                ),
+            )
+
+        assertEquals(2, insights.headingSampleCount)
+        assertEquals(2, insights.headingDiagnosticSampleCount)
+        assertEquals(245, insights.fusedPerfConfirmedCount)
+        assertEquals(1, insights.staleSampleCount)
     }
 
     private fun epochMs(localDateTime: String): Long =

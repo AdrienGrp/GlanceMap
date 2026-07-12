@@ -449,6 +449,8 @@ class FusedOrientationProviderAdapterSupportTest {
                 headingDeg = 212f,
                 accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSource = HeadingSource.ROTATION_VECTOR,
+                headingSampleElapsedRealtimeMs = 900L,
+                headingSampleStale = false,
             )
 
         assertTrue(
@@ -468,6 +470,8 @@ class FusedOrientationProviderAdapterSupportTest {
         assertEquals(CompassProviderType.GOOGLE_FUSED, bridged.providerType)
         assertEquals(212f, bridged.headingDeg)
         assertEquals(HeadingSource.ROTATION_VECTOR, bridged.headingSource)
+        assertEquals(900L, bridged.headingSampleElapsedRealtimeMs)
+        assertFalse(bridged.headingSampleStale)
     }
 
     @Test
@@ -484,6 +488,8 @@ class FusedOrientationProviderAdapterSupportTest {
                 headingDeg = 212f,
                 accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSource = HeadingSource.ROTATION_VECTOR,
+                headingSampleElapsedRealtimeMs = 1_100L,
+                headingSampleStale = false,
             )
 
         assertFalse(
@@ -509,6 +515,8 @@ class FusedOrientationProviderAdapterSupportTest {
                 headingDeg = 212f,
                 accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSource = HeadingSource.ROTATION_VECTOR,
+                headingSampleElapsedRealtimeMs = 1_100L,
+                headingSampleStale = false,
             )
 
         assertTrue(
@@ -528,13 +536,15 @@ class FusedOrientationProviderAdapterSupportTest {
                 accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSampleElapsedRealtimeMs = 10_000L,
                 headingSampleStale = true,
-                headingSource = HeadingSource.NONE,
+                headingSource = HeadingSource.FUSED_ORIENTATION,
             )
         val bootstrapState =
             initialCompassRenderState(providerType = CompassProviderType.SENSOR_MANAGER).copy(
                 headingDeg = 212f,
                 accuracy = android.hardware.SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
                 headingSource = HeadingSource.ROTATION_VECTOR,
+                headingSampleElapsedRealtimeMs = 13_900L,
+                headingSampleStale = false,
             )
 
         assertFalse(

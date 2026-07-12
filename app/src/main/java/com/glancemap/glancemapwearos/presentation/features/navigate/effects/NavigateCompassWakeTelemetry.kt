@@ -16,6 +16,7 @@ import com.glancemap.glancemapwearos.domain.sensors.CompassRenderState
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
 import kotlinx.coroutines.delay
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -40,7 +41,7 @@ internal fun NavigateCompassWakeTelemetry(
     LaunchedEffect(interactive) {
         val now = SystemClock.elapsedRealtime()
         if (interactive) {
-            sessionId += 1L
+            sessionId = nextCompassWakeSessionId()
             startedAtMs = now
             firstSourceLogged = false
             fusedLogged = false
@@ -49,9 +50,13 @@ internal fun NavigateCompassWakeTelemetry(
                 startupMetrics.start(
                     sessionId = sessionId,
                     nowElapsedMs = now,
-                    initialHeadingDeg = renderState.headingDeg,
-                    initialRenderedHeadingDeg = renderedHeadingDeg,
-                    initialMapRotationDeg = renderedMapRotationDeg,
+                    initialState =
+                        CompassStartupInitialState(
+                            headingDeg = renderState.headingDeg,
+                            renderedHeadingDeg = renderedHeadingDeg,
+                            mapRotationDeg = renderedMapRotationDeg,
+                            source = renderState.headingSource,
+                        ),
                 )
             }
             logCompassWake(
@@ -161,7 +166,36 @@ private fun logCompassWake(message: String) {
     DebugTelemetry.log(COMPASS_TELEMETRY_TAG, message)
 }
 
-private class CompassStartupMetrics {
+internal data class CompassStartupSnapshot(
+    val sessionId: Long,
+    val windowMs: Long,
+    val sampleCount: Int,
+    val headingSpanDeg: Float,
+    val maxHeadingJumpDeg: Float,
+    val cumulativeHeadingRotationDeg: Float,
+    val directionReversalCount: Int,
+    val cumulativeMapRotationDeg: Float,
+    val visibleHeadingMaxJumpDeg: Float,
+    val visibleMapRotationMaxJumpDeg: Float,
+    val sourceHandoffCount: Int,
+    val sourceHandoffMaxJumpDeg: Float,
+    val renderErrorAvgDeg: Float?,
+    val renderErrorMaxDeg: Float,
+    val stable3Ms: Long?,
+    val stable5Ms: Long?,
+    val fusedReadyMs: Long?,
+    val startHeadingDeg: Float?,
+    val endHeadingDeg: Float?,
+)
+
+internal data class CompassStartupInitialState(
+    val headingDeg: Float,
+    val renderedHeadingDeg: Float,
+    val mapRotationDeg: Float,
+    val source: HeadingSource,
+)
+
+internal class CompassStartupMetrics {
     private var sessionId = 0L
     private var startedAtMs = 0L
     private var sampleCount = 0
@@ -175,6 +209,11 @@ private class CompassStartupMetrics {
     private var cumulativeHeadingRotationDeg = 0f
     private var cumulativeMapRotationDeg = 0f
     private var maxHeadingJumpDeg = 0f
+    private var visibleHeadingMaxJumpDeg = 0f
+    private var visibleMapRotationMaxJumpDeg = 0f
+    private var sourceHandoffCount = 0
+    private var sourceHandoffMaxJumpDeg = 0f
+    private var lastHeadingSource = HeadingSource.NONE
     private var directionReversalCount = 0
     private var previousDirection = 0
     private var renderErrorTotalDeg = 0f
@@ -192,23 +231,26 @@ private class CompassStartupMetrics {
     fun start(
         sessionId: Long,
         nowElapsedMs: Long,
-        initialHeadingDeg: Float,
-        initialRenderedHeadingDeg: Float,
-        initialMapRotationDeg: Float,
+        initialState: CompassStartupInitialState,
     ) {
         this.sessionId = sessionId
         startedAtMs = nowElapsedMs
         sampleCount = 0
-        firstHeadingDeg = initialHeadingDeg.takeIf(Float::isFinite)
-        lastHeadingDeg = initialHeadingDeg.takeIf(Float::isFinite)
-        lastRenderedHeadingDeg = initialRenderedHeadingDeg.takeIf(Float::isFinite)
-        lastMapRotationDeg = initialMapRotationDeg.takeIf(Float::isFinite)
+        firstHeadingDeg = initialState.headingDeg.takeIf(Float::isFinite)
+        lastHeadingDeg = initialState.headingDeg.takeIf(Float::isFinite)
+        lastRenderedHeadingDeg = initialState.renderedHeadingDeg.takeIf(Float::isFinite)
+        lastMapRotationDeg = initialState.mapRotationDeg.takeIf(Float::isFinite)
         minUnwrappedHeadingDeg = 0f
         maxUnwrappedHeadingDeg = 0f
         unwrappedHeadingDeg = 0f
         cumulativeHeadingRotationDeg = 0f
         cumulativeMapRotationDeg = 0f
         maxHeadingJumpDeg = 0f
+        visibleHeadingMaxJumpDeg = 0f
+        visibleMapRotationMaxJumpDeg = 0f
+        sourceHandoffCount = 0
+        sourceHandoffMaxJumpDeg = 0f
+        lastHeadingSource = initialState.source
         directionReversalCount = 0
         previousDirection = 0
         renderErrorTotalDeg = 0f
@@ -258,11 +300,27 @@ private class CompassStartupMetrics {
                 }
                 previousDirection = direction
             }
+            if (
+                source != HeadingSource.NONE &&
+                lastHeadingSource != HeadingSource.NONE &&
+                source != lastHeadingSource
+            ) {
+                sourceHandoffCount += 1
+                sourceHandoffMaxJumpDeg = max(sourceHandoffMaxJumpDeg, absoluteDelta)
+            }
         }
+        if (source != HeadingSource.NONE) lastHeadingSource = source
         lastHeadingDeg = headingDeg
         sampleCount += 1
 
         if (renderedHeadingDeg.isFinite()) {
+            lastRenderedHeadingDeg?.let { previousRenderedHeadingDeg ->
+                visibleHeadingMaxJumpDeg =
+                    max(
+                        visibleHeadingMaxJumpDeg,
+                        shortestHeadingDeltaDeg(renderedHeadingDeg, previousRenderedHeadingDeg),
+                    )
+            }
             val renderError = shortestHeadingDeltaDeg(renderedHeadingDeg, headingDeg)
             renderErrorTotalDeg += renderError
             renderErrorMaxDeg = max(renderErrorMaxDeg, renderError)
@@ -271,7 +329,9 @@ private class CompassStartupMetrics {
         }
         if (mapRotationDeg.isFinite()) {
             lastMapRotationDeg?.let {
-                cumulativeMapRotationDeg += shortestHeadingDeltaDeg(mapRotationDeg, it)
+                val mapRotationDeltaDeg = shortestHeadingDeltaDeg(mapRotationDeg, it)
+                cumulativeMapRotationDeg += mapRotationDeltaDeg
+                visibleMapRotationMaxJumpDeg = max(visibleMapRotationMaxJumpDeg, mapRotationDeltaDeg)
             }
             lastMapRotationDeg = mapRotationDeg
         }
@@ -327,25 +387,68 @@ private class CompassStartupMetrics {
     fun logStartupSummary(nowElapsedMs: Long) {
         if (startedAtMs <= 0L || summaryLogged) return
         summaryLogged = true
-        val renderErrorAvg =
-            if (renderErrorSampleCount > 0) renderErrorTotalDeg / renderErrorSampleCount else Float.NaN
+        val snapshot = snapshot(nowElapsedMs) ?: return
         logCompassWake(
-            "wake_session stage=startup_summary id=$sessionId " +
-                "windowMs=${min((nowElapsedMs - startedAtMs).coerceAtLeast(0L), STARTUP_METRICS_WINDOW_MS)} " +
-                "samples=$sampleCount headingSpanDeg=${(maxUnwrappedHeadingDeg - minUnwrappedHeadingDeg).format(1)} " +
-                "maxJumpDeg=${maxHeadingJumpDeg.format(1)} " +
-                "cumulativeHeadingRotationDeg=${cumulativeHeadingRotationDeg.format(1)} " +
-                "directionReversals=$directionReversalCount " +
-                "cumulativeMapRotationDeg=${cumulativeMapRotationDeg.format(1)} " +
-                "renderErrorAvgDeg=${renderErrorAvg.formatOrNa(1)} renderErrorMaxDeg=${renderErrorMaxDeg.format(1)} " +
-                "stable3Ms=${stableLatency(stable3AtMs)} stable5Ms=${stableLatency(stable5AtMs)} " +
-                "fusedReadyMs=${stableLatency(firstFusedAtMs)} " +
-                "startHeading=${firstHeadingDeg.formatOrNa(1)} endHeading=${lastHeadingDeg.formatOrNa(1)}",
+            "wake_session stage=startup_summary id=${snapshot.sessionId} " +
+                "windowMs=${snapshot.windowMs} samples=${snapshot.sampleCount} " +
+                "headingSpanDeg=${snapshot.headingSpanDeg.format(1)} " +
+                "maxJumpDeg=${snapshot.maxHeadingJumpDeg.format(1)} " +
+                "cumulativeHeadingRotationDeg=${snapshot.cumulativeHeadingRotationDeg.format(1)} " +
+                "directionReversals=${snapshot.directionReversalCount} " +
+                "cumulativeMapRotationDeg=${snapshot.cumulativeMapRotationDeg.format(1)} " +
+                "visibleHeadingMaxJumpDeg=${snapshot.visibleHeadingMaxJumpDeg.format(1)} " +
+                "visibleMapRotationMaxJumpDeg=${snapshot.visibleMapRotationMaxJumpDeg.format(1)} " +
+                "sourceHandoffs=${snapshot.sourceHandoffCount} " +
+                "sourceHandoffMaxJumpDeg=${snapshot.sourceHandoffMaxJumpDeg.format(1)} " +
+                "renderErrorAvgDeg=${snapshot.renderErrorAvgDeg.formatOrNa(1)} " +
+                "renderErrorMaxDeg=${snapshot.renderErrorMaxDeg.format(1)} " +
+                "stable3Ms=${snapshot.stable3Ms ?: "na"} stable5Ms=${snapshot.stable5Ms ?: "na"} " +
+                "fusedReadyMs=${snapshot.fusedReadyMs ?: "na"} " +
+                "startHeading=${snapshot.startHeadingDeg.formatOrNa(1)} " +
+                "endHeading=${snapshot.endHeadingDeg.formatOrNa(1)}",
         )
     }
 
-    private fun stableLatency(atMs: Long?): String = atMs?.let { (it - startedAtMs).coerceAtLeast(0L).toString() } ?: "na"
+    internal fun snapshot(nowElapsedMs: Long): CompassStartupSnapshot? {
+        if (startedAtMs <= 0L) return null
+        return CompassStartupSnapshot(
+            sessionId = sessionId,
+            windowMs = min((nowElapsedMs - startedAtMs).coerceAtLeast(0L), STARTUP_METRICS_WINDOW_MS),
+            sampleCount = sampleCount,
+            headingSpanDeg = maxUnwrappedHeadingDeg - minUnwrappedHeadingDeg,
+            maxHeadingJumpDeg = maxHeadingJumpDeg,
+            cumulativeHeadingRotationDeg = cumulativeHeadingRotationDeg,
+            directionReversalCount = directionReversalCount,
+            cumulativeMapRotationDeg = cumulativeMapRotationDeg,
+            visibleHeadingMaxJumpDeg = visibleHeadingMaxJumpDeg,
+            visibleMapRotationMaxJumpDeg = visibleMapRotationMaxJumpDeg,
+            sourceHandoffCount = sourceHandoffCount,
+            sourceHandoffMaxJumpDeg = sourceHandoffMaxJumpDeg,
+            renderErrorAvgDeg =
+                if (renderErrorSampleCount > 0) {
+                    renderErrorTotalDeg / renderErrorSampleCount
+                } else {
+                    null
+                },
+            renderErrorMaxDeg = renderErrorMaxDeg,
+            stable3Ms = stableLatency(stable3AtMs),
+            stable5Ms = stableLatency(stable5AtMs),
+            fusedReadyMs = stableLatency(firstFusedAtMs),
+            startHeadingDeg = firstHeadingDeg,
+            endHeadingDeg = lastHeadingDeg,
+        )
+    }
+
+    private fun stableLatency(atMs: Long?): Long? = atMs?.let { (it - startedAtMs).coerceAtLeast(0L) }
 }
+
+private object CompassWakeSessionIds {
+    private val latestId = AtomicLong(0L)
+
+    fun next(): Long = latestId.incrementAndGet()
+}
+
+internal fun nextCompassWakeSessionId(): Long = CompassWakeSessionIds.next()
 
 private object CompassSessionHistory {
     private var previous: PreviousCompassSession? = null

@@ -169,7 +169,6 @@ internal enum class StartupTransientAction(
     IGNORE_AWAIT_CONFIRMATION("await_confirmation"),
     IGNORE_REPLACE_CANDIDATE("replace_candidate"),
     ACCEPT_CONFIRMED("confirmed"),
-    ACCEPT_FORCED("forced_after_budget"),
 }
 
 internal data class StartupTransientDecision(
@@ -207,21 +206,14 @@ internal fun resolveStartupTransientAction(
             acceptedHeadingDeg = rawDeg,
         )
     }
-    return if (remainingSamplesToIgnore > 1) {
-        StartupTransientDecision(
-            action = StartupTransientAction.IGNORE_REPLACE_CANDIDATE,
-            nextCandidateHeadingDeg = rawDeg,
-            nextRemainingSamplesToIgnore = remainingSamplesToIgnore - 1,
-            acceptedHeadingDeg = null,
-        )
-    } else {
-        StartupTransientDecision(
-            action = StartupTransientAction.ACCEPT_FORCED,
-            nextCandidateHeadingDeg = null,
-            nextRemainingSamplesToIgnore = 0,
-            acceptedHeadingDeg = rawDeg,
-        )
-    }
+    return StartupTransientDecision(
+        action = StartupTransientAction.IGNORE_REPLACE_CANDIDATE,
+        nextCandidateHeadingDeg = rawDeg,
+        // Keep requiring a coherent pair until the bounded startup window expires. A fixed
+        // sample budget could otherwise force an arbitrary third reading into the UI.
+        nextRemainingSamplesToIgnore = (remainingSamplesToIgnore - 1).coerceAtLeast(1),
+        acceptedHeadingDeg = null,
+    )
 }
 
 internal fun shouldMaskStartupHeadingPublish(

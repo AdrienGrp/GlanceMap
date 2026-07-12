@@ -475,9 +475,7 @@ internal fun launchCompassSmoothingJob(
                             return@collect
                         }
 
-                        StartupTransientAction.ACCEPT_CONFIRMED,
-                        StartupTransientAction.ACCEPT_FORCED,
-                        -> {
+                        StartupTransientAction.ACCEPT_CONFIRMED -> {
                             if (startupTransientDecision.acceptedHeadingDeg != null) {
                                 logDiagnostics(
                                     "startup_sample accepted raw=${raw.format(1)} " +
