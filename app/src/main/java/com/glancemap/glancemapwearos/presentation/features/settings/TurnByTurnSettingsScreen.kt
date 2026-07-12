@@ -80,16 +80,16 @@ fun TurnByTurnSettingsScreen(
         }
         item {
             SettingsSectionChip(
-                label = "Advanced settings",
-                secondaryLabel = "Route, alerts and battery",
-                onClick = onOpenAdvancedSettings,
+                label = "Dashboard",
+                secondaryLabel = "Route metrics and pages",
+                onClick = onOpenDashboardSettings,
             )
         }
         item {
             SettingsSectionChip(
-                label = "Dashboard",
-                secondaryLabel = "Route metrics and pages",
-                onClick = onOpenDashboardSettings,
+                label = "Advanced settings",
+                secondaryLabel = "Route, alerts and battery",
+                onClick = onOpenAdvancedSettings,
             )
         }
     }
