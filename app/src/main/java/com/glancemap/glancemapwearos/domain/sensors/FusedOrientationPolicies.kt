@@ -18,10 +18,11 @@ private fun isTrustedFusedHeadingError(
 internal fun isFusedPendingJumpConfirmationReady(input: FusedLargeJumpInput): Boolean {
     if (!input.hasPendingLargeJump || !input.pendingDeltaDeg.isFinite()) return false
     val fastTurnReady =
-        input.pendingConsistentSampleCount >= FUSED_FAST_TURN_CONFIRM_MIN_SAMPLES &&
+        input.pendingAgeMs >= FUSED_LARGE_JUMP_MIN_CONFIRM_AGE_MS &&
+            input.pendingConsistentSampleCount >= FUSED_FAST_TURN_CONFIRM_MIN_SAMPLES &&
             input.pendingDeltaDeg <= FUSED_FAST_TURN_CONFIRM_MAX_DELTA_DEG
     val stableLongEnough =
-        input.pendingAgeMs >= FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MIN_CONFIRM_AGE_MS &&
+        input.pendingAgeMs >= FUSED_LARGE_JUMP_MIN_CONFIRM_AGE_MS &&
             input.pendingDeltaDeg <= FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MAX_DELTA_DEG
     return fastTurnReady || stableLongEnough
 }

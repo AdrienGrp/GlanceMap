@@ -291,7 +291,7 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
-    fun relockPendingJumpConfirmsWhenRepeatedConsistently() {
+    fun relockPendingJumpConfirmsAfterMinimumQuarantine() {
         val action =
             resolveFusedLargeJumpAction(
                 FusedLargeJumpInput(
@@ -299,7 +299,7 @@ class FusedOrientationProviderAdapterSupportTest {
                     inRelock = true,
                     hasPendingLargeJump = true,
                     pendingDeltaDeg = 12f,
-                    pendingAgeMs = 150L,
+                    pendingAgeMs = 320L,
                     pendingConsistentSampleCount = 2,
                     headingErrorDeg = 25f,
                     conservativeHeadingErrorDeg = 180f,
@@ -329,7 +329,7 @@ class FusedOrientationProviderAdapterSupportTest {
     }
 
     @Test
-    fun sustainedFastTurnConfirmsAfterThreeCoherentSamples() {
+    fun rapidLargeJumpStaysQuarantinedDespiteThreeQuickSamples() {
         val action =
             resolveFusedLargeJumpAction(
                 FusedLargeJumpInput(
@@ -339,6 +339,44 @@ class FusedOrientationProviderAdapterSupportTest {
                     pendingDeltaDeg = 22f,
                     pendingAgeMs = 45L,
                     pendingConsistentSampleCount = 3,
+                    headingErrorDeg = 25f,
+                    conservativeHeadingErrorDeg = 180f,
+                ),
+            )
+
+        assertEquals(LargeJumpAction.REJECT_PENDING, action)
+    }
+
+    @Test
+    fun trustedLargeJumpOutsideRelockStillWaitsForQuarantine() {
+        val action =
+            resolveFusedLargeJumpAction(
+                FusedLargeJumpInput(
+                    jumpDeg = 150f,
+                    inRelock = false,
+                    hasPendingLargeJump = true,
+                    pendingDeltaDeg = 2f,
+                    pendingAgeMs = 45L,
+                    pendingConsistentSampleCount = 3,
+                    headingErrorDeg = 8f,
+                    conservativeHeadingErrorDeg = 30f,
+                ),
+            )
+
+        assertEquals(LargeJumpAction.REJECT_PENDING, action)
+    }
+
+    @Test
+    fun sustainedLargeJumpConfirmsAfterQuarantine() {
+        val action =
+            resolveFusedLargeJumpAction(
+                FusedLargeJumpInput(
+                    jumpDeg = 170f,
+                    inRelock = false,
+                    hasPendingLargeJump = true,
+                    pendingDeltaDeg = 22f,
+                    pendingAgeMs = 320L,
+                    pendingConsistentSampleCount = 8,
                     headingErrorDeg = 25f,
                     conservativeHeadingErrorDeg = 180f,
                 ),
@@ -379,7 +417,7 @@ class FusedOrientationProviderAdapterSupportTest {
                     inRelock = false,
                     hasPendingLargeJump = true,
                     pendingDeltaDeg = 12f,
-                    pendingAgeMs = 150L,
+                    pendingAgeMs = 320L,
                     pendingConsistentSampleCount = 2,
                     headingErrorDeg = 25f,
                     conservativeHeadingErrorDeg = 180f,
@@ -389,7 +427,7 @@ class FusedOrientationProviderAdapterSupportTest {
         assertEquals(LargeJumpAction.ACCEPT_CONFIRMED, action)
         assertEquals(
             FusedLargeJumpAcceptanceReason.STABLE,
-            fusedLargeJumpAcceptanceReason(action = action, pendingAgeMs = 150L),
+            fusedLargeJumpAcceptanceReason(action = action, pendingAgeMs = 320L),
         )
     }
 

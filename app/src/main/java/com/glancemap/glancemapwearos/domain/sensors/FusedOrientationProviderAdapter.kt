@@ -1692,7 +1692,7 @@ private const val FUSED_RESTART_STABLE_DELTA_DEG = 15f
 private const val FUSED_RESTART_MIN_CONFIDENT_SAMPLES = 2
 internal const val FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG = 12f
 internal const val FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG = 45f
-internal const val FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MIN_CONFIRM_AGE_MS = 120L
+internal const val FUSED_LARGE_JUMP_MIN_CONFIRM_AGE_MS = 300L
 internal const val FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MAX_DELTA_DEG = 18f
 internal const val FUSED_FAST_TURN_CONFIRM_MIN_SAMPLES = 3
 internal const val FUSED_FAST_TURN_CONFIRM_MAX_DELTA_DEG = 36f
@@ -1859,7 +1859,16 @@ internal fun resolveFusedLargeJumpAction(input: FusedLargeJumpInput): LargeJumpA
 
     return when {
         input.jumpDeg <= HEADING_LARGE_JUMP_REJECT_DEG -> LargeJumpAction.NONE
+        input.inRelock && hasTrustedError ->
+            resolveLargeJumpAction(
+                jumpDeg = input.jumpDeg,
+                inRelock = true,
+                hasPendingLargeJump = input.hasPendingLargeJump,
+                pendingDeltaDeg = input.pendingDeltaDeg,
+            )
         pendingConfirmationTimedOut -> LargeJumpAction.ACCEPT_CONFIRMED
+        !input.hasPendingLargeJump || input.pendingAgeMs < FUSED_LARGE_JUMP_MIN_CONFIRM_AGE_MS ->
+            LargeJumpAction.REJECT_PENDING
         !hasTrustedError && input.hasPendingLargeJump -> {
             if (pendingConfirmationReady) {
                 LargeJumpAction.ACCEPT_CONFIRMED
