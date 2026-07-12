@@ -107,11 +107,11 @@ interface SettingsRepository {
             )
         val DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS =
             listOf(
-                RECORDING_METRIC_DISTANCE,
-                RECORDING_METRIC_DURATION,
+                RECORDING_METRIC_TOTAL_TIME,
                 RECORDING_METRIC_AVERAGE_SPEED,
-                RECORDING_METRIC_MAX_SPEED,
                 RECORDING_METRIC_HEART_RATE,
+                RECORDING_METRIC_DISTANCE,
+                RECORDING_METRIC_CURRENT_SPEED,
                 RECORDING_METRIC_ELEVATION_GAIN,
                 RECORDING_METRIC_ELEVATION_LOSS,
                 RECORDING_METRIC_ACTIVE_CALORIES,
