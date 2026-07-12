@@ -53,10 +53,12 @@ import com.glancemap.glancemapwearos.presentation.ui.rememberWearScreenSize
 import java.text.DecimalFormat
 import kotlin.math.round
 
+@Suppress("FunctionNaming", "LongMethod")
 @Composable
 fun UserProfileSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenGeneralSettings: () -> Unit,
+    profileChangeEnabled: Boolean = true,
 ) {
     val listTokens = rememberSettingsListTokens()
     val isMetric by viewModel.isMetric.collectAsState()
@@ -95,6 +97,7 @@ fun UserProfileSettingsScreen(
             ActivityProfileToggle(
                 selectedProfile = activityProfile,
                 onSelect = viewModel::setActivityProfile,
+                enabled = profileChangeEnabled,
             )
         }
         item {
@@ -188,10 +191,12 @@ private fun formatUserWeight(
         "${ONE_DECIMAL_FORMAT.format(weightKg * KG_TO_LB)} lb"
     }
 
+@Suppress("FunctionNaming")
 @Composable
 private fun ActivityProfileToggle(
     selectedProfile: String,
     onSelect: (String) -> Unit,
+    enabled: Boolean,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -204,6 +209,14 @@ private fun ActivityProfileToggle(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        if (!enabled) {
+            Text(
+                "Stop the recording to change profile",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -213,6 +226,7 @@ private fun ActivityProfileToggle(
                 label = "Hike",
                 selected = selectedProfile != SettingsRepository.ACTIVITY_PROFILE_BIKE,
                 onClick = { onSelect(SettingsRepository.ACTIVITY_PROFILE_HIKE) },
+                enabled = enabled,
                 icon = Icons.Default.Terrain,
                 modifier = Modifier.weight(1f),
             )
@@ -220,6 +234,7 @@ private fun ActivityProfileToggle(
                 label = "Bike",
                 selected = selectedProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE,
                 onClick = { onSelect(SettingsRepository.ACTIVITY_PROFILE_BIKE) },
+                enabled = enabled,
                 icon = Icons.AutoMirrored.Filled.DirectionsBike,
                 modifier = Modifier.weight(1f),
             )
@@ -227,16 +242,19 @@ private fun ActivityProfileToggle(
     }
 }
 
+@Suppress("FunctionNaming", "LongParameterList")
 @Composable
 private fun ActivityProfileButton(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    enabled: Boolean,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier,
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier =
             modifier
                 .heightIn(min = 58.dp),

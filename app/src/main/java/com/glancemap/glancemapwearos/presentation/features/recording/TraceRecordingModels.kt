@@ -23,6 +23,7 @@ data class TraceRecordingUiState(
     val paused: Boolean = false,
     val autoPaused: Boolean = false,
     val saving: Boolean = false,
+    val activityProfile: String = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
     val points: List<RecordedTracePoint> = emptyList(),
     val latestLivePoint: RecordedTracePoint? = null,
     val distanceMeters: Double = 0.0,

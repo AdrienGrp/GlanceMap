@@ -219,7 +219,7 @@ class MainActivity : ComponentActivity() {
                     externalHeartRateAddress = recordingExternalHeartRateAddress,
                     externalRunPodAddress = recordingExternalRunPodAddress,
                     cyclingWheelCircumferenceMeters = cyclingWheelCircumferenceMeters,
-                    activityProfile = activityProfile,
+                    activityProfile = traceRecordingState.activityProfile,
                     onMetrics = appContainer.traceRecordingViewModel::onSensorMetrics,
                 )
                 val locationPermissionGranted =
@@ -605,6 +605,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 UserProfileSettingsScreen(
                                     viewModel = appContainer.settingsViewModel,
+                                    profileChangeEnabled = !traceRecordingState.active,
                                     onOpenGeneralSettings = {
                                         navController.navigate(WatchRoutes.SETTINGS) {
                                             popUpTo(WatchRoutes.SETTINGS) { inclusive = false }

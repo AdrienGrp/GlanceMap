@@ -127,7 +127,6 @@ internal fun NavigateContent(
     userWeightKg: Float,
     backpackWeightKg: Float,
     bikeWeightKg: Float,
-    activityProfile: String,
     recordingDashboardExpandRequestToken: Long,
     recordingActionPromptRequestToken: Long,
     onRecordingTimeTap: () -> Unit,
@@ -877,7 +876,6 @@ internal fun NavigateContent(
                     userWeightKg = userWeightKg,
                     backpackWeightKg = backpackWeightKg,
                     bikeWeightKg = bikeWeightKg,
-                    activityProfile = activityProfile,
                     recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
                     recordingActionPromptRequestToken = effectiveRecordingActionPromptRequestToken,
                     onRecordingClick = {

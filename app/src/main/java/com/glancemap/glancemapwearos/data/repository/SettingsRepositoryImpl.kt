@@ -396,7 +396,7 @@ class SettingsRepositoryImpl private constructor(
             val profile = sanitizeActivityProfile(preferences[PrefKeys.ACTIVITY_PROFILE])
             sanitizeRecordingDashboardMetricSlots(
                 raw = preferences[recordingDashboardMetricSlotsKeyForProfile(profile)],
-                defaultMetricSlots = defaultRecordingDashboardMetricSlotsForProfile(profile),
+                profile = profile,
             )
         }
 
@@ -410,11 +410,11 @@ class SettingsRepositoryImpl private constructor(
             val current =
                 sanitizeRecordingDashboardMetricSlots(
                     raw = it[key],
-                    defaultMetricSlots = defaultRecordingDashboardMetricSlotsForProfile(profile),
+                    profile = profile,
                 )
             val sanitizedMetric =
-                metricId.takeIf { candidate -> candidate in allowedRecordingDashboardMetricIds }
-                    ?: SettingsRepository.RECORDING_METRIC_DISTANCE
+                metricId.takeIf { candidate -> isRecordingDashboardMetricAllowedForProfile(profile, candidate) }
+                    ?: fallbackRecordingDashboardMetricForSlot(profile, slotIndex)
             val next =
                 current
                     .toMutableList()
@@ -434,10 +434,10 @@ class SettingsRepositoryImpl private constructor(
             val current =
                 sanitizeRecordingDashboardMetricSlots(
                     raw = it[key],
-                    defaultMetricSlots = defaultRecordingDashboardMetricSlotsForProfile(profile),
+                    profile = profile,
                 )
             if (current.size >= RECORDING_DASHBOARD_MAX_SLOT_COUNT) return@edit
-            val next = current + SettingsRepository.DEFAULT_RECORDING_DASHBOARD_NEW_PAGE_METRICS
+            val next = current + newRecordingDashboardPageMetricSlotsForProfile(profile)
             it[key] = next.joinToString(RECORDING_DASHBOARD_SLOT_SEPARATOR)
         }
     }
@@ -449,7 +449,7 @@ class SettingsRepositoryImpl private constructor(
             val current =
                 sanitizeRecordingDashboardMetricSlots(
                     raw = it[key],
-                    defaultMetricSlots = defaultRecordingDashboardMetricSlotsForProfile(profile),
+                    profile = profile,
                 )
             val pageCount = current.size / RECORDING_DASHBOARD_PAGE_SLOT_COUNT
             if (pageCount <= RECORDING_DASHBOARD_MIN_PAGE_COUNT || pageIndex !in 0 until pageCount) return@edit
@@ -1756,34 +1756,6 @@ class SettingsRepositoryImpl private constructor(
                 SettingsRepository.ACTIVITY_PROFILE_WALK_HIKE,
                 SettingsRepository.ACTIVITY_PROFILE_BIKE,
             )
-        private val allowedRecordingDashboardMetricIds =
-            setOf(
-                SettingsRepository.RECORDING_METRIC_DISTANCE,
-                SettingsRepository.RECORDING_METRIC_TOTAL_TIME,
-                SettingsRepository.RECORDING_METRIC_DURATION,
-                SettingsRepository.RECORDING_METRIC_ELEVATION_GAIN,
-                SettingsRepository.RECORDING_METRIC_ELEVATION_LOSS,
-                SettingsRepository.RECORDING_METRIC_CURRENT_ELEVATION,
-                SettingsRepository.RECORDING_METRIC_CURRENT_SPEED,
-                SettingsRepository.RECORDING_METRIC_AVERAGE_SPEED,
-                SettingsRepository.RECORDING_METRIC_MAX_SPEED,
-                SettingsRepository.RECORDING_METRIC_CURRENT_PACE,
-                SettingsRepository.RECORDING_METRIC_AVERAGE_PACE,
-                SettingsRepository.RECORDING_METRIC_MAX_PACE,
-                SettingsRepository.RECORDING_METRIC_HEART_RATE,
-                SettingsRepository.RECORDING_METRIC_MAX_HEART_RATE,
-                SettingsRepository.RECORDING_METRIC_STEPS,
-                SettingsRepository.RECORDING_METRIC_CADENCE,
-                SettingsRepository.RECORDING_METRIC_AVERAGE_CADENCE,
-                SettingsRepository.RECORDING_METRIC_MAX_CADENCE,
-                SettingsRepository.RECORDING_METRIC_POWER,
-                SettingsRepository.RECORDING_METRIC_AVERAGE_POWER,
-                SettingsRepository.RECORDING_METRIC_MAX_POWER,
-                SettingsRepository.RECORDING_METRIC_BAROMETRIC_PRESSURE,
-                SettingsRepository.RECORDING_METRIC_CALORIES,
-                SettingsRepository.RECORDING_METRIC_ACTIVE_CALORIES,
-                SettingsRepository.RECORDING_METRIC_RESTING_CALORIES,
-            )
         private val LEGACY_RECORDING_DASHBOARD_ALL_METRICS =
             listOf(
                 SettingsRepository.RECORDING_METRIC_DISTANCE,
@@ -2026,13 +1998,6 @@ class SettingsRepositoryImpl private constructor(
                 PrefKeys.RECORDING_DASHBOARD_METRIC_SLOTS
             }
 
-        private fun defaultRecordingDashboardMetricSlotsForProfile(profile: String): List<String> =
-            if (profile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
-                SettingsRepository.DEFAULT_BIKE_RECORDING_DASHBOARD_METRICS
-            } else {
-                SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS
-            }
-
         private fun defaultGpxFlatSpeedMpsForProfile(profile: String): Float =
             when (profile) {
                 SettingsRepository.ACTIVITY_PROFILE_BIKE -> SettingsRepository.DEFAULT_BIKE_GPX_FLAT_SPEED_MPS
@@ -2137,20 +2102,29 @@ class SettingsRepositoryImpl private constructor(
 
         private fun sanitizeRecordingDashboardMetricSlots(
             raw: String?,
-            defaultMetricSlots: List<String> = SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS,
+            profile: String,
         ): List<String> {
-            val parsed =
+            val rawSlots =
                 raw
                     ?.split(RECORDING_DASHBOARD_SLOT_SEPARATOR)
-                    ?.mapNotNull { value ->
-                        value.trim().takeIf { it in allowedRecordingDashboardMetricIds }
-                    }.orEmpty()
-            if (parsed == LEGACY_RECORDING_DASHBOARD_ALL_METRICS || parsed == LEGACY_BIKE_RECORDING_DASHBOARD_METRICS) {
+                    ?.map(String::trim)
+                    .orEmpty()
+            val defaultMetricSlots = defaultRecordingDashboardMetricSlotsForProfile(profile)
+            if (
+                rawSlots == LEGACY_RECORDING_DASHBOARD_ALL_METRICS ||
+                rawSlots == LEGACY_BIKE_RECORDING_DASHBOARD_METRICS
+            ) {
                 return defaultMetricSlots
             }
+            val parsed =
+                rawSlots.mapIndexed { index, metricId ->
+                    metricId.takeIf { isRecordingDashboardMetricAllowedForProfile(profile, it) }
+                        ?: fallbackRecordingDashboardMetricForSlot(profile, index)
+                }
             return normalizeRecordingDashboardMetricSlots(
                 metricSlots = parsed,
                 defaultMetricSlots = defaultMetricSlots,
+                newPageMetricSlots = newRecordingDashboardPageMetricSlotsForProfile(profile),
             )
         }
 

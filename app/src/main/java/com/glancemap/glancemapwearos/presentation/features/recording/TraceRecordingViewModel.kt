@@ -170,7 +170,7 @@ class TraceRecordingViewModel(
                         "event=activity_profile_changed_during_rec " +
                             "from=$previousProfile to=$nextProfile " +
                             "sampleIntervalSeconds=$sampleIntervalSeconds " +
-                            "reason=affects_gps_timing_calories_dashboard_defaults",
+                            "reason=session_profile_frozen",
                     )
                 }
             }.launchIn(viewModelScope)
@@ -301,6 +301,7 @@ class TraceRecordingViewModel(
             TraceRecordingUiState(
                 active = true,
                 paused = false,
+                activityProfile = activityProfile,
                 startedAtMillis = now,
                 cadenceSource = recordingCadenceSource,
                 speedSource = recordingSpeedSource,
@@ -731,13 +732,13 @@ class TraceRecordingViewModel(
                                 userWeightKg = userWeightKg,
                                 backpackWeightKg = backpackWeightKg,
                                 bikeWeightKg = bikeWeightKg,
-                                activityProfile = activityProfile,
+                                activityProfile = state.activityProfile,
                             )
                         val bytes =
                             encodeRecordedTraceAsGpx(
                                 title = title,
                                 points = state.points,
-                                summary = summarySnapshot.toRecordedTraceSummary(activityProfile),
+                                summary = summarySnapshot.toRecordedTraceSummary(state.activityProfile),
                             )
                         gpxRepository.saveGpxFileAtomic(
                             fileName = fileName,
@@ -834,6 +835,7 @@ class TraceRecordingViewModel(
                     paused = draft.paused,
                     autoPaused = draft.autoPaused,
                     saving = false,
+                    activityProfile = draft.activityProfile.toRecordingActivityProfile(activityProfile),
                     points = draft.points,
                     latestLivePoint = draft.points.lastOrNull(),
                     distanceMeters = draft.distanceMeters,
@@ -998,7 +1000,7 @@ class TraceRecordingViewModel(
         DebugTelemetry.log(
             "TraceRecording",
             "event=auto_pause count=$autoPauseTriggerCount " +
-                "mode=$recordingAutoPauseMode activityProfile=$activityProfile " +
+                "mode=$recordingAutoPauseMode activityProfile=${recordingActivityProfile()} " +
                 "stationaryDurationMs=$stationaryDurationMs " +
                 autoPauseMotionTelemetry(livePoint, previousPoint),
         )
@@ -1074,7 +1076,7 @@ class TraceRecordingViewModel(
         DebugTelemetry.log(
             "TraceRecording",
             "event=auto_resume count=$autoResumeTriggerCount reason=$reason " +
-                "mode=$recordingAutoPauseMode activityProfile=$activityProfile " +
+                "mode=$recordingAutoPauseMode activityProfile=${recordingActivityProfile()} " +
                 "movingDurationMs=$movingDurationMs pausedAddedMs=$addedPausedMillis " +
                 "nowElapsedMs=$nowElapsedMs " +
                 autoPauseMotionTelemetry(livePoint, state.points.lastOrNull()),
@@ -1126,35 +1128,35 @@ class TraceRecordingViewModel(
     }
 
     private fun autoPauseStopDurationMs(): Long =
-        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        if (recordingActivityProfile() == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
             AUTO_PAUSE_BIKE_STOP_DURATION_MS
         } else {
             AUTO_PAUSE_HIKE_STOP_DURATION_MS
         }
 
     private fun autoPauseResumeDurationMs(): Long =
-        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        if (recordingActivityProfile() == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
             AUTO_PAUSE_BIKE_RESUME_DURATION_MS
         } else {
             AUTO_PAUSE_HIKE_RESUME_DURATION_MS
         }
 
     private fun autoPauseStopSpeedMps(): Float =
-        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        if (recordingActivityProfile() == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
             AUTO_PAUSE_BIKE_STOP_SPEED_MPS
         } else {
             AUTO_PAUSE_HIKE_STOP_SPEED_MPS
         }
 
     private fun autoPauseResumeSpeedMps(): Float =
-        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        if (recordingActivityProfile() == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
             AUTO_PAUSE_BIKE_RESUME_SPEED_MPS
         } else {
             AUTO_PAUSE_HIKE_RESUME_SPEED_MPS
         }
 
     private fun autoPauseMaxAccuracyMeters(): Float =
-        if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+        if (recordingActivityProfile() == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
             AUTO_PAUSE_BIKE_MAX_ACCURACY_M
         } else {
             AUTO_PAUSE_HIKE_MAX_ACCURACY_M
@@ -1162,7 +1164,7 @@ class TraceRecordingViewModel(
 
     private fun autoPauseStationaryRadiusMeters(livePoint: RecordedTracePoint): Double {
         val base =
-            if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+            if (recordingActivityProfile() == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
                 AUTO_PAUSE_BIKE_STATIONARY_RADIUS_M
             } else {
                 AUTO_PAUSE_HIKE_STATIONARY_RADIUS_M
@@ -1173,7 +1175,7 @@ class TraceRecordingViewModel(
 
     private fun autoPauseResumeDistanceMeters(livePoint: RecordedTracePoint): Double {
         val base =
-            if (activityProfile == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
+            if (recordingActivityProfile() == SettingsRepository.ACTIVITY_PROFILE_BIKE) {
                 AUTO_PAUSE_BIKE_RESUME_DISTANCE_M
             } else {
                 AUTO_PAUSE_HIKE_RESUME_DISTANCE_M
@@ -1342,7 +1344,7 @@ class TraceRecordingViewModel(
                 userWeightKg = userWeightKg,
                 backpackWeightKg = backpackWeightKg,
                 bikeWeightKg = bikeWeightKg,
-                activityProfile = activityProfile,
+                activityProfile = state.activityProfile,
             )
         val calories = displaySnapshot.calorieEstimate
         val sensorTokens = sensorTelemetryTokens(nowMillis)
@@ -1397,7 +1399,7 @@ class TraceRecordingViewModel(
             "lastPowerWatts=${lastPoint?.powerWatts ?: -1} " +
             "lastPressureHpa=${lastPoint?.barometricPressureHpa?.toInt() ?: -1} " +
             "demMisses=$demElevationMissCount gpsElevationUsed=$gpsElevationUsedCount " +
-            "activityProfile=$activityProfile " +
+            "activityProfile=${state.activityProfile} " +
             "calorieModel=${calories.model} " +
             "caloriesGrossKcal=${calories.grossKcal.roundToInt()} " +
             "caloriesActiveKcal=${calories.activeKcal.roundToInt()} " +
@@ -1474,6 +1476,8 @@ class TraceRecordingViewModel(
     private fun lastLiveFixAgeMillis(): Long = lastLiveFixTimeMillis?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) } ?: -1L
 
     private fun isGpsSamplingEnabled(): Boolean = sampleIntervalSeconds != SettingsRepository.RECORDING_SAMPLE_INTERVAL_DISABLED_SECONDS
+
+    private fun recordingActivityProfile(): String = _uiState.value.activityProfile
 
     private fun effectiveSampleIntervalSeconds(): Int = sampleIntervalSeconds.takeIf { it > 0 } ?: SettingsRepository.DEFAULT_RECORDING_SAMPLE_INTERVAL_SECONDS
 }
@@ -1637,6 +1641,15 @@ private fun recordingProfileLabel(activityProfile: String): String =
         "Bike"
     } else {
         "Hike"
+    }
+
+private fun String?.toRecordingActivityProfile(fallback: String): String =
+    when (this) {
+        SettingsRepository.ACTIVITY_PROFILE_BIKE -> SettingsRepository.ACTIVITY_PROFILE_BIKE
+        SettingsRepository.ACTIVITY_PROFILE_HIKE,
+        SettingsRepository.ACTIVITY_PROFILE_WALK_HIKE,
+        -> SettingsRepository.ACTIVITY_PROFILE_HIKE
+        else -> fallback
     }
 
 private fun Double.formatTelemetry(decimalPlaces: Int): String = String.format(Locale.US, "%.${decimalPlaces}f", this)

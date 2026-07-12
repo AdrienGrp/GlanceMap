@@ -1006,7 +1006,6 @@ fun NavigateScreen(
             userWeightKg = userWeightKg,
             backpackWeightKg = backpackWeightKg,
             bikeWeightKg = bikeWeightKg,
-            activityProfile = activityProfile,
             recordingDashboardExpandRequestToken = recordingDashboardExpandRequestToken,
             recordingActionPromptRequestToken = recordingActionPromptRequestToken,
             onRecordingTimeTap = onRecordingTimeTap,

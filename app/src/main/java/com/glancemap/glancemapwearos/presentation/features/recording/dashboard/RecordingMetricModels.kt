@@ -1,6 +1,7 @@
 package com.glancemap.glancemapwearos.presentation.features.recording.dashboard
 
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
+import com.glancemap.glancemapwearos.data.repository.isRecordingDashboardMetricAllowedForProfile
 import com.glancemap.glancemapwearos.presentation.features.gpx.FileSig
 import com.glancemap.glancemapwearos.presentation.features.gpx.TrackPoint
 import com.glancemap.glancemapwearos.presentation.features.gpx.buildProfile
@@ -164,8 +165,9 @@ internal val recordingMetricDefinitions =
         RecordingMetricDefinition(SettingsRepository.RECORDING_METRIC_RESTING_CALORIES, "Cal (Rest)"),
     )
 
-internal val recordingMetricPickerOptions: List<Pair<String, String>> =
+internal fun recordingMetricPickerOptionsForProfile(profile: String): List<Pair<String, String>> =
     recordingMetricDefinitions
+        .filter { definition -> isRecordingDashboardMetricAllowedForProfile(profile, definition.id) }
         .sortedBy { it.label.lowercase() }
         .map { it.id to it.label }
 
@@ -173,13 +175,14 @@ internal fun metricDefinitionFor(id: String): RecordingMetricDefinition =
     recordingMetricDefinitions.firstOrNull { it.id == id }
         ?: recordingMetricDefinitions.first()
 
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun buildRecordingDashboardSnapshot(
     state: TraceRecordingUiState,
     nowMillis: Long,
     userWeightKg: Float = SettingsRepository.DEFAULT_USER_WEIGHT_KG,
     backpackWeightKg: Float = SettingsRepository.DEFAULT_BACKPACK_WEIGHT_KG,
     bikeWeightKg: Float = SettingsRepository.DEFAULT_BIKE_WEIGHT_KG,
-    activityProfile: String = SettingsRepository.DEFAULT_ACTIVITY_PROFILE,
+    activityProfile: String = state.activityProfile,
 ): RecordingDashboardSnapshot {
     val startedAt = state.startedAtMillis ?: nowMillis
     val currentPausedMillis =
@@ -415,7 +418,7 @@ internal fun formattedRecordingMetric(
                 sensorIntegerMetricValue(
                     definition.label,
                     snapshot.cadenceSpm,
-                    "spm",
+                    snapshot.cadenceUnitLabel(),
                     bluetooth = snapshot.cadenceFromBluetooth,
                 )
             }
@@ -426,7 +429,7 @@ internal fun formattedRecordingMetric(
                 sensorIntegerMetricValue(
                     definition.label,
                     snapshot.averageCadenceSpm,
-                    "spm",
+                    snapshot.cadenceUnitLabel(),
                     bluetooth = snapshot.cadenceFromBluetooth,
                 )
             }
@@ -437,7 +440,7 @@ internal fun formattedRecordingMetric(
                 sensorIntegerMetricValue(
                     definition.label,
                     snapshot.maxCadenceSpm,
-                    "spm",
+                    snapshot.cadenceUnitLabel(),
                     bluetooth = snapshot.cadenceFromBluetooth,
                 )
             }
@@ -473,6 +476,12 @@ internal fun formattedRecordingMetric(
         else -> RecordingMetricValue(definition.label, "--")
     }
 }
+
+private fun RecordingDashboardSnapshot.cadenceUnitLabel(): String =
+    when (activityProfile) {
+        SettingsRepository.ACTIVITY_PROFILE_BIKE -> "rpm"
+        else -> "spm"
+    }
 
 private fun formatRecordingDistance(
     meters: Double,
