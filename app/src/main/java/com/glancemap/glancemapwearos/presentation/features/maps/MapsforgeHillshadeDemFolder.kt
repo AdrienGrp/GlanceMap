@@ -46,7 +46,35 @@ internal class MapsforgeHillshadeDemFolder(
  * can render. In particular, Detailed selected with only Standard installed must use the exact
  * same single-root path as Standard selected.
  */
-internal fun resolveHillshadeDemRootDirs(demRootDirs: List<File>): List<File> = demRootDirs.filter(::containsHillshadeDemFile)
+internal fun resolveHillshadeDemRootDirs(
+    demRootDirs: List<File>,
+    requiredTileIds: Set<String>? = null,
+): List<File> {
+    if (requiredTileIds.isNullOrEmpty()) {
+        return demRootDirs.filter(::containsHillshadeDemFile)
+    }
+
+    val coverageByRoot =
+        demRootDirs.map { root ->
+            root to requiredTileIds.count { tileId -> root.containsHillshadeDemTile(tileId) }
+        }
+
+    // Prefer one complete source. Detailed selected with incomplete or unrelated coverage must
+    // resolve to complete Standard terrain instead of building a mixed hillshade index.
+    val completeRoot =
+        coverageByRoot
+            .firstOrNull { (_, availableTiles) -> availableTiles == requiredTileIds.size }
+
+    // Neither source covers the whole map. Retain only roots that can contribute relevant tiles,
+    // preserving the selected-to-fallback preference order.
+    return if (completeRoot != null) {
+        listOf(completeRoot.first)
+    } else {
+        coverageByRoot
+            .filter { (_, availableTiles) -> availableTiles > 0 }
+            .map { (root, _) -> root }
+    }
+}
 
 private fun containsHillshadeDemFile(root: File): Boolean {
     if (!root.exists() || !root.isDirectory) return false
@@ -63,6 +91,23 @@ private fun String.isHillshadeDemFileName(): Boolean {
     return lowerName.endsWith(".hgt") ||
         lowerName.endsWith(".hgt.zip") ||
         lowerName.endsWith(".hgt.gz")
+}
+
+private fun File.containsHillshadeDemTile(tileId: String): Boolean {
+    val normalizedTileId = tileId.uppercase(Locale.ROOT)
+    return if (!exists() || !isDirectory || normalizedTileId.length < 3) {
+        false
+    } else {
+        val folder = normalizedTileId.substring(0, 3)
+        listOf(
+            File(File(this, folder), "$normalizedTileId.hgt"),
+            File(File(this, folder), "$normalizedTileId.hgt.zip"),
+            File(File(this, folder), "$normalizedTileId.hgt.gz"),
+            File(this, "$normalizedTileId.hgt"),
+            File(this, "$normalizedTileId.hgt.zip"),
+            File(this, "$normalizedTileId.hgt.gz"),
+        ).any { candidate -> candidate.isFile }
+    }
 }
 
 private class ZipHgtDemFile(

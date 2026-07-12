@@ -533,6 +533,12 @@ class MapRenderer(
                     mapDataStore = mapDataStore,
                     theme = theme,
                     demSignature = newDemSignature,
+                    requiredDemTileIds =
+                        if (currentHillShadingEnabled) {
+                            Dem3CoverageUtils.requiredTileIdsForMap(mapFile)
+                        } else {
+                            null
+                        },
                     warmStartupCache = warmStartupCache,
                 )
             skipNextStartupTilePrewarm = false
@@ -747,6 +753,11 @@ class MapRenderer(
                     mapDataStore = mapDataStore,
                     theme = theme,
                     demSignature = demSignature,
+                    requiredDemTileIds =
+                        currentMapPath
+                            ?.let(::File)
+                            ?.takeIf { it.isFile }
+                            ?.let(Dem3CoverageUtils::requiredTileIdsForMap),
                     warmStartupCache = false,
                 )
             currentLayer = tileRendererLayer
@@ -811,7 +822,11 @@ class MapRenderer(
         )
     }
 
-    private fun buildHillsRenderConfigOrNull(demSignature: String?): HillsRenderConfig? {
+    @Suppress("LongMethod", "ReturnCount")
+    private fun buildHillsRenderConfigOrNull(
+        demSignature: String?,
+        requiredDemTileIds: Set<String>?,
+    ): HillsRenderConfig? {
         val timingMarker = MapHotPathDiagnostics.begin("mapRenderer.buildHillsRenderConfigOrNull")
         var timingStatus = "ok"
         return try {
@@ -828,8 +843,25 @@ class MapRenderer(
                 destroyHillsRenderConfig()
                 return null
             }
+            val effectiveDemRootDirs = resolveHillshadeDemRootDirs(demRootDirs, requiredDemTileIds)
+            if (effectiveDemRootDirs.isEmpty()) {
+                timingStatus = "missing_renderable_dem"
+                Log.d(
+                    TAG,
+                    "Hill shading enabled but no renderable DEM files found in " +
+                        demRootDirs.joinToString { it.absolutePath },
+                )
+                destroyHillsRenderConfig()
+                return null
+            }
+            val effectiveDemSignature =
+                buildString {
+                    append(demSignature)
+                    append("|ROOTS:")
+                    append(effectiveDemRootDirs.joinToString("|") { it.absolutePath })
+                }
             hillsRenderConfig?.let { existing ->
-                if (hillsRenderConfigDemSignature == demSignature) {
+                if (hillsRenderConfigDemSignature == effectiveDemSignature) {
                     timingStatus = "reuse_cached_config"
                     return existing
                 }
@@ -839,16 +871,6 @@ class MapRenderer(
 
             val config =
                 runCatching {
-                    val effectiveDemRootDirs = resolveHillshadeDemRootDirs(demRootDirs)
-                    if (effectiveDemRootDirs.isEmpty()) {
-                        timingStatus = "missing_renderable_dem"
-                        Log.d(
-                            TAG,
-                            "Hill shading enabled but no renderable DEM files found in " +
-                                demRootDirs.joinToString { it.absolutePath },
-                        )
-                        return null
-                    }
                     val demFolder = MapsforgeHillshadeDemFolder(effectiveDemRootDirs)
                     val tileSource =
                         MemoryCachingHgtReaderTileSource(
@@ -871,7 +893,7 @@ class MapRenderer(
 
             timingStatus = "built_new_config"
             hillsRenderConfig = config
-            hillsRenderConfigDemSignature = demSignature
+            hillsRenderConfigDemSignature = effectiveDemSignature
             config
         } finally {
             MapHotPathDiagnostics.end(
@@ -886,13 +908,14 @@ class MapRenderer(
         mapDataStore: MapDataStore,
         theme: XmlRenderTheme,
         demSignature: String?,
+        requiredDemTileIds: Set<String>?,
         warmStartupCache: Boolean,
     ): TileRendererLayer =
         MapHotPathDiagnostics.measure(
             stage = "mapRenderer.createTileRendererLayer",
             detail = "warmStartupCache=$warmStartupCache demPresent=${demSignature != null}",
         ) {
-            val hillsConfig = buildHillsRenderConfigOrNull(demSignature)
+            val hillsConfig = buildHillsRenderConfigOrNull(demSignature, requiredDemTileIds)
             TileRendererLayer(
                 tileCache,
                 mapDataStore,

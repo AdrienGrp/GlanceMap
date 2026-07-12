@@ -21,6 +21,7 @@ internal const val KEY_ACTIVE_CACHE_UPDATED_MS = "active_cache_updated_ms"
 internal const val RELIEF_OVERLAY_CACHE_DIR_NAME = "relief_overlay"
 internal const val RELIEF_OVERLAY_CACHE_HASH_BYTES = 8
 internal const val BUNDLED_THEME_CACHE_DIR_PREFIX = "bundled-theme-"
+internal const val HILLSHADE_TILE_CACHE_SCHEMA_VERSION = 2
 
 private const val MAP_RENDERER_CACHE_TAG = "MapRenderer"
 
@@ -123,7 +124,13 @@ internal fun resolveMapRendererDesiredCacheId(
             "DEM:OFF"
         }
     val unitPart = if (elevationLabelsMetric) "UNITS:METRIC" else "UNITS:IMPERIAL"
-    val signature = "$mapPart|$themePart|$demPart|$unitPart"
+    val hillshadeCachePart =
+        if (hillShadingEnabled) {
+            "|HILLSHADE_CACHE:$HILLSHADE_TILE_CACHE_SCHEMA_VERSION"
+        } else {
+            ""
+        }
+    val signature = "$mapPart|$themePart|$demPart|$unitPart$hillshadeCachePart"
 
     val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray(Charsets.UTF_8))
     val shortHex =
