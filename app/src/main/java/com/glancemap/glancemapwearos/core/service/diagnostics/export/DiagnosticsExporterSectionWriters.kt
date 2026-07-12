@@ -3,6 +3,7 @@ package com.glancemap.glancemapwearos.core.service.diagnostics.export
 import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadSummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.DiagnosticsExporter
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.ScreenStateDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.TelemetryFormatters
 
 internal fun Appendable.writeLineDumpSection(
@@ -31,6 +32,21 @@ internal fun Appendable.writeEnergyByModeSummarySection(energySummary: EnergyDia
             writeEnergyModeStats(mode, stats)
         }
     }
+}
+
+internal fun Appendable.writeScreenStateSummarySection(summary: ScreenStateDiagnostics.Summary) {
+    appendLine()
+    appendLine("Screen State Summary")
+    appendLine("captureDurationMs=${summary.captureDurationMs}")
+    appendLine("interactiveDurationMs=${summary.interactiveDurationMs}")
+    appendLine("ambientDurationMs=${summary.ambientDurationMs}")
+    appendLine("screenOffDurationMs=${summary.offDurationMs}")
+    appendLine("appForegroundDurationMs=${summary.appForegroundDurationMs}")
+    appendLine("displayTransitionCount=${summary.displayTransitionCount}")
+    appendLine("appForegroundTransitionCount=${summary.appForegroundTransitionCount}")
+    appendLine("currentDisplayState=${summary.currentDisplayState?.name ?: "na"}")
+    appendLine("currentAppForeground=${summary.currentAppForeground?.toString() ?: "na"}")
+    appendLine("openIntervalsIncluded=${summary.openIntervalsIncluded}")
 }
 
 private fun Appendable.writeBatteryConsumptionSummary(batteryUse: EnergyDiagnostics.BatteryUseStats?) {

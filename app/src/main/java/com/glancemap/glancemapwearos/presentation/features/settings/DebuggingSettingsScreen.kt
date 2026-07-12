@@ -43,6 +43,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.GnssDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.MapHotPathDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.ScreenStateDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.TelemetryFormatters
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.sensors.CompassViewModel
@@ -189,6 +190,7 @@ fun DebuggingSettingsScreen(
                 captureActive = true,
                 fullDiagnostics = fullDiagnostics,
             )
+            ScreenStateDiagnostics.configure(captureActive = true)
             DebugTelemetry.setEnabled(fullDiagnostics)
             DebugTelemetry.log(
                 "DiagnosticsFlow",
@@ -206,6 +208,7 @@ fun DebuggingSettingsScreen(
             )
             DebugTelemetry.setEnabled(false)
             EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
+            ScreenStateDiagnostics.configure(captureActive = false)
         }
     }
 
@@ -298,6 +301,7 @@ fun DebuggingSettingsScreen(
                     DebugTelemetry.clear()
                     MarkerMotionTelemetry.clear()
                     EnergyDiagnostics.clear()
+                    ScreenStateDiagnostics.clear()
                     energySummaryRevision += 1L
                     DemDownloadDiagnostics.clear()
                     FieldMarkerDiagnostics.clear()
@@ -444,6 +448,7 @@ fun DebuggingSettingsScreen(
                                 viewModel.setGpsDebugTelemetry(false)
                                 DebugTelemetry.setEnabled(false)
                                 EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
+                                ScreenStateDiagnostics.configure(captureActive = false)
                             }
 
                             val diagnosticsFile =
@@ -599,6 +604,7 @@ fun DebuggingSettingsScreen(
                             viewModel.setGpsDebugTelemetry(false)
                             DebugTelemetry.setEnabled(false)
                             EnergyDiagnostics.configure(captureActive = false, fullDiagnostics = false)
+                            ScreenStateDiagnostics.configure(captureActive = false)
                             if (exportDialogMode == DiagnosticsExportDialogMode.GENERATING) {
                                 exportDialogMode = null
                             }

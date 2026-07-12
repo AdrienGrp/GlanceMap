@@ -11,6 +11,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeDemDow
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeEnergyByModeSummarySection
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeGnssSections
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeLineDumpSection
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeScreenStateSummarySection
 import com.glancemap.glancemapwearos.core.service.location.config.ENABLE_STRICT_FIX_FILTERING
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.maps.MapRenderer
@@ -519,6 +520,7 @@ object DiagnosticsExporter {
         val energyLines = EnergyDiagnostics.snapshotLines()
         val energyDroppedLines = EnergyDiagnostics.droppedLineCount()
         val energySummary = EnergyDiagnostics.summary()
+        val screenStateSummary = ScreenStateDiagnostics.summary()
         val demDownloadSummary = DemDownloadDiagnostics.summary()
         val demDownloadLines = DemDownloadDiagnostics.snapshotLines()
         val demDownloadDroppedLines = DemDownloadDiagnostics.droppedLineCount()
@@ -1711,6 +1713,7 @@ object DiagnosticsExporter {
                 lines = telemetryLines,
             )
             writer.writeEnergyByModeSummarySection(energySummary)
+            writer.writeScreenStateSummarySection(screenStateSummary)
             writer.writeLineDumpSection(
                 title = "Energy Diagnostics",
                 emptyMessage = "No energy diagnostics samples yet.",

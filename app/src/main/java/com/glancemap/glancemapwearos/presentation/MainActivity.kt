@@ -33,6 +33,7 @@ import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.ScreenStateDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeInputs
@@ -97,6 +98,10 @@ class MainActivity : ComponentActivity() {
                 intent: Intent?,
             ) {
                 _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+                ScreenStateDiagnostics.updateDisplayState(
+                    isInteractive = _isDeviceInteractive,
+                    isAmbient = _isAmbient,
+                )
             }
         }
 
@@ -105,6 +110,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         AndroidGraphicFactory.createInstance(this.application)
         _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+        ScreenStateDiagnostics.updateDisplayState(
+            isInteractive = _isDeviceInteractive,
+            isAmbient = _isAmbient,
+        )
 
         val screenStateFilter =
             IntentFilter().apply {
@@ -127,6 +136,10 @@ class MainActivity : ComponentActivity() {
                         _isAmbient = true
                         _ambientTickMs = System.currentTimeMillis()
                         _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: false
+                        ScreenStateDiagnostics.updateDisplayState(
+                            isInteractive = _isDeviceInteractive,
+                            isAmbient = _isAmbient,
+                        )
                         logScreenTelemetry(event = "ambient_enter")
                     }
 
@@ -134,6 +147,10 @@ class MainActivity : ComponentActivity() {
                         _isAmbient = false
                         _ambientTickMs = System.currentTimeMillis()
                         _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+                        ScreenStateDiagnostics.updateDisplayState(
+                            isInteractive = _isDeviceInteractive,
+                            isAmbient = _isAmbient,
+                        )
                         logScreenTelemetry(event = "ambient_exit")
                     }
 
@@ -1033,11 +1050,21 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+        ScreenStateDiagnostics.updateDisplayState(
+            isInteractive = _isDeviceInteractive,
+            isAmbient = _isAmbient,
+        )
+        ScreenStateDiagnostics.updateAppForeground(isForeground = true)
         logScreenTelemetry(event = "activity_resume")
     }
 
     override fun onPause() {
         _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: false
+        ScreenStateDiagnostics.updateDisplayState(
+            isInteractive = _isDeviceInteractive,
+            isAmbient = _isAmbient,
+        )
+        ScreenStateDiagnostics.updateAppForeground(isForeground = false)
         logScreenTelemetry(event = "activity_pause")
         super.onPause()
     }
