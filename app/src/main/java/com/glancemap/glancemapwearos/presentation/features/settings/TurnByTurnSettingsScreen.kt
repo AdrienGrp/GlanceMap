@@ -13,8 +13,7 @@ import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 fun TurnByTurnSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenGeneralSettings: () -> Unit,
-    onOpenGuidanceSettings: () -> Unit,
-    onOpenAlertsSettings: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     onOpenDashboardSettings: () -> Unit,
 ) {
     val listTokens = rememberSettingsListTokens()
@@ -22,7 +21,6 @@ fun TurnByTurnSettingsScreen(
     val voiceGuidanceEnabled by viewModel.turnByTurnVoiceGuidanceEnabled.collectAsState()
     val offRouteAlertsEnabled by viewModel.turnByTurnOffRouteAlertsEnabled.collectAsState()
     val compactPopupEnabled by viewModel.turnByTurnCompactPopupEnabled.collectAsState()
-    val screenOffBatchingEnabled by viewModel.turnByTurnScreenOffBatchingEnabled.collectAsState()
     var showInfoDialog by remember { mutableStateOf(false) }
 
     WearSettingsListScreen(listTokens = listTokens, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -40,31 +38,15 @@ fun TurnByTurnSettingsScreen(
         }
         item {
             SettingsToggleChip(
-                checked = hapticsEnabled,
-                onCheckedChanged = viewModel::setTurnByTurnHapticsEnabled,
-                label = "Guidance haptics",
-                secondaryLabel = if (hapticsEnabled) "Vibrate for guidance cues" else "Silent guidance",
-            )
-        }
-        item {
-            SettingsToggleChip(
-                checked = screenOffBatchingEnabled,
-                onCheckedChanged = viewModel::setTurnByTurnScreenOffBatchingEnabled,
-                label = "Batch screen-off GPS",
+                checked = compactPopupEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnCompactPopupEnabled,
+                label = "Small map popup",
                 secondaryLabel =
-                    if (screenOffBatchingEnabled) {
-                        "Lower wakeups · alerts may be delayed"
+                    if (compactPopupEnabled) {
+                        "Show TBT chip on the map"
                     } else {
-                        "Immediate TBT alerts"
+                        "Hide TBT chip on the map"
                     },
-            )
-        }
-        item {
-            SettingsToggleChip(
-                checked = voiceGuidanceEnabled,
-                onCheckedChanged = viewModel::setTurnByTurnVoiceGuidanceEnabled,
-                label = "Voice guidance",
-                secondaryLabel = if (voiceGuidanceEnabled) "Speak turn cues" else "Voice cues off",
             )
         }
         item {
@@ -82,15 +64,25 @@ fun TurnByTurnSettingsScreen(
         }
         item {
             SettingsToggleChip(
-                checked = compactPopupEnabled,
-                onCheckedChanged = viewModel::setTurnByTurnCompactPopupEnabled,
-                label = "Small map popup",
-                secondaryLabel =
-                    if (compactPopupEnabled) {
-                        "Show TBT chip on the map"
-                    } else {
-                        "Hide TBT chip on the map"
-                    },
+                checked = hapticsEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnHapticsEnabled,
+                label = "Guidance haptics",
+                secondaryLabel = if (hapticsEnabled) "Vibrate for guidance cues" else "Silent guidance",
+            )
+        }
+        item {
+            SettingsToggleChip(
+                checked = voiceGuidanceEnabled,
+                onCheckedChanged = viewModel::setTurnByTurnVoiceGuidanceEnabled,
+                label = "Voice guidance",
+                secondaryLabel = if (voiceGuidanceEnabled) "Speak turn cues" else "Voice cues off",
+            )
+        }
+        item {
+            SettingsSectionChip(
+                label = "Advanced settings",
+                secondaryLabel = "Route, alerts and battery",
+                onClick = onOpenAdvancedSettings,
             )
         }
         item {
@@ -98,20 +90,6 @@ fun TurnByTurnSettingsScreen(
                 label = "Dashboard",
                 secondaryLabel = "Route metrics and pages",
                 onClick = onOpenDashboardSettings,
-            )
-        }
-        item {
-            SettingsSectionChip(
-                label = "Advanced guidance",
-                secondaryLabel = "Start, reverse and route back",
-                onClick = onOpenGuidanceSettings,
-            )
-        }
-        item {
-            SettingsSectionChip(
-                label = "Advanced alerts",
-                secondaryLabel = "Turn timing and off-route tuning",
-                onClick = onOpenAlertsSettings,
             )
         }
     }
@@ -126,7 +104,7 @@ fun TurnByTurnSettingsScreen(
                 "Tap the speaker icon in the full turn view to switch voice guidance on or off.",
                 "Amber guidance means you are off route. The distance shows how far you are from the GPX.",
                 "Set TBT GPS timing in GPS settings. Faster timing gives more reliable alerts but uses more battery.",
-                "Screen-off GPS batching can save wakeups, but turn and off-route alerts may arrive later.",
+                "Screen-off saver reduces battery use, but turn and off-route alerts may arrive later.",
                 "Turn instructions depend on the GPX geometry or routing hints available in the file.",
             ),
         onDismiss = { showInfoDialog = false },

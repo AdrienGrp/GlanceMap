@@ -67,6 +67,7 @@ import com.glancemap.glancemapwearos.presentation.features.settings.RecordingSou
 import com.glancemap.glancemapwearos.presentation.features.settings.ResetDefaultsConfirmScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.SettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.ThemeSettingsScreen
+import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnAdvancedSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnAlertsSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnBackgroundSettingsScreen
 import com.glancemap.glancemapwearos.presentation.features.settings.TurnByTurnDashboardSettingsScreen
@@ -738,11 +739,8 @@ class MainActivity : ComponentActivity() {
                                             restoreState = true
                                         }
                                     },
-                                    onOpenGuidanceSettings = {
-                                        navController.navigate(WatchRoutes.TURN_BY_TURN_GUIDANCE_SETTINGS)
-                                    },
-                                    onOpenAlertsSettings = {
-                                        navController.navigate(WatchRoutes.TURN_BY_TURN_ALERTS_SETTINGS)
+                                    onOpenAdvancedSettings = {
+                                        navController.navigate(WatchRoutes.TURN_BY_TURN_ADVANCED_SETTINGS)
                                     },
                                     onOpenDashboardSettings = {
                                         navController.navigate(WatchRoutes.TURN_BY_TURN_DASHBOARD_SETTINGS)
@@ -760,6 +758,12 @@ class MainActivity : ComponentActivity() {
                         }
                         val turnByTurnCategoryScreens: List<Pair<String, @Composable () -> Unit>> =
                             listOf(
+                                WatchRoutes.TURN_BY_TURN_ADVANCED_SETTINGS to {
+                                    TurnByTurnAdvancedSettingsScreen(
+                                        viewModel = appContainer.settingsViewModel,
+                                        onOpenTurnByTurnSettings = openTurnByTurnSettings,
+                                    )
+                                },
                                 WatchRoutes.TURN_BY_TURN_GUIDANCE_SETTINGS to {
                                     TurnByTurnGuidanceSettingsScreen(
                                         viewModel = appContainer.settingsViewModel,

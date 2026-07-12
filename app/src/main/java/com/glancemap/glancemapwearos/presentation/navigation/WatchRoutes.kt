@@ -18,6 +18,7 @@ object WatchRoutes {
     const val RECORDING_DASHBOARD_SETTINGS = "recording_dashboard_settings_screen"
     const val RECORDING_EXTERNAL_SENSORS = "recording_external_sensors_screen"
     const val TURN_BY_TURN_SETTINGS = "turn_by_turn_settings_screen"
+    const val TURN_BY_TURN_ADVANCED_SETTINGS = "turn_by_turn_advanced_settings_screen"
     const val TURN_BY_TURN_GUIDANCE_SETTINGS = "turn_by_turn_guidance_settings_screen"
     const val TURN_BY_TURN_ALERTS_SETTINGS = "turn_by_turn_alerts_settings_screen"
     const val TURN_BY_TURN_FEEDBACK_SETTINGS = "turn_by_turn_feedback_settings_screen"
