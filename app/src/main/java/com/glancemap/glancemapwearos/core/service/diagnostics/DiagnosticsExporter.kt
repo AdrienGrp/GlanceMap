@@ -2026,13 +2026,24 @@ object DiagnosticsExporter {
         settings: DiagnosticsSettingsSnapshot,
         insights: TelemetryInsights,
     ): String =
-        when {
+        initialExternalRunPodStatus(settings, insights)
+            ?: connectedExternalRunPodStatus(insights)
+
+    private fun initialExternalRunPodStatus(
+        settings: DiagnosticsSettingsSnapshot,
+        insights: TelemetryInsights,
+    ): String? {
+        val runPodSelected = isRunPodSelected(settings)
+        return when {
             !settings.recordingExternalRunPodLinked -> "not_linked"
-            settings.recordingCadenceSource != SettingsRepository.RECORDING_SENSOR_SOURCE_POD &&
-                settings.recordingSpeedSource != SettingsRepository.RECORDING_SENSOR_SOURCE_POD &&
-                settings.recordingDistanceSource != SettingsRepository.RECORDING_SENSOR_SOURCE_POD &&
-                insights.externalRunPodBridgeStartCount == 0 -> "linked_not_selected"
+            !runPodSelected && insights.externalRunPodBridgeStartCount == 0 -> "linked_not_selected"
             insights.externalRunPodBridgeStartCount == 0 -> "linked_not_started"
+            else -> null
+        }
+    }
+
+    private fun connectedExternalRunPodStatus(insights: TelemetryInsights): String =
+        when {
             insights.externalRunPodConnectSkippedCount > 0 ->
                 "connect_skipped_${insights.externalRunPodLastConnectSkippedReason ?: "unknown"}"
             insights.externalRunPodConnectRequestedCount == 0 -> "not_requested"
@@ -2044,6 +2055,11 @@ object DiagnosticsExporter {
             insights.externalRunPodNotifyRequestedCount > 0 -> "notifications_requested_no_samples"
             else -> "connected_no_samples"
         }
+
+    private fun isRunPodSelected(settings: DiagnosticsSettingsSnapshot): Boolean =
+        settings.recordingCadenceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD ||
+            settings.recordingSpeedSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD ||
+            settings.recordingDistanceSource == SettingsRepository.RECORDING_SENSOR_SOURCE_POD
 
     private fun hasBluetoothScanPermission(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||

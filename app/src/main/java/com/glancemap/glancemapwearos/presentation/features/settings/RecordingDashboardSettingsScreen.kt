@@ -137,6 +137,7 @@ fun RecordingDashboardSettingsScreen(
     }
 }
 
+@Suppress("FunctionNaming") // Compose functions use PascalCase by convention.
 @Composable
 private fun RecordingDashboardInfoDialog(
     visible: Boolean,

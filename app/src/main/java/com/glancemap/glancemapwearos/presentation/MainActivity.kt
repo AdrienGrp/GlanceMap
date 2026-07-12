@@ -35,6 +35,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
+import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeInputs
 import com.glancemap.glancemapwearos.core.service.location.policy.navigationRuntimeDemand
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.design.theme.GlanceMapTheme
@@ -273,20 +274,22 @@ class MainActivity : ComponentActivity() {
                     if (isNavigateScreen) return@LaunchedEffect
                     val runtimeDemand =
                         navigationRuntimeDemand(
-                            isNavigateScreen = false,
-                            screenState = activityLocationScreenState,
-                            isScreenResumed = true,
-                            hasLocationPermission = locationPermissionGranted,
-                            offlineMode = offlineMode,
-                            generalGpsInAmbient = gpsInAmbientMode,
-                            recordingActive = traceRecordingState.active,
-                            recordingPaused = recordingRuntimePaused,
-                            recordingAutoPaused = traceRecordingState.autoPaused,
-                            recordingGpsEnabled = recordingGpsEnabled,
-                            turnByTurnActive = turnByTurnGuidanceSession != null,
-                            turnByTurnPaused = turnByTurnGuidancePaused,
-                            turnByTurnGpsEnabled = turnByTurnGpsEnabled,
-                            turnByTurnGpsInAmbient = turnByTurnScreenOffGpsEnabled,
+                            NavigationRuntimeInputs(
+                                isNavigateScreen = false,
+                                screenState = activityLocationScreenState,
+                                isScreenResumed = true,
+                                hasLocationPermission = locationPermissionGranted,
+                                offlineMode = offlineMode,
+                                generalGpsInAmbient = gpsInAmbientMode,
+                                recordingActive = traceRecordingState.active,
+                                recordingPaused = recordingRuntimePaused,
+                                recordingAutoPaused = traceRecordingState.autoPaused,
+                                recordingGpsEnabled = recordingGpsEnabled,
+                                turnByTurnActive = turnByTurnGuidanceSession != null,
+                                turnByTurnPaused = turnByTurnGuidancePaused,
+                                turnByTurnGpsEnabled = turnByTurnGpsEnabled,
+                                turnByTurnGpsInAmbient = turnByTurnScreenOffGpsEnabled,
+                            ),
                         )
                     appContainer.locationViewModel.syncRuntimeState(
                         screenState = activityLocationScreenState,
@@ -1091,20 +1094,22 @@ class MainActivity : ComponentActivity() {
             }
         val runtimeDemand =
             navigationRuntimeDemand(
-                isNavigateScreen = false,
-                screenState = destroyScreenState,
-                isScreenResumed = false,
-                hasLocationPermission = locationPermissionGranted,
-                offlineMode = appContainer.settingsViewModel.offlineMode.value,
-                generalGpsInAmbient = appContainer.settingsViewModel.gpsInAmbientMode.value,
-                recordingActive = traceRecordingState.active,
-                recordingPaused = traceRecordingState.paused && !traceRecordingState.autoPaused,
-                recordingAutoPaused = traceRecordingState.autoPaused,
-                recordingGpsEnabled = destroyRecordingGpsEnabled,
-                turnByTurnActive = appContainer.gpxViewModel.turnByTurnGuidanceSession.value != null,
-                turnByTurnPaused = appContainer.gpxViewModel.turnByTurnGuidancePaused.value,
-                turnByTurnGpsEnabled = destroyTurnByTurnGpsEnabled,
-                turnByTurnGpsInAmbient = destroyTurnByTurnScreenOffGpsEnabled,
+                NavigationRuntimeInputs(
+                    isNavigateScreen = false,
+                    screenState = destroyScreenState,
+                    isScreenResumed = false,
+                    hasLocationPermission = locationPermissionGranted,
+                    offlineMode = appContainer.settingsViewModel.offlineMode.value,
+                    generalGpsInAmbient = appContainer.settingsViewModel.gpsInAmbientMode.value,
+                    recordingActive = traceRecordingState.active,
+                    recordingPaused = traceRecordingState.paused && !traceRecordingState.autoPaused,
+                    recordingAutoPaused = traceRecordingState.autoPaused,
+                    recordingGpsEnabled = destroyRecordingGpsEnabled,
+                    turnByTurnActive = appContainer.gpxViewModel.turnByTurnGuidanceSession.value != null,
+                    turnByTurnPaused = appContainer.gpxViewModel.turnByTurnGuidancePaused.value,
+                    turnByTurnGpsEnabled = destroyTurnByTurnGpsEnabled,
+                    turnByTurnGpsInAmbient = destroyTurnByTurnScreenOffGpsEnabled,
+                ),
             )
         if (runtimeDemand.trackingEnabled) {
             DebugTelemetry.log(

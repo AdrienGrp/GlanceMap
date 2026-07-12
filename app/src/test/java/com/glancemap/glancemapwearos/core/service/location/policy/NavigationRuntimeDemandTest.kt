@@ -257,6 +257,7 @@ class NavigationRuntimeDemandTest {
         assertFalse(demand(offlineMode = true, recordingActive = true).trackingEnabled)
     }
 
+    @Suppress("LongParameterList") // Named defaults keep each policy scenario concise and readable.
     private fun demand(
         isNavigateScreen: Boolean = true,
         screenState: LocationScreenState = LocationScreenState.INTERACTIVE,
@@ -274,19 +275,21 @@ class NavigationRuntimeDemandTest {
         turnByTurnGpsInAmbient: Boolean = false,
     ): NavigationRuntimeDemand =
         navigationRuntimeDemand(
-            isNavigateScreen = isNavigateScreen,
-            screenState = screenState,
-            isScreenResumed = isScreenResumed,
-            hasLocationPermission = hasLocationPermission,
-            offlineMode = offlineMode,
-            generalGpsInAmbient = generalGpsInAmbient,
-            recordingActive = recordingActive,
-            recordingPaused = recordingPaused,
-            recordingAutoPaused = recordingAutoPaused,
-            recordingGpsEnabled = recordingGpsEnabled,
-            turnByTurnActive = turnByTurnActive,
-            turnByTurnPaused = turnByTurnPaused,
-            turnByTurnGpsEnabled = turnByTurnGpsEnabled,
-            turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
+            NavigationRuntimeInputs(
+                isNavigateScreen = isNavigateScreen,
+                screenState = screenState,
+                isScreenResumed = isScreenResumed,
+                hasLocationPermission = hasLocationPermission,
+                offlineMode = offlineMode,
+                generalGpsInAmbient = generalGpsInAmbient,
+                recordingActive = recordingActive,
+                recordingPaused = recordingPaused,
+                recordingAutoPaused = recordingAutoPaused,
+                recordingGpsEnabled = recordingGpsEnabled,
+                turnByTurnActive = turnByTurnActive,
+                turnByTurnPaused = turnByTurnPaused,
+                turnByTurnGpsEnabled = turnByTurnGpsEnabled,
+                turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
+            ),
         )
 }

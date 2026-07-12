@@ -296,27 +296,6 @@ private fun List<RecordingRecapMetric>.orderedForActivityProfile(activityProfile
         )
     }
 
-private fun List<RecordingRecapMetric>.inLabelOrder(vararg labels: String): List<RecordingRecapMetric> {
-    val byLabel = associateBy { it.label }
-    return labels.mapNotNull(byLabel::get)
-}
-
-private fun List<RecordingRecapMetric>.moveLabelAfter(
-    label: String,
-    afterLabel: String,
-): List<RecordingRecapMetric> {
-    val moved = firstOrNull { it.label == label } ?: return this
-    val withoutMoved = filterNot { it.label == label }
-    val afterIndex = withoutMoved.indexOfFirst { it.label == afterLabel }
-    if (afterIndex < 0) return this
-    return buildList {
-        withoutMoved.forEachIndexed { index, metric ->
-            add(metric)
-            if (index == afterIndex) add(moved)
-        }
-    }
-}
-
 private fun integerRecapMetric(
     label: String,
     value: Int?,

@@ -75,27 +75,28 @@ internal class GpxDirectionArrowLayer(
         tileSize: Int,
     ): GpxDirectionArrowGeometry? {
         val cached = directionArrowGeometryCache[trackId]
-        if (
-            cached != null &&
-            cached.sourceSignature == lod.sourceSignature &&
-            cached.zoom == zoom &&
-            cached.tileSize == tileSize
-        ) {
-            return cached.geometry
-        }
+        val cacheMatches =
+            cached?.let {
+                it.sourceSignature == lod.sourceSignature &&
+                    it.zoom == zoom &&
+                    it.tileSize == tileSize
+            } ?: false
+        if (cacheMatches) return cached.geometry
         val geometry =
             buildGpxDirectionArrowGeometry(
                 points = lod.pointsForZoom(zoom),
                 zoom = zoom,
                 tileSize = tileSize,
-            ) ?: return null
-        directionArrowGeometryCache[trackId] =
-            CachedDirectionArrowGeometry(
-                sourceSignature = lod.sourceSignature,
-                zoom = zoom,
-                tileSize = tileSize,
-                geometry = geometry,
             )
+        geometry?.let {
+            directionArrowGeometryCache[trackId] =
+                CachedDirectionArrowGeometry(
+                    sourceSignature = lod.sourceSignature,
+                    zoom = zoom,
+                    tileSize = tileSize,
+                    geometry = it,
+                )
+        }
         return geometry
     }
 

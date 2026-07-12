@@ -131,23 +131,27 @@ internal class MarkerMotionController(
         serviceFreshnessMaxAgeMs: Long,
         watchGpsDegraded: Boolean,
     ): Boolean {
-        state.correctionBlend?.let { blend ->
-            val blendAgeMs = (nowElapsedMs - blend.startElapsedMs).coerceAtLeast(0L)
-            if (blendAgeMs < blend.durationMs) return true
-        }
-        if (watchGpsDegraded || state.predictionRequiresFreshFix) return false
-
-        val fix = state.lastAcceptedFix ?: return false
-        val freshnessMaxAgeMs =
-            minOf(
-                predictionFreshnessMaxAgeMs,
-                serviceFreshnessMaxAgeMs.takeIf { it > 0L } ?: Long.MAX_VALUE,
-            )
-        val fixAgeMs = (nowElapsedMs - fix.fixElapsedMs).coerceAtLeast(0L)
-        return fixAgeMs <= freshnessMaxAgeMs &&
-            fix.accuracyM <= maxPredictionAccuracyM &&
-            fix.bearingDeg != null &&
-            fix.speedMps >= minPredictionSpeedMps
+        val blendActive =
+            state.correctionBlend?.let { blend ->
+                val blendAgeMs = (nowElapsedMs - blend.startElapsedMs).coerceAtLeast(0L)
+                blendAgeMs < blend.durationMs
+            } ?: false
+        val predictionActive =
+            state.lastAcceptedFix?.let { fix ->
+                val freshnessMaxAgeMs =
+                    minOf(
+                        predictionFreshnessMaxAgeMs,
+                        serviceFreshnessMaxAgeMs.takeIf { it > 0L } ?: Long.MAX_VALUE,
+                    )
+                val fixAgeMs = (nowElapsedMs - fix.fixElapsedMs).coerceAtLeast(0L)
+                !watchGpsDegraded &&
+                    !state.predictionRequiresFreshFix &&
+                    fixAgeMs <= freshnessMaxAgeMs &&
+                    fix.accuracyM <= maxPredictionAccuracyM &&
+                    fix.bearingDeg != null &&
+                    fix.speedMps >= minPredictionSpeedMps
+            } ?: false
+        return blendActive || predictionActive
     }
 
     fun onGpsFix(fix: MarkerMotionGpsFix): LatLong = fixProcessor.onGpsFix(fix)

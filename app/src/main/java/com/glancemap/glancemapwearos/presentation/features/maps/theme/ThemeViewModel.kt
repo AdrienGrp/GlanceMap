@@ -104,6 +104,8 @@ private data class DemTileDownloadOutcome(
     val networkUnavailable: Boolean,
 )
 
+// Theme and DEM state deliberately share one lifecycle owner so downloads survive screen recomposition.
+@Suppress("LargeClass")
 class ThemeViewModel(
     private val themeRepository: ThemeRepository,
     private val context: Context,
@@ -731,10 +733,13 @@ class ThemeViewModel(
             val success =
                 runCatching {
                     downloadDemFile(
-                        url = url,
-                        target = target,
-                        demRoot = getDemOutputRoot(source),
-                        userAgent = DEM_USER_AGENT,
+                        request =
+                            DemDownloadRequest(
+                                url = url,
+                                target = target,
+                                demRoot = getDemOutputRoot(source),
+                                userAgent = DEM_USER_AGENT,
+                            ),
                         onConnectionOpened = { connection ->
                             activeDemConnection = connection
                         },

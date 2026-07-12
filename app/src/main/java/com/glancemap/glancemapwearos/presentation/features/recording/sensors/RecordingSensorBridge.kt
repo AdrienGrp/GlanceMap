@@ -112,6 +112,8 @@ private class RecordingSensorRuntimeState {
     }
 }
 
+// This effect coordinator keeps all sensor bridges under one Compose lifecycle and shared metrics snapshot.
+@Suppress("FunctionNaming", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun RecordingSensorBridge(
     active: Boolean,

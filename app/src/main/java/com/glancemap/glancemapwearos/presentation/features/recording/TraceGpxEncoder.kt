@@ -96,6 +96,12 @@ data class RecordedTraceSummary(
 )
 
 private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceSummary) {
+    writeRecordingMotionSummary(summary)
+    writeRecordingEnergySummary(summary)
+    writeRecordingSensorSummary(summary)
+}
+
+private fun StringWriter.writeRecordingMotionSummary(summary: RecordedTraceSummary) {
     summary.activityProfile?.takeIf { it.isNotBlank() }?.let {
         textTag("gmap:activityProfile", it)
     }
@@ -123,6 +129,9 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     textTag("gmap:gpsActiveDurationSeconds", formatDouble(summary.gpsActiveDurationSeconds))
     textTag("gmap:recordingGapCount", summary.recordingGapCount.coerceAtLeast(0).toString())
     textTag("gmap:recordingMaxGapSeconds", formatDouble(summary.recordingMaxGapSeconds))
+}
+
+private fun StringWriter.writeRecordingEnergySummary(summary: RecordedTraceSummary) {
     textTag("gmap:caloriesGrossKcal", formatDouble(summary.caloriesGrossKcal))
     textTag("gmap:caloriesActiveKcal", formatDouble(summary.caloriesActiveKcal))
     textTag("gmap:caloriesRestingKcal", formatDouble(summary.caloriesRestingKcal))
@@ -138,6 +147,9 @@ private fun StringWriter.writeRecordingSummaryExtensions(summary: RecordedTraceS
     summary.cyclingPhysicsSegments.takeIf { it > 0 }?.let {
         textTag("gmap:cyclingPhysicsSegments", it.toString())
     }
+}
+
+private fun StringWriter.writeRecordingSensorSummary(summary: RecordedTraceSummary) {
     summary.heartRateBpm?.takeIf { it > 0 }?.let {
         textTag("gmap:heartRateBpm", it.toString())
     }

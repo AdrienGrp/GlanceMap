@@ -590,6 +590,7 @@ internal fun parseGpxData(file: File): ParsedGpxData {
     }
 }
 
+@Suppress("LongParameterList") // Parameters map one-to-one to optional GPX extension fields parsed above.
 private fun buildGpxActivitySummary(
     activityProfile: String?,
     durationSeconds: Double?,

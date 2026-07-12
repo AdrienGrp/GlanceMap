@@ -233,6 +233,8 @@ class LocationViewModel(
         )
     }
 
+    // Guard returns make request rejection explicit and avoid mutating service state after a rejected request.
+    @Suppress("ReturnCount")
     internal fun requestImmediateLocation(
         source: String = "ui_unknown",
     ): ImmediateLocationRequestResult {

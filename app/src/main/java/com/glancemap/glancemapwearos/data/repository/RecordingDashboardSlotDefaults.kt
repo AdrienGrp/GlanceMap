@@ -10,27 +10,26 @@ internal fun normalizeRecordingDashboardMetricSlots(
     metricSlots: List<String>,
     defaultMetricSlots: List<String> = SettingsRepository.DEFAULT_RECORDING_DASHBOARD_ALL_METRICS,
 ): List<String> {
-    if (metricSlots.isEmpty()) return defaultMetricSlots
-    if (metricSlots.size == RECORDING_DASHBOARD_PAGE_SLOT_COUNT &&
-        metricSlots == LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS
-    ) {
-        return defaultMetricSlots
-    }
+    val useDefaults =
+        metricSlots.isEmpty() ||
+            (
+                metricSlots.size == RECORDING_DASHBOARD_PAGE_SLOT_COUNT &&
+                    metricSlots == LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS
+            )
+    return if (useDefaults) defaultMetricSlots else padRecordingDashboardSlots(metricSlots)
+}
 
+private fun padRecordingDashboardSlots(metricSlots: List<String>): List<String> {
     val boundedSlots = metricSlots.take(RECORDING_DASHBOARD_MAX_SLOT_COUNT)
-    val targetSize =
-        boundedSlots.size
-            .coerceAtLeast(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
-            .let { size ->
-                val remainder = size % RECORDING_DASHBOARD_PAGE_SLOT_COUNT
-                if (remainder == 0) size else size + RECORDING_DASHBOARD_PAGE_SLOT_COUNT - remainder
-            }.coerceAtMost(RECORDING_DASHBOARD_MAX_SLOT_COUNT)
-    return (
-        boundedSlots +
-            generateSequence { SettingsRepository.DEFAULT_RECORDING_DASHBOARD_NEW_PAGE_METRICS }
-                .flatten()
-                .take(targetSize - boundedSlots.size)
-    ).take(targetSize)
+    val minimumSize = boundedSlots.size.coerceAtLeast(RECORDING_DASHBOARD_PAGE_SLOT_COUNT)
+    val remainder = minimumSize % RECORDING_DASHBOARD_PAGE_SLOT_COUNT
+    val paddedSize = if (remainder == 0) minimumSize else minimumSize + RECORDING_DASHBOARD_PAGE_SLOT_COUNT - remainder
+    val targetSize = paddedSize.coerceAtMost(RECORDING_DASHBOARD_MAX_SLOT_COUNT)
+    val padding =
+        generateSequence { SettingsRepository.DEFAULT_RECORDING_DASHBOARD_NEW_PAGE_METRICS }
+            .flatten()
+            .take(targetSize - boundedSlots.size)
+    return (boundedSlots + padding).take(targetSize)
 }
 
 private val LEGACY_RECORDING_DASHBOARD_PAGE_ONE_METRICS =

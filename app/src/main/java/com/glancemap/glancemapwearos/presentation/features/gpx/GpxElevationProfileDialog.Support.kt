@@ -40,12 +40,12 @@ import com.glancemap.glancemapwearos.presentation.formatting.UnitFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-internal const val SwipeDismissThresholdPx = 48f
-internal const val RotaryZoomThresholdPx = 36f
-internal const val ProfileZoomStepFactor = 0.82
-internal const val ProfileMinVisibleSampleCount = 24
-internal const val ProfileMinVisualElevationRangeMeters = 50.0
-internal const val ProfileFlatSegmentElevationNoiseMeters = 2.0
+internal const val SWIPE_DISMISS_THRESHOLD_PX = 48f
+internal const val ROTARY_ZOOM_THRESHOLD_PX = 36f
+internal const val PROFILE_ZOOM_STEP_FACTOR = 0.82
+internal const val PROFILE_MIN_VISIBLE_SAMPLE_COUNT = 24
+internal const val PROFILE_MIN_VISUAL_ELEVATION_RANGE_METERS = 50.0
+internal const val PROFILE_FLAT_SEGMENT_ELEVATION_NOISE_METERS = 2.0
 
 private enum class ProfileSegmentType {
     FLAT,
@@ -412,15 +412,13 @@ private fun classifySegment(
     to: ElevationSample,
 ): ProfileSegmentType {
     val distanceDelta = (to.distance - from.distance).coerceAtLeast(0.0)
-    if (distanceDelta <= 0.0) return ProfileSegmentType.FLAT
-
     val elevationDelta = to.elevation - from.elevation
-    if (kotlin.math.abs(elevationDelta) < ProfileFlatSegmentElevationNoiseMeters) {
-        return ProfileSegmentType.FLAT
-    }
-
-    val gradePercent = (elevationDelta / distanceDelta) * 100.0
+    val isFlat =
+        distanceDelta <= 0.0 ||
+            kotlin.math.abs(elevationDelta) < PROFILE_FLAT_SEGMENT_ELEVATION_NOISE_METERS
+    val gradePercent = if (distanceDelta > 0.0) (elevationDelta / distanceDelta) * 100.0 else 0.0
     return when {
+        isFlat -> ProfileSegmentType.FLAT
         gradePercent >= 8.0 -> ProfileSegmentType.CLIMB
         gradePercent >= 2.0 -> ProfileSegmentType.UPHILL
         gradePercent <= -8.0 -> ProfileSegmentType.DESCENT
@@ -468,12 +466,12 @@ internal fun selectedElevationBiasY(
 
 internal fun elevationVisualBounds(samples: List<ElevationSample>): ElevationVisualBounds {
     if (samples.isEmpty()) {
-        return ElevationVisualBounds(minElevation = 0.0, maxElevation = ProfileMinVisualElevationRangeMeters)
+        return ElevationVisualBounds(minElevation = 0.0, maxElevation = PROFILE_MIN_VISUAL_ELEVATION_RANGE_METERS)
     }
     val minElevation = samples.minOf { it.elevation }
     val maxElevation = samples.maxOf { it.elevation }
     val actualRange = (maxElevation - minElevation).coerceAtLeast(0.0)
-    val visualRange = actualRange.coerceAtLeast(ProfileMinVisualElevationRangeMeters)
+    val visualRange = actualRange.coerceAtLeast(PROFILE_MIN_VISUAL_ELEVATION_RANGE_METERS)
     val center = (minElevation + maxElevation) / 2.0
     val halfRange = visualRange / 2.0
     return ElevationVisualBounds(
@@ -507,7 +505,7 @@ internal fun computeMinimumVisibleDistance(
     if (samples.size < 2 || totalDistance <= 0.0) return totalDistance.coerceAtLeast(0.0)
 
     val averageSampleSpacing = (totalDistance / (samples.size - 1)).coerceAtLeast(1.0)
-    val sampleDrivenMinimum = averageSampleSpacing * ProfileMinVisibleSampleCount
+    val sampleDrivenMinimum = averageSampleSpacing * PROFILE_MIN_VISIBLE_SAMPLE_COUNT
     val fractionDrivenMinimum = totalDistance * 0.06
     return maxOf(sampleDrivenMinimum, fractionDrivenMinimum).coerceAtMost(totalDistance)
 }
@@ -530,9 +528,9 @@ internal fun zoomViewportAroundDistance(
     val currentSpan = clampedCurrent.span.takeIf { it > 0.0 } ?: return clampedCurrent
     val targetSpan =
         if (zoomIn) {
-            (currentSpan * ProfileZoomStepFactor).coerceAtLeast(minimumSpan)
+            (currentSpan * PROFILE_ZOOM_STEP_FACTOR).coerceAtLeast(minimumSpan)
         } else {
-            (currentSpan / ProfileZoomStepFactor).coerceAtMost(totalDistance)
+            (currentSpan / PROFILE_ZOOM_STEP_FACTOR).coerceAtMost(totalDistance)
         }
     if (kotlin.math.abs(targetSpan - currentSpan) < 0.5) {
         return clampedCurrent

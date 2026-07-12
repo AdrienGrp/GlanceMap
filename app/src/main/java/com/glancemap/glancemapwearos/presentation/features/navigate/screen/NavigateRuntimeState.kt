@@ -7,6 +7,7 @@ import com.glancemap.glancemapwearos.core.service.location.model.LocationScreenS
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
 import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeDemand
+import com.glancemap.glancemapwearos.core.service.location.policy.NavigationRuntimeInputs
 import com.glancemap.glancemapwearos.core.service.location.policy.navigationRuntimeDemand
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingUiState
 import com.glancemap.glancemapwearos.presentation.features.recording.TraceRecordingViewModel
@@ -59,20 +60,22 @@ internal fun rememberNavigateRuntimeState(
     val recordingRuntimePaused = traceRecordingState.paused && !traceRecordingState.autoPaused
     val runtimeDemand =
         navigationRuntimeDemand(
-            isNavigateScreen = true,
-            screenState = screenState,
-            isScreenResumed = isScreenResumed,
-            hasLocationPermission = hasLocationPermission,
-            offlineMode = offlineMode,
-            generalGpsInAmbient = generalGpsInAmbient,
-            recordingActive = traceRecordingState.active,
-            recordingPaused = recordingRuntimePaused,
-            recordingAutoPaused = traceRecordingState.autoPaused,
-            recordingGpsEnabled = recordingGpsEnabled,
-            turnByTurnActive = turnByTurnActive,
-            turnByTurnPaused = turnByTurnPaused,
-            turnByTurnGpsEnabled = turnByTurnGpsEnabled,
-            turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
+            NavigationRuntimeInputs(
+                isNavigateScreen = true,
+                screenState = screenState,
+                isScreenResumed = isScreenResumed,
+                hasLocationPermission = hasLocationPermission,
+                offlineMode = offlineMode,
+                generalGpsInAmbient = generalGpsInAmbient,
+                recordingActive = traceRecordingState.active,
+                recordingPaused = recordingRuntimePaused,
+                recordingAutoPaused = traceRecordingState.autoPaused,
+                recordingGpsEnabled = recordingGpsEnabled,
+                turnByTurnActive = turnByTurnActive,
+                turnByTurnPaused = turnByTurnPaused,
+                turnByTurnGpsEnabled = turnByTurnGpsEnabled,
+                turnByTurnGpsInAmbient = turnByTurnGpsInAmbient,
+            ),
         )
     NavigateRuntimeEffects(
         screenState = screenState,
