@@ -374,6 +374,8 @@ internal fun launchCompassSmoothingJob(
     return scope.launch {
         var smoothedHeading = 0f
         var hasInit = false
+        var resumedWithPreviousHeading = false
+        var startupInputConfirmed = false
         var suppressFirstPublishAfterReset = false
         val window = ArrayDeque<Float>(HEADING_SMOOTHING_WINDOW_SIZE)
         var startupCandidateRawHeading: Float? = null
@@ -382,6 +384,7 @@ internal fun launchCompassSmoothingJob(
         var turnRateEmaDegPerSec = 0f
         var pendingLargeJumpHeading: Float? = null
         var pendingLargeJumpAtMs: Long = 0L
+        var reanchorBlendActive = false
 
         rawHeadingFlow
             .filterNotNull()
@@ -425,8 +428,20 @@ internal fun launchCompassSmoothingJob(
                 val raw = normalize360Deg(rawHeading)
 
                 if (consumeResetSmoothingRequested()) {
-                    hasInit = false
-                    suppressFirstPublishAfterReset = true
+                    val displayedHeading = getDisplayedHeading()
+                    resumedWithPreviousHeading =
+                        getPendingStartupHeadingPublishesToMask() > 0 &&
+                        displayedHeading.isFinite()
+                    hasInit = resumedWithPreviousHeading
+                    if (resumedWithPreviousHeading) {
+                        smoothedHeading = normalize360Deg(displayedHeading)
+                        // The prior heading now provides continuity. Let the bounded re-anchor
+                        // publish every step instead of hiding early steps and exposing a larger
+                        // accumulated jump once the old sample mask is exhausted.
+                        setPendingStartupHeadingPublishesToMask(0)
+                    }
+                    startupInputConfirmed = false
+                    suppressFirstPublishAfterReset = !resumedWithPreviousHeading
                     window.clear()
                     startupCandidateRawHeading = null
                     lastRawHeading = null
@@ -434,6 +449,7 @@ internal fun launchCompassSmoothingJob(
                     turnRateEmaDegPerSec = 0f
                     pendingLargeJumpHeading = null
                     pendingLargeJumpAtMs = 0L
+                    reanchorBlendActive = false
                 }
 
                 if (getPendingBootstrapRawSamplesToIgnore() > 0) {
@@ -453,7 +469,7 @@ internal fun launchCompassSmoothingJob(
                         remainingSamplesToIgnore = getPendingStartupBogusSamplesToIgnore(),
                         withinStartupWindow = now <= getStartupStabilizationUntilElapsedMs(),
                         usingRotationVector = isUsingRotationVector(),
-                        hasInit = hasInit,
+                        hasInit = startupInputConfirmed,
                     )
                 if (startupTransientDecision != null) {
                     startupCandidateRawHeading = startupTransientDecision.nextCandidateHeadingDeg
@@ -476,6 +492,7 @@ internal fun launchCompassSmoothingJob(
                         }
 
                         StartupTransientAction.ACCEPT_CONFIRMED -> {
+                            startupInputConfirmed = true
                             if (startupTransientDecision.acceptedHeadingDeg != null) {
                                 logDiagnostics(
                                     "startup_sample accepted raw=${raw.format(1)} " +
@@ -522,18 +539,24 @@ internal fun launchCompassSmoothingJob(
                     return@collect
                 }
 
-                if (settling) {
-                    smoothedHeading = raw
-                    val settlingAccuracy =
-                        if (isUsingRotationVector() || isUsingHeadingSensor()) {
-                            SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
-                        } else {
-                            SensorManager.SENSOR_STATUS_ACCURACY_LOW
-                        }
-                    updateInferredHeadingAccuracy(settlingAccuracy)
-                    publishHeadingCandidate(raw)
-                    pendingLargeJumpHeading = null
-                    pendingLargeJumpAtMs = 0L
+                if (reanchorBlendActive) {
+                    val reanchorDiff =
+                        abs(shortestAngleDiffDeg(target = raw, current = smoothedHeading))
+                    smoothedHeading =
+                        stepHeadingTowardConfirmedReanchor(
+                            currentHeadingDeg = smoothedHeading,
+                            targetHeadingDeg = raw,
+                        )
+                    window.clear()
+                    window.addLast(raw)
+                    updateInferredHeadingAccuracy(SensorManager.SENSOR_STATUS_ACCURACY_LOW)
+                    publishHeadingCandidate(smoothedHeading)
+                    if (reanchorDiff <= HEADING_REANCHOR_MAX_STEP_DEG) {
+                        reanchorBlendActive = false
+                        logDiagnostics(
+                            "large_jump blend_complete heading=${smoothedHeading.format(1)}",
+                        )
+                    }
                     return@collect
                 }
 
@@ -548,36 +571,61 @@ internal fun launchCompassSmoothingJob(
                     } else {
                         Float.NaN
                     }
+                val pendingAgeMs =
+                    if (hasPendingLargeJump) {
+                        now - pendingLargeJumpAtMs
+                    } else {
+                        0L
+                    }
                 when (
-                    resolveLargeJumpAction(
-                        jumpDeg = jump,
-                        inRelock = inRelock,
-                        hasPendingLargeJump = hasPendingLargeJump,
-                        pendingDeltaDeg = pendingDelta,
+                    resolveSensorLargeJumpAction(
+                        SensorLargeJumpInput(
+                            jumpDeg = jump,
+                            inRelock = inRelock,
+                            hasPendingLargeJump = hasPendingLargeJump,
+                            pendingDeltaDeg = pendingDelta,
+                            pendingAgeMs = pendingAgeMs,
+                        ),
                     )
                 ) {
                     LargeJumpAction.ACCEPT_IMMEDIATE,
                     LargeJumpAction.ACCEPT_CONFIRMED,
                     -> {
-                        smoothedHeading = raw
+                        reanchorBlendActive = true
+                        smoothedHeading =
+                            stepHeadingTowardConfirmedReanchor(
+                                currentHeadingDeg = smoothedHeading,
+                                targetHeadingDeg = raw,
+                            )
                         window.clear()
                         window.addLast(raw)
                         pendingLargeJumpHeading = null
                         pendingLargeJumpAtMs = 0L
                         updateInferredHeadingAccuracy(SensorManager.SENSOR_STATUS_ACCURACY_LOW)
-                        publishHeadingCandidate(raw)
-                        if (!inRelock) {
-                            logDiagnostics(
-                                "large_jump accepted jump=${jump.format(1)} " +
-                                    "pendingDelta=${pendingDelta.format(1)}",
-                            )
-                        }
+                        publishHeadingCandidate(smoothedHeading)
+                        logDiagnostics(
+                            "large_jump accepted jump=${jump.format(1)} " +
+                                "pendingAgeMs=$pendingAgeMs " +
+                                "pendingDelta=${pendingDelta.format(1)} " +
+                                "relock=$inRelock blend=true",
+                        )
                         return@collect
                     }
 
                     LargeJumpAction.REJECT_PENDING -> {
+                        val continuesCoherentPending =
+                            hasPendingLargeJump &&
+                                pendingDelta.isFinite() &&
+                                pendingDelta <= HEADING_LARGE_JUMP_CONFIRM_MAX_DELTA_DEG
+                        if (!continuesCoherentPending) {
+                            pendingLargeJumpAtMs = now
+                            logDiagnostics(
+                                "large_jump pending jump=${jump.format(1)} " +
+                                    "heading=${raw.format(1)} " +
+                                    "current=${smoothedHeading.format(1)} relock=$inRelock",
+                            )
+                        }
                         pendingLargeJumpHeading = raw
-                        pendingLargeJumpAtMs = now
                         updateInferredHeadingAccuracy(SensorManager.SENSOR_STATUS_ACCURACY_LOW)
                         return@collect
                     }
@@ -587,6 +635,27 @@ internal fun launchCompassSmoothingJob(
                 if (pendingLargeJumpHeading != null) {
                     pendingLargeJumpHeading = null
                     pendingLargeJumpAtMs = 0L
+                }
+
+                if (settling) {
+                    smoothedHeading =
+                        if (resumedWithPreviousHeading) {
+                            stepHeadingTowardConfirmedReanchor(
+                                currentHeadingDeg = smoothedHeading,
+                                targetHeadingDeg = raw,
+                            )
+                        } else {
+                            raw
+                        }
+                    val settlingAccuracy =
+                        if (isUsingRotationVector() || isUsingHeadingSensor()) {
+                            SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
+                        } else {
+                            SensorManager.SENSOR_STATUS_ACCURACY_LOW
+                        }
+                    updateInferredHeadingAccuracy(settlingAccuracy)
+                    publishHeadingCandidate(smoothedHeading)
+                    return@collect
                 }
 
                 if (window.size == HEADING_SMOOTHING_WINDOW_SIZE) window.removeFirst()
