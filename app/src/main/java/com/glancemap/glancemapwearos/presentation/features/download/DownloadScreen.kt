@@ -66,7 +66,6 @@ import com.glancemap.glancemapwearos.presentation.features.settings.rememberSett
 import com.glancemap.glancemapwearos.presentation.ui.CompactIconHitTargetButton
 import com.glancemap.glancemapwearos.presentation.ui.DeleteConfirmationDialog
 import com.glancemap.glancemapwearos.presentation.ui.FeatureListScaffold
-import com.glancemap.glancemapwearos.presentation.ui.KeepScreenOnEffect
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
 import com.glancemap.glancemapwearos.presentation.ui.cappedFontScale
 import com.glancemap.glancemapwearos.presentation.ui.rememberWearAdaptiveSpec
@@ -93,9 +92,6 @@ fun DownloadScreen(
     val screenSize = rememberWearScreenSize()
     val adaptive = rememberWearAdaptiveSpec()
     val uiState by viewModel.uiState.collectAsState()
-    if (uiState.isDownloading) {
-        KeepScreenOnEffect()
-    }
     val showAreaPicker = areaPickerOpen
     var bundlePendingDelete by remember { mutableStateOf<OamInstalledBundle?>(null) }
     var showOamInfoDialog by remember { mutableStateOf(false) }
