@@ -67,6 +67,7 @@ import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingRecapMetric
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.RecordingRecapMetricsGrid
+import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.moveLabelAfter
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetric
 import com.glancemap.glancemapwearos.presentation.features.recording.dashboard.recordingRecapMetricsForSnapshot
 import com.glancemap.glancemapwearos.presentation.navigation.WatchRoutes
@@ -931,6 +932,8 @@ private fun activityDetailsMetrics(
     }
 
     return recordingRecapMetricsForSnapshot(summary, isMetric)
+        .moveLabelAfter(label = "HR (Avg)", afterLabel = "Elev -")
+        .moveLabelAfter(label = "Max HR", afterLabel = "HR (Avg)")
 }
 
 private const val GPX_HELP_PREFS = "gpx_screen_help_prefs"
