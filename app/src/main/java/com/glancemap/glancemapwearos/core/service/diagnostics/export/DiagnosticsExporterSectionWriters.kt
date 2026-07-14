@@ -32,6 +32,10 @@ internal fun Appendable.writeEnergyByModeSummarySection(energySummary: EnergyDia
             writeEnergyModeStats(mode, stats)
         }
     }
+    appendLine()
+    writeScreenStateEnergyAttribution(energySummary.screenStateEnergy)
+    appendLine()
+    writeGpsRuntimeSummary(energySummary.gpsRuntime)
 }
 
 internal fun Appendable.writeScreenStateSummarySection(summary: ScreenStateDiagnostics.Summary) {
@@ -84,6 +88,60 @@ private fun Appendable.writeEnergyModeStats(
         "tempMaxC=${TelemetryFormatters.decimalOrNa(stats.maxTempC, 1)} " +
         "tempAvgC=${TelemetryFormatters.decimalOrNa(stats.avgTempC, 1)}",
 )
+
+private fun Appendable.writeScreenStateEnergyAttribution(
+    attribution: EnergyDiagnostics.ScreenStateEnergy?,
+) {
+    appendLine("Screen-State Energy Attribution")
+    if (attribution == null) {
+        appendLine("method=unavailable")
+        appendLine("reason=charge_counter_intervals_unavailable")
+        return
+    }
+    appendLine("method=${attribution.measurement}")
+    appendLine("totalMeasuredMah=${TelemetryFormatters.decimal(attribution.totalMeasuredMah, 2)}")
+    writeScreenEnergyUse(prefix = "screenOn", use = attribution.screenOn)
+    writeScreenEnergyUse(prefix = "screenOff", use = attribution.screenOff)
+    appendLine("attributedMah=${TelemetryFormatters.decimal(attribution.attributedMah, 2)}")
+    appendLine("unattributedMah=${TelemetryFormatters.decimal(attribution.unattributedMah, 2)}")
+    appendLine(
+        "attributionCoveragePct=${TelemetryFormatters.decimal(attribution.attributionCoveragePct, 1)}",
+    )
+    appendLine("attributionConfidence=${attribution.confidence}")
+}
+
+private fun Appendable.writeScreenEnergyUse(
+    prefix: String,
+    use: EnergyDiagnostics.ScreenEnergyUse?,
+) {
+    appendLine("${prefix}MeasuredMah=${use?.consumedMah?.let { TelemetryFormatters.decimal(it, 2) } ?: "na"}")
+    appendLine("${prefix}AttributedDurationMs=${use?.durationMs?.toString() ?: "na"}")
+    appendLine("${prefix}ChargeCounterIntervalCount=${use?.intervalCount?.toString() ?: "na"}")
+    appendLine(
+        "${prefix}AverageDrawMa=${use?.averageDrawMa?.let { TelemetryFormatters.decimal(it, 1) } ?: "na"}",
+    )
+}
+
+private fun Appendable.writeGpsRuntimeSummary(summary: EnergyDiagnostics.GpsRuntimeSummary) {
+    appendLine("GPS Runtime Summary")
+    writeGpsRuntimeStats(prefix = "screenOn", stats = summary.screenOn)
+    writeGpsRuntimeStats(prefix = "screenOff", stats = summary.screenOff)
+}
+
+private fun Appendable.writeGpsRuntimeStats(
+    prefix: String,
+    stats: EnergyDiagnostics.GpsRuntimeStats,
+) {
+    appendLine("${prefix}RuntimeSampleCount=${stats.sampleCount}")
+    appendLine("${prefix}GpsRequestActiveSampleCount=${stats.requestActiveSampleCount}")
+    appendLine("${prefix}GpsRequestInactiveSampleCount=${stats.requestInactiveSampleCount}")
+    appendLine(
+        "${prefix}GpsBackends=${stats.observedBackends.ifEmpty { listOf("na") }.joinToString(",")}",
+    )
+    appendLine(
+        "${prefix}GpsRequestIntervalsMs=${stats.observedRequestIntervalsMs.joinToString(",").ifBlank { "na" }}",
+    )
+}
 
 internal fun Appendable.writeDemDownloadSections(
     demDownloadSummary: DemDownloadSummary,

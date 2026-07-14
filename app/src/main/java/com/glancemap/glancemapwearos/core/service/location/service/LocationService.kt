@@ -1218,13 +1218,27 @@ class LocationService : Service() {
                     EnergyDiagnostics.recordSample(
                         context = this@LocationService,
                         reason = "periodic",
-                        detail =
-                            "effectiveIntervalMs=${_effectiveUpdateIntervalMs.value} " +
-                                "burst=${engine.isBurstActive()} tracking=$latestTrackingEnabled " +
-                                "bound=${isBound.value} keepOpen=${keepAppOpen.value}",
+                        detail = energyRuntimeDetail(),
                     )
                 }
             }
+    }
+
+    private fun energyRuntimeDetail(): String {
+        val gpsRequestActive = engine.hasAppliedRequest()
+        val gpsBackend = engine.currentSourceModeOrNull()?.telemetryValue ?: "none"
+        val gpsRequestIntervalMs =
+            if (gpsRequestActive) {
+                engine.currentRequestIntervalOr(_effectiveUpdateIntervalMs.value).toString()
+            } else {
+                "na"
+            }
+        return "effectiveIntervalMs=${_effectiveUpdateIntervalMs.value} " +
+            "burst=${engine.isBurstActive()} tracking=$latestTrackingEnabled " +
+            "bound=${isBound.value} keepOpen=${keepAppOpen.value} " +
+            "screenState=${latestScreenState.name} runtimeReason=$latestRuntimeReason " +
+            "gpsRequestActive=$gpsRequestActive gpsBackend=$gpsBackend " +
+            "gpsRequestIntervalMs=$gpsRequestIntervalMs"
     }
 
     private fun applyDiagnosticsCaptureState(

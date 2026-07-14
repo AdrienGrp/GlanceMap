@@ -34,6 +34,45 @@ internal object EnergyDiagnostics {
     data class Summary(
         val modes: Map<String, ModeStats>,
         val batteryUse: BatteryUseStats?,
+        val screenStateEnergy: ScreenStateEnergy?,
+        val gpsRuntime: GpsRuntimeSummary,
+    )
+
+    /**
+     * Charge-counter energy attributed only to sample intervals whose display state is known
+     * and unchanged. This deliberately leaves transition intervals unattributed rather than
+     * guessing which state consumed their energy.
+     */
+    data class ScreenStateEnergy(
+        val measurement: String,
+        val totalMeasuredMah: Double,
+        val screenOn: ScreenEnergyUse?,
+        val screenOff: ScreenEnergyUse?,
+        val attributedMah: Double,
+        val unattributedMah: Double,
+        val attributionCoveragePct: Double,
+        val confidence: String,
+    )
+
+    data class ScreenEnergyUse(
+        val consumedMah: Double,
+        val durationMs: Long,
+        val intervalCount: Int,
+        val averageDrawMa: Double?,
+    )
+
+    /** Runtime GPS state observed at the fixed battery-capture cadence. */
+    data class GpsRuntimeSummary(
+        val screenOn: GpsRuntimeStats,
+        val screenOff: GpsRuntimeStats,
+    )
+
+    data class GpsRuntimeStats(
+        val sampleCount: Int,
+        val requestActiveSampleCount: Int,
+        val requestInactiveSampleCount: Int,
+        val observedBackends: List<String>,
+        val observedRequestIntervalsMs: List<Long>,
     )
 
     data class BatteryUseStats(
@@ -104,7 +143,14 @@ internal object EnergyDiagnostics {
     fun summary(): Summary = summarizeLines(snapshotLines())
 
     internal fun summarizeLines(snapshot: List<String>): Summary {
-        if (snapshot.isEmpty()) return Summary(modes = emptyMap(), batteryUse = null)
+        if (snapshot.isEmpty()) {
+            return Summary(
+                modes = emptyMap(),
+                batteryUse = null,
+                screenStateEnergy = null,
+                gpsRuntime = GpsRuntimeSummary(emptyGpsRuntimeStats(), emptyGpsRuntimeStats()),
+            )
+        }
         val accumulators = linkedMapOf<String, ModeAccumulator>()
         snapshot.forEach { line ->
             if (" level=" !in line && " curNowUa=" !in line && " tempC=" !in line) return@forEach
@@ -112,12 +158,16 @@ internal object EnergyDiagnostics {
             val accumulator = accumulators.getOrPut(mode) { ModeAccumulator() }
             accumulator.add(line)
         }
+        val observations = batteryObservations(snapshot)
+        val batteryUse = buildBatteryUse(observations)
         return Summary(
             modes =
                 accumulators
                     .mapValues { (_, accumulator) -> accumulator.toStats() }
                     .filterValues { stats -> stats.sampleCount > 0 },
-            batteryUse = summarizeBatteryUse(snapshot),
+            batteryUse = batteryUse,
+            screenStateEnergy = summarizeScreenStateEnergy(observations, batteryUse),
+            gpsRuntime = summarizeGpsRuntime(snapshot),
         )
     }
 
@@ -267,7 +317,14 @@ internal object EnergyDiagnostics {
         val atMs: Long,
         val dischargeCurrentUa: Long?,
         val chargeCounterUah: Int?,
+        val screenState: ScreenState,
     )
+
+    private enum class ScreenState {
+        SCREEN_ON,
+        SCREEN_OFF,
+        UNKNOWN,
+    }
 
     private data class IntegratedCurrentUse(
         val consumedMah: Double,
@@ -279,14 +336,10 @@ internal object EnergyDiagnostics {
         val durationMs: Long,
     )
 
-    private fun summarizeBatteryUse(lines: List<String>): BatteryUseStats? {
-        val observations =
-            lines
-                .mapNotNull(::batteryObservationOrNull)
-                .sortedBy { it.atMs }
-        if (observations.size < 2) return null
-        return buildBatteryUse(observations)
-    }
+    private fun batteryObservations(lines: List<String>): List<BatteryObservation> =
+        lines
+            .mapNotNull(::batteryObservationOrNull)
+            .sortedBy { it.atMs }
 
     private fun buildBatteryUse(observations: List<BatteryObservation>): BatteryUseStats? {
         val integratedUse = integrateCurrentUse(observations)
@@ -331,10 +384,69 @@ internal object EnergyDiagnostics {
                     tokenValue(line, "chargeCounterUah=")
                         ?.toIntOrNull()
                         ?.takeIf { it != Int.MIN_VALUE },
+                screenState = screenStateFor(line),
             )
         } else {
             null
         }
+    }
+
+    private fun summarizeScreenStateEnergy(
+        observations: List<BatteryObservation>,
+        batteryUse: BatteryUseStats?,
+    ): ScreenStateEnergy? {
+        if (batteryUse?.measurement != "charge_counter" || observations.size < 2) return null
+        val screenOn = ScreenEnergyAccumulator()
+        val screenOff = ScreenEnergyAccumulator()
+
+        observations.zipWithNext().forEach { (previous, current) ->
+            val durationMs = current.atMs - previous.atMs
+            if (durationMs <= 0L || durationMs > MAX_CURRENT_INTEGRATION_GAP_MS) return@forEach
+            val state = previous.screenState.takeIf { it == current.screenState } ?: ScreenState.UNKNOWN
+            when (state) {
+                ScreenState.SCREEN_ON -> screenOn.add(previous, current, durationMs)
+                ScreenState.SCREEN_OFF -> screenOff.add(previous, current, durationMs)
+                ScreenState.UNKNOWN -> Unit
+            }
+        }
+
+        val screenOnUse = screenOn.toUseOrNull()
+        val screenOffUse = screenOff.toUseOrNull()
+        val attributedMah = (screenOnUse?.consumedMah ?: 0.0) + (screenOffUse?.consumedMah ?: 0.0)
+        val totalMeasuredMah = batteryUse.consumedMah
+        val coveragePct =
+            if (totalMeasuredMah > 0.0) {
+                (attributedMah * 100.0 / totalMeasuredMah).coerceIn(0.0, 100.0)
+            } else {
+                0.0
+            }
+        return ScreenStateEnergy(
+            measurement = "charge_counter_intervals",
+            totalMeasuredMah = totalMeasuredMah,
+            screenOn = screenOnUse,
+            screenOff = screenOffUse,
+            attributedMah = attributedMah.coerceAtMost(totalMeasuredMah),
+            unattributedMah = (totalMeasuredMah - attributedMah).coerceAtLeast(0.0),
+            attributionCoveragePct = coveragePct,
+            confidence = attributionConfidence(coveragePct),
+        )
+    }
+
+    private fun summarizeGpsRuntime(lines: List<String>): GpsRuntimeSummary {
+        val screenOn = GpsRuntimeAccumulator()
+        val screenOff = GpsRuntimeAccumulator()
+        lines.forEach { line ->
+            if (lastTokenValue(line, "gpsRequestActive=") == null) return@forEach
+            when (screenStateFor(line)) {
+                ScreenState.SCREEN_ON -> screenOn.add(line)
+                ScreenState.SCREEN_OFF -> screenOff.add(line)
+                ScreenState.UNKNOWN -> Unit
+            }
+        }
+        return GpsRuntimeSummary(
+            screenOn = screenOn.toStats(),
+            screenOff = screenOff.toStats(),
+        )
     }
 
     private fun resolveChargeCounterUse(
@@ -395,6 +507,109 @@ internal object EnergyDiagnostics {
         val end = line.indexOf(' ', start).let { if (it < 0) line.length else it }
         return line.substring(start, end).trim()
     }
+
+    private fun lastTokenValue(
+        line: String,
+        key: String,
+    ): String? {
+        val index = line.lastIndexOf(key)
+        if (index < 0) return null
+        val start = index + key.length
+        if (start >= line.length) return null
+        val end = line.indexOf(' ', start).let { if (it < 0) line.length else it }
+        return line.substring(start, end).trim()
+    }
+
+    private fun screenStateFor(line: String): ScreenState {
+        val explicitState = lastTokenValue(line, "screenState=")
+        return when (explicitState) {
+            "INTERACTIVE" -> ScreenState.SCREEN_ON
+            "AMBIENT", "SCREEN_OFF", "OFF" -> ScreenState.SCREEN_OFF
+            else ->
+                when (lastTokenValue(line, "interactive=")) {
+                    "true" -> ScreenState.SCREEN_ON
+                    "false" -> ScreenState.SCREEN_OFF
+                    else -> ScreenState.UNKNOWN
+                }
+        }
+    }
+
+    private fun attributionConfidence(coveragePct: Double): String =
+        when {
+            coveragePct >= 95.0 -> "high"
+            coveragePct >= 75.0 -> "medium"
+            else -> "low"
+        }
+
+    private class ScreenEnergyAccumulator {
+        private var consumedMah = 0.0
+        private var durationMs = 0L
+        private var intervalCount = 0
+
+        fun add(
+            previous: BatteryObservation,
+            current: BatteryObservation,
+            intervalDurationMs: Long,
+        ) {
+            durationMs += intervalDurationMs
+            intervalCount += 1
+            val previousCounter = previous.chargeCounterUah ?: return
+            val currentCounter = current.chargeCounterUah ?: return
+            consumedMah += (previousCounter - currentCounter).coerceAtLeast(0) / 1_000.0
+        }
+
+        fun toUseOrNull(): ScreenEnergyUse? =
+            if (intervalCount == 0) {
+                null
+            } else {
+                ScreenEnergyUse(
+                    consumedMah = consumedMah,
+                    durationMs = durationMs,
+                    intervalCount = intervalCount,
+                    averageDrawMa =
+                        if (durationMs > 0L) consumedMah * 3_600_000.0 / durationMs else null,
+                )
+            }
+    }
+
+    private class GpsRuntimeAccumulator {
+        private var sampleCount = 0
+        private var requestActiveSampleCount = 0
+        private val backends = linkedSetOf<String>()
+        private val requestIntervalsMs = linkedSetOf<Long>()
+
+        fun add(line: String) {
+            sampleCount += 1
+            if (lastTokenValue(line, "gpsRequestActive=") == "true") {
+                requestActiveSampleCount += 1
+            }
+            lastTokenValue(line, "gpsBackend=")
+                ?.takeUnless { it == "na" || it == "none" }
+                ?.let(backends::add)
+            lastTokenValue(line, "gpsRequestIntervalMs=")
+                ?.toLongOrNull()
+                ?.takeIf { it > 0L }
+                ?.let(requestIntervalsMs::add)
+        }
+
+        fun toStats(): GpsRuntimeStats =
+            GpsRuntimeStats(
+                sampleCount = sampleCount,
+                requestActiveSampleCount = requestActiveSampleCount,
+                requestInactiveSampleCount = sampleCount - requestActiveSampleCount,
+                observedBackends = backends.toList(),
+                observedRequestIntervalsMs = requestIntervalsMs.toList(),
+            )
+    }
+
+    private fun emptyGpsRuntimeStats(): GpsRuntimeStats =
+        GpsRuntimeStats(
+            sampleCount = 0,
+            requestActiveSampleCount = 0,
+            requestInactiveSampleCount = 0,
+            observedBackends = emptyList(),
+            observedRequestIntervalsMs = emptyList(),
+        )
 
     private class ModeAccumulator {
         private var sampleCount = 0

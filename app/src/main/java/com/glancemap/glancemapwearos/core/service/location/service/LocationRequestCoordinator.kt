@@ -231,9 +231,11 @@ internal class LocationRequestCoordinator(
                             "keepOpen=${appliedPlan.state.keepOpen} " +
                             "watchOnly=${appliedPlan.state.watchOnlyEffective} burst=${engine.isBurstActive()} " +
                             "backend=${requestSpec.sourceMode.telemetryValue} mode=${requestSpec.mode.name} " +
-                            "interactive=${appliedPlan.interactiveTracking} " +
+                            "requestInteractive=${appliedPlan.interactiveTracking} " +
                             "screenState=${appliedPlan.state.screenState.name} " +
                             "reason=${appliedPlan.state.runtimeReason} " +
+                            "gpsRequestActive=true gpsBackend=${requestSpec.sourceMode.telemetryValue} " +
+                            "gpsRequestIntervalMs=${requestSpec.intervalMs} " +
                             "passivePriority=${requestSpec.priority == Priority.PRIORITY_PASSIVE}",
                     )
                 } catch (cancelled: CancellationException) {

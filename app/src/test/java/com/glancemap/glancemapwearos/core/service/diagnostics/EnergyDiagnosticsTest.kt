@@ -121,13 +121,128 @@ class EnergyDiagnosticsTest {
         assertNull(summary.batteryUse)
     }
 
+    @Test
+    fun chargeCounterEnergyIsAttributedOnlyToStableScreenStateIntervals() {
+        val summary =
+            EnergyDiagnostics.summarizeLines(
+                listOf(
+                    batteryLine(
+                        atMs = 0L,
+                        currentUa = -10_000,
+                        chargeCounterUah = 100_000,
+                        screenState = "INTERACTIVE",
+                    ),
+                    batteryLine(
+                        atMs = 60_000L,
+                        currentUa = -10_000,
+                        chargeCounterUah = 90_000,
+                        screenState = "INTERACTIVE",
+                    ),
+                    batteryLine(
+                        atMs = 60_001L,
+                        currentUa = -10_000,
+                        chargeCounterUah = 90_000,
+                        screenState = "SCREEN_OFF",
+                    ),
+                    batteryLine(
+                        atMs = 120_001L,
+                        currentUa = -10_000,
+                        chargeCounterUah = 80_000,
+                        screenState = "SCREEN_OFF",
+                    ),
+                ),
+            )
+
+        val attribution = checkNotNull(summary.screenStateEnergy)
+        assertEquals("charge_counter_intervals", attribution.measurement)
+        assertEquals(10.0, checkNotNull(attribution.screenOn).consumedMah, 0.001)
+        assertEquals(10.0, checkNotNull(attribution.screenOff).consumedMah, 0.001)
+        assertEquals(20.0, attribution.attributedMah, 0.001)
+        assertEquals(0.0, attribution.unattributedMah, 0.001)
+        assertEquals(100.0, attribution.attributionCoveragePct, 0.001)
+        assertEquals("high", attribution.confidence)
+    }
+
+    @Test
+    fun screenStateTransitionEnergyIsLeftUnattributed() {
+        val summary =
+            EnergyDiagnostics.summarizeLines(
+                listOf(
+                    batteryLine(
+                        atMs = 0L,
+                        currentUa = -10_000,
+                        chargeCounterUah = 100_000,
+                        screenState = "INTERACTIVE",
+                    ),
+                    batteryLine(
+                        atMs = 60_000L,
+                        currentUa = -10_000,
+                        chargeCounterUah = 90_000,
+                        screenState = "SCREEN_OFF",
+                    ),
+                ),
+            )
+
+        val attribution = checkNotNull(summary.screenStateEnergy)
+        assertNull(attribution.screenOn)
+        assertNull(attribution.screenOff)
+        assertEquals(0.0, attribution.attributedMah, 0.001)
+        assertEquals(10.0, attribution.unattributedMah, 0.001)
+        assertEquals(0.0, attribution.attributionCoveragePct, 0.001)
+        assertEquals("low", attribution.confidence)
+    }
+
+    @Test
+    fun gpsRuntimeIsSeparatedByScreenState() {
+        val summary =
+            EnergyDiagnostics.summarizeLines(
+                listOf(
+                    batteryLine(
+                        atMs = 0L,
+                        currentUa = -10_000,
+                        chargeCounterUah = 100_000,
+                        screenState = "INTERACTIVE",
+                        detail =
+                            "gpsRequestActive=true gpsBackend=auto_fused gpsRequestIntervalMs=3000",
+                    ),
+                    batteryLine(
+                        atMs = 60_000L,
+                        currentUa = -10_000,
+                        chargeCounterUah = 99_000,
+                        screenState = "SCREEN_OFF",
+                        detail =
+                            "gpsRequestActive=false gpsBackend=none gpsRequestIntervalMs=na",
+                    ),
+                ),
+            )
+
+        assertEquals(1, summary.gpsRuntime.screenOn.sampleCount)
+        assertEquals(1, summary.gpsRuntime.screenOn.requestActiveSampleCount)
+        assertEquals(listOf("auto_fused"), summary.gpsRuntime.screenOn.observedBackends)
+        assertEquals(listOf(3_000L), summary.gpsRuntime.screenOn.observedRequestIntervalsMs)
+        assertEquals(1, summary.gpsRuntime.screenOff.sampleCount)
+        assertEquals(1, summary.gpsRuntime.screenOff.requestInactiveSampleCount)
+        assertTrue(
+            summary.gpsRuntime.screenOff.observedBackends
+                .isEmpty(),
+        )
+        assertTrue(
+            summary.gpsRuntime.screenOff.observedRequestIntervalsMs
+                .isEmpty(),
+        )
+    }
+
     private fun batteryLine(
         atMs: Long,
         currentUa: Int,
         chargeCounterUah: Int? = null,
         status: String = "discharging",
         plugged: String = "battery",
+        screenState: String? = null,
+        detail: String = "",
     ): String =
         "atMs=$atMs reason=periodic status=$status plugged=$plugged " +
+            detail.takeIf { it.isNotBlank() }?.plus(" ").orEmpty() +
+            screenState?.let { "screenState=$it " }.orEmpty() +
             "curNowUa=$currentUa chargeCounterUah=${chargeCounterUah ?: "na"} level=50 tempC=30.0"
 }

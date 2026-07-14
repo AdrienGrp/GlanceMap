@@ -732,6 +732,15 @@ object DiagnosticsExporter {
             writer.appendLine("locationPermissionMode=${locationPermission.mode}")
             writer.appendLine("gpsPositionFilterEnabled=$ENABLE_STRICT_FIX_FILTERING")
             writer.appendLine()
+            writer.appendLine("Battery Benchmark Context")
+            writer.appendLine("recordingSessionObserved=${recordingSessionObserved(telemetryInsights)}")
+            writer.appendLine("recordingSessionMode=${recordingGuidanceSessionMode(telemetryInsights)}")
+            writer.appendLine("externalSensorsActive=${activeExternalSensors(telemetryInsights)}")
+            writer.appendLine("externalHeartRateActive=${telemetryInsights.externalHeartRateSampleCount > 0}")
+            writer.appendLine("externalHeartRateSampleCount=${telemetryInsights.externalHeartRateSampleCount}")
+            writer.appendLine("externalRunPodActive=${telemetryInsights.externalRunPodSampleCount > 0}")
+            writer.appendLine("externalRunPodSampleCount=${telemetryInsights.externalRunPodSampleCount}")
+            writer.appendLine()
             writer.appendLine("GPS Capability")
             writer.appendLine("locationManagerAvailable=${gpsCapability.locationManagerAvailable}")
             writer.appendLine("systemLocationEnabled=${formatNullableBoolean(gpsCapability.systemLocationEnabled)}")
@@ -2075,11 +2084,7 @@ object DiagnosticsExporter {
             PackageManager.PERMISSION_GRANTED
 
     private fun recordingGuidanceSessionMode(insights: TelemetryInsights): String {
-        val recordingObserved =
-            insights.recordingStartCount > 0 ||
-                insights.recordingPointSampleCount > 0 ||
-                insights.recordingSaveStartCount > 0 ||
-                insights.recordingSaveSuccessCount > 0
+        val recordingObserved = recordingSessionObserved(insights)
         val guidanceObserved = insights.turnByTurnActiveSampleCount > 0
         return when {
             recordingObserved && guidanceObserved -> "recordingAndGuidance"
@@ -2087,6 +2092,21 @@ object DiagnosticsExporter {
             guidanceObserved -> "guidanceOnly"
             else -> "none"
         }
+    }
+
+    private fun recordingSessionObserved(insights: TelemetryInsights): Boolean =
+        insights.recordingStartCount > 0 ||
+            insights.recordingRecoveredCount > 0 ||
+            insights.recordingPointSampleCount > 0 ||
+            insights.recordingSaveStartCount > 0 ||
+            insights.recordingSaveSuccessCount > 0 ||
+            insights.recordingDiscardCount > 0
+
+    private fun activeExternalSensors(insights: TelemetryInsights): String {
+        val activeSensors = mutableListOf<String>()
+        if (insights.externalHeartRateSampleCount > 0) activeSensors += "heart_rate"
+        if (insights.externalRunPodSampleCount > 0) activeSensors += "run_pod"
+        return activeSensors.ifEmpty { listOf("none") }.joinToString(",")
     }
 
     private fun formatMarkerMotionBlockedReasons(reasonCounts: Map<String, Int>): String =
