@@ -626,6 +626,9 @@ private fun logRecordingSensorStatus(
     val available = availableRecordingSensors(sensorManager)
     val bodySensorsGranted = hasPermission(context, Manifest.permission.BODY_SENSORS)
     val activityRecognitionGranted = hasActivityRecognitionPermission(context)
+    val externalHeartRateBridgeRequested = useExternalHeartRate && !paused
+    val externalPowerBridgeRequested = useExternalPower && !paused
+    val externalRunPodBridgeRequested = useExternalRunPod && !paused
     val requested = selectedMetricIds.joinToString("|").ifBlank { "none" }
     val registeredText = registered?.joinToString("|")?.ifBlank { "none" } ?: "unknown"
     DebugTelemetry.log(
@@ -637,8 +640,7 @@ private fun logRecordingSensorStatus(
             "heartRateSource=$heartRateSource " +
             "externalHeartRateLinked=$externalHeartRateLinked " +
             "externalHeartRateSelected=$useExternalHeartRate " +
-            "externalHeartRateBridgeRequested=$useExternalHeartRate " +
-            "externalHeartRateActive=$useExternalHeartRate " +
+            "externalHeartRateBridgeRequested=$externalHeartRateBridgeRequested " +
             "watchHeartRateActive=$useWatchHeartRate " +
             "externalRunPodLinked=$externalRunPodLinked " +
             "externalRunPodSelected=$externalRunPodSelected " +
@@ -648,11 +650,8 @@ private fun logRecordingSensorStatus(
             "stepsSource=$stepsSource " +
             "externalCadenceSelected=$useExternalCadence " +
             "externalPowerMetricSelected=$externalPowerMetricSelected " +
-            "externalPowerBridgeRequested=$useExternalPower " +
-            "externalRunPodBridgeRequested=$useExternalRunPod " +
-            "externalCadenceActive=$useExternalCadence " +
-            "externalPowerActive=$useExternalPower " +
-            "externalRunPodActive=$useExternalRunPod " +
+            "externalPowerBridgeRequested=$externalPowerBridgeRequested " +
+            "externalRunPodBridgeRequested=$externalRunPodBridgeRequested " +
             "paused=$paused " +
             "bodySensorsGranted=$bodySensorsGranted " +
             "activityRecognitionGranted=$activityRecognitionGranted",

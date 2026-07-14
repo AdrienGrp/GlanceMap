@@ -738,10 +738,10 @@ object DiagnosticsExporter {
             writer.appendLine("Battery Benchmark Context")
             writer.appendLine("recordingSessionObserved=${recordingSessionObserved(telemetryInsights)}")
             writer.appendLine("recordingSessionMode=${recordingGuidanceSessionMode(telemetryInsights)}")
-            writer.appendLine("externalSensorsActive=${activeExternalSensors(telemetryInsights)}")
-            writer.appendLine("externalHeartRateActive=${telemetryInsights.externalHeartRateSampleCount > 0}")
+            writer.appendLine("externalSensorsObserved=${observedExternalSensors(telemetryInsights)}")
+            writer.appendLine("externalHeartRateObserved=${telemetryInsights.externalHeartRateSampleCount > 0}")
             writer.appendLine("externalHeartRateSampleCount=${telemetryInsights.externalHeartRateSampleCount}")
-            writer.appendLine("externalRunPodActive=${telemetryInsights.externalRunPodSampleCount > 0}")
+            writer.appendLine("externalRunPodObserved=${telemetryInsights.externalRunPodSampleCount > 0}")
             writer.appendLine("externalRunPodSampleCount=${telemetryInsights.externalRunPodSampleCount}")
             writer.appendLine()
             writer.appendLine("GPS Capability")
@@ -2106,11 +2106,11 @@ object DiagnosticsExporter {
             insights.recordingSaveSuccessCount > 0 ||
             insights.recordingDiscardCount > 0
 
-    private fun activeExternalSensors(insights: TelemetryInsights): String {
-        val activeSensors = mutableListOf<String>()
-        if (insights.externalHeartRateSampleCount > 0) activeSensors += "heart_rate"
-        if (insights.externalRunPodSampleCount > 0) activeSensors += "run_pod"
-        return activeSensors.ifEmpty { listOf("none") }.joinToString(",")
+    private fun observedExternalSensors(insights: TelemetryInsights): String {
+        val observedSensors = mutableListOf<String>()
+        if (insights.externalHeartRateSampleCount > 0) observedSensors += "heart_rate"
+        if (insights.externalRunPodSampleCount > 0) observedSensors += "run_pod"
+        return observedSensors.ifEmpty { listOf("none") }.joinToString(",")
     }
 
     private fun formatMarkerMotionBlockedReasons(reasonCounts: Map<String, Int>): String =
