@@ -13,6 +13,7 @@ import com.glancemap.glancemapwearos.presentation.features.download.DownloadView
 import com.glancemap.glancemapwearos.presentation.features.download.OamBundleDownloader
 import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadNetworkMonitor
 import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadNotificationController
+import com.glancemap.glancemapwearos.presentation.features.download.OamDownloadServiceClient
 import com.glancemap.glancemapwearos.presentation.features.gpx.GpxViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.MapViewModel
 import com.glancemap.glancemapwearos.presentation.features.maps.theme.ThemeViewModel
@@ -133,6 +134,7 @@ class DefaultAppContainer(
             notificationController = OamDownloadNotificationController(applicationContext),
             networkMonitor = OamDownloadNetworkMonitor(applicationContext),
             settingsRepository = settingsRepository,
+            downloadServiceClient = OamDownloadServiceClient(applicationContext),
         )
     }
 
