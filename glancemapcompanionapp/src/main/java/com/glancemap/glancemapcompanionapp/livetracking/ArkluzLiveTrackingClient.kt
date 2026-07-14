@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapcompanionapp.livetracking
 
 import android.content.Context
@@ -80,6 +82,11 @@ internal data class ArkluzRecordedGpxDownload(
     }
 }
 
+internal enum class ArkluzSmsSupport {
+    SUPPORTED,
+    UNSUPPORTED,
+}
+
 enum class ArkluzTrackingEndpoint(
     val label: String,
     val url: String,
@@ -101,7 +108,9 @@ internal class ArkluzLiveTrackingClient(
     private val httpClient =
         OkHttpClient
             .Builder()
-            .connectTimeout(20, TimeUnit.SECONDS)
+            .addNetworkInterceptor(
+                ArkluzClientTokenInterceptor(BuildConfig.ARKLUZ_MOBILE_CLIENT_TOKEN),
+            ).connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(45, TimeUnit.SECONDS)
             .build()
@@ -188,6 +197,20 @@ internal class ArkluzLiveTrackingClient(
                 Request
                     .Builder()
                     .url(url)
+                    .get()
+                    .build(),
+            )
+        }
+
+    suspend fun checkSmsSupport(
+        trackingUrl: String,
+        phoneNumber: String,
+    ): ArkluzSmsSupport =
+        withContext(Dispatchers.IO) {
+            executeSmsSupport(
+                Request
+                    .Builder()
+                    .url(buildArkluzSmsSupportUrl(trackingUrl, phoneNumber))
                     .get()
                     .build(),
             )
@@ -364,6 +387,16 @@ internal class ArkluzLiveTrackingClient(
         }
     }
 
+    private fun executeSmsSupport(request: Request): ArkluzSmsSupport {
+        httpClient.newCall(request).execute().use { response ->
+            val serverMessage = response.body.string().trim()
+            if (!response.isSuccessful) {
+                throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
+            }
+            return serverMessage.toArkluzSmsSupport()
+        }
+    }
+
     @Suppress("NestedBlockDepth", "ThrowsCount", "TooGenericExceptionCaught")
     private fun executeGpxDownload(
         request: Request,
@@ -459,6 +492,19 @@ internal fun buildArkluzLocationUrl(update: ArkluzLocationUpdate): HttpUrl {
     return urlBuilder.build()
 }
 
+internal fun buildArkluzSmsSupportUrl(
+    trackingUrl: String,
+    phoneNumber: String,
+): HttpUrl =
+    trackingUrl
+        .trim()
+        .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
+        .toHttpUrl()
+        .newBuilder()
+        .addQueryParameter("q", "sms")
+        .addQueryParameter("sms", phoneNumber)
+        .build()
+
 internal class ArkluzHttpException(
     val code: Int,
     message: String,
@@ -474,7 +520,12 @@ internal fun Throwable.toArkluzFailureDetail(): String =
         is SocketTimeoutException -> "Arkluz did not respond in time. Try again."
         is IOException ->
             if (this is ArkluzHttpException) {
-                message?.takeIf { it.isNotBlank() } ?: "Server error"
+                if (code == 401) {
+                    "GlanceMap could not authenticate with Arkluz. " +
+                        "Update the app, or contact support if it is already up to date."
+                } else {
+                    message?.takeIf { it.isNotBlank() } ?: "Server error"
+                }
             } else {
                 "Network connection to Arkluz was interrupted. Try again."
             }
@@ -543,3 +594,10 @@ private fun String.toArkluzServerResult(): ArkluzServerResult {
         groupAvailable = equals("group available", ignoreCase = true),
     )
 }
+
+internal fun String.toArkluzSmsSupport(): ArkluzSmsSupport =
+    when {
+        trim().equals("OK", ignoreCase = true) -> ArkluzSmsSupport.SUPPORTED
+        trim().equals("forbidden", ignoreCase = true) -> ArkluzSmsSupport.UNSUPPORTED
+        else -> throw IOException("Unexpected SMS support response from Arkluz")
+    }

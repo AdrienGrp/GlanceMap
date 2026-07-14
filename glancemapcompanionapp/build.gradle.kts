@@ -9,6 +9,34 @@ apply(from = rootProject.file("gradle/android-app-testing.gradle.kts"))
 
 val glanceMapVersionName = providers.gradleProperty("glanceMapVersionName").get()
 val glanceMapPhoneVersionCode = providers.gradleProperty("glanceMapPhoneVersionCode").get().toInt()
+val arkluzMobileClientTokenProperty = "ARKLUZ_MOBILE_CLIENT_TOKEN"
+val projectGradlePropertiesDefinesArkluzToken =
+    rootProject.file("gradle.properties").useLines { lines ->
+        lines.any { line ->
+            val trimmedLine = line.trimStart()
+            !trimmedLine.startsWith("#") &&
+                '=' in trimmedLine &&
+                trimmedLine.substringBefore('=').trim() == arkluzMobileClientTokenProperty
+        }
+    }
+if (projectGradlePropertiesDefinesArkluzToken) {
+    throw GradleException(
+        "$arkluzMobileClientTokenProperty must not be defined in the repository gradle.properties. " +
+            "Use ~/.gradle/gradle.properties or an environment variable.",
+    )
+}
+val arkluzMobileClientToken =
+    providers
+        .gradleProperty(arkluzMobileClientTokenProperty)
+        .orElse(providers.environmentVariable(arkluzMobileClientTokenProperty))
+        .orNull
+        .orEmpty()
+val hasArkluzMobileClientToken = arkluzMobileClientToken.isNotEmpty()
+if (hasArkluzMobileClientToken && !arkluzMobileClientToken.matches(Regex("^[A-Za-z0-9_-]{32,128}$"))) {
+    throw GradleException(
+        "$arkluzMobileClientTokenProperty must be a 32-128 character base64url-style value.",
+    )
+}
 val releaseStoreFile =
     providers
         .gradleProperty("android.injected.signing.store.file")
@@ -45,6 +73,12 @@ val releaseArtifactTaskRequested =
             listOf("bundle", "assemble", "publish").any(normalized::contains)
     }
 
+if (releaseArtifactTaskRequested && !hasArkluzMobileClientToken) {
+    throw GradleException(
+        "Missing $arkluzMobileClientTokenProperty. Release artifacts must include the Arkluz client token. " +
+            "Define it in ~/.gradle/gradle.properties or as an environment variable.",
+    )
+}
 if (releaseArtifactTaskRequested && !hasReleaseSigning) {
     throw GradleException(
         "Missing release signing properties. Release artifacts must not be debug-signed. " +
@@ -71,6 +105,7 @@ android {
         }
         manifestPlaceholders["channelBufferSize"] = "8388608" // 8MB buffer
         buildConfigField("String", "ARKLUZ_TRACKING_URL", "\"https://arkluz.com/trk\"")
+        buildConfigField("String", "ARKLUZ_MOBILE_CLIENT_TOKEN", "\"$arkluzMobileClientToken\"")
     }
 
     signingConfigs {

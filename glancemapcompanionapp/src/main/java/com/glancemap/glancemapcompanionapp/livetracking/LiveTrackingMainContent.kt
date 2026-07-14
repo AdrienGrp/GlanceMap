@@ -48,12 +48,10 @@ import com.glancemap.glancemapcompanionapp.CompanionAdaptiveSpec
 @Composable
 internal fun ColumnScope.MainTrackingContent(
     onBack: () -> Unit,
-    onOpenLogin: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenSetup: () -> Unit,
     onOpenGuide: () -> Unit,
     isConnected: Boolean,
     group: String,
-    headerMessage: String?,
     hasSelectedGpx: Boolean,
     selectedGpxName: String,
     comments: String,
@@ -401,51 +399,28 @@ internal fun ColumnScope.MainTrackingContent(
         }
     }
 
-    Row(
+    Button(
+        onClick = onOpenSetup,
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Button(onClick = onOpenLogin, modifier = Modifier.weight(1f)) {
-            Text(
-                text = if (isConnected) group.ifBlank { "Connected" } else "Create / Join",
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        OutlinedButton(
-            onClick = onOpenSettings,
-            modifier = Modifier.weight(1f),
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Settings,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint =
-                    if (isConnected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-            )
-            Spacer(modifier = Modifier.size(6.dp))
-            Text(
-                text = "Settings",
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color =
-                    if (isConnected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-            )
-        }
-    }
-    headerMessage?.let { message ->
+        Icon(
+            imageVector = Icons.Filled.Settings,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(modifier = Modifier.size(6.dp))
         Text(
-            text = message,
+            text = if (isConnected) "Edit live tracking setup" else "Set up live tracking",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+    if (isConnected) {
+        Text(
+            text = "Connected to ${group.trim().ifBlank { "private group" }}",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
     }

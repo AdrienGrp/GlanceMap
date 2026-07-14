@@ -55,8 +55,7 @@ private const val START_AFTER_UPLOAD_DELAY_MS = 1500L
 
 private enum class LiveTrackingPage {
     MAIN,
-    LOGIN,
-    SETTINGS,
+    SETUP,
 }
 
 private enum class EmailPickerTarget {
@@ -83,7 +82,6 @@ fun LiveTrackingScreen(
     val savedSettings = remember(context) { LiveTrackingPreferences.load(context) }
     val savedDraft = remember(context) { LiveTrackingPreferences.loadDraft(context) }
     var page by remember { mutableStateOf(LiveTrackingPage.MAIN) }
-    var loginReturnPage by remember { mutableStateOf(LiveTrackingPage.MAIN) }
     var group by remember { mutableStateOf(savedSettings.group) }
     var participantPassword by remember { mutableStateOf(savedSettings.participantPassword) }
     var followerPassword by remember { mutableStateOf(savedSettings.followerPassword) }
@@ -92,8 +90,12 @@ fun LiveTrackingScreen(
     var notificationEmailAddresses by remember {
         mutableStateOf(savedSettings.notificationEmailAddresses)
     }
-    var alertEmailInput by remember { mutableStateOf("") }
-    var alertEmailAddresses by remember { mutableStateOf(savedSettings.alertEmailAddresses) }
+    var alertRecipientInput by remember { mutableStateOf("") }
+    var alertRecipients by remember { mutableStateOf(savedSettings.alertRecipients) }
+    var isValidatingAlertRecipient by remember { mutableStateOf(false) }
+    var alertRecipientStatusMessage by remember { mutableStateOf<String?>(null) }
+    var alertRecipientWarning by remember { mutableStateOf<String?>(null) }
+    var unsupportedSmsRecipientsOnStart by remember { mutableStateOf<List<String>?>(null) }
     var stuckAlarmMinutes by remember { mutableStateOf(savedSettings.stuckAlarmMinutes) }
     var comments by remember { mutableStateOf(savedDraft.comments) }
     var trackingEndpoint by remember { mutableStateOf(ArkluzTrackingEndpoint.defaultEndpoint) }
@@ -104,9 +106,10 @@ fun LiveTrackingScreen(
     var selectedGpxName by remember { mutableStateOf(savedDraft.gpxName) }
     var hasLocationPermission by remember { mutableStateOf(hasLocationPermission(context)) }
     var hasNotificationPermission by remember { mutableStateOf(hasLiveTrackingNotificationPermission(context)) }
-    var startAfterPermissionGrant by remember { mutableStateOf(false) }
+    var isStartWaitingForPermissionResult by remember { mutableStateOf(false) }
+    var continueStartAfterPermissionResult by remember { mutableStateOf(false) }
+    var showNotificationPermissionWarningDialog by remember { mutableStateOf(false) }
     var validationMessage by remember { mutableStateOf<String?>(null) }
-    var headerMessage by remember { mutableStateOf<String?>(null) }
     var sendStatusMessage by remember { mutableStateOf<String?>(null) }
     var loginJoinStatusMessage by remember { mutableStateOf<String?>(null) }
     var isLoginJoinLoading by remember { mutableStateOf(false) }
@@ -114,6 +117,7 @@ fun LiveTrackingScreen(
     var isSavingSettings by remember { mutableStateOf(false) }
     var settingsSnapshot by remember { mutableStateOf<SavedLiveTrackingSettings?>(null) }
     var showUnsavedSettingsDialog by remember { mutableStateOf(false) }
+    var showChangeGroupDialog by remember { mutableStateOf(false) }
     var pendingRegistrationGroup by remember { mutableStateOf<String?>(null) }
     var showCreateGroupDialog by remember { mutableStateOf(false) }
     var createGroupPasswordConfirmation by remember { mutableStateOf("") }
@@ -265,6 +269,43 @@ fun LiveTrackingScreen(
         }
     }
 
+    fun addAlertRecipient(recipient: AlertRecipient) {
+        if (alertRecipients.any { it.equals(recipient.value, ignoreCase = true) }) {
+            alertRecipientStatusMessage = "Recipient already added"
+            return
+        }
+        if (recipient.type == AlertRecipientType.EMAIL) {
+            alertRecipients = alertRecipients + recipient.value
+            alertRecipientInput = ""
+            alertRecipientStatusMessage = null
+            return
+        }
+
+        isValidatingAlertRecipient = true
+        alertRecipientStatusMessage = null
+        coroutineScope.launch {
+            runCatching {
+                ArkluzLiveTrackingClient(context).checkSmsSupport(
+                    trackingUrl = trackingEndpoint.url,
+                    phoneNumber = recipient.value,
+                )
+            }.onSuccess { support ->
+                if (support == ArkluzSmsSupport.SUPPORTED) {
+                    alertRecipients = alertRecipients + recipient.value
+                    alertRecipientInput = ""
+                    alertRecipientStatusMessage = null
+                } else {
+                    alertRecipientStatusMessage =
+                        "SMS alerts are not supported for ${recipient.value}."
+                }
+            }.onFailure { error ->
+                alertRecipientStatusMessage =
+                    "Could not check SMS support: ${error.toArkluzFailureDetail()}"
+            }
+            isValidatingAlertRecipient = false
+        }
+    }
+
     val contactEmailPicker =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
@@ -292,65 +333,56 @@ fun LiveTrackingScreen(
                 }
 
                 EmailPickerTarget.ALERT -> {
-                    if (alertEmailAddresses.any { it.equals(email, ignoreCase = true) }) {
-                        saveSettingsStatusMessage = "Email already added"
-                    } else {
-                        alertEmailAddresses = alertEmailAddresses + email
-                        alertEmailInput = ""
-                        saveSettingsStatusMessage = null
-                    }
+                    addAlertRecipient(AlertRecipient(email, AlertRecipientType.EMAIL))
                 }
             }
+        }
+    val contactPhonePicker =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+            val phoneNumber =
+                result.data
+                    ?.data
+                    ?.let { uri -> resolveSelectedContactPhone(context, uri) }
+            if (phoneNumber.isNullOrBlank()) {
+                alertRecipientStatusMessage =
+                    "Choose a phone number with a country code starting with +"
+                return@rememberLauncherForActivityResult
+            }
+            addAlertRecipient(AlertRecipient(phoneNumber, AlertRecipientType.SMS))
         }
     val locationPermissionLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestMultiplePermissions(),
         ) { result ->
-            hasLocationPermission =
+            val locationGranted =
                 result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                result[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
-                hasLocationPermission(context)
-            hasNotificationPermission =
+                    result[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
+                    hasLocationPermission(context)
+            val notificationGranted =
                 result[Manifest.permission.POST_NOTIFICATIONS] == true ||
-                hasLiveTrackingNotificationPermission(context)
-            if (startAfterPermissionGrant && !hasLocationPermission) {
-                startAfterPermissionGrant = false
-                validationMessage = "Location permission is required to start live tracking."
+                    hasLiveTrackingNotificationPermission(context)
+            hasLocationPermission = locationGranted
+            hasNotificationPermission = notificationGranted
+            if (isStartWaitingForPermissionResult) {
+                isStartWaitingForPermissionResult = false
+                when (liveTrackingPermissionOutcome(locationGranted, notificationGranted)) {
+                    LiveTrackingPermissionOutcome.LOCATION_REQUIRED -> {
+                        isStartingSession = false
+                        validationMessage = "Location permission is required to start live tracking."
+                    }
+
+                    LiveTrackingPermissionOutcome.NOTIFICATION_WARNING -> {
+                        isStartingSession = false
+                        showNotificationPermissionWarningDialog = true
+                    }
+
+                    LiveTrackingPermissionOutcome.CONTINUE -> continueStartAfterPermissionResult = true
+                }
             }
         }
-
-    LaunchedEffect(
-        group,
-        participantPassword,
-        followerPassword,
-        userName,
-        notificationEmailAddresses,
-        alertEmailAddresses,
-        stuckAlarmMinutes,
-        updateIntervalSeconds,
-    ) {
-        val currentSettings =
-            SavedLiveTrackingSettings(
-                group = group,
-                participantPassword = participantPassword,
-                followerPassword = followerPassword,
-                userName = userName,
-                notificationEmailAddresses = notificationEmailAddresses,
-                alertEmailAddresses = alertEmailAddresses,
-                stuckAlarmMinutes = stuckAlarmMinutes,
-                updateIntervalSeconds = updateIntervalSeconds,
-            )
-        LiveTrackingPreferences.save(
-            context = context,
-            settings = currentSettings,
-        )
-        if (followerPassword.isNotBlank()) {
-            LiveTrackingPreferences.saveGroupSettings(
-                context = context,
-                settings = currentSettings,
-            )
-        }
-    }
 
     BoxWithConstraints(
         modifier =
@@ -369,7 +401,8 @@ fun LiveTrackingScreen(
         val compactLayout = adaptive.useCompactPageLayout
         val contentPadding = if (compactLayout) 6.dp else 12.dp
         val contentSpacing = if (compactLayout) 6.dp else 10.dp
-        val scrollState = rememberScrollState()
+        val mainScrollState = rememberScrollState()
+        val setupScrollState = rememberScrollState()
         val settings =
             remember(
                 group,
@@ -378,8 +411,8 @@ fun LiveTrackingScreen(
                 userName,
                 notificationEmailAddresses,
                 notificationEmailInput,
-                alertEmailAddresses,
-                alertEmailInput,
+                alertRecipients,
+                alertRecipientInput,
                 stuckAlarmMinutes,
                 comments,
                 selectedGpxUri,
@@ -401,9 +434,9 @@ fun LiveTrackingScreen(
                             pendingInput = notificationEmailInput,
                         ),
                     alertEmails =
-                        emailAddressesForRequest(
-                            addresses = alertEmailAddresses,
-                            pendingInput = alertEmailInput,
+                        alertRecipientsForRequest(
+                            recipients = alertRecipients,
+                            pendingInput = alertRecipientInput,
                         ),
                     stuckAlarmMinutes = stuckAlarmMinutes,
                     comments = if (planSent) "" else comments,
@@ -441,12 +474,18 @@ fun LiveTrackingScreen(
                 followerPassword.isNotBlank() &&
                 userName.isNotBlank()
 
-        fun currentSettingsSnapshot(): SavedLiveTrackingSettings =
-            editableSettingsSnapshot(
-                group = group,
-                userName = userName,
-                notificationEmailAddresses = notificationEmailAddresses,
-                alertEmailAddresses = alertEmailAddresses,
+        fun currentSettingsSnapshot(
+            committedNotificationEmails: List<String> = notificationEmailAddresses,
+            committedAlertRecipients: List<String> = alertRecipients,
+            committedFollowerPassword: String = followerPassword,
+        ): SavedLiveTrackingSettings =
+            SavedLiveTrackingSettings(
+                group = group.trim(),
+                participantPassword = participantPassword.trim(),
+                followerPassword = committedFollowerPassword.trim(),
+                userName = userName.trim(),
+                notificationEmailAddresses = committedNotificationEmails,
+                alertRecipients = committedAlertRecipients,
                 stuckAlarmMinutes = stuckAlarmMinutes,
                 updateIntervalSeconds = updateIntervalSeconds,
             )
@@ -455,23 +494,34 @@ fun LiveTrackingScreen(
             userName = snapshot.userName
             notificationEmailInput = ""
             notificationEmailAddresses = snapshot.notificationEmailAddresses
-            alertEmailInput = ""
-            alertEmailAddresses = snapshot.alertEmailAddresses
+            alertRecipientInput = ""
+            alertRecipients = snapshot.alertRecipients
             stuckAlarmMinutes = snapshot.stuckAlarmMinutes
             updateIntervalSeconds = snapshot.updateIntervalSeconds
             saveSettingsStatusMessage = null
         }
 
-        fun restoreGroupProfileOrOpenInitialSettings(groupName: String) {
+        fun restoreGroupProfile(groupName: String) {
             val profile = LiveTrackingPreferences.loadGroupSettings(context, groupName)
-            if (profile == null) {
-                settingsSnapshot = currentSettingsSnapshot()
-                saveSettingsStatusMessage = null
-                page = LiveTrackingPage.SETTINGS
-            } else {
-                applySettingsSnapshot(profile)
+            profile?.let(::applySettingsSnapshot)
+            val connectedSettings = currentSettingsSnapshot()
+            LiveTrackingPreferences.save(context, connectedSettings)
+            settingsSnapshot = connectedSettings
+            saveSettingsStatusMessage = null
+            page = LiveTrackingPage.SETUP
+        }
+
+        suspend fun unsupportedSmsRecipients(recipients: List<String>): List<String> {
+            val client = ArkluzLiveTrackingClient(context)
+            return smsAlertRecipients(recipients).filter { phoneNumber ->
+                client.checkSmsSupport(
+                    trackingUrl = trackingEndpoint.url,
+                    phoneNumber = phoneNumber,
+                ) == ArkluzSmsSupport.UNSUPPORTED
             }
         }
+
+        fun unsupportedSmsRecipientMessage(phoneNumbers: List<String>): String = "SMS alerts are not supported for ${phoneNumbers.joinToString()}. Update or remove them."
 
         fun saveSettings(exitAfterSave: Boolean = false) {
             saveSettingsStatusMessage =
@@ -482,39 +532,114 @@ fun LiveTrackingScreen(
                     userName = userName,
                     stuckAlarmMinutes = stuckAlarmMinutes,
                 )
-                    ?: validatePendingEmailInputs(
+                    ?: validatePendingRecipientInputs(
                         notificationEmailInput = notificationEmailInput,
-                        alertEmailInput = alertEmailInput,
+                        alertRecipientInput = alertRecipientInput,
                     )
-            if (saveSettingsStatusMessage == null) {
-                isSavingSettings = true
-                saveSettingsStatusMessage = "Saving settings"
-                coroutineScope.launch {
-                    runCatching {
-                        val result = ArkluzLiveTrackingClient(context).saveSettings(settings)
-                        result.viewerPassword?.let { followerPassword = it }
-                        result
-                    }.onSuccess {
-                        settingsSnapshot = currentSettingsSnapshot()
-                        saveSettingsStatusMessage = "Settings saved"
-                        if (exitAfterSave) {
-                            page = LiveTrackingPage.MAIN
+            if (saveSettingsStatusMessage != null) return
+
+            val committedNotificationEmails =
+                resolvedEmailAddresses(notificationEmailAddresses, notificationEmailInput)
+            val committedAlertRecipients =
+                resolvedAlertRecipients(alertRecipients, alertRecipientInput)
+            val settingsForSave =
+                settings.copy(
+                    notificationEmails = committedNotificationEmails.joinToString(","),
+                    alertEmails = committedAlertRecipients.joinToString(","),
+                )
+
+            isSavingSettings = true
+            saveSettingsStatusMessage = "Checking SMS alerts"
+            coroutineScope.launch {
+                runCatching { unsupportedSmsRecipients(committedAlertRecipients) }
+                    .onSuccess { unsupportedRecipients ->
+                        if (unsupportedRecipients.isNotEmpty()) {
+                            val message = unsupportedSmsRecipientMessage(unsupportedRecipients)
+                            alertRecipientWarning = message
+                            saveSettingsStatusMessage = message
+                        } else {
+                            saveSettingsStatusMessage = "Saving settings"
+                            runCatching {
+                                ArkluzLiveTrackingClient(context).saveSettings(settingsForSave)
+                            }.onSuccess { result ->
+                                val committedFollowerPassword = result.viewerPassword ?: followerPassword
+                                val committedSettings =
+                                    currentSettingsSnapshot(
+                                        committedNotificationEmails = committedNotificationEmails,
+                                        committedAlertRecipients = committedAlertRecipients,
+                                        committedFollowerPassword = committedFollowerPassword,
+                                    )
+                                followerPassword = committedFollowerPassword
+                                notificationEmailAddresses = committedNotificationEmails
+                                notificationEmailInput = ""
+                                alertRecipients = committedAlertRecipients
+                                alertRecipientInput = ""
+                                alertRecipientStatusMessage = null
+                                alertRecipientWarning = null
+                                LiveTrackingPreferences.save(context, committedSettings)
+                                LiveTrackingPreferences.saveGroupSettings(context, committedSettings)
+                                settingsSnapshot = committedSettings
+                                saveSettingsStatusMessage = "Settings saved"
+                                if (exitAfterSave) {
+                                    page = LiveTrackingPage.MAIN
+                                }
+                            }.onFailure { error ->
+                                saveSettingsStatusMessage =
+                                    "Save failed: ${error.toArkluzFailureDetail()}"
+                            }
                         }
                     }.onFailure { error ->
                         saveSettingsStatusMessage =
-                            "Save failed: ${error.toArkluzFailureDetail()}"
+                            "Could not verify SMS alerts: ${error.toArkluzFailureDetail()}"
                     }
-                    isSavingSettings = false
-                }
+                isSavingSettings = false
             }
         }
 
         fun requestLeaveSettings() {
-            if (settingsSnapshot?.let { it != currentSettingsSnapshot() } == true) {
+            val hasPendingRecipientInput =
+                notificationEmailInput.isNotBlank() || alertRecipientInput.isNotBlank()
+            if (
+                hasPendingRecipientInput ||
+                settingsSnapshot?.let { it != currentSettingsSnapshot() } == true
+            ) {
                 showUnsavedSettingsDialog = true
             } else {
                 page = LiveTrackingPage.MAIN
             }
+        }
+
+        fun disconnectAndPrepareGroupSetup() {
+            LiveTrackingService.stop(context)
+            LiveTrackingPreferences.clear(context)
+            group = ""
+            participantPassword = ""
+            followerPassword = ""
+            loginJoinStatusMessage = null
+            validationMessage = null
+            sendStatusMessage = null
+            saveSettingsStatusMessage = null
+            deleteTracksStatusMessage = null
+            recordedTrackDownloadStatusMessage = null
+            pendingRegistrationGroup = null
+            showCreateGroupDialog = false
+            createGroupPasswordConfirmation = ""
+            userName = ""
+            notificationEmailInput = ""
+            notificationEmailAddresses = emptyList()
+            alertRecipientInput = ""
+            alertRecipients = emptyList()
+            alertRecipientStatusMessage = null
+            alertRecipientWarning = null
+            stuckAlarmMinutes = "15"
+            updateIntervalSeconds = 60
+            comments = ""
+            selectedGpxUri = null
+            selectedGpxName = ""
+            planSent = false
+            settingsSnapshot = null
+            showChangeGroupDialog = false
+            page = LiveTrackingPage.SETUP
         }
 
         fun uploadPlanThenStart(settings: LiveTrackingSettings) {
@@ -527,7 +652,19 @@ fun LiveTrackingScreen(
                     client
                         .registerOrJoinGroup(settings)
                         .viewerPassword
-                        ?.let { followerPassword = it }
+                        ?.let { viewerPassword ->
+                            followerPassword = viewerPassword
+                            LiveTrackingPreferences.save(
+                                context,
+                                LiveTrackingPreferences
+                                    .load(context)
+                                    .copy(
+                                        group = group.trim(),
+                                        participantPassword = participantPassword.trim(),
+                                        followerPassword = viewerPassword.trim(),
+                                    ),
+                            )
+                        }
                     client.uploadPlannedRoute(settings)
                 }.onSuccess {
                     planSent = true
@@ -545,7 +682,36 @@ fun LiveTrackingScreen(
             }
         }
 
-        fun startLiveTracking(requestMissingPermissions: Boolean) {
+        fun startTrackingNow() {
+            isStartWaitingForPermissionResult = false
+            continueStartAfterPermissionResult = false
+            showNotificationPermissionWarningDialog = false
+            isStartingSession = true
+            validationMessage = null
+            sendStatusMessage = null
+            if (hasPlanContent && !planSent) {
+                uploadPlanThenStart(settings)
+            } else {
+                LiveTrackingService.start(context = context, settings = settings)
+                isStartingSession = false
+            }
+        }
+
+        fun continueStartAfterSmsValidation() {
+            val locationGranted = hasLocationPermission(context)
+            val notificationGranted = hasLiveTrackingNotificationPermission(context)
+            hasLocationPermission = locationGranted
+            hasNotificationPermission = notificationGranted
+            val missingPermissions = missingLiveTrackingRuntimePermissions(context)
+            if (missingPermissions.isNotEmpty()) {
+                isStartWaitingForPermissionResult = true
+                locationPermissionLauncher.launch(missingPermissions)
+            } else {
+                startTrackingNow()
+            }
+        }
+
+        fun startLiveTracking() {
             validationMessage =
                 validateStartSettings(
                     group = group,
@@ -554,55 +720,81 @@ fun LiveTrackingScreen(
                     userName = userName,
                     stuckAlarmMinutes = stuckAlarmMinutes,
                 )
-                    ?: validatePendingEmailInputs(
+                    ?: validatePendingRecipientInputs(
                         notificationEmailInput = notificationEmailInput,
-                        alertEmailInput = alertEmailInput,
+                        alertRecipientInput = alertRecipientInput,
                     )
             if (validationMessage != null) {
-                startAfterPermissionGrant = false
+                isStartWaitingForPermissionResult = false
+                isStartingSession = false
                 return
             }
             if (!canStart) {
-                startAfterPermissionGrant = false
+                isStartWaitingForPermissionResult = false
+                isStartingSession = false
                 return
             }
             if (isSendingPlan) {
-                startAfterPermissionGrant = false
+                isStartWaitingForPermissionResult = false
+                isStartingSession = false
                 sendStatusMessage = "Please wait for the current send to finish before starting."
                 return
             }
-            if (!hasLocationPermission) {
-                if (requestMissingPermissions) {
-                    startAfterPermissionGrant = true
-                    locationPermissionLauncher.launch(missingLiveTrackingRuntimePermissions(context))
+            isStartingSession = true
+            val recipientsForStart = resolvedAlertRecipients(alertRecipients, alertRecipientInput)
+            coroutineScope.launch {
+                runCatching { unsupportedSmsRecipients(recipientsForStart) }
+                    .onSuccess { unsupportedRecipients ->
+                        if (unsupportedRecipients.isNotEmpty()) {
+                            unsupportedSmsRecipientsOnStart = unsupportedRecipients
+                            val message = unsupportedSmsRecipientMessage(unsupportedRecipients)
+                            alertRecipientStatusMessage = message
+                            alertRecipientWarning = message
+                            isStartingSession = false
+                        } else {
+                            continueStartAfterSmsValidation()
+                        }
+                    }.onFailure { continueStartAfterSmsValidation() }
+            }
+        }
+
+        LaunchedEffect(page, isConnected, alertRecipients, trackingEndpoint) {
+            if (page != LiveTrackingPage.SETUP || !isConnected) return@LaunchedEffect
+            val phoneNumbers = smsAlertRecipients(alertRecipients)
+            if (phoneNumbers.isEmpty()) {
+                alertRecipientWarning = null
+                return@LaunchedEffect
+            }
+            runCatching {
+                val client = ArkluzLiveTrackingClient(context)
+                phoneNumbers.filter { phoneNumber ->
+                    client.checkSmsSupport(
+                        trackingUrl = trackingEndpoint.url,
+                        phoneNumber = phoneNumber,
+                    ) == ArkluzSmsSupport.UNSUPPORTED
                 }
-                return
+            }.onSuccess { unsupportedRecipients ->
+                alertRecipientWarning =
+                    if (unsupportedRecipients.isEmpty()) {
+                        null
+                    } else {
+                        unsupportedSmsRecipientMessage(unsupportedRecipients)
+                    }
             }
-            if (!hasNotificationPermission && requestMissingPermissions) {
-                locationPermissionLauncher.launch(missingLiveTrackingRuntimePermissions(context))
+        }
+
+        LaunchedEffect(continueStartAfterPermissionResult) {
+            if (continueStartAfterPermissionResult) {
+                startTrackingNow()
             }
-            startAfterPermissionGrant = false
-            validationMessage = null
-            sendStatusMessage = null
-            if (hasPlanContent && !planSent) {
-                uploadPlanThenStart(settings)
+        }
+
+        BackHandler(enabled = page == LiveTrackingPage.SETUP) {
+            if (isConnected) {
+                requestLeaveSettings()
             } else {
-                LiveTrackingService.start(context = context, settings = settings)
+                page = LiveTrackingPage.MAIN
             }
-        }
-
-        LaunchedEffect(startAfterPermissionGrant, hasLocationPermission) {
-            if (startAfterPermissionGrant && hasLocationPermission) {
-                startLiveTracking(requestMissingPermissions = false)
-            }
-        }
-
-        BackHandler(enabled = page == LiveTrackingPage.SETTINGS) {
-            requestLeaveSettings()
-        }
-
-        BackHandler(enabled = page == LiveTrackingPage.LOGIN) {
-            page = loginReturnPage
         }
 
         Column(
@@ -616,23 +808,15 @@ fun LiveTrackingScreen(
                 LiveTrackingPage.MAIN -> {
                     MainTrackingContent(
                         onBack = onBack,
-                        onOpenLogin = {
-                            loginReturnPage = page
-                            page = LiveTrackingPage.LOGIN
-                        },
-                        onOpenSettings = {
+                        onOpenSetup = {
                             if (isConnected) {
                                 settingsSnapshot = currentSettingsSnapshot()
-                                page = LiveTrackingPage.SETTINGS
-                                headerMessage = null
-                            } else {
-                                headerMessage = "Create / Join first to open settings."
                             }
+                            page = LiveTrackingPage.SETUP
                         },
                         onOpenGuide = onOpenQuickGuide,
                         isConnected = isConnected,
                         group = group,
-                        headerMessage = headerMessage,
                         hasSelectedGpx = selectedGpxUri != null,
                         selectedGpxName = selectedGpxName,
                         comments = comments,
@@ -667,9 +851,9 @@ fun LiveTrackingScreen(
                                     participantPassword = participantPassword,
                                     followerPassword = followerPassword,
                                 )
-                                    ?: validatePendingEmailInputs(
+                                    ?: validatePendingRecipientInputs(
                                         notificationEmailInput = notificationEmailInput,
-                                        alertEmailInput = alertEmailInput,
+                                        alertRecipientInput = alertRecipientInput,
                                     )
                             if (validationMessage != null) return@MainTrackingContent
                             isSendingPlan = true
@@ -680,7 +864,19 @@ fun LiveTrackingScreen(
                                     client
                                         .registerOrJoinGroup(settings)
                                         .viewerPassword
-                                        ?.let { followerPassword = it }
+                                        ?.let { viewerPassword ->
+                                            followerPassword = viewerPassword
+                                            LiveTrackingPreferences.save(
+                                                context,
+                                                LiveTrackingPreferences
+                                                    .load(context)
+                                                    .copy(
+                                                        group = group.trim(),
+                                                        participantPassword = participantPassword.trim(),
+                                                        followerPassword = viewerPassword.trim(),
+                                                    ),
+                                            )
+                                        }
                                     sendStatusMessage = "Sending planned route"
                                     client.uploadPlannedRoute(settings)
                                 }.onSuccess { result ->
@@ -697,7 +893,7 @@ fun LiveTrackingScreen(
                         isStartingSession = isStartingSession,
                         validationMessage = validationMessage,
                         sendStatusMessage = sendStatusMessage,
-                        onStart = { startLiveTracking(requestMissingPermissions = true) },
+                        onStart = { startLiveTracking() },
                         onPause = { LiveTrackingService.pause(context) },
                         onResume = { LiveTrackingService.resume(context) },
                         onStop = { LiveTrackingService.stop(context) },
@@ -740,7 +936,7 @@ fun LiveTrackingScreen(
                                 downloadRecordedTrack(RecordedTrackDownloadTarget.USER)
                             }
                         },
-                        scrollState = scrollState,
+                        scrollState = mainScrollState,
                         contentSpacing = contentSpacing,
                         isCompactLayout = compactLayout,
                         isCompactScreen = adaptive.isCompactScreen,
@@ -748,233 +944,200 @@ fun LiveTrackingScreen(
                     )
                 }
 
-                LiveTrackingPage.LOGIN -> {
-                    LoginJoinContent(
-                        onBack = { page = loginReturnPage },
-                        group = group,
-                        onGroupChange = {
-                            group = it
-                            followerPassword = ""
-                            loginJoinStatusMessage = null
-                            pendingRegistrationGroup = null
-                            showCreateGroupDialog = false
-                            createGroupPasswordConfirmation = ""
-                        },
-                        participantPassword = participantPassword,
-                        onParticipantPasswordChange = {
-                            participantPassword = it
-                            followerPassword = ""
-                            if (pendingRegistrationGroup != group.trim()) {
+                LiveTrackingPage.SETUP -> {
+                    if (!isConnected) {
+                        LoginJoinContent(
+                            onBack = { page = LiveTrackingPage.MAIN },
+                            group = group,
+                            onGroupChange = {
+                                group = it
+                                followerPassword = ""
                                 loginJoinStatusMessage = null
                                 pendingRegistrationGroup = null
                                 showCreateGroupDialog = false
                                 createGroupPasswordConfirmation = ""
-                            }
-                        },
-                        isLoginJoinLoading = isLoginJoinLoading,
-                        isConnected = isConnected,
-                        loginJoinStatusMessage = loginJoinStatusMessage,
-                        onLoginJoin = {
-                            loginJoinStatusMessage = validatePlanSettings(group, participantPassword)
-                            if (loginJoinStatusMessage == null) {
-                                val cleanGroup = group.trim()
-                                isLoginJoinLoading = true
-                                loginJoinStatusMessage = "Checking group"
-                                coroutineScope.launch {
-                                    runCatching {
-                                        val client = ArkluzLiveTrackingClient(context)
-                                        val checkResult = client.checkGroup(settings)
-                                        if (checkResult.groupAvailable) {
-                                            pendingRegistrationGroup = cleanGroup
-                                            "Group available"
-                                        } else {
-                                            checkNotNull(checkResult.viewerPassword) {
-                                                "Connected, but viewer password was not returned"
-                                            }.let { followerPassword = it }
-                                            "Connected"
+                            },
+                            participantPassword = participantPassword,
+                            onParticipantPasswordChange = {
+                                participantPassword = it
+                                followerPassword = ""
+                                if (pendingRegistrationGroup != group.trim()) {
+                                    loginJoinStatusMessage = null
+                                    pendingRegistrationGroup = null
+                                    showCreateGroupDialog = false
+                                    createGroupPasswordConfirmation = ""
+                                }
+                            },
+                            isLoginJoinLoading = isLoginJoinLoading,
+                            loginJoinStatusMessage = loginJoinStatusMessage,
+                            onLoginJoin = {
+                                loginJoinStatusMessage = validatePlanSettings(group, participantPassword)
+                                if (loginJoinStatusMessage == null) {
+                                    val cleanGroup = group.trim()
+                                    isLoginJoinLoading = true
+                                    loginJoinStatusMessage = "Checking group"
+                                    coroutineScope.launch {
+                                        runCatching {
+                                            val client = ArkluzLiveTrackingClient(context)
+                                            val checkResult = client.checkGroup(settings)
+                                            if (checkResult.groupAvailable) {
+                                                pendingRegistrationGroup = cleanGroup
+                                                "Group available"
+                                            } else {
+                                                checkNotNull(checkResult.viewerPassword) {
+                                                    "Connected, but viewer password was not returned"
+                                                }.let { followerPassword = it }
+                                                "Connected"
+                                            }
+                                        }.onSuccess { status ->
+                                            if (status == "Group available") {
+                                                loginJoinStatusMessage = "Group does not exist."
+                                                createGroupPasswordConfirmation = ""
+                                                showCreateGroupDialog = true
+                                            } else {
+                                                restoreGroupProfile(cleanGroup)
+                                                loginJoinStatusMessage = "Connected to $cleanGroup"
+                                            }
+                                        }.onFailure { error ->
+                                            loginJoinStatusMessage =
+                                                "Unable to connect: ${error.toArkluzFailureDetail()}"
                                         }
-                                    }.onSuccess { status ->
-                                        if (status == "Group available") {
-                                            loginJoinStatusMessage = "Group does not exist."
-                                            createGroupPasswordConfirmation = ""
-                                            showCreateGroupDialog = true
-                                        } else {
-                                            restoreGroupProfileOrOpenInitialSettings(cleanGroup)
-                                            loginJoinStatusMessage = "Connected to $cleanGroup"
-                                            headerMessage = null
-                                        }
-                                    }.onFailure { error ->
-                                        loginJoinStatusMessage =
-                                            "Unable to connect: ${error.toArkluzFailureDetail()}"
+                                        isLoginJoinLoading = false
                                     }
-                                    isLoginJoinLoading = false
                                 }
-                            }
-                        },
-                        showCreateGroupDialog = showCreateGroupDialog,
-                        createGroupPasswordConfirmation = createGroupPasswordConfirmation,
-                        onCreateGroupPasswordConfirmationChange = { createGroupPasswordConfirmation = it },
-                        onDismissCreateGroupDialog = {
-                            showCreateGroupDialog = false
-                            createGroupPasswordConfirmation = ""
-                        },
-                        onConfirmCreateGroup = {
-                            loginJoinStatusMessage = validatePlanSettings(group, participantPassword)
-                            if (loginJoinStatusMessage == null) {
-                                if (createGroupPasswordConfirmation.trim() != participantPassword.trim()) {
-                                    loginJoinStatusMessage = "Password confirmation does not match."
-                                    return@LoginJoinContent
-                                }
+                            },
+                            showCreateGroupDialog = showCreateGroupDialog,
+                            createGroupPasswordConfirmation = createGroupPasswordConfirmation,
+                            onCreateGroupPasswordConfirmationChange = { createGroupPasswordConfirmation = it },
+                            onDismissCreateGroupDialog = {
                                 showCreateGroupDialog = false
-                                isLoginJoinLoading = true
-                                loginJoinStatusMessage = "Creating group"
-                                coroutineScope.launch {
-                                    runCatching {
-                                        val client = ArkluzLiveTrackingClient(context)
-                                        val registerResult = client.registerOrJoinGroup(settings)
-                                        val viewerPassword =
-                                            registerResult.viewerPassword
-                                                ?: client.checkGroup(settings).viewerPassword
-                                        checkNotNull(viewerPassword) {
-                                            "Group created, but viewer password was not returned"
-                                        }.let { followerPassword = it }
-                                        pendingRegistrationGroup = null
-                                        createGroupPasswordConfirmation = ""
-                                        "Created + connected"
-                                    }.onSuccess { status ->
-                                        val cleanGroup = group.trim()
-                                        restoreGroupProfileOrOpenInitialSettings(cleanGroup)
-                                        loginJoinStatusMessage = "$status to $cleanGroup"
-                                        headerMessage = null
-                                    }.onFailure { error ->
-                                        loginJoinStatusMessage =
-                                            "Unable to create group: ${error.toArkluzFailureDetail()}"
+                                createGroupPasswordConfirmation = ""
+                            },
+                            onConfirmCreateGroup = {
+                                loginJoinStatusMessage = validatePlanSettings(group, participantPassword)
+                                if (loginJoinStatusMessage == null) {
+                                    if (createGroupPasswordConfirmation.trim() != participantPassword.trim()) {
+                                        loginJoinStatusMessage = "Password confirmation does not match."
+                                        return@LoginJoinContent
                                     }
-                                    isLoginJoinLoading = false
+                                    showCreateGroupDialog = false
+                                    isLoginJoinLoading = true
+                                    loginJoinStatusMessage = "Creating group"
+                                    coroutineScope.launch {
+                                        runCatching {
+                                            val client = ArkluzLiveTrackingClient(context)
+                                            val registerResult = client.registerOrJoinGroup(settings)
+                                            val viewerPassword =
+                                                registerResult.viewerPassword
+                                                    ?: client.checkGroup(settings).viewerPassword
+                                            checkNotNull(viewerPassword) {
+                                                "Group created, but viewer password was not returned"
+                                            }.let { followerPassword = it }
+                                            pendingRegistrationGroup = null
+                                            createGroupPasswordConfirmation = ""
+                                            "Created + connected"
+                                        }.onSuccess { status ->
+                                            val cleanGroup = group.trim()
+                                            restoreGroupProfile(cleanGroup)
+                                            loginJoinStatusMessage = "$status to $cleanGroup"
+                                        }.onFailure { error ->
+                                            loginJoinStatusMessage =
+                                                "Unable to create group: ${error.toArkluzFailureDetail()}"
+                                        }
+                                        isLoginJoinLoading = false
+                                    }
                                 }
-                            }
-                        },
-                        onLogout = {
-                            LiveTrackingService.stop(context)
-                            LiveTrackingPreferences.saveGroupSettings(
-                                context = context,
-                                settings =
-                                    SavedLiveTrackingSettings(
-                                        group = group,
-                                        userName = userName,
-                                        notificationEmailAddresses = notificationEmailAddresses,
-                                        alertEmailAddresses = alertEmailAddresses,
-                                        stuckAlarmMinutes = stuckAlarmMinutes,
-                                        updateIntervalSeconds = updateIntervalSeconds,
-                                    ),
-                            )
-                            LiveTrackingPreferences.clear(context)
-                            group = ""
-                            participantPassword = ""
-                            followerPassword = ""
-                            loginJoinStatusMessage = null
-                            headerMessage = null
-                            validationMessage = null
-                            sendStatusMessage = null
-                            saveSettingsStatusMessage = null
-                            deleteTracksStatusMessage = null
-                            recordedTrackDownloadStatusMessage = null
-                            pendingRegistrationGroup = null
-                            showCreateGroupDialog = false
-                            createGroupPasswordConfirmation = ""
-                            userName = ""
-                            notificationEmailInput = ""
-                            notificationEmailAddresses = emptyList()
-                            alertEmailInput = ""
-                            alertEmailAddresses = emptyList()
-                            stuckAlarmMinutes = "15"
-                            updateIntervalSeconds = 60
-                            comments = ""
-                            selectedGpxUri = null
-                            selectedGpxName = ""
-                            planSent = false
-                            page = LiveTrackingPage.MAIN
-                        },
-                        scrollState = scrollState,
-                        contentSpacing = contentSpacing,
-                    )
-                }
-
-                LiveTrackingPage.SETTINGS -> {
-                    SettingsContent(
-                        onBack = { requestLeaveSettings() },
-                        userName = userName,
-                        onUserNameChange = {
-                            userName = it
-                            saveSettingsStatusMessage = null
-                        },
-                        notificationEmailInput = notificationEmailInput,
-                        onNotificationEmailInputChange = {
-                            notificationEmailInput = it
-                            saveSettingsStatusMessage = null
-                        },
-                        notificationEmailAddresses = notificationEmailAddresses,
-                        onNotificationEmailAdd = { email ->
-                            notificationEmailAddresses = notificationEmailAddresses + email
-                            saveSettingsStatusMessage = null
-                        },
-                        onNotificationEmailRemove = { email ->
-                            notificationEmailAddresses = notificationEmailAddresses - email
-                            saveSettingsStatusMessage = null
-                        },
-                        onPickNotificationEmailFromContacts = {
-                            emailPickerTarget = EmailPickerTarget.NOTIFICATION
-                            runCatching {
-                                contactEmailPicker.launch(contactEmailPickerIntent())
-                            }.onFailure {
-                                emailPickerTarget = null
-                                saveSettingsStatusMessage = "No contacts app found"
-                            }
-                        },
-                        alertEmailInput = alertEmailInput,
-                        onAlertEmailInputChange = {
-                            alertEmailInput = it
-                            saveSettingsStatusMessage = null
-                        },
-                        alertEmailAddresses = alertEmailAddresses,
-                        onAlertEmailAdd = { email ->
-                            alertEmailAddresses = alertEmailAddresses + email
-                            saveSettingsStatusMessage = null
-                        },
-                        onAlertEmailRemove = { email ->
-                            alertEmailAddresses = alertEmailAddresses - email
-                            saveSettingsStatusMessage = null
-                        },
-                        onPickAlertEmailFromContacts = {
-                            emailPickerTarget = EmailPickerTarget.ALERT
-                            runCatching {
-                                contactEmailPicker.launch(contactEmailPickerIntent())
-                            }.onFailure {
-                                emailPickerTarget = null
-                                saveSettingsStatusMessage = "No contacts app found"
-                            }
-                        },
-                        stuckAlarmMinutes = stuckAlarmMinutes,
-                        onStuckAlarmMinutesChange = { value ->
-                            stuckAlarmMinutes =
-                                if (value == "-1") {
-                                    value
-                                } else {
-                                    value.filter(Char::isDigit)
+                            },
+                            scrollState = setupScrollState,
+                            contentSpacing = contentSpacing,
+                        )
+                    } else {
+                        SettingsContent(
+                            onBack = { requestLeaveSettings() },
+                            group = group,
+                            onChangeGroup = { showChangeGroupDialog = true },
+                            userName = userName,
+                            onUserNameChange = {
+                                userName = it
+                                saveSettingsStatusMessage = null
+                            },
+                            notificationEmailInput = notificationEmailInput,
+                            onNotificationEmailInputChange = {
+                                notificationEmailInput = it
+                                saveSettingsStatusMessage = null
+                            },
+                            notificationEmailAddresses = notificationEmailAddresses,
+                            onNotificationEmailAdd = { email ->
+                                notificationEmailAddresses = notificationEmailAddresses + email
+                                saveSettingsStatusMessage = null
+                            },
+                            onNotificationEmailRemove = { email ->
+                                notificationEmailAddresses = notificationEmailAddresses - email
+                                saveSettingsStatusMessage = null
+                            },
+                            onPickNotificationEmailFromContacts = {
+                                emailPickerTarget = EmailPickerTarget.NOTIFICATION
+                                runCatching {
+                                    contactEmailPicker.launch(contactEmailPickerIntent())
+                                }.onFailure {
+                                    emailPickerTarget = null
+                                    saveSettingsStatusMessage = "No contacts app found"
                                 }
-                            saveSettingsStatusMessage = null
-                        },
-                        updateIntervalSeconds = updateIntervalSeconds,
-                        onUpdateIntervalSecondsChange = {
-                            updateIntervalSeconds = it
-                            saveSettingsStatusMessage = null
-                        },
-                        isSavingSettings = isSavingSettings,
-                        saveSettingsStatusMessage = saveSettingsStatusMessage,
-                        onSaveSettings = { saveSettings() },
-                        scrollState = scrollState,
-                        contentSpacing = contentSpacing,
-                    )
+                            },
+                            alertRecipientInput = alertRecipientInput,
+                            onAlertRecipientInputChange = {
+                                alertRecipientInput = it
+                                alertRecipientStatusMessage = null
+                                saveSettingsStatusMessage = null
+                            },
+                            alertRecipients = alertRecipients,
+                            onAlertRecipientAdd = ::addAlertRecipient,
+                            onAlertRecipientRemove = { recipient ->
+                                alertRecipients = alertRecipients - recipient
+                                alertRecipientWarning = null
+                                saveSettingsStatusMessage = null
+                            },
+                            onPickAlertEmailFromContacts = {
+                                emailPickerTarget = EmailPickerTarget.ALERT
+                                runCatching {
+                                    contactEmailPicker.launch(contactEmailPickerIntent())
+                                }.onFailure {
+                                    emailPickerTarget = null
+                                    saveSettingsStatusMessage = "No contacts app found"
+                                }
+                            },
+                            onPickAlertPhoneFromContacts = {
+                                runCatching {
+                                    contactPhonePicker.launch(contactPhonePickerIntent())
+                                }.onFailure {
+                                    alertRecipientStatusMessage = "No contacts app found"
+                                }
+                            },
+                            isValidatingAlertRecipient = isValidatingAlertRecipient,
+                            alertRecipientStatusMessage =
+                                alertRecipientStatusMessage ?: alertRecipientWarning,
+                            stuckAlarmMinutes = stuckAlarmMinutes,
+                            onStuckAlarmMinutesChange = { value ->
+                                stuckAlarmMinutes =
+                                    if (value == "-1") {
+                                        value
+                                    } else {
+                                        value.filter(Char::isDigit)
+                                    }
+                                saveSettingsStatusMessage = null
+                            },
+                            updateIntervalSeconds = updateIntervalSeconds,
+                            onUpdateIntervalSecondsChange = {
+                                updateIntervalSeconds = it
+                                saveSettingsStatusMessage = null
+                            },
+                            isSavingSettings = isSavingSettings,
+                            saveSettingsStatusMessage = saveSettingsStatusMessage,
+                            onSaveSettings = { saveSettings(exitAfterSave = true) },
+                            scrollState = setupScrollState,
+                            contentSpacing = contentSpacing,
+                        )
+                    }
                 }
             }
         }
@@ -1018,11 +1181,63 @@ fun LiveTrackingScreen(
                 },
             )
         }
+        if (showNotificationPermissionWarningDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showNotificationPermissionWarningDialog = false
+                    isStartingSession = false
+                },
+                title = { Text("Notifications are off") },
+                text = {
+                    Text(
+                        "Live tracking can continue, but its ongoing status notification may not be visible. " +
+                            "You can enable notifications later in Android settings.",
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = { startTrackingNow() }) {
+                        Text("Start anyway")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showNotificationPermissionWarningDialog = false
+                            isStartingSession = false
+                        },
+                    ) {
+                        Text("Cancel")
+                    }
+                },
+            )
+        }
+        if (showChangeGroupDialog) {
+            AlertDialog(
+                onDismissRequest = { showChangeGroupDialog = false },
+                title = { Text("Change group?") },
+                text = {
+                    Text(
+                        "This disconnects from ${group.trim().ifBlank { "the current group" }} " +
+                            "and stops live tracking if it is active. Unsaved setup changes will be discarded.",
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = { disconnectAndPrepareGroupSetup() }) {
+                        Text("Change group")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showChangeGroupDialog = false }) {
+                        Text("Cancel")
+                    }
+                },
+            )
+        }
         if (showUnsavedSettingsDialog) {
             AlertDialog(
                 onDismissRequest = { showUnsavedSettingsDialog = false },
                 title = { Text("Save settings?") },
-                text = { Text("You have unsaved changes. Save them before leaving settings?") },
+                text = { Text("You have unsaved changes. Save them before leaving setup?") },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -1048,6 +1263,34 @@ fun LiveTrackingScreen(
                         ) {
                             Text("Discard")
                         }
+                    }
+                },
+            )
+        }
+        unsupportedSmsRecipientsOnStart?.let { phoneNumbers ->
+            AlertDialog(
+                onDismissRequest = { unsupportedSmsRecipientsOnStart = null },
+                title = { Text("SMS alerts need updating") },
+                text = {
+                    Text(
+                        "SMS alerts are no longer supported for ${phoneNumbers.joinToString()}. " +
+                            "Update or remove these phone numbers before starting live tracking.",
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            settingsSnapshot = currentSettingsSnapshot()
+                            unsupportedSmsRecipientsOnStart = null
+                            page = LiveTrackingPage.SETUP
+                        },
+                    ) {
+                        Text("Update alerts")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { unsupportedSmsRecipientsOnStart = null }) {
+                        Text("Cancel")
                     }
                 },
             )

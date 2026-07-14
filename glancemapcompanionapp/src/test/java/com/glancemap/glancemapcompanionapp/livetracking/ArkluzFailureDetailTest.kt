@@ -33,4 +33,16 @@ class ArkluzFailureDetailTest {
 
         assertTrue(detail.contains("Network connection to Arkluz"))
     }
+
+    @Test
+    fun unauthorizedResponseExplainsHowToRecoverWithoutMentioningTheToken() {
+        val detail = ArkluzHttpException(401, "HTTP 401 at test time").toArkluzFailureDetail()
+
+        assertEquals(
+            "GlanceMap could not authenticate with Arkluz. " +
+                "Update the app, or contact support if it is already up to date.",
+            detail,
+        )
+        assertTrue(!detail.contains("token", ignoreCase = true))
+    }
 }
