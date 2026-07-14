@@ -49,4 +49,29 @@ class RecordingSensorMetricsTest {
         assertEquals(2_000L, metrics.externalPowerUpdatedAtMillis)
         assertNull(metrics.externalSpeedMps)
     }
+
+    @Test
+    fun recoveredStepCountContinuesFromPersistedSessionTotal() {
+        val runtime = RecordingSensorRuntimeState()
+
+        runtime.prepareRecoveredStepCount(720)
+        val first = runtime.updateStepCounter(value = 10_000f, nowMillis = 1_000L)
+        val next = runtime.updateStepCounter(value = 10_005f, nowMillis = 61_000L)
+
+        assertEquals(720, first.steps)
+        assertEquals(725, next.steps)
+        assertEquals(5, next.cadenceSpm)
+    }
+
+    @Test
+    fun recoveredStepOffsetCannotChangeAfterSensorBaselineIsEstablished() {
+        val runtime = RecordingSensorRuntimeState()
+
+        runtime.prepareRecoveredStepCount(100)
+        runtime.updateStepCounter(value = 2_000f, nowMillis = 1_000L)
+        runtime.prepareRecoveredStepCount(500)
+        val next = runtime.updateStepCounter(value = 2_003f, nowMillis = 61_000L)
+
+        assertEquals(103, next.steps)
+    }
 }

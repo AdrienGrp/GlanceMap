@@ -221,6 +221,7 @@ class MainActivity : ComponentActivity() {
                     externalRunPodAddress = recordingExternalRunPodAddress,
                     cyclingWheelCircumferenceMeters = cyclingWheelCircumferenceMeters,
                     activityProfile = traceRecordingState.activityProfile,
+                    initialStepCount = traceRecordingState.stepCount,
                     onMetrics = appContainer.traceRecordingViewModel::onSensorMetrics,
                 )
                 val locationPermissionGranted =

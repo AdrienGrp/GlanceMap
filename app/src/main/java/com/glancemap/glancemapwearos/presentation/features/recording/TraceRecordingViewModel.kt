@@ -841,6 +841,12 @@ class TraceRecordingViewModel(
             externalSpeedIntegrationLastTimeMillis = null
             externalSpeedIntegrationLastMps = null
             rebuildTelemetryFromPoints(draft.points)
+            val recoveredStepCount =
+                draft.stepCount
+                    ?: draft.points
+                        .asReversed()
+                        .firstOrNull { point -> point.stepCount != null }
+                        ?.stepCount
             _uiState.value =
                 TraceRecordingUiState(
                     active = true,
@@ -860,6 +866,7 @@ class TraceRecordingViewModel(
                     externalRawDistanceUnits = draft.externalRawDistanceUnits,
                     externalDistanceMeters = draft.externalDistanceMeters,
                     externalIntegratedDistanceMeters = draft.externalIntegratedDistanceMeters,
+                    stepCount = recoveredStepCount,
                     message = "REC recovered",
                 )
             DebugTelemetry.log(

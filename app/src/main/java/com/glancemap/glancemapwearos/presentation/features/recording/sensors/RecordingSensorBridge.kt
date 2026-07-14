@@ -76,12 +76,13 @@ internal fun RecordingSensorMetrics.withExternalRunPodUnavailable(
         externalPowerUpdatedAtMillis = if (clearPower) 0L else externalPowerUpdatedAtMillis,
     )
 
-private data class StepCounterReading(
+internal data class StepCounterReading(
     val steps: Int,
     val cadenceSpm: Int?,
 )
 
-private class RecordingSensorRuntimeState {
+internal class RecordingSensorRuntimeState {
+    private var stepCountOffset = 0
     private var stepCounterBase: Float? = null
     private var lastStepCounterValue: Float? = null
     private var lastStepCounterTimeMs = 0L
@@ -89,10 +90,24 @@ private class RecordingSensorRuntimeState {
 
     @Synchronized
     fun reset() {
+        stepCountOffset = 0
         stepCounterBase = null
         lastStepCounterValue = null
         lastStepCounterTimeMs = 0L
         stepDetectorEventTimes.clear()
+    }
+
+    @Synchronized
+    fun prepareRecoveredStepCount(stepCount: Int?): Boolean {
+        val recovered = stepCount?.coerceAtLeast(0)
+        val shouldUpdate =
+            stepCounterBase == null &&
+                recovered != null &&
+                recovered > stepCountOffset
+        if (shouldUpdate) {
+            stepCountOffset = checkNotNull(recovered)
+        }
+        return shouldUpdate
     }
 
     @Synchronized
@@ -101,7 +116,7 @@ private class RecordingSensorRuntimeState {
         nowMillis: Long,
     ): StepCounterReading {
         val base = stepCounterBase ?: value.also { stepCounterBase = it }
-        val steps = (value - base).roundToInt().coerceAtLeast(0)
+        val steps = stepCountOffset + (value - base).roundToInt().coerceAtLeast(0)
         val previousValue = lastStepCounterValue
         val previousTimeMs = lastStepCounterTimeMs
         val cadence =
@@ -145,6 +160,7 @@ fun RecordingSensorBridge(
     externalRunPodAddress: String?,
     cyclingWheelCircumferenceMeters: Float,
     activityProfile: String,
+    initialStepCount: Int?,
     onMetrics: (RecordingSensorMetrics) -> Unit,
 ) {
     val context = LocalContext.current
@@ -220,6 +236,12 @@ fun RecordingSensorBridge(
     var metrics by remember { mutableStateOf(RecordingSensorMetrics()) }
     val sensorRuntimeState = remember { RecordingSensorRuntimeState() }
     val pressureSensorEventCount = remember { AtomicLong(0L) }
+    if (active && sensorRuntimeState.prepareRecoveredStepCount(initialStepCount)) {
+        DebugTelemetry.log(
+            "TraceRecordingSensors",
+            "event=step_offset_recovered steps=${initialStepCount ?: 0}",
+        )
+    }
 
     ExternalHeartRateSensorBridge(
         active = active && useExternalHeartRate,

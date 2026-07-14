@@ -66,6 +66,7 @@ class TraceRecordingDraftStore(
                     externalRawDistanceUnits = json.optionalLong("externalRawDistanceUnits"),
                     externalDistanceMeters = json.optionalDouble("externalDistanceMeters"),
                     externalIntegratedDistanceMeters = json.optionalDouble("externalIntegratedDistanceMeters"),
+                    stepCount = json.optionalInt("stepCount"),
                     lastUiAction = json.optionalString("lastUiAction"),
                     points = points,
                 )
@@ -95,6 +96,7 @@ class TraceRecordingDraftStore(
                 .put("externalRawDistanceUnits", state.externalRawDistanceUnits ?: JSONObject.NULL)
                 .put("externalDistanceMeters", state.externalDistanceMeters ?: JSONObject.NULL)
                 .put("externalIntegratedDistanceMeters", state.externalIntegratedDistanceMeters ?: JSONObject.NULL)
+                .put("stepCount", state.stepCount ?: JSONObject.NULL)
                 .put("lastUiAction", lastUiAction ?: JSONObject.NULL)
                 .put(
                     "points",
@@ -143,6 +145,7 @@ data class TraceRecordingDraft(
     val externalRawDistanceUnits: Long?,
     val externalDistanceMeters: Double?,
     val externalIntegratedDistanceMeters: Double?,
+    val stepCount: Int?,
     val lastUiAction: String?,
     val points: List<RecordedTracePoint>,
 )
