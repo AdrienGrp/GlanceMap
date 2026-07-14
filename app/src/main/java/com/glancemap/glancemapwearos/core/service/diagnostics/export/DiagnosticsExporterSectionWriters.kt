@@ -149,7 +149,7 @@ internal fun Appendable.writeDemDownloadSections(
     demDownloadTruncated: Boolean,
 ) {
     appendLine()
-    appendLine("DEM Download Summary")
+    appendLine("Standalone DEM Download Summary")
     appendLine("eventCount=${demDownloadSummary.eventCount}")
     appendLine("bufferMaxLines=${demDownloadSummary.maxBufferedLines}")
     appendLine("droppedLines=${demDownloadSummary.droppedLineCount}")

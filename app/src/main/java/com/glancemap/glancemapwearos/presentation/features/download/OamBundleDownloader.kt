@@ -66,6 +66,9 @@ private data class RoutingSegmentDownloadResult(
 private data class DemTileDownloadResult(
     val tileId: String,
     val stored: Boolean,
+    val downloaded: Boolean = false,
+    val available: Boolean = true,
+    val bytesStored: Long = 0L,
 )
 
 internal data class RemoteFileRequest(
@@ -340,6 +343,13 @@ class OamBundleDownloader(
         coroutineScope {
             require(selection.canDownload) { "Select at least one download item." }
 
+            val bundleStartedAtMs = System.currentTimeMillis()
+            DebugTelemetry.log(
+                OAM_DOWNLOAD_TELEMETRY_TAG,
+                "event=bundle_start area=${area.id} map=${selection.includeMap} poi=${selection.includePoi} " +
+                    "routing=${selection.includeRouting} dem=${selection.includeDem} " +
+                    "demSource=${selection.demSource.id} refuges=${selection.includeRefugesInfo}",
+            )
             val progressArbiter = OamBundleProgressArbiter(onProgress)
             val extractionLane = Semaphore(1)
             val existingBundle = bundleStore.listInstalledBundles().firstOrNull { it.areaId == area.id }
@@ -360,13 +370,25 @@ class OamBundleDownloader(
                     } else {
                         existingMapFileForArea(area = area, knownFileName = existingBundle?.mapFileName)
                     }
+                val archiveName = "${area.id}.map.zip"
+                val completedArchiveAvailable = File(downloadDir, archiveName).isHealthyLocalFile()
                 val mapMetadata =
-                    fetchRemoteMetadataOrNull(
-                        RemoteFileRequest(
-                            url = area.mapZipUrl,
-                            fileName = remoteFileName(area.mapZipUrl),
-                        ),
-                    )
+                    if (
+                        shouldFetchRemoteMetadataBeforeDownload(
+                            localFileAvailable = existingMapFile != null,
+                            completedArchiveAvailable = completedArchiveAvailable,
+                            forceDownload = forceMap,
+                        )
+                    ) {
+                        fetchRemoteMetadataOrNull(
+                            RemoteFileRequest(
+                                url = area.mapZipUrl,
+                                fileName = remoteFileName(area.mapZipUrl),
+                            ),
+                        )
+                    } else {
+                        null
+                    }
                 mapMetadata?.let { remoteFilesByUrl[it.url] = it }
                 if (existingMapFile != null) {
                     mapFileName = existingMapFile.name
@@ -377,7 +399,6 @@ class OamBundleDownloader(
                     )
                     deleteZipAndPartial("${area.id}.map.zip")
                 } else {
-                    val archiveName = "${area.id}.map.zip"
                     mapArchive =
                         reusableBundleArchiveOrNull(
                             directory = downloadDir,
@@ -442,13 +463,25 @@ class OamBundleDownloader(
                     } else {
                         existingPoiFileForArea(area = area, knownFileName = existingBundle?.poiFileName)
                     }
+                val archiveName = "${area.id}.poi.zip"
+                val completedArchiveAvailable = File(downloadDir, archiveName).isHealthyLocalFile()
                 val poiMetadata =
-                    fetchRemoteMetadataOrNull(
-                        RemoteFileRequest(
-                            url = area.poiZipUrl,
-                            fileName = remoteFileName(area.poiZipUrl),
-                        ),
-                    )
+                    if (
+                        shouldFetchRemoteMetadataBeforeDownload(
+                            localFileAvailable = existingPoiFile != null,
+                            completedArchiveAvailable = completedArchiveAvailable,
+                            forceDownload = forcePoi,
+                        )
+                    ) {
+                        fetchRemoteMetadataOrNull(
+                            RemoteFileRequest(
+                                url = area.poiZipUrl,
+                                fileName = remoteFileName(area.poiZipUrl),
+                            ),
+                        )
+                    } else {
+                        null
+                    }
                 poiMetadata?.let { remoteFilesByUrl[it.url] = it }
                 if (existingPoiFile != null) {
                     poiFileName = existingPoiFile.name
@@ -459,7 +492,6 @@ class OamBundleDownloader(
                     )
                     deleteZipAndPartial("${area.id}.poi.zip")
                 } else {
-                    val archiveName = "${area.id}.poi.zip"
                     poiArchive =
                         reusableBundleArchiveOrNull(
                             directory = downloadDir,
@@ -535,16 +567,27 @@ class OamBundleDownloader(
                     val segmentResults =
                         requiredSegments.map { fileName ->
                             val segmentUrl = "$BROUTER_SEGMENTS_BASE_URL/$fileName"
-                            fetchRemoteMetadataOrNull(
-                                RemoteFileRequest(
-                                    url = segmentUrl,
-                                    fileName = fileName,
-                                ),
-                            )?.let { remoteFilesByUrl[it.url] = it }
+                            val safeName = File(fileName).name
+                            val forceDownload = forceRoutingSegments || safeName in forceRoutingFileNames
+                            val localFileAvailable =
+                                routingSegmentTargetFile(context, safeName).isHealthyLocalFile()
+                            if (
+                                shouldFetchRemoteMetadataBeforeDownload(
+                                    localFileAvailable = localFileAvailable,
+                                    forceDownload = forceDownload,
+                                )
+                            ) {
+                                fetchRemoteMetadataOrNull(
+                                    RemoteFileRequest(
+                                        url = segmentUrl,
+                                        fileName = safeName,
+                                    ),
+                                )?.let { remoteFilesByUrl[it.url] = it }
+                            }
                             progressArbiter.runNetwork { networkProgress ->
                                 downloadRoutingSegment(
-                                    fileName = fileName,
-                                    forceDownload = forceRoutingSegments || File(fileName).name in forceRoutingFileNames,
+                                    fileName = safeName,
+                                    forceDownload = forceDownload,
                                     onResponseMetadata = { metadata -> remoteFilesByUrl[metadata.url] = metadata },
                                     onProgress = networkProgress,
                                 )
@@ -564,20 +607,70 @@ class OamBundleDownloader(
             val demTileIds =
                 if (selection.includeDem) {
                     val requiredTiles = demTileIdsForArea(area = area, mapFileName = mapFileName)
+                    val isLargeDetailedDownload =
+                        selection.demSource == DemSource.MAPZEN_SKADI_1S &&
+                            requiredTiles.size >= LARGE_DETAILED_DEM_TILE_THRESHOLD
+                    val demStartedAtMs = System.currentTimeMillis()
+                    DebugTelemetry.log(
+                        OAM_DOWNLOAD_TELEMETRY_TAG,
+                        "event=dem_plan area=${area.id} source=${selection.demSource.id} " +
+                            "tiles=${requiredTiles.size} large=$isLargeDetailedDownload",
+                    )
+                    progressArbiter.emitForeground(
+                        OamDownloadProgress(
+                            phase = "PREPARING",
+                            detail =
+                                if (isLargeDetailedDownload) {
+                                    "Large detailed DEM · ${requiredTiles.size} tiles"
+                                } else {
+                                    "${selection.demSource.shortLabel} DEM · ${requiredTiles.size} tiles"
+                                },
+                        ),
+                    )
                     val tileResults =
-                        requiredTiles.map { tileId ->
+                        requiredTiles.mapIndexed { tileIndex, tileId ->
+                            val safeTileId = tileId.uppercase(Locale.ROOT)
+                            val forceDownload = forceDemTiles || safeTileId in forceDemTileIds
+                            val targetFile = demTileTargetFile(safeTileId, selection.demSource)
+                            val localFileAvailable = isDemTileStored(safeTileId, targetFile)
                             val tileRequest = demRemoteFileRequest(tileId, selection.demSource)
-                            fetchRemoteMetadataOrNull(tileRequest)?.let { remoteFilesByUrl[it.url] = it }
+                            if (
+                                shouldFetchRemoteMetadataBeforeDownload(
+                                    localFileAvailable = localFileAvailable,
+                                    forceDownload = forceDownload,
+                                )
+                            ) {
+                                fetchRemoteMetadataOrNull(tileRequest)?.let { remoteFilesByUrl[it.url] = it }
+                            }
                             progressArbiter.runNetwork { networkProgress ->
                                 downloadDemTile(
-                                    tileId = tileId,
+                                    tileId = safeTileId,
                                     source = selection.demSource,
-                                    forceDownload = forceDemTiles || tileId.uppercase(Locale.ROOT) in forceDemTileIds,
+                                    forceDownload = forceDownload,
                                     onResponseMetadata = { metadata -> remoteFilesByUrl[metadata.url] = metadata },
-                                    onProgress = networkProgress,
+                                    onProgress = { progress ->
+                                        networkProgress(
+                                            progress.withDemBatchContext(
+                                                tileIndex = tileIndex,
+                                                tileCount = requiredTiles.size,
+                                                tileId = safeTileId,
+                                                sourceLabel = selection.demSource.shortLabel,
+                                                isLargeDetailedDownload = isLargeDetailedDownload,
+                                            ),
+                                        )
+                                    },
                                 )
                             }
                         }
+                    DebugTelemetry.log(
+                        OAM_DOWNLOAD_TELEMETRY_TAG,
+                        "event=dem_complete area=${area.id} source=${selection.demSource.id} " +
+                            "tiles=${requiredTiles.size} downloaded=${tileResults.count { it.downloaded }} " +
+                            "ready=${tileResults.count { it.available }} " +
+                            "unavailable=${tileResults.count { !it.available }} " +
+                            "bytes=${tileResults.sumOf { it.bytesStored }} " +
+                            "durationMs=${System.currentTimeMillis() - demStartedAtMs}",
+                    )
                     downloadedDemTileIds =
                         (downloadedDemTileIds + tileResults.filter { it.stored }.map { it.tileId })
                             .distinct()
@@ -655,6 +748,10 @@ class OamBundleDownloader(
                 DemSignatureStore.markDirty(context)
                 Dem3CoverageUtils.clearCaches()
             }
+            DebugTelemetry.log(
+                OAM_DOWNLOAD_TELEMETRY_TAG,
+                "event=bundle_complete area=${area.id} durationMs=${System.currentTimeMillis() - bundleStartedAtMs}",
+            )
             installed
         }
 
@@ -1009,7 +1106,12 @@ class OamBundleDownloader(
                     totalBytes = targetFile.takeIf { it.exists() }?.length()?.takeIf { it > 0L },
                 ),
             )
-            return DemTileDownloadResult(tileId = safeTileId, stored = true)
+            return DemTileDownloadResult(
+                tileId = safeTileId,
+                stored = true,
+                available = targetFile.isFile,
+                bytesStored = targetFile.takeIf { it.isFile }?.length()?.coerceAtLeast(0L) ?: 0L,
+            )
         }
 
         val request = demRemoteFileRequest(safeTileId, source)
@@ -1033,7 +1135,12 @@ class OamBundleDownloader(
                         file.delete()
                     }.getOrThrow()
                 clearMissingDemMarkers(safeTileId, source)
-                DemTileDownloadResult(tileId = safeTileId, stored = true)
+                DemTileDownloadResult(
+                    tileId = safeTileId,
+                    stored = true,
+                    downloaded = true,
+                    bytesStored = file.length().coerceAtLeast(0L),
+                )
             }.getOrElse { error ->
                 if (error.isHttpNotFound()) {
                     targetFile.delete()
@@ -1055,7 +1162,11 @@ class OamBundleDownloader(
                             detail = "$safeTileId DEM unavailable",
                         ),
                     )
-                    DemTileDownloadResult(tileId = safeTileId, stored = true)
+                    DemTileDownloadResult(
+                        tileId = safeTileId,
+                        stored = true,
+                        available = false,
+                    )
                 } else {
                     throw error
                 }
@@ -1320,23 +1431,6 @@ class OamBundleDownloader(
                                 onProgress = { bytes ->
                                     val nowMs = System.currentTimeMillis()
                                     val elapsedSinceLastMs = nowMs - lastSpeedSampleAtMs
-                                    val bytesSinceLast = bytes - lastSpeedSampleBytes
-                                    val currentSpeedMbps =
-                                        if (elapsedSinceLastMs > 0L && bytesSinceLast > 0L) {
-                                            bytesPerMsToMbps(bytesSinceLast, elapsedSinceLastMs)
-                                        } else {
-                                            null
-                                        }
-                                    val elapsedSinceStartMs = nowMs - downloadStartedAtMs
-                                    val bytesSinceStart = bytes - resumeOffset
-                                    val averageSpeedMbps =
-                                        if (elapsedSinceStartMs > 0L && bytesSinceStart > 0L) {
-                                            bytesPerMsToMbps(bytesSinceStart, elapsedSinceStartMs)
-                                        } else {
-                                            null
-                                        }
-                                    lastSpeedSampleAtMs = nowMs
-                                    lastSpeedSampleBytes = bytes
                                     lastProgressAtMs = nowMs
                                     lastProgressBytes = bytes
                                     onProgress(
@@ -1347,15 +1441,22 @@ class OamBundleDownloader(
                                             totalBytes = expectedTotalBytes,
                                         ),
                                     )
-                                    logDownloadSpeed(
-                                        event = "download_progress",
-                                        label = label,
-                                        fileName = safeName,
-                                        bytesDone = bytes,
-                                        totalBytes = expectedTotalBytes,
-                                        currentSpeedMbps = currentSpeedMbps,
-                                        averageSpeedMbps = averageSpeedMbps,
-                                    )
+                                    if (elapsedSinceLastMs >= DOWNLOAD_PROGRESS_TELEMETRY_INTERVAL_MS) {
+                                        val bytesSinceLast = bytes - lastSpeedSampleBytes
+                                        val elapsedSinceStartMs = nowMs - downloadStartedAtMs
+                                        val bytesSinceStart = bytes - resumeOffset
+                                        logDownloadSpeed(
+                                            event = "download_progress",
+                                            label = label,
+                                            fileName = safeName,
+                                            bytesDone = bytes,
+                                            totalBytes = expectedTotalBytes,
+                                            currentSpeedMbps = bytesPerMsToMbps(bytesSinceLast, elapsedSinceLastMs),
+                                            averageSpeedMbps = bytesPerMsToMbps(bytesSinceStart, elapsedSinceStartMs),
+                                        )
+                                        lastSpeedSampleAtMs = nowMs
+                                        lastSpeedSampleBytes = bytes
+                                    }
                                 },
                                 options =
                                     AtomicStreamWriter.Options(
@@ -1590,6 +1691,8 @@ class OamBundleDownloader(
         private const val IO_RETRY_DELAY_MS = 2_000L
         private const val OAM_ZIP_DOWNLOAD_BUFFER_SIZE = 2 * 1024 * 1024
         private const val ZIP_READ_BUFFER_SIZE = 1024 * 1024
+        private const val DOWNLOAD_PROGRESS_TELEMETRY_INTERVAL_MS = 5_000L
+        private const val LARGE_DETAILED_DEM_TILE_THRESHOLD = 100
         private const val BROUTER_SEGMENTS_BASE_URL = "https://brouter.de/brouter/segments4"
         private const val USER_AGENT = "GlanceMap-WearOS-OAM-Downloader/1.0 https://www.openandromaps.org"
         private const val OAM_DOWNLOAD_TELEMETRY_TAG = "OamDownload"

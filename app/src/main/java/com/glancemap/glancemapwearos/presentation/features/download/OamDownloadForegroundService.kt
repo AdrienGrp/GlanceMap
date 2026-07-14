@@ -126,12 +126,14 @@ class OamDownloadForegroundService : Service() {
             return
         }
         val networkHandle = watchForWifiRecovery(networkMonitor.currentState())
+        val progressThrottler = OamProgressThrottler()
         try {
             serviceClient.publish(plan.runningState(phase = "STARTING"))
             for (index in plan.nextAreaIndex until areas.size) {
                 val area = areas[index]
                 downloader.downloadBundle(area, plan.selection) { progress ->
                     if (!progress.shouldShowInBundleProgress()) return@downloadBundle
+                    if (!progressThrottler.shouldEmit(progress)) return@downloadBundle
                     val detail = "${index + 1}/${areas.size} ${area.region} - ${progress.detail}"
                     val state =
                         plan.runningState(
@@ -158,6 +160,12 @@ class OamDownloadForegroundService : Service() {
         } catch (error: Exception) {
             failOwnedOperation(plan, error.message ?: "Download failed")
         } finally {
+            DebugTelemetry.log(
+                "OamDownload",
+                "event=progress_throttle_summary owner=service " +
+                    "requested=${progressThrottler.requestedCount} emitted=${progressThrottler.emittedCount} " +
+                    "suppressed=${progressThrottler.suppressedCount}",
+            )
             networkHandle.close()
             operationJob = null
         }
@@ -251,6 +259,11 @@ class OamDownloadForegroundService : Service() {
         plan: OamPersistedDownloadPlan,
         message: String,
     ) {
+        DebugTelemetry.log(
+            "OamDownload",
+            "event=bundle_failed completedAreas=${plan.nextAreaIndex} totalAreas=${plan.areaIds.size} " +
+                "error=${message.replace(' ', '_')}",
+        )
         serviceClient.clearPlan()
         serviceClient.publish(
             OamOwnedDownloadState(
@@ -312,6 +325,8 @@ class OamDownloadForegroundService : Service() {
 
     @SuppressLint("WakelockTimeout")
     private fun acquireLocks() {
+        var wakeLockAcquired = false
+        var wifiLockAcquired = false
         if (wakeLock?.isHeld != true) {
             val powerManager = getSystemService(PowerManager::class.java)
             wakeLock =
@@ -320,6 +335,7 @@ class OamDownloadForegroundService : Service() {
                     ?.apply {
                         setReferenceCounted(false)
                         acquire(WAKE_LOCK_TIMEOUT_MS)
+                        wakeLockAcquired = isHeld
                     }
         }
         if (wifiLock?.isHeld != true) {
@@ -330,12 +346,20 @@ class OamDownloadForegroundService : Service() {
                     ?.apply {
                         setReferenceCounted(false)
                         runCatching { acquire() }
+                        wifiLockAcquired = isHeld
                     }
         }
-        DebugTelemetry.log("OamDownload", "event=foreground_keepalive_active")
+        if (wakeLockAcquired || wifiLockAcquired) {
+            DebugTelemetry.log(
+                "OamDownload",
+                "event=foreground_keepalive_acquired wakeLock=$wakeLockAcquired wifiLock=$wifiLockAcquired",
+            )
+        }
     }
 
     private fun releaseLocks() {
+        val wakeLockWasHeld = wakeLock?.isHeld == true
+        val wifiLockWasHeld = wifiLock?.isHeld == true
         wakeLock?.let { lock ->
             if (lock.isHeld) runCatching { lock.release() }
         }
@@ -344,7 +368,12 @@ class OamDownloadForegroundService : Service() {
         }
         wakeLock = null
         wifiLock = null
-        DebugTelemetry.log("OamDownload", "event=foreground_keepalive_stopped")
+        if (wakeLockWasHeld || wifiLockWasHeld) {
+            DebugTelemetry.log(
+                "OamDownload",
+                "event=foreground_keepalive_released wakeLock=$wakeLockWasHeld wifiLock=$wifiLockWasHeld",
+            )
+        }
     }
 
     private fun buildProgressNotification(

@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.BuildConfig
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.deriveBundleDownloadTelemetrySummary
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeBundleDownloadSummarySection
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeDemDownloadSections
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeEnergyByModeSummarySection
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeGnssSections
@@ -501,6 +503,7 @@ object DiagnosticsExporter {
             )
         val compassTelemetryInsights = deriveCompassTelemetryInsights(telemetryLines)
         val acceptedFixSummaries = deriveAcceptedFixSummaries(telemetryLines)
+        val bundleDownloadSummary = deriveBundleDownloadTelemetrySummary(telemetryLines)
         val captureDurationMs =
             captureDurationMs(
                 startedAtMs = captureSession.startedAtMs,
@@ -1716,6 +1719,7 @@ object DiagnosticsExporter {
                         gnssInsights = gnssInsights,
                     ),
             )
+            writer.writeBundleDownloadSummarySection(bundleDownloadSummary)
             writer.writeLineDumpSection(
                 title = "Telemetry",
                 emptyMessage = "No telemetry captured yet. Enable diagnostics capture and reproduce.",

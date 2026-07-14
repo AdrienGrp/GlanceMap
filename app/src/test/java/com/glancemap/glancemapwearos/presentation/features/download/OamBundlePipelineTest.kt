@@ -7,6 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
@@ -113,6 +114,67 @@ class OamBundlePipelineTest {
                 emitted.map(OamDownloadProgress::phase),
             )
         }
+
+    @Test
+    fun `progress throttler emits phase changes and periodic updates`() {
+        var nowMs = 1_000L
+        val throttler = OamProgressThrottler(minimumIntervalMs = 1_000L, nowMs = { nowMs })
+
+        assertTrue(throttler.shouldEmit(OamDownloadProgress("DOWNLOADING", "Map", 0L, 100L)))
+        nowMs += 100L
+        assertFalse(throttler.shouldEmit(OamDownloadProgress("DOWNLOADING", "Map", 10L, 100L)))
+        nowMs += 100L
+        assertTrue(throttler.shouldEmit(OamDownloadProgress("EXTRACTING", "Map", 10L, 100L)))
+        nowMs += 1_000L
+        assertTrue(throttler.shouldEmit(OamDownloadProgress("EXTRACTING", "Map", 20L, 100L)))
+
+        assertEquals(4L, throttler.requestedCount)
+        assertEquals(3L, throttler.emittedCount)
+        assertEquals(1L, throttler.suppressedCount)
+    }
+
+    @Test
+    fun `metadata is fetched only when it can validate reusable content`() {
+        assertFalse(
+            shouldFetchRemoteMetadataBeforeDownload(
+                localFileAvailable = false,
+                completedArchiveAvailable = false,
+            ),
+        )
+        assertTrue(
+            shouldFetchRemoteMetadataBeforeDownload(
+                localFileAvailable = true,
+            ),
+        )
+        assertTrue(
+            shouldFetchRemoteMetadataBeforeDownload(
+                localFileAvailable = false,
+                completedArchiveAvailable = true,
+            ),
+        )
+        assertFalse(
+            shouldFetchRemoteMetadataBeforeDownload(
+                localFileAvailable = true,
+                forceDownload = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `large detailed DEM progress includes aggregate tile position`() {
+        val progress =
+            OamDownloadProgress("DOWNLOADING", "tile", 50L, 100L).withDemBatchContext(
+                tileIndex = 123,
+                tileCount = 506,
+                tileId = "N04E038",
+                sourceLabel = "Detailed",
+                isLargeDetailedDownload = true,
+            )
+
+        assertEquals("Large detailed DEM 124/506 · N04E038", progress.detail)
+        assertEquals(50L, progress.bytesDone)
+        assertEquals(100L, progress.totalBytes)
+    }
 
     private fun writeZip(
         directory: File,

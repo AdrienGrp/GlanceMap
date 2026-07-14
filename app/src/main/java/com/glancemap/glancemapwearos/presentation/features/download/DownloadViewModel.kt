@@ -280,7 +280,10 @@ class DownloadViewModel(
         DebugTelemetry.log(
             OAM_DOWNLOAD_TELEMETRY_TAG,
             "event=download_request allowNonWifi=$allowNonWifi " +
-                "areas=${areas.size} bundle=${selection.toBundleChoice().name} ${networkState.telemetryFields}",
+                "areas=${areas.size} bundle=${selection.toBundleChoice().name} " +
+                "map=${selection.includeMap} poi=${selection.includePoi} routing=${selection.includeRouting} " +
+                "dem=${selection.includeDem} demSource=${selection.demSource.id} " +
+                "refuges=${selection.includeRefugesInfo} ${networkState.telemetryFields}",
         )
         if (!allowNonWifi && !networkState.isValidatedWifi) {
             _uiState.update {
@@ -673,6 +676,7 @@ class DownloadViewModel(
         downloadJob =
             viewModelScope.launch {
                 val wifiReconnectHandle = watchForWifiRecovery(networkState)
+                val progressThrottler = OamProgressThrottler()
                 try {
                     notificationController.showProgress(
                         title = "Refreshing bundles",
@@ -691,6 +695,7 @@ class DownloadViewModel(
                             forceDemTileIds = target.forces.forceDemTileIds,
                         ) { progress ->
                             if (!progress.shouldShowInBundleProgress()) return@downloadBundle
+                            if (!progressThrottler.shouldEmit(progress)) return@downloadBundle
                             val detail = "${index + 1}/${targets.size} ${target.area.region} - ${progress.detail}"
                             notificationController.showProgress(
                                 title = "Refreshing offline bundle",
@@ -794,6 +799,13 @@ class DownloadViewModel(
                     }
                     notificationController.showError(error.message ?: "Refresh failed")
                 } finally {
+                    DebugTelemetry.log(
+                        OAM_DOWNLOAD_TELEMETRY_TAG,
+                        "event=progress_throttle_summary owner=refresh " +
+                            "requested=${progressThrottler.requestedCount} " +
+                            "emitted=${progressThrottler.emittedCount} " +
+                            "suppressed=${progressThrottler.suppressedCount}",
+                    )
                     wifiReconnectHandle.close()
                     downloadJob = null
                     stopRequest = null

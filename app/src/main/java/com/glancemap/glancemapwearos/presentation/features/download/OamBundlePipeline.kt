@@ -83,3 +83,67 @@ internal class OamBundleProgressArbiter(
         if (shouldEmit) emit(progress)
     }
 }
+
+internal class OamProgressThrottler(
+    private val minimumIntervalMs: Long = 1_000L,
+    private val nowMs: () -> Long = { System.nanoTime() / 1_000_000L },
+) {
+    private var lastEmittedAtMs: Long? = null
+    private var lastPhase: String? = null
+
+    var requestedCount: Long = 0L
+        private set
+    var emittedCount: Long = 0L
+        private set
+
+    val suppressedCount: Long
+        get() = requestedCount - emittedCount
+
+    @Synchronized
+    fun shouldEmit(progress: OamDownloadProgress): Boolean {
+        requestedCount += 1L
+        val now = nowMs()
+        val previousAt = lastEmittedAtMs
+        val shouldEmit =
+            previousAt == null ||
+                progress.phase != lastPhase ||
+                now - previousAt >= minimumIntervalMs
+        if (shouldEmit) {
+            emittedCount += 1L
+            lastEmittedAtMs = now
+            lastPhase = progress.phase
+        }
+        return shouldEmit
+    }
+}
+
+internal fun shouldFetchRemoteMetadataBeforeDownload(
+    localFileAvailable: Boolean,
+    completedArchiveAvailable: Boolean = false,
+    forceDownload: Boolean = false,
+): Boolean = !forceDownload && (localFileAvailable || completedArchiveAvailable)
+
+internal fun OamDownloadProgress.withDemBatchContext(
+    tileIndex: Int,
+    tileCount: Int,
+    tileId: String,
+    sourceLabel: String,
+    isLargeDetailedDownload: Boolean,
+): OamDownloadProgress =
+    copy(
+        detail =
+            buildString {
+                if (isLargeDetailedDownload) {
+                    append("Large detailed DEM")
+                } else {
+                    append(sourceLabel)
+                    append(" DEM")
+                }
+                append(' ')
+                append(tileIndex + 1)
+                append('/')
+                append(tileCount)
+                append(" · ")
+                append(tileId)
+            },
+    )
