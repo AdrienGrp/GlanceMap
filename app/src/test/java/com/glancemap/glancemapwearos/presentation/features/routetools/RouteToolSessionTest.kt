@@ -8,6 +8,24 @@ import org.mapsforge.core.model.LatLong
 
 class RouteToolSessionTest {
     @Test
+    fun currentLocationToPoiIsCompleteWhenDestinationIsAlreadyKnown() {
+        val destination = LatLong(42.6, 1.6)
+        val session =
+            RouteToolSession(
+                options =
+                    RouteToolOptions(
+                        toolKind = RouteToolKind.CREATE,
+                        createMode = RouteCreateMode.CURRENT_TO_HERE,
+                    ),
+                destination = destination,
+            )
+
+        assertTrue(session.isComplete)
+        assertNull(session.currentSelectionTarget)
+        assertEquals(destination, session.destination)
+    }
+
+    @Test
     fun reshapeRouteUsesSelectThenReplaceFlow() {
         val initial =
             RouteToolSession(

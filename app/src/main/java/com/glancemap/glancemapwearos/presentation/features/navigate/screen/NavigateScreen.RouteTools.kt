@@ -4,6 +4,9 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import com.glancemap.glancemapwearos.core.routing.LoopRouteSuggestionException
 import com.glancemap.glancemapwearos.core.service.location.model.GpsSignalSnapshot
 import com.glancemap.glancemapwearos.data.repository.UserPoiRecord
@@ -17,6 +20,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolK
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolLoopRetryOption
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolModifyPreview
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolOptions
+import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolPreflightResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSaveResult
 import com.glancemap.glancemapwearos.presentation.features.routetools.RouteToolSession
 import com.glancemap.glancemapwearos.presentation.features.routetools.buildLoopRetryOptions
@@ -24,6 +28,7 @@ import com.glancemap.glancemapwearos.presentation.features.routetools.preflightS
 import com.glancemap.glancemapwearos.presentation.features.routetools.previewBeforeSaving
 import com.glancemap.glancemapwearos.presentation.features.routetools.withVisibleLoopDefaults
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.view.MapView
@@ -42,6 +47,53 @@ internal data class NavigateRouteToolActions(
     val executeModifyDraft: (RouteToolSession, Boolean) -> Unit,
     val captureRouteToolPoint: (LatLong) -> Unit,
 )
+
+private data class PendingDirectPoiRouteTriggers(
+    val session: RouteToolSession?,
+    val currentLocation: LatLong?,
+    val locationAvailable: Boolean,
+    val lastFixFresh: Boolean,
+    val offlineMode: Boolean,
+    val selectedMapPath: String?,
+)
+
+private data class PendingDirectPoiRouteActions(
+    val evaluatePreflight: (RouteToolSession) -> RouteToolPreflightResult,
+    val requestFreshLocation: () -> Unit,
+    val onReady: (RouteToolSession) -> Unit,
+    val onBlocked: (String?) -> Unit,
+    val onTimeout: (RouteToolSession) -> Unit,
+)
+
+@Composable
+@Suppress("FunctionNaming")
+private fun PendingDirectPoiRouteEffect(
+    triggers: PendingDirectPoiRouteTriggers,
+    actions: PendingDirectPoiRouteActions,
+) {
+    val latestActions = rememberUpdatedState(actions)
+    LaunchedEffect(
+        triggers.session,
+        triggers.currentLocation,
+        triggers.locationAvailable,
+        triggers.lastFixFresh,
+        triggers.offlineMode,
+        triggers.selectedMapPath,
+    ) {
+        val pendingSession = triggers.session ?: return@LaunchedEffect
+        val currentActions = latestActions.value
+        val preflight = currentActions.evaluatePreflight(pendingSession)
+        when {
+            preflight.canStart -> currentActions.onReady(pendingSession)
+            !preflight.shouldRequestFreshLocation -> currentActions.onBlocked(preflight.message)
+            else -> {
+                currentActions.requestFreshLocation()
+                delay(DIRECT_POI_ROUTE_GPS_WAIT_TIMEOUT_MS)
+                latestActions.value.onTimeout(pendingSession)
+            }
+        }
+    }
+}
 
 @Composable
 internal fun rememberNavigateRouteToolActions(
@@ -90,6 +142,8 @@ internal fun rememberNavigateRouteToolActions(
     setCreatedPoiRenameError: (String?) -> Unit,
     setShowCreatedPoiRenameDialog: (Boolean) -> Unit,
 ): NavigateRouteToolActions {
+    val pendingDirectPoiRoute = remember { mutableStateOf<RouteToolSession?>(null) }
+
     fun clearRouteToolPreviewState() {
         setRouteToolPreview(null)
         setRouteToolCreatePreview(null)
@@ -222,6 +276,7 @@ internal fun rememberNavigateRouteToolActions(
     }
 
     fun openRouteToolsPanel() {
+        pendingDirectPoiRoute.value = null
         triggerHaptic()
         setShortcutTrayExpanded(false)
         setPoiCreationSelectionActive(false)
@@ -242,6 +297,7 @@ internal fun rememberNavigateRouteToolActions(
     }
 
     fun startPoiCreationSelection() {
+        pendingDirectPoiRoute.value = null
         triggerHaptic()
         setShortcutTrayExpanded(false)
         setShowRouteToolsPanel(false)
@@ -288,6 +344,7 @@ internal fun rememberNavigateRouteToolActions(
     }
 
     fun startRouteToolSelection(session: RouteToolSession) {
+        pendingDirectPoiRoute.value = null
         val preflight =
             session.preflightStart(
                 context = context,
@@ -409,6 +466,60 @@ internal fun rememberNavigateRouteToolActions(
         setRouteToolSession(session)
     }
 
+    fun evaluatePendingPoiRoutePreflight(session: RouteToolSession): RouteToolPreflightResult =
+        session.preflightStart(
+            context = context,
+            currentLocation = recenterTarget,
+            gpsSignalSnapshot = gpsSignalSnapshot,
+            isOfflineMode = offlineMode,
+            hasSingleActiveGpx = activeGpxDetailsCount == 1,
+            selectedMapPath = selectedMapPath,
+        )
+
+    fun startPendingPoiRoute(session: RouteToolSession) {
+        pendingDirectPoiRoute.value = null
+        startRouteToolSelection(session)
+    }
+
+    fun showPendingPoiRouteBlocker(message: String?) {
+        pendingDirectPoiRoute.value = null
+        setRouteToolPreflightMessage(message)
+        setShowRouteToolsPanel(true)
+    }
+
+    fun showPendingPoiRouteTimeout(session: RouteToolSession) {
+        if (pendingDirectPoiRoute.value != session) return
+        pendingDirectPoiRoute.value = null
+        Toast
+            .makeText(
+                context,
+                "Could not get a fresh GPS fix.",
+                Toast.LENGTH_SHORT,
+            ).show()
+    }
+
+    PendingDirectPoiRouteEffect(
+        triggers =
+            PendingDirectPoiRouteTriggers(
+                session = pendingDirectPoiRoute.value,
+                currentLocation = recenterTarget,
+                locationAvailable = gpsSignalSnapshot.isLocationAvailable,
+                lastFixFresh = gpsSignalSnapshot.lastFixFresh,
+                offlineMode = offlineMode,
+                selectedMapPath = selectedMapPath,
+            ),
+        actions =
+            PendingDirectPoiRouteActions(
+                evaluatePreflight = ::evaluatePendingPoiRoutePreflight,
+                requestFreshLocation = {
+                    locationViewModel.requestImmediateLocation(source = "ui_poi_to_here")
+                },
+                onReady = ::startPendingPoiRoute,
+                onBlocked = ::showPendingPoiRouteBlocker,
+                onTimeout = ::showPendingPoiRouteTimeout,
+            ),
+    )
+
     fun undoRouteToolPoint() {
         val current = routeToolSession ?: return
         if (!current.isMultiPointCreate) return
@@ -427,15 +538,16 @@ internal fun rememberNavigateRouteToolActions(
     }
 
     fun createRouteToPoi(marker: PoiOverlayMarker) {
+        pendingDirectPoiRoute.value = null
         triggerHaptic()
         setShortcutTrayExpanded(false)
-        setShowRouteToolsPanel(true)
+        setShowRouteToolsPanel(false)
         setRouteToolPreflightMessage(null)
         setPoiCreationSelectionActive(false)
-        setRouteToolPreview(null)
-        setRouteToolCreatePreview(null)
-        setRouteToolCreatePreviewMessage(null)
-        setRouteToolCreatePreviewInProgress(false)
+        setCompletedRouteToolDraft(null)
+        clearRouteToolExecutionFeedback()
+        clearRouteToolResultState()
+        clearRouteToolPreviewState()
         val createOptions =
             routeToolOptions
                 .copy(
@@ -443,12 +555,32 @@ internal fun rememberNavigateRouteToolActions(
                     createMode = RouteCreateMode.CURRENT_TO_HERE,
                 ).withVisibleLoopDefaults()
         setRouteToolOptions(createOptions)
-        startRouteToolSelection(
+        val session =
             RouteToolSession(
                 options = createOptions,
                 destination = LatLong(marker.lat, marker.lon),
-            ),
-        )
+            )
+        val preflight =
+            session.preflightStart(
+                context = context,
+                currentLocation = recenterTarget,
+                gpsSignalSnapshot = gpsSignalSnapshot,
+                isOfflineMode = offlineMode,
+                hasSingleActiveGpx = activeGpxDetailsCount == 1,
+                selectedMapPath = selectedMapPath,
+            )
+        when {
+            preflight.canStart -> startRouteToolSelection(session)
+            preflight.shouldRequestFreshLocation -> {
+                pendingDirectPoiRoute.value = session
+                locationViewModel.requestImmediateLocation(source = "ui_poi_to_here")
+                Toast.makeText(context, "Waiting for GPS", Toast.LENGTH_SHORT).show()
+            }
+            else -> {
+                setRouteToolPreflightMessage(preflight.message)
+                setShowRouteToolsPanel(true)
+            }
+        }
     }
 
     fun executeCreateDraft(
@@ -637,3 +769,5 @@ internal fun rememberNavigateRouteToolActions(
         captureRouteToolPoint = ::captureRouteToolPoint,
     )
 }
+
+private const val DIRECT_POI_ROUTE_GPS_WAIT_TIMEOUT_MS = 12_000L
