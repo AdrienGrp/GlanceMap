@@ -4,6 +4,7 @@ import android.hardware.SensorManager
 import com.glancemap.glancemapwearos.domain.sensors.CompassProviderType
 import com.glancemap.glancemapwearos.domain.sensors.HeadingSource
 import com.glancemap.glancemapwearos.domain.sensors.initialCompassRenderState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -80,7 +81,7 @@ class NavigateEffectsSupportTest {
     }
 
     @Test
-    fun compassFollowMapDrivesWhenGoogleFusedUsesBootstrapSensorHeading() {
+    fun compassFollowMapWaitsWhileGoogleFusedUsesBootstrapSensorHeading() {
         val state =
             initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
                 headingSource = HeadingSource.ROTATION_VECTOR,
@@ -89,7 +90,7 @@ class NavigateEffectsSupportTest {
                 headingSampleStale = true,
             )
 
-        assertTrue(shouldDriveCompassFollowMap(state))
+        assertFalse(shouldDriveCompassFollowMap(state))
     }
 
     @Test
@@ -104,7 +105,7 @@ class NavigateEffectsSupportTest {
 
         assertFalse(shouldDriveMarkerHeading(state))
         assertFalse(shouldDriveHeadingForNavMode(NavMode.NORTH_UP_FOLLOW, state))
-        assertTrue(shouldDriveHeadingForNavMode(NavMode.COMPASS_FOLLOW, state))
+        assertFalse(shouldDriveHeadingForNavMode(NavMode.COMPASS_FOLLOW, state))
     }
 
     @Test
@@ -228,6 +229,26 @@ class NavigateEffectsSupportTest {
     }
 
     @Test
+    fun activeCompassTurnAllowsDisplayRateMapsforgeRotation() {
+        assertTrue(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_015L,
+                lastAppliedAtElapsedMs = 1_000L,
+                highFrequencyRotation = true,
+            ),
+        )
+        assertFalse(
+            shouldThrottleMapsforgeRotation(
+                navMode = NavMode.COMPASS_FOLLOW,
+                nowElapsedMs = 1_016L,
+                lastAppliedAtElapsedMs = 1_000L,
+                highFrequencyRotation = true,
+            ),
+        )
+    }
+
+    @Test
     fun northUpAndFirstRotationAreNotThrottled() {
         assertFalse(
             shouldThrottleMapsforgeRotation(
@@ -264,11 +285,51 @@ class NavigateEffectsSupportTest {
     }
 
     @Test
+    fun slowContinuousRotationEnablesHighFrequencyMapRendering() {
+        assertTrue(
+            isActiveMapHeadingTurn(
+                previousHeadingDeg = 350f,
+                nextHeadingDeg = 353f,
+                elapsedMs = 100L,
+            ),
+        )
+        assertFalse(
+            isActiveMapHeadingTurn(
+                previousHeadingDeg = 350f,
+                nextHeadingDeg = 351f,
+                elapsedMs = 100L,
+            ),
+        )
+    }
+
+    @Test
     fun fastTurnAnimationClosesHeadingErrorMoreAggressively() {
         val normalAlpha = resolveHeadingAnimationAlpha(diffDeg = 40f, fastTurn = false)
         val fastAlpha = resolveHeadingAnimationAlpha(diffDeg = 40f, fastTurn = true)
 
         assertTrue(fastAlpha > normalAlpha)
         assertTrue(fastAlpha >= 0.85f)
+    }
+
+    @Test
+    fun firstFusedHeadingIsAppliedInBoundedVisualSteps() {
+        assertEquals(
+            8f,
+            resolveHeadingAnimationDelta(
+                diffDeg = 140f,
+                fastTurn = true,
+                startupHandoff = true,
+            ),
+            0f,
+        )
+        assertEquals(
+            -8f,
+            resolveHeadingAnimationDelta(
+                diffDeg = -140f,
+                fastTurn = true,
+                startupHandoff = true,
+            ),
+            0f,
+        )
     }
 }
