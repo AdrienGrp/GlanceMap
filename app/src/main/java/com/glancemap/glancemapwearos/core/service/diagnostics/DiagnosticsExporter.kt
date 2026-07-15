@@ -350,6 +350,10 @@ object DiagnosticsExporter {
         var fixGapBuckets: FixGapBuckets = FixGapBuckets()
         var externalHeartRateReconnectScheduledCount: Int = 0
         var externalHeartRateReconnectAttemptCount: Int = 0
+        var turnByTurnTurnAlertFiredCount: Int = 0
+        var turnByTurnTurnAlertFilteredCount: Int = 0
+        var turnByTurnTurnAlertOffRouteCount: Int = 0
+        var turnByTurnTurnAlertMissedWindowCount: Int = 0
     }
 
     internal data class CompassTelemetryInsights(
@@ -817,6 +821,7 @@ object DiagnosticsExporter {
             writer.appendLine("demDownloadTruncated=$demDownloadTruncated")
             writer.appendLine("markerMotionAcceptedFixes=${markerMotionSummary.acceptedFixes}")
             writer.appendLine("markerMotionPredictionUpdates=${markerMotionSummary.predictionUpdates}")
+            writer.appendLine("markerMotionRenderedUpdates=${markerMotionSummary.renderedMotionUpdates}")
             writer.appendLine("markerMotionBlendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("markerMotionOutlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("markerMotionBlockedTransitions=${markerMotionSummary.blockedTransitions}")
@@ -1299,6 +1304,18 @@ object DiagnosticsExporter {
             )
             writer.appendLine("turnByTurnTurnHapticCount=${telemetryInsights.turnByTurnTurnHapticCount}")
             writer.appendLine("turnByTurnOffRouteHapticCount=${telemetryInsights.turnByTurnOffRouteHapticCount}")
+            writer.appendLine(
+                "turnByTurnTurnAlertFiredCount=${telemetryInsights.turnByTurnTurnAlertFiredCount}",
+            )
+            writer.appendLine(
+                "turnByTurnTurnAlertFilteredCount=${telemetryInsights.turnByTurnTurnAlertFilteredCount}",
+            )
+            writer.appendLine(
+                "turnByTurnTurnAlertOffRouteCount=${telemetryInsights.turnByTurnTurnAlertOffRouteCount}",
+            )
+            writer.appendLine(
+                "turnByTurnTurnAlertMissedWindowCount=${telemetryInsights.turnByTurnTurnAlertMissedWindowCount}",
+            )
             writer.appendLine(
                 "turnByTurnMaxDistanceToRouteMeters=${
                     telemetryInsights.turnByTurnMaxDistanceToRouteMeters?.toString() ?: "na"
@@ -1796,9 +1813,20 @@ object DiagnosticsExporter {
             writer.appendLine("acceptedFixes=${markerMotionSummary.acceptedFixes}")
             writer.appendLine("outlierDrops=${markerMotionSummary.outlierDrops}")
             writer.appendLine("predictionUpdates=${markerMotionSummary.predictionUpdates}")
+            writer.appendLine("renderedMotionUpdates=${markerMotionSummary.renderedMotionUpdates}")
             writer.appendLine("blendStarts=${markerMotionSummary.blendStarts}")
             writer.appendLine("clampedCorrections=${markerMotionSummary.clampedCorrections}")
             writer.appendLine("blockedTransitions=${markerMotionSummary.blockedTransitions}")
+            writer.appendLine("innovationSamples=${markerMotionSummary.innovationSamples}")
+            writer.appendLine(
+                "innovationMeanM=${TelemetryFormatters.decimalOrNa(markerMotionSummary.innovationMeanM, 1)}",
+            )
+            writer.appendLine(
+                "innovationMaxM=${TelemetryFormatters.decimalOrNa(markerMotionSummary.innovationMaxM, 1)}",
+            )
+            writer.appendLine("fixGapSamples=${markerMotionSummary.fixGapSamples}")
+            writer.appendLine("fixGapMeanMs=${markerMotionSummary.fixGapMeanMs?.toString() ?: "na"}")
+            writer.appendLine("fixGapMaxMs=${markerMotionSummary.fixGapMaxMs?.toString() ?: "na"}")
             writer.appendLine(
                 "blockedReasons=${
                     formatMarkerMotionBlockedReasons(markerMotionSummary.blockedReasonCounts)

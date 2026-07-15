@@ -28,6 +28,13 @@ internal fun resolveLocationTimingProfile(gpsIntervalMs: Long): LocationTimingPr
             MARKER_PREDICTION_MIN_FRESHNESS_MAX_AGE_MS,
             MARKER_PREDICTION_MAX_FRESHNESS_MAX_AGE_MS,
         )
+    // Keep dead reckoning short to limit drift, but let expected GPS cadence determine when a
+    // missing fix is genuinely late enough for the UI to request an additional high-accuracy fix.
+    val expectedFixLatenessMaxAgeMs =
+        maxOf(
+            STRICT_FRESH_FIX_MIN_AGE_MS,
+            intervalMs + maxOf(MARKER_PREDICTION_MIN_GRACE_MS, intervalMs / 2L),
+        )
     val strictFreshFixMaxAgeMs =
         maxOf(
             STRICT_FRESH_FIX_MIN_AGE_MS,
@@ -51,8 +58,8 @@ internal fun resolveLocationTimingProfile(gpsIntervalMs: Long): LocationTimingPr
     return LocationTimingProfile(
         intervalMs = intervalMs,
         markerPredictionFreshnessMaxAgeMs = markerPredictionFreshnessMaxAgeMs,
-        indicatorStaleThresholdMs = markerPredictionFreshnessMaxAgeMs,
-        uiImmediateSkipMaxAgeMs = markerPredictionFreshnessMaxAgeMs,
+        indicatorStaleThresholdMs = expectedFixLatenessMaxAgeMs,
+        uiImmediateSkipMaxAgeMs = expectedFixLatenessMaxAgeMs,
         strictFreshFixMaxAgeMs = strictFreshFixMaxAgeMs,
         burstEarlyStopMaxAgeMs = strictFreshFixMaxAgeMs,
         wakeAnchorMaxAgeMs = wakeAnchorMaxAgeMs,

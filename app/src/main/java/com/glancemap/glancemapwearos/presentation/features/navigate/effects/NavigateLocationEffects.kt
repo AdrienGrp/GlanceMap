@@ -1,8 +1,10 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate.effects
 
+import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -31,12 +33,15 @@ import com.glancemap.glancemapwearos.presentation.features.navigate.motion.Marke
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionGpsFix
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionReading
 import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionSeed
+import com.glancemap.glancemapwearos.presentation.features.navigate.motion.MarkerMotionTelemetry
 import com.glancemap.glancemapwearos.presentation.features.navigate.requestLayerRedrawSafely
 import com.glancemap.glancemapwearos.presentation.features.navigate.resolveMapCenterForNavigationMarker
 import com.glancemap.glancemapwearos.presentation.features.navigate.setCenterForNavigationMarker
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withTimeoutOrNull
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidBitmap
 import org.mapsforge.map.android.view.MapView
@@ -71,6 +76,7 @@ internal fun rememberNavigateLocationUiState(
     shouldFollowPosition: Boolean,
     screenState: LocationScreenState,
     expectedGpsIntervalMs: Long,
+    isBikeActivityProfile: Boolean,
     navigationMarkerBitmap: AndroidBitmap,
     suppressLocationMarker: Boolean,
     navigationMarkerAnchorMode: String,
@@ -80,16 +86,23 @@ internal fun rememberNavigateLocationUiState(
             resolveLocationTimingProfile(expectedGpsIntervalMs)
         }
     val markerMotionController =
-        remember(timingProfile.intervalMs) {
+        remember {
             MarkerMotionController(
                 predictionFreshnessMaxAgeMs = timingProfile.markerPredictionFreshnessMaxAgeMs,
                 maxAcceptedFixAgeMs = timingProfile.stabilizerMaxAcceptedFixAgeMs,
             )
         }
+    val markerMotionSignal = remember { Channel<Unit>(capacity = Channel.CONFLATED) }
+    SideEffect {
+        markerMotionController.updateTiming(
+            predictionFreshnessMaxAgeMs = timingProfile.markerPredictionFreshnessMaxAgeMs,
+            maxAcceptedFixAgeMs = timingProfile.stabilizerMaxAcceptedFixAgeMs,
+        )
+        markerMotionController.updateActivityProfile(isBikeActivityProfile)
+    }
 
     val latestShouldFollowPosition = rememberUpdatedState(shouldFollowPosition)
     val latestSuppressLocationMarker = rememberUpdatedState(suppressLocationMarker)
-    val latestShouldTrackLocation = rememberUpdatedState(shouldTrackLocation)
     val latestScreenState = rememberUpdatedState(screenState)
     val latestNavigationMarkerAnchorMode = rememberUpdatedState(navigationMarkerAnchorMode)
     val latestMarkerMotionController = rememberUpdatedState(markerMotionController)
@@ -206,20 +219,39 @@ internal fun rememberNavigateLocationUiState(
             )
             lastRenderedMarkerLatLong = anchor.latLong
             wakeAnchorSeeded = true
-            if (!latestSuppressLocationMarker.value && locationMarker == null) {
-                removeAllRotatableMarkers(mapView)
-                locationMarker =
-                    RotatableMarker(
+            if (!latestSuppressLocationMarker.value) {
+                val existingMarker = locationMarker
+                if (existingMarker == null) {
+                    removeAllRotatableMarkers(mapView)
+                    locationMarker =
+                        RotatableMarker(
+                            anchor.latLong,
+                            navigationMarkerBitmap,
+                            -navigationMarkerBitmap.width / 2,
+                            -navigationMarkerBitmap.height / 2,
+                        ).also { marker ->
+                            mapView.mutateLayers { layers -> layers.add(marker) }
+                        }
+                } else {
+                    existingMarker.latLong = anchor.latLong
+                }
+                lastMarkerVisualUpdateAtElapsedMs = nowElapsedMs
+                lastMarkerMotionAdvanceAtElapsedMs = nowElapsedMs
+                if (
+                    shouldCenterOnNavigationMarker(
+                        mapView = mapView,
+                        shouldFollowPosition = latestShouldFollowPosition.value,
+                        target = anchor.latLong,
+                        markerAnchorMode = latestNavigationMarkerAnchorMode.value,
+                        currentCenter = mapView.model.mapViewPosition.center,
+                    )
+                ) {
+                    mapView.setCenterForNavigationMarker(
                         anchor.latLong,
-                        navigationMarkerBitmap,
-                        -navigationMarkerBitmap.width / 2,
-                        -navigationMarkerBitmap.height / 2,
-                    ).also { marker ->
-                        mapView.mutateLayers { layers -> layers.add(marker) }
-                        lastMarkerVisualUpdateAtElapsedMs = nowElapsedMs
-                        lastMarkerMotionAdvanceAtElapsedMs = nowElapsedMs
-                        mapView.requestLayerRedrawSafely()
-                    }
+                        latestNavigationMarkerAnchorMode.value,
+                    )
+                }
+                mapView.requestLayerRedrawSafely()
             }
             DebugTelemetry.log(
                 NAV_MARKER_TELEMETRY_TAG,
@@ -543,11 +575,21 @@ internal fun rememberNavigateLocationUiState(
                     if (loc.hasSpeed() && loc.speed.isFinite()) {
                         loc.speed
                     } else {
-                        0f
+                        null
                     }
                 val motionBearingDeg = if (loc.hasBearing()) loc.bearing else null
-                latestAcceptedFixSpeedMps = motionSpeedMps
-                latestAcceptedFixBearingDeg = motionBearingDeg
+                val motionSpeedAccuracyMps =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && loc.hasSpeedAccuracy()) {
+                        loc.speedAccuracyMetersPerSecond
+                    } else {
+                        null
+                    }
+                val motionBearingAccuracyDeg =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && loc.hasBearingAccuracy()) {
+                        loc.bearingAccuracyDegrees
+                    } else {
+                        null
+                    }
                 val markerSourceMode =
                     if (indicatorWatchGpsOnlyActive) {
                         LocationSourceMode.WATCH_GPS
@@ -555,7 +597,7 @@ internal fun rememberNavigateLocationUiState(
                         LocationSourceMode.AUTO_FUSED
                     }
 
-                val displayLatLong =
+                val motionUpdate =
                     markerMotionController.onGpsFix(
                         fix =
                             MarkerMotionGpsFix(
@@ -567,6 +609,8 @@ internal fun rememberNavigateLocationUiState(
                                         accuracyM = loc.accuracy,
                                         speedMps = motionSpeedMps,
                                         bearingDeg = motionBearingDeg,
+                                        speedAccuracyMps = motionSpeedAccuracyMps,
+                                        bearingAccuracyDeg = motionBearingAccuracyDeg,
                                     ),
                                 allowLargeCorrection =
                                     shouldBypassCorrectionClamp(
@@ -577,8 +621,19 @@ internal fun rememberNavigateLocationUiState(
                                 sourceMode = markerSourceMode,
                             ),
                     )
-                lastAcceptedLocationFixElapsedMs =
-                    fixElapsedMs.takeIf { it > 0L } ?: receivedAtElapsedMs
+                val displayLatLong = motionUpdate.displayedLatLong
+                markerMotionSignal.trySend(Unit)
+                if (motionUpdate.fixAccepted) {
+                    latestAcceptedFixSpeedMps = motionSpeedMps ?: 0f
+                    latestAcceptedFixBearingDeg = motionBearingDeg
+                    lastAcceptedLocationFixElapsedMs =
+                        fixElapsedMs.takeIf { it > 0L } ?: receivedAtElapsedMs
+                }
+
+                // Continue feeding the motion controller while the display is off, but avoid
+                // mutating Mapsforge state or requesting an invisible redraw. The interactive
+                // wake path restores the latest cached anchor before requesting a fresh fix.
+                if (!shouldRenderLocationVisualUpdate(latestScreenState.value)) return@collect
 
                 if (locationMarker == null) {
                     removeAllRotatableMarkers(mapView)
@@ -650,31 +705,31 @@ internal fun rememberNavigateLocationUiState(
     }
 
     // Motion prediction loop.
-    LaunchedEffect(mapView, markerMotionController) {
-        while (isActive) {
-            val predictionActive =
-                latestShouldTrackLocation.value &&
-                    !latestScreenState.value.isNonInteractive
-            delay(
-                if (predictionActive) {
-                    markerMotionController.suggestedPredictionTickMs(
-                        nowElapsedMs = android.os.SystemClock.elapsedRealtime(),
-                        serviceFreshnessMaxAgeMs = indicatorFixFreshMaxAgeMs,
-                        watchGpsDegraded = indicatorWatchGpsDegraded,
-                    )
-                } else {
-                    MARKER_PREDICTION_INACTIVE_TICK_MS
-                },
+    LaunchedEffect(
+        mapView,
+        markerMotionController,
+        shouldTrackLocation,
+        screenState,
+        suppressLocationMarker,
+    ) {
+        if (
+            !shouldRunMarkerPredictionLoop(
+                shouldTrackLocation = shouldTrackLocation,
+                screenState = screenState,
+                suppressLocationMarker = suppressLocationMarker,
             )
-            if (
-                !latestShouldTrackLocation.value ||
-                latestScreenState.value.isNonInteractive
-            ) {
-                continue
-            }
-            if (latestSuppressLocationMarker.value) {
-                delay(80L)
-                continue
+        ) {
+            return@LaunchedEffect
+        }
+        while (isActive) {
+            val nextTickMs =
+                markerMotionController.suggestedPredictionTickMs(
+                    nowElapsedMs = android.os.SystemClock.elapsedRealtime(),
+                    serviceFreshnessMaxAgeMs = indicatorFixFreshMaxAgeMs,
+                    watchGpsDegraded = indicatorWatchGpsDegraded,
+                )
+            withTimeoutOrNull(nextTickMs) {
+                markerMotionSignal.receive()
             }
             val nowElapsedMs = android.os.SystemClock.elapsedRealtime()
             if (
@@ -701,6 +756,7 @@ internal fun rememberNavigateLocationUiState(
                 if ((dLat * dLat + dLon * dLon) < MARKER_UPDATE_EPSILON_DEG2) continue
             }
             lastRenderedMarkerLatLong = predicted
+            MarkerMotionTelemetry.recordMotionRendered()
             lastMarkerVisualUpdateAtElapsedMs = nowElapsedMs
             lastMarkerMotionAdvanceAtElapsedMs = nowElapsedMs
 
@@ -749,7 +805,7 @@ internal fun rememberNavigateLocationUiState(
                             lastVisualUpdateAtElapsedMs = lastMarkerVisualUpdateAtElapsedMs,
                             lastMotionAdvanceAtElapsedMs = lastMarkerMotionAdvanceAtElapsedMs,
                             lastRefreshRequestAtElapsedMs = lastInteractiveStaleRefreshAtElapsedMs,
-                            predictionFreshnessMaxAgeMs = timingProfile.markerPredictionFreshnessMaxAgeMs,
+                            fixLatenessThresholdMs = timingProfile.indicatorStaleThresholdMs,
                             nowElapsedMs = nowElapsedMs,
                         ),
                 )
@@ -789,7 +845,6 @@ internal fun rememberNavigateLocationUiState(
 }
 
 private const val MARKER_UPDATE_EPSILON_DEG2 = 1e-11
-private const val MARKER_PREDICTION_INACTIVE_TICK_MS = 1_000L
 private const val WAKE_REACQUIRE_TIMEOUT_MS = 6_000L
 private const val WAKE_REACQUIRE_COOLDOWN_MS = 60_000L
 private const val POST_WAKE_PREDICTION_GRACE_MS = 700L
@@ -807,6 +862,19 @@ private const val TRACKING_SESSION_FIX_MAX_SKEW_MS = 400L
 private const val CORRECTION_CLAMP_BYPASS_MULTIPLIER = 2L
 private const val NAV_MARKER_TELEMETRY_TAG = "MarkerMotion"
 private const val UI_INTERACTIVE_STALE_REFRESH_SOURCE = "ui_interactive_stale_refresh"
+
+internal fun shouldRenderLocationVisualUpdate(
+    screenState: LocationScreenState,
+): Boolean = screenState != LocationScreenState.SCREEN_OFF
+
+internal fun shouldRunMarkerPredictionLoop(
+    shouldTrackLocation: Boolean,
+    screenState: LocationScreenState,
+    suppressLocationMarker: Boolean,
+): Boolean =
+    shouldTrackLocation &&
+        !screenState.isNonInteractive &&
+        !suppressLocationMarker
 
 private fun removeAllRotatableMarkers(mapView: MapView) {
     mapView.mutateLayers { layers ->
@@ -997,7 +1065,7 @@ internal data class InteractiveStaleRefreshInput(
     val lastVisualUpdateAtElapsedMs: Long,
     val lastMotionAdvanceAtElapsedMs: Long,
     val lastRefreshRequestAtElapsedMs: Long,
-    val predictionFreshnessMaxAgeMs: Long,
+    val fixLatenessThresholdMs: Long,
     val nowElapsedMs: Long,
 )
 
@@ -1054,7 +1122,7 @@ private fun resolveInteractiveStaleRefreshReason(
     val fixRecoveryThresholdMs =
         resolveInteractiveStaleRefreshFixRecoveryThresholdMs(
             lastFixFreshMaxAgeMs = input.lastFixFreshMaxAgeMs,
-            predictionFreshnessMaxAgeMs = input.predictionFreshnessMaxAgeMs,
+            fixLatenessThresholdMs = input.fixLatenessThresholdMs,
         )
     val refreshCooldownActive =
         input.lastRefreshRequestAtElapsedMs != Long.MIN_VALUE &&
@@ -1073,14 +1141,14 @@ private fun resolveInteractiveStaleRefreshReason(
 
 private fun resolveInteractiveStaleRefreshFixRecoveryThresholdMs(
     lastFixFreshMaxAgeMs: Long,
-    predictionFreshnessMaxAgeMs: Long,
+    fixLatenessThresholdMs: Long,
 ): Long {
     val effectivePredictionFreshnessMaxAgeMs =
         when {
-            lastFixFreshMaxAgeMs > 0L && predictionFreshnessMaxAgeMs > 0L ->
-                minOf(lastFixFreshMaxAgeMs, predictionFreshnessMaxAgeMs)
+            lastFixFreshMaxAgeMs > 0L && fixLatenessThresholdMs > 0L ->
+                minOf(lastFixFreshMaxAgeMs, fixLatenessThresholdMs)
             lastFixFreshMaxAgeMs > 0L -> lastFixFreshMaxAgeMs
-            else -> predictionFreshnessMaxAgeMs
+            else -> fixLatenessThresholdMs
         }
     return maxOf(
         INTERACTIVE_STALE_REFRESH_MIN_FIX_AGE_MS,

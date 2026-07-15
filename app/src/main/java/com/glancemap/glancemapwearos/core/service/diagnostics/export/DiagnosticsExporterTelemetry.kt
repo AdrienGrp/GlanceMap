@@ -164,6 +164,10 @@ internal fun deriveTelemetryInsights(
     var turnByTurnBrouterHintInstructionSampleCount = 0
     var turnByTurnTurnHapticCount = 0
     var turnByTurnOffRouteHapticCount = 0
+    var turnByTurnTurnAlertFiredCount = 0
+    var turnByTurnTurnAlertFilteredCount = 0
+    var turnByTurnTurnAlertOffRouteCount = 0
+    var turnByTurnTurnAlertMissedWindowCount = 0
     var turnByTurnMaxDistanceToRouteMeters: Int? = null
     var recordingStartCount = 0
     var recordingRecoveredCount = 0
@@ -480,6 +484,12 @@ internal fun deriveTelemetryInsights(
             when (extractTokenValue(line, "haptic=")) {
                 "turn" -> turnByTurnTurnHapticCount += 1
                 "off_route" -> turnByTurnOffRouteHapticCount += 1
+            }
+            when (extractTokenValue(line, "turnAlert=")) {
+                "fired" -> turnByTurnTurnAlertFiredCount += 1
+                "filtered" -> turnByTurnTurnAlertFilteredCount += 1
+                "off_route" -> turnByTurnTurnAlertOffRouteCount += 1
+                "missed_window" -> turnByTurnTurnAlertMissedWindowCount += 1
             }
             if (" active=" in line || line.contains("[TurnByTurn] active=")) {
                 turnByTurnSampleCount += 1
@@ -1272,6 +1282,10 @@ internal fun deriveTelemetryInsights(
             )
         insights.externalHeartRateReconnectScheduledCount = externalHeartRateReconnectScheduledCount
         insights.externalHeartRateReconnectAttemptCount = externalHeartRateReconnectAttemptCount
+        insights.turnByTurnTurnAlertFiredCount = turnByTurnTurnAlertFiredCount
+        insights.turnByTurnTurnAlertFilteredCount = turnByTurnTurnAlertFilteredCount
+        insights.turnByTurnTurnAlertOffRouteCount = turnByTurnTurnAlertOffRouteCount
+        insights.turnByTurnTurnAlertMissedWindowCount = turnByTurnTurnAlertMissedWindowCount
     }
 }
 

@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 
 @Composable
+@Suppress("FunctionNaming", "LongMethod")
 fun TurnByTurnAdvancedSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenTurnByTurnSettings: () -> Unit,

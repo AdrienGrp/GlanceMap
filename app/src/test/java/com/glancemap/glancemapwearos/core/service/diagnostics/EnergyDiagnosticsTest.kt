@@ -247,6 +247,7 @@ class EnergyDiagnosticsTest {
         )
     }
 
+    @Suppress("LongParameterList")
     private fun batteryLine(
         atMs: Long,
         currentUa: Int,

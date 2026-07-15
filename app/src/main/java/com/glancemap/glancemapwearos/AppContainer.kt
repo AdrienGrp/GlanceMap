@@ -151,7 +151,10 @@ class DefaultAppContainer(
     }
 
     override val locationViewModel: LocationViewModel by lazy {
-        LocationViewModel(applicationContext as Application)
+        LocationViewModel(
+            application = applicationContext as Application,
+            settingsRepository = settingsRepository,
+        )
     }
 
     override val traceRecordingViewModel: TraceRecordingViewModel by lazy {

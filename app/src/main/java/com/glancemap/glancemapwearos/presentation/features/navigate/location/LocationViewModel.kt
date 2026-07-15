@@ -22,18 +22,20 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 class LocationViewModel(
     application: Application,
+    settingsRepository: SettingsRepository,
 ) : AndroidViewModel(application) {
     private val _currentLocation = MutableStateFlow<android.location.Location?>(null)
     val currentLocation = _currentLocation.asStateFlow()
     private val _gpsSignalSnapshot = MutableStateFlow(GpsSignalSnapshot())
     val gpsSignalSnapshot = _gpsSignalSnapshot.asStateFlow()
-    private val _effectiveGpsIntervalMs = MutableStateFlow(SettingsRepository.DEFAULT_GPS_INTERVAL_MS)
+    private val _effectiveGpsIntervalMs = MutableStateFlow(UNKNOWN_EFFECTIVE_GPS_INTERVAL_MS)
     val effectiveGpsIntervalMs = _effectiveGpsIntervalMs.asStateFlow()
 
     private var locationService: LocationService? = null
@@ -57,6 +59,14 @@ class LocationViewModel(
     private var isBindingInProgress: Boolean = false
     private var lastBindAttemptAtMs: Long = 0L
     private var reconnectAttempt: Int = 0
+    private var keepAppOpenSettingsInitialized = false
+
+    init {
+        settingsRepository.keepAppOpen
+            .distinctUntilChanged()
+            .onEach(::applyKeepAppOpen)
+            .launchIn(viewModelScope)
+    }
 
     private val connection =
         object : ServiceConnection {
@@ -119,6 +129,7 @@ class LocationViewModel(
                 gpsSignalJob = null
                 intervalJob?.cancel()
                 intervalJob = null
+                _effectiveGpsIntervalMs.value = UNKNOWN_EFFECTIVE_GPS_INTERVAL_MS
 
                 isBound = false
                 isBindingInProgress = false
@@ -203,8 +214,13 @@ class LocationViewModel(
         )
     }
 
-    fun setKeepAppOpen(enabled: Boolean) {
+    private fun applyKeepAppOpen(enabled: Boolean) {
+        if (keepAppOpenSettingsInitialized && desiredKeepAppOpen == enabled) return
+        val wasInitialized = keepAppOpenSettingsInitialized
+        val wasEnabled = desiredKeepAppOpen
+        keepAppOpenSettingsInitialized = true
         desiredKeepAppOpen = enabled
+        logConnection("keep open synced from settings: enabled=$enabled")
 
         if (enabled) {
             // Start the service shell so it can keep the app pinned if needed.
@@ -215,6 +231,13 @@ class LocationViewModel(
                 stopConnectionRecovery()
                 unbindService()
             }
+        } else if (wasInitialized && wasEnabled) {
+            // Deliver the explicit disable before stopping an unbound service. This removes the
+            // ongoing Wear activity even when GPS is inactive and no binder is connected.
+            startService(keepAppOpen = false, trackingEnabled = isTrackingEnabled)
+            if (isTrackingEnabled) {
+                bindService()
+            }
         }
 
         locationService?.setKeepAppOpenState(enabled)
@@ -222,7 +245,6 @@ class LocationViewModel(
         if (!enabled && !isTrackingEnabled) {
             stopConnectionRecovery()
             unbindService()
-            stopService()
         }
     }
 
@@ -306,7 +328,10 @@ class LocationViewModel(
 
     private fun shouldSkipUiImmediateRequest(nowElapsedMs: Long): Boolean {
         val snapshot = _gpsSignalSnapshot.value
-        val timingProfile = resolveLocationTimingProfile(_effectiveGpsIntervalMs.value)
+        val effectiveIntervalMs =
+            _effectiveGpsIntervalMs.value.takeIf { it > 0L }
+                ?: SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+        val timingProfile = resolveLocationTimingProfile(effectiveIntervalMs)
         val fixAgeMs = snapshot.resolveLastFixAgeMs(nowElapsedMs = nowElapsedMs)
         if (fixAgeMs <= 0L || fixAgeMs == Long.MAX_VALUE) return false
         val serviceFreshnessMaxAgeMs =
@@ -400,6 +425,7 @@ class LocationViewModel(
         gpsSignalJob = null
         intervalJob?.cancel()
         intervalJob = null
+        _effectiveGpsIntervalMs.value = UNKNOWN_EFFECTIVE_GPS_INTERVAL_MS
 
         if (isBound) {
             runCatching { getApplication<Application>().unbindService(connection) }
@@ -552,6 +578,8 @@ class LocationViewModel(
         DebugTelemetry.log(CONNECTION_TELEMETRY_TAG, message)
     }
 }
+
+private const val UNKNOWN_EFFECTIVE_GPS_INTERVAL_MS = 0L
 
 internal fun shouldForceUiImmediateLocationRequest(source: String): Boolean =
     source.startsWith(UI_STARTUP_REQUEST_SOURCE_PREFIX) ||

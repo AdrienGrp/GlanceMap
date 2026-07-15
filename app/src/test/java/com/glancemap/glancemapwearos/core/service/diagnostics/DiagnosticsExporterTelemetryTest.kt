@@ -204,6 +204,29 @@ class DiagnosticsExporterTelemetryTest {
     }
 
     @Test
+    fun turnAlertOutcomesAreSummarizedSeparately() {
+        val lines =
+            listOf(
+                "2026-04-20 20:07:12.000 [TurnByTurn] haptic=turn turnAlert=fired trigger=window",
+                "2026-04-20 20:07:13.000 [TurnByTurn] turnAlert=filtered trigger=window reason=turn_mode",
+                "2026-04-20 20:07:14.000 [TurnByTurn] turnAlert=off_route trigger=window reason=off_route",
+                "2026-04-20 20:07:15.000 [TurnByTurn] turnAlert=missed_window trigger=crossing",
+            )
+
+        val insights =
+            deriveTelemetryInsights(
+                lines = lines,
+                captureWindowEndEpochMs = epochMs("2026-04-20T20:07:19"),
+            )
+
+        assertEquals(1, insights.turnByTurnTurnHapticCount)
+        assertEquals(1, insights.turnByTurnTurnAlertFiredCount)
+        assertEquals(1, insights.turnByTurnTurnAlertFilteredCount)
+        assertEquals(1, insights.turnByTurnTurnAlertOffRouteCount)
+        assertEquals(1, insights.turnByTurnTurnAlertMissedWindowCount)
+    }
+
+    @Test
     fun compassStartupExperienceTelemetryIsSummarized() {
         val lines =
             listOf(

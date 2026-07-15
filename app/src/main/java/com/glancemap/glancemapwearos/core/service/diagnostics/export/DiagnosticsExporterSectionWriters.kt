@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.glancemap.glancemapwearos.core.service.diagnostics.export
 
 import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadSummary

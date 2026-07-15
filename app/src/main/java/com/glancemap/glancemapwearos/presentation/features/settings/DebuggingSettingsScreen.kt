@@ -33,7 +33,6 @@ import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.BuildConfig
-import com.glancemap.glancemapwearos.core.service.diagnostics.COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES
 import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.CrashDiagnosticsStore
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
@@ -107,7 +106,7 @@ fun DebuggingSettingsScreen(
 
     val gpsIntervalMs by viewModel.gpsInterval.collectAsState()
     val isWatchGpsOnly by viewModel.watchGpsOnly.collectAsState()
-    val keepAppOpen by viewModel.keepAppOpen.collectAsState(initial = false)
+    val keepAppOpen by viewModel.keepAppOpen.collectAsState()
     val gpsInAmbientMode by viewModel.gpsInAmbientMode.collectAsState()
     val gpsDebugTelemetry by viewModel.gpsDebugTelemetry.collectAsState()
     val diagnosticsCaptureMode by viewModel.diagnosticsCaptureMode.collectAsState()
@@ -717,13 +716,13 @@ fun DebuggingSettingsScreen(
                         compassDeepTraceState.active && batteryBenchmark ->
                             "Active · battery benchmark invalid"
                         compassDeepTraceState.active ->
-                            "Active · stops automatically after $COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES min"
+                            "Active · stop manually when finished"
                         batteryBenchmark && !batteryBenchmarkValidity.valid ->
                             "Off · current benchmark remains invalid"
                         !gpsDebugTelemetry -> "Start diagnostics capture first"
                         batteryBenchmark ->
-                            "$COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES min max · invalidates benchmark"
-                        else -> "$COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES min max · higher battery use"
+                            "Manual stop · invalidates benchmark"
+                        else -> "Manual stop · higher battery use"
                     },
                 toggleControl = ToggleChipToggleControl.Switch,
             )

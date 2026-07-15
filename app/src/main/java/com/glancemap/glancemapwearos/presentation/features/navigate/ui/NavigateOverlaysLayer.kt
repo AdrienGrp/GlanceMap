@@ -425,7 +425,7 @@ internal fun BoxScope.NavigateOverlaysLayer(
                             lineHeight = 10.sp,
                         )
                         StandardScaleBar(
-                            width = zoomScaleBarWidth,
+                            width = zoomScaleBarWidth * indicator.widthRatio,
                             modifier = Modifier.padding(top = 2.dp),
                         )
                     }

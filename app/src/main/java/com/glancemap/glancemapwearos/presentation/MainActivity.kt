@@ -27,12 +27,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.GlanceMapWearApp
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
-import com.glancemap.glancemapwearos.core.service.diagnostics.FieldMarkerDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.ScreenStateDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.model.isNonInteractive
 import com.glancemap.glancemapwearos.core.service.location.model.resolveLocationScreenState
@@ -83,14 +81,17 @@ import com.google.android.horologist.compose.layout.AppScaffold
 import kotlinx.coroutines.launch
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 
+@Suppress("LargeClass")
 class MainActivity : ComponentActivity() {
-    private var _isAmbient by mutableStateOf(false)
-    private var _ambientTickMs by mutableStateOf(0L)
-    private var _isDeviceInteractive by mutableStateOf(true)
+    private val ambientState = WearAmbientState(this, ::logScreenTelemetry)
 
     @Volatile
     private var activeRoute: String? = null
-    private var thermalStatusListener: PowerManager.OnThermalStatusChangedListener? = null
+    private val thermalTelemetry =
+        ThermalTelemetryController(this) {
+            "route=${activeRoute ?: "unknown"} ambient=${ambientState.isAmbient} " +
+                "interactive=${ambientState.isDeviceInteractive}"
+        }
 
     private val screenStateReceiver =
         object : BroadcastReceiver() {
@@ -98,11 +99,7 @@ class MainActivity : ComponentActivity() {
                 context: Context?,
                 intent: Intent?,
             ) {
-                _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
-                ScreenStateDiagnostics.updateDisplayState(
-                    isInteractive = _isDeviceInteractive,
-                    isAmbient = _isAmbient,
-                )
+                ambientState.onScreenStateChanged(intent?.action)
             }
         }
 
@@ -110,11 +107,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AndroidGraphicFactory.createInstance(this.application)
-        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
-        ScreenStateDiagnostics.updateDisplayState(
-            isInteractive = _isDeviceInteractive,
-            isAmbient = _isAmbient,
-        )
+        ambientState.refreshDeviceInteractive(fallback = true)
 
         val screenStateFilter =
             IntentFilter().apply {
@@ -127,40 +120,9 @@ class MainActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             registerReceiver(screenStateReceiver, screenStateFilter)
         }
-        registerThermalTelemetry()
+        thermalTelemetry.register()
 
-        val ambientObserver =
-            AmbientLifecycleObserver(
-                this,
-                object : AmbientLifecycleObserver.AmbientLifecycleCallback {
-                    override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
-                        _isAmbient = true
-                        _ambientTickMs = System.currentTimeMillis()
-                        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: false
-                        ScreenStateDiagnostics.updateDisplayState(
-                            isInteractive = _isDeviceInteractive,
-                            isAmbient = _isAmbient,
-                        )
-                        logScreenTelemetry(event = "ambient_enter")
-                    }
-
-                    override fun onExitAmbient() {
-                        _isAmbient = false
-                        _ambientTickMs = System.currentTimeMillis()
-                        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
-                        ScreenStateDiagnostics.updateDisplayState(
-                            isInteractive = _isDeviceInteractive,
-                            isAmbient = _isAmbient,
-                        )
-                        logScreenTelemetry(event = "ambient_exit")
-                    }
-
-                    override fun onUpdateAmbient() {
-                        _ambientTickMs = System.currentTimeMillis()
-                    }
-                },
-            )
-        lifecycle.addObserver(ambientObserver)
+        lifecycle.addObserver(ambientState.observer)
 
         setContent {
             val appContainer = (application as GlanceMapWearApp).container
@@ -190,9 +152,9 @@ class MainActivity : ComponentActivity() {
             val cyclingWheelCircumferenceMeters by appContainer.settingsViewModel.cyclingWheelCircumferenceMeters.collectAsState()
             val activityProfile by appContainer.settingsViewModel.activityProfile.collectAsState()
 
-            val isAmbient = _isAmbient
-            val ambientTickMs = _ambientTickMs
-            val isDeviceInteractive = _isDeviceInteractive
+            val isAmbient = ambientState.isAmbient
+            val ambientTickMs = ambientState.ambientTickMs
+            val isDeviceInteractive = ambientState.isDeviceInteractive
             val activityLocationScreenState =
                 remember(isAmbient, isDeviceInteractive) {
                     resolveLocationScreenState(
@@ -1055,21 +1017,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
-        ScreenStateDiagnostics.updateDisplayState(
-            isInteractive = _isDeviceInteractive,
-            isAmbient = _isAmbient,
-        )
+        ambientState.refreshDeviceInteractive(fallback = true)
         ScreenStateDiagnostics.updateAppForeground(isForeground = true)
         logScreenTelemetry(event = "activity_resume")
     }
 
     override fun onPause() {
-        _isDeviceInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: false
-        ScreenStateDiagnostics.updateDisplayState(
-            isInteractive = _isDeviceInteractive,
-            isAmbient = _isAmbient,
-        )
+        ambientState.refreshDeviceInteractive(fallback = false)
         ScreenStateDiagnostics.updateAppForeground(isForeground = false)
         logScreenTelemetry(event = "activity_pause")
         super.onPause()
@@ -1077,7 +1031,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(screenStateReceiver) }
-        unregisterThermalTelemetry()
+        thermalTelemetry.unregister()
         val appContainer = (application as GlanceMapWearApp).container
         appContainer.mapViewModel.destroyMapHolder()
         val locationPermissionGranted =
@@ -1092,8 +1046,8 @@ class MainActivity : ComponentActivity() {
         val traceRecordingState = appContainer.traceRecordingViewModel.uiState.value
         val destroyScreenState =
             resolveLocationScreenState(
-                isAmbient = _isAmbient,
-                isDeviceInteractive = _isDeviceInteractive,
+                isAmbient = ambientState.isAmbient,
+                isDeviceInteractive = ambientState.isDeviceInteractive,
             )
         val destroyRecordingScreenOnGpsEnabled =
             appContainer.settingsViewModel.recordingSampleIntervalSeconds.value !=
@@ -1156,74 +1110,21 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    private fun registerThermalTelemetry() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        val powerManager = getSystemService(PowerManager::class.java) ?: return
-        val listener =
-            PowerManager.OnThermalStatusChangedListener { status ->
-                logThermalTelemetry(event = "status", status = status)
-            }
-        thermalStatusListener = listener
-        powerManager.addThermalStatusListener(mainExecutor, listener)
-        logThermalTelemetry(event = "initial", status = powerManager.currentThermalStatus)
-    }
-
-    private fun unregisterThermalTelemetry() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        val listener = thermalStatusListener ?: return
-        getSystemService(PowerManager::class.java)?.removeThermalStatusListener(listener)
-        thermalStatusListener = null
-    }
-
-    private fun logThermalTelemetry(
-        event: String,
-        status: Int,
-    ) {
-        DebugTelemetry.log(
-            "ThermalTelemetry",
-            "event=$event status=$status label=${thermalStatusLabel(status)} " +
-                "route=${activeRoute ?: "unknown"} ambient=$_isAmbient interactive=$_isDeviceInteractive",
-        )
-    }
-
-    private fun thermalStatusLabel(status: Int): String =
-        when (status) {
-            PowerManager.THERMAL_STATUS_NONE -> "none"
-            PowerManager.THERMAL_STATUS_LIGHT -> "light"
-            PowerManager.THERMAL_STATUS_MODERATE -> "moderate"
-            PowerManager.THERMAL_STATUS_SEVERE -> "severe"
-            PowerManager.THERMAL_STATUS_CRITICAL -> "critical"
-            PowerManager.THERMAL_STATUS_EMERGENCY -> "emergency"
-            PowerManager.THERMAL_STATUS_SHUTDOWN -> "shutdown"
-            else -> "unknown"
-        }
-
     private fun logScreenTelemetry(event: String) {
-        val interactive = getSystemService(PowerManager::class.java)?.isInteractive
-        val message =
-            buildString {
-                append("event=").append(event)
-                append(" route=").append(activeRoute ?: "unknown")
-                append(" ambient=").append(_isAmbient)
-                append(" interactive=").append(interactive?.toString() ?: "na")
-            }
-        DebugTelemetry.log("ScreenTelemetry", message)
-        FieldMarkerDiagnostics.recordMarker(type = event, note = activeRoute ?: "unknown")
+        ActivityLifecycleTelemetry.logScreen(event, activityTelemetryState(activeRoute))
     }
 
     private fun logNavigationTelemetry(
         event: String,
         route: String?,
     ) {
-        val interactive = getSystemService(PowerManager::class.java)?.isInteractive
-        val message =
-            buildString {
-                append("event=").append(event)
-                append(" route=").append(route ?: "unknown")
-                append(" ambient=").append(_isAmbient)
-                append(" interactive=").append(interactive?.toString() ?: "na")
-            }
-        DebugTelemetry.log("NavigationTelemetry", message)
-        FieldMarkerDiagnostics.recordMarker(type = event, note = route ?: "unknown")
+        ActivityLifecycleTelemetry.logNavigation(event, activityTelemetryState(route))
     }
+
+    private fun activityTelemetryState(route: String?): ActivityTelemetryState =
+        ActivityTelemetryState(
+            route = route ?: "unknown",
+            ambient = ambientState.isAmbient,
+            interactive = getSystemService(PowerManager::class.java)?.isInteractive,
+        )
 }

@@ -48,6 +48,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.glancemap.glancemapwearos.core.maps.MAP_ZOOM_MAX_LEVEL
+import com.glancemap.glancemapwearos.core.maps.MAP_ZOOM_MIN_LEVEL
 import com.glancemap.glancemapwearos.core.service.diagnostics.BenchmarkTrace
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
@@ -94,6 +96,8 @@ internal fun NavigateContent(
     zoomDefault: Int,
     zoomMin: Int,
     zoomMax: Int,
+    zoomMinScaleMeters: Int,
+    zoomMaxScaleMeters: Int,
     crownZoomEnabled: Boolean,
     crownZoomInverted: Boolean,
     mapZoomButtonsMode: String,
@@ -465,6 +469,10 @@ internal fun NavigateContent(
             mapHolder = mapHolder,
             mapView = mapView,
             currentZoomLevel = currentZoomLevel,
+            zoomMin = zoomMin,
+            zoomMax = zoomMax,
+            zoomMinScaleMeters = zoomMinScaleMeters,
+            zoomMaxScaleMeters = zoomMaxScaleMeters,
             isMetric = isMetric,
             navMode = navMode,
             liveElevationEnabled = liveElevationEnabled,
@@ -581,8 +589,19 @@ internal fun NavigateContent(
     ) {
         if (hasLocationPermission && mapView != null) {
             DisposableEffect(mapView, zoomMin, zoomMax) {
+                // Broaden first so changing between non-overlapping ranges never violates
+                // Mapsforge's requirement that the new minimum remains below the old maximum.
+                mapView.setZoomLevelMin(MAP_ZOOM_MIN_LEVEL.toByte())
+                mapView.setZoomLevelMax(MAP_ZOOM_MAX_LEVEL.toByte())
                 mapView.setZoomLevelMin(zoomMin.toByte())
                 mapView.setZoomLevelMax(zoomMax.toByte())
+                val currentZoom =
+                    mapView.model.mapViewPosition.zoomLevel
+                        .toInt()
+                val boundedZoom = currentZoom.coerceIn(zoomMin, zoomMax)
+                if (boundedZoom != currentZoom) {
+                    mapView.model.mapViewPosition.setZoomLevel(boundedZoom.toByte(), false)
+                }
                 onDispose { }
             }
 

@@ -30,12 +30,14 @@ internal fun TurnByTurnGuidanceHapticEffect(
 ) {
     val vibrator = remember { vibratorFrom(context) }
     val latestState by rememberUpdatedState(state)
-    var alertedInstructionKey by remember { mutableStateOf<String?>(null) }
+    val routeKey = state.alertSessionKey ?: state.trackTitle ?: "inactive_route"
+    val gpsDeliveryIntervalMs =
+        state.alertGpsDeliveryIntervalMs ?: SettingsRepository.DEFAULT_GPS_INTERVAL_MS
+    val turnAlertTracker = remember(routeKey) { TurnHapticAlertTracker() }
     var arrivalAlertedTrack by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(state.active, state.trackTitle) {
         if (!state.active) {
-            alertedInstructionKey = null
             arrivalAlertedTrack = null
         }
     }
@@ -46,30 +48,37 @@ internal fun TurnByTurnGuidanceHapticEffect(
         state.offRoute,
         state.nextInstruction?.trackPointIndex,
         state.distanceToInstructionMeters,
+        state.distanceFromStartMeters,
+        state.alertSessionKey,
+        state.alertGpsDeliveryIntervalMs,
         currentSpeedMps,
         activityProfile,
         hapticsEnabled,
         turnAlertsMode,
     ) {
-        val instruction = state.nextInstruction ?: return@LaunchedEffect
-        if (!hapticsEnabled || !shouldAlertForTurn(turnAlertsMode, instruction.command)) return@LaunchedEffect
-        if (state.mode != GuidanceMode.FOLLOW_ROUTE) return@LaunchedEffect
-        if (state.offRoute) return@LaunchedEffect
-        val distanceMeters = state.distanceToInstructionMeters ?: return@LaunchedEffect
-        val alertDistanceMeters = turnHapticDistanceMeters(currentSpeedMps, activityProfile)
-        if (distanceMeters > alertDistanceMeters) return@LaunchedEffect
-
-        val instructionKey = "${state.trackTitle}:${instruction.trackPointIndex}:${instruction.command}"
-        if (alertedInstructionKey == instructionKey) return@LaunchedEffect
-        alertedInstructionKey = instructionKey
-        DebugTelemetry.log(
-            "TurnByTurn",
-            "haptic=turn command=${instruction.command} index=${instruction.trackPointIndex} " +
-                "distanceM=${distanceMeters.toInt()} alertDistanceM=${alertDistanceMeters.toInt()} " +
-                "speedMps=${currentSpeedMps?.takeIf { it.isFinite() }?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "na"} " +
-                "mode=$turnAlertsMode profile=$activityProfile",
-        )
-        vibrator?.vibrate(turnAlertEffect(instruction.command))
+        val events =
+            turnAlertTracker.update(
+                TurnHapticAlertSample(
+                    routeKey = routeKey,
+                    active = state.active,
+                    mode = state.mode,
+                    offRoute = state.offRoute,
+                    instruction = state.nextInstruction,
+                    distanceToInstructionMeters = state.distanceToInstructionMeters,
+                    distanceFromStartMeters = state.distanceFromStartMeters,
+                    speedMps = currentSpeedMps,
+                    activityProfile = activityProfile,
+                    gpsDeliveryIntervalMs = gpsDeliveryIntervalMs,
+                    hapticsEnabled = hapticsEnabled,
+                    turnAlertsMode = turnAlertsMode,
+                ),
+            )
+        events.forEach { event ->
+            DebugTelemetry.log("TurnByTurn", event.telemetryMessage(vibratorAvailable = vibrator != null))
+            if (event.outcome == TurnHapticAlertOutcome.FIRED) {
+                vibrator?.vibrate(turnAlertEffect(event.instruction.command))
+            }
+        }
     }
 
     LaunchedEffect(state.active, state.mode, state.trackTitle, hapticsEnabled) {
@@ -108,17 +117,28 @@ internal fun TurnByTurnGuidanceHapticEffect(
     }
 }
 
-internal fun shouldAlertForTurn(
-    mode: String,
-    command: RouteInstructionCommand,
-): Boolean =
-    when (mode) {
-        SettingsRepository.TURN_BY_TURN_TURN_ALERTS_OFF -> false
-        SettingsRepository.TURN_BY_TURN_TURN_ALERTS_ALL -> true
-        else ->
-            command != RouteInstructionCommand.CONTINUE &&
-                command != RouteInstructionCommand.SLIGHT_LEFT &&
-                command != RouteInstructionCommand.SLIGHT_RIGHT
+private fun TurnHapticAlertEvent.telemetryMessage(vibratorAvailable: Boolean): String =
+    buildString {
+        if (outcome == TurnHapticAlertOutcome.FIRED) append("haptic=turn ")
+        append("turnAlert=${outcome.telemetryValue} ")
+        append("trigger=${trigger?.telemetryValue ?: "na"} ")
+        append("command=${instruction.command} index=${instruction.trackPointIndex} ")
+        append("distanceM=${distanceMeters.toInt()} alertDistanceM=${alertDistanceMeters.toInt()} ")
+        append("previousDistanceM=${previousDistanceMeters?.toInt() ?: "na"} ")
+        append("overshootM=${overshootMeters?.toInt() ?: "na"} ")
+        append("gpsIntervalMs=$gpsDeliveryIntervalMs ")
+        append(
+            "speedMps=${
+                speedMps
+                    ?.takeIf { it.isFinite() }
+                    ?.let { String.format(java.util.Locale.US, "%.1f", it) }
+                    ?: "na"
+            } ",
+        )
+        append(
+            "reason=${reason ?: "na"} turnMode=$turnAlertsMode profile=$activityProfile " +
+                "vibratorAvailable=$vibratorAvailable",
+        )
     }
 
 private fun turnAlertEffect(command: RouteInstructionCommand): VibrationEffect =
@@ -126,11 +146,17 @@ private fun turnAlertEffect(command: RouteInstructionCommand): VibrationEffect =
         RouteInstructionCommand.SHARP_LEFT,
         RouteInstructionCommand.SHARP_RIGHT,
         RouteInstructionCommand.FINISH,
-        -> VibrationEffect.createWaveform(longArrayOf(0L, 70L, 55L, 70L), -1)
-        else -> VibrationEffect.createOneShot(65L, VibrationEffect.DEFAULT_AMPLITUDE)
+        -> STRONG_TURN_ALERT_EFFECT
+        else -> REGULAR_TURN_ALERT_EFFECT
     }
 
 private const val OFF_ROUTE_MIN_REPEAT_SECONDS = 15
+
+private val REGULAR_TURN_ALERT_EFFECT: VibrationEffect =
+    VibrationEffect.createWaveform(longArrayOf(0L, 80L, 70L, 80L), -1)
+
+private val STRONG_TURN_ALERT_EFFECT: VibrationEffect =
+    VibrationEffect.createWaveform(longArrayOf(0L, 100L, 70L, 100L), -1)
 
 private val OFF_ROUTE_ALERT_EFFECT: VibrationEffect =
     VibrationEffect.createWaveform(longArrayOf(0L, 120L, 80L, 120L, 80L, 120L), -1)

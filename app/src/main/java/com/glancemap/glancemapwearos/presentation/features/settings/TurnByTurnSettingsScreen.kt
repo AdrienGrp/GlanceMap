@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import com.glancemap.glancemapwearos.presentation.ui.WearHelpDialog
 
 @Composable
+@Suppress("FunctionNaming", "LongMethod")
 fun TurnByTurnSettingsScreen(
     viewModel: SettingsViewModel,
     onOpenGeneralSettings: () -> Unit,

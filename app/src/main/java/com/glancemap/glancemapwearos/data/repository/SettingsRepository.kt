@@ -250,7 +250,7 @@ interface SettingsRepository {
         const val POI_POPUP_TIMEOUT_MAX_SECONDS = 20
 
         const val DEFAULT_MAP_ZOOM_DEFAULT_SCALE_METERS = 200
-        const val DEFAULT_MAP_ZOOM_MIN_SCALE_METERS = 50_000
+        const val DEFAULT_MAP_ZOOM_MIN_SCALE_METERS = 200_000
         const val DEFAULT_MAP_ZOOM_MAX_SCALE_METERS = 20
     }
 

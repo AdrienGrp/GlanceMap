@@ -738,10 +738,10 @@ class LocationService : Service() {
     }
 
     fun setKeepAppOpenState(enabled: Boolean) {
-        if (keepAppOpen.value == enabled) return
-
-        keepAppOpen.value = enabled
-        telemetry.logKeepAppOpen(enabled)
+        if (keepAppOpen.value != enabled) {
+            keepAppOpen.value = enabled
+            telemetry.logKeepAppOpen(enabled)
+        }
         refreshKeepAliveNotificationState()
 
         if (!enabled) {
@@ -1085,7 +1085,10 @@ class LocationService : Service() {
         energySampleJob = null
         selfHealFailoverCoordinator.stop()
         unregisterGnssDiagnostics(reason = "service_destroy")
-        stopAllAndSelf(stopSelf = false)
+        stopAllAndSelf(
+            stopSelf = false,
+            preserveKeepOpenNotification = keepAppOpen.value,
+        )
         serviceJob.cancel()
         // Quit the callback thread after all location updates are removed so no
         // in-flight callbacks can fire after the service is torn down.
@@ -1095,7 +1098,10 @@ class LocationService : Service() {
         super.onDestroy()
     }
 
-    private fun stopAllAndSelf(stopSelf: Boolean = true) {
+    private fun stopAllAndSelf(
+        stopSelf: Boolean = true,
+        preserveKeepOpenNotification: Boolean = false,
+    ) {
         pendingDebouncedImmediateLocationJob?.cancel()
         pendingDebouncedImmediateLocationJob = null
         requestCoordinator.cancel()
@@ -1116,9 +1122,21 @@ class LocationService : Service() {
         _gpsSignalSnapshot.value = engine.gpsSignalSnapshot
         _effectiveUpdateIntervalMs.value = SettingsRepository.DEFAULT_GPS_INTERVAL_MS
 
-        runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
-        notificationFactory.cancel(NOTIFICATION_ID)
-        keepAliveNotificationMode = KeepAliveNotificationMode.OFF
+        if (preserveKeepOpenNotification) {
+            if (keepAliveNotificationMode == KeepAliveNotificationMode.LOCATION_FOREGROUND) {
+                runCatching { stopForeground(STOP_FOREGROUND_DETACH) }
+            }
+            DebugTelemetry.log(
+                TELEMETRY_TAG,
+                "keepOpenNotification: preserved on service destroy " +
+                    "mode=${keepAliveNotificationMode.name}",
+            )
+        } else {
+            runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
+            notificationFactory.cancel(NOTIFICATION_ID)
+            keepAliveNotificationMode = KeepAliveNotificationMode.OFF
+            keepAliveNotificationRuntimeReason = null
+        }
 
         if (stopSelf) {
             runCatching { stopSelf() }

@@ -537,11 +537,13 @@ internal object EnergyDiagnostics {
         key: String,
     ): String? {
         val index = line.lastIndexOf(key)
-        if (index < 0) return null
         val start = index + key.length
-        if (start >= line.length) return null
-        val end = line.indexOf(' ', start).let { if (it < 0) line.length else it }
-        return line.substring(start, end).trim()
+        return start
+            .takeIf { index >= 0 && it < line.length }
+            ?.let { validStart ->
+                val end = line.indexOf(' ', validStart).let { if (it < 0) line.length else it }
+                line.substring(validStart, end).trim()
+            }
     }
 
     private fun screenStateFor(line: String): ScreenState {

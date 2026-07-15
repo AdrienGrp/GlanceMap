@@ -15,18 +15,26 @@ internal data class MarkerMotionSummary(
     val acceptedFixes: Int = 0,
     val outlierDrops: Int = 0,
     val predictionUpdates: Int = 0,
+    val renderedMotionUpdates: Int = 0,
     val blendStarts: Int = 0,
     val clampedCorrections: Int = 0,
     val blockedTransitions: Int = 0,
     val blockedReasonCounts: Map<String, Int> = emptyMap(),
     val latestMode: MarkerMotionMode = MarkerMotionMode.IDLE,
     val latestReason: String? = null,
+    val innovationSamples: Int = 0,
+    val innovationMeanM: Float? = null,
+    val innovationMaxM: Float? = null,
+    val fixGapSamples: Int = 0,
+    val fixGapMeanMs: Long? = null,
+    val fixGapMaxMs: Long? = null,
 ) {
     fun summaryLabel(): String =
         buildString {
             append("mode=${latestMode.label}")
             append(" fix=$acceptedFixes")
             append(" pred=$predictionUpdates")
+            append(" render=$renderedMotionUpdates")
             append(" blend=$blendStarts")
             append(" clamp=$clampedCorrections")
             append(" drop=$outlierDrops")
@@ -93,9 +101,16 @@ internal object MarkerMotionTelemetry {
     private var acceptedFixes: Int = 0
     private var outlierDrops: Int = 0
     private var predictionUpdates: Int = 0
+    private var renderedMotionUpdates: Int = 0
     private var blendStarts: Int = 0
     private var clampedCorrections: Int = 0
     private var blockedTransitions: Int = 0
+    private var innovationSamples: Int = 0
+    private var innovationTotalM: Double = 0.0
+    private var innovationMaxM: Float = 0f
+    private var fixGapSamples: Int = 0
+    private var fixGapTotalMs: Long = 0L
+    private var fixGapMaxMs: Long = 0L
     private val blockedReasonCounts = linkedMapOf<String, Int>()
     private var lastLoggedStateSignature: String? = null
 
@@ -105,9 +120,16 @@ internal object MarkerMotionTelemetry {
             acceptedFixes = 0
             outlierDrops = 0
             predictionUpdates = 0
+            renderedMotionUpdates = 0
             blendStarts = 0
             clampedCorrections = 0
             blockedTransitions = 0
+            innovationSamples = 0
+            innovationTotalM = 0.0
+            innovationMaxM = 0f
+            fixGapSamples = 0
+            fixGapTotalMs = 0L
+            fixGapMaxMs = 0L
             blockedReasonCounts.clear()
             lastLoggedStateSignature = null
         }
@@ -126,12 +148,24 @@ internal object MarkerMotionTelemetry {
                 acceptedFixes = acceptedFixes,
                 outlierDrops = outlierDrops,
                 predictionUpdates = predictionUpdates,
+                renderedMotionUpdates = renderedMotionUpdates,
                 blendStarts = blendStarts,
                 clampedCorrections = clampedCorrections,
                 blockedTransitions = blockedTransitions,
                 blockedReasonCounts = blockedReasonCounts.toMap(),
                 latestMode = latestSnapshot.mode,
                 latestReason = latestSnapshot.reason,
+                innovationSamples = innovationSamples,
+                innovationMeanM =
+                    if (innovationSamples > 0) {
+                        (innovationTotalM / innovationSamples).toFloat()
+                    } else {
+                        null
+                    },
+                innovationMaxM = innovationMaxM.takeIf { innovationSamples > 0 },
+                fixGapSamples = fixGapSamples,
+                fixGapMeanMs = if (fixGapSamples > 0) fixGapTotalMs / fixGapSamples else null,
+                fixGapMaxMs = fixGapMaxMs.takeIf { fixGapSamples > 0 },
             )
         }
 
@@ -183,6 +217,7 @@ internal object MarkerMotionTelemetry {
         )
     }
 
+    @Suppress("LongParameterList")
     fun recordFixAccepted(
         mode: MarkerMotionMode,
         reason: String,
@@ -193,6 +228,8 @@ internal object MarkerMotionTelemetry {
         bearingDeg: Float?,
         correctionDistanceM: Float?,
         blendDurationMs: Long?,
+        innovationDistanceM: Float?,
+        fixGapMs: Long?,
     ) {
         val snapshot =
             MarkerMotionSnapshot(
@@ -210,6 +247,16 @@ internal object MarkerMotionTelemetry {
             if (mode == MarkerMotionMode.BLEND) {
                 blendStarts += 1
             }
+            innovationDistanceM?.takeIf { it.isFinite() && it >= 0f }?.let { innovationM ->
+                innovationSamples += 1
+                innovationTotalM += innovationM.toDouble()
+                innovationMaxM = maxOf(innovationMaxM, innovationM)
+            }
+            fixGapMs?.takeIf { it >= 0L }?.let { gapMs ->
+                fixGapSamples += 1
+                fixGapTotalMs += gapMs
+                fixGapMaxMs = maxOf(fixGapMaxMs, gapMs)
+            }
             latestSnapshot = snapshot
             lastLoggedStateSignature = stateSignature(snapshot)
         }
@@ -224,6 +271,8 @@ internal object MarkerMotionTelemetry {
                 append(" bearing=${bearingDeg.formatOrNa(1)}")
                 correctionDistanceM?.let { append(" corr=${it.format(1)}") }
                 blendDurationMs?.let { append(" blendMs=$it") }
+                innovationDistanceM?.let { append(" innovation=${it.format(1)}") }
+                fixGapMs?.let { append(" gapMs=$it") }
             },
         )
     }
@@ -376,6 +425,12 @@ internal object MarkerMotionTelemetry {
                     append(" dist=${predictedDistanceM.format(1)}")
                 },
             )
+        }
+    }
+
+    fun recordMotionRendered() {
+        synchronized(lock) {
+            renderedMotionUpdates += 1
         }
     }
 

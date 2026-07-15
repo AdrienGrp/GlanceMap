@@ -25,11 +25,16 @@ internal data class NavigateLiveHudState(
 )
 
 @Composable
+@Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
 internal fun rememberNavigateLiveHudState(
     enabled: Boolean,
     mapHolder: MapHolder?,
     mapView: MapView?,
     currentZoomLevel: Int,
+    zoomMin: Int,
+    zoomMax: Int,
+    zoomMinScaleMeters: Int,
+    zoomMaxScaleMeters: Int,
     isMetric: Boolean,
     navMode: NavMode,
     liveElevationEnabled: Boolean,
@@ -44,18 +49,31 @@ internal fun rememberNavigateLiveHudState(
     var liveElevationLabel by remember(mapHolder, isMetric) { mutableStateOf<String?>(null) }
     var liveDistanceLabel by remember(isMetric) { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(enabled, mapView, isMetric) {
+    val preferredScaleMeters =
+        preferredScaleMetersForZoomBound(
+            currentZoomLevel = currentZoomLevel,
+            zoomMin = zoomMin,
+            zoomMax = zoomMax,
+            zoomMinScaleMeters = zoomMinScaleMeters,
+            zoomMaxScaleMeters = zoomMaxScaleMeters,
+        )
+
+    LaunchedEffect(enabled, mapView, isMetric, preferredScaleMeters) {
         scaleIndicator =
             if (enabled) {
                 mapView?.let {
-                    calculateScaleIndicator(mapView = it, isMetric = isMetric)
+                    calculateScaleIndicator(
+                        mapView = it,
+                        isMetric = isMetric,
+                        preferredScaleMeters = preferredScaleMeters,
+                    )
                 }
             } else {
                 null
             }
     }
 
-    LaunchedEffect(enabled, currentZoomLevel, mapView, isMetric) {
+    LaunchedEffect(enabled, currentZoomLevel, mapView, isMetric, preferredScaleMeters) {
         if (!enabled || currentZoomLevel <= 0) return@LaunchedEffect
         if (!hasSeenInitialZoomState) {
             hasSeenInitialZoomState = true
@@ -63,7 +81,11 @@ internal fun rememberNavigateLiveHudState(
         }
         scaleIndicator =
             mapView?.let {
-                calculateScaleIndicator(mapView = it, isMetric = isMetric)
+                calculateScaleIndicator(
+                    mapView = it,
+                    isMetric = isMetric,
+                    preferredScaleMeters = preferredScaleMeters,
+                )
             }
         if (scaleIndicator == null) return@LaunchedEffect
         showScaleBar = true
@@ -167,6 +189,22 @@ internal fun rememberNavigateLiveHudState(
         liveElevationLabel = liveElevationLabel,
         liveDistanceLabel = liveDistanceLabel,
     )
+}
+
+internal fun preferredScaleMetersForZoomBound(
+    currentZoomLevel: Int,
+    zoomMin: Int,
+    zoomMax: Int,
+    zoomMinScaleMeters: Int,
+    zoomMaxScaleMeters: Int,
+): Int? {
+    val farthestScaleMeters = maxOf(zoomMinScaleMeters, zoomMaxScaleMeters)
+    val closestScaleMeters = minOf(zoomMinScaleMeters, zoomMaxScaleMeters)
+    return when (currentZoomLevel) {
+        zoomMax -> closestScaleMeters
+        zoomMin -> farthestScaleMeters
+        else -> null
+    }
 }
 
 private const val LIVE_ELEVATION_RESAMPLE_DISTANCE_METERS = 3.0

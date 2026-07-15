@@ -11,7 +11,6 @@ import java.util.ArrayDeque
 internal data class CompassDeepTraceState(
     val active: Boolean = false,
     val startedAtEpochMs: Long? = null,
-    val stopsAtEpochMs: Long? = null,
     val lastStopReason: String? = null,
 )
 
@@ -24,13 +23,10 @@ internal data class CompassDeepTraceSnapshot(
     val lines: List<String>,
 )
 
-internal const val COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES = 10
-
 internal object CompassDeepTraceDiagnostics {
     private const val TAG = "CompassDeepTrace"
-    private const val MAX_BUFFERED_LINES = 180
+    private const val MAX_BUFFERED_LINES = 720
     private const val WINDOW_DURATION_MS = 5_000L
-    private const val MAX_DURATION_MS = COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES * 60_000L
 
     private val lock = Any()
     private val _state = MutableStateFlow(CompassDeepTraceState())
@@ -71,11 +67,10 @@ internal object CompassDeepTraceDiagnostics {
                 CompassDeepTraceState(
                     active = true,
                     startedAtEpochMs = nowEpochMs,
-                    stopsAtEpochMs = nowEpochMs + MAX_DURATION_MS,
                 )
             startLine =
-                "session_start id=$sessionCount atMs=$nowEpochMs maxDurationMs=$MAX_DURATION_MS " +
-                "windowMs=$WINDOW_DURATION_MS sensorPeriodUs=40000"
+                "session_start id=$sessionCount atMs=$nowEpochMs autoStop=false " +
+                "windowMs=$WINDOW_DURATION_MS bufferLines=$MAX_BUFFERED_LINES sensorPeriodUs=40000"
             appendLineLocked(startLine)
             val registeredSensors = registration.registeredSensors
             inventoryLine = "session_sensors id=$sessionCount registered=${registeredSensors.ifEmpty { "none" }}"
@@ -85,7 +80,6 @@ internal object CompassDeepTraceDiagnostics {
         Log.d(TAG, startLine)
         Log.d(TAG, inventoryLine)
 
-        registration.callbackHandler.postDelayed({ stop(reason = "automatic_timeout") }, MAX_DURATION_MS)
         if (batteryBenchmarkSelected || EnergyDiagnostics.isBatteryBenchmarkActive()) {
             EnergyDiagnostics.markBatteryBenchmarkInvalid("compass_deep_trace")
         }
