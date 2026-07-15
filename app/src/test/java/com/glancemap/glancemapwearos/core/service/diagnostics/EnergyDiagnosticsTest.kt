@@ -74,6 +74,21 @@ class EnergyDiagnosticsTest {
     }
 
     @Test
+    fun deepTraceInvalidatesBenchmarkUntilDiagnosticsAreCleared() {
+        assertTrue(EnergyDiagnostics.batteryBenchmarkValidity().valid)
+
+        EnergyDiagnostics.markBatteryBenchmarkInvalid("compass_deep_trace")
+
+        val invalid = EnergyDiagnostics.batteryBenchmarkValidity()
+        assertFalse(invalid.valid)
+        assertEquals(listOf("compass_deep_trace"), invalid.invalidReasons)
+
+        EnergyDiagnostics.clear()
+
+        assertTrue(EnergyDiagnostics.batteryBenchmarkValidity().valid)
+    }
+
+    @Test
     fun chargeCounterIsPrimaryBatteryConsumptionMeasurement() {
         val summary =
             EnergyDiagnostics.summarizeLines(

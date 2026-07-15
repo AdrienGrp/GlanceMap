@@ -11,6 +11,8 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import android.view.Surface
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceProviderSample
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -474,6 +476,7 @@ internal class SensorManagerOrientationProvider(
                     headingDeg = headingDeg,
                 )
             rawHeadingFlow.value = normalized
+            recordDeepTraceHeading(normalized)
             maybeLogHeadingSample(normalized)
             return
         }
@@ -498,6 +501,7 @@ internal class SensorManagerOrientationProvider(
                     northReferenceMode = northReferenceMode,
                 )
             rawHeadingFlow.value = normalized
+            recordDeepTraceHeading(normalized)
             maybeLogHeadingSample(normalized)
             return
         }
@@ -541,7 +545,30 @@ internal class SensorManagerOrientationProvider(
                 northReferenceMode = northReferenceMode,
             )
         rawHeadingFlow.value = normalized
+        recordDeepTraceHeading(normalized)
         maybeLogHeadingSample(normalized)
+    }
+
+    private fun recordDeepTraceHeading(headingDeg: Float) {
+        if (!CompassDeepTraceDiagnostics.state.value.active) return
+        val accuracy = _accuracy.value
+        val errorDeg =
+            when {
+                usingHeadingSensor -> headingUncertaintyDeg
+                usingRotationVector -> rotVecHeadingUncertaintyDeg
+                else -> Float.NaN
+            }
+        CompassDeepTraceDiagnostics.recordProviderSample(
+            CompassDeepTraceProviderSample(
+                provider = "sensor_manager",
+                headingDeg = headingDeg,
+                headingErrorDeg = errorDeg.takeIf(Float::isFinite),
+                accuracy = accuracy,
+                startupSettling = false,
+                usable = accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE,
+                atElapsedMs = SystemClock.elapsedRealtime(),
+            ),
+        )
     }
 
     override fun onAccuracyChanged(

@@ -17,6 +17,8 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceRenderSample
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.data.repository.SettingsRepository
 import com.glancemap.glancemapwearos.domain.model.maps.theme.mapsforge.MapsforgeThemeCatalog
@@ -460,6 +462,17 @@ fun NavigationOrientationEffect(
                         applyMarkersForMode(navMode)
                     }
                     NavMode.PANNING -> Unit
+                }
+                if (CompassDeepTraceDiagnostics.state.value.active) {
+                    CompassDeepTraceDiagnostics.recordRenderSample(
+                        CompassDeepTraceRenderSample(
+                            targetHeadingDeg = liveTarget,
+                            renderedHeadingDeg = next,
+                            mapRotationDeg = displayedMapRot.floatValue,
+                            startupSettling = latestRenderState.startupSettling,
+                            atElapsedMs = nowElapsedMs,
+                        ),
+                    )
                 }
                 requestMapRedraw()
                 CompassRenderPerfTelemetry.recordRedraw(navMode)

@@ -88,6 +88,11 @@ internal object EnergyDiagnostics {
         val chargeCounterEndUah: Int?,
     )
 
+    data class BatteryBenchmarkValidity(
+        val valid: Boolean,
+        val invalidReasons: List<String>,
+    )
+
     private val lock = Any()
 
     private enum class CaptureMode {
@@ -98,11 +103,13 @@ internal object EnergyDiagnostics {
 
     private val captureMode = AtomicReference(CaptureMode.OFF)
     private val lines = ArrayDeque<String>()
+    private val batteryBenchmarkInvalidReasons = linkedSetOf<String>()
     private var droppedLines: Int = 0
 
     fun clear() {
         synchronized(lock) {
             lines.clear()
+            batteryBenchmarkInvalidReasons.clear()
             droppedLines = 0
         }
     }
@@ -125,6 +132,23 @@ internal object EnergyDiagnostics {
     }
 
     fun isEnabled(): Boolean = captureMode.get() != CaptureMode.OFF
+
+    fun isBatteryBenchmarkActive(): Boolean = captureMode.get() == CaptureMode.BATTERY_BENCHMARK
+
+    fun markBatteryBenchmarkInvalid(reason: String) {
+        if (reason.isBlank()) return
+        synchronized(lock) {
+            batteryBenchmarkInvalidReasons += reason
+        }
+    }
+
+    fun batteryBenchmarkValidity(): BatteryBenchmarkValidity =
+        synchronized(lock) {
+            BatteryBenchmarkValidity(
+                valid = batteryBenchmarkInvalidReasons.isEmpty(),
+                invalidReasons = batteryBenchmarkInvalidReasons.toList(),
+            )
+        }
 
     internal fun shouldRecordSample(reason: String): Boolean =
         when (captureMode.get()) {

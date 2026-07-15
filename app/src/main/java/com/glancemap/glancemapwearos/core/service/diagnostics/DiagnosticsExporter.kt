@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import com.glancemap.glancemapwearos.BuildConfig
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.deriveBundleDownloadTelemetrySummary
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeBundleDownloadSummarySection
+import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeCompassDeepTraceSection
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeDemDownloadSections
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeEnergyByModeSummarySection
 import com.glancemap.glancemapwearos.core.service.diagnostics.export.writeGnssSections
@@ -530,6 +531,8 @@ object DiagnosticsExporter {
         val energyLines = EnergyDiagnostics.snapshotLines()
         val energyDroppedLines = EnergyDiagnostics.droppedLineCount()
         val energySummary = EnergyDiagnostics.summary()
+        val batteryBenchmarkValidity = EnergyDiagnostics.batteryBenchmarkValidity()
+        val compassDeepTraceSnapshot = CompassDeepTraceDiagnostics.snapshot()
         val screenStateSummary = ScreenStateDiagnostics.summary()
         val demDownloadSummary = DemDownloadDiagnostics.summary()
         val demDownloadLines = DemDownloadDiagnostics.snapshotLines()
@@ -743,6 +746,24 @@ object DiagnosticsExporter {
             writer.appendLine("gpsPositionFilterEnabled=$ENABLE_STRICT_FIX_FILTERING")
             writer.appendLine()
             writer.appendLine("Battery Benchmark Context")
+            val batteryBenchmarkMode =
+                settings.diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY
+            writer.appendLine(
+                "batteryBenchmarkValidity=${
+                    when {
+                        !batteryBenchmarkMode -> "NOT_APPLICABLE"
+                        batteryBenchmarkValidity.valid -> "VALID"
+                        else -> "INVALID"
+                    }
+                }",
+            )
+            writer.appendLine(
+                "batteryBenchmarkInvalidReasons=${
+                    batteryBenchmarkValidity.invalidReasons.ifEmpty { listOf("none") }.joinToString(",")
+                }",
+            )
+            writer.appendLine("compassDeepTraceObserved=${compassDeepTraceSnapshot.sessionCount > 0}")
+            writer.appendLine("compassDeepTraceAggregateWindows=${compassDeepTraceSnapshot.windowCount}")
             writer.appendLine("recordingSessionObserved=${recordingSessionObserved(telemetryInsights)}")
             writer.appendLine("recordingSessionMode=${recordingGuidanceSessionMode(telemetryInsights)}")
             writer.appendLine("externalSensorsObserved=${observedExternalSensors(telemetryInsights)}")
@@ -1760,6 +1781,7 @@ object DiagnosticsExporter {
                 lines = telemetryLines,
             )
             writer.writeEnergyByModeSummarySection(energySummary)
+            writer.writeCompassDeepTraceSection(compassDeepTraceSnapshot)
             writer.writeScreenStateSummarySection(screenStateSummary)
             writer.writeLineDumpSection(
                 title = "Energy Diagnostics",

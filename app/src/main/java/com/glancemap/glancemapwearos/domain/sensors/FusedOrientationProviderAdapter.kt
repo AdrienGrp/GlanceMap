@@ -7,6 +7,8 @@ import android.location.LocationManager
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceProviderSample
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
@@ -661,6 +663,19 @@ internal class FusedOrientationProviderAdapter(
         val headingErrorDeg = resolveHeadingErrorDegrees(orientation)
         val displayHeading = fusedHeadingWithNorthReference(orientation.headingDegrees)
         val mappedAccuracy = headingAccuracyFromUncertainty(headingErrorDeg)
+        if (CompassDeepTraceDiagnostics.state.value.active) {
+            CompassDeepTraceDiagnostics.recordProviderSample(
+                CompassDeepTraceProviderSample(
+                    provider = "google_fused",
+                    headingDeg = displayHeading,
+                    headingErrorDeg = headingErrorDeg.takeIf(Float::isFinite),
+                    accuracy = mappedAccuracy,
+                    startupSettling = _startupSettling.value,
+                    usable = isUsableGoogleFusedHeadingError(headingErrorDeg),
+                    atElapsedMs = now,
+                ),
+            )
+        }
 
         if (!firstOrientationSampleLogged) {
             firstOrientationSampleLogged = true

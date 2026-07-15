@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import com.glancemap.glancemapwearos.GlanceMapWearApp
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.EnergyDiagnostics
 import com.glancemap.glancemapwearos.core.service.location.adapters.FusedLocationGateway
@@ -1258,6 +1259,10 @@ class LocationService : Service() {
         latestGpsDebugTelemetry = fullDiagnostics
         telemetry.setDebugEnabled(fullDiagnostics)
         EnergyDiagnostics.configure(
+            captureActive = captureActive,
+            fullDiagnostics = fullDiagnostics,
+        )
+        CompassDeepTraceDiagnostics.onDiagnosticsCaptureState(
             captureActive = captureActive,
             fullDiagnostics = fullDiagnostics,
         )

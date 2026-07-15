@@ -33,6 +33,8 @@ import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.BuildConfig
+import com.glancemap.glancemapwearos.core.service.diagnostics.COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES
+import com.glancemap.glancemapwearos.core.service.diagnostics.CompassDeepTraceDiagnostics
 import com.glancemap.glancemapwearos.core.service.diagnostics.CrashDiagnosticsStore
 import com.glancemap.glancemapwearos.core.service.diagnostics.DebugTelemetry
 import com.glancemap.glancemapwearos.core.service.diagnostics.DemDownloadDiagnostics
@@ -101,6 +103,7 @@ fun DebuggingSettingsScreen(
     val listTokens = rememberSettingsListTokens()
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val compassDeepTraceState by CompassDeepTraceDiagnostics.state.collectAsState()
 
     val gpsIntervalMs by viewModel.gpsInterval.collectAsState()
     val isWatchGpsOnly by viewModel.watchGpsOnly.collectAsState()
@@ -168,6 +171,7 @@ fun DebuggingSettingsScreen(
         remember(energySummaryRevision, gpsDebugTelemetry) {
             EnergyDiagnostics.summary().batteryUse
         }
+    val batteryBenchmarkValidity = EnergyDiagnostics.batteryBenchmarkValidity()
 
     val infoButtonSize =
         when (screenSize) {
@@ -190,6 +194,10 @@ fun DebuggingSettingsScreen(
                 captureActive = true,
                 fullDiagnostics = fullDiagnostics,
             )
+            CompassDeepTraceDiagnostics.onDiagnosticsCaptureState(
+                captureActive = true,
+                fullDiagnostics = fullDiagnostics,
+            )
             ScreenStateDiagnostics.configure(captureActive = true)
             DebugTelemetry.setEnabled(fullDiagnostics)
             DebugTelemetry.log(
@@ -202,6 +210,10 @@ fun DebuggingSettingsScreen(
                 detail = "source=debug_screen captureMode=$diagnosticsCaptureMode",
             )
         } else {
+            CompassDeepTraceDiagnostics.onDiagnosticsCaptureState(
+                captureActive = false,
+                fullDiagnostics = false,
+            )
             EnergyDiagnostics.recordEvent(
                 reason = "capture_toggle_off",
                 detail = "source=debug_screen",
@@ -299,6 +311,7 @@ fun DebuggingSettingsScreen(
                 onClick = {
                     if (exportInProgress) return@Chip
                     DebugTelemetry.clear()
+                    CompassDeepTraceDiagnostics.clear()
                     MarkerMotionTelemetry.clear()
                     EnergyDiagnostics.clear()
                     ScreenStateDiagnostics.clear()
@@ -323,6 +336,7 @@ fun DebuggingSettingsScreen(
                 onCheckedChanged = {
                     if (exportInProgress) return@ToggleChip
                     if (!it) {
+                        CompassDeepTraceDiagnostics.stop(reason = "capture_toggle_off")
                         EnergyDiagnostics.recordSample(
                             context = context,
                             reason = "capture_toggle_off",
@@ -350,12 +364,21 @@ fun DebuggingSettingsScreen(
                 secondaryLabel =
                     if (gpsDebugTelemetry) {
                         if (diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY) {
-                            "Battery benchmark running"
+                            if (!batteryBenchmarkValidity.valid) {
+                                "Battery benchmark invalid · deep trace used"
+                            } else {
+                                "Battery benchmark running"
+                            }
                         } else {
                             "Full diagnostics running"
                         }
                     } else if (exportInProgress) {
                         "Export in progress..."
+                    } else if (
+                        diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY &&
+                        !batteryBenchmarkValidity.valid
+                    ) {
+                        "Last run invalid · deep trace used"
                     } else if (
                         diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY &&
                         lastBatteryUse != null
@@ -423,8 +446,11 @@ fun DebuggingSettingsScreen(
                         exportDialogMessage = "Generating diagnostics file..."
                         val captureWasEnabled = gpsDebugTelemetry
                         try {
+                            CompassDeepTraceDiagnostics.stop(reason = "export")
                             val hasBufferedLogs =
-                                DebugTelemetry.size() > 0 || EnergyDiagnostics.snapshotLines().isNotEmpty()
+                                DebugTelemetry.size() > 0 ||
+                                    EnergyDiagnostics.snapshotLines().isNotEmpty() ||
+                                    CompassDeepTraceDiagnostics.snapshot().lines.isNotEmpty()
                             val hasExistingExport =
                                 withContext(Dispatchers.IO) {
                                     DiagnosticsExporter.latestExportFile(context) != null
@@ -635,6 +661,7 @@ fun DebuggingSettingsScreen(
                     },
                 onSelect = { mode ->
                     if (gpsDebugTelemetry) {
+                        CompassDeepTraceDiagnostics.stop(reason = "capture_mode_change")
                         EnergyDiagnostics.recordSample(
                             context = context,
                             reason = "capture_toggle_off",
@@ -664,6 +691,39 @@ fun DebuggingSettingsScreen(
                         !fullDiagnostics -> "Disabled in battery benchmark"
                         gpsDebugTelemetryPopupEnabled -> "On during full diagnostics"
                         else -> "Off during full diagnostics"
+                    },
+                toggleControl = ToggleChipToggleControl.Switch,
+            )
+        }
+        item {
+            val batteryBenchmark =
+                diagnosticsCaptureMode == SettingsRepository.DIAGNOSTICS_CAPTURE_MODE_BATTERY
+            ToggleChip(
+                checked = compassDeepTraceState.active,
+                enabled = gpsDebugTelemetry && !exportInProgress,
+                onCheckedChanged = { enabled ->
+                    if (enabled) {
+                        CompassDeepTraceDiagnostics.start(
+                            context = context,
+                            batteryBenchmarkSelected = batteryBenchmark,
+                        )
+                    } else {
+                        CompassDeepTraceDiagnostics.stop(reason = "manual")
+                    }
+                },
+                label = "Compass deep trace",
+                secondaryLabel =
+                    when {
+                        compassDeepTraceState.active && batteryBenchmark ->
+                            "Active · battery benchmark invalid"
+                        compassDeepTraceState.active ->
+                            "Active · stops automatically after $COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES min"
+                        batteryBenchmark && !batteryBenchmarkValidity.valid ->
+                            "Off · current benchmark remains invalid"
+                        !gpsDebugTelemetry -> "Start diagnostics capture first"
+                        batteryBenchmark ->
+                            "$COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES min max · invalidates benchmark"
+                        else -> "$COMPASS_DEEP_TRACE_MAX_DURATION_MINUTES min max · higher battery use"
                     },
                 toggleControl = ToggleChipToggleControl.Switch,
             )
