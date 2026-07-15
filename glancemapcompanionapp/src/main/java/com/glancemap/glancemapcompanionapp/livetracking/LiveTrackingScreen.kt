@@ -579,6 +579,13 @@ fun LiveTrackingScreen(
                                 LiveTrackingPreferences.save(context, committedSettings)
                                 LiveTrackingPreferences.saveGroupSettings(context, committedSettings)
                                 settingsSnapshot = committedSettings
+                                if (sessionState.isTracking) {
+                                    LiveTrackingService.updateRecipients(
+                                        context = context,
+                                        notificationEmails = settingsForSave.notificationEmails,
+                                        alertEmails = settingsForSave.alertEmails,
+                                    )
+                                }
                                 saveSettingsStatusMessage = "Settings saved"
                                 if (exitAfterSave) {
                                     page = LiveTrackingPage.MAIN

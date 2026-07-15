@@ -56,7 +56,7 @@ class LiveTrackingService : Service() {
                 val location = result.lastLocation ?: return
                 lastLocation = location
                 serviceScope.launch {
-                    sendLocation(location = location, start = !sentStart, stop = false)
+                    sendLocation(location = location, startRequested = true, stop = false)
                 }
             }
         }
@@ -84,6 +84,8 @@ class LiveTrackingService : Service() {
                 START_STICKY
             }
 
+            ACTION_UPDATE_RECIPIENTS -> updateRecipients(intent, startId)
+
             ACTION_STOP -> {
                 stopTracking()
                 START_NOT_STICKY
@@ -91,21 +93,27 @@ class LiveTrackingService : Service() {
 
             else -> {
                 val parsedSettings = intent?.toLiveTrackingSettings()
-                if (parsedSettings == null) {
-                    LiveTrackingSessionStore.setStopped("Missing live tracking settings")
-                    stopSelf()
-                    START_NOT_STICKY
-                } else {
-                    settings = parsedSettings
-                    sentStart = false
-                    dateId = null
-                    isPaused = false
-                    isStopping = false
-                    LiveTrackingControlQueue.clear(this)
-                    LiveTrackingSessionStore.setStarting()
-                    startForegroundNotification("Starting live tracking")
-                    startTracking(parsedSettings)
-                    START_STICKY
+                when {
+                    parsedSettings == null -> {
+                        LiveTrackingSessionStore.setStopped("Missing live tracking settings")
+                        stopSelf()
+                        START_NOT_STICKY
+                    }
+
+                    settings != null -> START_STICKY
+
+                    else -> {
+                        settings = parsedSettings
+                        sentStart = false
+                        dateId = null
+                        isPaused = false
+                        isStopping = false
+                        LiveTrackingControlQueue.clear(this)
+                        LiveTrackingSessionStore.setStarting()
+                        startForegroundNotification("Starting live tracking")
+                        startTracking(parsedSettings)
+                        START_STICKY
+                    }
                 }
             }
         }
@@ -116,6 +124,28 @@ class LiveTrackingService : Service() {
         runCatching { locationClient.removeLocationUpdates(locationCallback) }
         serviceScope.cancel()
         super.onDestroy()
+    }
+
+    private fun updateRecipients(
+        intent: Intent,
+        startId: Int,
+    ): Int {
+        if (settings == null) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        val notificationEmails = intent.getStringExtra(EXTRA_NOTIFICATION_EMAILS).orEmpty()
+        val alertEmails = intent.getStringExtra(EXTRA_ALERT_EMAILS).orEmpty()
+        serviceScope.launch {
+            sendMutex.withLock {
+                settings =
+                    settings?.copy(
+                        notificationEmails = notificationEmails,
+                        alertEmails = alertEmails,
+                    )
+            }
+        }
+        return START_STICKY
     }
 
     private fun startTracking(settings: LiveTrackingSettings) {
@@ -164,30 +194,32 @@ class LiveTrackingService : Service() {
                 .getOrNull()
                 ?: return
         lastLocation = location
-        sendLocation(location = location, start = !sentStart, stop = false)
+        sendLocation(location = location, startRequested = true, stop = false)
     }
 
     @Suppress("CyclomaticComplexMethod", "LongMethod")
     private suspend fun sendLocation(
         location: Location,
-        start: Boolean,
+        startRequested: Boolean,
         stop: Boolean,
     ) {
-        val activeSettings = settings ?: return
         if (isPaused && !stop) return
-        val update =
-            arkluzClient.buildLocationUpdate(
-                settings = activeSettings,
-                location = location,
-                start = start,
-                stop = stop,
-            )
         sendMutex.withLock {
+            val activeSettings = settings ?: return@withLock
+            // The last-known location and callback can arrive before the first request completes.
+            val sendStart = startRequested && !sentStart
+            val update =
+                arkluzClient.buildLocationUpdate(
+                    settings = activeSettings,
+                    location = location,
+                    start = sendStart,
+                    stop = stop,
+                )
             runCatching {
                 flushPendingSessionControlsLocked()
                 arkluzClient.sendLocationUpdate(update)
             }.onSuccess { result ->
-                if (start) {
+                if (sendStart) {
                     sentStart = true
                     result.dateId?.let { dateId = it }
                 }
@@ -195,7 +227,7 @@ class LiveTrackingService : Service() {
                 val status =
                     serverMessage ?: when {
                         stop -> "Stop sent"
-                        start -> "Started and position sent"
+                        sendStart -> "Started and position sent"
                         else -> "Position sent"
                     }
                 val replayResult =
@@ -246,7 +278,10 @@ class LiveTrackingService : Service() {
         var remaining = LiveTrackingPositionQueue.load(this)
         var replayedCount = 0
         for (update in remaining) {
-            val result = runCatching { arkluzClient.sendLocationUpdate(update.asStoredGpsPoint()) }
+            val result =
+                runCatching {
+                    arkluzClient.sendLocationUpdate(update.asStoredGpsPoint().withCurrentRecipients())
+                }
             result
                 .onSuccess {
                     replayedCount += 1
@@ -364,11 +399,19 @@ class LiveTrackingService : Service() {
         var sentCount = 0
         while (true) {
             val update = LiveTrackingControlQueue.load(this).firstOrNull() ?: break
-            arkluzClient.sendLocationUpdate(update)
+            arkluzClient.sendLocationUpdate(update.withCurrentRecipients())
             LiveTrackingControlQueue.removeFirst(this)
             sentCount += 1
         }
         return sentCount
+    }
+
+    private fun ArkluzLocationUpdate.withCurrentRecipients(): ArkluzLocationUpdate {
+        val activeSettings = settings ?: return this
+        return copy(
+            notificationEmails = activeSettings.notificationEmails,
+            alertEmails = activeSettings.alertEmails,
+        )
     }
 
     private suspend fun retryPendingControlsWhilePaused() {
@@ -457,15 +500,15 @@ class LiveTrackingService : Service() {
     }
 
     private suspend fun sendStopConfirmation(location: Location) {
-        val activeSettings = settings ?: return
-        val update =
-            arkluzClient.buildLocationUpdate(
-                settings = activeSettings,
-                location = location,
-                start = false,
-                stop = true,
-            )
         sendMutex.withLock {
+            val activeSettings = settings ?: return@withLock
+            val update =
+                arkluzClient.buildLocationUpdate(
+                    settings = activeSettings,
+                    location = location,
+                    start = false,
+                    stop = true,
+                )
             flushPendingSessionControlsLocked()
             arkluzClient.sendLocationUpdate(update)
         }
@@ -571,6 +614,8 @@ class LiveTrackingService : Service() {
         private const val ACTION_STOP = "com.glancemap.glancemapcompanionapp.livetracking.STOP"
         private const val ACTION_PAUSE = "com.glancemap.glancemapcompanionapp.livetracking.PAUSE"
         private const val ACTION_RESUME = "com.glancemap.glancemapcompanionapp.livetracking.RESUME"
+        private const val ACTION_UPDATE_RECIPIENTS =
+            "com.glancemap.glancemapcompanionapp.livetracking.UPDATE_RECIPIENTS"
 
         private const val EXTRA_GROUP = "group"
         private const val EXTRA_TRACKING_URL = "tracking_url"
@@ -621,6 +666,19 @@ class LiveTrackingService : Service() {
         fun resume(context: Context) {
             context.startService(
                 Intent(context, LiveTrackingService::class.java).setAction(ACTION_RESUME),
+            )
+        }
+
+        fun updateRecipients(
+            context: Context,
+            notificationEmails: String,
+            alertEmails: String,
+        ) {
+            context.startService(
+                Intent(context, LiveTrackingService::class.java)
+                    .setAction(ACTION_UPDATE_RECIPIENTS)
+                    .putExtra(EXTRA_NOTIFICATION_EMAILS, notificationEmails)
+                    .putExtra(EXTRA_ALERT_EMAILS, alertEmails),
             )
         }
 
