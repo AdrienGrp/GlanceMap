@@ -9,32 +9,35 @@ apply(from = rootProject.file("gradle/android-app-testing.gradle.kts"))
 
 val glanceMapVersionName = providers.gradleProperty("glanceMapVersionName").get()
 val glanceMapPhoneVersionCode = providers.gradleProperty("glanceMapPhoneVersionCode").get().toInt()
-val arkluzMobileClientTokenProperty = "ARKLUZ_MOBILE_CLIENT_TOKEN"
-val projectGradlePropertiesDefinesArkluzToken =
+val arkluzSmsApiKeyProperty = "ARKLUZ_SMS_API_KEY"
+val projectGradlePropertiesDefinesArkluzSmsApiKey =
     rootProject.file("gradle.properties").useLines { lines ->
         lines.any { line ->
             val trimmedLine = line.trimStart()
             !trimmedLine.startsWith("#") &&
                 '=' in trimmedLine &&
-                trimmedLine.substringBefore('=').trim() == arkluzMobileClientTokenProperty
+                trimmedLine.substringBefore('=').trim() == arkluzSmsApiKeyProperty
         }
     }
-if (projectGradlePropertiesDefinesArkluzToken) {
+if (projectGradlePropertiesDefinesArkluzSmsApiKey) {
     throw GradleException(
-        "$arkluzMobileClientTokenProperty must not be defined in the repository gradle.properties. " +
+        "$arkluzSmsApiKeyProperty must not be defined in the repository gradle.properties. " +
             "Use ~/.gradle/gradle.properties or an environment variable.",
     )
 }
-val arkluzMobileClientToken =
+val arkluzSmsApiKey =
     providers
-        .gradleProperty(arkluzMobileClientTokenProperty)
-        .orElse(providers.environmentVariable(arkluzMobileClientTokenProperty))
+        .gradleProperty(arkluzSmsApiKeyProperty)
+        .orElse(providers.environmentVariable(arkluzSmsApiKeyProperty))
         .orNull
         .orEmpty()
-val hasArkluzMobileClientToken = arkluzMobileClientToken.isNotEmpty()
-if (hasArkluzMobileClientToken && !arkluzMobileClientToken.matches(Regex("^[A-Za-z0-9_-]{32,128}$"))) {
+val hasArkluzSmsApiKey = arkluzSmsApiKey.isNotEmpty()
+val hasValidArkluzSmsApiKey =
+    arkluzSmsApiKey.length in 32..128 &&
+        arkluzSmsApiKey.matches(Regex("^[A-Za-z0-9+/]+={0,2}$"))
+if (hasArkluzSmsApiKey && !hasValidArkluzSmsApiKey) {
     throw GradleException(
-        "$arkluzMobileClientTokenProperty must be a 32-128 character base64url-style value.",
+        "$arkluzSmsApiKeyProperty must be a 32-128 character Base64 value.",
     )
 }
 val releaseStoreFile =
@@ -73,9 +76,9 @@ val releaseArtifactTaskRequested =
             listOf("bundle", "assemble", "publish").any(normalized::contains)
     }
 
-if (releaseArtifactTaskRequested && !hasArkluzMobileClientToken) {
+if (releaseArtifactTaskRequested && !hasArkluzSmsApiKey) {
     throw GradleException(
-        "Missing $arkluzMobileClientTokenProperty. Release artifacts must include the Arkluz client token. " +
+        "Missing $arkluzSmsApiKeyProperty. Release artifacts must include the Arkluz SMS API key. " +
             "Define it in ~/.gradle/gradle.properties or as an environment variable.",
     )
 }
@@ -104,8 +107,9 @@ android {
             useSupportLibrary = true
         }
         manifestPlaceholders["channelBufferSize"] = "8388608" // 8MB buffer
-        buildConfigField("String", "ARKLUZ_TRACKING_URL", "\"https://arkluz.com/trk\"")
-        buildConfigField("String", "ARKLUZ_MOBILE_CLIENT_TOKEN", "\"$arkluzMobileClientToken\"")
+        // Temporary branch configuration for Arkluz integration testing. Restore /trk before release.
+        buildConfigField("String", "ARKLUZ_TRACKING_URL", "\"https://arkluz.com/dev/trk\"")
+        buildConfigField("String", "ARKLUZ_SMS_API_KEY", "\"$arkluzSmsApiKey\"")
     }
 
     signingConfigs {

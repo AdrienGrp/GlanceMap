@@ -91,6 +91,7 @@ enum class ArkluzTrackingEndpoint(
     val label: String,
     val url: String,
 ) {
+    DEVELOPMENT("Development", "https://arkluz.com/dev/trk"),
     PRODUCTION("Production", "https://arkluz.com/trk"),
     ;
 
@@ -108,9 +109,7 @@ internal class ArkluzLiveTrackingClient(
     private val httpClient =
         OkHttpClient
             .Builder()
-            .addNetworkInterceptor(
-                ArkluzClientTokenInterceptor(BuildConfig.ARKLUZ_MOBILE_CLIENT_TOKEN),
-            ).connectTimeout(20, TimeUnit.SECONDS)
+            .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(45, TimeUnit.SECONDS)
             .build()
@@ -207,10 +206,16 @@ internal class ArkluzLiveTrackingClient(
         phoneNumber: String,
     ): ArkluzSmsSupport =
         withContext(Dispatchers.IO) {
+            val url =
+                buildArkluzSmsSupportUrl(
+                    trackingUrl = trackingUrl,
+                    phoneNumber = phoneNumber,
+                    apiKey = BuildConfig.ARKLUZ_SMS_API_KEY,
+                )
             executeSmsSupport(
                 Request
                     .Builder()
-                    .url(buildArkluzSmsSupportUrl(trackingUrl, phoneNumber))
+                    .url(url)
                     .get()
                     .build(),
             )
@@ -495,15 +500,28 @@ internal fun buildArkluzLocationUrl(update: ArkluzLocationUpdate): HttpUrl {
 internal fun buildArkluzSmsSupportUrl(
     trackingUrl: String,
     phoneNumber: String,
-): HttpUrl =
-    trackingUrl
-        .trim()
-        .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
-        .toHttpUrl()
-        .newBuilder()
-        .addQueryParameter("q", "sms")
-        .addQueryParameter("sms", phoneNumber)
-        .build()
+    apiKey: String,
+): HttpUrl {
+    val baseUrl =
+        trackingUrl
+            .trim()
+            .ifBlank { ArkluzTrackingEndpoint.defaultUrl }
+            .toHttpUrl()
+    val urlBuilder =
+        baseUrl
+            .newBuilder()
+            .addQueryParameter("q", "sms")
+            .addQueryParameter("sms", phoneNumber)
+    val isTrustedArkluzUrl =
+        baseUrl.isHttps && baseUrl.host.equals(ARKLUZ_API_HOST, ignoreCase = true)
+
+    if (apiKey.isNotBlank() && isTrustedArkluzUrl) {
+        urlBuilder.addQueryParameter("key", apiKey)
+    }
+    return urlBuilder.build()
+}
+
+private const val ARKLUZ_API_HOST = "arkluz.com"
 
 internal class ArkluzHttpException(
     val code: Int,
