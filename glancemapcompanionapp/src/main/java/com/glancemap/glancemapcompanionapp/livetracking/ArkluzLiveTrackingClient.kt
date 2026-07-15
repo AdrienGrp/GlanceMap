@@ -149,6 +149,10 @@ internal class ArkluzLiveTrackingClient(
                         .url(settings.trackingUrl.trim().ifBlank { ArkluzTrackingEndpoint.defaultUrl })
                         .post(body)
                         .build(),
+                    diagnosticRequest =
+                        LiveTrackingDiagnosticRequest(
+                            operation = LiveTrackingDiagnosticOperation.UPLOAD,
+                        ),
                 )
             } finally {
                 tempFile?.delete()
@@ -176,6 +180,10 @@ internal class ArkluzLiveTrackingClient(
                     .url(url)
                     .get()
                     .build(),
+                diagnosticRequest =
+                    LiveTrackingDiagnosticRequest(
+                        operation = LiveTrackingDiagnosticOperation.REGISTER,
+                    ),
             )
         }
 
@@ -198,6 +206,10 @@ internal class ArkluzLiveTrackingClient(
                     .url(url)
                     .get()
                     .build(),
+                diagnosticRequest =
+                    LiveTrackingDiagnosticRequest(
+                        operation = LiveTrackingDiagnosticOperation.CHECK_GROUP,
+                    ),
             )
         }
 
@@ -218,6 +230,10 @@ internal class ArkluzLiveTrackingClient(
                     .url(url)
                     .get()
                     .build(),
+                diagnosticRequest =
+                    LiveTrackingDiagnosticRequest(
+                        operation = LiveTrackingDiagnosticOperation.SMS_SUPPORT,
+                    ),
             )
         }
 
@@ -240,6 +256,10 @@ internal class ArkluzLiveTrackingClient(
                     .url(url)
                     .get()
                     .build(),
+                diagnosticRequest =
+                    LiveTrackingDiagnosticRequest(
+                        operation = LiveTrackingDiagnosticOperation.CLEANUP,
+                    ),
             )
         }
 
@@ -272,6 +292,10 @@ internal class ArkluzLiveTrackingClient(
                         .get()
                         .build(),
                 fallbackFileName = fallbackFileName,
+                diagnosticRequest =
+                    LiveTrackingDiagnosticRequest(
+                        operation = LiveTrackingDiagnosticOperation.GPX_DOWNLOAD,
+                    ),
             )
         }
 
@@ -322,6 +346,7 @@ internal class ArkluzLiveTrackingClient(
                     .url(urlBuilder.build())
                     .get()
                     .build(),
+                diagnosticRequest = settings.toDiagnosticRequest(LiveTrackingDiagnosticOperation.SAVE_SETTINGS),
             )
         }
 
@@ -373,70 +398,139 @@ internal class ArkluzLiveTrackingClient(
                     .url(buildArkluzLocationUrl(update))
                     .get()
                     .build(),
+                diagnosticRequest = update.toDiagnosticRequest(),
             )
         }
 
-    private fun execute(request: Request): ArkluzServerResult {
-        httpClient.newCall(request).execute().use { response ->
-            val serverMessage =
-                response.body
-                    .string()
-                    .toReadableServerMessage()
-            if (!response.isSuccessful) {
-                throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
+    private fun execute(
+        request: Request,
+        diagnosticRequest: LiveTrackingDiagnosticRequest,
+    ): ArkluzServerResult =
+        withDiagnostics(diagnosticRequest) { recordOutcome ->
+            httpClient.newCall(request).execute().use { response ->
+                val serverMessage =
+                    response.body
+                        .string()
+                        .toReadableServerMessage()
+                if (!response.isSuccessful) {
+                    recordOutcome(LiveTrackingDiagnosticResult.HTTP_ERROR, response.code)
+                    throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
+                }
+                if (serverMessage.isArkluzError()) {
+                    recordOutcome(LiveTrackingDiagnosticResult.SERVER_REJECTED, response.code)
+                    error(serverMessage)
+                }
+                recordOutcome(LiveTrackingDiagnosticResult.SUCCESS, response.code)
+                serverMessage.toArkluzServerResult()
             }
-            if (serverMessage.isArkluzError()) {
-                error(serverMessage)
-            }
-            return serverMessage.toArkluzServerResult()
         }
-    }
 
-    private fun executeSmsSupport(request: Request): ArkluzSmsSupport {
-        httpClient.newCall(request).execute().use { response ->
-            val serverMessage = response.body.string().trim()
-            if (!response.isSuccessful) {
-                throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
+    private fun executeSmsSupport(
+        request: Request,
+        diagnosticRequest: LiveTrackingDiagnosticRequest,
+    ): ArkluzSmsSupport =
+        withDiagnostics(diagnosticRequest) { recordOutcome ->
+            httpClient.newCall(request).execute().use { response ->
+                val serverMessage = response.body.string().trim()
+                if (!response.isSuccessful) {
+                    recordOutcome(LiveTrackingDiagnosticResult.HTTP_ERROR, response.code)
+                    throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
+                }
+                val support =
+                    runCatching { serverMessage.toArkluzSmsSupport() }
+                        .getOrElse { error ->
+                            recordOutcome(LiveTrackingDiagnosticResult.UNEXPECTED_RESPONSE, response.code)
+                            throw error
+                        }
+                recordOutcome(
+                    when (support) {
+                        ArkluzSmsSupport.SUPPORTED -> LiveTrackingDiagnosticResult.SMS_SUPPORTED
+                        ArkluzSmsSupport.UNSUPPORTED -> LiveTrackingDiagnosticResult.SMS_UNSUPPORTED
+                    },
+                    response.code,
+                )
+                support
             }
-            return serverMessage.toArkluzSmsSupport()
         }
-    }
 
     @Suppress("NestedBlockDepth", "ThrowsCount", "TooGenericExceptionCaught")
     private fun executeGpxDownload(
         request: Request,
         fallbackFileName: String,
-    ): ArkluzRecordedGpxDownload {
-        httpClient.newCall(request).execute().use { response ->
-            val body = response.body
-            val contentType = body.contentType()?.toString().orEmpty()
-            if (!response.isSuccessful) {
-                throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
-            }
-            if (!contentType.contains("gpx", ignoreCase = true)) {
-                val serverMessage = body.string().toReadableServerMessage()
-                if (serverMessage.isArkluzError()) {
-                    throw IllegalStateException(serverMessage)
+        diagnosticRequest: LiveTrackingDiagnosticRequest,
+    ): ArkluzRecordedGpxDownload =
+        withDiagnostics(diagnosticRequest) { recordOutcome ->
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body
+                val contentType = body.contentType()?.toString().orEmpty()
+                if (!response.isSuccessful) {
+                    recordOutcome(LiveTrackingDiagnosticResult.HTTP_ERROR, response.code)
+                    throw ArkluzHttpException(response.code, response.toShortHttpErrorMessage())
                 }
-                throw IllegalStateException(serverMessage.ifBlank { "Server did not return a GPX file" })
-            }
+                if (!contentType.contains("gpx", ignoreCase = true)) {
+                    val serverMessage = body.string().toReadableServerMessage()
+                    recordOutcome(
+                        if (serverMessage.isArkluzError()) {
+                            LiveTrackingDiagnosticResult.SERVER_REJECTED
+                        } else {
+                            LiveTrackingDiagnosticResult.UNEXPECTED_RESPONSE
+                        },
+                        response.code,
+                    )
+                    if (serverMessage.isArkluzError()) {
+                        throw IllegalStateException(serverMessage)
+                    }
+                    throw IllegalStateException(serverMessage.ifBlank { "Server did not return a GPX file" })
+                }
 
-            val suggestedFileName =
-                contentDispositionFileName(response.header("Content-Disposition"))
-                    ?: fallbackFileName
-            val cacheFile = File.createTempFile("arkluz-recorded-", ".gpx", appContext.cacheDir)
-            try {
-                cacheFile.outputStream().use { output ->
-                    body.byteStream().use { input -> input.copyTo(output) }
+                val suggestedFileName =
+                    contentDispositionFileName(response.header("Content-Disposition"))
+                        ?: fallbackFileName
+                val cacheFile = File.createTempFile("arkluz-recorded-", ".gpx", appContext.cacheDir)
+                try {
+                    cacheFile.outputStream().use { output ->
+                        body.byteStream().use { input -> input.copyTo(output) }
+                    }
+                } catch (error: Throwable) {
+                    cacheFile.delete()
+                    throw error
                 }
-            } catch (error: Throwable) {
-                cacheFile.delete()
-                throw error
+                recordOutcome(LiveTrackingDiagnosticResult.SUCCESS, response.code)
+                ArkluzRecordedGpxDownload(
+                    cacheFile = cacheFile,
+                    suggestedFileName = suggestedFileName,
+                )
             }
-            return ArkluzRecordedGpxDownload(
-                cacheFile = cacheFile,
-                suggestedFileName = suggestedFileName,
-            )
+        }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun <T> withDiagnostics(
+        diagnosticRequest: LiveTrackingDiagnosticRequest,
+        block: (((LiveTrackingDiagnosticResult, Int?) -> Unit) -> T),
+    ): T {
+        val startedAtEpochMs = System.currentTimeMillis()
+        val startedAtNanos = System.nanoTime()
+        var outcomeRecorded = false
+        val recordOutcome = { result: LiveTrackingDiagnosticResult, httpCode: Int? ->
+            if (!outcomeRecorded) {
+                outcomeRecorded = true
+                LiveTrackingDiagnostics.record(
+                    request = diagnosticRequest,
+                    result = result,
+                    httpCode = httpCode,
+                    timestampEpochMs = startedAtEpochMs,
+                    durationMs = (System.nanoTime() - startedAtNanos) / NANOS_PER_MILLISECOND,
+                )
+            }
+        }
+        return try {
+            block(recordOutcome)
+        } catch (error: Throwable) {
+            if (!outcomeRecorded) {
+                val (result, httpCode) = error.toDiagnosticResult()
+                recordOutcome(result, httpCode)
+            }
+            throw error
         }
     }
 
@@ -465,7 +559,72 @@ internal class ArkluzLiveTrackingClient(
     private fun gsmSignalPercent(): Int = -1
 }
 
+private fun LiveTrackingSettings.toDiagnosticRequest(
+    operation: LiveTrackingDiagnosticOperation,
+): LiveTrackingDiagnosticRequest =
+    diagnosticRequestWithRecipients(
+        operation = operation,
+        notificationEmails = notificationEmails,
+        alertRecipients = alertEmails,
+        alarmMinutes = stuckAlarmMinutes,
+    )
+
+private fun ArkluzLocationUpdate.toDiagnosticRequest(): LiveTrackingDiagnosticRequest =
+    diagnosticRequestWithRecipients(
+        operation = LiveTrackingDiagnosticOperation.LOCATION_UPDATE,
+        notificationEmails = notificationEmails,
+        alertRecipients = alertEmails,
+        alarmMinutes = stuckAlarmMinutes,
+        start = start,
+        stop = stop,
+        pause = pause,
+        resume = resume,
+    )
+
+@Suppress("LongParameterList")
+private fun diagnosticRequestWithRecipients(
+    operation: LiveTrackingDiagnosticOperation,
+    notificationEmails: String,
+    alertRecipients: String,
+    alarmMinutes: String,
+    start: Boolean = false,
+    stop: Boolean = false,
+    pause: Boolean = false,
+    resume: Boolean = false,
+): LiveTrackingDiagnosticRequest {
+    val alertRecipientValues = recipientValues(alertRecipients)
+    return LiveTrackingDiagnosticRequest(
+        operation = operation,
+        alarmMinutes = alarmMinutes.trim().toIntOrNull(),
+        notificationEmailCount = recipientValues(notificationEmails).size,
+        alertEmailCount = alertRecipientValues.count { !it.startsWith("+") },
+        alertSmsCount = alertRecipientValues.count { it.startsWith("+") },
+        includesRecipientSummary = true,
+        start = start,
+        stop = stop,
+        pause = pause,
+        resume = resume,
+    )
+}
+
+private fun recipientValues(raw: String): List<String> =
+    raw
+        .split(',')
+        .map(String::trim)
+        .filter(String::isNotBlank)
+
+private fun Throwable.toDiagnosticResult(): Pair<LiveTrackingDiagnosticResult, Int?> =
+    when (this) {
+        is SocketTimeoutException -> LiveTrackingDiagnosticResult.TIMEOUT to null
+        is UnknownHostException -> LiveTrackingDiagnosticResult.OFFLINE to null
+        is ArkluzHttpException -> LiveTrackingDiagnosticResult.HTTP_ERROR to code
+        is IOException -> LiveTrackingDiagnosticResult.NETWORK_ERROR to null
+        else -> LiveTrackingDiagnosticResult.FAILED to null
+    }
+
 private fun todayForArkluz(): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+
+private const val NANOS_PER_MILLISECOND = 1_000_000L
 
 internal fun buildArkluzLocationUrl(update: ArkluzLocationUpdate): HttpUrl {
     val urlBuilder =

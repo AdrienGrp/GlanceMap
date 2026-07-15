@@ -397,6 +397,8 @@ internal fun ColumnScope.MainTrackingContent(
                 )
             }
         }
+
+        LiveTrackingDiagnosticsPanel()
     }
 
     Button(
