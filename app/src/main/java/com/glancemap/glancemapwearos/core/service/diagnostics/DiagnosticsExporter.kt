@@ -373,17 +373,16 @@ object DiagnosticsExporter {
         val startupSourceHandoffMaxJumpDeg: Float? = null,
         val startupStable3Count: Int = 0,
         val startupStable5Count: Int = 0,
-        val startupOverlapSummaryCount: Int = 0,
-        val startupOverlapFinalDeltaAvgDeg: Float? = null,
-        val startupOverlapRestartComparisonCount: Int = 0,
-        val startupOverlapRestartImprovedCount: Int = 0,
-        val startupExtendedSettlingCount: Int = 0,
-        val startupReleaseDirectCount: Int = 0,
-        val startupReleaseAgreementCount: Int = 0,
-        val startupReleaseTimeoutCount: Int = 0,
-        val startupSettlingRelativeRotationMaxDeg: Float? = null,
-        val startupSettlingRejectedJumpCount: Int = 0,
-        val startupSettlingRejectedJumpMaxDeg: Float? = null,
+        val fusedFirstUsableCount: Int = 0,
+        val fusedFirstUsableLatencyMaxMs: Long? = null,
+        val fusedReadyCount: Int = 0,
+        val fusedReadyLatencyMaxMs: Long? = null,
+        val fusedFallbackActivationCount: Int = 0,
+        val continuityStartCount: Int = 0,
+        val continuityCompleteCount: Int = 0,
+        val continuityCancelCount: Int = 0,
+        val continuityInitialOffsetMaxDeg: Float? = null,
+        val continuityDurationMaxMs: Long? = null,
         val headingLooksWrongReportCount: Int = 0,
         val fusedPerfEventCount: Int = 0,
         val fusedPerfCallbackCount: Int = 0,
@@ -1081,50 +1080,39 @@ object DiagnosticsExporter {
             writer.appendLine("startupStable3Count=${compassTelemetryInsights.startupStable3Count}")
             writer.appendLine("startupStable5Count=${compassTelemetryInsights.startupStable5Count}")
             writer.appendLine(
-                "startupOverlapSummaryCount=${compassTelemetryInsights.startupOverlapSummaryCount}",
+                "fusedFirstUsableCount=${compassTelemetryInsights.fusedFirstUsableCount}",
             )
             writer.appendLine(
-                "startupOverlapFinalDeltaAvgDeg=${
-                    compassTelemetryInsights.startupOverlapFinalDeltaAvgDeg?.let {
+                "fusedFirstUsableLatencyMaxMs=${
+                    compassTelemetryInsights.fusedFirstUsableLatencyMaxMs ?: "na"
+                }",
+            )
+            writer.appendLine("fusedReadyCount=${compassTelemetryInsights.fusedReadyCount}")
+            writer.appendLine(
+                "fusedReadyLatencyMaxMs=${
+                    compassTelemetryInsights.fusedReadyLatencyMaxMs ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "fusedFallbackActivationCount=${compassTelemetryInsights.fusedFallbackActivationCount}",
+            )
+            writer.appendLine("continuityStartCount=${compassTelemetryInsights.continuityStartCount}")
+            writer.appendLine(
+                "continuityCompleteCount=${compassTelemetryInsights.continuityCompleteCount}",
+            )
+            writer.appendLine(
+                "continuityCancelCount=${compassTelemetryInsights.continuityCancelCount}",
+            )
+            writer.appendLine(
+                "continuityInitialOffsetMaxDeg=${
+                    compassTelemetryInsights.continuityInitialOffsetMaxDeg?.let {
                         TelemetryFormatters.decimal(it, 1)
                     } ?: "na"
                 }",
             )
             writer.appendLine(
-                "startupOverlapRestartComparisonCount=${
-                    compassTelemetryInsights.startupOverlapRestartComparisonCount
-                }",
-            )
-            writer.appendLine(
-                "startupOverlapRestartImprovedCount=${
-                    compassTelemetryInsights.startupOverlapRestartImprovedCount
-                }",
-            )
-            writer.appendLine(
-                "startupExtendedSettlingCount=${compassTelemetryInsights.startupExtendedSettlingCount}",
-            )
-            writer.appendLine("startupReleaseDirectCount=${compassTelemetryInsights.startupReleaseDirectCount}")
-            writer.appendLine(
-                "startupReleaseAgreementCount=${compassTelemetryInsights.startupReleaseAgreementCount}",
-            )
-            writer.appendLine("startupReleaseTimeoutCount=${compassTelemetryInsights.startupReleaseTimeoutCount}")
-            writer.appendLine(
-                "startupSettlingRelativeRotationMaxDeg=${
-                    compassTelemetryInsights.startupSettlingRelativeRotationMaxDeg?.let {
-                        TelemetryFormatters.decimal(it, 1)
-                    } ?: "na"
-                }",
-            )
-            writer.appendLine(
-                "startupSettlingRejectedJumpCount=${
-                    compassTelemetryInsights.startupSettlingRejectedJumpCount
-                }",
-            )
-            writer.appendLine(
-                "startupSettlingRejectedJumpMaxDeg=${
-                    compassTelemetryInsights.startupSettlingRejectedJumpMaxDeg?.let {
-                        TelemetryFormatters.decimal(it, 1)
-                    } ?: "na"
+                "continuityDurationMaxMs=${
+                    compassTelemetryInsights.continuityDurationMaxMs ?: "na"
                 }",
             )
             writer.appendLine(

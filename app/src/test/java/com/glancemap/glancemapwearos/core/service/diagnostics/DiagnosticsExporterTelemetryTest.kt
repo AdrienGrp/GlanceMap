@@ -213,30 +213,46 @@ class DiagnosticsExporterTelemetryTest {
                     "visibleHeadingMaxJumpDeg=68.0 visibleMapRotationMaxJumpDeg=63.0 " +
                     "sourceHandoffs=2 sourceHandoffMaxJumpDeg=52.0 " +
                     "renderErrorAvgDeg=2.4 renderErrorMaxDeg=18.0 stable3Ms=na stable5Ms=4300 fusedReadyMs=450",
-                "2026-04-20 20:07:13.000 [CompassTelemetry] google_fused startup_overlap_summary " +
-                    "reason=start confirmed=true samples=10 avgDeltaDeg=52.0 maxDeltaDeg=138.0 " +
-                    "firstDeltaDeg=20.0 finalDeltaDeg=64.0 previousFinalDeltaDeg=na restartDeltaChangeDeg=na",
+                "2026-04-20 20:07:12.100 [CompassTelemetry] google_fused first_usable " +
+                    "reason=start latencyMs=108 heading=120.0 errorDeg=25.0",
+                "2026-04-20 20:07:12.250 [CompassTelemetry] google_fused state " +
+                    "transition=active_fused from=starting_fused reason=warmup_complete " +
+                    "latencyMs=244 warmupMs=136 usableSamples=7",
+                "2026-04-20 20:07:12.260 [CompassTelemetry] map_heading_continuity stage=start " +
+                    "reason=source_ready provider=GOOGLE_FUSED source=google_fused " +
+                    "displayed=255.0 raw=120.0 offsetDeg=135.0",
                 "2026-04-20 20:07:14.000 [CompassTelemetry] wake_session stage=startup_summary " +
                     "id=2 windowMs=5000 samples=150 headingSpanDeg=42.0 maxJumpDeg=12.0 " +
                     "cumulativeHeadingRotationDeg=90.0 directionReversals=2 cumulativeMapRotationDeg=80.0 " +
                     "visibleHeadingMaxJumpDeg=9.0 visibleMapRotationMaxJumpDeg=11.0 " +
                     "sourceHandoffs=1 sourceHandoffMaxJumpDeg=8.0 " +
                     "renderErrorAvgDeg=0.8 renderErrorMaxDeg=3.0 stable3Ms=1600 stable5Ms=1200 fusedReadyMs=420",
-                "2026-04-20 20:07:15.000 [CompassTelemetry] google_fused startup_overlap_summary " +
-                    "reason=start confirmed=true samples=9 avgDeltaDeg=8.0 maxDeltaDeg=16.0 " +
-                    "firstDeltaDeg=12.0 finalDeltaDeg=6.0 previousFinalDeltaDeg=64.0 restartDeltaChangeDeg=-58.0",
-                "2026-04-20 20:07:15.100 [CompassTelemetry] google_fused startup_settling_extended " +
-                    "reason=start candidateHeading=120.0 bootstrapDeltaDeg=145.0",
-                "2026-04-20 20:07:15.500 [CompassTelemetry] google_fused startup_release " +
-                    "reason=agreement heading=122.0 bootstrapDeltaDeg=4.0",
-                "2026-04-20 20:07:15.510 [CompassTelemetry] map_heading_settling stage=release " +
-                    "durationMs=510 fusedHeading=122.0 relativeRotation=38.0 rejectedJumps=3 rejectedMaxDeg=146.0",
+                "2026-04-20 20:07:15.000 [CompassTelemetry] google_fused first_usable " +
+                    "reason=start latencyMs=219 heading=44.0 errorDeg=25.0",
+                "2026-04-20 20:07:15.230 [CompassTelemetry] google_fused state " +
+                    "transition=active_fused from=starting_fused reason=warmup_complete " +
+                    "latencyMs=450 warmupMs=231 usableSamples=12",
+                "2026-04-20 20:07:15.240 [CompassTelemetry] map_heading_continuity stage=start " +
+                    "reason=source_ready provider=GOOGLE_FUSED source=google_fused " +
+                    "displayed=4.0 raw=44.0 offsetDeg=-40.0",
+                "2026-04-20 20:07:15.540 [CompassTelemetry] map_heading_continuity stage=cancel " +
+                    "reason=heading_drive_inactive durationMs=300 remainingOffsetDeg=-8.0",
+                "2026-04-20 20:07:15.760 [CompassTelemetry] map_heading_continuity stage=complete " +
+                    "durationMs=760 initialOffsetDeg=135.0 heading=120.0 raw=120.0",
+                "2026-04-20 20:07:15.800 [CompassTelemetry] google_fused state " +
+                    "transition=active_fallback from=active_fused reason=sample_stale",
                 "2026-04-20 20:07:16.000 [CompassTelemetry] user_report heading_looks_wrong " +
                     "source=google_fused heading=220.0 rendered=219.0 mapRotation=-219.0 accuracy=1",
             )
 
         val insights = deriveCompassTelemetryInsights(lines)
 
+        assertCompassStartupInsights(insights)
+    }
+
+    private fun assertCompassStartupInsights(
+        insights: DiagnosticsExporter.CompassTelemetryInsights,
+    ) {
         assertEquals(2, insights.startupSummaryCount)
         assertEquals(286f, insights.startupHeadingSpanMaxDeg)
         assertEquals(74f, insights.startupMaxJumpMaxDeg)
@@ -246,17 +262,16 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals(52f, insights.startupSourceHandoffMaxJumpDeg)
         assertEquals(1, insights.startupStable3Count)
         assertEquals(2, insights.startupStable5Count)
-        assertEquals(2, insights.startupOverlapSummaryCount)
-        assertEquals(35f, insights.startupOverlapFinalDeltaAvgDeg)
-        assertEquals(1, insights.startupOverlapRestartComparisonCount)
-        assertEquals(1, insights.startupOverlapRestartImprovedCount)
-        assertEquals(1, insights.startupExtendedSettlingCount)
-        assertEquals(0, insights.startupReleaseDirectCount)
-        assertEquals(1, insights.startupReleaseAgreementCount)
-        assertEquals(0, insights.startupReleaseTimeoutCount)
-        assertEquals(38f, insights.startupSettlingRelativeRotationMaxDeg)
-        assertEquals(3, insights.startupSettlingRejectedJumpCount)
-        assertEquals(146f, insights.startupSettlingRejectedJumpMaxDeg)
+        assertEquals(2, insights.fusedFirstUsableCount)
+        assertEquals(219L, insights.fusedFirstUsableLatencyMaxMs)
+        assertEquals(2, insights.fusedReadyCount)
+        assertEquals(450L, insights.fusedReadyLatencyMaxMs)
+        assertEquals(1, insights.fusedFallbackActivationCount)
+        assertEquals(2, insights.continuityStartCount)
+        assertEquals(1, insights.continuityCompleteCount)
+        assertEquals(1, insights.continuityCancelCount)
+        assertEquals(135f, insights.continuityInitialOffsetMaxDeg)
+        assertEquals(760L, insights.continuityDurationMaxMs)
         assertEquals(1, insights.headingLooksWrongReportCount)
     }
 

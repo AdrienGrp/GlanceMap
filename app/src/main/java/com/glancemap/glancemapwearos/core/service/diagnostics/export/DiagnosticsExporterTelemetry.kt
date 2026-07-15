@@ -11,6 +11,7 @@ import java.io.BufferedWriter
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val telemetryLineTimestampFormatter: DateTimeFormatter =
@@ -1333,18 +1334,16 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var startupSourceHandoffMaxJumpDeg: Float? = null
     var startupStable3Count = 0
     var startupStable5Count = 0
-    var startupOverlapSummaryCount = 0
-    var startupOverlapFinalDeltaTotalDeg = 0f
-    var startupOverlapFinalDeltaCount = 0
-    var startupOverlapRestartComparisonCount = 0
-    var startupOverlapRestartImprovedCount = 0
-    var startupExtendedSettlingCount = 0
-    var startupReleaseDirectCount = 0
-    var startupReleaseAgreementCount = 0
-    var startupReleaseTimeoutCount = 0
-    var startupSettlingRelativeRotationMaxDeg: Float? = null
-    var startupSettlingRejectedJumpCount = 0
-    var startupSettlingRejectedJumpMaxDeg: Float? = null
+    var fusedFirstUsableCount = 0
+    var fusedFirstUsableLatencyMaxMs: Long? = null
+    var fusedReadyCount = 0
+    var fusedReadyLatencyMaxMs: Long? = null
+    var fusedFallbackActivationCount = 0
+    var continuityStartCount = 0
+    var continuityCompleteCount = 0
+    var continuityCancelCount = 0
+    var continuityInitialOffsetMaxDeg: Float? = null
+    var continuityDurationMaxMs: Long? = null
     var headingLooksWrongReportCount = 0
     var fusedPerfEventCount = 0
     var fusedPerfCallbackCount = 0
@@ -1436,38 +1435,39 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
             if (extractTokenValue(line, "stable3Ms=") != "na") startupStable3Count += 1
             if (extractTokenValue(line, "stable5Ms=") != "na") startupStable5Count += 1
         }
-        if ("google_fused startup_overlap_summary" in line) {
-            startupOverlapSummaryCount += 1
-            parseFloatToken(line, "finalDeltaDeg=")?.let { value ->
-                startupOverlapFinalDeltaTotalDeg += value
-                startupOverlapFinalDeltaCount += 1
-            }
-            parseFloatToken(line, "restartDeltaChangeDeg=")?.let { value ->
-                startupOverlapRestartComparisonCount += 1
-                if (value <= -STARTUP_OVERLAP_MEANINGFUL_IMPROVEMENT_DEG) {
-                    startupOverlapRestartImprovedCount += 1
-                }
+        if ("google_fused first_usable" in line) {
+            fusedFirstUsableCount += 1
+            parseLongToken(line, "latencyMs=")?.let { value ->
+                fusedFirstUsableLatencyMaxMs = maxOf(fusedFirstUsableLatencyMaxMs ?: value, value)
             }
         }
-        if ("google_fused startup_settling_extended" in line) {
-            startupExtendedSettlingCount += 1
-        }
-        if ("google_fused startup_release" in line) {
-            when (extractTokenValue(line, "reason=")) {
-                "direct" -> startupReleaseDirectCount += 1
-                "agreement" -> startupReleaseAgreementCount += 1
-                "timeout" -> startupReleaseTimeoutCount += 1
+        if ("google_fused state transition=active_fused" in line) {
+            fusedReadyCount += 1
+            parseLongToken(line, "latencyMs=")?.let { value ->
+                fusedReadyLatencyMaxMs = maxOf(fusedReadyLatencyMaxMs ?: value, value)
             }
         }
-        if ("map_heading_settling stage=release" in line) {
-            parseFloatToken(line, "relativeRotation=")?.let { value ->
-                startupSettlingRelativeRotationMaxDeg =
-                    maxOf(startupSettlingRelativeRotationMaxDeg ?: value, value)
+        if ("google_fused state transition=active_fallback" in line) {
+            fusedFallbackActivationCount += 1
+        }
+        if ("map_heading_continuity stage=start" in line) {
+            continuityStartCount += 1
+            parseFloatToken(line, "offsetDeg=")?.let { value ->
+                val magnitude = abs(value)
+                continuityInitialOffsetMaxDeg =
+                    maxOf(continuityInitialOffsetMaxDeg ?: magnitude, magnitude)
             }
-            startupSettlingRejectedJumpCount += parseIntToken(line, "rejectedJumps=") ?: 0
-            parseFloatToken(line, "rejectedMaxDeg=")?.let { value ->
-                startupSettlingRejectedJumpMaxDeg =
-                    maxOf(startupSettlingRejectedJumpMaxDeg ?: value, value)
+        }
+        if ("map_heading_continuity stage=complete" in line) {
+            continuityCompleteCount += 1
+            parseLongToken(line, "durationMs=")?.let { value ->
+                continuityDurationMaxMs = maxOf(continuityDurationMaxMs ?: value, value)
+            }
+        }
+        if ("map_heading_continuity stage=cancel" in line) {
+            continuityCancelCount += 1
+            parseLongToken(line, "durationMs=")?.let { value ->
+                continuityDurationMaxMs = maxOf(continuityDurationMaxMs ?: value, value)
             }
         }
         if ("user_report heading_looks_wrong" in line) {
@@ -1532,22 +1532,16 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         startupSourceHandoffMaxJumpDeg = startupSourceHandoffMaxJumpDeg,
         startupStable3Count = startupStable3Count,
         startupStable5Count = startupStable5Count,
-        startupOverlapSummaryCount = startupOverlapSummaryCount,
-        startupOverlapFinalDeltaAvgDeg =
-            if (startupOverlapFinalDeltaCount > 0) {
-                startupOverlapFinalDeltaTotalDeg / startupOverlapFinalDeltaCount
-            } else {
-                null
-            },
-        startupOverlapRestartComparisonCount = startupOverlapRestartComparisonCount,
-        startupOverlapRestartImprovedCount = startupOverlapRestartImprovedCount,
-        startupExtendedSettlingCount = startupExtendedSettlingCount,
-        startupReleaseDirectCount = startupReleaseDirectCount,
-        startupReleaseAgreementCount = startupReleaseAgreementCount,
-        startupReleaseTimeoutCount = startupReleaseTimeoutCount,
-        startupSettlingRelativeRotationMaxDeg = startupSettlingRelativeRotationMaxDeg,
-        startupSettlingRejectedJumpCount = startupSettlingRejectedJumpCount,
-        startupSettlingRejectedJumpMaxDeg = startupSettlingRejectedJumpMaxDeg,
+        fusedFirstUsableCount = fusedFirstUsableCount,
+        fusedFirstUsableLatencyMaxMs = fusedFirstUsableLatencyMaxMs,
+        fusedReadyCount = fusedReadyCount,
+        fusedReadyLatencyMaxMs = fusedReadyLatencyMaxMs,
+        fusedFallbackActivationCount = fusedFallbackActivationCount,
+        continuityStartCount = continuityStartCount,
+        continuityCompleteCount = continuityCompleteCount,
+        continuityCancelCount = continuityCancelCount,
+        continuityInitialOffsetMaxDeg = continuityInitialOffsetMaxDeg,
+        continuityDurationMaxMs = continuityDurationMaxMs,
         headingLooksWrongReportCount = headingLooksWrongReportCount,
         fusedPerfEventCount = fusedPerfEventCount,
         fusedPerfCallbackCount = fusedPerfCallbackCount,
@@ -1569,8 +1563,6 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         renderPerfRenderHzMax = renderPerfRenderHzMax,
     )
 }
-
-private const val STARTUP_OVERLAP_MEANINGFUL_IMPROVEMENT_DEG = 15f
 
 private fun parseRequestMode(line: String): LocationRequestMode? {
     if ("requestUpdates applied:" !in line && "reason=gps_request_applied" !in line) return null
