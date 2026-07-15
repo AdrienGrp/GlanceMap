@@ -315,6 +315,7 @@ class RefugesRegionPresetRepository(
             val raw = node.opt(key)
             val value =
                 when (raw) {
+                    null -> null
                     is Number -> raw.toDouble()
                     is String -> raw.trim().toDoubleOrNull()
                     else -> null
