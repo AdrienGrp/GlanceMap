@@ -8,7 +8,7 @@ internal data class CompassDeepTraceProviderSample(
     val headingDeg: Float,
     val headingErrorDeg: Float?,
     val accuracy: Int,
-    val startupSettling: Boolean,
+    val startupWarmup: Boolean,
     val usable: Boolean,
     val atElapsedMs: Long,
 )
@@ -17,7 +17,8 @@ internal data class CompassDeepTraceRenderSample(
     val targetHeadingDeg: Float,
     val renderedHeadingDeg: Float,
     val mapRotationDeg: Float,
-    val startupSettling: Boolean,
+    val continuityActive: Boolean,
+    val continuityOffsetDeg: Float,
     val atElapsedMs: Long,
 )
 
@@ -42,8 +43,9 @@ internal class CompassDeepTraceWindowAccumulator(
     private val mapRotation = HeadingTraceStats()
     private val targetRenderDelta = ScalarTraceStats()
     private var unusableProviderSamples = 0
-    private var startupSettlingProviderSamples = 0
-    private var startupSettlingRenderSamples = 0
+    private var startupWarmupProviderSamples = 0
+    private var continuityActiveRenderSamples = 0
+    private val continuityOffset = ScalarTraceStats()
     private val providerAccuracyCounts = IntArray(4)
 
     val hasSamples: Boolean
@@ -67,7 +69,7 @@ internal class CompassDeepTraceWindowAccumulator(
             }
         }
         if (!sample.usable) unusableProviderSamples += 1
-        if (sample.startupSettling) startupSettlingProviderSamples += 1
+        if (sample.startupWarmup) startupWarmupProviderSamples += 1
         if (sample.accuracy in providerAccuracyCounts.indices) {
             providerAccuracyCounts[sample.accuracy] += 1
         }
@@ -95,7 +97,8 @@ internal class CompassDeepTraceWindowAccumulator(
         renderedHeading.add(sample.renderedHeadingDeg, sample.atElapsedMs)
         mapRotation.add(sample.mapRotationDeg, sample.atElapsedMs)
         targetRenderDelta.add(abs(angleDeltaDeg(sample.targetHeadingDeg, sample.renderedHeadingDeg)))
-        if (sample.startupSettling) startupSettlingRenderSamples += 1
+        if (sample.continuityActive) continuityActiveRenderSamples += 1
+        continuityOffset.add(abs(sample.continuityOffsetDeg))
     }
 
     fun toTelemetryLine(
@@ -124,7 +127,7 @@ internal class CompassDeepTraceWindowAccumulator(
             append(" sensorManagerReversals=").append(sensorManagerHeading.reversalCount)
             append(" sensorManagerErrorAvgDeg=").append(sensorManagerError.average.formatTrace(1))
             append(" unusableProviderSamples=").append(unusableProviderSamples)
-            append(" settlingProviderSamples=").append(startupSettlingProviderSamples)
+            append(" warmupProviderSamples=").append(startupWarmupProviderSamples)
             append(" accuracyUnreliable=").append(providerAccuracyCounts[0])
             append(" accuracyLow=").append(providerAccuracyCounts[1])
             append(" accuracyMedium=").append(providerAccuracyCounts[2])
@@ -148,7 +151,9 @@ internal class CompassDeepTraceWindowAccumulator(
             append(" mapReversals=").append(mapRotation.reversalCount)
             append(" targetRenderDeltaAvgDeg=").append(targetRenderDelta.average.formatTrace(1))
             append(" targetRenderDeltaMaxDeg=").append(targetRenderDelta.maximum.formatTrace(1))
-            append(" settlingRenderSamples=").append(startupSettlingRenderSamples)
+            append(" continuityRenderSamples=").append(continuityActiveRenderSamples)
+            append(" continuityOffsetAvgDeg=").append(continuityOffset.average.formatTrace(1))
+            append(" continuityOffsetMaxDeg=").append(continuityOffset.maximum.formatTrace(1))
         }
     }
 }

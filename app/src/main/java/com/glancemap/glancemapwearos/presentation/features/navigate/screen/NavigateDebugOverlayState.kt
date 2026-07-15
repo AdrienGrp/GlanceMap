@@ -52,9 +52,11 @@ internal fun reportCompassIssueNow(
         COMPASS_TELEMETRY_TAG,
         "user_report heading_looks_wrong " +
             "provider=${renderState.providerType.name} source=${renderState.headingSource.telemetryToken} " +
-            "settling=${renderState.startupSettling} screenState=${screenState.name} " +
+            "sourceReady=${
+                renderState.headingSampleElapsedRealtimeMs != null &&
+                    !renderState.headingSampleStale
+            } screenState=${screenState.name} " +
             "heading=${renderState.headingDeg.formatDebug(1)} " +
-            "startupRawHeading=${renderState.startupRawHeadingDeg.formatDebugOrNa(1)} " +
             "rendered=${renderedHeadingDeg.formatDebug(1)} " +
             "mapRotation=${renderedMapRotationDeg.formatDebug(1)} " +
             "renderDelta=${compassDebugDeltaDeg(renderState.headingDeg, renderedHeadingDeg).formatDebug(1)} " +

@@ -564,7 +564,7 @@ internal class SensorManagerOrientationProvider(
                 headingDeg = headingDeg,
                 headingErrorDeg = errorDeg.takeIf(Float::isFinite),
                 accuracy = accuracy,
-                startupSettling = false,
+                startupWarmup = false,
                 usable = accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE,
                 atElapsedMs = SystemClock.elapsedRealtime(),
             ),

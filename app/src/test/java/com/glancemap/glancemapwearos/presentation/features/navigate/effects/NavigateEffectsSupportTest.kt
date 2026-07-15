@@ -81,21 +81,6 @@ class NavigateEffectsSupportTest {
     }
 
     @Test
-    fun compassFollowMapRemainsResponsiveWhileFusedStartupSettles() {
-        val state =
-            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
-                headingSource = HeadingSource.FUSED_ORIENTATION,
-                accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-                headingSampleElapsedRealtimeMs = 1_000L,
-                headingSampleStale = false,
-                startupSettling = true,
-                startupRawHeadingDeg = 182f,
-            )
-
-        assertTrue(shouldDriveCompassFollowMap(state))
-    }
-
-    @Test
     fun compassFollowMapWaitsWhileGoogleFusedUsesBootstrapSensorHeading() {
         val state =
             initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
@@ -183,27 +168,6 @@ class NavigateEffectsSupportTest {
             shouldSeedCompassFollowMapWithCachedHeading(
                 renderState = state,
                 nowElapsedMs = 45_001L,
-            ),
-        )
-    }
-
-    @Test
-    fun compassFollowMapDoesNotCacheStartupSettlingHeading() {
-        val state =
-            initialCompassRenderState(providerType = CompassProviderType.GOOGLE_FUSED).copy(
-                headingDeg = 182f,
-                accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM,
-                headingSampleElapsedRealtimeMs = 10_000L,
-                headingSampleStale = false,
-                headingSource = HeadingSource.FUSED_ORIENTATION,
-                startupSettling = true,
-                startupRawHeadingDeg = 326f,
-            )
-
-        assertFalse(
-            shouldSeedCompassFollowMapWithCachedHeading(
-                renderState = state,
-                nowElapsedMs = 10_100L,
             ),
         )
     }
@@ -348,26 +312,35 @@ class NavigateEffectsSupportTest {
     }
 
     @Test
-    fun firstFusedHeadingUsesTimeBasedHandoffSpeed() {
+    fun everyCompassVisualPathIsLimitedAcrossThrottledFramesAndNorth() {
+        val firstAppliedAngle =
+            resolveCompassVisualTargetAngle(
+                currentAngleDeg = 0f,
+                targetAngleDeg = 90f,
+            )
+        val secondAppliedAngle =
+            resolveCompassVisualTargetAngle(
+                currentAngleDeg = firstAppliedAngle,
+                targetAngleDeg = 90f,
+            )
+
+        assertEquals(12f, firstAppliedAngle, 0f)
+        assertEquals(24f, secondAppliedAngle, 0f)
         assertEquals(
-            1.92f,
-            resolveHeadingAnimationDelta(
-                diffDeg = 140f,
-                fastTurn = true,
-                startupHandoff = true,
-                frameElapsedMs = 16L,
+            362f,
+            resolveCompassVisualTargetAngle(
+                currentAngleDeg = 350f,
+                targetAngleDeg = 10f,
             ),
-            0.001f,
+            0f,
         )
         assertEquals(
-            -6f,
-            resolveHeadingAnimationDelta(
-                diffDeg = -140f,
-                fastTurn = true,
-                startupHandoff = true,
-                frameElapsedMs = 50L,
+            8f,
+            resolveCompassVisualTargetAngle(
+                currentAngleDeg = 20f,
+                targetAngleDeg = 350f,
             ),
-            0.001f,
+            0f,
         )
     }
 
@@ -378,33 +351,6 @@ class NavigateEffectsSupportTest {
             resolveHeadingAnimationDelta(
                 diffDeg = 40f,
                 fastTurn = true,
-                startupHandoff = false,
-            ),
-            0f,
-        )
-    }
-
-    @Test
-    fun startupSettlingTracksPlausibleRelativeTurnsAcrossNorth() {
-        assertEquals(
-            4f,
-            resolveCompassSettlingRelativeDelta(
-                previousRawHeadingDeg = 358f,
-                nextRawHeadingDeg = 2f,
-                elapsedMs = 50L,
-            ),
-            0f,
-        )
-    }
-
-    @Test
-    fun startupSettlingRejectsAbsoluteReseedJump() {
-        assertEquals(
-            0f,
-            resolveCompassSettlingRelativeDelta(
-                previousRawHeadingDeg = 69f,
-                nextRawHeadingDeg = 326f,
-                elapsedMs = 20L,
             ),
             0f,
         )

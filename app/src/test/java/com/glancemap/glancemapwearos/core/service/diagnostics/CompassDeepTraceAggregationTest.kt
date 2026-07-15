@@ -56,14 +56,14 @@ class CompassDeepTraceAggregationTest {
                 sessionCount = 1,
                 windowCount = 2,
                 droppedLines = 0,
-                lastStopReason = "automatic_timeout",
+                lastStopReason = "manual",
                 lines = listOf("window index=1 providerSamples=20"),
             ),
         )
 
         assertTrue(output.contains("Compass Deep Trace"))
         assertTrue(output.contains("aggregateWindowCount=2"))
-        assertTrue(output.contains("lastStopReason=automatic_timeout"))
+        assertTrue(output.contains("lastStopReason=manual"))
         assertEquals(1, output.lines().count { it.startsWith("window index=") })
     }
 
@@ -93,7 +93,7 @@ class CompassDeepTraceAggregationTest {
         headingDeg = headingDeg,
         headingErrorDeg = 8f,
         accuracy = 3,
-        startupSettling = false,
+        startupWarmup = false,
         usable = true,
         atElapsedMs = atElapsedMs,
     )
@@ -107,7 +107,8 @@ class CompassDeepTraceAggregationTest {
         targetHeadingDeg = target,
         renderedHeadingDeg = rendered,
         mapRotationDeg = mapRotation,
-        startupSettling = false,
+        continuityActive = false,
+        continuityOffsetDeg = 0f,
         atElapsedMs = atElapsedMs,
     )
 }

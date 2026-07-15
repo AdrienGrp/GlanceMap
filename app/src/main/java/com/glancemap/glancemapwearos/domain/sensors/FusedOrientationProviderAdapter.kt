@@ -49,8 +49,6 @@ internal class FusedOrientationProviderAdapter(
     private val _conservativeHeadingErrorDeg = MutableStateFlow<Float?>(null)
     private val _headingSampleElapsedRealtimeMs = MutableStateFlow<Long?>(null)
     private val _headingSampleStale = MutableStateFlow(false)
-    private val _startupSettling = MutableStateFlow(false)
-    private val _startupRawHeadingDeg = MutableStateFlow<Float?>(null)
     private val _headingSource = MutableStateFlow(HeadingSource.NONE)
     private val _headingSourceStatus =
         MutableStateFlow(
@@ -74,7 +72,6 @@ internal class FusedOrientationProviderAdapter(
         )
     private val _magneticInterference = MutableStateFlow(false)
     private val _useFallbackProvider = MutableStateFlow(false)
-    private val _useBootstrapFallbackProvider = MutableStateFlow(false)
     private val ownRenderState =
         MutableStateFlow(initialCompassRenderState(providerType = providerType))
 
@@ -83,23 +80,8 @@ internal class FusedOrientationProviderAdapter(
             ownRenderState,
             fallbackProvider.renderState,
             _useFallbackProvider,
-            _useBootstrapFallbackProvider,
-        ) { ownState, fallbackState, useFallback, useBootstrapFallback ->
-            val nowElapsedMs = SystemClock.elapsedRealtime()
-            when {
-                useFallback -> fallbackState
-                useBootstrapFallback &&
-                    shouldUseFusedBootstrapHeading(
-                        fusedRenderState = ownState,
-                        bootstrapRenderState = fallbackState,
-                        nowElapsedMs = nowElapsedMs,
-                    ) ->
-                    bootstrapFusedRenderState(
-                        fusedRenderState = ownState,
-                        bootstrapRenderState = fallbackState,
-                    )
-                else -> ownState
-            }
+        ) { ownState, fallbackState, useFallback ->
+            if (useFallback) fallbackState else ownState
         }.stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(0),
@@ -118,7 +100,7 @@ internal class FusedOrientationProviderAdapter(
 
     @Volatile private var lowPowerMode = false
 
-    @Volatile private var startAtMs = 0L
+    @Volatile private var fusedWarmupActive = false
 
     @Volatile private var headingRelockUntilElapsedMs = 0L
 
@@ -140,19 +122,15 @@ internal class FusedOrientationProviderAdapter(
 
     @Volatile private var lastOrientationRequestReason: String = "idle"
 
-    @Volatile private var firstSampleTimeoutMs = FUSED_FIRST_SAMPLE_TIMEOUT_MS
+    @Volatile private var fusedReadyTimeoutMs = FUSED_READY_TIMEOUT_MS
 
-    @Volatile private var awaitingFirstOrientationSample = false
+    @Volatile private var awaitingFusedReady = false
 
     @Volatile private var firstOrientationSampleLogged = false
 
-    @Volatile private var awaitingRestartHeadingConfirmation = false
+    @Volatile private var firstUsableOrientationSampleAtElapsedMs = 0L
 
-    @Volatile private var pendingRestartHeading: Float? = null
-
-    @Volatile private var pendingRestartHeadingAtElapsedMs: Long = 0L
-
-    @Volatile private var pendingRestartHeadingSampleCount = 0
+    @Volatile private var fusedWarmupUsableSampleCount = 0
 
     @Volatile private var lastFusedSampleLogAtElapsedMs = 0L
 
@@ -165,22 +143,6 @@ internal class FusedOrientationProviderAdapter(
     @Volatile private var fusedPerfUnusableCount = 0
 
     @Volatile private var fusedPerfHeadingPublishCount = 0
-
-    @Volatile private var startupOverlapSampleCount = 0
-
-    @Volatile private var startupOverlapDeltaTotalDeg = 0f
-
-    @Volatile private var startupOverlapMaxDeltaDeg = 0f
-
-    @Volatile private var startupOverlapFirstDeltaDeg: Float? = null
-
-    @Volatile private var startupOverlapLastDeltaDeg: Float? = null
-
-    @Volatile private var startupRestartReseedCount = 0
-
-    @Volatile private var startupRestartMaxReseedDeltaDeg = 0f
-
-    @Volatile private var extendedStartupSettlingStartedAtElapsedMs = 0L
 
     @Volatile private var consecutiveUnusableFusedSamples = 0
 
@@ -202,17 +164,11 @@ internal class FusedOrientationProviderAdapter(
 
     @Volatile private var lastConfirmedFusedSampleElapsedRealtimeMs = 0L
 
-    @Volatile private var warmRestartContinuityActive = false
-
     @Volatile private var fusedStaleRecoveryAttempted = false
 
     @Volatile private var fusedStaleRecoveryStartedAtElapsedMs = 0L
 
     @Volatile private var fusedFreshnessCheckScheduled = false
-
-    @Volatile private var pendingBootstrapCompletion: FusedBootstrapCompletion? = null
-
-    @Volatile private var pendingBootstrapPublishedSampleAtElapsedMs = 0L
 
     @Volatile private var callbackThread: HandlerThread? = null
 
@@ -255,59 +211,28 @@ internal class FusedOrientationProviderAdapter(
             }
         }
 
-    private val fusedFirstSampleTimeoutRunnable: Runnable =
+    private val fusedReadyTimeoutRunnable: Runnable =
         Runnable {
-            if (!started || _useFallbackProvider.value || !awaitingFirstOrientationSample) {
+            if (!started || _useFallbackProvider.value || !awaitingFusedReady) {
                 return@Runnable
             }
             val requestAgeMs =
                 (SystemClock.elapsedRealtime() - lastOrientationRequestAtElapsedMs)
                     .coerceAtLeast(0L)
-            val timeoutMs = firstSampleTimeoutMs
+            val timeoutMs = fusedReadyTimeoutMs
             if (requestAgeMs < timeoutMs) {
                 callbackHandler?.postDelayed(
-                    fusedFirstSampleTimeoutRunnable,
+                    fusedReadyTimeoutRunnable,
                     timeoutMs - requestAgeMs,
                 )
                 return@Runnable
             }
             logDiagnostics(
-                "google_fused first_confirmed_sample_timeout reason=$lastOrientationRequestReason " +
-                    "ageMs=$requestAgeMs timeoutMs=$timeoutMs",
+                "google_fused ready_timeout reason=$lastOrientationRequestReason " +
+                    "ageMs=$requestAgeMs timeoutMs=$timeoutMs " +
+                    "usableSamples=$fusedWarmupUsableSampleCount",
             )
-            startFallbackProvider(reason = "first_sample_timeout")
-        }
-
-    private val fusedBootstrapReleaseRunnable: Runnable =
-        Runnable {
-            val completion = pendingBootstrapCompletion ?: return@Runnable
-            val publishedSampleAtElapsedMs = pendingBootstrapPublishedSampleAtElapsedMs
-            val visibleState = renderState.value
-            val visibleFusedSampleIsReady =
-                visibleState.headingSource == HeadingSource.FUSED_ORIENTATION &&
-                    !visibleState.headingSampleStale &&
-                    (visibleState.headingSampleElapsedRealtimeMs ?: 0L) >=
-                    publishedSampleAtElapsedMs
-            val waitAgeMs =
-                (SystemClock.elapsedRealtime() - publishedSampleAtElapsedMs).coerceAtLeast(0L)
-            val handler = callbackHandler
-            if (
-                !visibleFusedSampleIsReady &&
-                waitAgeMs < FUSED_BOOTSTRAP_RELEASE_MAX_WAIT_MS &&
-                handler != null
-            ) {
-                handler.postDelayed(
-                    fusedBootstrapReleaseRunnable,
-                    FUSED_BOOTSTRAP_RELEASE_POLL_MS,
-                )
-                return@Runnable
-            }
-            pendingBootstrapCompletion = null
-            pendingBootstrapPublishedSampleAtElapsedMs = 0L
-            when (completion) {
-                FusedBootstrapCompletion.STOP ->
-                    stopBootstrapFallbackProvider(reason = "fused_confirmed")
-            }
+            startFallbackProvider(reason = "ready_timeout")
         }
     private val callbackExecutor: Executor =
         Executor { runnable ->
@@ -339,15 +264,11 @@ internal class FusedOrientationProviderAdapter(
 
         lowPowerMode = lowPower
         started = true
-        startAtMs = SystemClock.elapsedRealtime()
-        extendedStartupSettlingStartedAtElapsedMs = 0L
+        val startElapsedMs = SystemClock.elapsedRealtime()
         fusedStaleRecoveryAttempted = false
         fusedStaleRecoveryStartedAtElapsedMs = 0L
         fusedFreshnessCheckScheduled = false
-        pendingBootstrapCompletion = null
-        pendingBootstrapPublishedSampleAtElapsedMs = 0L
-        _startupSettling.value = false
-        _startupRawHeadingDeg.value = null
+        fusedWarmupActive = false
         declinationController.maybeInitializeFromCache()
         declinationController.maybeInitializeFromLastKnownLocation()
         publishNorthReferenceStatus()
@@ -361,10 +282,10 @@ internal class FusedOrientationProviderAdapter(
         }
 
         _useFallbackProvider.value = false
-        _useBootstrapFallbackProvider.value = false
-        if (recentUsableFusedHeadingAgeMs(startAtMs) == null) {
+        if (recentUsableFusedHeadingAgeMs(startElapsedMs) == null) {
             updateHeadingSourceState(HeadingSource.NONE)
         }
+        logDiagnostics("google_fused state transition=starting_fused from=idle reason=start")
         requestOrientationUpdates(forceRestart = true, reason = "start")
     }
 
@@ -372,17 +293,13 @@ internal class FusedOrientationProviderAdapter(
         val preserveRecentFusedHeading =
             recentUsableFusedHeadingAgeMs(SystemClock.elapsedRealtime()) != null
         started = false
-        logStartupOverlapSummary(reason = "stop", confirmed = false)
         stopOrientationUpdates()
         callbackThread?.quitSafely()
         callbackThread = null
         callbackHandler = null
-        stopBootstrapFallbackProvider(reason = "stop")
         stopFallbackProvider()
         _useFallbackProvider.value = false
-        _useBootstrapFallbackProvider.value = false
-        _startupSettling.value = false
-        _startupRawHeadingDeg.value = null
+        fusedWarmupActive = false
         markHeadingPendingRestart(preserveRecentFusedHeading = preserveRecentFusedHeading)
         _magneticInterference.value = false
         headingRelockUntilElapsedMs = 0L
@@ -391,24 +308,18 @@ internal class FusedOrientationProviderAdapter(
         fusedPendingJumpConsistentSampleCount = 0
         lastFusedHeadingPublishAtElapsedMs = 0L
         lastConfirmedFusedSampleElapsedRealtimeMs = 0L
-        warmRestartContinuityActive = false
         fusedStaleRecoveryAttempted = false
         fusedStaleRecoveryStartedAtElapsedMs = 0L
         fusedFreshnessCheckScheduled = false
-        pendingBootstrapCompletion = null
-        pendingBootstrapPublishedSampleAtElapsedMs = 0L
         recalibrationBoostUntilElapsedMs = 0L
         recalibrationBoostGeneration += 1L
         lastOrientationRequestAtElapsedMs = 0L
         lastOrientationRequestReason = "idle"
-        firstSampleTimeoutMs = FUSED_FIRST_SAMPLE_TIMEOUT_MS
-        resetStartupRestartMetrics()
-        extendedStartupSettlingStartedAtElapsedMs = 0L
-        awaitingFirstOrientationSample = false
+        fusedReadyTimeoutMs = FUSED_READY_TIMEOUT_MS
+        awaitingFusedReady = false
         firstOrientationSampleLogged = false
-        clearRestartHeadingConfirmationState()
+        resetFusedWarmupState()
         lastFusedSampleLogAtElapsedMs = 0L
-        resetStartupOverlapMetrics()
         resetUnusableFusedSampleState()
         resetFusedPerfCounters()
         publishNorthReferenceStatus()
@@ -416,7 +327,18 @@ internal class FusedOrientationProviderAdapter(
 
     override fun recalibrate() {
         if (_useFallbackProvider.value) {
-            fallbackProvider.recalibrate()
+            if (started && googleOrientationAvailable) {
+                fallbackProvider.stop()
+                _useFallbackProvider.value = false
+                logDiagnostics(
+                    "google_fused state transition=starting_fused from=active_fallback " +
+                        "reason=recalibrate",
+                )
+                activateTemporaryHighPowerBoost()
+                requestOrientationUpdates(forceRestart = true, reason = "recalibrate")
+            } else {
+                fallbackProvider.recalibrate()
+            }
             return
         }
         fusedPendingJumpHeading = null
@@ -496,10 +418,8 @@ internal class FusedOrientationProviderAdapter(
 
         stopOrientationUpdates()
         ensureCallbackHandler()
-        refreshBootstrapFallbackProvider(reason = reason)
         val nowElapsedMs = SystemClock.elapsedRealtime()
         val cachedHeadingAgeMs = recentUsableFusedHeadingAgeMs(nowElapsedMs)
-        warmRestartContinuityActive = cachedHeadingAgeMs != null
 
         prepareOrientationRequestState(
             reason = reason,
@@ -512,7 +432,7 @@ internal class FusedOrientationProviderAdapter(
             "google_fused request reason=$reason forceRestart=$forceRestart " +
                 "samplingMicros=$samplingPeriodMicros lowPower=$lowPowerMode " +
                 "boostActive=$usingBoost cachedHeadingAgeMs=${cachedHeadingAgeMs ?: "na"} " +
-                "continuityHeld=$warmRestartContinuityActive",
+                "state=starting_fused",
         )
         registerOrientationRequest(
             samplingPeriodMicros = samplingPeriodMicros,
@@ -590,9 +510,8 @@ internal class FusedOrientationProviderAdapter(
         if (!isCurrentOrientationRequest(requestGeneration, requestListener)) return
         activeOrientationListener = null
         orientationUpdatesRegistered = false
-        awaitingFirstOrientationSample = false
-        callbackHandler?.removeCallbacks(fusedFirstSampleTimeoutRunnable)
-        clearRestartHeadingConfirmationState()
+        callbackHandler?.removeCallbacks(fusedReadyTimeoutRunnable)
+        resetFusedWarmupState()
         logDiagnostics(
             "google_fused start failed ${error.javaClass.simpleName}: ${error.message ?: "unknown"}",
         )
@@ -610,42 +529,34 @@ internal class FusedOrientationProviderAdapter(
         reason: String,
         preserveRecentFusedHeading: Boolean,
     ) {
-        resetStartupRestartMetrics()
-        extendedStartupSettlingStartedAtElapsedMs = 0L
         headingRelockUntilElapsedMs = SystemClock.elapsedRealtime() + HEADING_RELOCK_WINDOW_MS
         fusedPendingJumpHeading = null
         fusedPendingJumpAtMs = 0L
         fusedPendingJumpConsistentSampleCount = 0
         lastFusedHeadingPublishAtElapsedMs = 0L
-        pendingBootstrapCompletion = null
-        pendingBootstrapPublishedSampleAtElapsedMs = 0L
         markHeadingPendingRestart(
             preserveRecentFusedHeading = preserveRecentFusedHeading,
         )
         lastOrientationRequestAtElapsedMs = SystemClock.elapsedRealtime()
         lastOrientationRequestReason = reason
-        firstSampleTimeoutMs =
-            resolveFusedFirstConfirmedSampleTimeoutMs(
+        fusedReadyTimeoutMs =
+            resolveFusedReadyTimeoutMs(
                 requestReason = reason,
                 lowPowerMode = lowPowerMode,
                 recalibrationBoostActive = isRecalibrationBoostActive(),
             )
-        awaitingFirstOrientationSample = true
+        awaitingFusedReady = true
         firstOrientationSampleLogged = false
-        awaitingRestartHeadingConfirmation = true
-        pendingRestartHeading = null
-        pendingRestartHeadingAtElapsedMs = 0L
-        pendingRestartHeadingSampleCount = 0
+        resetFusedWarmupState()
         lastFusedSampleLogAtElapsedMs = 0L
-        _startupSettling.value = !preserveRecentFusedHeading
-        _startupRawHeadingDeg.value = null
-        resetStartupOverlapMetrics()
+        fusedWarmupActive = true
         resetUnusableFusedSampleState()
-        callbackHandler?.removeCallbacks(fusedFirstSampleTimeoutRunnable)
+        callbackHandler?.removeCallbacks(fusedReadyTimeoutRunnable)
         callbackHandler?.postDelayed(
-            fusedFirstSampleTimeoutRunnable,
-            firstSampleTimeoutMs,
+            fusedReadyTimeoutRunnable,
+            fusedReadyTimeoutMs,
         )
+        publishOwnRenderState()
     }
 
     private fun handleDeviceOrientation(orientation: DeviceOrientation) {
@@ -663,6 +574,11 @@ internal class FusedOrientationProviderAdapter(
         val headingErrorDeg = resolveHeadingErrorDegrees(orientation)
         val displayHeading = fusedHeadingWithNorthReference(orientation.headingDegrees)
         val mappedAccuracy = headingAccuracyFromUncertainty(headingErrorDeg)
+        val usableHeading =
+            isUsableGoogleFusedOrientationSample(
+                headingDeg = displayHeading,
+                headingErrorDeg = headingErrorDeg,
+            )
         if (CompassDeepTraceDiagnostics.state.value.active) {
             CompassDeepTraceDiagnostics.recordProviderSample(
                 CompassDeepTraceProviderSample(
@@ -670,8 +586,8 @@ internal class FusedOrientationProviderAdapter(
                     headingDeg = displayHeading,
                     headingErrorDeg = headingErrorDeg.takeIf(Float::isFinite),
                     accuracy = mappedAccuracy,
-                    startupSettling = _startupSettling.value,
-                    usable = isUsableGoogleFusedHeadingError(headingErrorDeg),
+                    startupWarmup = fusedWarmupActive,
+                    usable = usableHeading,
                     atElapsedMs = now,
                 ),
             )
@@ -696,11 +612,13 @@ internal class FusedOrientationProviderAdapter(
             conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
             mappedAccuracy = mappedAccuracy,
         )
-        recordStartupOverlap(displayHeadingDeg = displayHeading)
 
         if (!isActiveOrientationRequest(requestGeneration)) return
 
-        if (!isUsableGoogleFusedHeadingError(headingErrorDeg)) {
+        if (!usableHeading) {
+            if (awaitingFusedReady) {
+                resetFusedWarmupState()
+            }
             publishUnusableFusedSampleState(
                 headingErrorDeg = headingErrorDeg,
                 conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
@@ -730,171 +648,36 @@ internal class FusedOrientationProviderAdapter(
         resetUnusableFusedSampleState()
         recordConfirmedFusedSample(nowElapsedMs = now)
 
-        if (awaitingRestartHeadingConfirmation && _startupSettling.value) {
-            publishFusedStartupSettlingSample(
-                displayHeading = displayHeading,
-                nowElapsedMs = now,
-                mappedAccuracy = mappedAccuracy,
-                headingErrorDeg = headingErrorDeg,
-                conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
-            )
-        }
-
-        if (awaitingRestartHeadingConfirmation) {
-            val timeoutMs = restartHeadingConfirmationTimeoutMs()
-            val decision =
-                resolveFusedRestartHeadingDecision(
-                    pendingHeadingDeg = pendingRestartHeading,
-                    displayHeadingDeg = displayHeading,
-                    pendingAtElapsedMs = pendingRestartHeadingAtElapsedMs,
+        if (awaitingFusedReady) {
+            val warmup =
+                updateFusedWarmup(
+                    firstUsableSampleAtElapsedMs = firstUsableOrientationSampleAtElapsedMs,
+                    usableSampleCount = fusedWarmupUsableSampleCount,
                     nowElapsedMs = now,
-                    pendingSampleCount = pendingRestartHeadingSampleCount,
-                    timeoutMs = timeoutMs,
-                    headingErrorDeg = headingErrorDeg,
-                    conservativeHeadingErrorDeg = conservativeHeadingErrorDeg,
                 )
-            when (decision.action) {
-                FusedRestartHeadingAction.IGNORE_FIRST -> {
-                    pendingRestartHeading = decision.nextPendingHeadingDeg
-                    pendingRestartHeadingAtElapsedMs = decision.nextPendingAtElapsedMs
-                    pendingRestartHeadingSampleCount = decision.nextPendingSampleCount
-                    logDiagnostics(
-                        "google_fused startup_heading_first_ignored reason=$lastOrientationRequestReason " +
-                            "heading=${displayHeading.format(1)}",
-                    )
-                    return
-                }
-
-                FusedRestartHeadingAction.AWAIT_PENDING -> {
-                    val previousPendingHeading = pendingRestartHeading
-                    val previousPendingSampleCount = pendingRestartHeadingSampleCount
-                    val reseededPendingHeading =
-                        previousPendingHeading != null &&
-                            decision.nextPendingSampleCount == 1 &&
-                            decision.nextPendingHeadingDeg != previousPendingHeading
-                    if (reseededPendingHeading) {
-                        startupRestartReseedCount += 1
-                        startupRestartMaxReseedDeltaDeg =
-                            maxOf(startupRestartMaxReseedDeltaDeg, decision.deltaDeg)
-                    }
-                    pendingRestartHeading = decision.nextPendingHeadingDeg
-                    pendingRestartHeadingAtElapsedMs = decision.nextPendingAtElapsedMs
-                    pendingRestartHeadingSampleCount = decision.nextPendingSampleCount
-                    when {
-                        reseededPendingHeading ->
-                            logDiagnostics(
-                                "google_fused startup_heading_reseed reason=$lastOrientationRequestReason " +
-                                    "candidateHeading=${previousPendingHeading.formatOrNA(1)} " +
-                                    "replacementHeading=${displayHeading.format(1)} heading=${displayHeading.format(1)} " +
-                                    "delta=${decision.deltaDeg.format(1)} " +
-                                    "stableSamples=$previousPendingSampleCount " +
-                                    "stableAgeMs=${decision.pendingAgeMs} delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs " +
-                                    "errorDeg=${headingErrorDeg.formatOrNA(1)} " +
-                                    "conservativeErrorDeg=${conservativeHeadingErrorDeg.formatOrNA(1)}",
-                            )
-                        decision.nextPendingSampleCount == 2 ->
-                            logDiagnostics(
-                                "google_fused startup_heading_pending reason=$lastOrientationRequestReason " +
-                                    "heading=${displayHeading.format(1)} " +
-                                    "delta=${decision.deltaDeg.format(1)} " +
-                                    "stableSamples=${decision.sampleCount} " +
-                                    "stableAgeMs=${decision.pendingAgeMs} delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs " +
-                                    "errorDeg=${headingErrorDeg.formatOrNA(1)} " +
-                                    "conservativeErrorDeg=${conservativeHeadingErrorDeg.formatOrNA(1)}",
-                            )
-                    }
-                    return
-                }
-
-                FusedRestartHeadingAction.CONFIRM -> {
-                    val pendingHeading = pendingRestartHeading
-                    val unstableStartup =
-                        isUnstableFusedStartup(
-                            decision = decision,
-                            overlapMaxDeltaDeg = startupOverlapMaxDeltaDeg,
-                            overlapFinalDeltaDeg = startupOverlapLastDeltaDeg ?: Float.NaN,
-                            reseedCount = startupRestartReseedCount,
-                            maxReseedDeltaDeg = startupRestartMaxReseedDeltaDeg,
-                        )
-                    val extendedSettlingAgeMs =
-                        extendedStartupSettlingStartedAtElapsedMs
-                            .takeIf { it > 0L }
-                            ?.let { (now - it).coerceAtLeast(0L) }
-                            ?: 0L
-                    val releaseAction =
-                        resolveFusedStartupReleaseAction(
-                            unstableStartup = unstableStartup,
-                            extendedSettlingActive = extendedStartupSettlingStartedAtElapsedMs > 0L,
-                            extendedSettlingAgeMs = extendedSettlingAgeMs,
-                            stableCandidateAgeMs = decision.pendingAgeMs,
-                            bootstrapDeltaDeg = startupOverlapLastDeltaDeg ?: Float.NaN,
-                        )
-                    when (releaseAction) {
-                        FusedStartupReleaseAction.EXTEND_SETTLING -> {
-                            extendedStartupSettlingStartedAtElapsedMs = now
-                            pendingRestartHeading = displayHeading
-                            pendingRestartHeadingAtElapsedMs = now
-                            pendingRestartHeadingSampleCount = 1
-                            logDiagnostics(
-                                "google_fused startup_settling_extended reason=$lastOrientationRequestReason " +
-                                    "candidateHeading=${displayHeading.format(1)} " +
-                                    "ignoredHeading=${pendingHeading.formatOrNA(1)} " +
-                                    "stableAgeMs=${decision.pendingAgeMs} stableSamples=${decision.sampleCount} " +
-                                    "reseedCount=$startupRestartReseedCount " +
-                                    "maxReseedDeltaDeg=${startupRestartMaxReseedDeltaDeg.format(1)} " +
-                                    "bootstrapDeltaDeg=${startupOverlapLastDeltaDeg.formatOrNA(1)} " +
-                                    "overlapMaxDeltaDeg=${startupOverlapMaxDeltaDeg.format(1)}",
-                            )
-                            return
-                        }
-                        FusedStartupReleaseAction.WAIT -> {
-                            pendingRestartHeadingSampleCount = decision.sampleCount
-                            return
-                        }
-                        FusedStartupReleaseAction.RELEASE_DIRECT,
-                        FusedStartupReleaseAction.RELEASE_AGREEMENT,
-                        FusedStartupReleaseAction.RELEASE_TIMEOUT,
-                        -> Unit
-                    }
-                    val releaseBootstrapHeading = fallbackProvider.renderState.value.headingDeg
-                    val releaseBootstrapDeltaDeg = startupOverlapLastDeltaDeg
-                    val releaseReseedCount = startupRestartReseedCount
-                    clearRestartHeadingConfirmationState()
-                    _startupSettling.value = false
-                    extendedStartupSettlingStartedAtElapsedMs = 0L
-                    logStartupOverlapSummary(reason = lastOrientationRequestReason, confirmed = true)
-                    pendingBootstrapCompletion = FusedBootstrapCompletion.STOP
-                    lastFusedHeadingPublishAtElapsedMs = 0L
-                    logDiagnostics(
-                        "google_fused startup_release reason=${releaseAction.telemetryToken} " +
-                            "heading=${displayHeading.format(1)} " +
-                            "bootstrapHeading=${releaseBootstrapHeading.format(1)} " +
-                            "bootstrapDeltaDeg=${releaseBootstrapDeltaDeg.formatOrNA(1)} " +
-                            "stableAgeMs=${decision.pendingAgeMs} extendedAgeMs=$extendedSettlingAgeMs " +
-                            "reseedCount=$releaseReseedCount",
-                    )
-                    logDiagnostics(
-                        "google_fused startup_heading_confirmed reason=$lastOrientationRequestReason " +
-                            "confirmReason=${decision.confirmReason} " +
-                            "ignoredHeading=${pendingHeading.formatOrNA(1)} " +
-                            "confirmedHeading=${displayHeading.format(1)} " +
-                            "delta=${decision.deltaDeg.format(1)} " +
-                            "stableAgeMs=${decision.pendingAgeMs} delayMs=${decision.pendingAgeMs} timeoutMs=$timeoutMs " +
-                            "stableSamples=${decision.sampleCount} samples=${decision.sampleCount} " +
-                            "errorDeg=${headingErrorDeg.formatOrNA(1)} " +
-                            "conservativeErrorDeg=${conservativeHeadingErrorDeg.formatOrNA(1)}",
-                    )
-                }
+            firstUsableOrientationSampleAtElapsedMs = warmup.firstUsableSampleAtElapsedMs
+            fusedWarmupUsableSampleCount = warmup.usableSampleCount
+            if (warmup.usableSampleCount == 1) {
+                logDiagnostics(
+                    "google_fused first_usable reason=$lastOrientationRequestReason " +
+                        "latencyMs=${(now - lastOrientationRequestAtElapsedMs).coerceAtLeast(0L)} " +
+                        "heading=${displayHeading.format(1)} errorDeg=${headingErrorDeg.formatOrNA(1)}",
+                )
             }
-        }
+            if (!warmup.ready) return
 
-        if (!isActiveOrientationRequest(requestGeneration)) return
-
-        // Google's fusion needs a brief warmup. The first confirmed sample is always
-        // published; later samples are coalesced so over-delivering devices cannot drive
-        // Compose and Mapsforge at their callback rate.
-        if ((now - startAtMs) < FUSED_ORIENTATION_SETTLE_WINDOW_MS) {
-            publishFusedHeadingIfDue(
+            awaitingFusedReady = false
+            callbackHandler?.removeCallbacks(fusedReadyTimeoutRunnable)
+            fusedWarmupActive = false
+            val readyLatencyMs =
+                (now - lastOrientationRequestAtElapsedMs).coerceAtLeast(0L)
+            logDiagnostics(
+                "google_fused state transition=active_fused from=starting_fused " +
+                    "reason=warmup_complete latencyMs=$readyLatencyMs " +
+                    "warmupMs=${warmup.warmupAgeMs} usableSamples=${warmup.usableSampleCount} " +
+                    "heading=${displayHeading.format(1)} errorDeg=${headingErrorDeg.formatOrNA(1)}",
+            )
+            forcePublishFusedHeading(
                 displayHeading = displayHeading,
                 nowElapsedMs = now,
                 mappedAccuracy = mappedAccuracy,
@@ -1022,70 +805,14 @@ internal class FusedOrientationProviderAdapter(
         ) {
             return
         }
-        val wasWarmRestartContinuityActive = warmRestartContinuityActive
-        val headingToPublish =
-            if (wasWarmRestartContinuityActive) {
-                boundedFusedHandoffHeading(
-                    currentHeadingDeg = _heading.value,
-                    targetHeadingDeg = displayHeading,
-                    maxStepDeg = FUSED_WARM_RESTART_MAX_HANDOFF_STEP_DEG,
-                )
-            } else {
-                displayHeading
-            }
-        if (wasWarmRestartContinuityActive) {
-            val remainingDeltaDeg =
-                abs(
-                    shortestAngleDiffDeg(
-                        target = displayHeading,
-                        current = headingToPublish,
-                    ),
-                )
-            warmRestartContinuityActive = remainingDeltaDeg >= 0.001f
-            if (!warmRestartContinuityActive) {
-                logDiagnostics("google_fused warm_handoff_complete heading=${headingToPublish.format(1)}")
-            }
-        }
-        _heading.value = headingToPublish
+        _heading.value = displayHeading
         _accuracy.value = mappedAccuracy
         _headingErrorDeg.value = headingErrorDeg.takeIf { it.isFinite() && it >= 0f }
         _conservativeHeadingErrorDeg.value =
             conservativeHeadingErrorDeg.takeIf { it.isFinite() && it >= 0f }
         _headingSampleElapsedRealtimeMs.value = nowElapsedMs
         _headingSampleStale.value = false
-        _startupSettling.value = false
-        _startupRawHeadingDeg.value = null
-        updateHeadingSourceState(HeadingSource.FUSED_ORIENTATION)
-        lastFusedHeadingPublishAtElapsedMs = nowElapsedMs
-        recordFusedPerfHeadingPublish(nowElapsedMs)
-        completePendingBootstrapAfterFusedPublish(sampleAtElapsedMs = nowElapsedMs)
-    }
-
-    private fun publishFusedStartupSettlingSample(
-        displayHeading: Float,
-        nowElapsedMs: Long,
-        mappedAccuracy: Int,
-        headingErrorDeg: Float,
-        conservativeHeadingErrorDeg: Float,
-    ) {
-        if (
-            !shouldPublishFusedHeading(
-                nowElapsedMs = nowElapsedMs,
-                lastPublishAtElapsedMs = lastFusedHeadingPublishAtElapsedMs,
-                lowPowerMode = lowPowerMode,
-                force = false,
-            )
-        ) {
-            return
-        }
-        _accuracy.value = mappedAccuracy
-        _headingErrorDeg.value = headingErrorDeg.takeIf { it.isFinite() && it >= 0f }
-        _conservativeHeadingErrorDeg.value =
-            conservativeHeadingErrorDeg.takeIf { it.isFinite() && it >= 0f }
-        _headingSampleElapsedRealtimeMs.value = nowElapsedMs
-        _headingSampleStale.value = false
-        _startupSettling.value = true
-        _startupRawHeadingDeg.value = displayHeading
+        fusedWarmupActive = false
         updateHeadingSourceState(HeadingSource.FUSED_ORIENTATION)
         lastFusedHeadingPublishAtElapsedMs = nowElapsedMs
         recordFusedPerfHeadingPublish(nowElapsedMs)
@@ -1190,19 +917,17 @@ internal class FusedOrientationProviderAdapter(
                 headingSourceStatus = _headingSourceStatus.value,
                 northReferenceStatus = _northReferenceStatus.value,
                 magneticInterference = _magneticInterference.value,
-                startupSettling = _startupSettling.value,
-                startupRawHeadingDeg = _startupRawHeadingDeg.value,
             )
     }
 
     private fun startFallbackProvider(reason: String) {
-        pendingBootstrapCompletion = null
-        pendingBootstrapPublishedSampleAtElapsedMs = 0L
-        callbackHandler?.removeCallbacks(fusedBootstrapReleaseRunnable)
-        warmRestartContinuityActive = false
-        _startupSettling.value = false
-        _startupRawHeadingDeg.value = null
-        _useBootstrapFallbackProvider.value = false
+        val previousState =
+            if (awaitingFusedReady || lastOrientationRequestAtElapsedMs <= 0L) {
+                "starting_fused"
+            } else {
+                "active_fused"
+            }
+        fusedWarmupActive = false
         if (_useFallbackProvider.value) {
             logDiagnostics("google_fused fallback refresh reason=$reason")
             fallbackProvider.setLowPowerMode(lowPowerMode)
@@ -1220,9 +945,12 @@ internal class FusedOrientationProviderAdapter(
             return
         }
         stopOrientationUpdates()
-        awaitingFirstOrientationSample = false
+        awaitingFusedReady = false
         _useFallbackProvider.value = true
-        logDiagnostics("google_fused fallback activate reason=$reason")
+        logDiagnostics(
+            "google_fused state transition=active_fallback from=$previousState " +
+                "reason=$reason",
+        )
         fallbackProvider.setLowPowerMode(lowPowerMode)
         fallbackProvider.setNorthReferenceMode(
             mode = northReferenceMode,
@@ -1242,74 +970,31 @@ internal class FusedOrientationProviderAdapter(
         fallbackProvider.stop()
     }
 
-    private fun refreshBootstrapFallbackProvider(reason: String) {
-        if (!started || _useFallbackProvider.value) return
-        val wasActive = _useBootstrapFallbackProvider.value
-        _useBootstrapFallbackProvider.value = true
-        fallbackProvider.setLowPowerMode(lowPowerMode)
-        fallbackProvider.setNorthReferenceMode(
-            mode = northReferenceMode,
-            forceRefresh = true,
-        )
-        fallbackProvider.setHeadingSourceMode(
-            mode = CompassHeadingSourceMode.AUTO,
-            forceRefresh = true,
-        )
-        fallbackProvider.start(lowPower = lowPowerMode)
-        logDiagnostics(
-            "google_fused bootstrap ${if (wasActive) "refresh" else "activate"} reason=$reason",
-        )
-    }
-
-    private fun stopBootstrapFallbackProvider(reason: String) {
-        if (!_useBootstrapFallbackProvider.value || _useFallbackProvider.value) return
-        _useBootstrapFallbackProvider.value = false
-        fallbackProvider.stop()
-        logDiagnostics("google_fused bootstrap stop reason=$reason")
-    }
-
     private fun stopOrientationUpdates() {
         orientationRequestGeneration += 1L
         dispatchedOrientationRequestGeneration = 0L
         val listenerToRemove = activeOrientationListener
         activeOrientationListener = null
-        awaitingFirstOrientationSample = false
-        clearRestartHeadingConfirmationState()
+        awaitingFusedReady = false
+        resetFusedWarmupState()
         callbackHandler?.removeCallbacks(fusedSampleFreshnessRunnable)
         fusedFreshnessCheckScheduled = false
-        callbackHandler?.removeCallbacks(fusedFirstSampleTimeoutRunnable)
-        callbackHandler?.removeCallbacks(fusedBootstrapReleaseRunnable)
-        pendingBootstrapCompletion = null
-        pendingBootstrapPublishedSampleAtElapsedMs = 0L
+        callbackHandler?.removeCallbacks(fusedReadyTimeoutRunnable)
         orientationUpdatesRegistered = false
         if (listenerToRemove != null) {
             fusedOrientationClient.removeOrientationUpdates(listenerToRemove)
         }
     }
 
-    private fun clearRestartHeadingConfirmationState() {
-        awaitingRestartHeadingConfirmation = false
-        pendingRestartHeading = null
-        pendingRestartHeadingAtElapsedMs = 0L
-        pendingRestartHeadingSampleCount = 0
-    }
-
-    private fun resetStartupRestartMetrics() {
-        startupRestartReseedCount = 0
-        startupRestartMaxReseedDeltaDeg = 0f
+    private fun resetFusedWarmupState() {
+        firstUsableOrientationSampleAtElapsedMs = 0L
+        fusedWarmupUsableSampleCount = 0
     }
 
     private fun resetUnusableFusedSampleState() {
         consecutiveUnusableFusedSamples = 0
         firstUnusableFusedSampleAtElapsedMs = 0L
     }
-
-    private fun restartHeadingConfirmationTimeoutMs(): Long =
-        if (lowPowerMode && !isRecalibrationBoostActive()) {
-            FUSED_RESTART_CONFIRM_TIMEOUT_LOW_POWER_MS
-        } else {
-            FUSED_RESTART_CONFIRM_TIMEOUT_HIGH_POWER_MS
-        }
 
     private fun currentSamplingPeriodMicros(): Long =
         if (lowPowerMode && !isRecalibrationBoostActive()) {
@@ -1366,7 +1051,7 @@ internal class FusedOrientationProviderAdapter(
         val sampleAtElapsedMs = _headingSampleElapsedRealtimeMs.value
         val hasUsableFusedState =
             !_useFallbackProvider.value &&
-                !_startupSettling.value &&
+                !fusedWarmupActive &&
                 _headingSource.value == HeadingSource.FUSED_ORIENTATION
         val hasUsableAccuracy = _accuracy.value != SensorManager.SENSOR_STATUS_UNRELIABLE
         return if (
@@ -1377,20 +1062,6 @@ internal class FusedOrientationProviderAdapter(
                 .takeIf { it <= FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS }
         } else {
             null
-        }
-    }
-
-    private fun completePendingBootstrapAfterFusedPublish(sampleAtElapsedMs: Long) {
-        if (pendingBootstrapCompletion == null) return
-        if (pendingBootstrapPublishedSampleAtElapsedMs > 0L) return
-        pendingBootstrapPublishedSampleAtElapsedMs = sampleAtElapsedMs
-        if (
-            callbackHandler?.postDelayed(
-                fusedBootstrapReleaseRunnable,
-                FUSED_BOOTSTRAP_RELEASE_POLL_MS,
-            ) != true
-        ) {
-            fusedBootstrapReleaseRunnable.run()
         }
     }
 
@@ -1434,8 +1105,6 @@ internal class FusedOrientationProviderAdapter(
         // Keep freshness tied to the full fused callback stream, but only publish render state
         // alongside the rate-limited heading in publishFusedHeadingIfDue(). This prevents
         // over-delivering devices from invalidating the 25 Hz UI publication cap.
-        awaitingFirstOrientationSample = false
-        callbackHandler?.removeCallbacks(fusedFirstSampleTimeoutRunnable)
         lastConfirmedFusedSampleElapsedRealtimeMs = nowElapsedMs
         val staleRecoveryHealthyMs =
             (nowElapsedMs - fusedStaleRecoveryStartedAtElapsedMs).coerceAtLeast(0L)
@@ -1549,105 +1218,7 @@ internal class FusedOrientationProviderAdapter(
         fusedPerfUnusableCount = 0
         fusedPerfHeadingPublishCount = 0
     }
-
-    private fun recordStartupOverlap(displayHeadingDeg: Float) {
-        if (!_useBootstrapFallbackProvider.value || !displayHeadingDeg.isFinite()) return
-        val fallbackState = fallbackProvider.renderState.value
-        if (
-            fallbackState.headingSource == HeadingSource.NONE ||
-            !fallbackState.headingDeg.isFinite() ||
-            fallbackState.headingSampleStale
-        ) {
-            return
-        }
-        val deltaDeg =
-            abs(
-                shortestAngleDiffDeg(
-                    target = displayHeadingDeg,
-                    current = fallbackState.headingDeg,
-                ),
-            )
-        startupOverlapSampleCount += 1
-        startupOverlapDeltaTotalDeg += deltaDeg
-        startupOverlapMaxDeltaDeg = maxOf(startupOverlapMaxDeltaDeg, deltaDeg)
-        if (startupOverlapFirstDeltaDeg == null) startupOverlapFirstDeltaDeg = deltaDeg
-        startupOverlapLastDeltaDeg = deltaDeg
-    }
-
-    private fun logStartupOverlapSummary(
-        reason: String,
-        confirmed: Boolean,
-    ) {
-        val samples = startupOverlapSampleCount
-        if (samples <= 0) return
-        val finalDeltaDeg = startupOverlapLastDeltaDeg
-        val averageDeltaDeg = startupOverlapDeltaTotalDeg / samples
-        logDiagnostics(
-            "google_fused startup_overlap_summary reason=$reason confirmed=$confirmed " +
-                "samples=$samples avgDeltaDeg=${averageDeltaDeg.format(1)} " +
-                "maxDeltaDeg=${startupOverlapMaxDeltaDeg.format(1)} " +
-                "firstDeltaDeg=${startupOverlapFirstDeltaDeg.formatOrNA(1)} " +
-                "finalDeltaDeg=${finalDeltaDeg.formatOrNA(1)}",
-        )
-        resetStartupOverlapMetrics()
-    }
-
-    private fun resetStartupOverlapMetrics() {
-        startupOverlapSampleCount = 0
-        startupOverlapDeltaTotalDeg = 0f
-        startupOverlapMaxDeltaDeg = 0f
-        startupOverlapFirstDeltaDeg = null
-        startupOverlapLastDeltaDeg = null
-    }
 }
-
-internal fun shouldUseFusedBootstrapHeading(
-    fusedRenderState: CompassRenderState,
-    bootstrapRenderState: CompassRenderState,
-    nowElapsedMs: Long,
-): Boolean {
-    val hasUsableFusedAccuracy =
-        fusedRenderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE
-    val hasFreshFusedHeading =
-        fusedRenderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
-            fusedRenderState.headingSampleElapsedRealtimeMs != null &&
-            !fusedRenderState.headingSampleStale &&
-            hasUsableFusedAccuracy
-    val hasRecentCachedFusedHeading =
-        hasUsableFusedAccuracy &&
-            hasRecentGoogleFusedCachedHeading(
-                renderState = fusedRenderState,
-                nowElapsedMs = nowElapsedMs,
-                maxAgeMs = FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS,
-            )
-    val hasUsableBootstrapHeading =
-        bootstrapRenderState.headingSource != HeadingSource.NONE &&
-            bootstrapRenderState.accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE &&
-            bootstrapRenderState.headingSampleElapsedRealtimeMs != null &&
-            !bootstrapRenderState.headingSampleStale &&
-            !bootstrapRenderState.magneticInterference
-    return fusedRenderState.providerType == CompassProviderType.GOOGLE_FUSED &&
-        !hasFreshFusedHeading &&
-        !hasRecentCachedFusedHeading &&
-        hasUsableBootstrapHeading
-}
-
-internal fun bootstrapFusedRenderState(
-    fusedRenderState: CompassRenderState,
-    bootstrapRenderState: CompassRenderState,
-): CompassRenderState =
-    fusedRenderState.copy(
-        headingDeg = bootstrapRenderState.headingDeg,
-        accuracy = bootstrapRenderState.accuracy,
-        headingErrorDeg = bootstrapRenderState.headingErrorDeg,
-        conservativeHeadingErrorDeg = bootstrapRenderState.conservativeHeadingErrorDeg,
-        headingSampleElapsedRealtimeMs = bootstrapRenderState.headingSampleElapsedRealtimeMs,
-        headingSampleStale = bootstrapRenderState.headingSampleStale,
-        headingSource = bootstrapRenderState.headingSource,
-        headingSourceStatus = bootstrapRenderState.headingSourceStatus,
-        northReferenceStatus = bootstrapRenderState.northReferenceStatus,
-        magneticInterference = bootstrapRenderState.magneticInterference,
-    )
 
 internal data class FusedUnusableHeadingState(
     val consecutiveSamples: Int,
@@ -1665,6 +1236,11 @@ internal fun isUsableGoogleFusedHeadingError(
 ): Boolean =
     headingAccuracyFromUncertainty(headingErrorDeg) !=
         SensorManager.SENSOR_STATUS_UNRELIABLE
+
+internal fun isUsableGoogleFusedOrientationSample(
+    headingDeg: Float,
+    headingErrorDeg: Float,
+): Boolean = headingDeg.isFinite() && isUsableGoogleFusedHeadingError(headingErrorDeg)
 
 internal fun computeFusedUnusableHeadingUpdate(
     nowElapsedMs: Long,
@@ -1692,27 +1268,47 @@ internal fun computeFusedUnusableHeadingUpdate(
     )
 }
 
+internal data class FusedWarmupUpdate(
+    val firstUsableSampleAtElapsedMs: Long,
+    val usableSampleCount: Int,
+    val warmupAgeMs: Long,
+    val ready: Boolean,
+)
+
+internal fun updateFusedWarmup(
+    firstUsableSampleAtElapsedMs: Long,
+    usableSampleCount: Int,
+    nowElapsedMs: Long,
+    minimumSamples: Int = FUSED_WARMUP_MIN_USABLE_SAMPLES,
+    minimumDurationMs: Long = FUSED_WARMUP_MIN_DURATION_MS,
+): FusedWarmupUpdate {
+    val firstSampleAtElapsedMs =
+        firstUsableSampleAtElapsedMs.takeIf { it > 0L } ?: nowElapsedMs
+    val nextSampleCount = usableSampleCount.coerceAtLeast(0) + 1
+    val warmupAgeMs = (nowElapsedMs - firstSampleAtElapsedMs).coerceAtLeast(0L)
+    return FusedWarmupUpdate(
+        firstUsableSampleAtElapsedMs = firstSampleAtElapsedMs,
+        usableSampleCount = nextSampleCount,
+        warmupAgeMs = warmupAgeMs,
+        ready = nextSampleCount >= minimumSamples && warmupAgeMs >= minimumDurationMs,
+    )
+}
+
 private const val FUSED_ORIENTATION_THREAD_NAME = "FusedOrientationThread"
-private const val FUSED_ORIENTATION_SETTLE_WINDOW_MS = 250L
 private const val FUSED_ORIENTATION_HIGH_POWER_SAMPLING_MICROS = 50_000L // 20 Hz
 private const val FUSED_ORIENTATION_LOW_POWER_SAMPLING_MICROS = 200_000L // 5 Hz
 private const val FUSED_INVALID_HEADING_ERROR_DEG = 180f
 private const val FUSED_ORIENTATION_SAMPLE_STALE_MS = 1_500L
 private const val FUSED_STALE_RECOVERY_HEALTHY_RESET_MS = 5_000L
-private const val FUSED_BOOTSTRAP_RELEASE_POLL_MS = 16L
-private const val FUSED_BOOTSTRAP_RELEASE_MAX_WAIT_MS = 250L
 private const val FUSED_PERF_LOG_WINDOW_MS = 5_000L
 private const val FUSED_HIGH_POWER_PUBLISH_MIN_INTERVAL_MS = 33L
 private const val FUSED_LOW_POWER_PUBLISH_MIN_INTERVAL_MS = 180L
 private const val FUSED_RECALIBRATION_HIGH_POWER_WINDOW_MS = 6_000L
 private const val FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS = 5_000L
-private const val FUSED_WARM_RESTART_MAX_HANDOFF_STEP_DEG = 10f
 private const val FUSED_UNUSABLE_HEADING_FALLBACK_MIN_SAMPLES = 5
 private const val FUSED_UNUSABLE_HEADING_FALLBACK_MIN_DURATION_MS = 1_200L
-private const val FUSED_RESTART_CONFIRM_TIMEOUT_HIGH_POWER_MS = 160L
-private const val FUSED_RESTART_CONFIRM_TIMEOUT_LOW_POWER_MS = 350L
-private const val FUSED_RESTART_STABLE_DELTA_DEG = 15f
-private const val FUSED_RESTART_MIN_CONFIDENT_SAMPLES = 2
+internal const val FUSED_WARMUP_MIN_USABLE_SAMPLES = 2
+internal const val FUSED_WARMUP_MIN_DURATION_MS = 120L
 internal const val FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG = 12f
 internal const val FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG = 45f
 internal const val FUSED_LARGE_JUMP_MIN_CONFIRM_AGE_MS = 300L
@@ -1720,188 +1316,6 @@ internal const val FUSED_WEAK_CONFIDENCE_LARGE_JUMP_MAX_DELTA_DEG = 18f
 internal const val FUSED_FAST_TURN_CONFIRM_MIN_SAMPLES = 3
 internal const val FUSED_FAST_TURN_CONFIRM_MAX_DELTA_DEG = 36f
 internal const val FUSED_LARGE_JUMP_ABSOLUTE_TIMEOUT_MS = 500L
-private const val FUSED_UNSTABLE_STARTUP_RESEED_COUNT = 3
-private const val FUSED_UNSTABLE_STARTUP_RESEED_DELTA_DEG = 90f
-private const val FUSED_UNSTABLE_STARTUP_OVERLAP_DELTA_DEG = 100f
-private const val FUSED_UNSTABLE_STARTUP_FINAL_OVERLAP_DELTA_DEG = 60f
-internal const val FUSED_EXTENDED_SETTLING_MIN_AGE_MS = 250L
-internal const val FUSED_EXTENDED_SETTLING_STABLE_AGE_MS = 300L
-internal const val FUSED_EXTENDED_SETTLING_MAX_BOOTSTRAP_DELTA_DEG = 60f
-internal const val FUSED_EXTENDED_SETTLING_TIMEOUT_MS = 1_200L
-
-private enum class FusedBootstrapCompletion {
-    STOP,
-}
-
-internal enum class FusedStartupReleaseAction(
-    val telemetryToken: String,
-) {
-    EXTEND_SETTLING("extended"),
-    WAIT("waiting"),
-    RELEASE_DIRECT("direct"),
-    RELEASE_AGREEMENT("agreement"),
-    RELEASE_TIMEOUT("timeout"),
-}
-
-internal enum class FusedRestartHeadingAction {
-    IGNORE_FIRST,
-    AWAIT_PENDING,
-    CONFIRM,
-}
-
-internal data class FusedRestartHeadingDecision(
-    val action: FusedRestartHeadingAction,
-    val nextPendingHeadingDeg: Float?,
-    val nextPendingAtElapsedMs: Long,
-    val nextPendingSampleCount: Int,
-    val sampleCount: Int,
-    val deltaDeg: Float,
-    val pendingAgeMs: Long,
-    val confirmReason: String?,
-)
-
-internal fun resolveFusedRestartHeadingDecision(
-    pendingHeadingDeg: Float?,
-    displayHeadingDeg: Float,
-    pendingAtElapsedMs: Long,
-    nowElapsedMs: Long,
-    pendingSampleCount: Int,
-    timeoutMs: Long,
-    headingErrorDeg: Float,
-    conservativeHeadingErrorDeg: Float,
-): FusedRestartHeadingDecision {
-    if (pendingHeadingDeg == null) {
-        return FusedRestartHeadingDecision(
-            action = FusedRestartHeadingAction.IGNORE_FIRST,
-            nextPendingHeadingDeg = displayHeadingDeg,
-            nextPendingAtElapsedMs = nowElapsedMs,
-            nextPendingSampleCount = 1,
-            sampleCount = 1,
-            deltaDeg = Float.NaN,
-            pendingAgeMs = 0L,
-            confirmReason = null,
-        )
-    }
-    val pendingAgeMs = (nowElapsedMs - pendingAtElapsedMs).coerceAtLeast(0L)
-    val deltaDeg =
-        abs(
-            shortestAngleDiffDeg(
-                target = displayHeadingDeg,
-                current = pendingHeadingDeg,
-            ),
-        )
-    val sampleCount = pendingSampleCount + 1
-    val stableWithPending = deltaDeg <= FUSED_RESTART_STABLE_DELTA_DEG
-    val hasTrustedConservativeError =
-        conservativeHeadingErrorDeg.isFinite() &&
-            conservativeHeadingErrorDeg in 0f..FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG
-    val hasTrustedLiveError =
-        headingErrorDeg.isFinite() &&
-            headingErrorDeg in 0f..FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG
-    val hasTrustedHeadingError = hasTrustedConservativeError || hasTrustedLiveError
-    val hasUsableHeadingError = isUsableGoogleFusedHeadingError(headingErrorDeg)
-    val hasEnoughWeakConfidenceSettleTime = pendingAgeMs >= timeoutMs
-    val hasStableConfirmationBudget =
-        hasTrustedHeadingError || hasEnoughWeakConfidenceSettleTime
-    if (stableWithPending && hasUsableHeadingError && hasStableConfirmationBudget) {
-        return FusedRestartHeadingDecision(
-            action = FusedRestartHeadingAction.CONFIRM,
-            nextPendingHeadingDeg = null,
-            nextPendingAtElapsedMs = 0L,
-            nextPendingSampleCount = 0,
-            sampleCount = sampleCount,
-            deltaDeg = deltaDeg,
-            pendingAgeMs = pendingAgeMs,
-            confirmReason =
-                when {
-                    hasTrustedHeadingError -> "confidence"
-                    else -> "timeout"
-                },
-        )
-    }
-    if (stableWithPending) {
-        return FusedRestartHeadingDecision(
-            action = FusedRestartHeadingAction.AWAIT_PENDING,
-            nextPendingHeadingDeg = pendingHeadingDeg,
-            nextPendingAtElapsedMs = pendingAtElapsedMs,
-            nextPendingSampleCount = sampleCount,
-            sampleCount = sampleCount,
-            deltaDeg = deltaDeg,
-            pendingAgeMs = pendingAgeMs,
-            confirmReason = null,
-        )
-    }
-
-    if (hasTrustedHeadingError && sampleCount >= FUSED_RESTART_MIN_CONFIDENT_SAMPLES) {
-        return FusedRestartHeadingDecision(
-            action = FusedRestartHeadingAction.CONFIRM,
-            nextPendingHeadingDeg = null,
-            nextPendingAtElapsedMs = 0L,
-            nextPendingSampleCount = 0,
-            sampleCount = sampleCount,
-            deltaDeg = deltaDeg,
-            pendingAgeMs = pendingAgeMs,
-            confirmReason = "confidence",
-        )
-    }
-
-    return FusedRestartHeadingDecision(
-        action = FusedRestartHeadingAction.AWAIT_PENDING,
-        nextPendingHeadingDeg = displayHeadingDeg,
-        nextPendingAtElapsedMs = nowElapsedMs,
-        nextPendingSampleCount = 1,
-        sampleCount = sampleCount,
-        deltaDeg = deltaDeg,
-        pendingAgeMs = pendingAgeMs,
-        confirmReason = null,
-    )
-}
-
-internal fun isUnstableFusedStartup(
-    decision: FusedRestartHeadingDecision,
-    overlapMaxDeltaDeg: Float,
-    overlapFinalDeltaDeg: Float,
-    reseedCount: Int,
-    maxReseedDeltaDeg: Float,
-): Boolean {
-    if (decision.confirmReason != "timeout") return false
-    val startupWasChaotic =
-        reseedCount >= FUSED_UNSTABLE_STARTUP_RESEED_COUNT ||
-            maxReseedDeltaDeg >= FUSED_UNSTABLE_STARTUP_RESEED_DELTA_DEG ||
-            overlapMaxDeltaDeg >= FUSED_UNSTABLE_STARTUP_OVERLAP_DELTA_DEG
-    val providersStillDisagree =
-        overlapFinalDeltaDeg.isFinite() &&
-            overlapFinalDeltaDeg >= FUSED_UNSTABLE_STARTUP_FINAL_OVERLAP_DELTA_DEG
-    return startupWasChaotic && providersStillDisagree
-}
-
-internal fun resolveFusedStartupReleaseAction(
-    unstableStartup: Boolean,
-    extendedSettlingActive: Boolean,
-    extendedSettlingAgeMs: Long,
-    stableCandidateAgeMs: Long,
-    bootstrapDeltaDeg: Float,
-): FusedStartupReleaseAction {
-    if (!extendedSettlingActive) {
-        return if (unstableStartup) {
-            FusedStartupReleaseAction.EXTEND_SETTLING
-        } else {
-            FusedStartupReleaseAction.RELEASE_DIRECT
-        }
-    }
-    val stableLongEnough = stableCandidateAgeMs >= FUSED_EXTENDED_SETTLING_STABLE_AGE_MS
-    val settledLongEnough = extendedSettlingAgeMs >= FUSED_EXTENDED_SETTLING_MIN_AGE_MS
-    val bootstrapAgrees =
-        bootstrapDeltaDeg.isFinite() &&
-            bootstrapDeltaDeg <= FUSED_EXTENDED_SETTLING_MAX_BOOTSTRAP_DELTA_DEG
-    return when {
-        stableLongEnough && settledLongEnough && bootstrapAgrees ->
-            FusedStartupReleaseAction.RELEASE_AGREEMENT
-        stableLongEnough && extendedSettlingAgeMs >= FUSED_EXTENDED_SETTLING_TIMEOUT_MS ->
-            FusedStartupReleaseAction.RELEASE_TIMEOUT
-        else -> FusedStartupReleaseAction.WAIT
-    }
-}
 
 internal data class FusedLargeJumpInput(
     val jumpDeg: Float,

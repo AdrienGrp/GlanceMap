@@ -92,16 +92,11 @@ internal fun NavigateCompassWakeTelemetry(
         if (interactive && startedAtMs > 0L) {
             startupMetrics.record(
                 nowElapsedMs = SystemClock.elapsedRealtime(),
-                headingDeg =
-                    if (renderState.startupSettling) {
-                        renderState.startupRawHeadingDeg ?: renderState.headingDeg
-                    } else {
-                        renderState.headingDeg
-                    },
+                headingDeg = renderState.headingDeg,
                 renderedHeadingDeg = renderedHeadingDeg,
                 mapRotationDeg = renderedMapRotationDeg,
                 source =
-                    if (renderState.startupSettling) {
+                    if (renderState.headingSampleStale) {
                         HeadingSource.NONE
                     } else {
                         renderState.headingSource
@@ -114,11 +109,15 @@ internal fun NavigateCompassWakeTelemetry(
         interactive,
         renderState.headingSource,
         renderState.headingSampleElapsedRealtimeMs,
-        renderState.startupSettling,
+        renderState.headingSampleStale,
     ) {
         if (!interactive || startedAtMs <= 0L) return@LaunchedEffect
         val sampleAtMs = renderState.headingSampleElapsedRealtimeMs ?: return@LaunchedEffect
-        if (sampleAtMs < startedAtMs || renderState.headingSource == HeadingSource.NONE) {
+        if (
+            sampleAtMs < startedAtMs ||
+            renderState.headingSource == HeadingSource.NONE ||
+            renderState.headingSampleStale
+        ) {
             return@LaunchedEffect
         }
         val latencyMs = (SystemClock.elapsedRealtime() - startedAtMs).coerceAtLeast(0L)
@@ -127,14 +126,13 @@ internal fun NavigateCompassWakeTelemetry(
             logCompassWake(
                 "wake_session stage=first_source id=$sessionId latencyMs=$latencyMs " +
                     "source=${renderState.headingSource.telemetryToken} " +
-                    "settling=${renderState.startupSettling} heading=${renderState.headingDeg.format(1)} " +
-                    "rawHeading=${renderState.startupRawHeadingDeg.formatOrNa(1)}",
+                    "stale=${renderState.headingSampleStale} " +
+                    "heading=${renderState.headingDeg.format(1)}",
             )
         }
         if (
             !fusedLogged &&
-            renderState.headingSource == HeadingSource.FUSED_ORIENTATION &&
-            !renderState.startupSettling
+            renderState.headingSource == HeadingSource.FUSED_ORIENTATION
         ) {
             fusedLogged = true
             logCompassWake(
@@ -149,14 +147,17 @@ internal fun NavigateCompassWakeTelemetry(
         renderState.headingDeg,
         renderState.headingSource,
         renderState.headingSampleElapsedRealtimeMs,
-        renderState.startupSettling,
+        renderState.headingSampleStale,
         renderedHeadingDeg,
         renderedMapRotationDeg,
     ) {
         if (!interactive || startedAtMs <= 0L || renderedLogged) return@LaunchedEffect
-        if (renderState.startupSettling) return@LaunchedEffect
         val sampleAtMs = renderState.headingSampleElapsedRealtimeMs ?: return@LaunchedEffect
-        if (sampleAtMs < startedAtMs || renderState.headingSource == HeadingSource.NONE) {
+        if (
+            sampleAtMs < startedAtMs ||
+            renderState.headingSource == HeadingSource.NONE ||
+            renderState.headingSampleStale
+        ) {
             return@LaunchedEffect
         }
         val deltaDeg = shortestHeadingDeltaDeg(renderedHeadingDeg, renderState.headingDeg)
