@@ -381,6 +381,9 @@ object DiagnosticsExporter {
         val fusedFirstUsableLatencyMaxMs: Long? = null,
         val fusedReadyCount: Int = 0,
         val fusedReadyLatencyMaxMs: Long? = null,
+        val fusedWarmupRelockCount: Int = 0,
+        val fusedWarmupRelockStepMaxDeg: Float? = null,
+        val fusedReadyAfterRelockCount: Int = 0,
         val fusedFallbackActivationCount: Int = 0,
         val continuityStartCount: Int = 0,
         val continuityCompleteCount: Int = 0,
@@ -1097,6 +1100,19 @@ object DiagnosticsExporter {
                 "fusedReadyLatencyMaxMs=${
                     compassTelemetryInsights.fusedReadyLatencyMaxMs ?: "na"
                 }",
+            )
+            writer.appendLine(
+                "fusedWarmupRelockCount=${compassTelemetryInsights.fusedWarmupRelockCount}",
+            )
+            writer.appendLine(
+                "fusedWarmupRelockStepMaxDeg=${
+                    compassTelemetryInsights.fusedWarmupRelockStepMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "fusedReadyAfterRelockCount=${compassTelemetryInsights.fusedReadyAfterRelockCount}",
             )
             writer.appendLine(
                 "fusedFallbackActivationCount=${compassTelemetryInsights.fusedFallbackActivationCount}",

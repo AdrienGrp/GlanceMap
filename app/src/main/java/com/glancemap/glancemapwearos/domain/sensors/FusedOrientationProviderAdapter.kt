@@ -128,9 +128,7 @@ internal class FusedOrientationProviderAdapter(
 
     @Volatile private var firstOrientationSampleLogged = false
 
-    @Volatile private var firstUsableOrientationSampleAtElapsedMs = 0L
-
-    @Volatile private var fusedWarmupUsableSampleCount = 0
+    @Volatile private var fusedWarmupState = FusedWarmupState()
 
     @Volatile private var lastFusedSampleLogAtElapsedMs = 0L
 
@@ -230,7 +228,9 @@ internal class FusedOrientationProviderAdapter(
             logDiagnostics(
                 "google_fused ready_timeout reason=$lastOrientationRequestReason " +
                     "ageMs=$requestAgeMs timeoutMs=$timeoutMs " +
-                    "usableSamples=$fusedWarmupUsableSampleCount",
+                    "usableSamples=${fusedWarmupState.usableSampleCount} " +
+                    "stableSamples=${fusedWarmupState.stableSampleCount} " +
+                    "relockResets=${fusedWarmupState.relockResetCount}",
             )
             startFallbackProvider(reason = "ready_timeout")
         }
@@ -651,17 +651,27 @@ internal class FusedOrientationProviderAdapter(
         if (awaitingFusedReady) {
             val warmup =
                 updateFusedWarmup(
-                    firstUsableSampleAtElapsedMs = firstUsableOrientationSampleAtElapsedMs,
-                    usableSampleCount = fusedWarmupUsableSampleCount,
+                    state = fusedWarmupState,
+                    headingDeg = displayHeading,
                     nowElapsedMs = now,
                 )
-            firstUsableOrientationSampleAtElapsedMs = warmup.firstUsableSampleAtElapsedMs
-            fusedWarmupUsableSampleCount = warmup.usableSampleCount
-            if (warmup.usableSampleCount == 1) {
+            fusedWarmupState = warmup.state
+            if (warmup.state.usableSampleCount == 1) {
                 logDiagnostics(
                     "google_fused first_usable reason=$lastOrientationRequestReason " +
                         "latencyMs=${(now - lastOrientationRequestAtElapsedMs).coerceAtLeast(0L)} " +
                         "heading=${displayHeading.format(1)} errorDeg=${headingErrorDeg.formatOrNA(1)}",
+                )
+            }
+            if (warmup.relockDetected) {
+                logDiagnostics(
+                    "google_fused warmup_relock " +
+                        "stepDeg=${warmup.stepDeg.formatOrNA(1)} " +
+                        "allowedStepDeg=${warmup.allowedStepDeg.formatOrNA(1)} " +
+                        "gapMs=${warmup.sampleGapMs ?: "na"} " +
+                        "previous=${warmup.previousHeadingDeg.formatOrNA(1)} " +
+                        "heading=${displayHeading.format(1)} " +
+                        "reset=${warmup.state.relockResetCount}",
                 )
             }
             if (!warmup.ready) return
@@ -674,7 +684,11 @@ internal class FusedOrientationProviderAdapter(
             logDiagnostics(
                 "google_fused state transition=active_fused from=starting_fused " +
                     "reason=warmup_complete latencyMs=$readyLatencyMs " +
-                    "warmupMs=${warmup.warmupAgeMs} usableSamples=${warmup.usableSampleCount} " +
+                    "warmupMs=${warmup.warmupAgeMs} " +
+                    "usableSamples=${warmup.state.usableSampleCount} " +
+                    "stableMs=${warmup.stableAgeMs} " +
+                    "stableSamples=${warmup.state.stableSampleCount} " +
+                    "relockResets=${warmup.state.relockResetCount} " +
                     "heading=${displayHeading.format(1)} errorDeg=${headingErrorDeg.formatOrNA(1)}",
             )
             forcePublishFusedHeading(
@@ -987,8 +1001,7 @@ internal class FusedOrientationProviderAdapter(
     }
 
     private fun resetFusedWarmupState() {
-        firstUsableOrientationSampleAtElapsedMs = 0L
-        fusedWarmupUsableSampleCount = 0
+        fusedWarmupState = FusedWarmupState()
     }
 
     private fun resetUnusableFusedSampleState() {
@@ -1268,32 +1281,6 @@ internal fun computeFusedUnusableHeadingUpdate(
     )
 }
 
-internal data class FusedWarmupUpdate(
-    val firstUsableSampleAtElapsedMs: Long,
-    val usableSampleCount: Int,
-    val warmupAgeMs: Long,
-    val ready: Boolean,
-)
-
-internal fun updateFusedWarmup(
-    firstUsableSampleAtElapsedMs: Long,
-    usableSampleCount: Int,
-    nowElapsedMs: Long,
-    minimumSamples: Int = FUSED_WARMUP_MIN_USABLE_SAMPLES,
-    minimumDurationMs: Long = FUSED_WARMUP_MIN_DURATION_MS,
-): FusedWarmupUpdate {
-    val firstSampleAtElapsedMs =
-        firstUsableSampleAtElapsedMs.takeIf { it > 0L } ?: nowElapsedMs
-    val nextSampleCount = usableSampleCount.coerceAtLeast(0) + 1
-    val warmupAgeMs = (nowElapsedMs - firstSampleAtElapsedMs).coerceAtLeast(0L)
-    return FusedWarmupUpdate(
-        firstUsableSampleAtElapsedMs = firstSampleAtElapsedMs,
-        usableSampleCount = nextSampleCount,
-        warmupAgeMs = warmupAgeMs,
-        ready = nextSampleCount >= minimumSamples && warmupAgeMs >= minimumDurationMs,
-    )
-}
-
 private const val FUSED_ORIENTATION_THREAD_NAME = "FusedOrientationThread"
 private const val FUSED_ORIENTATION_HIGH_POWER_SAMPLING_MICROS = 50_000L // 20 Hz
 private const val FUSED_ORIENTATION_LOW_POWER_SAMPLING_MICROS = 200_000L // 5 Hz
@@ -1307,8 +1294,6 @@ private const val FUSED_RECALIBRATION_HIGH_POWER_WINDOW_MS = 6_000L
 private const val FUSED_WARM_RESTART_CACHED_HEADING_MAX_AGE_MS = 5_000L
 private const val FUSED_UNUSABLE_HEADING_FALLBACK_MIN_SAMPLES = 5
 private const val FUSED_UNUSABLE_HEADING_FALLBACK_MIN_DURATION_MS = 1_200L
-internal const val FUSED_WARMUP_MIN_USABLE_SAMPLES = 2
-internal const val FUSED_WARMUP_MIN_DURATION_MS = 120L
 internal const val FUSED_RESTART_TRUSTED_LIVE_ERROR_DEG = 12f
 internal const val FUSED_RESTART_TRUSTED_CONSERVATIVE_ERROR_DEG = 45f
 internal const val FUSED_LARGE_JUMP_MIN_CONFIRM_AGE_MS = 300L

@@ -1352,6 +1352,9 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var fusedFirstUsableLatencyMaxMs: Long? = null
     var fusedReadyCount = 0
     var fusedReadyLatencyMaxMs: Long? = null
+    var fusedWarmupRelockCount = 0
+    var fusedWarmupRelockStepMaxDeg: Float? = null
+    var fusedReadyAfterRelockCount = 0
     var fusedFallbackActivationCount = 0
     var continuityStartCount = 0
     var continuityCompleteCount = 0
@@ -1460,6 +1463,16 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
             parseLongToken(line, "latencyMs=")?.let { value ->
                 fusedReadyLatencyMaxMs = maxOf(fusedReadyLatencyMaxMs ?: value, value)
             }
+            if ((parseIntToken(line, "relockResets=") ?: 0) > 0) {
+                fusedReadyAfterRelockCount += 1
+            }
+        }
+        if ("google_fused warmup_relock" in line) {
+            fusedWarmupRelockCount += 1
+            parseFloatToken(line, "stepDeg=")?.let { value ->
+                fusedWarmupRelockStepMaxDeg =
+                    maxOf(fusedWarmupRelockStepMaxDeg ?: value, value)
+            }
         }
         if ("google_fused state transition=active_fallback" in line) {
             fusedFallbackActivationCount += 1
@@ -1550,6 +1563,9 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
         fusedFirstUsableLatencyMaxMs = fusedFirstUsableLatencyMaxMs,
         fusedReadyCount = fusedReadyCount,
         fusedReadyLatencyMaxMs = fusedReadyLatencyMaxMs,
+        fusedWarmupRelockCount = fusedWarmupRelockCount,
+        fusedWarmupRelockStepMaxDeg = fusedWarmupRelockStepMaxDeg,
+        fusedReadyAfterRelockCount = fusedReadyAfterRelockCount,
         fusedFallbackActivationCount = fusedFallbackActivationCount,
         continuityStartCount = continuityStartCount,
         continuityCompleteCount = continuityCompleteCount,

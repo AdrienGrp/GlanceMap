@@ -238,9 +238,13 @@ class DiagnosticsExporterTelemetryTest {
                     "renderErrorAvgDeg=2.4 renderErrorMaxDeg=18.0 stable3Ms=na stable5Ms=4300 fusedReadyMs=450",
                 "2026-04-20 20:07:12.100 [CompassTelemetry] google_fused first_usable " +
                     "reason=start latencyMs=108 heading=120.0 errorDeg=25.0",
+                "2026-04-20 20:07:12.140 [CompassTelemetry] google_fused warmup_relock " +
+                    "stepDeg=149.0 allowedStepDeg=50.0 gapMs=20 previous=190.0 " +
+                    "heading=41.0 reset=1",
                 "2026-04-20 20:07:12.250 [CompassTelemetry] google_fused state " +
                     "transition=active_fused from=starting_fused reason=warmup_complete " +
-                    "latencyMs=244 warmupMs=136 usableSamples=7",
+                    "latencyMs=244 warmupMs=136 usableSamples=7 stableMs=120 " +
+                    "stableSamples=6 relockResets=1",
                 "2026-04-20 20:07:12.260 [CompassTelemetry] map_heading_continuity stage=start " +
                     "reason=source_ready provider=GOOGLE_FUSED source=google_fused " +
                     "displayed=255.0 raw=120.0 offsetDeg=135.0",
@@ -254,7 +258,8 @@ class DiagnosticsExporterTelemetryTest {
                     "reason=start latencyMs=219 heading=44.0 errorDeg=25.0",
                 "2026-04-20 20:07:15.230 [CompassTelemetry] google_fused state " +
                     "transition=active_fused from=starting_fused reason=warmup_complete " +
-                    "latencyMs=450 warmupMs=231 usableSamples=12",
+                    "latencyMs=450 warmupMs=231 usableSamples=12 stableMs=231 " +
+                    "stableSamples=12 relockResets=0",
                 "2026-04-20 20:07:15.240 [CompassTelemetry] map_heading_continuity stage=start " +
                     "reason=source_ready provider=GOOGLE_FUSED source=google_fused " +
                     "displayed=4.0 raw=44.0 offsetDeg=-40.0",
@@ -289,6 +294,9 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals(219L, insights.fusedFirstUsableLatencyMaxMs)
         assertEquals(2, insights.fusedReadyCount)
         assertEquals(450L, insights.fusedReadyLatencyMaxMs)
+        assertEquals(1, insights.fusedWarmupRelockCount)
+        assertEquals(149f, insights.fusedWarmupRelockStepMaxDeg)
+        assertEquals(1, insights.fusedReadyAfterRelockCount)
         assertEquals(1, insights.fusedFallbackActivationCount)
         assertEquals(2, insights.continuityStartCount)
         assertEquals(1, insights.continuityCompleteCount)
