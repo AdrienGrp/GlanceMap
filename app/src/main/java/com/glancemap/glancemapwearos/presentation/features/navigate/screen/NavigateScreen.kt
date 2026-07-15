@@ -1100,6 +1100,19 @@ fun NavigateScreen(
             poiPopupTimeoutSeconds = poiPopupTimeoutSeconds,
             poiPopupManualCloseOnly = poiPopupManualCloseOnly,
             markerMotionDebugOverlayLabel = markerMotionDebugOverlayLabel,
+            onCompassIssueNow =
+                if (gpsDebugTelemetry && gpsDebugTelemetryPopupEnabled && !offlineMode) {
+                    {
+                        reportCompassIssueNow(
+                            renderState = compassRenderState,
+                            renderedHeadingDeg = renderedCompassHeadingDeg,
+                            renderedMapRotationDeg = renderedMapRotationDeg,
+                            screenState = screenState,
+                        )
+                    }
+                } else {
+                    null
+                },
         )
 
         LaunchedEffect(isScreenResumed) {

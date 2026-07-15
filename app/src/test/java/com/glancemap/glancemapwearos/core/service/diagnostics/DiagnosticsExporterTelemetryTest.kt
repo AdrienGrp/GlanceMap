@@ -225,6 +225,12 @@ class DiagnosticsExporterTelemetryTest {
                 "2026-04-20 20:07:15.000 [CompassTelemetry] google_fused startup_overlap_summary " +
                     "reason=start confirmed=true samples=9 avgDeltaDeg=8.0 maxDeltaDeg=16.0 " +
                     "firstDeltaDeg=12.0 finalDeltaDeg=6.0 previousFinalDeltaDeg=64.0 restartDeltaChangeDeg=-58.0",
+                "2026-04-20 20:07:15.100 [CompassTelemetry] google_fused startup_settling_extended " +
+                    "reason=start candidateHeading=120.0 bootstrapDeltaDeg=145.0",
+                "2026-04-20 20:07:15.500 [CompassTelemetry] google_fused startup_release " +
+                    "reason=agreement heading=122.0 bootstrapDeltaDeg=4.0",
+                "2026-04-20 20:07:15.510 [CompassTelemetry] map_heading_settling stage=release " +
+                    "durationMs=510 fusedHeading=122.0 relativeRotation=38.0 rejectedJumps=3 rejectedMaxDeg=146.0",
                 "2026-04-20 20:07:16.000 [CompassTelemetry] user_report heading_looks_wrong " +
                     "source=google_fused heading=220.0 rendered=219.0 mapRotation=-219.0 accuracy=1",
             )
@@ -244,6 +250,13 @@ class DiagnosticsExporterTelemetryTest {
         assertEquals(35f, insights.startupOverlapFinalDeltaAvgDeg)
         assertEquals(1, insights.startupOverlapRestartComparisonCount)
         assertEquals(1, insights.startupOverlapRestartImprovedCount)
+        assertEquals(1, insights.startupExtendedSettlingCount)
+        assertEquals(0, insights.startupReleaseDirectCount)
+        assertEquals(1, insights.startupReleaseAgreementCount)
+        assertEquals(0, insights.startupReleaseTimeoutCount)
+        assertEquals(38f, insights.startupSettlingRelativeRotationMaxDeg)
+        assertEquals(3, insights.startupSettlingRejectedJumpCount)
+        assertEquals(146f, insights.startupSettlingRejectedJumpMaxDeg)
         assertEquals(1, insights.headingLooksWrongReportCount)
     }
 

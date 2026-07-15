@@ -1338,6 +1338,13 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
     var startupOverlapFinalDeltaCount = 0
     var startupOverlapRestartComparisonCount = 0
     var startupOverlapRestartImprovedCount = 0
+    var startupExtendedSettlingCount = 0
+    var startupReleaseDirectCount = 0
+    var startupReleaseAgreementCount = 0
+    var startupReleaseTimeoutCount = 0
+    var startupSettlingRelativeRotationMaxDeg: Float? = null
+    var startupSettlingRejectedJumpCount = 0
+    var startupSettlingRejectedJumpMaxDeg: Float? = null
     var headingLooksWrongReportCount = 0
     var fusedPerfEventCount = 0
     var fusedPerfCallbackCount = 0
@@ -1442,6 +1449,27 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
                 }
             }
         }
+        if ("google_fused startup_settling_extended" in line) {
+            startupExtendedSettlingCount += 1
+        }
+        if ("google_fused startup_release" in line) {
+            when (extractTokenValue(line, "reason=")) {
+                "direct" -> startupReleaseDirectCount += 1
+                "agreement" -> startupReleaseAgreementCount += 1
+                "timeout" -> startupReleaseTimeoutCount += 1
+            }
+        }
+        if ("map_heading_settling stage=release" in line) {
+            parseFloatToken(line, "relativeRotation=")?.let { value ->
+                startupSettlingRelativeRotationMaxDeg =
+                    maxOf(startupSettlingRelativeRotationMaxDeg ?: value, value)
+            }
+            startupSettlingRejectedJumpCount += parseIntToken(line, "rejectedJumps=") ?: 0
+            parseFloatToken(line, "rejectedMaxDeg=")?.let { value ->
+                startupSettlingRejectedJumpMaxDeg =
+                    maxOf(startupSettlingRejectedJumpMaxDeg ?: value, value)
+            }
+        }
         if ("user_report heading_looks_wrong" in line) {
             headingLooksWrongReportCount += 1
         }
@@ -1513,6 +1541,13 @@ internal fun deriveCompassTelemetryInsights(lines: List<String>): CompassTelemet
             },
         startupOverlapRestartComparisonCount = startupOverlapRestartComparisonCount,
         startupOverlapRestartImprovedCount = startupOverlapRestartImprovedCount,
+        startupExtendedSettlingCount = startupExtendedSettlingCount,
+        startupReleaseDirectCount = startupReleaseDirectCount,
+        startupReleaseAgreementCount = startupReleaseAgreementCount,
+        startupReleaseTimeoutCount = startupReleaseTimeoutCount,
+        startupSettlingRelativeRotationMaxDeg = startupSettlingRelativeRotationMaxDeg,
+        startupSettlingRejectedJumpCount = startupSettlingRejectedJumpCount,
+        startupSettlingRejectedJumpMaxDeg = startupSettlingRejectedJumpMaxDeg,
         headingLooksWrongReportCount = headingLooksWrongReportCount,
         fusedPerfEventCount = fusedPerfEventCount,
         fusedPerfCallbackCount = fusedPerfCallbackCount,

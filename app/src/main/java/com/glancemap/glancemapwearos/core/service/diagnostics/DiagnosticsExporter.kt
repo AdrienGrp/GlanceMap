@@ -376,6 +376,13 @@ object DiagnosticsExporter {
         val startupOverlapFinalDeltaAvgDeg: Float? = null,
         val startupOverlapRestartComparisonCount: Int = 0,
         val startupOverlapRestartImprovedCount: Int = 0,
+        val startupExtendedSettlingCount: Int = 0,
+        val startupReleaseDirectCount: Int = 0,
+        val startupReleaseAgreementCount: Int = 0,
+        val startupReleaseTimeoutCount: Int = 0,
+        val startupSettlingRelativeRotationMaxDeg: Float? = null,
+        val startupSettlingRejectedJumpCount: Int = 0,
+        val startupSettlingRejectedJumpMaxDeg: Float? = null,
         val headingLooksWrongReportCount: Int = 0,
         val fusedPerfEventCount: Int = 0,
         val fusedPerfCallbackCount: Int = 0,
@@ -1070,6 +1077,33 @@ object DiagnosticsExporter {
             writer.appendLine(
                 "startupOverlapRestartImprovedCount=${
                     compassTelemetryInsights.startupOverlapRestartImprovedCount
+                }",
+            )
+            writer.appendLine(
+                "startupExtendedSettlingCount=${compassTelemetryInsights.startupExtendedSettlingCount}",
+            )
+            writer.appendLine("startupReleaseDirectCount=${compassTelemetryInsights.startupReleaseDirectCount}")
+            writer.appendLine(
+                "startupReleaseAgreementCount=${compassTelemetryInsights.startupReleaseAgreementCount}",
+            )
+            writer.appendLine("startupReleaseTimeoutCount=${compassTelemetryInsights.startupReleaseTimeoutCount}")
+            writer.appendLine(
+                "startupSettlingRelativeRotationMaxDeg=${
+                    compassTelemetryInsights.startupSettlingRelativeRotationMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
+                }",
+            )
+            writer.appendLine(
+                "startupSettlingRejectedJumpCount=${
+                    compassTelemetryInsights.startupSettlingRejectedJumpCount
+                }",
+            )
+            writer.appendLine(
+                "startupSettlingRejectedJumpMaxDeg=${
+                    compassTelemetryInsights.startupSettlingRejectedJumpMaxDeg?.let {
+                        TelemetryFormatters.decimal(it, 1)
+                    } ?: "na"
                 }",
             )
             writer.appendLine(

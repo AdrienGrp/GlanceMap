@@ -14,6 +14,8 @@ data class CompassRenderState(
     val headingSourceStatus: HeadingSourceStatus,
     val northReferenceStatus: NorthReferenceStatus,
     val magneticInterference: Boolean,
+    val startupSettling: Boolean = false,
+    val startupRawHeadingDeg: Float? = null,
 )
 
 internal fun initialCompassRenderState(
@@ -57,6 +59,7 @@ internal fun googleFusedCachedHeadingAgeMs(
     val sampleAtElapsedMs = renderState.headingSampleElapsedRealtimeMs
     val canUseCachedHeading =
         renderState.providerType == CompassProviderType.GOOGLE_FUSED &&
+            !renderState.startupSettling &&
             renderState.headingDeg.isFinite() &&
             sampleAtElapsedMs != null
     return if (canUseCachedHeading) {

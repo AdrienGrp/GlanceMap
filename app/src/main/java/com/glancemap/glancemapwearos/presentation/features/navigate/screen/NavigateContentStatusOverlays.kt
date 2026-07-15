@@ -1,12 +1,18 @@
 package com.glancemap.glancemapwearos.presentation.features.navigate
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -17,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Text
 import com.glancemap.glancemapwearos.core.service.location.model.GpsEnvironmentWarning
 import com.glancemap.glancemapwearos.presentation.ui.WearScreenSize
+import kotlinx.coroutines.delay
 
 @Composable
 internal fun RecordingStatusMessageChip(
@@ -77,33 +84,15 @@ internal fun BoxScope.GpsEnvironmentWarningOverlay(
 
 @Suppress("FunctionName")
 @Composable
-internal fun BoxScope.MarkerMotionDebugOverlay(
+internal fun BoxScope.DiagnosticsDebugOverlay(
     label: String?,
     screenSize: WearScreenSize,
     recordingStatusChipVisible: Boolean,
+    onCompassIssueNow: (() -> Unit)?,
 ) {
-    if (label.isNullOrBlank()) return
-
-    val overlayPadding =
-        if (recordingStatusChipVisible) {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 52.dp
-                WearScreenSize.MEDIUM -> 50.dp
-                WearScreenSize.SMALL -> 48.dp
-            }
-        } else {
-            when (screenSize) {
-                WearScreenSize.LARGE -> 24.dp
-                WearScreenSize.MEDIUM -> 22.dp
-                WearScreenSize.SMALL -> 20.dp
-            }
-        }
-    val overlayTextSize =
-        when (screenSize) {
-            WearScreenSize.LARGE -> 10.sp
-            WearScreenSize.MEDIUM -> 10.sp
-            WearScreenSize.SMALL -> 10.sp
-        }
+    if (label.isNullOrBlank() && onCompassIssueNow == null) return
+    val overlayPadding = debugOverlayPadding(screenSize, recordingStatusChipVisible)
+    val overlayTextSize = 10.sp
 
     Column(
         modifier =
@@ -115,13 +104,65 @@ internal fun BoxScope.MarkerMotionDebugOverlay(
                 .padding(horizontal = 6.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            text = label,
-            color = Color.White,
-            fontSize = overlayTextSize,
-            lineHeight = overlayTextSize,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center,
-        )
+        if (!label.isNullOrBlank()) {
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = overlayTextSize,
+                lineHeight = overlayTextSize,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+            )
+        }
+        if (onCompassIssueNow != null) {
+            CompassIssueButton(
+                onClick = onCompassIssueNow,
+                textSize = overlayTextSize,
+            )
+        }
     }
 }
+
+@Composable
+@Suppress("FunctionName")
+private fun CompassIssueButton(
+    onClick: () -> Unit,
+    textSize: androidx.compose.ui.unit.TextUnit,
+) {
+    var saved by remember { mutableStateOf(false) }
+    LaunchedEffect(saved) {
+        if (!saved) return@LaunchedEffect
+        delay(COMPASS_ISSUE_SAVED_LABEL_MS)
+        saved = false
+    }
+    Text(
+        text = if (saved) "Compass issue saved" else "Compass issue now",
+        modifier =
+            Modifier
+                .padding(top = 3.dp)
+                .background(Color(0xFF3B3B3B), RoundedCornerShape(5.dp))
+                .clickable {
+                    onClick()
+                    saved = true
+                }.padding(horizontal = 6.dp, vertical = 4.dp),
+        color = Color.White,
+        fontSize = textSize,
+        lineHeight = textSize,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+    )
+}
+
+private fun debugOverlayPadding(
+    screenSize: WearScreenSize,
+    recordingStatusChipVisible: Boolean,
+) = when {
+    recordingStatusChipVisible && screenSize == WearScreenSize.LARGE -> 52.dp
+    recordingStatusChipVisible && screenSize == WearScreenSize.MEDIUM -> 50.dp
+    recordingStatusChipVisible -> 48.dp
+    screenSize == WearScreenSize.LARGE -> 24.dp
+    screenSize == WearScreenSize.MEDIUM -> 22.dp
+    else -> 20.dp
+}
+
+private const val COMPASS_ISSUE_SAVED_LABEL_MS = 1_500L

@@ -202,6 +202,7 @@ internal fun NavigateContent(
     poiPopupTimeoutSeconds: Int,
     poiPopupManualCloseOnly: Boolean,
     markerMotionDebugOverlayLabel: String?,
+    onCompassIssueNow: (() -> Unit)?,
 ) {
     SideEffect {
         BenchmarkTrace.mark("recompose.NavigateContent")
@@ -944,10 +945,11 @@ internal fun NavigateContent(
                 modifier = Modifier.align(Alignment.TopCenter),
             )
 
-            MarkerMotionDebugOverlay(
+            DiagnosticsDebugOverlay(
                 label = markerMotionDebugOverlayLabel,
                 screenSize = screenSize,
                 recordingStatusChipVisible = traceRecordingState.active || traceRecordingState.saving,
+                onCompassIssueNow = onCompassIssueNow,
             )
 
             GpsEnvironmentWarningOverlay(
