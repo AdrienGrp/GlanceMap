@@ -580,10 +580,11 @@ fun LiveTrackingScreen(
                                 LiveTrackingPreferences.saveGroupSettings(context, committedSettings)
                                 settingsSnapshot = committedSettings
                                 if (sessionState.isTracking) {
-                                    LiveTrackingService.updateRecipients(
+                                    LiveTrackingService.updateAlertSettings(
                                         context = context,
                                         notificationEmails = settingsForSave.notificationEmails,
                                         alertEmails = settingsForSave.alertEmails,
+                                        stuckAlarmMinutes = settingsForSave.stuckAlarmMinutes,
                                     )
                                 }
                                 saveSettingsStatusMessage = "Settings saved"
@@ -638,7 +639,7 @@ fun LiveTrackingScreen(
             alertRecipients = emptyList()
             alertRecipientStatusMessage = null
             alertRecipientWarning = null
-            stuckAlarmMinutes = "15"
+            stuckAlarmMinutes = DEFAULT_NO_MOVEMENT_ALERT_MINUTES
             updateIntervalSeconds = 60
             comments = ""
             selectedGpxUri = null

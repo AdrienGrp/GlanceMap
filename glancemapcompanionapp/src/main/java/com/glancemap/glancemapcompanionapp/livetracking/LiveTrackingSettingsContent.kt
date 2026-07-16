@@ -27,16 +27,15 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -199,13 +198,6 @@ internal fun ColumnScope.SettingsContent(
 }
 
 @Composable
-private fun companionTonalIconButtonColors() =
-    IconButtonDefaults.filledTonalIconButtonColors(
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    )
-
-@Composable
 internal fun PasswordField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -230,17 +222,16 @@ internal fun PasswordField(
                 keyboardType = KeyboardType.Password,
             ),
         trailingIcon = {
-            FilledTonalIconButton(
+            IconButton(
                 onClick = { onVisibilityChange(!isVisible) },
-                modifier = Modifier.size(48.dp),
-                colors = companionTonalIconButtonColors(),
+                modifier = Modifier.size(40.dp),
             ) {
                 Icon(
                     imageVector =
                         if (isVisible) {
-                            Icons.Filled.VisibilityOff
-                        } else {
                             Icons.Filled.Visibility
+                        } else {
+                            Icons.Filled.VisibilityOff
                         },
                     contentDescription = if (isVisible) "Hide password" else "Show password",
                     modifier = Modifier.size(18.dp),
@@ -259,6 +250,17 @@ private fun NoMovementAlertInput(
 ) {
     val isDisabled = minutes == "-1"
     val validationMessage = validateNoMovementAlertMinutes(minutes)
+    var lastEnabledMinutes by remember {
+        mutableStateOf(
+            minutes.takeUnless { it == "-1" } ?: DEFAULT_NO_MOVEMENT_ALERT_MINUTES,
+        )
+    }
+
+    LaunchedEffect(minutes) {
+        if (minutes != "-1" && validateNoMovementAlertMinutes(minutes) == null) {
+            lastEnabledMinutes = minutes
+        }
+    }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -271,7 +273,13 @@ private fun NoMovementAlertInput(
             Checkbox(
                 checked = isDisabled,
                 onCheckedChange = { disabled ->
-                    onMinutesChange(if (disabled) "-1" else "15")
+                    onMinutesChange(
+                        if (disabled) {
+                            "-1"
+                        } else {
+                            lastEnabledMinutes
+                        },
+                    )
                 },
             )
             Text(
@@ -296,9 +304,14 @@ private fun NoMovementAlertInput(
         ) {
             OutlinedTextField(
                 value = if (isDisabled) "" else minutes,
-                onValueChange = onMinutesChange,
+                onValueChange = { value ->
+                    if (validateNoMovementAlertMinutes(value) == null && value != "-1") {
+                        lastEnabledMinutes = value
+                    }
+                    onMinutesChange(value)
+                },
                 enabled = !isDisabled,
-                placeholder = { Text("15") },
+                placeholder = { Text(DEFAULT_NO_MOVEMENT_ALERT_MINUTES) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 isError = !isDisabled && validationMessage != null,

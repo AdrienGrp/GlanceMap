@@ -72,7 +72,7 @@ internal object LiveTrackingControlQueue {
             .put("altitudeMeters", altitudeMeters)
             .put("speedMetersPerSecond", speedMetersPerSecond)
             .put("accuracyMeters", accuracyMeters.toDouble())
-            .put("epochSeconds", epochSeconds)
+            .put("epochMilliseconds", epochMilliseconds)
             .put("batteryPercent", batteryPercent)
             .put("gsmSignalPercent", gsmSignalPercent)
             .put("group", group)
@@ -94,7 +94,7 @@ internal object LiveTrackingControlQueue {
                 altitudeMeters = nullableDouble("altitudeMeters"),
                 speedMetersPerSecond = nullableDouble("speedMetersPerSecond")?.toFloat(),
                 accuracyMeters = getDouble("accuracyMeters").toFloat(),
-                epochSeconds = getLong("epochSeconds"),
+                epochMilliseconds = storedEpochMilliseconds(),
                 batteryPercent = getInt("batteryPercent"),
                 gsmSignalPercent = getInt("gsmSignalPercent"),
                 group = getString("group"),
@@ -110,6 +110,15 @@ internal object LiveTrackingControlQueue {
                 dateId = optString("dateId").takeIf(String::isNotBlank),
             )
         }.getOrNull()
+
+    private fun JSONObject.storedEpochMilliseconds(): Long =
+        if (has("epochMilliseconds")) {
+            getLong("epochMilliseconds")
+        } else {
+            getLong("epochSeconds") * MILLIS_PER_SECOND
+        }
+
+    private const val MILLIS_PER_SECOND = 1_000L
 
     private fun JSONObject.nullableDouble(key: String): Double? = if (isNull(key)) null else optDouble(key)
 }

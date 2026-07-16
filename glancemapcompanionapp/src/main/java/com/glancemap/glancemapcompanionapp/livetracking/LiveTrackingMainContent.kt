@@ -37,6 +37,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.glancemap.glancemapcompanionapp.CompanionAdaptiveSpec
+import kotlinx.coroutines.delay
 
 @Composable
 internal fun ColumnScope.MainTrackingContent(
@@ -87,6 +93,17 @@ internal fun ColumnScope.MainTrackingContent(
     adaptive: CompanionAdaptiveSpec,
 ) {
     val context = LocalContext.current
+    val isArkluzNotificationPending = sessionState.status.contains("Arkluz notification pending")
+    var showArkluzPendingWarning by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isArkluzNotificationPending) {
+        if (isArkluzNotificationPending) {
+            delay(ARKLUZ_PENDING_WARNING_DELAY_MS)
+            showArkluzPendingWarning = true
+        } else {
+            showArkluzPendingWarning = false
+        }
+    }
 
     Row(
         modifier =
@@ -197,7 +214,7 @@ internal fun ColumnScope.MainTrackingContent(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (sessionState.status.contains("Arkluz notification pending")) {
+            if (showArkluzPendingWarning) {
                 Text(
                     text = "Arkluz has not been notified yet. No-movement alerts may still be triggered.",
                     style = MaterialTheme.typography.bodySmall,
@@ -427,6 +444,8 @@ internal fun ColumnScope.MainTrackingContent(
         )
     }
 }
+
+private const val ARKLUZ_PENDING_WARNING_DELAY_MS = 1_000L
 
 @Composable
 private fun TrackLinkRow(

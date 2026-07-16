@@ -2,6 +2,8 @@ package com.glancemap.glancemapcompanionapp.livetracking
 
 import android.content.Context
 
+internal const val DEFAULT_NO_MOVEMENT_ALERT_MINUTES = "10"
+
 internal data class SavedLiveTrackingSettings(
     val group: String = "",
     val participantPassword: String = "",
@@ -9,7 +11,7 @@ internal data class SavedLiveTrackingSettings(
     val userName: String = "",
     val notificationEmailAddresses: List<String> = emptyList(),
     val alertRecipients: List<String> = emptyList(),
-    val stuckAlarmMinutes: String = "15",
+    val stuckAlarmMinutes: String = DEFAULT_NO_MOVEMENT_ALERT_MINUTES,
     val updateIntervalSeconds: Int = 60,
 )
 
@@ -43,7 +45,11 @@ internal object LiveTrackingPreferences {
             userName = prefs.getString(KEY_USER_NAME, "").orEmpty(),
             notificationEmailAddresses = prefs.getString(KEY_NOTIFICATION_EMAILS, "").orEmpty().toEmailList(),
             alertRecipients = prefs.getString(KEY_ALERT_EMAILS, "").orEmpty().toRecipientList(),
-            stuckAlarmMinutes = prefs.getString(KEY_STUCK_ALARM_MINUTES, "15").orEmpty().ifBlank { "15" },
+            stuckAlarmMinutes =
+                prefs
+                    .getString(KEY_STUCK_ALARM_MINUTES, DEFAULT_NO_MOVEMENT_ALERT_MINUTES)
+                    .orEmpty()
+                    .ifBlank { DEFAULT_NO_MOVEMENT_ALERT_MINUTES },
             updateIntervalSeconds = prefs.getInt(KEY_UPDATE_INTERVAL_SECONDS, 60),
         )
     }
@@ -106,7 +112,10 @@ internal object LiveTrackingPreferences {
                 alertRecipients =
                     prefs.getString("$prefix.$KEY_ALERT_EMAILS", "").orEmpty().toRecipientList(),
                 stuckAlarmMinutes =
-                    prefs.getString("$prefix.$KEY_STUCK_ALARM_MINUTES", "15").orEmpty().ifBlank { "15" },
+                    prefs
+                        .getString("$prefix.$KEY_STUCK_ALARM_MINUTES", DEFAULT_NO_MOVEMENT_ALERT_MINUTES)
+                        .orEmpty()
+                        .ifBlank { DEFAULT_NO_MOVEMENT_ALERT_MINUTES },
                 updateIntervalSeconds = prefs.getInt("$prefix.$KEY_UPDATE_INTERVAL_SECONDS", 60),
             )
         }

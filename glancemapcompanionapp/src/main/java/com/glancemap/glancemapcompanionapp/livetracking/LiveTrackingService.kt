@@ -84,7 +84,7 @@ class LiveTrackingService : Service() {
                 START_STICKY
             }
 
-            ACTION_UPDATE_RECIPIENTS -> updateRecipients(intent, startId)
+            ACTION_UPDATE_ALERT_SETTINGS -> updateAlertSettings(intent, startId)
 
             ACTION_STOP -> {
                 stopTracking()
@@ -126,7 +126,7 @@ class LiveTrackingService : Service() {
         super.onDestroy()
     }
 
-    private fun updateRecipients(
+    private fun updateAlertSettings(
         intent: Intent,
         startId: Int,
     ): Int {
@@ -136,12 +136,14 @@ class LiveTrackingService : Service() {
         }
         val notificationEmails = intent.getStringExtra(EXTRA_NOTIFICATION_EMAILS).orEmpty()
         val alertEmails = intent.getStringExtra(EXTRA_ALERT_EMAILS).orEmpty()
+        val stuckAlarmMinutes = intent.getStringExtra(EXTRA_STUCK_ALARM_MINUTES).orEmpty()
         serviceScope.launch {
             sendMutex.withLock {
                 settings =
                     settings?.copy(
                         notificationEmails = notificationEmails,
                         alertEmails = alertEmails,
+                        stuckAlarmMinutes = stuckAlarmMinutes,
                     )
             }
         }
@@ -280,7 +282,7 @@ class LiveTrackingService : Service() {
         for (update in remaining) {
             val result =
                 runCatching {
-                    arkluzClient.sendLocationUpdate(update.asStoredGpsPoint().withCurrentRecipients())
+                    arkluzClient.sendLocationUpdate(update.asStoredGpsPoint().withCurrentAlertSettings())
                 }
             result
                 .onSuccess {
@@ -399,18 +401,19 @@ class LiveTrackingService : Service() {
         var sentCount = 0
         while (true) {
             val update = LiveTrackingControlQueue.load(this).firstOrNull() ?: break
-            arkluzClient.sendLocationUpdate(update.withCurrentRecipients())
+            arkluzClient.sendLocationUpdate(update.withCurrentAlertSettings())
             LiveTrackingControlQueue.removeFirst(this)
             sentCount += 1
         }
         return sentCount
     }
 
-    private fun ArkluzLocationUpdate.withCurrentRecipients(): ArkluzLocationUpdate {
+    private fun ArkluzLocationUpdate.withCurrentAlertSettings(): ArkluzLocationUpdate {
         val activeSettings = settings ?: return this
         return copy(
             notificationEmails = activeSettings.notificationEmails,
             alertEmails = activeSettings.alertEmails,
+            stuckAlarmMinutes = activeSettings.stuckAlarmMinutes,
         )
     }
 
@@ -614,8 +617,8 @@ class LiveTrackingService : Service() {
         private const val ACTION_STOP = "com.glancemap.glancemapcompanionapp.livetracking.STOP"
         private const val ACTION_PAUSE = "com.glancemap.glancemapcompanionapp.livetracking.PAUSE"
         private const val ACTION_RESUME = "com.glancemap.glancemapcompanionapp.livetracking.RESUME"
-        private const val ACTION_UPDATE_RECIPIENTS =
-            "com.glancemap.glancemapcompanionapp.livetracking.UPDATE_RECIPIENTS"
+        private const val ACTION_UPDATE_ALERT_SETTINGS =
+            "com.glancemap.glancemapcompanionapp.livetracking.UPDATE_ALERT_SETTINGS"
 
         private const val EXTRA_GROUP = "group"
         private const val EXTRA_TRACKING_URL = "tracking_url"
@@ -669,16 +672,18 @@ class LiveTrackingService : Service() {
             )
         }
 
-        fun updateRecipients(
+        fun updateAlertSettings(
             context: Context,
             notificationEmails: String,
             alertEmails: String,
+            stuckAlarmMinutes: String,
         ) {
             context.startService(
                 Intent(context, LiveTrackingService::class.java)
-                    .setAction(ACTION_UPDATE_RECIPIENTS)
+                    .setAction(ACTION_UPDATE_ALERT_SETTINGS)
                     .putExtra(EXTRA_NOTIFICATION_EMAILS, notificationEmails)
-                    .putExtra(EXTRA_ALERT_EMAILS, alertEmails),
+                    .putExtra(EXTRA_ALERT_EMAILS, alertEmails)
+                    .putExtra(EXTRA_STUCK_ALARM_MINUTES, stuckAlarmMinutes),
             )
         }
 

@@ -48,7 +48,7 @@ internal data class ArkluzLocationUpdate(
     val altitudeMeters: Double?,
     val speedMetersPerSecond: Float?,
     val accuracyMeters: Float,
-    val epochSeconds: Long,
+    val epochMilliseconds: Long,
     val batteryPercent: Int,
     val gsmSignalPercent: Int,
     val group: String,
@@ -374,7 +374,7 @@ internal class ArkluzLiveTrackingClient(
             altitudeMeters = location.altitude.takeIf { location.hasAltitude() },
             speedMetersPerSecond = location.speed.takeIf { location.hasSpeed() },
             accuracyMeters = location.accuracy,
-            epochSeconds = location.time / 1000L,
+            epochMilliseconds = location.time,
             batteryPercent = batteryPercent(),
             gsmSignalPercent = gsmSignalPercent(),
             group = settings.group.trim(),
@@ -636,7 +636,7 @@ internal fun buildArkluzLocationUrl(update: ArkluzLocationUpdate): HttpUrl {
             .addQueryParameter("lat", update.latitude.toString())
             .addQueryParameter("lon", update.longitude.toString())
             .addQueryParameter("acc", update.accuracyMeters.toString())
-            .addQueryParameter("time", update.epochSeconds.toString())
+            .addQueryParameter("time", update.epochMilliseconds.toString())
             .addQueryParameter("battery", update.batteryPercent.toString())
             .addQueryParameter("gsm_signal", update.gsmSignalPercent.toString())
             .addQueryParameter("group", update.group)

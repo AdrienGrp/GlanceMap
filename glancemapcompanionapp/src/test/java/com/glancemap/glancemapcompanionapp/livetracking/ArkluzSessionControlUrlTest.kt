@@ -7,6 +7,13 @@ import org.junit.Test
 
 class ArkluzSessionControlUrlTest {
     @Test
+    fun locationTimeUsesEpochMilliseconds() {
+        val url = buildArkluzLocationUrl(update())
+
+        assertEquals("1750000000000", url.queryParameter("time"))
+    }
+
+    @Test
     fun pauseIncludesPauseAndDateIdWithoutStartingNewActivity() {
         val url = buildArkluzLocationUrl(update(pause = true, dateId = "20260622-42"))
 
@@ -37,7 +44,7 @@ class ArkluzSessionControlUrlTest {
         altitudeMeters = null,
         speedMetersPerSecond = null,
         accuracyMeters = 5f,
-        epochSeconds = 1_750_000_000,
+        epochMilliseconds = 1_750_000_000_000,
         batteryPercent = 80,
         gsmSignalPercent = -1,
         group = "Alpes",
