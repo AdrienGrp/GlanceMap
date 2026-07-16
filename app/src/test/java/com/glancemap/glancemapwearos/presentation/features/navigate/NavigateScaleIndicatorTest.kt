@@ -42,7 +42,7 @@ class NavigateScaleIndicatorTest {
     }
 
     @Test
-    fun `five meter closest bound is represented at zoom twenty two`() {
+    fun `closest zoom uses two point five meters instead of repeating five meters`() {
         val indicator =
             requireNotNull(
                 calculateScaleIndicatorForZoom(
@@ -54,7 +54,28 @@ class NavigateScaleIndicatorTest {
                 ),
             )
 
-        assertEquals("5 m", indicator.label)
-        assertTrue(indicator.widthRatio > 1f)
+        assertEquals("2.5 m", indicator.label)
+        assertTrue(indicator.widthRatio < 1f)
+    }
+
+    @Test
+    fun `closest zoom sequence does not repeat scale labels`() {
+        val labels =
+            (18..22).map { zoomLevel ->
+                requireNotNull(
+                    calculateScaleIndicatorForZoom(
+                        zoomLevel = zoomLevel,
+                        viewportWidthPx = MAP_ZOOM_REPRESENTATIVE_VIEWPORT_WIDTH_PX,
+                        latitudeDegrees = MAP_ZOOM_REPRESENTATIVE_LATITUDE_DEGREES,
+                        isMetric = true,
+                        preferredScaleMeters = 5.takeIf { zoomLevel == 22 },
+                    ),
+                ).label
+            }
+
+        assertEquals(
+            listOf("50 m", "25 m", "10 m", "5 m", "2.5 m"),
+            labels,
+        )
     }
 }

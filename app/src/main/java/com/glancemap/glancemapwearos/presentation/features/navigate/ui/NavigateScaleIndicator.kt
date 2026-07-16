@@ -4,12 +4,16 @@ import com.glancemap.glancemapwearos.core.maps.mapZoomScaleStepsMeters
 import com.glancemap.glancemapwearos.core.maps.scaleMetersForZoomLevel
 import org.mapsforge.map.android.view.MapView
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 internal data class ScaleIndicatorUi(
     val label: String,
     val widthRatio: Float,
 )
+
+private val metricScaleStepsMeters =
+    doubleArrayOf(2.5) + mapZoomScaleStepsMeters.map { it.toDouble() }
 
 private val imperialScaleStepsFeet =
     doubleArrayOf(
@@ -89,11 +93,36 @@ internal fun calculateScaleIndicatorForZoom(
             viewportWidthPx = viewportWidthPx,
             latitudeDegrees = latitudeDegrees,
         )
-    val scaleMeters =
+    val naturalScaleMeters =
         chooseScaleDistanceMeters(
-            targetMeters = preferredScaleMeters?.toDouble() ?: targetMeters,
+            targetMeters = targetMeters,
             isMetric = isMetric,
         )
+    val scaleMeters =
+        preferredScaleMeters
+            ?.let { preferredMeters ->
+                val preferredScaleMetersValue =
+                    chooseScaleDistanceMeters(
+                        targetMeters = preferredMeters.toDouble(),
+                        isMetric = isMetric,
+                    )
+                val precedingZoomScaleMeters =
+                    chooseScaleDistanceMeters(
+                        targetMeters =
+                            scaleMetersForZoomLevel(
+                                zoom = zoomLevel - 1,
+                                viewportWidthPx = viewportWidthPx,
+                                latitudeDegrees = latitudeDegrees,
+                            ),
+                        isMetric = isMetric,
+                    )
+                if (scaleDistancesMatch(preferredScaleMetersValue, precedingZoomScaleMeters)) {
+                    naturalScaleMeters
+                } else {
+                    preferredScaleMetersValue
+                }
+            }
+            ?: naturalScaleMeters
     val widthRatio = (scaleMeters / targetMeters).toFloat()
     val hasValidTarget = targetMeters.isFinite() && targetMeters > 0.0
     val hasValidScale = scaleMeters.isFinite() && scaleMeters > 0.0
@@ -115,7 +144,7 @@ private fun chooseScaleDistanceMeters(
     if (!targetMeters.isFinite() || targetMeters <= 0.0) return 0.0
 
     if (isMetric) {
-        return pickLargestNotExceeding(mapZoomScaleStepsMeters, targetMeters)
+        return pickLargestNotExceeding(metricScaleStepsMeters, targetMeters)
     }
 
     val targetFeet = targetMeters * 3.28084
@@ -140,18 +169,6 @@ private fun pickLargestNotExceeding(
     return candidate
 }
 
-private fun pickLargestNotExceeding(
-    steps: List<Int>,
-    target: Double,
-): Double {
-    var candidate = target
-    for (step in steps) {
-        val stepMeters = step.toDouble()
-        if (stepMeters <= target) candidate = stepMeters else break
-    }
-    return candidate
-}
-
 private fun formatScaleDistance(
     meters: Double,
     isMetric: Boolean,
@@ -165,7 +182,12 @@ private fun formatScaleDistance(
                 String.format(Locale.getDefault(), "%.1f km", km)
             }
         } else {
-            "${meters.roundToInt()} m"
+            val roundedMeters = meters.roundToInt()
+            if (meters < 10.0 && abs(meters - roundedMeters) >= SCALE_DISTANCE_INTEGER_EPSILON) {
+                String.format(Locale.getDefault(), "%.1f m", meters)
+            } else {
+                "$roundedMeters m"
+            }
         }
     }
 
@@ -181,3 +203,11 @@ private fun formatScaleDistance(
         }
     }
 }
+
+private fun scaleDistancesMatch(
+    first: Double,
+    second: Double,
+): Boolean = abs(first - second) < SCALE_DISTANCE_MATCH_EPSILON_METERS
+
+private const val SCALE_DISTANCE_INTEGER_EPSILON = 0.01
+private const val SCALE_DISTANCE_MATCH_EPSILON_METERS = 0.01
